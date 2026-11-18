@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	astsubst "github.com/glycerine/g3/pkg/ast/substitution"
 )
 
@@ -17,19 +18,24 @@ type traceObligation struct {
 	ref       ast.ASTRef
 }
 
-func (c *Context) traceMaximumVariable(expressions ...[]ast.ASTHandle) (uint32, error) {
-	used, err := ast.NewASTUsedVars(c.manager)
+// traceMaximumVariable is the running max_var update of get_trace:
+// max(current, rule_counter::get_max_var of each expression), where
+// get_max_var is the largest variable index found, 0 if there is none.
+func (c *Context) traceMaximumVariable(current uint32, expressions ...[]ast.ASTHandle) (uint32, error) {
+	counter, err := astrewriter.NewVarCounter(c.manager)
 	if err != nil {
 		return 0, err
 	}
 	for _, group := range expressions {
 		for _, expression := range group {
-			if err = used.Process(expression); err != nil {
+			value, err := counter.MaxVar(expression)
+			if err != nil {
 				return 0, err
 			}
+			current = max(current, value)
 		}
 	}
-	return used.MaxFoundVarIndexPlusOne(), nil
+	return current, nil
 }
 
 // finish receives the final constraints while get_trace's locals are still
@@ -71,6 +77,15 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, includeRoot bool, fin
 		return nil, err
 	}
 	work := []traceObligation{{node: root, predicate: head, ref: headRef}}
+	// unsigned max_var = vc.get_max_rule_var(*rule) of the root's raw rule
+	rootTails, err := traceRuleTails(rootRule)
+	if err != nil {
+		return nil, err
+	}
+	maxVar, err := c.traceMaximumVariable(0, []ast.ASTHandle{head}, rootTails)
+	if err != nil {
+		return nil, err
+	}
 	// dctx.get_rewriter() is the datalog context's long-lived th_rewriter:
 	// its cache keeps rewritten subterms alive after get_trace returns.
 	if err = c.ensureProjectionTheory(); err != nil {
@@ -197,15 +212,12 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, includeRoot bool, fin
 				return nil, x
 			}
 		}
-		pending := make([]ast.ASTHandle, len(work))
-		for i := range work {
-			pending[i] = work[i].predicate
-		}
 		phase = fmt.Sprintf("measure variables %d", iteration)
-		maximum, x := c.traceMaximumVariable(constraints, pending, []ast.ASTHandle{instantiatedHead}, tails)
-		if x != nil {
+		// max_var = std::max(max_var, vc.get_max_rule_var(*rule))
+		if maxVar, x = c.traceMaximumVariable(maxVar, []ast.ASTHandle{instantiatedHead}, tails); x != nil {
 			return nil, x
 		}
+		maximum := maxVar + 1
 		// subst.reset(); subst.reserve(2, max_var+1)
 		if x = substitution.Reset(); x != nil {
 			return nil, x
@@ -293,6 +305,14 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, includeRoot bool, fin
 			}
 			constraintRefs = append(constraintRefs, reference)
 		}
+		// max_var = std::max(vc.get_max_var(constraints[i]), max_var)
+		measured, x := traceRefHandles(c.manager, constraintRefs)
+		if x != nil {
+			return nil, x
+		}
+		if maxVar, x = c.traceMaximumVariable(maxVar, measured); x != nil {
+			return nil, x
+		}
 		children, x := current.node.Children()
 		if x != nil {
 			return nil, x
@@ -315,6 +335,13 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, includeRoot bool, fin
 				return nil, y
 			}
 			work = append(work, traceObligation{node: children[i], predicate: value, ref: reference})
+		}
+		pending := make([]ast.ASTHandle, len(work))
+		for i := range work {
+			pending[i] = work[i].predicate
+		}
+		if maxVar, x = c.traceMaximumVariable(maxVar, pending); x != nil {
+			return nil, x
 		}
 		iteration++
 	}
@@ -453,4 +480,30 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, includeRoot bool, fin
 	}
 	phase = "cleanup"
 	return result, nil
+}
+
+func traceRuleTails(rule *normalizedRule) ([]ast.ASTHandle, error) {
+	size, err := rule.rule.TailSize()
+	if err != nil {
+		return nil, err
+	}
+	tails := make([]ast.ASTHandle, size)
+	for i := range tails {
+		if tails[i], _, err = rule.rule.Tail(i); err != nil {
+			return nil, err
+		}
+	}
+	return tails, nil
+}
+
+func traceRefHandles(m *ast.ASTManager, refs []ast.ASTRef) ([]ast.ASTHandle, error) {
+	handles := make([]ast.ASTHandle, len(refs))
+	for i, ref := range refs {
+		h, err := m.RefGet(ref)
+		if err != nil {
+			return nil, err
+		}
+		handles[i] = h
+	}
+	return handles, nil
 }
