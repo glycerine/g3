@@ -101,10 +101,9 @@ func ElimIte(term *Expr) (out *Expr, result error) {
 							return ast.ASTHandle{}, err
 						}
 					}
-					yes, err := keep(m.MkEq(lhs, args[1]))
-					if err != nil {
-						return ast.ASTHandle{}, err
-					}
+					// (c && (lhs == t)) || ((!c) && (lhs == e)): GCC evaluates
+					// operator arguments right to left, so the else side is
+					// built first (AUDIT.md duality_01-F7).
 					no, err := keep(m.MkEq(lhs, args[2]))
 					if err != nil {
 						return ast.ASTHandle{}, err
@@ -113,11 +112,15 @@ func ElimIte(term *Expr) (out *Expr, result error) {
 					if err != nil {
 						return ast.ASTHandle{}, err
 					}
-					yes, err = keep(m.MkAnd(args[0], yes))
+					no, err = keep(m.MkAnd(neg, no))
 					if err != nil {
 						return ast.ASTHandle{}, err
 					}
-					no, err = keep(m.MkAnd(neg, no))
+					yes, err := keep(m.MkEq(lhs, args[1]))
+					if err != nil {
+						return ast.ASTHandle{}, err
+					}
+					yes, err = keep(m.MkAnd(args[0], yes))
 					if err != nil {
 						return ast.ASTHandle{}, err
 					}

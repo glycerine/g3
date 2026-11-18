@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/interp"
+	"io"
 )
 
 type projectionCandidate struct {
@@ -112,6 +113,9 @@ func (g *RPFP) GaussElimCheap(keep, literals []*Expr, simplifier *interp.Manager
 			if rv {
 				return makeCandidate(rhs, lhs)
 			}
+			// std::cout << "would have mapped a non-var\n" (AUDIT.md
+			// duality_01-F8).
+			_, _ = io.WriteString(projectorStdout, "would have mapped a non-var\n")
 			return nil
 		}
 		if rv {

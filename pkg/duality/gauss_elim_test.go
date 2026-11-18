@@ -4,6 +4,8 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -61,6 +63,19 @@ func TestGaussElimCheapDependenciesKeptVariablesAndCycles(t *testing.T) {
 	closeExpr(t, ft)
 	eq := func(a, b *Expr) *Expr { return wrap(m.MkEq(raw(a), raw(b))) }
 	chain := []*Expr{eq(x, y), eq(y, z), eq(z, truth)}
+	// AUDIT.md duality_01-F8: an equality with no variable side prints
+	// MakeElimCand's diagnostic.
+	var diagnostics strings.Builder
+	projectorStdout = &diagnostics
+	nonVar, err := graph.GaussElimCheap(nil, []*Expr{eq(fx, fy)}, simplifier)
+	projectorStdout = os.Stdout
+	must(err)
+	for _, term := range nonVar {
+		must(term.Close())
+	}
+	if diagnostics.String() != "would have mapped a non-var\n" {
+		t.Fatalf("%q", diagnostics.String())
+	}
 	for _, tc := range []struct {
 		name       string
 		keep, lits []*Expr

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/interp"
+	"io"
 )
 
 // FourierMotzkinCheap combines one indexed upper and lower bound per eligible
@@ -101,7 +102,13 @@ func (g *RPFP) FourierMotzkinCheap(keep, literals []*Expr, simplifier *interp.Ma
 			continue
 		}
 		pos := index.indices[1][variable]
-		if pos < 0 || neg < 0 || kept[variable] {
+		if pos < 0 || neg < 0 {
+			continue
+		}
+		if kept[variable] {
+			// std::cout << "would have eliminated keep var\n" (AUDIT.md
+			// duality_01-F8).
+			_, _ = io.WriteString(projectorStdout, "would have eliminated keep var\n")
 			continue
 		}
 		a, err := canon(values[pos])
@@ -116,11 +123,13 @@ func (g *RPFP) FourierMotzkinCheap(keep, literals []*Expr, simplifier *interp.Ma
 		if err != nil {
 			return nil, err
 		}
-		left, err := p.app(9, nc, a)
+		// neg_coeff * tpos + pos_coeff * tneg: GCC builds pos_coeff * tneg
+		// first (AUDIT.md duality_01-F7).
+		right, err := p.app(9, index.coefficients[1][variable], b)
 		if err != nil {
 			return nil, err
 		}
-		right, err := p.app(9, index.coefficients[1][variable], b)
+		left, err := p.app(9, nc, a)
 		if err != nil {
 			return nil, err
 		}
