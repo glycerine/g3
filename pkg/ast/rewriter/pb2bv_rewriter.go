@@ -170,6 +170,8 @@ func (r *PB2BVRewriter) bitVectorNumeral(q *unumeral.Rational, width uint32) (re
 	return r.manager.BitVectorNumeralForSort(&value, sort)
 }
 
+// negate is card2bv_rewriter::negate (used by mk_ite): it strips one not
+// and otherwise builds the raw negation.
 func (r *PB2BVRewriter) negate(h ast.ASTHandle) (ast.ASTHandle, error) {
 	yes, child, err := r.manager.IsNot(h)
 	if err != nil {
@@ -273,7 +275,8 @@ func (r *PB2BVRewriter) weighted(n *pbNumbers, mode pb2BVComparison, args []ast.
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		return r.negate(disjunction)
+		// m.mk_not(mk_or(m, sz, args)): the raw ast_manager negation.
+		return r.manager.MkNot(disjunction)
 	}
 	if boundValue.IsNeg() {
 		return r.manager.MkBoolVal(mode == pb2BVGE)
@@ -308,7 +311,8 @@ func (r *PB2BVRewriter) weighted(n *pbNumbers, mode pb2BVComparison, args []ast.
 		if n.cmp(coefficient, boundValue) > 0 {
 			term := args[i]
 			if mode != pb2BVGE {
-				term, err = r.negate(term)
+				// fmls.push_back(m.mk_not(args[i])): raw ast_manager negation.
+				term, err = r.manager.MkNot(term)
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
@@ -420,7 +424,8 @@ func (r *PB2BVRewriter) weightedPBCore(n *pbNumbers, kind int32, decl ast.ASTHan
 		for i := range args {
 			n.add(dual, dual, coefficients[i])
 			var err error
-			args[i], err = r.negate(args[i])
+			// ::mk_not(m, args[i]): ast_util strips a not and folds true/false.
+			args[i], err = r.manager.MkNotSimplified(args[i])
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -608,7 +613,8 @@ func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expressio
 	n.mul(lowValue, lowValue, multiplier)
 	difference := n.fresh()
 	if n.cmp(highValue, lowValue) < 0 {
-		condition, err = r.negate(condition)
+		// m_args.push_back(::mk_not(m, c)): ast_util negation.
+		condition, err = r.manager.MkNotSimplified(condition)
 		if err != nil {
 			return false, err
 		}

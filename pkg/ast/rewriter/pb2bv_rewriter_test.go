@@ -80,10 +80,19 @@ func TestPB2BVWeightedConversionAndScopeGuards(t *testing.T) {
 	if kind, e := m.GetDeclKind(got); e != nil || kind != ast.ASTOpAnd {
 		t.Fatal("dualized weighted result", kind, e)
 	}
-	if left, e := m.GetArg(got, 0); e != nil || left != a {
+	// dualize builds ::mk_not(a); mk_le_ge's coefficient > k case then
+	// pushes the raw m.mk_not of it, so the literal is (not (not a)).
+	doubleNot := func(h ast.ASTHandle) ast.ASTHandle {
+		n, e := m.MkNot(h)
+		astTestMust(t, e)
+		n, e = m.MkNot(n)
+		astTestMust(t, e)
+		return n
+	}
+	if left, e := m.GetArg(got, 0); e != nil || left != doubleNot(a) {
 		t.Fatal("dualized first literal", left, a, e)
 	}
-	if right, e := m.GetArg(got, 1); e != nil || right != b {
+	if right, e := m.GetArg(got, 1); e != nil || right != doubleNot(b) {
 		t.Fatal("dualized second literal", right, b, e)
 	}
 	if translated, e := r.NumTranslated(); e != nil || translated != 1 {
@@ -113,8 +122,14 @@ func TestPB2BVArithmeticBooleanITERecognition(t *testing.T) {
 	astTestMust(t, r.Rewrite(comparison, out, ast.ASTRef{}))
 	got, err := m.RefGet(out)
 	astTestMust(t, err)
-	if got != a {
-		t.Fatal("arithmetic ITE comparison", got, a)
+	// dualize negates a with ::mk_not, and the k == 0 case of mk_le_ge
+	// wraps mk_or's single disjunct in the raw m.mk_not: (not (not a)).
+	notA, err := m.MkNot(a)
+	astTestMust(t, err)
+	want, err := m.MkNot(notA)
+	astTestMust(t, err)
+	if got != want {
+		t.Fatal("arithmetic ITE comparison", got, want)
 	}
 	if translated, e := r.NumTranslated(); e != nil || translated != 1 {
 		t.Fatal("arithmetic translation count", translated, e)
