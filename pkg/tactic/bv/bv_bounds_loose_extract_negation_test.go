@@ -22,7 +22,8 @@ func TestBVBoundsNegatedExtractEqualityTargetsExtractTerm(t *testing.T) {
 		t.Fatalf("assert negated extract-zero equality: ok=%v err=%v", ok, err)
 	}
 	got := f.simp.bounds[top]
-	if !got.equal(bvBoundsRangeSet(4, 1, 15)) {
+	// interval::negate builds a loose interval (tight = false).
+	if !got.equal(bvBoundsLooseRangeSet(4, 1, 15)) {
 		t.Fatalf("negated equality must complement the extract term's singleton bound: %#v", got)
 	}
 }

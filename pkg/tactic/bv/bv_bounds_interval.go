@@ -126,7 +126,10 @@ func (b bvBoundsSet) complement() bvBoundsSet {
 
 // sourceComplement follows bv_bounds_tactic.cpp::interval::negate, whose
 // loose intervals complement to the full set and whose tight intervals use
-// the source's inclusive endpoints directly.
+// the source's inclusive endpoints directly. negate builds those results
+// with the three-argument interval constructor (tight = false), so a negated
+// bound is loose: intersecting it with a stored tight bound changes the
+// tightness and pushes an undo record.
 func (b bvBoundsSet) sourceComplement() bvBoundsSet {
 	maximum := bvBoundsMaximum(b.width)
 	if !b.tight {
@@ -138,17 +141,17 @@ func (b bvBoundsSet) sourceComplement() bvBoundsSet {
 	if len(b.ranges) == 2 {
 		// The two stored ranges are the wrapped interval [l..max] U [0..h].
 		// Normalized, they are [0..h] U [l..max] with h + 1 < l.
-		return bvBoundsRangeSet(b.width, b.ranges[0].hi+1, b.ranges[1].lo-1)
+		return bvBoundsLooseRangeSet(b.width, b.ranges[0].hi+1, b.ranges[1].lo-1)
 	}
 	r := b.ranges[0]
 	if r.lo == 0 {
-		return bvBoundsRangeSet(b.width, r.hi+1, maximum)
+		return bvBoundsLooseRangeSet(b.width, r.hi+1, maximum)
 	}
 	if r.hi == maximum {
-		return bvBoundsRangeSet(b.width, 0, r.lo-1)
+		return bvBoundsLooseRangeSet(b.width, 0, r.lo-1)
 	}
 	return bvBoundsSet{width: b.width, ranges: []bvBoundsRange{
 		{lo: 0, hi: r.lo - 1},
 		{lo: r.hi + 1, hi: maximum},
-	}, tight: true}
+	}}
 }
