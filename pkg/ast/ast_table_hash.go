@@ -106,6 +106,21 @@ func (m *ASTManager) nodeHash(r astNodeRef) (uint32, error) {
 		if e := m.validNode(v.decl); e != nil {
 			return 0, e
 		}
+		if v.count <= astInlineArgs && !ASTSourceDebug {
+			// hashPayload over the record's copy of all the arguments.
+			var err error
+			result := astHashArray(v.count, m.nodeAt(v.decl.slot).hash, func(i uint32) uint32 {
+				r := v.inlineArgs[i]
+				if e := m.validNode(r); e != nil {
+					if err == nil {
+						err = e
+					}
+					return 0
+				}
+				return m.nodeAt(r.slot).hash
+			})
+			return result, err
+		}
 		return m.hashPayload(v.args, v.count, m.nodeAt(v.decl.slot).hash)
 	case ASTVar:
 		v := m.varAt(r.slot)
@@ -196,6 +211,14 @@ func (m *ASTManager) compareNodes(a, b astNodeRef) (bool, error) {
 		x, y := m.appAt(a.slot), m.appAt(b.slot)
 		if x.decl != y.decl || x.count != y.count {
 			return false, nil
+		}
+		if x.count <= astInlineArgs && !ASTSourceDebug {
+			for i := uint32(0); i < x.count; i++ {
+				if x.inlineArgs[i] != y.inlineArgs[i] {
+					return false, nil
+				}
+			}
+			return true, nil
 		}
 		return m.equalPayload(x.args, y.args, x.count)
 	case ASTVar:

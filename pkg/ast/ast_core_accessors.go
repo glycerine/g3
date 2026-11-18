@@ -230,7 +230,7 @@ func (m *ASTManager) GetArg(h ASTHandle, index uint32) (ASTHandle, error) {
 	if index >= v.count {
 		return ASTHandle{}, ErrASTDomain
 	}
-	if index < 2 && !ASTSourceDebug { // appArg's inline arguments
+	if index < astInlineArgs && !ASTSourceDebug { // appArg's inline arguments
 		return m.external(v.inlineArgs[index]), nil
 	}
 	child, e := m.appArg(v, index)

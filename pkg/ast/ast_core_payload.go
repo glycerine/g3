@@ -97,7 +97,7 @@ func (m *ASTManager) readInternalAll(p arena.SmallBytesRef, count uint32, dst []
 // first two arguments come from the copy kept in the record. Debug builds
 // keep the checked payload read.
 func (m *ASTManager) appArg(a *astAppRecord, i uint32) (astNodeRef, error) {
-	if i < 2 && i < a.count && !ASTSourceDebug {
+	if i < astInlineArgs && i < a.count && !ASTSourceDebug {
 		return a.inlineArgs[i], nil
 	}
 	return m.readInternal(a.args, i)
@@ -123,7 +123,7 @@ func (m *ASTManager) appArgPair(a *astAppRecord) (astNodeRef, astNodeRef, error)
 // appArgsAll is readInternalAll(a.args, a.count, dst) for the record a of
 // a live app.
 func (m *ASTManager) appArgsAll(a *astAppRecord, dst []astNodeRef) ([]astNodeRef, error) {
-	if a.count <= 2 && !ASTSourceDebug {
+	if a.count <= astInlineArgs && !ASTSourceDebug {
 		return append(dst, a.inlineArgs[:a.count]...), nil
 	}
 	return m.readInternalAll(a.args, a.count, dst)
@@ -177,7 +177,7 @@ func (m *ASTManager) newASTPayload(hs []ASTHandle) (arena.SmallBytesRef, error) 
 	}
 	return m.newASTPayloadArguments(AppArguments{slice: hs, count: uint32(len(hs))}, nil)
 }
-func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[2]astNodeRef) (arena.SmallBytesRef, error) {
+func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[astInlineArgs]astNodeRef) (arena.SmallBytesRef, error) {
 	if hs.count == 0 {
 		return arena.SmallBytesRef{}, nil
 	}
@@ -198,7 +198,7 @@ func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[2]astNodeR
 		if e == nil {
 			e = m.writeInternal(p, uint32(i), r)
 		}
-		if e == nil && i < 2 && inline != nil {
+		if e == nil && i < astInlineArgs && inline != nil {
 			inline[i] = r
 		}
 		if e != nil {

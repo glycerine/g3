@@ -171,11 +171,17 @@ type astAppRecord struct {
 	// rangeSort copies the declaration's range sort, set at registration
 	// (null before), and is likewise unchanged while the app is live.
 	rangeSort astNodeRef
-	// inlineArgs copies the first min(count, 2) arguments of the args
-	// payload, written with it; app arguments never change while the app
-	// is live. appArg/appArgPair read them without the payload lookup.
-	inlineArgs [2]astNodeRef
+	// inlineArgs copies the first min(count, astInlineArgs) arguments of
+	// the args payload, written with it; app arguments never change while
+	// the app is live. appArg/appArgPair read them without the payload
+	// lookup, and hashing and comparison use them when they hold all.
+	inlineArgs [astInlineArgs]astNodeRef
 }
+
+// astInlineArgs is the number of arguments an app record copies; three
+// keep astNodeSlot within 128 bytes.
+const astInlineArgs = 3
+
 type astVarRecord struct {
 	nextFree, index uint32
 	sort            astNodeRef
