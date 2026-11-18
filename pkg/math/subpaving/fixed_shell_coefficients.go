@@ -44,6 +44,15 @@ func NewFixedShellFromParams(m *numeral.FixedPointManager, limit *control.Reslim
 		}
 		return nil, err
 	}
+	if rational != nil {
+		if runtime := rational.RuntimeOwner(); runtime != nil {
+			if process := runtime.ProcessOwner(); process != nil {
+				if err = c.BindProcessAccounting(process); err != nil {
+					return nil, errors.Join(err, c.Close())
+				}
+			}
+		}
+	}
 	w, err := NewFixedShellCoefficients(c, rational)
 	if err != nil {
 		return nil, errors.Join(err, c.Close())

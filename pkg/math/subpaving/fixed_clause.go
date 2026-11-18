@@ -195,8 +195,8 @@ func (c *FixedContext) AssertUnitClauses(n *FixedNode) error {
 		return err
 	}
 	for c.unitHead < len(c.unitClauses) && !n.inconsistent {
-		if !c.limit.Inc() {
-			return ErrFixedContextCanceled
+		if err := c.checkpoint(); err != nil {
+			return err
 		}
 		unit := c.unitClauses[c.unitHead]
 		a := unit.atom

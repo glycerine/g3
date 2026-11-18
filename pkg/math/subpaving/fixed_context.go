@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -20,9 +21,12 @@ var ErrFixedContextTimestamp = errors.New("subpaving: bound timestamp exhausted"
 // FixedContext owns the live bound-policy numerals and root node. The numeral
 // manager and resource limit are borrowed from the caller.
 type FixedContext struct {
-	self                  *FixedContext
-	numbers               *numeral.FixedPointManager
-	limit                 *control.Reslimit
+	self    *FixedContext
+	numbers *numeral.FixedPointManager
+	limit   *control.Reslimit
+	// process is the source global memory counter checkpoint tests against
+	// max_memory; nil skips the test.
+	process               *memory.ProcessAccounting
 	cooperation           *cooperate.Cooperation
 	isInt                 []bool
 	root                  *FixedNode
@@ -288,4 +292,23 @@ func (c *FixedContext) Close() error {
 	c.trace = nil
 	c.closed = true
 	return nil
+}
+
+// BindProcessAccounting supplies the source global memory counter that
+// checkpoint compares with max_memory (AUDIT.md math_subpaving_02-F3).
+func (c *FixedContext) BindProcessAccounting(p *memory.ProcessAccounting) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if !p.Valid() {
+		return arena.ErrConfig
+	}
+	c.process = p
+	return nil
+}
+
+// checkpoint is context_t::checkpoint: m_limit.inc(), the max_memory test
+// and cooperate("subpaving").
+func (c *FixedContext) checkpoint() error {
+	return sourceCheckpoint(c.limit, nil, c.process, c.maxMemory, ErrFixedContextCanceled, c.cooperation)
 }

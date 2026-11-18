@@ -52,7 +52,7 @@ func (c *FixedContext) Search() error {
 	}
 	for c.searchNode != nil || len(c.leafQueue) != 0 {
 		if c.searchNode == nil {
-			if err := sourceCheckpoint(c.limit, nil, nil, c.maxMemory, ErrFixedContextCanceled, c.cooperation); err != nil {
+			if err := c.checkpoint(); err != nil {
 				return err
 			}
 			if len(c.queue) != 0 || c.queueHead != 0 {

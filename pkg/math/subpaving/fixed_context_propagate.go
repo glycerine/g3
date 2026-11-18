@@ -187,8 +187,8 @@ func (c *FixedContext) PropagateQueued(n *FixedNode) error {
 		return err
 	}
 	for c.queueHead < len(c.queue) && !n.inconsistent {
-		if !c.limit.Inc() {
-			return ErrFixedContextCanceled
+		if err := c.checkpoint(); err != nil {
+			return err
 		}
 		b := c.queue[c.queueHead]
 		c.queueHead++
