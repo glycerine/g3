@@ -129,10 +129,17 @@ func TestBVTrailingNativeCacheGrowthOwnershipAndResetThreshold(t *testing.T) {
 			t.Fatal("native cache must own exactly one key reference", key, min, max, after)
 		}
 	}
+	// reset_cache walks the obj_map in table order: compare with the
+	// obj_map emulation fed the same insertion sequence.
+	reference := ast.NewObjMap(m)
+	for _, key := range keys {
+		satOK(t, reference.InsertNum(key, 8))
+	}
+	referenceOrder := reference.Entries()
 	index := 0
-	for _, entry := range p.tables[5].entries.All() {
-		if entry.key != keys[index] || !entry.owned || entry.min != 0 || entry.max != 8 {
-			t.Fatal("native growth changed ordered owning entry", index, entry)
+	for _, entry := range p.tables[5].ordered() {
+		if entry.key != referenceOrder[index].Key || !entry.owned || entry.min != 0 || entry.max != 8 {
+			t.Fatal("native growth changed obj_map-ordered owning entry", index, entry)
 		}
 		index++
 	}
@@ -140,7 +147,7 @@ func TestBVTrailingNativeCacheGrowthOwnershipAndResetThreshold(t *testing.T) {
 		t.Fatal("native cache growth changed actual object storage")
 	}
 	satOK(t, p.ResetCache(count+1))
-	if p.tables[5] == nil || p.tables[5].entries.Len() != count {
+	if p.tables[5] == nil || p.tables[5].len() != count {
 		t.Fatal("strict reset threshold changed")
 	}
 	for _, key := range keys {
@@ -177,7 +184,7 @@ func TestBVTrailingCacheGrowthAndEqualThresholdReset(t *testing.T) {
 		_, _, e = p.Count(x)
 		satOK(t, e)
 	}
-	if p.tables[5].entries.Len() != 8 {
+	if p.tables[5].len() != 8 {
 		t.Fatal("native cache lost an entry")
 	}
 	satOK(t, p.ResetCache(8))

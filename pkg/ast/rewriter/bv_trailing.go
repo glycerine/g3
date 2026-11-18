@@ -150,12 +150,16 @@ func (p *BVTrailing) cache(depth uint32, arg ast.ASTHandle, min, max uint32) err
 			return ast.ErrASTDomain
 		}
 	}
+	hash, e := p.manager.GetHash(arg)
+	if e != nil {
+		return e
+	}
 	if e := p.manager.IncRef(arg); e != nil {
 		return e
 	}
 	// Native insertion publishes the acquired reference without a fallible
 	// container-growth step between INC and transfer to the entry.
-	p.tables[depth].insert(arg, min, max)
+	p.tables[depth].insert(arg, hash, min, max)
 	return p.traceCacheEntry(true, depth, arg, min, max)
 }
 
@@ -176,7 +180,7 @@ func (p *BVTrailing) resetCache(condition uint32) error {
 			continue
 		}
 		p.traceCacheReset(depth, condition, false)
-		if condition != 0 && uint32(table.entries.Len()) < condition {
+		if condition != 0 && uint32(table.len()) < condition {
 			continue
 		}
 		p.traceCacheReset(depth, condition, true)
