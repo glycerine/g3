@@ -3282,6 +3282,10 @@ func (t *SMTTheoryArith) explainBound(r *smtArithmeticRow, idx int, isLower bool
 		if b == nil {
 			return ast.ErrASTDomain
 		}
+		// A plain bound (a numeral variable's fixed bound) explains nothing.
+		if !b.hasJustification() {
+			continue
+		}
 		if !t.relaxBounds() || delta.isZero() {
 			if err := b.pushJustification(t.q, ante, &it.coefficient, proofs); err != nil {
 				return err
