@@ -74,18 +74,24 @@ func TestASTNondeterminismTraceFollowsProcessDebugTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.nodeAt(candidate.slot).hash = hash
-	var bucket []astNodeRef
-	for _, s := range m.table.slots {
-		if s.ref.slot != 0 && s.hash == hash {
-			bucket = append(bucket, s.ref)
+	// Hide the hash's index slots behind deleted-slot controls (probe
+	// chains stay intact) so only the slow scan of the entries finds them.
+	type hidden struct {
+		slot int
+		ix   int32
+		tag  byte
+	}
+	var bucket []hidden
+	h := astTableHash(hash)
+	for slot, ix := range m.table.indices {
+		if ix >= 0 && m.table.entries[ix].hash == h {
+			bucket = append(bucket, hidden{slot, ix, m.table.tags[slot]})
+			m.table.indices[slot], m.table.tags[slot] = astSlotDummy, astTagDummy
 		}
 	}
-	for _, r := range bucket {
-		m.table.unindex(r, hash)
-	}
 	defer func() {
-		for _, r := range bucket {
-			m.table.place(hash, r)
+		for _, b := range bucket {
+			m.table.indices[b.slot], m.table.tags[b.slot] = b.ix, b.tag
 		}
 		m.freeNodeStorage(candidate)
 		m.mu.Unlock()

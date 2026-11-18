@@ -1,170 +1,205 @@
 package ast
 
-// Source: src/ast/ast.h:920-924; src/ast/ast.cpp:1714-1780.
+// Source: src/ast/ast.h:920-924; src/ast/ast.cpp:1483-1497, 1714-1780;
+// src/util/insdict.h of the C++ fork. FORK FIX (owner decision 2026-11-18,
+// see FORK_BUGFIXES.md): the fork's ast_table is an insertion-ordered
+// insdict, the C++ port of github.com/glycerine/insdict v0.14.6, instead of
+// chashtable. This table keeps insdict's exact structure, so iteration
+// (teardown free order) and capacity (the (ast-table ...) verbose lines)
+// agree with the fork.
+//
+// Canonical entries borrow exact node tokens. entries lists them by
+// insertion; an erased entry leaves a hole (a zero ref) that only a rebuild
+// drops. indices is an open-addressed index of entry positions with one
+// control byte per slot in tags, probed with CPython's perturbed sequence.
+// A new entry is refused room once len(entries), holes included, reaches
+// 2/3 of the index; the index is then rebuilt to astTableSizeFor(size)
+// slots, compacting holes in order. Capacity and order thus follow from
+// the insert/erase sequence alone, as in the fork.
 
-// Canonical entries borrow exact node tokens. An open-addressed index on the
-// node hash accelerates structural comparison; insertion order (order)
-// makes teardown deterministic. The table holds at most one node per
-// structure, so the probe order among equal hashes never decides a lookup.
+import (
+	"strconv"
+
+	udiag "github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/insdict"
+)
+
 type astCanonicalTable struct {
-	// order lists the entries by insertion; an erased entry leaves a zero
-	// ref (dead counts them) until the next compaction. A live entry's
-	// node records its position (astNodeRecord.tablePos).
-	order []astNodeRef
-	dead  uint32
-	// slots is a linear-probing index, its length a power of two (or nil
-	// when empty). A slot with ref.slot == 0 is free.
-	slots []astTableSlot
-	shift uint32 // 32 - log2(len(slots))
-	size  uint32
+	indices []int32 // astSlotEmpty, astSlotDummy, or a position in entries
+	tags    []byte  // astTagEmpty, astTagDummy, or astTagUsed | hash>>57
+	entries []astTableEntry
+	mask    uint64
+	size    uint32 // live entries
 }
 
-type astTableSlot struct {
-	hash uint32
+type astTableEntry struct {
+	hash uint64 // insdict.Mix64 of the node hash
 	ref  astNodeRef
 }
 
-const astTableMinSlots = 64
+const (
+	astSlotEmpty     int32 = -1
+	astSlotDummy     int32 = -2
+	astTableMinSlots       = 8
+	astTagEmpty      byte  = 0
+	astTagDummy      byte  = 1
+	astTagUsed       byte  = 0x80
+)
+
+// astTableHash is the fork's ast_insdict_hash: insdict_mix64(n->hash()).
+func astTableHash(hash uint32) uint64 { return insdict.Mix64(uint64(hash)) }
+
+func astTableTag(h uint64) byte { return astTagUsed | byte(h>>57) }
+
+// astTableSizeFor is insdict sizeFor: the smallest power of two >= 8 and
+// >= 3*live.
+func astTableSizeFor(live uint32) int {
+	size := astTableMinSlots
+	for size < int(live)*3 {
+		size <<= 1
+	}
+	return size
+}
+
+// capacity is ast_table::capacity(): the index length (0 when empty).
+func (t *astCanonicalTable) capacity() uint32 { return uint32(len(t.indices)) }
+
+func (t *astCanonicalTable) usable() int { return len(t.indices) * 2 / 3 }
+
+// freeSlot is the first empty-or-dummy slot on h's probe path.
+func (t *astCanonicalTable) freeSlot(h uint64) uint64 {
+	i, perturb := h&t.mask, h
+	for t.tags[i] >= astTagUsed {
+		perturb >>= 5
+		i = (i*5 + perturb + 1) & t.mask
+	}
+	return i
+}
+
+// rebuild resizes the index to size slots, dropping holes and keeping
+// insertion order.
+func (t *astCanonicalTable) rebuild(size int) {
+	if size == len(t.indices) {
+		clear(t.tags)
+	} else {
+		t.indices = make([]int32, size)
+		t.tags = make([]byte, size)
+	}
+	for i := range t.indices {
+		t.indices[i] = astSlotEmpty
+	}
+	t.mask = uint64(size - 1)
+	old := t.entries
+	capacity := size * 2 / 3
+	if cap(old) >= capacity {
+		t.entries = old[:0]
+	} else {
+		t.entries = make([]astTableEntry, 0, capacity)
+	}
+	for _, e := range old {
+		if e.ref.slot == 0 {
+			continue
+		}
+		slot := t.freeSlot(e.hash)
+		t.indices[slot] = int32(len(t.entries))
+		t.tags[slot] = astTableTag(e.hash)
+		t.entries = append(t.entries, e)
+	}
+	if len(t.entries) < len(old) && cap(old) >= capacity {
+		clear(old[len(t.entries):])
+	}
+}
+
+// add appends a key known to be absent (insdict Put of a new key); slot is
+// the empty slot where the failed lookup ended, valid only while the table
+// has no holes and no rebuild is due.
+func (t *astCanonicalTable) add(h uint64, ref astNodeRef, slot uint64, haveSlot bool) {
+	if t.indices == nil {
+		t.rebuild(astTableMinSlots)
+		haveSlot = false
+	}
+	if len(t.entries) >= t.usable() {
+		t.rebuild(astTableSizeFor(t.size))
+		haveSlot = false
+	}
+	if !haveSlot || int(t.size) != len(t.entries) {
+		slot = t.freeSlot(h)
+	}
+	t.indices[slot] = int32(len(t.entries))
+	t.tags[slot] = astTableTag(h)
+	t.entries = append(t.entries, astTableEntry{hash: h, ref: ref})
+	t.size++
+}
 
 // tableEntries lists the canonical table's entries in insertion order.
 func (m *ASTManager) tableEntries() []astNodeRef {
 	t := &m.table
 	out := make([]astNodeRef, 0, t.size)
-	for _, r := range t.order {
-		if r.slot != 0 {
-			out = append(out, r)
+	for _, e := range t.entries {
+		if e.ref.slot != 0 {
+			out = append(out, e.ref)
 		}
 	}
 	return out
-}
-
-// tableOwnsPos reports whether r's node record is r's own (live, same
-// generation), so its tablePos can be read and written.
-func (m *ASTManager) tableOwnsPos(r astNodeRef) bool {
-	if r.slot == 0 || r.slot >= m.nextNode {
-		return false
-	}
-	n := m.nodeAt(r.slot)
-	return n.live && n.generation == r.generation
-}
-
-// tableUnlist removes key from order. A placement that is no longer the
-// key's own (freed or reused) is found by scanning.
-func (m *ASTManager) tableUnlist(key astNodeRef) {
-	t := &m.table
-	pos := -1
-	if m.tableOwnsPos(key) {
-		if p := m.nodeAt(key.slot).tablePos; int(p) < len(t.order) && t.order[p] == key {
-			pos = int(p)
-		}
-	}
-	if pos < 0 {
-		for i, r := range t.order {
-			if r == key {
-				pos = i
-				break
-			}
-		}
-		if pos < 0 {
-			return
-		}
-	}
-	t.order[pos] = astNodeRef{}
-	t.dead++
-	if t.dead > 32 && 2*t.dead > uint32(len(t.order)) {
-		live := t.order[:0]
-		for _, r := range t.order {
-			if r.slot == 0 {
-				continue
-			}
-			if m.tableOwnsPos(r) {
-				m.nodeAt(r.slot).tablePos = uint32(len(live))
-			}
-			live = append(live, r)
-		}
-		clear(t.order[len(live):])
-		t.order = live
-		t.dead = 0
-	}
-}
-
-// home spreads the node hash over the index (multiplicative hashing).
-func (t *astCanonicalTable) home(hash uint32) uint32 {
-	return (hash * 0x9e3779b1) >> t.shift
 }
 
 func (m *ASTManager) initTable() {
 	m.table = astCanonicalTable{}
 }
 
-func (m *ASTManager) tableFind(key astNodeRef) (astNodeRef, bool, error) {
+// tableLookup finds the entry structurally equal to key, or reports the
+// empty slot where the probe ended.
+func (m *ASTManager) tableLookup(key astNodeRef, h uint64) (astNodeRef, bool, uint64, error) {
 	t := &m.table
-	if len(t.slots) == 0 {
+	tag := astTableTag(h)
+	i, perturb := h&t.mask, h
+	for {
+		ctrl := t.tags[i]
+		if ctrl == astTagEmpty {
+			return astNodeRef{}, false, i, nil
+		}
+		if ctrl == tag {
+			e := &t.entries[t.indices[i]]
+			if e.hash == h {
+				other := e.ref
+				if err := m.validNode(other); err != nil {
+					return astNodeRef{}, false, 0, err
+				}
+				equal, err := m.compareNodes(other, key)
+				if err != nil {
+					return astNodeRef{}, false, 0, err
+				}
+				if equal {
+					return other, true, i, nil
+				}
+			}
+		}
+		perturb >>= 5
+		i = (i*5 + perturb + 1) & t.mask
+	}
+}
+
+func (m *ASTManager) tableFind(key astNodeRef) (astNodeRef, bool, error) {
+	if m.table.size == 0 {
 		return astNodeRef{}, false, nil
 	}
-	hash := m.nodeAt(key.slot).hash
-	mask := uint32(len(t.slots) - 1)
-	for i := t.home(hash); ; i = (i + 1) & mask {
-		s := &t.slots[i]
-		if s.ref.slot == 0 {
-			return astNodeRef{}, false, nil
-		}
-		if s.hash != hash {
-			continue
-		}
-		other := s.ref
-		if e := m.validNode(other); e != nil {
-			return astNodeRef{}, false, e
-		}
-		equal, e := m.compareNodes(other, key)
-		if e != nil {
-			return astNodeRef{}, false, e
-		}
-		if equal {
-			return other, true, nil
-		}
-	}
-}
-
-func (t *astCanonicalTable) place(hash uint32, ref astNodeRef) {
-	mask := uint32(len(t.slots) - 1)
-	i := t.home(hash)
-	for t.slots[i].ref.slot != 0 {
-		i = (i + 1) & mask
-	}
-	t.slots[i] = astTableSlot{hash: hash, ref: ref}
-}
-
-func (t *astCanonicalTable) grow() {
-	n := 2 * len(t.slots)
-	if n < astTableMinSlots {
-		n = astTableMinSlots
-	}
-	old := t.slots
-	t.slots = make([]astTableSlot, n)
-	t.shift = 32
-	for k := n; k > 1; k >>= 1 {
-		t.shift--
-	}
-	for _, s := range old {
-		if s.ref.slot != 0 {
-			t.place(s.hash, s.ref)
-		}
-	}
+	r, found, _, e := m.tableLookup(key, astTableHash(m.nodeAt(key.slot).hash))
+	return r, found, e
 }
 
 func (m *ASTManager) tableInsert(key astNodeRef) (astNodeRef, bool, error) {
-	if old, found, e := m.tableFind(key); e != nil || found {
-		return old, false, e
-	}
 	t := &m.table
-	if 4*(uint64(t.size)+1) > 3*uint64(len(t.slots)) {
-		t.grow()
+	h := astTableHash(m.nodeAt(key.slot).hash)
+	var slot uint64
+	haveSlot := false
+	if t.indices != nil {
+		old, found, s, e := m.tableLookup(key, h)
+		if e != nil || found {
+			return old, false, e
+		}
+		slot, haveSlot = s, true
 	}
-	t.place(m.nodeAt(key.slot).hash, key)
-	m.nodeAt(key.slot).tablePos = uint32(len(t.order))
-	t.order = append(t.order, key)
-	t.size++
+	t.add(h, key, slot, haveSlot)
 	return key, true, nil
 }
 
@@ -173,52 +208,79 @@ func (m *ASTManager) tableEraseIdentity(key astNodeRef) error {
 }
 
 // Matching captured erasure never dereferences a source-freed placement or
-// a replacement generation. Only the original exact token is consumed.
+// a replacement generation. Only the original exact token is consumed: the
+// probe compares entry tokens, as the fork's ast_table::erase compares
+// pointers.
 func (m *ASTManager) tableEraseCaptured(key astNodeRef, hash uint32) error {
 	t := &m.table
-	if !t.unindex(key, hash) {
+	if t.size == 0 {
 		return ErrASTHandle
 	}
-	m.tableUnlist(key)
-	t.size--
+	h := astTableHash(hash)
+	tag := astTableTag(h)
+	i, perturb := h&t.mask, h
+	for t.tags[i] != astTagEmpty {
+		if t.tags[i] == tag {
+			ix := t.indices[i]
+			if e := &t.entries[ix]; e.ref == key && e.hash == h {
+				t.indices[i] = astSlotDummy
+				t.tags[i] = astTagDummy
+				t.entries[ix] = astTableEntry{}
+				t.size--
+				return nil
+			}
+		}
+		perturb >>= 5
+		i = (i*5 + perturb + 1) & t.mask
+	}
+	return ErrASTHandle
+}
+
+// CompactMemory is ast_manager::compact_memory (src/ast/ast.cpp:1483-1497).
+// m_alloc.consolidate() has no counterpart: Go owns that storage. A table
+// whose capacity exceeds four times its size is rebuilt by re-inserting
+// its nodes, in order, into a fresh table.
+func (m *ASTManager) CompactMemory() error {
+	if err := m.lock(); err != nil {
+		return err
+	}
+	defer m.mu.Unlock()
+	t := &m.table
+	capacity := t.capacity()
+	if uint64(capacity) > 4*uint64(t.size) {
+		var fresh astCanonicalTable
+		for _, e := range t.entries {
+			if e.ref.slot != 0 {
+				fresh.add(e.hash, e.ref, 0, false)
+			}
+		}
+		m.table = fresh
+		t = &m.table
+		if udiag.VerboseProgress {
+			return astTableVerbose("(ast-table :prev-capacity " + strconv.FormatUint(uint64(capacity), 10) +
+				" :capacity " + strconv.FormatUint(uint64(t.capacity()), 10) + " :size " + strconv.FormatUint(uint64(t.size), 10) + ")\n")
+		}
+		return nil
+	}
+	if udiag.VerboseProgress {
+		return astTableVerbose("(ast-table :capacity " + strconv.FormatUint(uint64(capacity), 10) +
+			" :size " + strconv.FormatUint(uint64(t.size), 10) + ")\n")
+	}
 	return nil
 }
 
-// unindex removes the exact token key from the index, reporting whether it
-// was present.
-func (t *astCanonicalTable) unindex(key astNodeRef, hash uint32) bool {
-	if len(t.slots) == 0 {
-		return false
+// astTableVerbose writes an IF_VERBOSE(10, ...) line of compact_memory.
+func astTableVerbose(text string) error {
+	enabled, err := udiag.ProcessVerboseEnabled(10)
+	if err != nil || !enabled {
+		return err
 	}
-	mask := uint32(len(t.slots) - 1)
-	i := t.home(hash)
-	for {
-		s := t.slots[i]
-		if s.ref.slot == 0 {
-			return false
-		}
-		if s.ref == key && s.hash == hash {
-			break
-		}
-		i = (i + 1) & mask
+	out, err := udiag.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
 	}
-	// Backward-shift deletion keeps every remaining entry reachable.
-	for {
-		t.slots[i] = astTableSlot{}
-		j := i
-		for {
-			j = (j + 1) & mask
-			s := t.slots[j]
-			if s.ref.slot == 0 {
-				return true
-			}
-			home := t.home(s.hash)
-			// Move s into the hole at i unless its home lies cyclically in (i, j].
-			if (j > i && (home <= i || home > j)) || (j < i && (home <= i && home > j)) {
-				t.slots[i] = s
-				i = j
-				break
-			}
-		}
+	if err = out.AppendCString(text); err != nil {
+		return err
 	}
+	return out.Flush()
 }

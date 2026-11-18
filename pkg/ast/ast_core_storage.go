@@ -112,9 +112,6 @@ type astNodeRecord struct {
 	kind                                          ASTKind
 	live, mark1, mark2, shared, closeMark         bool
 	markOwner1, markOwner2                        uint64
-	// tablePos is the node's position in astCanonicalTable.order while it
-	// is a canonical table entry.
-	tablePos uint32
 }
 type astSortRecord struct {
 	nextFree uint32

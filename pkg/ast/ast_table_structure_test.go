@@ -94,9 +94,9 @@ func TestASTNativeCanonicalTableGrowthCollisionIdentityAndGeneration(t *testing.
 
 // tableHashCount counts the canonical index entries carrying hash.
 func (m *ASTManager) tableHashCount(hash uint32) int {
-	n := 0
-	for _, s := range m.table.slots {
-		if s.ref.slot != 0 && s.hash == hash {
+	n, h := 0, astTableHash(hash)
+	for slot, ix := range m.table.indices {
+		if ix >= 0 && m.table.tags[slot] == astTableTag(h) && m.table.entries[ix].hash == h {
 			n++
 		}
 	}

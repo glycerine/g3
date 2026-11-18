@@ -519,8 +519,11 @@ func (t *SATTactic) applySAT(g *tactic.Goal, out *tactic.TacticResult, a *satTac
 	if err = g.Reset(); err != nil {
 		return err
 	}
-	// Source compacts allocator/hash-table capacity here. Go owns that storage;
-	// no C++ allocator consolidation or hash-table capacity is reproduced.
+	// g->m().compact_memory(): the AST table rebuild decision and its
+	// (ast-table ...) verbose lines; Go owns the allocator storage.
+	if err = m.CompactMemory(); err != nil {
+		return err
+	}
 	if err = s.AssertTacticInvariant(); err != nil {
 		return err
 	}

@@ -184,6 +184,10 @@ var verboseProgressFiltered = map[string][]string{
 	// compute_contains walks contain_pair_bool_map, an obj_pair_map, in
 	// hash-table order.
 	"str_contains_order": {"concats "},
+	// sat_tactic's compact_memory: the (ast-table ...) lines report the
+	// AST table's insdict index length (fork fix, owner decision
+	// 2026-11-18; z3 4.7.1 reported its chashtable's cell count).
+	"ast_table_v10": {"(ast-table "},
 }
 
 var verboseProgressFilteredCases = []verboseProgressCase{
@@ -212,6 +216,7 @@ var verboseProgressFilteredCases = []verboseProgressCase{
 	{"rel_query_sequence_v2_instructions", "query_sequence", []string{"-v:2"}},
 	{"str_concats_order", "str_concats_order", []string{"-v:100"}},
 	{"str_contains_order", "str_contains_order", []string{"-v:100"}},
+	{"ast_table_v10", "ast_table", []string{"-v:10"}},
 }
 
 func filterVerboseProgress(name, log string) string {
