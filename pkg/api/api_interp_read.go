@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -98,34 +97,60 @@ func (c *InterpolationContext) ReadInterpolationProblem(input io.Reader, tree bo
 	return result, nil
 }
 
+// interpolationTheoryCount is get_file_params plus atoi: the first line
+// must begin with ";!" (no trimming), tokens are split on spaces only, the
+// last THEORY=... wins, and atoi reads an optional sign and leading digits
+// (0 when there are none) into the unsigned num_theory.
 func interpolationTheoryCount(line string) (uint32, error) {
-	line = strings.TrimSpace(line)
-	if !strings.HasPrefix(line, ";!") {
+	line = strings.TrimSuffix(line, "\n") // std::getline drops the newline
+	if len(line) < 2 || line[0] != ';' || line[1] != '!' {
 		return 0, nil
 	}
-	for _, token := range strings.Fields(strings.TrimSpace(strings.TrimPrefix(line, ";!"))) {
-		key, value, found := strings.Cut(token, "=")
-		if !found || key != "THEORY" {
-			continue
+	value, found := "", false
+	for _, token := range strings.Split(line[2:], " ") {
+		if key, right, ok := strings.Cut(token, "="); ok && key == "THEORY" {
+			value, found = right, true
 		}
-		count, err := strconv.ParseUint(value, 10, 32)
-		if err != nil {
-			return 0, fmt.Errorf("interpolation: invalid THEORY count %q: %w", value, err)
-		}
-		return uint32(count), nil
 	}
-	return 0, nil
+	if !found {
+		return 0, nil
+	}
+	return uint32(interpolationAtoi(value)), nil
 }
 
+func interpolationAtoi(text string) int32 {
+	i := 0
+	for i < len(text) && (text[i] == ' ' || text[i] >= '\t' && text[i] <= '\r') {
+		i++
+	}
+	negative := false
+	if i < len(text) && (text[i] == '+' || text[i] == '-') {
+		negative = text[i] == '-'
+		i++
+	}
+	var v int32
+	for ; i < len(text) && text[i] >= '0' && text[i] <= '9'; i++ {
+		v = 10*v + int32(text[i]-'0')
+	}
+	if negative {
+		v = -v
+	}
+	return v
+}
+
+// interpolationConjuncts is iZ3_parse: Z3_parse_smtlib2_file returns
+// api::context::mk_and of the assertions, which is true for none and the
+// assertion itself for one, and the arguments of that application are the
+// assertions. So a single assertion (or a b) yields a and b (z3 4.7.1's
+// behavior, kept). A single quantified assertion is not an application,
+// and the source's Z3_to_app on it is undefined; g3 keeps it as one
+// assertion.
 func interpolationConjuncts(manager *ast.ASTManager, expression ast.ASTHandle) ([]ast.ASTHandle, error) {
-	kind, err := manager.GetDeclKind(expression)
+	kind, err := manager.GetKind(expression)
 	if err != nil {
 		return nil, err
 	}
-	if kind == ast.ASTOpTrue {
-		return nil, nil
-	}
-	if kind != ast.ASTOpAnd {
+	if kind != ast.ASTApp {
 		return []ast.ASTHandle{expression}, nil
 	}
 	count, err := manager.GetNumArgs(expression)
