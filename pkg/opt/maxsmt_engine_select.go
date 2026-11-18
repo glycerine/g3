@@ -2,22 +2,29 @@ package opt
 
 // Source: src/opt/maxsmt.cpp maxsat_engine dispatch.
 
+import "github.com/glycerine/g3/pkg/util/diagnostic"
+
 type maxSMTEngineFactory func(*ArithmeticSolver, *arithmeticObjective, int, maxSMTConfig) (maxSMTEngine, error)
 
 var maxSMTFallbackFactory maxSMTEngineFactory
 
-func sourceMaxSMTEngine(name string) string {
+func sourceMaxSMTEngine(name string) (string, error) {
 	switch name {
 	case "", "maxres", "pd-maxres", "wmax", "sortmax":
-		return name
+		return name, nil
 	default:
-		// maxsmt::operator() warns and constructs MaxRes for unknown names.
-		return "maxres"
+		// maxsmt::operator(): warning_msg("solver %s is not recognized,
+		// using default 'maxres'", ...), then mk_maxres.
+		return "maxres", diagnostic.BorrowProcessWarningService().Warningf("solver %s is not recognized, using default 'maxres'", name)
 	}
 }
 
 func selectMaxSMTEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (maxSMTEngine, error) {
-	config.engine = sourceMaxSMTEngine(config.engine)
+	engine, err := sourceMaxSMTEngine(config.engine)
+	if err != nil {
+		return nil, err
+	}
+	config.engine = engine
 	if config.engine == "wmax" {
 		return newWMaxEngine(s, objective, index)
 	}
