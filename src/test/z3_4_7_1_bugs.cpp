@@ -4867,3 +4867,45 @@ void tst_z3_4_7_1_interp_read_single_quantifier() {
     std::remove(file_name);
     ENSURE(quantifier);
 }
+
+// FORK FIX #138: pdr.cache_mode is cast to PDR_CACHE_MODE unchecked, and
+// reachable_cache::add_reachable / is_reachable reached UNREACHABLE() for a
+// mode above 2 (undefined behavior in the release build, an assertion in a
+// debug build) as soon as the PDR search closed a node. An unknown mode now
+// caches nothing, as NO_CACHE (pkg/AUDIT.md muz_fp_04-F4).
+void tst_z3_4_7_1_pdr_cache_mode_out_of_range() {
+    // The datalog commands are not registered in a plain API context, so
+    // the rules and queries go through the fixedpoint API.
+    char const* rules =
+        "(declare-rel inv (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(rule (inv 0))\n"
+        "(rule (=> (and (inv x) (< x 5)) (inv (+ x 1))))\n"
+        "(rule (=> (and (inv x) (> x 3)) err))\n"
+        "(query err)\n"
+        "(query inv)\n";
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_fixedpoint fp = Z3_mk_fixedpoint(ctx);
+    Z3_fixedpoint_inc_ref(ctx, fp);
+    Z3_params p = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, p);
+    Z3_params_set_symbol(ctx, p, Z3_mk_string_symbol(ctx, "engine"), Z3_mk_string_symbol(ctx, "pdr"));
+    Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "pdr.cache_mode"), 5);
+    Z3_fixedpoint_set_params(ctx, fp, p);
+    Z3_ast_vector qs = Z3_fixedpoint_from_string(ctx, fp, rules);
+    Z3_ast_vector_inc_ref(ctx, qs);
+    std::string out;
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, qs); ++i) {
+        Z3_lbool r = Z3_fixedpoint_query(ctx, fp, Z3_ast_vector_get(ctx, qs, i));
+        out += r == Z3_L_TRUE ? "sat\n" : r == Z3_L_FALSE ? "unsat\n" : "unknown\n";
+    }
+    Z3_ast_vector_dec_ref(ctx, qs);
+    Z3_params_dec_ref(ctx, p);
+    Z3_fixedpoint_dec_ref(ctx, fp);
+    Z3_del_context(ctx);
+    std::cout << "pdr_cache_mode_out_of_range: " << out;
+    ENSURE(out == "sat\nsat\n");
+}

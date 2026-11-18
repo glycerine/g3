@@ -72,7 +72,11 @@ namespace pdr {
             break;
             
         default:
-            UNREACHABLE();        
+            // FORK FIX #138 (g3 audit, see FORK_BUGFIXES.md): pdr.cache_mode is
+            // cast to PDR_CACHE_MODE unchecked; UNREACHABLE() was undefined
+            // behavior in the release build for a mode above 2. An unknown
+            // mode caches nothing, as NO_CACHE (AUDIT muz_fp_04-F4).
+            break;
         }
     }
 
@@ -106,7 +110,9 @@ namespace pdr {
         }
 
         default:
-            UNREACHABLE();
+            // FORK FIX #138 (g3 audit, see FORK_BUGFIXES.md): an unknown
+            // pdr.cache_mode is NO_CACHE (see add_reachable).
+            return false;
             break;
         }
         if (found) {
