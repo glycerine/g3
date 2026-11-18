@@ -6,7 +6,6 @@ package tactic
 import (
 	"errors"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/subpaving"
@@ -14,15 +13,7 @@ import (
 )
 
 func (c *RationalExprConverter) unsignedExponent(h ast.ASTHandle) (uint32, bool, error) {
-	value, _, matched, err := c.ast.ArithmeticNumeralText(h)
-	if err != nil || !matched {
-		return 0, false, err
-	}
-	r, ok := new(big.Rat).SetString(value)
-	if !ok || !r.IsInt() || r.Sign() < 0 || r.Num().BitLen() > 32 {
-		return 0, false, nil
-	}
-	return uint32(r.Num().Uint64()), true, nil
+	return astUnsignedNumeral(c.ast, h)
 }
 
 func (c *RationalExprConverter) asPower(h ast.ASTHandle) (ast.ASTHandle, uint32, error) {
@@ -69,8 +60,7 @@ func (c *RationalExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) (
 	}
 	m := t
 	hasCoefficient := false
-	_, parsed := new(big.Rat).SetString(coefficientText)
-	if numeric && parsed {
+	if numeric {
 		if count != 2 {
 			return 0, ErrExprConverterNonSimplified
 		}

@@ -5,7 +5,6 @@ package tactic
 import (
 	"errors"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -298,15 +297,7 @@ func (c *ArbitraryExprConverter) mkVarFor(t ast.ASTHandle, integer bool, numerat
 // unsignedExponent follows rational::is_unsigned and get_unsigned, including
 // the full uint32 range. The AST's detached decimal/fraction text is exact.
 func (c *ArbitraryExprConverter) unsignedExponent(h ast.ASTHandle) (uint32, bool, error) {
-	value, _, matched, err := c.ast.ArithmeticNumeralText(h)
-	if err != nil || !matched {
-		return 0, false, err
-	}
-	r, ok := new(big.Rat).SetString(value)
-	if !ok || !r.IsInt() || r.Sign() < 0 || r.Num().BitLen() > 32 {
-		return 0, false, nil
-	}
-	return uint32(r.Num().Uint64()), true, nil
+	return astUnsignedNumeral(c.ast, h)
 }
 
 func (c *ArbitraryExprConverter) asPower(h ast.ASTHandle) (ast.ASTHandle, uint32, error) {
@@ -353,8 +344,7 @@ func (c *ArbitraryExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) 
 	}
 	m := t
 	hasCoefficient := false
-	_, parsed := new(big.Rat).SetString(coefficientText)
-	if numeric && parsed {
+	if numeric {
 		if count != 2 {
 			return 0, ErrExprConverterNonSimplified
 		}

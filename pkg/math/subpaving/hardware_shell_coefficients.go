@@ -4,7 +4,6 @@ package subpaving
 
 import (
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/cooperate"
@@ -66,9 +65,10 @@ func (w *HardwareShellCoefficients) intToHardware(value *numeral.Int, out *numer
 	if err := w.context.numbers.SetFloat64(out, float64(integer)); err != nil {
 		return err
 	}
-	exact := new(big.Rat).SetInt64(integer)
-	actual := new(big.Rat).SetFloat64(w.context.numbers.ToFloat64(out))
-	if actual.Cmp(exact) != 0 {
+	// The double is integral; it is exact when it lies in int64 range
+	// (below 2^63) and converts back to the same integer.
+	actual := w.context.numbers.ToFloat64(out)
+	if actual >= 9223372036854775808.0 || int64(actual) != integer {
 		return ErrHardwareShellInexactInteger
 	}
 	return nil
