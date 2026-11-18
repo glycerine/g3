@@ -1,8 +1,6 @@
 package opt
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -32,39 +30,4 @@ func (d *ObjectiveDecomposer) args(h ast.ASTHandle) ([]ast.ASTHandle, error) {
 		}
 	}
 	return result, nil
-}
-
-func (d *ObjectiveDecomposer) rational(h ast.ASTHandle) (value big.Rat, matched bool, err error) {
-	text, _, matched, err := d.manager.ArithmeticNumeralText(h)
-	if err != nil {
-		return big.Rat{}, matched, err
-	}
-	if matched {
-		if _, ok := value.SetString(text); !ok {
-			return big.Rat{}, false, ast.ErrASTDomain
-		}
-		return value, true, nil
-	}
-	for _, source := range []struct {
-		kind   int32
-		negate bool
-	}{{8, true}, {14, false}} {
-		yes, e := d.appKind(h, d.arith, source.kind)
-		if e != nil {
-			return big.Rat{}, false, e
-		}
-		if !yes {
-			continue
-		}
-		args, e := d.args(h)
-		if e != nil || len(args) != 1 {
-			return big.Rat{}, false, e
-		}
-		value, matched, e = d.rational(args[0])
-		if e == nil && matched && source.negate {
-			value.Neg(&value)
-		}
-		return value, matched, e
-	}
-	return big.Rat{}, false, nil
 }
