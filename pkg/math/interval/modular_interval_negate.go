@@ -8,6 +8,11 @@ func (v *ModularInterval) Negate(result *ModularInterval) (bool, error) {
 	}
 	result.size = v.size
 	if !v.tight {
+		// The source writes interval(0, uMaxInt(sz), true), which binds true
+		// to the sz parameter: size 1, tight false. g3 keeps the evident
+		// intent (the full interval of v's size, tight). Unreachable: the
+		// only producer, is_bound, makes tight intervals, so no input can
+		// show the difference (AUDIT.md math_misc_02-F5).
 		result.set(0, modularBound(v.size), true)
 		return true, nil
 	}
