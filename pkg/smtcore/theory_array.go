@@ -60,7 +60,7 @@ type SMTArrayTheory struct {
 	finalCheckIndex                       uint32
 	storeTodo                             []ast.ASTHandle
 	readTodo                              []smtArrayAxiomPair
-	readFingerprints                      map[ast.ASTHandle][]*smtArrayReadFingerprint
+	readFingerprints                      map[uint64][]*smtArrayReadFingerprint
 	readFingerprintTrail                  []*smtArrayReadFingerprint
 	arrayUnion                            *backtrack.UnionFind
 	arrayTrail                            *backtrack.TrailStack
@@ -91,7 +91,7 @@ func NewSMTArrayTheory(family ast.FamilyID) (*SMTArrayTheory, error) {
 		epsilons:                   make(map[ast.ASTHandle]ast.ASTHandle),
 		extensionalityFingerprints: make(map[smtArrayEnodePair]bool),
 		arrayConfig:                SMTArrayState{Mode: 3, Simplify: true, Extensional: true, Laziness: 1, DelayExpAxiom: true, AlwaysPropUpward: true, LazyIEqDelay: 10},
-		readFingerprints:           make(map[ast.ASTHandle][]*smtArrayReadFingerprint),
+		readFingerprints:           make(map[uint64][]*smtArrayReadFingerprint),
 		arrayTrail:                 backtrack.NewTrailStack(),
 	}
 	theory.arrayUnion, err = backtrack.NewUnionFind(&smtArrayUnionContext{theory})
@@ -672,12 +672,12 @@ func (t *SMTArrayTheory) PopScopes(count uint32) error {
 	clear(t.equalityAxioms)
 	for i := len(t.readFingerprintTrail) - 1; i >= scope.readFingerprints; i-- {
 		entry := t.readFingerprintTrail[i]
-		bucket := t.readFingerprints[entry.store]
+		bucket := t.readFingerprints[entry.hash]
 		bucket = bucket[:len(bucket)-1]
 		if len(bucket) == 0 {
-			delete(t.readFingerprints, entry.store)
+			delete(t.readFingerprints, entry.hash)
 		} else {
-			t.readFingerprints[entry.store] = bucket
+			t.readFingerprints[entry.hash] = bucket
 		}
 	}
 	t.readFingerprintTrail = t.readFingerprintTrail[:scope.readFingerprints]

@@ -59,6 +59,12 @@ func smtQuickApplicationNode(t *testing.T, m *ast.ASTManager, context *SMTChecke
 	astTestMust(t, err)
 	node.congruence = node
 	astTestMust(t, context.RegisterEnode(node, relevant))
+	if context.congruence != nil {
+		// context::mk_enode inserts a congruence root into m_cg_table,
+		// which get_enode_eq_to reads.
+		_, err = context.congruence.Insert(node)
+		astTestMust(t, err)
+	}
 	return expression, node
 }
 

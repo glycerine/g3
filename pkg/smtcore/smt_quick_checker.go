@@ -244,7 +244,16 @@ func (q *SMTQuickChecker) retainApplication(declaration ast.ASTHandle, arguments
 	return q.context.manager.RefGet(ref)
 }
 
-func (q *SMTQuickChecker) congruent(declaration ast.ASTHandle, arguments []*SMTEnode) *SMTEnode {
+// congruent is m_context.get_enode_eq_to(f, num_args, args): the cg_table
+// entry, hashed over the declaration and every argument root.
+func (q *SMTQuickChecker) congruent(declaration ast.ASTHandle, arguments []*SMTEnode) (*SMTEnode, error) {
+	if table := q.context.congruence; table != nil && len(arguments) > 0 {
+		flags, err := q.context.manager.GetFuncDeclFlags(declaration)
+		if err != nil {
+			return nil, err
+		}
+		return table.FindApp(declaration, arguments, flags.Commutative)
+	}
 	for _, candidate := range q.context.byDeclaration[declaration] {
 		if !candidate.IsCongruenceRoot() || len(candidate.arguments) != len(arguments) {
 			continue
@@ -260,10 +269,10 @@ func (q *SMTQuickChecker) congruent(declaration ast.ASTHandle, arguments []*SMTE
 			matched = candidate.arguments[0].root == arguments[1].root && candidate.arguments[1].root == arguments[0].root
 		}
 		if matched {
-			return candidate
+			return candidate, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (q *SMTQuickChecker) canonize(expression ast.ASTHandle) (ast.ASTHandle, error) {
@@ -313,7 +322,11 @@ func (q *SMTQuickChecker) canonize(expression ast.ASTHandle) (ast.ASTHandle, err
 		return ast.ASTHandle{}, err
 	}
 	if allInternalized {
-		if node := q.congruent(declaration, argumentNodes); node != nil {
+		node, err := q.congruent(declaration, argumentNodes)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if node != nil {
 			q.canonCache[expression] = node.root.owner
 			return node.root.owner, nil
 		}

@@ -13,6 +13,7 @@ import (
 type smtArrayReadFingerprint struct {
 	store   ast.ASTHandle
 	indices []*SMTEnode
+	hash    uint64 // fingerprint_hash_proc of store and indices, for pop
 }
 
 func (t *SMTArrayTheory) enqueueStoreReadAxiom(read, store ast.ASTHandle) error {
@@ -111,25 +112,33 @@ func (t *SMTArrayTheory) queueStoreReadAxiom(read, store ast.ASTHandle, upward b
 
 // Source uses the same constructor/indices fingerprint shape for stores and
 // maps. The concrete AST identity distinguishes those retained operations.
+func (t *SMTArrayTheory) findArrayReadFingerprint(hash uint64, constructor ast.ASTHandle, indices []*SMTEnode) bool {
+	for _, entry := range t.readFingerprints[hash] {
+		if entry.store == constructor && smtFingerprintArgsEqual(entry.indices, indices) {
+			return true
+		}
+	}
+	return false
+}
+
 func (t *SMTArrayTheory) insertArrayReadFingerprint(constructor ast.ASTHandle, indices []*SMTEnode) bool {
 	// fingerprint_set::insert checks the original tuple before replacing it
 	// with current roots. An older fingerprint can still name a former root.
-	for _, entry := range t.readFingerprints[constructor] {
-		if smtFingerprintArgsEqual(entry.indices, indices) {
-			return false
-		}
+	// m_set hashes the data and every argument (fingerprint_hash_proc);
+	// a bucket holds only hash collisions.
+	if t.findArrayReadFingerprint(smtFingerprintHash(constructor, indices), constructor, indices) {
+		return false
 	}
 	roots := make([]*SMTEnode, len(indices))
 	for i, node := range indices {
 		roots[i] = node.root
 	}
-	for _, entry := range t.readFingerprints[constructor] {
-		if smtFingerprintArgsEqual(entry.indices, roots) {
-			return false
-		}
+	hash := smtFingerprintHash(constructor, roots)
+	if t.findArrayReadFingerprint(hash, constructor, roots) {
+		return false
 	}
-	entry := &smtArrayReadFingerprint{store: constructor, indices: roots}
-	t.readFingerprints[constructor] = append(t.readFingerprints[constructor], entry)
+	entry := &smtArrayReadFingerprint{store: constructor, indices: roots, hash: hash}
+	t.readFingerprints[hash] = append(t.readFingerprints[hash], entry)
 	t.readFingerprintTrail = append(t.readFingerprintTrail, entry)
 	return true
 }
