@@ -105,7 +105,29 @@ func (s *satSolverConflictResolution) getMaxLevel(consequent Literal, j satJusti
 		}
 		return r, nil
 	case 4:
-		return r, s.analysis.fillExtAntecedents(consequent, j)
+		// get_max_lvl: r = max(r, lvl(l)) over m_ext_antecedents (AUDIT.md
+		// sat_02-F4).
+		if e := s.analysis.fillExtAntecedents(consequent, j); e != nil {
+			return r, e
+		}
+		n, e := s.analysis.extAntecedents.Size()
+		if e != nil {
+			return r, e
+		}
+		for i := uint32(0); i < n; i++ {
+			l, e := s.analysis.extAntecedents.Read(i)
+			if e != nil {
+				return r, e
+			}
+			x, e := v.levelVar(Literal(l).variable())
+			if e != nil {
+				return r, e
+			}
+			if x > r {
+				r = x
+			}
+		}
+		return r, nil
 	default:
 		return r, ErrSATAssertion
 	}
@@ -315,7 +337,25 @@ func (s *satSolverConflictResolution) processConsequent(consequent Literal, j sa
 		}
 		return nil
 	case 4:
-		return s.analysis.fillExtAntecedents(consequent, j)
+		// fill_ext_antecedents, then each antecedent as is, in order
+		// (AUDIT.md sat_02-F4).
+		if e := s.analysis.fillExtAntecedents(consequent, j); e != nil {
+			return e
+		}
+		n, e := s.analysis.extAntecedents.Size()
+		if e != nil {
+			return e
+		}
+		for i := uint32(0); i < n; i++ {
+			l, e := s.analysis.extAntecedents.Read(i)
+			if e != nil {
+				return e
+			}
+			if e = s.antecedentMode(Literal(l), mode, marks); e != nil {
+				return e
+			}
+		}
+		return nil
 	default:
 		return ErrSATAssertion
 	}
