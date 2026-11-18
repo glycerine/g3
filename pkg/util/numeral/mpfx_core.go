@@ -584,10 +584,10 @@ func (m *FixedPointManager) div(a, b, c *FixedPoint) error {
 			return ErrFixedPointOverflow
 		}
 	}
-	// The source increments m_total_sz quotient words but then copies only
-	// q_sz of them when q_sz < m_total_sz, so a carry out of the q_sz words
-	// lands in a stale buffer word and is lost (the quotient collapses to
-	// epsilon). g3 clears those words and keeps the carry.
+	// FORK FIX #123: z3 4.7.1 increments m_total_sz quotient words but then
+	// copies only q_sz of them when q_sz < m_total_sz, so a carry out of the
+	// q_sz words was lost in a stale buffer word (the quotient collapsed to
+	// epsilon). The fork, like g3, clears those words and keeps the carry.
 	if qSize < total {
 		clear(q[qSize:total])
 	}
