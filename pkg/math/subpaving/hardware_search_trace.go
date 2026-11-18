@@ -21,14 +21,15 @@ func (c *HardwareContext) traceSearchParams() error {
 			_, _ = io.WriteString(out, "\nmax_depth  ")
 			_, _ = io.WriteString(out, strconv.FormatUint(uint64(c.maxDepth), 10))
 			_, _ = io.WriteString(out, "\nepsilon    ")
-			epsilon, err := c.numbers.ToString(&c.epsilon)
+			// nm().to_rational_string (AUDIT.md math_subpaving_03-F4).
+			epsilon, err := c.numbers.ToRationalString(&c.epsilon)
 			if err != nil {
 				bodyErr = err
 				return err
 			}
 			_, _ = io.WriteString(out, epsilon)
 			_, _ = io.WriteString(out, "\nmax_bound  ")
-			bound, err := c.numbers.ToString(&c.maxBound)
+			bound, err := c.numbers.ToRationalString(&c.maxBound)
 			if err != nil {
 				bodyErr = err
 				return err
