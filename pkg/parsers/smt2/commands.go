@@ -594,7 +594,8 @@ func (p *commandParser) command() (bool, error) {
 			}
 			success = false
 		}
-		if err = p.requireEnd(); err != nil {
+		// set_logic_cmd has arity 1: parse_ext_cmd's check.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 	case "set-option":
@@ -647,28 +648,36 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 	case "set-info":
+		// set_info_cmd through parse_ext_cmd: a CPK_KEYWORD then a
+		// CPK_OPTION_VALUE (numeral, symbol or string), arity 2.
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid command, argument(s) missing")
+		}
 		if p.token != KeywordToken {
-			return false, fmt.Errorf("information keyword expected")
+			return false, fmt.Errorf("invalid command argument, keyword expected")
 		}
 		key := p.scanner.ID()
 		if err := p.advance(); err != nil {
 			return false, err
 		}
-		if key == ":status" && p.token == SymbolToken {
-			value, e := p.symbol()
-			if e != nil {
-				return false, e
+		switch p.token {
+		case RightParenToken:
+			return false, fmt.Errorf("invalid command, argument(s) missing")
+		case SymbolToken:
+			// set_next_arg(symbol) runs before next().
+			if key == ":status" {
+				if err = p.context.SetInfoStatus(p.scanner.ID()); err != nil {
+					return false, err
+				}
 			}
-			if err = p.context.SetInfoStatus(value); err != nil {
-				return false, err
-			}
-		} else {
-			// Uninterpreted source metadata is accepted and discarded.
-			if err := p.skipSExpr(); err != nil {
-				return false, err
-			}
+		case IntegerToken, DecimalToken, BitVectorToken, StringToken:
+		default:
+			return false, fmt.Errorf("invalid option value")
 		}
-		if err = p.requireEnd(); err != nil {
+		if err = p.advance(); err != nil {
+			return false, err
+		}
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 	case "declare-datatype", "declare-datatypes":

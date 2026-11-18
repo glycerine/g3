@@ -307,7 +307,8 @@ func (p *commandParser) helpCommands() error {
 // helpTactic emits tactic_cmds.cpp help_tactic's registry listing and
 // combinator guide. The probe metadata is shared with the public probe API.
 func (p *commandParser) helpTactic() (resultErr error) {
-	if err := p.requireEnd(); err != nil {
+	// help_tactic_cmd takes no arguments: parse_ext_cmd's arity check.
+	if err := p.optionValueEnd(); err != nil {
 		return err
 	}
 	var text strings.Builder

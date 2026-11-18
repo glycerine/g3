@@ -336,6 +336,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F8: parse_ext_cmd arity and option-value texts.
+	"parse_errors_ext_cmd_arity.smt2": "(error \"line 1 column 19: invalid command, too many arguments\")\n(error \"line 2 column 22: invalid command, too many arguments\")\n(error \"line 3 column 13: invalid command, too many arguments\")\n(error \"line 4 column 14: invalid command, argument(s) missing\")\n(error \"line 5 column 15: invalid option value\")\n(error \"line 6 column 15: invalid option value\")\n(error \"line 7 column 9: invalid command, argument(s) missing\")\n(error \"line 8 column 10: invalid command argument, keyword expected\")\nok\n",
 	// AUDIT.md parsers_shell_01-F15: dbg-sexpr prints atoms as sexpr::display_atom.
 	"dbg_sexpr_atoms.smt2": "(\"a\\\"b\\n\" #x0f #b1 -3 1/4 (dbg-sexpr) a b :kw #x0 #x0 12 3/2)\n",
 	// AUDIT.md cmd_context_01-F11: declare_map_cmd's own checks and texts.
@@ -556,7 +558,7 @@ var scriptResults = map[string]string{
 	// Duality zbug round 2: background axioms reach only the interpolating
 	// solver, not aux_solver, so covering checks ignore them as in z3.
 	"duality_background_large_distinct.smt2": "unsat\n(fixedpoint \n(define-fun err () Bool\n  (= c0 c1))\n(define-fun @Fail!3 () Bool\n  (= c0 c1))\n(define-fun q ((x!0 Int)) Bool\n  (= x!0 c0))\n)\n\nunsat\n(fixedpoint \n(define-fun err () Bool\n  false)\n(define-fun @Fail!27 () Bool\n  false)\n(define-fun q ((x!0 Int)) Bool\n  (= x!0 c0))\n)\n\n",
-	"duality_background_axiom_cover.smt2": "unsat\n(fixedpoint \n(define-fun err () Bool\n  (= c0 c1))\n(define-fun @Fail!0 () Bool\n  (= c0 c1))\n(define-fun q ((x!0 Int)) Bool\n  (= x!0 c0))\n)\n\n",
+	"duality_background_axiom_cover.smt2":    "unsat\n(fixedpoint \n(define-fun err () Bool\n  (= c0 c1))\n(define-fun @Fail!0 () Bool\n  (= c0 c1))\n(define-fun q ((x!0 Int)) Bool\n  (= x!0 c0))\n)\n\n",
 	// AUDIT.md muz_fp_01-F6: check_relation tr_bitvector publishes bitvector_table order.
 	"fp_datalog_check_relation_tr_bitvector.smt2": "sat\n(or (= (:var 0) #b01) (= (:var 0) #b10))\nsat\n(or (and (= (:var 0) #x3) (= (:var 1) #x1))\n    (and (= (:var 0) #x7) (= (:var 1) #x1))\n    (and (= (:var 0) #x9) (= (:var 1) #x1))\n    (and (= (:var 0) #x9) (= (:var 1) #x3))\n    (and (= (:var 0) #x3) (= (:var 1) #x7))\n    (and (= (:var 0) #x9) (= (:var 1) #x7)))\n",
 	// AUDIT.md muz_fp_01-F6: check_relation tr_bitvector over a hashtable default.
@@ -2387,6 +2389,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"parse_errors_ext_cmd_arity.smt2":     true,
 	"declare_map_errors.smt2":             true,
 	"macro_name_survives_pop.smt2":        true,
 	"output_channel_open_failure.smt2":    true,
