@@ -44,8 +44,7 @@ type smtMAMPathTree struct {
 	filter       approx.UintSet
 	sibling      *smtMAMPathTree
 	firstChild   *smtMAMPathTree
-	todo         []*SMTEnode // m_todo; hasTodo stands for a non-null vector
-	hasTodo      bool
+	todo         *[]*SMTEnode // m_todo: a pooled vector while queued, else nil
 }
 
 type smtMAMQP struct {
@@ -78,6 +77,7 @@ type smtMAMImpl struct {
 
 	varPaths [][]*smtMAMPath
 	todo     []*smtMAMPathTree
+	pool     smtMAMEnodeVectorPool // m_pool
 
 	sharedEnodes map[*SMTEnode]struct{}
 
@@ -549,13 +549,13 @@ func (r *smtMAMImpl) collectParents(root *SMTEnode, t *smtMAMPathTree) {
 		return
 	}
 	r.todo = r.todo[:0]
-	var toUnmark, toUnmark2 []*SMTEnode
-	t.todo = append(t.todo[:0], root)
-	t.hasTodo = true
+	toUnmark, toUnmark2 := r.pool.mk(), r.pool.mk()
+	t.todo = r.pool.mk()
+	*t.todo = append(*t.todo, root)
 	r.todo = append(r.todo, t)
 	for head := 0; head < len(r.todo); head++ {
 		t := r.todo[head]
-		v := t.todo
+		v := *t.todo
 		filter := t.filter
 		for _, n := range v {
 			// mark: processed parents; mark2: roots queued for the next level.
@@ -586,38 +586,42 @@ func (r *smtMAMImpl) collectParents(root *SMTEnode, t *smtMAMPathTree) {
 								}
 								if currTree.firstChild != nil {
 									child := currTree.firstChild
-									if !child.hasTodo {
-										child.todo = child.todo[:0]
-										child.hasTodo = true
+									if child.todo == nil {
+										child.todo = r.pool.mk()
 										r.todo = append(r.todo, child)
 									}
 									if !currParentRoot.mark2 {
-										child.todo = append(child.todo, currParentRoot)
+										*child.todo = append(*child.todo, currParentRoot)
 									}
 								}
 							}
 						}
 					}
 					currParent.mark = true
-					toUnmark = append(toUnmark, currParent)
+					*toUnmark = append(*toUnmark, currParent)
 					if !currParentRoot.mark2 {
 						currParentRoot.mark2 = true
-						toUnmark2 = append(toUnmark2, currParentRoot)
+						*toUnmark2 = append(*toUnmark2, currParentRoot)
 					}
 				}
 			}
 		}
-		t.todo = t.todo[:0]
-		t.hasTodo = false
-		for _, n := range toUnmark {
+		r.pool.recycle(t.todo)
+		t.todo = nil
+		// remove both marks.
+		for _, n := range *toUnmark {
 			n.mark = false
 		}
-		for _, n := range toUnmark2 {
+		for _, n := range *toUnmark2 {
 			n.mark2 = false
 		}
-		toUnmark = toUnmark[:0]
-		toUnmark2 = toUnmark2[:0]
+		clear(*toUnmark)
+		clear(*toUnmark2)
+		*toUnmark = (*toUnmark)[:0]
+		*toUnmark2 = (*toUnmark2)[:0]
 	}
+	r.pool.recycle(toUnmark)
+	r.pool.recycle(toUnmark2)
 }
 
 func (r *smtMAMImpl) processPP(r1, r2 *SMTEnode) {

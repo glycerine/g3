@@ -19,6 +19,7 @@ type smtMAMBacktrackPoint struct {
 	curr              *SMTEnode
 	candidates        []*SMTEnode
 	it                int
+	toRecycle         *[]*SMTEnode // m_to_recycle: the pooled depth vector, if any
 }
 
 // smtMAMInterpreter is mam.cpp's interpreter.
@@ -31,6 +32,7 @@ type smtMAMInterpreter struct {
 	args       []*SMTEnode
 	backtrack  []smtMAMBacktrackPoint
 	top        int
+	pool       smtMAMEnodeVectorPool // m_pool
 	pc         *smtMAMInstr
 
 	maxGeneration     uint32
@@ -121,36 +123,36 @@ func (it *smtMAMInterpreter) execIsCgr(pc *smtMAMInstr) bool {
 }
 
 // mkDepth1Vector: the relevant f-parents of n whose i-th argument is n.
-func (it *smtMAMInterpreter) mkDepth1Vector(n *SMTEnode, f ast.ASTHandle, i uint32) []*SMTEnode {
-	var v []*SMTEnode
+func (it *smtMAMInterpreter) mkDepth1Vector(n *SMTEnode, f ast.ASTHandle, i uint32) *[]*SMTEnode {
+	v := it.pool.mk()
 	n = n.root
 	for _, p := range n.sourceParents {
 		if p.declaration == f && i < uint32(len(p.arguments)) && it.relevant(p) && mamIsCgr(p) && p.arguments[i].root == n {
-			v = append(v, p)
+			*v = append(*v, p)
 		}
 	}
 	return v
 }
 
 // mkDepth2Vector: the relevant f-parents of each p in joint2.
-func (it *smtMAMInterpreter) mkDepth2Vector(j2 *smtMAMJoint2, f ast.ASTHandle, i uint32) ([]*SMTEnode, bool) {
+func (it *smtMAMInterpreter) mkDepth2Vector(j2 *smtMAMJoint2, f ast.ASTHandle, i uint32) *[]*SMTEnode {
 	n := it.registers[j2.reg].root
 	if len(n.sourceParents) == 0 {
-		return nil, false
+		return nil
 	}
 	numArgs := len(n.arguments)
-	v := []*SMTEnode{}
+	v := it.pool.mk()
 	for _, p := range n.sourceParents {
 		if p.declaration == j2.decl && it.relevant(p) && mamIsCgr(p) && p.arguments[j2.argPos].root == n {
 			p = p.root
 			for _, p2 := range p.sourceParents {
 				if p2.declaration == f && numArgs == len(n.arguments) && it.relevant(p2) && mamIsCgr(p2) && p2.arguments[i].root == p {
-					v = append(v, p2)
+					*v = append(*v, p2)
 				}
 			}
 		}
 	}
-	return v, true
+	return v
 }
 
 // enodesOf is context::begin_enodes_of(lbl)..end_enodes_of(lbl):
@@ -189,27 +191,31 @@ func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32
 		}
 	}
 	// traverse each joint and select the best one.
-	var best []*SMTEnode
-	haveBest := false
+	var best *[]*SMTEnode
 	for i := uint32(0); i < c.numArgs; i++ {
-		var curr []*SMTEnode
-		have := false
+		var curr *[]*SMTEnode
 		switch j := c.joints[i]; j.tag {
 		case mamGroundTermTag:
-			curr, have = it.mkDepth1Vector(j.enode, lbl, i), true
+			curr = it.mkDepth1Vector(j.enode, lbl, i)
 		case mamVarTag:
-			curr, have = it.mkDepth1Vector(it.registers[j.reg], lbl, i), true
+			curr = it.mkDepth1Vector(it.registers[j.reg], lbl, i)
 		case mamNestedVarTag:
-			curr, have = it.mkDepth2Vector(j.joint2, lbl, i)
+			curr = it.mkDepth2Vector(j.joint2, lbl, i)
 		}
-		if !have {
+		if curr == nil {
 			continue
 		}
-		if len(curr) < minSz && (!haveBest || len(curr) < len(best)) {
-			best, haveBest = curr, true
-			if len(best) == 0 {
+		if len(*curr) < minSz && (best == nil || len(*curr) < len(*best)) {
+			if best != nil {
+				it.pool.recycle(best)
+			}
+			best = curr
+			if len(*best) == 0 {
+				it.pool.recycle(best)
 				return nil
 			}
+		} else {
+			it.pool.recycle(curr)
 		}
 	}
 	for len(it.backtrack) <= it.top {
@@ -219,9 +225,11 @@ func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32
 	bp.instr = c
 	bp.oldMaxGeneration = it.maxGeneration
 	bp.oldUsedEnodesSize = len(it.usedEnodes)
-	if haveBest {
-		bp.candidates = best
+	if best != nil {
+		bp.toRecycle = best
+		bp.candidates = *best
 	} else {
+		bp.toRecycle = nil
 		bp.candidates = all
 	}
 	// find an application with the right number of arguments
@@ -237,6 +245,13 @@ func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32
 	it.top++
 	it.updateMaxGeneration(bp.candidates[bp.it])
 	return bp.candidates[bp.it]
+}
+
+// recycleBacktrackVector is recycle_enode_vector(bp.m_to_recycle).
+func (it *smtMAMInterpreter) recycleBacktrackVector(bp *smtMAMBacktrackPoint) {
+	it.pool.recycle(bp.toRecycle)
+	bp.toRecycle = nil
+	bp.candidates = nil
 }
 
 func (it *smtMAMInterpreter) init(t *smtMAMCodeTree) {
@@ -361,7 +376,12 @@ func (it *smtMAMInterpreter) executeCore(t *smtMAMCodeTree, n *SMTEnode) {
 			if sinceLastCheck > 101 {
 				sinceLastCheck = 0
 				if it.resourcesExceeded != nil && it.resourcesExceeded() {
-					it.top = 0
+					// Soft timeout: recycle the CONTINUE vectors on the stack.
+					for ; it.top != 0; it.top-- {
+						if b := &it.backtrack[it.top-1]; b.instr.op == mamCONTINUE && b.toRecycle != nil {
+							it.recycleBacktrackVector(b)
+						}
+					}
 					return
 				}
 			}
@@ -405,6 +425,10 @@ func (it *smtMAMInterpreter) executeCore(t *smtMAMCodeTree, n *SMTEnode) {
 					}
 				}
 				if !resumed {
+					// continue failed
+					if bp.toRecycle != nil {
+						it.recycleBacktrackVector(bp)
+					}
 					bp.candidates = nil
 					it.top--
 					continue
