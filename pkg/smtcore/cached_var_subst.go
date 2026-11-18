@@ -179,6 +179,9 @@ func (c *SMTCachedVarSubstitution) clearEntries() error {
 		if err != nil {
 			return err
 		}
+		if !consumed {
+			return ast.ErrASTPending
+		}
 	}
 	c.refs = nil
 	return nil

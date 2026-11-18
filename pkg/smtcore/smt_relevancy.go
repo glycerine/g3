@@ -668,11 +668,8 @@ func (p *SMTRelevancyPropagator) Propagate() error {
 				return err
 			}
 		}
-		handlers := p.handlers.get(expression)
-		for index := len(handlers); index > 0; index-- {
-			if err := p.invokeRef(handlers[index-1]); err != nil {
-				return err
-			}
+		if err := p.invokeList(&p.handlers, expression); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -909,14 +906,20 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 			}
 		}
 	}
-	var watches []uint32
 	if value {
-		watches = p.positiveWatch.get(expression)
-	} else {
-		watches = p.negativeWatch.get(expression)
+		return p.invokeList(&p.positiveWatch, expression)
 	}
-	for index := len(watches); index > 0; index-- {
-		if err := p.invokeRef(watches[index-1]); err != nil {
+	return p.invokeList(&p.negativeWatch, expression)
+}
+
+// invokeList runs expression's handlers newest first, walking the list as
+// it stood when the walk began (handlers the walk registers are prepended
+// and not visited), as z3 walks its relevancy_ehs cons list.
+func (p *SMTRelevancyPropagator) invokeList(table *smtRelevancyTable, expression ast.ASTHandle) error {
+	for index := table.head(expression); index != 0; {
+		cell := table.link(index)
+		index = cell.previous
+		if err := p.invokeRef(cell.handler); err != nil {
 			return err
 		}
 	}

@@ -1,26 +1,35 @@
 package smtcore
 
+// Source: src/smt/smt_relevancy.cpp: relevancy_ehs (a list<relevancy_eh*>
+// allocated in the context region) and the obj_map handler/watch tables.
+
 import "github.com/glycerine/g3/pkg/ast"
 
+const smtRelevancyPageSize = 256
+
 // smtRelevancyTable maps an expression to its handler list, as the
-// relevancy propagator's obj_map handler/watch tables do. Lists of one
-// manager's expressions are found through a slot-indexed table of list
-// numbers (4 bytes per node slot; an obj_map holds only the watched
-// expressions, and most slots have no list); every non-empty list is
-// referenced by the trail, so its expression (and slot generation) stays
-// live while the list is in use. Other handles use the overflow map.
+// relevancy propagator's obj_map handler/watch tables do. A registration
+// prepends one link (a cons cell of relevancy_ehs) holding a reference into
+// the propagator's handler pool (ehs); undoing it restores the previous
+// head. Links live in fixed pages and popped links are recycled, as the
+// region reuses its memory after a scope pop. Heads of one manager's
+// expressions are indexed by node slot (4 bytes per slot); every non-empty
+// list is referenced by the trail, so its expression (and slot generation)
+// stays live while the list is in use. Other handles use the overflow map.
 type smtRelevancyTable struct {
 	origin uint64
-	// index[s] is 1 + the position in lists of slot s's list, or 0.
-	index []uint32
-	lists []smtRelevancyTableEntry
-	other map[ast.ASTHandle][]uint32
+	// heads[s] is 1 + the link index of slot s's newest registration, or 0.
+	heads []uint32
+	other map[ast.ASTHandle]uint32
+
+	pages       []*[smtRelevancyPageSize]smtRelevancyLink
+	count, free uint32
 }
 
-// hs holds references into the propagator's ehs.
-type smtRelevancyTableEntry struct {
-	key ast.ASTHandle
-	hs  []uint32
+// smtRelevancyLink is one list cell: the handler reference (1 + its ehs
+// index), the next older cell, and the generation of the slot's key.
+type smtRelevancyLink struct {
+	handler, previous, generation uint32
 }
 
 func (t *smtRelevancyTable) dense(h ast.ASTHandle) bool {
@@ -33,70 +42,74 @@ func (t *smtRelevancyTable) dense(h ast.ASTHandle) bool {
 	return h.Origin() == t.origin
 }
 
-// entry returns slot s's list record, or nil.
-func (t *smtRelevancyTable) entry(s uint32) *smtRelevancyTableEntry {
-	if uint64(s) >= uint64(len(t.index)) {
-		return nil
-	}
-	if i := t.index[s]; i != 0 {
-		return &t.lists[i-1]
-	}
-	return nil
+// link returns cell index (1-based). The page directory can grow while a
+// propagation callback walks an earlier list; cells never move.
+func (t *smtRelevancyTable) link(index uint32) *smtRelevancyLink {
+	i := index - 1
+	return &t.pages[i/smtRelevancyPageSize][i%smtRelevancyPageSize]
 }
 
-func (t *smtRelevancyTable) get(h ast.ASTHandle) []uint32 {
+// head returns h's newest cell, or 0 for an empty list.
+func (t *smtRelevancyTable) head(h ast.ASTHandle) uint32 {
 	if !t.dense(h) {
 		return t.other[h]
 	}
-	if e := t.entry(h.Slot()); e != nil && e.key == h && len(e.hs) != 0 {
-		return e.hs
+	s := h.Slot()
+	if uint64(s) >= uint64(len(t.heads)) {
+		return 0
 	}
-	return nil
+	head := t.heads[s]
+	if head != 0 && t.link(head).generation != h.Generation() {
+		// The slot's previous expression is dead, so its list is empty.
+		return 0
+	}
+	return head
 }
 
 func (t *smtRelevancyTable) push(h ast.ASTHandle, handler uint32) {
+	previous := t.head(h)
+	index := t.free
+	if index == 0 {
+		if t.count%smtRelevancyPageSize == 0 {
+			t.pages = append(t.pages, new([smtRelevancyPageSize]smtRelevancyLink))
+		}
+		t.count++
+		index = t.count
+	} else {
+		t.free = t.link(index).previous
+	}
+	*t.link(index) = smtRelevancyLink{handler: handler, previous: previous, generation: h.Generation()}
 	if !t.dense(h) {
 		if t.other == nil {
-			t.other = make(map[ast.ASTHandle][]uint32)
+			t.other = make(map[ast.ASTHandle]uint32)
 		}
-		t.other[h] = append(t.other[h], handler)
+		t.other[h] = index
 		return
 	}
 	s := h.Slot()
-	if uint64(s) >= uint64(len(t.index)) {
-		n := 2 * len(t.index)
+	if uint64(s) >= uint64(len(t.heads)) {
+		n := 2 * len(t.heads)
 		if n <= int(s) {
 			n = int(s) + 256
 		}
 		grown := make([]uint32, n)
-		copy(grown, t.index)
-		t.index = grown
+		copy(grown, t.heads)
+		t.heads = grown
 	}
-	if t.index[s] == 0 {
-		t.lists = append(t.lists, smtRelevancyTableEntry{})
-		t.index[s] = uint32(len(t.lists))
-	}
-	e := &t.lists[t.index[s]-1]
-	if e.key != h {
-		// The slot's previous expression is dead, so its list is empty.
-		e.key = h
-		e.hs = e.hs[:0]
-	}
-	e.hs = append(e.hs, handler)
+	t.heads[s] = index
 }
 
-// pop drops the newest handler of h's list.
+// pop drops the newest handler of h's list and recycles its cell.
 func (t *smtRelevancyTable) pop(h ast.ASTHandle) {
-	if !t.dense(h) {
-		hs := t.other[h]
-		t.other[h] = hs[:len(hs)-1]
-		return
+	index := t.head(h)
+	cell := t.link(index) // an absent list panics (index 0)
+	if t.dense(h) {
+		t.heads[h.Slot()] = cell.previous
+	} else if cell.previous == 0 {
+		delete(t.other, h)
+	} else {
+		t.other[h] = cell.previous
 	}
-	var hs []uint32
-	if e := t.entry(h.Slot()); e != nil && e.key == h {
-		hs = e.hs
-		e.hs = hs[:len(hs)-1]
-		return
-	}
-	_ = hs[:len(hs)-1] // an absent list panics, as slicing the map's nil list does
+	*cell = smtRelevancyLink{previous: t.free}
+	t.free = index
 }
