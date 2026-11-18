@@ -246,6 +246,7 @@ func (w *arbitraryFloatPowerWrapper) destroy(own bool) error {
 	w.tracePowerWrapperDeallocated()
 	return nil
 }
+
 // destroyPowerWrappers is ~powers2: dispose(m_p), dispose(m_pn),
 // dispose(m_pm1), dispose(m_pm1n), each u_map walked in its table order
 // (AUDIT.md util_numeral_03-F2). The owning path then releases any wrapper
