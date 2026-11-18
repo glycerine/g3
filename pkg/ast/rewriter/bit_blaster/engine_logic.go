@@ -104,6 +104,9 @@ func (e *Engine) MkRotateLeft(bits []ast.ASTHandle, amount uint64) ([]ast.ASTRef
 	if len(bits) == 0 {
 		return nil, ast.ErrASTDomain
 	}
+	if err := e.traceRotateLeft(bits, amount); err != nil {
+		return nil, err
+	}
 	n := int(amount % uint64(len(bits)))
 	rotated := make([]ast.ASTHandle, 0, len(bits))
 	rotated = append(rotated, bits[len(bits)-n:]...)

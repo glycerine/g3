@@ -115,11 +115,17 @@ func (c *Config) MkXor3(a, b, d ast.ASTHandle, out ast.ASTRef) (result error) {
 		}
 		return c.simplify(ast.ASTOpXor, out, a, h)
 	}
+	if err := c.traceGateIDs("xor3", "mk_xor3", 39, a, b, d); err != nil {
+		return err
+	}
 	v, err := c.sorted(a, b, d)
 	if err != nil {
 		return err
 	}
 	a, b, d = v[0], v[1], v[2]
+	if err := c.traceGateIDs("xor3_sorted", "mk_xor3", 41, a, b, d); err != nil {
+		return err
+	}
 	if !c.params.ExtGates {
 		tmp, err := c.manager.NewRef(ast.ASTHandle{})
 		if err != nil {
@@ -197,11 +203,17 @@ func (c *Config) MkXor3(a, b, d ast.ASTHandle, out ast.ASTRef) (result error) {
 func (c *Config) MkCarry(a, b, d ast.ASTHandle, out ast.ASTRef) (result error) {
 	var err error
 	if !c.rewriterGates {
+		if e := c.traceGateIDs("carry", "mk_carry", 78, a, b, d); e != nil {
+			return e
+		}
 		v, e := c.sorted(a, b, d)
 		if e != nil {
 			return e
 		}
 		a, b, d = v[0], v[1], v[2]
+		if e := c.traceGateIDs("carry_sorted", "mk_carry", 80, a, b, d); e != nil {
+			return e
+		}
 	}
 	if !c.params.ExtGates {
 		pairs := [3][2]ast.ASTHandle{{a, b}, {a, d}, {b, d}}

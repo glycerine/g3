@@ -105,6 +105,9 @@ func (e *Engine) MkUnsignedDivRem(a, b []ast.ASTHandle) (quotient, remainder []a
 	}
 	remainder = partial
 	partial = nil
+	if err = e.traceUnsignedDivRem(a, b, quotient, remainder); err != nil {
+		return nil, nil, errors.Join(err, releaseRefs(m, remainder))
+	}
 	return quotient, remainder, nil
 }
 
