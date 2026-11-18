@@ -4,8 +4,6 @@ package smtcore
 // dispatch; src/smt/theory_opt.h.
 
 import (
-	"strconv"
-
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -51,28 +49,9 @@ func (s *SMTSolver) installOptimizerArithmetic(family ast.FamilyID) error {
 	if owner := s.kernel.copiedArithmeticOwner; owner != nil {
 		config = owner.state
 	}
-	globals := s.config.Globals
-	if globals == nil {
-		globals = s.kernel.smtParams.Globals
-	}
-	if globals != nil {
-		modeText, modeErr := globals.SourceGetValueName("smt.arith.solver")
-		if modeErr != nil {
-			return modeErr
-		}
-		mode, modeErr := strconv.ParseUint(modeText, 10, 32)
-		if modeErr != nil {
-			return modeErr
-		}
-		config.Mode = uint32(mode)
-	}
-	var theory *SMTTheoryArith
-	var err error
-	if config.Mode == 5 { // AS_OPTINF: src/smt/smt_setup.cpp setup_mi_arith.
-		theory, err = NewSMTTheoryInfArith(family)
-	} else {
-		theory, err = NewSMTTheoryArith(family, false)
-	}
+	// opt_solver::get_optimizer always registers theory_mi_arith, whatever
+	// smt.arith.solver says (setup_mi_arith is not involved).
+	theory, err := NewSMTTheoryArith(family, false)
 	if err != nil {
 		return err
 	}

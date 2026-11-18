@@ -316,3 +316,31 @@ func TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue(t *tes
 		})
 	}
 }
+
+// AUDIT.md smtcore_06-F13: opt_solver::get_optimizer registers
+// theory_mi_arith on an arithmetic-free logic even for arith.solver=5.
+func TestOptimizationObjectiveFallbackIsMixedIntegerArith(t *testing.T) {
+	m, cfg := smtModelGeneratorFixture(t)
+	p, err := cfg.Context.NewValue()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, cfg.Context.Del(&p)) })
+	key := "arith.solver"
+	astTestMust(t, cfg.Context.SetUIntName(&p, &key, 5))
+	s, err := NewOptimizationSMTSolver(m, &p, "QF_UF", SMTSolverConfig{Params: cfg.Context, ModelEvaluator: cfg})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, s.Close()) })
+	s.kernel.arithState.Mode = 5
+	family, err := m.ArithmeticFamilyID()
+	astTestMust(t, err)
+	sort, err := m.MkFamilySort(family, 0, nil)
+	astTestMust(t, err)
+	x, err := m.MkConst(astTestSymbol(t, m, "opt-fallback-x"), sort)
+	astTestMust(t, err)
+	if _, err = s.AddObjective(x); err != nil {
+		t.Fatal(err)
+	}
+	theory, ok := s.kernel.internalizer.theories[family].(*SMTTheoryArith)
+	if !ok || theory.infExt || theory.integerExt {
+		t.Fatal("optimizer fallback is not theory_mi_arith", ok)
+	}
+}
