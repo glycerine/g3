@@ -931,6 +931,7 @@ var scriptResults = map[string]string{
 	// AUDIT.md qe_05-F3: the QE simplify rewriter negates forall bodies with ast_util mk_not.
 	"qe_sat_forall_mk_not.smt2": "sat\n",
 	// AUDIT.md qe_02-F3: process_partition blocks the assignment from m_current.
+	"qe_sat_nested_simplify.smt2":    "(goals\n(goal\n  :precision precise :depth 1)\n)\n",
 	"qe_sat_trace_search.smt2":       "(goals\n(goal\n  :precision precise :depth 1)\n)\n",
 	"qe_partition_block_parent.smt2": "(goals\n(goal\n  (let ((a!1 (= 0 (mod (+ 1 (mod a 2)) 2))))\n    (or (<= a 7) (and (<= a 9) a!1)))\n  (let ((a!1 (= 0 (mod (+ 2 (mod b 3)) 3))) (a!2 (= 0 (mod (+ 1 (mod b 3)) 3))))\n  (let ((a!3 (and (>= b (- 2)) (or (and a!1 (>= b (- 2))) (and a!2 (>= b 1))))))\n    (or (>= b 2) a!3)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md qe_02-F1: eq::der reduce_var_set uses m.mk_and (trace site qe_lite flatten_definitions).

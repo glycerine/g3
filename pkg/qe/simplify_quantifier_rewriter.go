@@ -246,16 +246,10 @@ func simplifyQEExpression(m *ast.ASTManager, rw *simplifyRewriterStar, expressio
 		if e != nil {
 			return result, e
 		}
-		updated, e := m.UpdateQuantifierBody(expression, body)
-		if e != nil {
-			return result, e
-		}
-		updatedRef, e := m.NewRef(updated)
-		if e != nil {
-			return result, e
-		}
-		defer func() { err = errors.Join(err, m.DelRef(&updatedRef)) }()
-		result, err = simplifyQEQuantifier(m, rw.ctx, updated)
+		// process_quantifier without proofs hands reduce_quantifier the
+		// original q and the new body; update_quantifier is never built,
+		// since this reduce_quantifier always succeeds (AUDIT.md qe_05-F7).
+		result, err = simplifyQEQuantifier(m, rw.ctx, expression, body)
 		if err != nil {
 			return result, err
 		}
@@ -306,19 +300,15 @@ func simplifyQEExpression(m *ast.ASTManager, rw *simplifyRewriterStar, expressio
 	}
 }
 
-// simplifyQEQuantifier is simplify_rewriter_cfg::impl::reduce_quantifier.
-// The source threads one expr_ref, result, through every step, so each
-// assignment releases the previous formula; cur is that slot.
-func simplifyQEQuantifier(m *ast.ASTManager, ctx *simplifySolverContext, quantifier ast.ASTHandle) (result ast.ASTRef, err error) {
+// simplifyQEQuantifier is simplify_rewriter_cfg::impl::reduce_quantifier
+// (old_q, new_body). The source threads one expr_ref, result, through every
+// step, so each assignment releases the previous formula; cur is that slot.
+func simplifyQEQuantifier(m *ast.ASTManager, ctx *simplifySolverContext, quantifier, newBody ast.ASTHandle) (result ast.ASTRef, err error) {
 	// AUDIT.md qe_05-F6: the reduce_quantifier TRACEs.
-	newBody, err := m.GetQuantifierBody(quantifier)
-	if err != nil {
-		return result, err
-	}
 	if err = qeTrace(m, ctx.config, "reduce_quantifier", "src/qe/qe.cpp", 2600, "simplifying", newBody, "\n"); err != nil {
 		return result, err
 	}
-	extracted, err := extractExprQuantifier(m, quantifier)
+	extracted, err := extractExprQuantifierBody(m, quantifier, newBody)
 	if err != nil {
 		return result, closeFailedExprQuantifierExtract(extracted, err)
 	}

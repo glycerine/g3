@@ -19,6 +19,19 @@ func extractExprQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result 
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
+	body, err := m.GetQuantifierBody(quantifier)
+	if err != nil {
+		return nil, err
+	}
+	return extractExprQuantifierBody(m, quantifier, body)
+}
+
+// extractExprQuantifierBody is extract_vars(q, new_body, vars) for a body
+// other than q's own: the fresh constants come from q's declaration sorts.
+func extractExprQuantifierBody(m *ast.ASTManager, quantifier, body ast.ASTHandle) (result *exprQuantifierExtract, err error) {
+	if m == nil {
+		return nil, ast.ErrASTHandle
+	}
 	result = &exprQuantifierExtract{manager: m}
 	defer func() {
 		if err != nil {
@@ -29,10 +42,6 @@ func extractExprQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result 
 			}
 		}
 	}()
-	body, err := m.GetQuantifierBody(quantifier)
-	if err != nil {
-		return result, err
-	}
 	result.body, err = m.NewRef(body)
 	if err != nil {
 		return result, err
