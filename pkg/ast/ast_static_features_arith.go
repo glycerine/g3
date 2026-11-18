@@ -22,11 +22,9 @@ func (f *StaticFeatures) arithmeticOp(h ASTHandle, op int32) (bool, error) {
 }
 
 func (f *StaticFeatures) readArithmeticNumeral(h ASTHandle) (bool, error) {
-	text, _, matched, err := f.manager.ArithmeticNumeralText(h)
-	if err != nil || !matched {
-		return matched, err
-	}
-	return true, f.manager.numerals.SetString(&f.arithScratch, text)
+	// m_autil.is_numeral(e, r): r = the numeral's rational (a copy).
+	_, matched, err := f.manager.ArithmeticNumeralRational(h, &f.arithScratch.Raw)
+	return matched, err
 }
 
 func (f *StaticFeatures) accScratch() error {
