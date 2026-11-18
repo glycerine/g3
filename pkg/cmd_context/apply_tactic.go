@@ -10,7 +10,6 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
-	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // ApplyTactic applies selected to a copy of the current assertion goal and
@@ -48,15 +47,8 @@ func (c *Context) ApplyTactic(out io.Writer, selected tactic.Tactic, options *up
 		return err
 	}
 	defer func(owned tactic.Tactic) { result = errors.Join(result, owned.DecRef()) }(wrapped)
-	var logic usymbol.Symbol
-	if c.logic != "" {
-		if logic, err = m.Symbols.Intern(c.logic); err != nil {
-			return err
-		}
-	}
-	if err = wrapped.SetLogic(logic); err != nil {
-		return err
-	}
+	// apply_tactic_cmd::execute never calls set_logic (only
+	// check-sat-using does).
 	if settings.timeout != 0 && settings.timeout != ^uint32(0) {
 		timed, e := tactic.NewTryForTactic(wrapped, settings.timeout)
 		if e != nil {
