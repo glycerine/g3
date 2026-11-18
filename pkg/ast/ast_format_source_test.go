@@ -183,21 +183,21 @@ func TestASTFormatSourceFlatLiteralChoiceAndSharedChildren(t *testing.T) {
 	r, e := f.internal(flat)
 	astTestMust(t, e)
 	a := f.appAt(r.slot)
-	first, e := f.readInternal(a.args, 0)
+	first, e := f.appArg(a, 0)
 	astTestMust(t, e)
-	again, e := f.readInternal(a.args, 2)
+	again, e := f.appArg(a, 2)
 	astTestMust(t, e)
 	if first != again {
 		t.Fatal("recurse_expr cache shared result", first, again)
 	}
-	arg, e := f.readInternal(f.appAt(first.slot).args, 0)
+	arg, e := f.appArg(f.appAt(first.slot), 0)
 	astTestMust(t, e)
 	_, kind, e := f.declIdentity(f.appAt(arg.slot).decl)
 	astTestMust(t, e)
 	if kind != ASTFormatString {
 		t.Fatal("line break becomes space", kind)
 	}
-	middle, e := f.readInternal(a.args, 1)
+	middle, e := f.appArg(a, 1)
 	astTestMust(t, e)
 	if f.external(middle) != line {
 		t.Fatal("source CHOICE returns original arg0, not transformed child", f.external(middle), line)
@@ -206,7 +206,7 @@ func TestASTFormatSourceFlatLiteralChoiceAndSharedChildren(t *testing.T) {
 	astTestMust(t, e)
 	gr, e := f.internal(group)
 	astTestMust(t, e)
-	original, e := f.readInternal(f.appAt(gr.slot).args, 1)
+	original, e := f.appArg(f.appAt(gr.slot), 1)
 	astTestMust(t, e)
 	if f.external(original) != root {
 		t.Fatal("source group preserves original second alternative")

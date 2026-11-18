@@ -68,7 +68,10 @@ func TestIntervalRelationToFormulaAllocationFailureAndRetry(t *testing.T) {
 			break
 		}
 	}
-	if firstSuccess <= 0 {
+	// Normal builds keep no arena payload for apps of up to three
+	// arguments, so this formula may need no fresh reservation at all;
+	// debug builds (payloads kept) must still cross a failure boundary.
+	if firstSuccess < 0 || ast.ASTSourceDebug && firstSuccess == 0 {
 		t.Fatal("allocation campaign did not cross a failure boundary", firstSuccess)
 	}
 }

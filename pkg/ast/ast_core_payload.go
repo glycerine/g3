@@ -181,6 +181,23 @@ func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[astInlineA
 	if hs.count == 0 {
 		return arena.SmallBytesRef{}, nil
 	}
+	if inline != nil && hs.count <= astInlineArgs && !ASTSourceDebug {
+		// The record's copy holds every argument: normal builds keep no
+		// payload for it (appArg, hashing, comparison and the printers
+		// read the copy; the null payload frees as a no-op).
+		for i := uint32(0); i < hs.count; i++ {
+			h, e := hs.at(i)
+			var r astNodeRef
+			if e == nil {
+				r, e = m.internal(h)
+			}
+			if e != nil {
+				return arena.SmallBytesRef{}, e
+			}
+			inline[i] = r
+		}
+		return arena.SmallBytesRef{}, nil
+	}
 	n, e := astPayloadBytes(hs.count, astRefBytes)
 	if e != nil {
 		return arena.SmallBytesRef{}, e

@@ -24,7 +24,7 @@ func psortOracleEval(t *testing.T, m *ASTManager, h ASTHandle, env map[ASTHandle
 	info, e := m.funcInfo(m.declAt(app.decl.slot).info)
 	astTestMust(t, e)
 	child := func(i uint32) bool {
-		r, e := m.readInternal(app.args, i)
+		r, e := m.appArg(app, i)
 		astTestMust(t, e)
 		return psortOracleEval(t, m, m.external(r), env)
 	}
@@ -80,7 +80,7 @@ func psortOracleVariables(t *testing.T, m *ASTManager, h ASTHandle, seen map[AST
 		return
 	}
 	for i := uint32(0); i < app.count; i++ {
-		r, e := m.readInternal(app.args, i)
+		r, e := m.appArg(app, i)
 		astTestMust(t, e)
 		psortOracleVariables(t, m, m.external(r), seen, vars)
 	}

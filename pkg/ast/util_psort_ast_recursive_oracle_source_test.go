@@ -31,7 +31,7 @@ func (q *psortOracleCNF) gate(t *testing.T, m *ASTManager, h ASTHandle) int {
 	astTestMust(t, e)
 	var args []int
 	for i := uint32(0); i < app.count; i++ {
-		r, e := m.readInternal(app.args, i)
+		r, e := m.appArg(app, i)
 		astTestMust(t, e)
 		args = append(args, q.gate(t, m, m.external(r)))
 	}

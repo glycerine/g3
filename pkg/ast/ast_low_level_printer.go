@@ -182,7 +182,7 @@ func (m *ASTManager) lowLevelPrintWithVisited(out *utext.NumericTextStream, r, r
 				f.stack = append(f.stack, a.decl)
 				continue
 			}
-			complete, e = p.arguments(a.args, a.count)
+			complete, e = p.argumentsOf(a.args, a, a.count)
 			if e != nil {
 				return e
 			}
@@ -242,9 +242,21 @@ func (p *astLowLevelPrinter) marked(r astNodeRef) (bool, error) {
 }
 
 func (p *astLowLevelPrinter) arguments(raw arena.SmallBytesRef, n uint32) (bool, error) {
+	return p.argumentsOf(raw, nil, n)
+}
+
+// argumentsOf is arguments over the payload raw, or, when app is not nil,
+// over app's arguments (which may be held only in its record).
+func (p *astLowLevelPrinter) argumentsOf(raw arena.SmallBytesRef, app *astAppRecord, n uint32) (bool, error) {
 	all := true
 	for i := uint32(0); i < n; i++ {
-		r, e := p.manager.readInternal(raw, i)
+		var r astNodeRef
+		var e error
+		if app != nil {
+			r, e = p.manager.appArg(app, i)
+		} else {
+			r, e = p.manager.readInternal(raw, i)
+		}
 		if e != nil {
 			return false, e
 		}
@@ -518,13 +530,25 @@ func (p *astLowLevelPrinter) child(r astNodeRef) error {
 	return p.ref(r)
 }
 func (p *astLowLevelPrinter) children(raw arena.SmallBytesRef, n uint32) error {
+	return p.childrenOf(raw, nil, n)
+}
+
+// childrenOf is children over the payload raw, or over app's arguments
+// when app is not nil.
+func (p *astLowLevelPrinter) childrenOf(raw arena.SmallBytesRef, app *astAppRecord, n uint32) error {
 	for i := uint32(0); i < n; i++ {
 		if i > 0 {
 			if e := p.out.AppendCString(" "); e != nil {
 				return e
 			}
 		}
-		r, e := p.manager.readInternal(raw, i)
+		var r astNodeRef
+		var e error
+		if app != nil {
+			r, e = p.manager.appArg(app, i)
+		} else {
+			r, e = p.manager.readInternal(raw, i)
+		}
 		if e != nil {
 			return e
 		}
@@ -744,7 +768,7 @@ func (p *astLowLevelPrinter) process(r astNodeRef) error {
 			if e = o.AppendCString(" "); e != nil {
 				return e
 			}
-			if e = p.children(a.args, a.count); e != nil {
+			if e = p.childrenOf(a.args, a, a.count); e != nil {
 				return e
 			}
 			if e = o.AppendCString(")"); e != nil {
