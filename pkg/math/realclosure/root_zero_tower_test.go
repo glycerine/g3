@@ -6,7 +6,7 @@ func TestTowerRootDispatchDistinguishedZeroAndOwnership(t *testing.T) {
 	f := newTowerRootFixture(t, true)
 	shifted := append([]*realValue{nil}, f.polynomial...)
 	alphaRefs, gammaRefs := f.alpha.refs, f.gamma.refs
-	roots, err := f.alpha.root.owner.isolateTowerRoots(shifted, true)
+	roots, err := f.alpha.root.owner.isolateAnyRoots(shifted, true)
 	if err != nil || len(roots) != 3 || roots[2] != nil {
 		t.Fatal(roots, err)
 	}

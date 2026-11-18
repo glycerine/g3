@@ -11,7 +11,7 @@ func TestRetainedAffineAlgebraicNegAddSubtract(t *testing.T) {
 	f := newBoundedSignFixture(t, -2, 2)
 	minusTwo, one := f.rational(-2), f.rational(1)
 	owner := &algebraicRootOwner{values: f.store, intervals: f.bounds}
-	roots, err := owner.isolateRationalRoots([]*realValue{minusTwo, nil, one}, true)
+	roots, err := owner.isolateAnyRoots([]*realValue{minusTwo, nil, one}, true)
 	if err != nil || len(roots) != 2 {
 		t.Fatal(len(roots), err)
 	}
@@ -62,12 +62,12 @@ func TestRetainedAffineArithmeticRationalAndExtensionGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	owner := &algebraicRootOwner{values: f.store, intervals: f.bounds}
-	squareRoots, err := owner.isolateRationalRoots([]*realValue{minusTwo, nil, one}, false)
+	squareRoots, err := owner.isolateAnyRoots([]*realValue{minusTwo, nil, one}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	minusThree := f.rational(-3)
-	cubeRoots, err := owner.isolateRationalRoots([]*realValue{minusThree, nil, one}, false)
+	cubeRoots, err := owner.isolateAnyRoots([]*realValue{minusThree, nil, one}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

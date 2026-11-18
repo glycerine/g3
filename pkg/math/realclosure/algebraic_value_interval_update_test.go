@@ -6,7 +6,7 @@ func TestUpdateAlgebraicPolynomialValueInterval(t *testing.T) {
 	f := newBoundedSignFixture(t, -2, 2)
 	minusTwo, one := f.rational(-2), f.rational(1)
 	owner := &algebraicRootOwner{values: f.store, intervals: f.bounds}
-	roots, err := owner.isolateRationalRoots([]*realValue{minusTwo, nil, one}, false)
+	roots, err := owner.isolateAnyRoots([]*realValue{minusTwo, nil, one}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

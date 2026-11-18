@@ -8,7 +8,7 @@ func ambiguousSqrtDifference(t *testing.T, usePrem bool) (*boundedSignFixture, [
 	minusTwo, one := f.rational(-2), f.rational(1)
 	threeHalves := fixtureFraction(t, f, 3, 2)
 	owner := &algebraicRootOwner{values: f.store, intervals: f.bounds}
-	roots, err := owner.isolateRationalRoots([]*realValue{minusTwo, nil, one}, usePrem)
+	roots, err := owner.isolateAnyRoots([]*realValue{minusTwo, nil, one}, usePrem)
 	if err != nil {
 		t.Fatal(err)
 	}

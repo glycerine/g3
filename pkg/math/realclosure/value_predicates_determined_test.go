@@ -7,7 +7,7 @@ func TestDeterminedComparisonPredicates(t *testing.T) {
 	minusTwo, one := f.rational(-2), f.rational(1)
 	threeHalves := fixtureFraction(t, f, 3, 2)
 	owner := &algebraicRootOwner{values: f.store, intervals: f.bounds}
-	roots, err := owner.isolateRationalRoots([]*realValue{minusTwo, nil, one}, true)
+	roots, err := owner.isolateAnyRoots([]*realValue{minusTwo, nil, one}, true)
 	if err != nil {
 		t.Fatal(err)
 	}

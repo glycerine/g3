@@ -11,7 +11,7 @@ func TestRetainedAlgebraicMultiplicationReduction(t *testing.T) {
 	f := newBoundedSignFixture(t, -3, 3)
 	minusTwo, one, minusOne := f.rational(-2), f.rational(1), f.rational(-1)
 	owner := &algebraicRootOwner{values: f.store, intervals: f.bounds}
-	roots, err := owner.isolateRationalRoots([]*realValue{minusTwo, nil, one}, true)
+	roots, err := owner.isolateAnyRoots([]*realValue{minusTwo, nil, one}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,11 +46,11 @@ func TestRetainedMultiplicationRejectsDifferentExtensions(t *testing.T) {
 	f := newBoundedSignFixture(t, -3, 3)
 	one, minusTwo, minusThree := f.rational(1), f.rational(-2), f.rational(-3)
 	owner := &algebraicRootOwner{values: f.store, intervals: f.bounds}
-	squareRoots, err := owner.isolateRationalRoots([]*realValue{minusTwo, nil, one}, false)
+	squareRoots, err := owner.isolateAnyRoots([]*realValue{minusTwo, nil, one}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cubeRoots, err := owner.isolateRationalRoots([]*realValue{minusThree, nil, one}, false)
+	cubeRoots, err := owner.isolateAnyRoots([]*realValue{minusThree, nil, one}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

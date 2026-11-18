@@ -26,7 +26,7 @@ func TestRetainedManagerValueQueries(t *testing.T) {
 		}
 	}
 	owner := &algebraicRootOwner{values: f.store, intervals: f.bounds}
-	roots, err := owner.isolateSquareFreeRationalRoots([]*realValue{minusTwo, nil, one}, true)
+	roots, err := owner.isolateAnyRoots([]*realValue{minusTwo, nil, one}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
