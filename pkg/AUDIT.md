@@ -197,778 +197,778 @@ them if they are ever used.
 
 Sorted by severity, then by area.
 
-| ID | Severity | Confidence | Where (Go) | Finding |
-|---|---|---|---|---|
-| [FUZZ_K-F1](#fuzz-k-f1) | critical | confirmed | `pkg/interp/orchestration.go:53-158` | `ProofInterpolants` uses the full multi-frame translation; C++ uses BINARY_INTERPOLATION (one A/B translation per interpolant) |
-| [smtcore_09-F1](#smtcore-09-f1) | critical | confirmed | `pkg/smtcore/theory_array.go:213-230` | array InternalizeTerm never attaches a theory var to a non-array-op argument (ite array), so axioms are lost and the answer is wrong |
-| [ast_03-F1](#ast-03-f1) | critical | confirmed | `pkg/ast/ast_datatype_utility.go:140-197` | `DatatypeAccessorIndex` uses a creation-order registry that goes stale when a datatype is declared again; accessor rewriting picks the wrong field |
-| [math_realclosure_01-F1](#math-realclosure-01-f1) | critical | confirmed | `pkg/math/realclosure/algebraic_clean_denominator.go:8-41` | cleanAnyValueDenominator ignores rational-function denominators, so isolate_roots returns the wrong roots |
-| [tactic_arith_03-F1](#tactic-arith-03-f1) | critical | confirmed | `pkg/tactic/arith/pb2bv_convert.go:157-186` | pb2bv numeral-on-left atoms: `(= c x)` is encoded unsoundly (copied z3 bug) and `(<= c x)`/`(>= c x)` with c not in {0,1} fail |
-| [tactic_bv_01-F1](#tactic-bv-01-f1) | critical | confirmed | `pkg/tactic/bv/elim_small_bv_tactic.go:192-205,236-328` | elim-small-bv step counter is cumulative and loses the outer-loop guard; a quantifier becomes `true` |
-| [muz_rel_06-F1](#muz-rel-06-f1) | critical | confirmed | `pkg/muz/rel/udoc_guard_compile.go:641-667` | `applyBitVectorEquality` merges into a shared union-find, so equalities leak across the guard |
-| [interp_02-F1](#interp-02-f1) | critical | confirmed | `pkg/interp/translation_idioms.go:208-220` | `translateProofIdiom` tests MP/QUANT_INST tautology with `Locality` instead of `get_locality_rec`, so the idiom never fires |
-| [FUZZ-F1](#fuzz-f1) | high | confirmed | `pkg/smtcore/smt_theory_arith_core.go:781` | `SMTTheoryArith.addRelWatch` fails on the true literal, so `rem` with a numeral divisor answers `unknown` |
-| [FUZZ_A-F1](#fuzz-a-f1) | high | confirmed | `pkg/cmd_context/optimization.go:529-531` | get-objectives after unsat/unknown initial check refuses instead of printing optsmt/maxsmt initial bounds |
-| [FUZZ_A-F4](#fuzz-a-f4) | high | confirmed | `pkg/opt/arithmetic_solver.go:996-1000` | unknown initial check without a model aborts check-sat with "invalid AST owner" |
-| [FUZZ_A-F6](#fuzz-a-f6) | high | confirmed | `pkg/opt/objective_purifier_arithmetic.go:44-62` | objective purify tests the term's sort instead of its head symbol (is_arith_expr) |
-| [FUZZ_A-F7](#fuzz-a-f7) | high | confirmed | `pkg/smtcore/smt_theory_arith_eq.go:26-28` | fixed_var_eh rejects an epsilon-valued fixed bound (SASSERT turned into an error) |
-| [FUZZ_A-F10](#fuzz-a-f10) | high | confirmed | `pkg/opt/arithmetic_solver.go:725-745` | exception inside the MaxSMT engine aborts check-sat instead of becoming unknown |
-| [FUZZ_B-F1](#fuzz-b-f1) | high | confirmed | `pkg/tactic/core/dom_simplify_rewrite.go:69-113` | dom-simplify does not use expr_substitution_simplifier; Go folds `not`/reflexive `=` on its own |
-| [FUZZ_B-F2](#fuzz-b-f2) | high | confirmed | `pkg/tactic/core/dom_simplify_context.go:25-30,17-24` | Go substitution scope lets a later binding override an earlier one; C++ keeps the first |
-| [FUZZ_B-F3](#fuzz-b-f3) | high | confirmed | `pkg/tactic/core/dom_simplify_context.go:85-102` | an equality with no orientable side is not recorded as `eq → true` |
-| [FUZZ_B-F4](#fuzz-b-f4) | high | confirmed | `pkg/tactic/core/dom_simplify_rewrite.go:254-260` | simplify_ite returns the wrong result: branch checks in the wrong order, rewritten condition dropped, is_false tested after assert_expr |
-| [FUZZ_B-F6](#fuzz-b-f6) | high | confirmed | `pkg/tactic/core/dom_simplify_plugin.go:264-270` | simplify_rec skips the root's self-edge in the dominator tree (z3 behavior here is unsound) |
-| [FUZZ_C-F1](#fuzz-c-f1) | high | confirmed | `pkg/tactic/bv/bvarray2uf_rewriter.go:49` | bvarray2uf rewriter is a hand-written memo walk, not rewriter_tpl; it skips the built-in simplification and misnames fresh functions |
-| [FUZZ_C-F2](#fuzz-c-f2) | high | confirmed | `pkg/tactic/core/pb_preprocess_simplify.go:7-11,281-289` | pb-preprocess replaces the C++ m_ge-index bookkeeping and accumulating subsumption vectors with "fixed" logic (documented deviation, observable) |
-| [FUZZ_C-F3](#fuzz-c-f3) | high | confirmed | `pkg/tactic/arith/qfnra_purify_tactic.go:165-186` | purify-arith mod handling, fresh-variable order, apply-def argument order, and filter order differ from C++ |
-| [FUZZ_C-F4](#fuzz-c-f4) | high | confirmed | `pkg/qe/projection_literals.go:105` | qe MBP extract_bools turns the release-compiled SASSERT into an error ("AST source precondition") |
-| [FUZZ_D-F1](#fuzz-d-f1) | high | confirmed | `pkg/tactic/smtlogics/qfnia_tactic.go:115` | QF_NIA nlsat route calls the bare nlsat tactic instead of mk_qfnra_nlsat_tactic |
-| [FUZZ_D-F4](#fuzz-d-f4) | high | confirmed | `pkg/ast/rewriter/arith_polynomial.go:279-370` | hoist_multiplication is not a port of poly_rewriter::hoist_multiplication / merge_muls |
-| [FUZZ_D-F5](#fuzz-d-f5) | high | confirmed | `pkg/tactic/arith/bv2int_rewriter.go:545-553` | bv2int mk_bv_mul keeps intermediate extensions alive (AST id order) |
-| [FUZZ_F-F1](#fuzz-f-f1) | high | confirmed | `pkg/muz/spacer/predicate_expand.go:208` | spacer `ExpandObligation` l_undef branch calls create_children on a fact rule (no uninterpreted tail) |
-| [FUZZ_G-F1](#fuzz-g-f1) | high | confirmed | `pkg/smtcore/theory_str_terms.go:192-247` | `concatTerm`/`assertFlattenedConcatLength` creates the leaf lengths before `str.len(concat)` |
-| [FUZZ_G-F2](#fuzz-g-f2) | high | confirmed | `pkg/smtcore/theory_str_free_variable_order.go:23-83` | `stringFreeVariableOrder` emits free-variable testers in handle-sorted order, not `obj_hashtable` order |
-| [FUZZ_G-F3](#fuzz-g-f3) | high | confirmed | `pkg/smtcore/theory_str_relations.go:64-118` | `instantiateBoundaryRelation` (prefixof/suffixof axiom) builds terms in left-to-right order |
-| [FUZZ_G-F4](#fuzz-g-f4) | high | confirmed | `pkg/smtcore/theory_str_arrangements.go:73-81` | `freshNonemptyString` (`mk_nonempty_str_var`) asserts an extra `!(a = "")` axiom |
-| [FUZZ_G-F5](#fuzz-g-f5) | high | confirmed | `pkg/smtcore/theory_str_extract.go:34-135` | `instantiateCharAt` builds terms in a different order and keeps different owners |
-| [FUZZ_G-F6](#fuzz-g-f6) | high | confirmed | `pkg/smtcore/theory_str_extract.go:137-345` | `instantiateSubstring` builds terms in a different order and keeps different owners |
-| [FUZZ_G-F7](#fuzz-g-f7) | high | confirmed | `pkg/smtcore/theory_str_replace.go:60-181` | `instantiateReplace` builds terms in a different order and keeps different owners |
-| [FUZZ_G-F8](#fuzz-g-f8) | high | confirmed | `pkg/smtcore/theory_str_concat_classes.go:96-100` | `simplifyStringConcat` asserts `(or (not (and ...)) (= node result))` with a raw `MkEq` through `imply`; `assertAxiom` skips the `b_internalized` guard |
-| [FUZZ_H-F11](#fuzz-h-f11) | high | confirmed | `pkg/tactic/arith/fix_dl_var_target.go:76-82` | fix-dl-var picks among tied variables in insertion order, not `obj_map` table order |
-| [FUZZ_I-F1](#fuzz-i-f1) | high | confirmed | `pkg/cmd_context/context.go:977-989` | `Context.mkSolver` interpolating/proof branch never calls `SetProduceModels`, so proof mode has no model |
-| [FUZZ_I-F2](#fuzz-i-f2) | high | confirmed | `pkg/cmd_context/results.go:67` | the command-context and model printers ignore the `pp.*` printer parameters |
-| [FUZZ_I-F7](#fuzz-i-f7) | high | confirmed | `pkg/smtcore/smt_theory_seq.go:999-1022` | theory_seq's `m_rewrite` uses a private, default global-parameter service, so global `rewriter.*` settings do not reach it |
-| [FUZZ_J-F1](#fuzz-j-f1) | high | confirmed | `pkg/tactic/arith/lia2card_tactic.go:314` | `LIA2CardTactic.Apply` loops to the goal's entry size; an update that makes the goal inconsistent shrinks it, and the next `goal.Form` reads out of bounds |
-| [FUZZ_J-F2](#fuzz-j-f2) | high | confirmed | `pkg/opt/maxres_split.go:14-41` | MaxRes `splitCore` deletes the weights of removed assumptions; `m_asm2weight` keeps them, so a later core of the same batch fails with "invalid MaxRes state" |
-| [FUZZ_K-F2](#fuzz-k-f2) | high | confirmed |  | interpolation temporaries do not die where the C++ `ast_r` dies, so AST ids are recycled differently and sum monomials come out in another order |
-| [smtcore_01-F1](#smtcore-01-f1) | high | confirmed | `pkg/smtcore/smt_asserted_ite.go:85` | eliminatePendingTermITEs builds a fresh elim_term_ite rewriter per pass; C++ keeps one rewriter (and its cache) for the life of asserted_formulas |
-| [smtcore_01-F2](#smtcore-01-f2) | high | confirmed | `pkg/smtcore/smt_asserted_driver.go:143` | reduceAssertedPending always expands stored macros (documented deviation that changes answers) |
-| [smtcore_02-F1](#smtcore-02-f1) | high | confirmed | `pkg/smtcore/smt_case_split_queue.go:152-158` | `NextCaseSplit` lets the queue's phase override the quantifier rule |
-| [smtcore_02-F2](#smtcore-02-f2) | high | confirmed | `pkg/smtcore/smt_cg_table.go:74-81` | congruence table matches flat-associative binary applications modulo commutativity |
-| [smtcore_03-F1](#smtcore-03-f1) | high | confirmed | `pkg/smtcore/smt_internalizer.go:1307` | `Assert` has no port of `context::assert_distinct` (large `distinct`) |
-| [smtcore_03-F2](#smtcore-03-f2) | high | confirmed | `pkg/smtcore/smt_internalizer_order.go:104` | deep-expression top-sort treats any non-Boolean operator of kind 4 as a term `ite` |
-| [smtcore_03-F3](#smtcore-03-f3) | high | confirmed | `pkg/smtcore/smt_equality_atom_index.go:14` | `hasRelevantFalseEquality` counts Boolean `iff` atoms; C++ `is_diseq` never does |
-| [smtcore_03-F4](#smtcore-03-f4) | high | confirmed | `pkg/smtcore/smt_dyn_ack_manager.go:32-53` | dyn-ack triple instantiation fails with proofs enabled |
-| [smtcore_04-F1](#smtcore-04-f1) | high | confirmed | `pkg/smtcore/smt_mam_compiler.go:573` | `smtMAMCompiler.isSemiCompatibleCheck` fails the whole pattern insertion when the CHECK enode has no label hash |
-| [smtcore_04-F2](#smtcore-04-f2) | high | confirmed | `pkg/smtcore/smt_kernel.go:1483` | no model after an `unknown` check (quantifier or theory incompleteness) |
-| [smtcore_05-F1](#smtcore-05-f1) | high | confirmed | `pkg/smtcore/smt_model_finder.go:448-495` | processNonAUFMacros walks full and conditional macros in insertion order, not obj_map table order |
-| [smtcore_05-F2](#smtcore-05-f2) | high | confirmed | `pkg/smtcore/smt_model_finder_auf_classify.go:236-270` | classifyAUF is a second implementation of m_is_auf and disagrees with the analyzer |
-| [smtcore_05-F3](#smtcore-05-f3) | high | confirmed | `pkg/smtcore/smt_model_finder_auf_classify.go:184-234` | isAUFSelect skips the array argument, so nested selects become select_var qinfos |
-| [smtcore_06-F2](#smtcore-06-f2) | high | confirmed | `pkg/smtcore/smt_setup_unknown.go:91` | `setupUnknownStaticPolicy` applies `setup_QF_AX(st)` where C++ calls the featureless `setup_QF_AX()` |
-| [smtcore_07-F1](#smtcore-07-f1) | high | confirmed | `pkg/smtcore/smt_tactic_impl.go:301` | `SMTTactic.Apply` / `PrepareCandidateModel` builds a model after a conflict-limit failure |
-| [smtcore_08-F1](#smtcore-08-f1) | high | confirmed | `pkg/smtcore/smt_theory_propagation.go:163-204` | `propagateAssignedAtom` calls the theory's `assign_eh` for an equality atom that is also a theory atom (missing `else`) |
-| [smtcore_09-F2](#smtcore-09-f2) | high | confirmed | `pkg/smtcore/smt_utvpi_graph.go:132-134` | UTVPI parityConflict/enforceParity turn fractional or infeasible Int-vertex states into an internal error |
-| [smtcore_10-F1](#smtcore-10-f1) | high | confirmed | `pkg/smtcore/theory_bv_operators.go:543-571` | `internalizeSplice` creates every argument's variable and bits before adding any bit (concat order) |
-| [smtcore_10-F2](#smtcore-10-f2) | high | confirmed | `pkg/smtcore/theory_dense_diff_logic.go:208-238` | dense `InternalizeAtom` uses the sparse `decompose` instead of the dense shape match, rejecting offset terms |
-| [smtcore_10-F3](#smtcore-10-f3) | high | confirmed | `pkg/smtcore/theory_datatype_recognizers.go:21-26` | `propagateRecognizer` returns an error where C++ release continues with an empty recognizer table |
-| [smtcore_10-F15](#smtcore-10-f15) | high | confirmed | `pkg/ast/rewriter/datatype_rewriter.go:122-150` | (outside this shard) `update-field` over a constructor is rewritten by Go and left unchanged by the reference C++ |
-| [smtcore_11-F1](#smtcore-11-f1) | high | confirmed | `pkg/smtcore/theory_lra.go:632-652` | `SMTLRATheory.InternalizeEquality` ignores theory variables inherited through merges, so equality-adapter axioms are skipped |
-| [smtcore_11-F2](#smtcore-11-f2) | high | confirmed | `pkg/smtcore/theory_fpa.go:673-677` | `SMTFloatingPointTheory.ModelValue` treats an `fp` triple of numerals as a final value, so models print `(fp ...)` and model evaluation stops working |
-| [smtcore_11-F3](#smtcore-11-f3) | high | medium | `pkg/smtcore/theory_fpa.go:336-345` | FPA (and datalog) `assert_cnstr` / `mark_as_relevant` skip the `true` literal, so `true` is never made relevant and the search diverges at relevancy 2 |
-| [smtcore_12-F1](#smtcore-12-f1) | high | confirmed | `pkg/smtcore/theory_str_automaton_bounds.go:128` | findStringAutomatonInitialBounds errors when the language has no nonzero-length word; the C++ release build continues |
-| [smtcore_12-F2](#smtcore-12-f2) | high | confirmed | `pkg/smtcore/theory_str_conversion*.go` | z3str3 gives a wrong `unsat` for `(= i (str.to.int x)) (= i 12)` |
-| [smtcore_13-F3](#smtcore-13-f3) | high | confirmed | `pkg/smtcore/theory_str_regex.go:99-101` | unknown regex operators make z3str3 answer `unknown` where the C++ answers `sat` |
-| [smtcore_13-F5](#smtcore-13-f5) | high | confirmed | `pkg/smtcore/theory_utvpi.go:251-257` | UTVPI InternalizeTerm creates an enode before its arguments are internalized |
-| [smtcore_13-F6](#smtcore-13-f6) | high | confirmed | `pkg/smtcore/theory_utvpi.go:125-137` | UTVPI ApplySortConstraint creates graph variables for every arithmetic enode, and model values bypass the arithmetic factory |
-| [smtcore_14-F1](#smtcore-14-f1) | high | confirmed | `pkg/cmd_context/context.go:1428` | `Context.CheckSat` (plain `check-sat`) never applies `timeout` or `rlimit`; `Push`/`Pop` never push the resource limit |
-| [sat_01-F1](#sat-01-f1) | high | confirmed | `pkg/sat/sat_big_reduce.go:62` | `satBIG.reduceTransitive` runs by default in every SCC pass; the C++ has no transitive reduction, no `scc.tr` parameter and no `sat_big` |
-| [sat_03-F1](#sat-03-f1) | high | confirmed | `pkg/sat/sat_solver_index_sets.go:12` | `satSolverIndexSet` iterates in insertion order, C++ `index_set` iterates in hash-table slot order (changes `get-consequences` output) |
-| [ast_rewriter_01-F1](#ast-rewriter-01-f1) | high | confirmed | `pkg/ast/rewriter/arith_rewriter.go:847-1019` | `rewritePower` skips the 1/0 base and zero-exponent rules for non-numeral or huge exponents |
-| [ast_rewriter_01-F2](#ast-rewriter-01-f2) | high | confirmed | `pkg/ast/rewriter/arith_algebraic.go:124-201` | algebraic `+`/`*` folding requires every argument to be a numeral |
-| [ast_rewriter_03-F1](#ast-rewriter-03-f1) | high | confirmed | `pkg/ast/rewriter/der_rewrite.go:95-178` | DER (`der` tactic) ports a newer upstream der.cpp: it eliminates existentials, flattens the body with flatten_or, and changes the unit case |
-| [ast_rewriter_03-F2](#ast-rewriter-03-f2) | high | confirmed | `pkg/ast/rewriter/enum2bv_rewriter.go:38-40,805-835` | enum2bv exposes its decl maps as Go maps, so model-converter insertion order (and `get-model` order) is random |
-| [ast_rewriter_04-F1](#ast-rewriter-04-f1) | high | confirmed | `pkg/ast/rewriter/factor_rewriter.go:256-267` | factor_rewriter `collect_powers`/`mk_eq`/`mk_is_negative` iterate powers in insertion order instead of obj_map table order |
-| [ast_rewriter_04-F2](#ast-rewriter-04-f2) | high | confirmed | `pkg/ast/rewriter/pb2bv_rewriter.go:277` | pb2bv `weighted` always divides coefficients and bound by their gcd (not in 4.7.1) |
-| [ast_sub_02-F1](#ast-sub-02-f1) | high | confirmed | `pkg/ast/normal_forms/nnf.go:397-399` | NNF and/or uses ast_util MkAndArray/MkOrArray, so unary and/or are dropped, and with proofs the tactic fails |
-| [ast_03-F2](#ast-03-f2) | high | confirmed | `pkg/ast/ast_datatype_definition.go:194-203` | `MkDatatypes` does not reset the plugin's `datatype::util` when it replaces a definition, so stale constructors come back |
-| [ast_03-F3](#ast-03-f3) | high | confirmed | `pkg/ast/ast_datatype_cardinality.go:49-95` | datatype cardinality recurses into same-block datatypes; C++ treats them as infinite, so the finite/infinite classification, the models and the splits differ |
-| [ast_05-F1](#ast-05-f1) | high | confirmed | `pkg/ast/ast_fpa_rm_binary_decl.go:12-15` | unary `fp.sub` is rejected instead of being turned into `fp.neg` (`floatingPointRMBinaryDecl` / FPA dispatch) |
-| [ast_07-F1](#ast-07-f1) | high | confirmed | `pkg/ast/ast_smt2_boolean_tree.go:181-206` | SMT2 printer never consults `env.uses()`, so `let` aliases and renamed binders can capture declared symbols |
-| [model_01-F2](#model-01-f2) | high | confirmed | `pkg/model/model_evaluator.go:690-722,795-810` | ReduceApp skips `evaluate_partial_theory_func` when the arith, BV, datatype, PB or seq rewriter fails |
-| [util_numeral_02-F1](#util-numeral-02-f1) | high | confirmed | `pkg/util/numeral/mpf_numeral_interval.go:129-176` | `ArbitraryFloatNumeralManager.Floor`/`Ceil` run `check()` on input, scratch and result, which f2n::floor/ceil do not do (they only SASSERT), so floor/ceil that gives zero fails |
-| [util_lp_05-F1](#util-lp-05-f1) | high | confirmed | `pkg/util/lp/primal_price_rational.go:206` | `SortNonBasis` uses Go `sort.Slice` instead of `std::sort`, so the non-basis order differs and LRA optimization returns a different model |
-| [math_realclosure_01-F2](#math-realclosure-01-f2) | high | confirmed | `pkg/math/realclosure/root_bound_intervals.go:46-107` | makeRootBoundInterval rejects the inverted bound interval of an empty half-line, so root isolation errors on common polynomials |
-| [math_realclosure_01-F3](#math-realclosure-01-f3) | high | confirmed | `pkg/math/realclosure/algebraic_clean_denominator.go:12-36` | the "any" root-isolation pipeline cannot handle transcendental or infinitesimal coefficients |
-| [math_realclosure_01-F4](#math-realclosure-01-f4) | high | high | `pkg/math/realclosure/root_bisect_any.go:12-92` | bisectAnyRoots lacks the infinitesimal sign-determination escape, so it can recurse without end |
-| [math_realclosure_01-F5](#math-realclosure-01-f5) | high | confirmed | `pkg/math/realclosure/infinitesimal_refine.go:43-105` | determineInfinitesimalValueSign builds closed intervals that contain 0, so Inv of an infinitesimal value fails |
-| [math_realclosure_01-F7](#math-realclosure-01-f7) | high | confirmed | `pkg/math/realclosure/denominator_value_tower.go:11-67` | cleanTowerValueDenominator (RCFNumeratorDenominator) differs from clean_denominators_core |
-| [math_realclosure_01-F8](#math-realclosure-01-f8) | high | confirmed | `pkg/math/realclosure/algebraic_value_interval_update.go:7-12` | refining an algebraic value with non-rational coefficients fails |
-| [math_realclosure_01b-F1](#math-realclosure-01b-f1) | high | confirmed | `pkg/math/realclosure/polynomial_inverse_mod_ranked.go:11-82` | invertRankedPolynomialModulo uses extended Euclid instead of inv_algebraic's Q/R recurrence, so 1/q is not reduced and the extension is not refined |
-| [math_realclosure_02-F1](#math-realclosure-02-f1) | high | confirmed | `pkg/math/realclosure/value_negate_ranked.go:27` | negateRankedRetainedValue drops the denominator of transcendental/infinitesimal values (Neg/Sub return wrong values) |
-| [math_realclosure_02-F2](#math-realclosure-02-f2) | high | confirmed | `pkg/math/realclosure/value_display_api.go:115-149` | displayValue (the API Display of algebraic values) ignores numerator coefficients, rejects every other polynomial, and formats coefficients and sign conditions differently from the C++ |
-| [math_realclosure_02-F3](#math-realclosure-02-f3) | high | confirmed | `pkg/math/realclosure/value_inverse_ranked.go:52-58` | inverseRankedRetainedValue fails when the numerator shares a factor with a reducible defining polynomial (C++ refines the extension and retries) |
-| [math_subpaving_01-F1](#math-subpaving-01-f1) | high | confirmed | `pkg/math/subpaving/arbitrary_interval_div.go:25-31,79-81` | interval `Div` rejects a zero-containing denominator that C++ divides (SASSERT only), failing the whole tactic |
-| [math_subpaving_02-F1](#math-subpaving-02-f1) | high | confirmed | `pkg/math/subpaving/fixed_monomial.go:240-262` | propagateMonomialDownward (MPFX, HWF) clears `first`, so it divides by the first other factor instead of the last |
-| [math_subpaving_04-F1](#math-subpaving-04-f1) | high | confirmed | `pkg/math/subpaving/tactic/public_factory.go:60` | `:numeral mpff` subpaving tactic fails to construct ("arena: invalid configuration") |
-| [math_misc_01-F1](#math-misc-01-f1) | high | confirmed | `pkg/math/grobner/grobner.go:404` | grobner merge_monomials never charges the resource limit (`m_manager.limit().inc(sz)` dropped) |
-| [nlsat_01-F1](#nlsat-01-f1) | high | confirmed | `pkg/nlsat/explain_signed_projection.go:62-121` | signedProjectInfinity uses the real sign of p; C++ uses `unsigned s`, so the sign is always "positive" |
-| [nlsat_02-F1](#nlsat-02-f1) | high | confirmed | `pkg/nlsat/search_state.go:111` | newSearchState turns `max_conflicts=0` into "unlimited" |
-| [nlsat_03-F1](#nlsat-03-f1) | high | confirmed | `pkg/nlsat/tactic/nlsat_tactic.go:204-261` | nlsat tactic ignores global `nlsat.*` module parameters (`set-option :nlsat.X`) |
-| [qe_01-F1](#qe-01-f1) | high | confirmed | `pkg/qe/expr_quantifier_branch_limit.go:60-64` | constrainExprQEBranch passes an unreferenced `b <= k-1` literal into add_constraint, which frees it, so `(apply qe)` fails with "invalid AST owner" |
-| [qe_01-F2](#qe-01-f2) | high | confirmed | `pkg/qe/arithmetic_model_project_real.go:5-13` | realBranch (project_real) picks the bound direction using get_bound_sizes' doubled counts; the C++ compares raw counts |
-| [qe_01-F3](#qe-01-f3) | high | confirmed | `pkg/qe/arithmetic_cooper_lcm.go:9-23` | cooperLCM uses \|divisor\| and rejects 0; the C++ `lcm` keeps the sign and accepts 0 (mod by 0 or by a negative constant) |
-| [qe_03-F1](#qe-03-f1) | high | confirmed | `pkg/qe/nlarith_branch_builder.go:5-190` | nlarith branch construction is a re-implementation with raw constructors, so `qe :qe_nonlinear true` gives different results |
-| [qe_03-F4](#qe-03-f4) | high | high | `pkg/qe/legacy_array_formula.go:41-133` | legacy array-equality projection (`array_project_eqs_util`) is restructured; it picks different substitution equalities and can leave the projected variable in the result |
-| [qe_03-F6](#qe-03-f6) | high | high | `pkg/qe/legacy_skolem_projection.go:41-90` | `ProjectSkolem` (`Z3_qe_model_project_skolem`) skips the `th_rewriter` passes and the simplifying replacer of `spacer_legacy_mbp.cpp` |
-| [qe_04-F1](#qe-04-f1) | high | high | `pkg/qe/qe_nlarith_plugin_branch.go:8-36` | nlarith plugin `Assign`/`Substitute` skip `factor_rewriter_star` + `th_rewriter` and substitute predicates sequentially |
-| [qe_05-F1](#qe-05-f1) | high | confirmed | `pkg/qe/sat_tactic.go:268-273` | qe-sat refuses proof and unsat-core goals (Go-only fail_if checks) |
-| [qe_05-F2](#qe-05-f2) | high | confirmed | `pkg/qe/quant_elim.go:839-849` | qe-sat partial projection cannot blast_or, so integer projection with non-unit coefficients fails |
-| [opt_01-F1](#opt-01-f1) | high | confirmed | `pkg/opt/maxsmt_engine_select.go:24-29` | sortmax falls back to MaxRes for non-unsigned weights instead of throwing (answers sat where z3 answers unknown) |
-| [opt_01-F2](#opt-01-f2) | high | confirmed | `pkg/opt/maxres_sls.go:11-50` | `opt.enable_sls=true` runs a Go-only PB-SLS candidate search inside MaxRes (dead C++ in 4.7.1) |
-| [opt_01-F3](#opt-01-f3) | high | confirmed | `pkg/opt/maxres_hill_climb.go:15-21` | hill-climb `sort_assumptions` uses a stable sort where `std::sort` is unstable, so models differ with 17+ tied-weight assumptions (default params) |
-| [tactic_top_01-F1](#tactic-top-01-f1) | high | confirmed | `pkg/tactic/tactic_and_then.go:200-213` | and_then / repeat drop the earlier subgoals when a later subgoal is decided sat |
-| [tactic_top_01-F2](#tactic-top-01-f2) | high | confirmed | `pkg/tactic/tactic_probe.go:266-271` | probe `<` and `>` treat NaN differently from the C++ `not(le)` encoding |
-| [tactic_top_01-F5](#tactic-top-01-f5) | high | confirmed | `pkg/tactic/tactic_sine.go:304-307` | sine-filter fails with proofs enabled (Goal.AssertWithProof turns a SASSERT into an error) |
-| [tactic_arith_02-F1](#tactic-arith-02-f1) | high | confirmed | `pkg/tactic/arith/factor_tactic.go:85-97` | factor `ReduceApp` factors equalities whose arguments are not arithmetic applications (sort test instead of `is_arith_expr`) |
-| [tactic_arith_02-F2](#tactic-arith-02-f2) | high | confirmed | `pkg/tactic/arith/qfnra_purify_tactic.go:786` | forward-trig `find_unsafe` runs on the original goal instead of lazily on the partly rewritten goal (z3 is unsound here) |
-| [tactic_arith_02-F4](#tactic-arith-02-f4) | high | confirmed | `pkg/tactic/arith/lia2card_tactic.go:373-424` | lia2card re-asserts 0/1 bounds in bound-manager order instead of `obj_hashtable` (`m_01s`) table order |
-| [tactic_arith_03-F2](#tactic-arith-03-f2) | high | confirmed | `pkg/tactic/arith/qfnra_purify_forward_trig.go:170-187` | purify-arith model converter filters every sin/cos basis constant (duplicates, and hides constants z3 keeps) |
-| [tactic_core_02-F1](#tactic-core-02-f1) | high | confirmed | `pkg/tactic/core/pb_preprocess_normalize.go:79-87` | pb-preprocess `normalize` dereferences nil on a negated pbge with non-literal arguments |
-| [tactic_sls_ufbv_01-F1](#tactic-sls-ufbv-01-f1) | high | confirmed | `pkg/tactic/ufbv/match_subst.go:107-155` | matchSubst.bindIdentical binds unbound variables that C++ match_args_aux_proc leaves unbound (z3 answers sat, g3 answers unsat) |
-| [muz_fp_01-F1](#muz-fp-01-f1) | high | confirmed | `pkg/muz/fp/bmc_engine.go:26-46` | BMC `nonlinear::setup` must inherit `m_fparams.m_mbqi` from the previous query; Go resets it every query |
-| [muz_fp_01-F2](#muz-fp-01-f2) | high | confirmed | `pkg/muz/fp/rule_fragment.go:16-41` | the Datalog engine skips `check_infinite_sorts`, so Int/Real programs are answered where z3 rejects them |
-| [muz_fp_01-F3](#muz-fp-01-f3) | high | confirmed | `pkg/muz/fp/datalog_bound_dispatch.go:22-47` | with the default `pentagon` relation, an unused Int relation makes every Datalog query fail |
-| [muz_fp_01-F4](#muz-fp-01-f4) | high | confirmed | `pkg/muz/fp/propositional_engine.go:2619-2628, 2652-2656` | `generate_explanations` is applied to relation queries `(query r)`; the C++ applies it only to expression queries |
-| [muz_fp_02-F2](#muz-fp-02-f2) | high | confirmed | `pkg/muz/fp/datalog_interval_dispatch.go:50-108` | arithmetic `default_relation` favourites never fall back, so finite-domain programs fail |
-| [muz_fp_02-F3](#muz-fp-02-f3) | high | confirmed | `pkg/muz/fp/datalog_karr_dispatch.go:19-43` | Karr selection does not follow `xform.karr`, and Karr handles only Int columns |
-| [muz_fp_02-F5](#muz-fp-02-f5) | high | confirmed | `pkg/muz/fp/datalog_model.go:14-106` | the Datalog engine returns a model built from relation tables; the C++ returns an empty model |
-| [muz_fp_03-F2](#muz-fp-03-f2) | high | confirmed | `pkg/muz/fp/datalog_udoc_dispatch.go:184-259` | doc (udoc) backend skips `rel_context::transform_rules`, so it errors on, or reorders, programs C++ answers |
-| [muz_fp_03-F3](#muz-fp-03-f3) | high | confirmed | `pkg/muz/fp/horn_tactic.go:332` | HornTactic `classify`/`isImplication` call `GetDeclKind` on Boolean-variable or quantifier disjuncts and abort |
-| [muz_fp_03-F4](#muz-fp-03-f4) | high | confirmed | `pkg/muz/fp/horn_tactic.go:546` | Horn tactic and horn-simplify force `auto-config`, ignoring `fixedpoint.engine` |
-| [muz_pdr_01-F1](#muz-pdr-01-f1) | high | confirmed | `pkg/muz/pdr/answer.go:532-555` | `Context.Answer` replaces get_trace with Go-only "nonlinear → true" and "recursive anchor" heuristics |
-| [muz_pdr_02-F1](#muz-pdr-02-f1) | high | confirmed | `pkg/muz/pdr/predicate_nonground_diagnostic.go:13-35` | PDR default_exceptions (non-ground tail, etc.) abort the script instead of becoming `query failed` |
-| [muz_pdr_02-F2](#muz-pdr-02-f2) | high | confirmed | `pkg/muz/pdr/proof_rule_reduction.go:304-438` | `generate_proof_trace` proof is not a port of `model_search::get_proof_trace` / `context::get_proof` |
-| [muz_spacer_02-F1](#muz-spacer-02-f1) | high | confirmed | `pkg/muz/spacer/predicate_rules.go:133` | `spacerRuleBuilder.blastTermITE` runs elim_term_ite instead of blast_term_ite |
-| [muz_spacer_02-F2](#muz-spacer-02-f2) | high | confirmed | `pkg/muz/spacer/unsat_core_plugin_farkas.go:22-34,76-95` | `UnsatCoreFarkasPlugin` combines premises with PDR's always-splitting constraint builder |
-| [muz_transforms_02-F1](#muz-transforms-02-f1) | high | confirmed | `pkg/muz/transforms/rule_inliner.go:1107-1165` | eager inliner `Transform` never records the `del_rule(m_mc, r, true)` entries, so eliminated predicates are missing from the model |
-| [muz_small_02-F1](#muz-small-02-f1) | high | confirmed | `pkg/muz/tab/selection.go:21-25` | `newPredicateSelection` maps `basic-weight` to `weight`; C++ `set_strategy` keeps BASIC_WEIGHT_SELECT |
-| [duality_01-F2](#duality-01-f2) | high | confirmed | `pkg/duality/ground_literals.go:54-58` | `GetGroundLitsUnderQuants` and `ReallySimplifyAndOr` compare decl kinds without checking the basic family, so arithmetic `>`, `+`, `-`, `/` are taken for `and`/`or`/`iff`/`=>` |
-| [duality_01-F3](#duality-01-f3) | high | confirmed | `pkg/muz/duality/native_solver.go:37` | the native Duality solver is given `eq2ineq=true`; C++ never sets it, and z3 refuses or answers differently |
-| [duality_02-F5](#duality-02-f5) | high | medium | `pkg/duality/interpolation_distinct.go:17-112` | the large-`distinct` UIF encoding is rebuilt with a fresh `@distinct` declaration on every interpolation call and is never the formula asserted in the solver; g3 hangs where z3 answers |
-| [duality_03-F1](#duality-03-f1) | high | confirmed | `pkg/duality/derivation_updates.go:35-73` | `BacktrackingDerivation.RecordAnnotationUpdate` never adds the source node to the outer `updated_nodes` set |
-| [interp_01-F2](#interp-01-f2) | high | confirmed | `pkg/interp/direct_proof_eq2leq.go:229-233` | `equalityEndpointsFromInequality` accepts a Real `0.0` where `eq_from_ineq` requires the Int numeral 0 (pointer compare) |
-| [interp_01-F3](#interp-01-f3) | high | confirmed | `pkg/interp/translation_reconstruct.go:446-460` | `reconstructFarkasWithDual` uses Farkas temporaries after the inner `IsSAT` solver has freed them (out of shard, found by fuzzing) |
-| [interp_01-F5](#interp-01-f5) | high | high | `pkg/interp/direct_proof_sum.go:389-391` | `@normal` and rewrite-chain cases dropped in `simplifyRotatedSum`, `divideInequality` and `simplifyRotatedLeqToEq` |
-| [interp_01-F6](#interp-01-f6) | high | medium | `pkg/interp/direct_proof_arithmetic.go:69-105` | `MakeLeqToEq` lacks the mixed-term branch that falls back to `make_axiom` |
-| [interp_02-F2](#interp-02-f2) | high | confirmed | `pkg/interp/manager_rewrite.go:16-66` | `Manager.ReallySimplify` enables `som`/`sort_sums`; the C++ sites call `z3_simplify`, and `z3_really_simplify`'s colon keys are inert anyway |
-| [api_01-F1](#api-01-f1) | high | confirmed | `pkg/api/api_ast_substitution.go:184-215` | `SMTContext.Substitute` uses `default_expr_replacer` instead of `expr_safe_replace` (bound variables captured, not shifted) |
-| [api_01-F2](#api-01-f2) | high | confirmed | `pkg/api/api_datatype_queries.go:66-76` | datatype testers returned as `OP_DT_RECOGNISER` ("is_c") where the C API returns `get_constructor_is` (`OP_DT_IS`, "is") |
-| [api_02-F1](#api-02-f1) | high | confirmed | `pkg/api/api_numerals.go:14-92` | `SMTContext.Numeral` accepts any text; `Z3_mk_numeral` rejects characters outside its numeral alphabet |
-| [api_02-F2](#api-02-f2) | high | confirmed | `pkg/api/api_optimize_parse.go:28-35` | `Optimize.ParseFile` ignores the `.opb` / `.wcnf` extension and always parses SMT-LIB |
-| [api_03-F1](#api-03-f1) | high | confirmed | `pkg/api/z3_generated_context_commands.go:74` | replay never installs `Z3_replayer_error_handler`; API errors abort the replay or are silent |
-| [cmd_context_01-F1](#cmd-context-01-f1) | high | confirmed | `pkg/cmd_context/applications.go:221-264` | `MakeApp` rejects overloads that differ only in range ("ambiguous function reference") |
-| [cmd_context_01-F3](#cmd-context-01-f3) | high | confirmed | `pkg/cmd_context/optimization.go:129` | objectives and soft constraints go through `check_logic`, which `opt::context` never does |
-| [cmd_context_01-F4](#cmd-context-01-f4) | high | confirmed | `pkg/cmd_context/optimization.go:480-552` | `runOptimize` drops the quantified-constraints warning and the "unbounded objectives on quantified constraints" error |
-| [cmd_context_02-F1](#cmd-context-02-f1) | high | confirmed | `pkg/cmd_context/result_access.go:62-86` | `get-consequences` leaves no model and an empty reason-unknown (Context.Consequences / SMTSolver.GetConsequences) |
-| [parsers_shell_01-F1](#parsers-shell-01-f1) | high | confirmed | `pkg/parsers/smt2/commands.go:750-760` | `assert` accepts a non-Boolean term (missing `is_bool` check) |
-| [parsers_shell_01-F2](#parsers-shell-01-f2) | high | confirmed | `pkg/parsers/smt2/commands.go` | commands check `)` before applying their effect; the C++ applies the effect first |
-| [parsers_shell_01-F3](#parsers-shell-01-f3) | high | confirmed | `pkg/parsers/smt2/expressions.go:299-416` | `match` expressions are not supported |
-| [parsers_shell_01-F4](#parsers-shell-01-f4) | high | confirmed | `pkg/parsers/smt2/expressions.go:507-538` | a quantifier with an empty variable list is accepted |
-| [FUZZ-F2](#fuzz-f2) | medium | confirmed | `pkg/smtcore/smt_theory_arith_core.go:981` | `mkRemAxiom` holds references the C++ leaves unowned, so AST ids, statistics and the trace diverge after a `rem` axiom |
-| [FUZZ-F3](#fuzz-f3) | medium | confirmed | `pkg/muz/pdr/answer.go:556` | PDR answer is built with a raw `and`, so a one-step certificate prints `(and (q0 2))` instead of `(q0 2)` |
-| [FUZZ-F4](#fuzz-f4) | medium | confirmed | `pkg/parsers/smt2/commands.go:422` | `(set-logic X)` with an unsupported logic raises an error instead of printing `unsupported` and continuing |
-| [FUZZ-F5](#fuzz-f5) | medium | confirmed | `pkg/smtcore/smt_search.go:279` | many `IF_VERBOSE` progress messages of the C++ are never printed (`-v:N` output differs) |
-| [FUZZ-F6](#fuzz-f6) | medium | confirmed | `pkg/parsers/smt2/commands.go:1085` | an unsupported `get-info` / `get-option` key prints its `; key line: L position: P` note on standard output, before `unsupported` |
-| [FUZZ-F7](#fuzz-f7) | medium | confirmed | `pkg/parsers/smt2/commands.go:1384` | commands and a parameter that the reference build compiles out (`#ifndef _EXTERNAL_RELEASE`) are available in g3 |
-| [FUZZ-F8](#fuzz-f8) | medium | high | `pkg/smtcore/smt_search.go:405` | an exhausted resource limit is recorded as RESOURCE_LIMIT where the C++ records CANCELED, and check_finalize sets a failure the C++ does not |
-| [FUZZ_A-F2](#fuzz-a-f2) | medium | confirmed | `pkg/opt/arithmetic_solver.go:1097-1107` | lex objective before an unbounded one loses its interval (shown as single value) |
-| [FUZZ_A-F3](#fuzz-a-f3) | medium | confirmed | `pkg/cmd_context/optimization_normalized_execution.go:347-362` | converted (0-1 / BV) objectives after an unbounded lex objective print their initial cost instead of an interval |
-| [FUZZ_A-F5](#fuzz-a-f5) | medium | confirmed | `pkg/opt/arithmetic_solver.go:1359-1373` | undecided search shows converted objectives with swapped/raw MaxSAT bounds |
-| [FUZZ_A-F8](#fuzz-a-f8) | medium | confirmed | `pkg/ast/rewriter/arith_polynomial.go:1084-1138` | arith rewriter elim_to_real temporaries have the wrong lifetime (AST id/trace divergence) |
-| [FUZZ_A-F11](#fuzz-a-f11) | medium | confirmed | `pkg/opt/maxres_candidate.go:58-64` | maxres initial candidate evaluates m_asms with model completion, mutating the shared base model |
-| [FUZZ_A-F12](#fuzz-a-f12) | medium | confirmed | `pkg/cmd_context/optimization.go:707-715` | (get-info :reason-unknown) after a decided optimization prints "" instead of the solver's text |
-| [FUZZ_A-F13](#fuzz-a-f13) | medium | confirmed | `pkg/cmd_context/optimization.go:791-793` | get-objectives precondition uses a "checked" flag instead of objective counts |
-| [FUZZ_B-F5](#fuzz-b-f5) | medium | confirmed | `pkg/tactic/core/dom_simplify_rewrite.go:171-175` | the rebuilt and/or uses `MkAndArgs`/`MkOrArgs` instead of `mk_and`/`mk_or`, so a unary `and` is not unwrapped |
-| [FUZZ_B-F7](#fuzz-b-f7) | medium | confirmed | `pkg/tactic/core/dom_simplify_dominators.go:40-53` | dominator-tree child order is post-order in Go; the C++ uses m_doms obj_map (hash) order |
-| [FUZZ_B-F8](#fuzz-b-f8) | medium | confirmed | `pkg/tactic/core/dom_simplify_dominators.go:57-116` | compute_post_order visits the first argument first; C++ pushes all unmarked arguments, so the last argument is numbered first |
-| [FUZZ_B-F9](#fuzz-b-f9) | medium | confirmed | `pkg/tactic/core/dom_simplify_plugin.go:157-216` | expr_ref lifetimes not mirrored, so AST ids and the trace log differ even when stdout matches |
-| [FUZZ_C-F5](#fuzz-c-f5) | medium | confirmed | `pkg/tactic/tactic_base.go:438` | tactic Exec does not print the `(tactic-exception "...")` verbose line |
-| [FUZZ_C-F6](#fuzz-c-f6) | medium | confirmed | `pkg/parsers/smt2/expressions.go:215-218` | SMT2 parser releases a failed expression frame immediately; C++ keeps the stack until reset() |
-| [FUZZ_D-F6](#fuzz-d-f6) | medium | confirmed | `pkg/ast/rewriter/arith_rewriter.go:691-721` | mk_mod_core `arg1 == arg2` builds (mod 0 0) before abs (construction order) |
-| [FUZZ_F-F2](#fuzz-f-f2) | medium | confirmed | `pkg/muz/spacer/predicate_reachability.go:154-163` | spacer weak-abstraction parameter override is scoped to the solver check, not to all of `expand_node` |
-| [FUZZ_F-F3](#fuzz-f-f3) | medium | confirmed | `pkg/muz/pdr/predicate_rules.go:19` | pdr walks `p.rules` (rule order) where the C++ walks `m_tag2rule` (obj_map hash order) |
-| [FUZZ_F-F4](#fuzz-f-f4) | medium | confirmed | `pkg/qe/equality_der_conjunctions.go:298` | `qe.EqualityDER` drops the `m_subst_map` / `m_new_args` member lifetimes |
-| [FUZZ_F-F5](#fuzz-f-f5) | medium | confirmed | `pkg/muz/pdr/farkas_learner.go:311` | pdr `FarkasLearner.proofPostOrder` visits proof parents first-to-last; the C++ finishes the last parent first |
-| [FUZZ_F-F6](#fuzz-f-f6) | medium | high | `pkg/duality/counterexample_display.go:65-79` | duality counterexample `step` prints the evaluated node instead of `(name args...)` |
-| [FUZZ_H-F6](#fuzz-h-f6) | medium | confirmed | `pkg/tactic/core/cofactor_term_ite_rewriter.go:126-128` | cofactor-term-ite `bottom_up_elim`: AST lifetimes and the `m_has_term_ite` gate differ from the C++ |
-| [FUZZ_H-F8](#fuzz-h-f8) | medium | confirmed | `pkg/cmd_context/apply_tactic_output.go:17-23` | `apply` prints goals without cmd_context's `pp_env` |
-| [FUZZ_H-F10](#fuzz-h-f10) | medium | confirmed | `pkg/model/fpa/bv2fpa_model.go:158-196` | bv2fpa `convertMinMaxSpecials` compares sign values numerically, where the C++ compares AST identity |
-| [FUZZ_I-F3](#fuzz-i-f3) | medium | confirmed | `pkg/parsers/smt2/check_sat_command.go:36` | `dump_models` is never acted on after `check-sat` |
-| [FUZZ_I-F4](#fuzz-i-f4) | medium | confirmed | `pkg/cmd_context/context.go:1532-1547` | `get-model` ignores `model.v1`/`model.v2` (`cmd_context::display_model`) |
-| [FUZZ_I-F5](#fuzz-i-f5) | medium | confirmed | `pkg/tactic/core/elim_term_ite_tactic.go:280-285` | `EliminateTermITETactic.CollectStatistics` reports `:elim-term-ite-consts`, which the C++ tactic has no `collect_statistics` for |
-| [FUZZ_I-F6](#fuzz-i-f6) | medium | confirmed | `pkg/smtcore/smt_theory_arith_core.go:238-242` | `smt.arith.random_initial_value` gives a random initial value of the wrong sign for mi/inf/si/smi ext |
-| [FUZZ_I-F12](#fuzz-i-f12) | medium | confirmed | `pkg/parsers/smt2` | an assertion that refers to a failed `declare-const` reports "AST source precondition" instead of "invalid number of arguments to fp" |
-| [FUZZ_J-F3](#fuzz-j-f3) | medium | confirmed | `pkg/opt/arithmetic_solver.go:830-832` | `opt.optsmt_engine=farkas`: `optimizeBoxEngineObjective` treats a missing per-objective model as an error; C++ `lex` returns `l_true` with `optsmt::m_model` (null here) |
-| [FUZZ_J-F4](#fuzz-j-f4) | medium | confirmed | `pkg/cmd_context/opb_loader.go:53-63` | OPB loader turns a one-term constraint into a Boolean literal (Go-only shortcut); `opt_parse` always builds `(op (ite c k 0) b)` |
-| [FUZZ_J-F5](#fuzz-j-f5) | medium | confirmed | `pkg/opt/arithmetic_solver.go:805-848` | `lex` with `farkas`/`symba` returns the per-objective box model `m_models[i]`; C++ `execute_min_max` takes `optsmt::m_model` |
-| [FUZZ_J-F6](#fuzz-j-f6) | medium | confirmed | `pkg/shell/opb_frontend_output.go:23` | OPB/WCNF `-st` prints the SMT-LIB command-context statistics instead of `opt::context::collect_statistics` plus the `time:` line |
-| [smtcore_01-F3](#smtcore-01-f3) | medium | confirmed | `pkg/smtcore/smt_arith_eq_adapter_source.go:333` | arithmetic equality adapter queues restart pairs against the search level instead of the base level |
-| [smtcore_01-F4](#smtcore-01-f4) | medium | confirmed | `pkg/smtcore/smt_arith_eq_solver.go:232` | SolveEquations resets the `useful` row list per pivot; the C++ never resets it |
-| [smtcore_01-F5](#smtcore-01-f5) | medium | confirmed | `pkg/smtcore/ctx_solver_simplify_tactic.go:82` | ctx-solver-simplify applies tactic parameters to the inner solver's smt_params; the C++ never does |
-| [smtcore_01-F6](#smtcore-01-f6) | medium | confirmed | `pkg/smtcore/smt_boolean_propagation.go:257` | Propagate (bcp) drops the per-literal get_cancel_flag(), so the resource counter and cancellation point differ |
-| [smtcore_01-F7](#smtcore-01-f7) | medium | medium | `pkg/smtcore/smt_assume_eq.go:12` | setScopedTrueFirst does not push a trail entry when the flag is already set |
-| [smtcore_02-F5](#smtcore-02-f5) | medium | confirmed | `pkg/smtcore/smt_case_split_queue.go:111-131` | `occurrencePhase` counts packed binary clauses |
-| [smtcore_02-F7](#smtcore-02-f7) | medium | confirmed | `pkg/smtcore/smt_consequences.go:479` | `GetConsequences` rebuilds `m_var2val` for every call; C++ keeps the table and its capacity |
-| [smtcore_02-F8](#smtcore-02-f8) | medium | confirmed | `pkg/smtcore/smt_conflict_proof.go:799` | proof of an extended theory equality propagation states `(= lhs rhs)` instead of `mk_eq_atom(lhs, rhs)` |
-| [smtcore_02-F9](#smtcore-02-f9) | medium | confirmed | `pkg/smtcore/smt_case_split_queue.go:191-193` | `smt.case_split=6` uses the configured phase selection; the reference build always decides negative |
-| [smtcore_02-F10](#smtcore-02-f10) | medium | high | `pkg/smtcore/smt_clause_maintenance.go:142-165` | `del_inactive_lemmas1` path sorts a copy; C++ sorts `m_lemmas` in place |
-| [smtcore_03-F5](#smtcore-03-f5) | medium | confirmed | `pkg/smtcore/smt_dyn_ack_manager.go:134-143` | dyn-ack builds equality atoms with `MkEq` instead of `context::mk_eq_atom` |
-| [smtcore_03-F6](#smtcore-03-f6) | medium | confirmed | `pkg/smtcore/smt_dyn_ack_manager.go:260-280` | `used_cg_eh`/`used_eq_eh` events from the resolution loop reach dyn-ack one conflict late |
-| [smtcore_03-F7](#smtcore-03-f7) | medium | confirmed | `pkg/smtcore/smt_dyn_ack_pairs.go:35` | dyn-ack parameter validation rejects values C++ accepts |
-| [smtcore_03-F8](#smtcore-03-f8) | medium | high | `pkg/smtcore/smt_search.go:467-481` | `propagate_eh` is skipped when the context is still inconsistent after `resolve_conflict` |
-| [smtcore_03-F9](#smtcore-03-f9) | medium | high | `pkg/smtcore/smt_internalizer.go:370-377` | an auxiliary lemma with a true first watch and a false second watch is not put on the reinit stack |
-| [smtcore_03-F10](#smtcore-03-f10) | medium | high | `pkg/smtcore/smt_implied_equalities.go:38-47` | implied equalities return different class identifiers and drop the result on `unknown` |
-| [smtcore_03-F11](#smtcore-03-f11) | medium | medium | `pkg/smtcore/smt_dyn_ack_pairs.go:131-141` | a pair queued twice makes `markInstantiated` fail where C++ instantiates again |
-| [smtcore_04-F3](#smtcore-04-f3) | medium | confirmed | `pkg/smtcore/smt_mam_interpreter.go:42-43, 363, 493` | MAM cancellation and resource-limit calls are dropped (hooks declared, never assigned) |
-| [smtcore_04-F4](#smtcore-04-f4) | medium | confirmed | `pkg/smtcore/smt_kernel.go:812` | `SMTKernel.assertFormulaCore` omits the leading `get_cancel_flag()` of `context::assert_expr_core` |
-| [smtcore_04-F5](#smtcore-04-f5) | medium | confirmed | `pkg/smtcore/smt_learned_persistence.go:373` | delayed learned units are never dropped at base level, so `delay_units_threshold` counts the wrong set |
-| [smtcore_05-F4](#smtcore-05-f4) | medium | confirmed | `pkg/smtcore/smt_model_finder_auf_offsets.go:68-94` | bit-vector offset, bound and exception terms are fully rewritten; the C++ applies one poly_rewriter step |
-| [smtcore_05-F5](#smtcore-05-f5) | medium | confirmed | `pkg/smtcore/smt_model_checker.go:754-757` | Check never records "max mbqi instantiations reached" as the reason for unknown |
-| [smtcore_05-F6](#smtcore-05-f6) | medium | confirmed | `pkg/smtcore/smt_qi_instance.go:327` | instance creation never prints the smt.qi.profile_freq statistics line |
-| [smtcore_05-F7](#smtcore-05-f7) | medium | confirmed | `pkg/smtcore/smt_qi_cost.go:77-90` | an invalid qi.cost falls back silently; the C++ warns |
-| [smtcore_05-F8](#smtcore-05-f8) | medium | high | `pkg/smtcore/smt_model_finder.go:111` | model-finder checkpoints are placed differently, so the resource counter advances differently |
-| [smtcore_06-F3](#smtcore-06-f3) | medium | confirmed | `pkg/smtcore/smt_search.go:468` | restart test in `boundedSearch` measures depth from the search level, not `m_base_lvl` |
-| [smtcore_06-F4](#smtcore-06-f4) | medium | confirmed | `pkg/smtcore/smt_search.go:640` | lemma GC runs inside `resolveSearchConflict`, before the restart and conflict-limit exits |
-| [smtcore_06-F7](#smtcore-06-f7) | medium | confirmed | `pkg/smtcore/smt_quantifier_manager.go:244-257` | `CanPropagate` reports unscanned enodes, so quantifier matching runs before the next decision when relevancy is off |
-| [smtcore_06-F8](#smtcore-06-f8) | medium | confirmed | `pkg/smtcore/smt_solver_core.go:273-299` | `extendUnsatCore` ignores `smt.core.extend_patterns*` set as module parameters, and iterates assertions in insertion order |
-| [smtcore_06-F9](#smtcore-06-f9) | medium | confirmed | `pkg/smtcore/smt_quantifier_registry.go:61` | `SMTQuantifierRegistry.Delete` omits the `qi.profile` statistics line |
-| [smtcore_06-F11](#smtcore-06-f11) | medium | high | `pkg/smtcore/smt_setup.go:237-342` | `smtInstallRetainedSetup` registers arithmetic before bit-vectors for QF_BVRE |
-| [smtcore_07-F2](#smtcore-07-f2) | medium | confirmed | `pkg/smtcore/smt_theory_arith_core.go:2364` | `eliminate` charges the resource limit with a numerator word count instead of `storage_size()` |
-| [smtcore_07-F3](#smtcore-07-f3) | medium | confirmed | `pkg/smtcore/smt_theory_arith_core.go:3070` | `smt.arith.dump_lemmas` is ignored by `theory_arith` (no `dump_lemmas` calls) |
-| [smtcore_08-F2](#smtcore-08-f2) | medium | confirmed | `pkg/smtcore/smt_theory_seq_axioms.go:233-241` | theory_seq reads arithmetic values and bounds from `theory_inf_arith`, which the C++ `get_th_arith` casts reject |
-| [smtcore_08-F3](#smtcore-08-f3) | medium | high | `pkg/smtcore/smt_theory_propagation.go:365-446` | `PropagateCore` drops both cancellation / resource-limit checks of `context::propagate` |
-| [smtcore_09-F3](#smtcore-09-f3) | medium | confirmed | `pkg/smtcore/theory_array_default_values.go:65-101` | instantiate_default_store_axiom builds default(base) before the epsilon equalities |
-| [smtcore_09-F4](#smtcore-09-f4) | medium | confirmed | `pkg/smtcore/theory_array_shared.go:111-123` | mk_interface_eqs pairs the class roots instead of get_enode(th_var) |
-| [smtcore_09-F5](#smtcore-09-f5) | medium | confirmed | `pkg/smtcore/theory_array_sorts.go:52-58` | restoreArraySorts releases ext skolem decls back to front; C++ releases front to back |
-| [smtcore_09-F6](#smtcore-09-f6) | medium | confirmed | `pkg/smtcore/theory_array_parents.go:504-535` | assertDelayedStoreAxioms runs the map axioms per variable; C++ runs every axiom 2b first, then every map axiom |
-| [smtcore_09-F7](#smtcore-09-f7) | medium | confirmed | `pkg/smtcore/theory_array.go:132-159` | Boolean array terms get their bool_var after the axioms instead of inside internalize_term_core |
-| [smtcore_10-F4](#smtcore-10-f4) | medium | confirmed | `pkg/smtcore/theory_datatype_occurs.go:122-124` | datatype occurs check returns early when the context is already inconsistent |
-| [smtcore_10-F5](#smtcore-10-f5) | medium | confirmed | `pkg/smtcore/theory_dense_diff_equality.go:119-258` | dense equality axioms are not built the way `arith_eq_adapter::mk_axioms` builds them |
-| [smtcore_10-F6](#smtcore-10-f6) | medium | confirmed | `pkg/smtcore/theory_dense_diff_logic.go:413-448` | dense `FinalCheck` does not implement `theory::assume_eqs` |
-| [smtcore_10-F7](#smtcore-10-f7) | medium | confirmed | `pkg/smtcore/theory_dense_diff_logic.go:172-178,187-190,204-207,235-238,247-250` | dense theory does not print the `non-diff logic expression` message |
-| [smtcore_10-F8](#smtcore-10-f8) | medium | confirmed | `pkg/smtcore/theory_diff_logic_conflict.go:12-54` | sparse difference logic ignores `smt.arith.dump_lemmas` |
-| [smtcore_10-F9](#smtcore-10-f9) | medium | confirmed | `pkg/smtcore/theory_bv_propagation_trace.go:28-55` | `propagate_bits` conflict trace prints literals as bare numbers |
-| [smtcore_10-F10](#smtcore-10-f10) | medium | confirmed | `pkg/smtcore/theory_bv_fixed_trace.go:47-70` | BV trace records use the wrong expression printer (lines 321, 557, 911) |
-| [smtcore_10-F12](#smtcore-10-f12) | medium | confirmed | `pkg/smtcore/theory_dense_diff_logic.go` | difference-logic theories emit almost none of the C++ TRACE records |
-| [smtcore_10-F14](#smtcore-10-f14) | medium | medium | `pkg/smtcore/theory_dense_diff_equality.go:279-286` | dense `Restart` returns an error when a restart pair lost its theory variable |
-| [smtcore_11-F4](#smtcore-11-f4) | medium | confirmed | `pkg/smtcore/theory_lra.go:826` | `SMTLRATheory.PushScope` copies the whole `unassigned` vector on every scope (O(vars) per decision), so memory and time grow quadratically |
-| [smtcore_12-F4](#smtcore-12-f4) | medium | confirmed | `pkg/math/simplex/simplex.go:458-495` | PB simplex picks pivots and counts rows differently (deterministic tie-break instead of `m_random()%n`) |
-| [smtcore_12-F5](#smtcore-12-f5) | medium | confirmed | `pkg/smtcore/theory_pb.go:355-356` | `pb clauses` statistic appears in `-st` output; the C++ has no such key |
-| [smtcore_13-F2](#smtcore-13-f2) | medium | confirmed | `pkg/smtcore/theory_str_extract.go:137-345` | instantiateSubstring creates its atoms in a different order than the C++ |
-| [smtcore_13-F4](#smtcore-13-f4) | medium | confirmed | `pkg/smtcore/theory_str_suffix_arrangements.go:96` | concat arrangements create equality atoms too early or in the wrong order (types 2, 3 and 6) |
-| [smtcore_13-F7](#smtcore-13-f7) | medium | confirmed | `pkg/smtcore/theory_utvpi.go:236-239` | UTVPI InternalizeTerm returns on a two-term sum before creating its variables |
-| [smtcore_13-F8](#smtcore-13-f8) | medium | confirmed | `pkg/smtcore/theory_wmaxsat.go:154-156` | the weighted MaxSAT theory sorts costs ascending; the C++ sorts descending |
-| [smtcore_13-F9](#smtcore-13-f9) | medium | medium | `pkg/smtcore/theory_str_regex_stage.go:328-372` | refineBound builds the guard conjunction before the right-hand side |
-| [smtcore_13-F10](#smtcore-13-f10) | medium | high | `pkg/smtcore/theory_wmaxsat.go:299-313` | theory_wmaxsat FinalCheck raises a conflict that the C++ final_check_eh does not |
-| [smtcore_14-F2](#smtcore-14-f2) | medium | confirmed | `pkg/smtcore/watch_list.go:85` | `SMTWatchList.InsertLiteral` / `RemoveLiteral` are O(n) per call where the C++ is O(1); quadratic on wide binary-clause fan-out |
-| [smtcore_14-F3](#smtcore-14-f3) | medium | confirmed | `pkg/smtcore/proto_model/proto_model.go:269` | `ProtoModel.Eval` returns the evaluator's exception instead of catching it and returning false |
-| [sat_01-F2](#sat-01-f2) | medium | confirmed | `pkg/sat/sat_tactic_boundary.go:19` | SCC statistic is published as `sat scc elim vars` instead of the C++ key `elim bool vars` |
-| [sat_01-F3](#sat-01-f3) | medium | confirmed | `pkg/sat/dimacs.go:62-64` | malformed DIMACS input: different diagnostic text and exit status |
-| [sat_01-F4](#sat-01-f4) | medium | confirmed | `pkg/sat/dimacs.go:65-74` | `parseInt` accumulates in 64-bit `int`; a literal beyond 32 bits makes g3 allocate billions of variables where the C++ answers |
-| [sat_02-F3](#sat-02-f3) | medium | high | `pkg/sat/sat_solver_assignment.go:15-30` | `satSolverPropagationState.assign` does not emit the `sat_assign` TRACE of `solver::assign` |
-| [sat_03-F2](#sat-03-f2) | medium | confirmed | `pkg/sat/sat_solver_parallel_portfolio.go:27-40,42-75` | `satParallelPortfolio` transfers the winning worker's model and core after all lanes ran; C++ transfers at first finish, so the owner's own `check` result overwrites it |
-| [sat_04-F1](#sat-04-f1) | medium | confirmed | `pkg/sat/sat_solver/solver_trace.go:229` | `Solver.finishDIMACS` sorts the atom map by variable; C++ prints `c <var> <atom>` lines in `obj_map` table order |
-| [sat_04-F2](#sat-04-f2) | medium | confirmed | `pkg/parsers/smt2/check_sat_assumptions.go:19-31` | `check-sat-assuming` / `check-sat` accept arbitrary Boolean terms; C++ rejects anything but a (negated) constant |
-| [sat_05-F1](#sat-05-f1) | medium | confirmed | `pkg/sat/tactic/sat_tactic_trace.go:83-100` | `writeDIMACSAtoms` sorts the atom comment lines by variable, but the C++ prints them in obj_map order |
-| [ast_rewriter_01-F3](#ast-rewriter-01-f3) | medium | confirmed | `pkg/ast/rewriter/arith_algebraic.go:26-42` | `max_degree` is applied to algebraic comparisons and rational/irrational division |
-| [ast_rewriter_01-F6](#ast-rewriter-01-f6) | medium | confirmed | `pkg/ast/rewriter/arith_transcendental.go:289-323` | `sin`/`cos` stop at an unmatched `pi` offset and never reach the `2*pi*to_real(n)` rule |
-| [ast_rewriter_01-F7](#ast-rewriter-01-f7) | medium | confirmed | `pkg/ast/rewriter/arith_algebraic.go:286-294` | even root of a negative irrational is silently refused; the C++ fails with an error |
-| [ast_rewriter_02-F1](#ast-rewriter-02-f1) | medium | confirmed | `pkg/ast/rewriter/bv_polynomial_mul_core.go:14,343` | BV (and arith) "sum of monomials blowup" is a plain Go error, not a rewriter_exception, so `simplify` reports it the wrong way |
-| [ast_rewriter_02-F2](#ast-rewriter-02-f2) | medium | confirmed | `pkg/ast/rewriter/bv_polynomial_sort.go:12-23` | `bvPolynomialSortMonomials` breaks `mon_lt` ties differently from `std::sort`, changing `bvmul` argument order |
-| [ast_rewriter_03-F3](#ast-rewriter-03-f3) | medium | confirmed | `pkg/ast/rewriter/elim_bounds.go:71-74` | elim_bounds does not recognize a Real `-1` coefficient |
-| [ast_rewriter_04-F3](#ast-rewriter-04-f3) | medium | confirmed | `pkg/ast/rewriter/pb2bv_rewriter.go:294-296,314-316` | pb2bv rejects non-integer bounds/coefficients with an error where C++ builds a circuit |
-| [ast_rewriter_04-F4](#ast-rewriter-04-f4) | medium | medium | `pkg/ast/rewriter/expr_safe_replace.go:131-157` | expr_safe_replace quantifier case keeps the shifted substitution terms alive until the whole `Apply` ends |
-| [ast_rewriter_05-F1](#ast-rewriter-05-f1) | medium | confirmed | `pkg/ast/rewriter/seq_rewriter.go:192-199` | `RewriteApp` drops the single-argument `re.++` / `re.union` rule |
-| [ast_rewriter_05-F2](#ast-rewriter-05-f2) | medium | confirmed | `pkg/ast/rewriter/seq_rewriter.go:573-600` | `RewriteAt` bounds the index with the flattened concat; `mk_seq_at` only bounds a single atom |
-| [ast_rewriter_05-F3](#ast-rewriter-05-f3) | medium | confirmed | `pkg/ast/rewriter/th_rewriter.go:233` | `th_rewriter` passes `rewriter.ignore_patterns_on_ground_qbody` to `elim_unused_vars`; the C++ passes an empty `params_ref` |
-| [ast_rewriter_06-F1](#ast-rewriter-06-f1) | medium | confirmed | `pkg/ast/rewriter/bit_blaster/gates.go:24-44,68-70` | bit-blaster gate layer ignores global `rewriter.ite_extra_rules` / `local_ctx` (hard-coded bool_rewriter defaults) |
-| [ast_sub_01-F1](#ast-sub-01-f1) | medium | confirmed | `pkg/ast/macros/quasi_macros.go:465-496` | QuasiMacros.Apply never runs quasi_macros::m_rewriter on the expanded formulas |
-| [ast_sub_01-F2](#ast-sub-01-f2) | medium | confirmed | `pkg/ast/macros/macro_expander.go:231-255` | Macro expansion's th_rewriter uses a private default global-params service, so `rewriter.*` settings are ignored |
-| [ast_sub_01-F3](#ast-sub-01-f3) | medium | medium | `pkg/ast/macros/macro_candidates.go:248-274` | Macro candidate conditions use ast_util mk_and/mk_not instead of bool_rewriter |
-| [ast_sub_01-F4](#ast-sub-01-f4) | medium | medium | `pkg/ast/macros/macro_numeric.go:342-349` | IsPseudoHead tests only the null family and misses declare-sort sorts |
-| [ast_sub_02-F2](#ast-sub-02-f2) | medium | confirmed | `pkg/ast/pattern/reduce_quantifier.go:371-380` | pattern-inference pull proof uses `rewrite` instead of the pull_quant proof chain |
-| [ast_sub_02-F3](#ast-sub-02-f3) | medium | confirmed | `pkg/ast/normal_forms/pull_boolean.go:41-162` | PullQuantifierNoProof has no cache for shared subterms, so pull_quant runs again on each occurrence (extra fresh names; can blow up on DAGs) |
-| [ast_sub_02-F4](#ast-sub-02-f4) | medium | confirmed | `pkg/tactic/core/nnf_tactic.go:138` | nnf/snf tactics reject every nnf parameter (`CollectParamDescrs` is empty), and an invalid mode has a different message |
-| [ast_sub_02-F5](#ast-sub-02-f5) | medium | high | `pkg/ast/normal_forms/nnf.go:474-508` | NNF ite/iff/xor build the two disjunctions in the wrong order (GCC evaluates arguments right to left) |
-| [ast_01-F1](#ast-01-f1) | medium | confirmed | `pkg/ast/ast_array_decl.go:76-137` | array decl plugin errors return ErrASTDomain instead of z3's exception text |
-| [ast_02-F1](#ast-02-f1) | medium | confirmed | `pkg/ast/ast_bv_parameterized_decl.go:269-273` | `bitVectorExprDeclArguments` drops the "Argument ... at position i does not match declaration ..." message |
-| [ast_02-F2](#ast-02-f2) | medium | confirmed | `pkg/ast/ast_bv_plugin.go:333-344` | `BitVectorSort(0)` reports `AST source precondition` instead of "bit-vector size must be greater than zero" |
-| [ast_03-F4](#ast-03-f4) | medium | confirmed | `pkg/ast/ast_datatype_decl.go:124-262` | datatype declaration errors lose the C++ `VALIDATE_PARAM` predicate text and the `update-field` messages |
-| [ast_03-F5](#ast-03-f5) | medium | confirmed | `pkg/ast/ast_core_factories.go:436-438` | quantifiers with both patterns and no-patterns fail with a generic Go error instead of `ast_exception("simultaneous patterns and no-patterns not supported")` |
-| [ast_04-F1](#ast-04-f1) | medium | confirmed | `pkg/ast/ast_format_pp.go:284-342` | PrintFormat with no parameter owners ignores global `pp.*` parameters |
-| [ast_04-F2](#ast-04-f2) | medium | high | `pkg/ast/ast_expr_abstract.go:255-299` | expr_abstract omits the nested "expr_abstract" trace for quantifier bodies and patterns |
-| [ast_05-F2](#ast-05-f2) | medium | confirmed | `pkg/ast/ast_fpa_fp_decl.go:10-36` | FPA declaration and sort error paths return `ErrASTDomain` ("g3: AST source precondition") instead of the C++ exception text |
-| [ast_06-F1](#ast-06-f1) | medium | confirmed | `pkg/ast/ast_seq_decl.go:94-115` | `sequenceDecl` sort-checks `re.all` / `re.allchar` / `re.empty` against the signature where the C++ does not |
-| [ast_06-F2](#ast-06-f2) | medium | confirmed | `pkg/ast/ast_seq_decl.go:117-150` | `sequenceDecl` rejects declaration parameters that `seq_decl_plugin::mk_func_decl` ignores |
-| [ast_06-F3](#ast-06-f3) | medium | confirmed | `pkg/ast/ast_pattern.go:23-33` | `IsPattern` / `RewriterPattern` omit `is_pattern`'s "every argument is an application" test |
-| [ast_07-F2](#ast-07-f2) | medium | confirmed | `pkg/ast/ast_smt2_boolean_tree.go:125-163` | shared-subterm detection is recomputed per quantifier body instead of once (`m_soccs`) for the whole root |
-| [ast_07-F3](#ast-07-f3) | medium | confirmed | `pkg/ast/ast_smt2_sort.go:155` | base `SMT2PPSort` prints parametric user sorts as applications; C++ prints only the name |
-| [ast_07-F4](#ast-07-f4) | medium | confirmed | `pkg/ast/ast_smt_legacy_decl.go:22` | legacy benchmark printer drops the indentation space that `newline()` emits after each sort/datatype declaration |
-| [ast_07-F5](#ast-07-f5) | medium | confirmed | `pkg/ast/ast_sort_dependency_order.go:103-169` | decl_collector sort order uses insertion order instead of `top_sort`'s `obj_map` iteration order |
-| [ast_07-F6](#ast-07-f6) | medium | confirmed | `pkg/ast/ast_smt2_quantifier_root.go:71-94` | quantifier binder renaming fails with an error when the renamed name needs quoting |
-| [ast_08-F1](#ast-08-f1) | medium | confirmed | `pkg/ast/util_psort_ast_sorting.go:16-33,35-80,81-140,141-244,301-475,476-706` | psort AST network emits only entry `pb` traces; dualize/mk_at_most_1/add_clause/add_subset and all completion traces are missing |
-| [model_01-F1](#model-01-f1) | medium | confirmed | `pkg/model/model_evaluator.go:218-229` | ModelEvaluator does not force `flat` on the arithmetic and bit-vector rewriters |
-| [model_01-F3](#model-01-f3) | medium | confirmed | `pkg/model/model_evaluator_array_equality.go:309-327` | `mk_array_eq_core` walks `table1` in insertion order, not hashtable order |
-| [model_01-F4](#model-01-f4) | medium | confirmed | `pkg/model/model_printers.go:278-290,637-651` | the SMT2 model printer does not skip variable names that are already in use |
-| [model_01-F5](#model-01-f5) | medium | high | `pkg/model/model_implicant_array.go:390-405` | `evalArrayEq` clears a nested "true" result that the C++ keeps |
-| [util_numeral_03-F1](#util-numeral-03-f1) | medium | confirmed | `pkg/util/numeral/mpf_rational_set_allocation.go:52-86` | MPF per-invocation histories (rational-set, round, value-copy) are never retired; memory grows per FP op and cleanup at close is quadratic |
-| [util_lp_02-F1](#util-lp-02-f1) | medium | confirmed | `pkg/util/lp/driver_rational_benchmark.go:56` | rational/pair benchmark drivers draw numerator before denominator (GCC draws the denominator first) |
-| [util_lp_03-F1](#util-lp-03-f1) | medium | confirmed | `pkg/util/lp/lar_signature.go:8-11,110-117,119-213` | solution signature iterated in ascending order instead of libstdc++ unordered_map order (LU mode models differ) |
-| [util_lp_04-F1](#util-lp-04-f1) | medium | confirmed | `pkg/util/lp/mps_reader_float.go:122-132` | `mpsNumber` uses strict `strconv.ParseFloat` where the C++ uses `atof`, so g3 rejects MPS files that z3 reads |
-| [util_lp_04-F2](#util-lp-04-f2) | medium | confirmed | `pkg/util/lp/mps_reader_float.go:558-560` | `readBounds` returns `ErrBounds` on the empty line left by end of file, where the C++ just leaves the loop |
-| [util_lp_06-F1](#util-lp-06-f1) | medium | confirmed | `pkg/util/lp/solver_model_report_float.go:28-44` | `FloatPrimalSimplex.PrintModel` sorts column names instead of using the C++ `unordered_map` order |
-| [util_params_01-F1](#util-params-01-f1) | medium | confirmed | `pkg/util/params/util_gparams_dictionary.go:14-56` | gparams module-descriptor dictionary iterates in registration order instead of z3 hash-table order (`-p`, `-pd`, `-pm`) |
-| [math_polynomial_01-F1](#math-polynomial-01-f1) | medium | confirmed | `pkg/math/polynomial/algebraic_isolation.go:262-296` | `isolate_roots` sorts roots with a heap sort, so root comparisons happen in a different order and with swapped arguments compared with C++ `std::sort` |
-| [math_polynomial_04-F1](#math-polynomial-04-f1) | medium | high | `pkg/math/polynomial/polynomial_gcd_power_buffer.go:51-53` | mod_gcd sorts var_min_degrees with Go sort.Slice instead of libstdc++ std::sort (tie order diverges at 13+ variables) |
-| [math_polynomial_04-F2](#math-polynomial-04-f2) | medium | high | `pkg/math/polynomial/polynomial_gcd_modular.go:56,250,305,317,365` | mod_gcd trace records print polynomial_ref values with use_star=true, and the u_Zp/v_Zp record uses the wrong label |
-| [math_polynomial_08-F1](#math-polynomial-08-f1) | medium | confirmed | `pkg/math/polynomial/upolynomial_division_remainder.go:76-92,119-127` | `remStateWithSourceContext` emits the `rem_bug` TRACE only under root-ID/Sturm-sequence frames |
-| [math_polynomial_09-F1](#math-polynomial-09-f1) | medium | confirmed | `pkg/math/polynomial/upolynomial_factor_frontend_invocation.go:242-248` | `UPolynomialFactorizationService.Factor` keeps about 12 KB of "history" per call for the life of the service |
-| [math_polynomial_10-F1](#math-polynomial-10-f1) | medium | confirmed | `pkg/math/polynomial/upolynomial_isolation.go:186` | DRS root isolation (sqf_isolate_roots / drs_isolate_roots / drs_isolate_0_1_roots) emits none of its `upolynomial` TRACE records |
-| [math_polynomial_11-F1](#math-polynomial-11-f1) | medium | confirmed | `pkg/math/polynomial/upolynomial_transforms.go:12-89` | translate (kinds 3/4, translate_bq/translate_q) drops the two TRACE("upolynomial") sites |
-| [math_realclosure_01-F6](#math-realclosure-01-f6) | medium | confirmed | `pkg/math/realclosure/infinitesimal_refine.go:194-206` | refineInfinitesimalPolynomialValue does not refine values infinitely close to 0 |
-| [math_realclosure_01-F9](#math-realclosure-01-f9) | medium | confirmed | `pkg/math/realclosure/root_bound_intervals.go:93-105` | root isolation intervals are closed where C++ uses open intervals |
-| [math_realclosure_01-F10](#math-realclosure-01-f10) | medium | confirmed | `pkg/math/realclosure/polynomial_square_free_any.go:7-37` | square-free under use_prem does not use prem_gcd or normalize_int_coeffs, so the stored defining polynomial differs |
-| [math_realclosure_01-F11](#math-realclosure-01-f11) | medium | confirmed | `pkg/math/realclosure/display_helpers_ranked.go:35-37` | rankedCoefficientNeedsParentheses ignores the "denominator is not one" condition of use_parenthesis |
-| [math_realclosure_02-F4](#math-realclosure-02-f4) | medium | confirmed | `pkg/math/realclosure/value_add_ranked.go:121-125` | ranked add/mul test the singleton result before normalize_fraction, so a fraction that cancels to a constant stays a rational-function value |
-| [math_subpaving_01-F3](#math-subpaving-01-f3) | medium | confirmed | `pkg/math/subpaving/arbitrary_context_relevance.go:50-216` | Arbitrary `RelevantNewBound` lacks the C++ catch of `C::exception`, so an mpf non-regular result aborts propagation instead of just rejecting the bound |
-| [math_subpaving_01-F4](#math-subpaving-01-f4) | medium | confirmed | `pkg/math/subpaving/arbitrary_monomial_propagate.go:169-189` | Arbitrary `propagateMonomialDownward` clears `first`, so `d` is the first other factor instead of the C++ last other factor |
-| [math_subpaving_01-F5](#math-subpaving-01-f5) | medium | high | `pkg/math/subpaving/fast_monomial.go:107-130` | Fast `PropagateMonomial` found-zero branch filters the zero bounds through normalize/relevance; C++ calls `propagate_bound` directly |
-| [math_subpaving_02-F2](#math-subpaving-02-f2) | medium | confirmed | `pkg/math/subpaving/hardware_context_bounds.go:131-138` | a node with a conflict is not removed from the leaf list (HWF), and the root is always queued (MPFX) |
-| [math_subpaving_04-F2](#math-subpaving-04-f2) | medium | confirmed | `pkg/math/subpaving/tactic/fixed_core_tactic.go:273` | MPFX print_nodes displays definitions with `use_star=true` |
-| [math_subpaving_04-F3](#math-subpaving-04-f3) | medium | confirmed | `pkg/math/subpaving/tactic/hardware_core_tactic.go:186,203` | non-MPQ engines return "unsupported atom" (and other converter errors) as plain errors, not tactic exceptions |
-| [math_misc_01-F2](#math-misc-01-f2) | medium | high | `pkg/math/grobner/grobner.go:87-118` | grobner equation sets iterate in insertion order, not in `obj_hashtable` slot order |
-| [math_misc_01-F3](#math-misc-01-f3) | medium | high | `pkg/math/hilbert/hilbert_basis.go:310-326` | hilbert subsumption index ignores the C++ split by weight sign (positive vectors can be pruned by zero-weight ones) |
-| [math_misc_01-F4](#math-misc-01-f4) | medium | high | `pkg/math/hilbert/ordered_passive.go:76-99` | hilbert passive queue and final basis sort break ties differently from the C++ heap and `std::sort` |
-| [math_misc_02-F1](#math-misc-02-f1) | medium | confirmed | `pkg/math/simplex/model_based_opt.go:373-423` | `resolveInteger` skips the source `normalize(row_dst)` on the opposite-sign integer path |
-| [math_misc_02-F2](#math-misc-02-f2) | medium | high | `pkg/math/simplex/simplex.go:558-593` | `MakeFeasible` (non-arithmetic policy) drops `check_blands_rule` and skips patch entries the C++ counts as iterations |
-| [math_misc_02-F3](#math-misc-02-f3) | medium | high | `pkg/math/simplex/matrix.go:64-84` | `Matrix` row and column entry order ignores the sparse_matrix free-list slot reuse |
-| [nlsat_01-F2](#nlsat-01-f2) | medium | confirmed | `pkg/nlsat/evaluator.go:162-187` | evalInequality multiplies raw signs in 64-bit int; C++ multiplies in 32-bit int and overflows |
-| [nlsat_01-F3](#nlsat-01-f3) | medium | high | `pkg/nlsat/explain_virtual_substitution.go:96-161` | signedSolveLinearEquality rebuilds the A-power table per polynomial; C++ never resets `qs` |
-| [nlsat_01-F4](#nlsat-01-f4) | medium | high | `pkg/nlsat/explain_normalize.go:261-265` | normalize and simplify test `sign < 0` where C++ tests `s == -1` |
-| [nlsat_02-F2](#nlsat-02-f2) | medium | confirmed | `pkg/nlsat/inline_variables.go:243-266` | inline_vars substitution diverges from 4.7.1 in undocumented ways (zero factors, constant folding, clause dedup/tautology) |
-| [nlsat_03-F3](#nlsat-03-f3) | medium | confirmed | `pkg/nlsat/solver.go:65-130` | the `seed` parameter never reaches the interval-set manager (`m_ism.set_seed`) |
-| [nlsat_03-F4](#nlsat-03-f4) | medium | confirmed | `pkg/nlsat/variable_order.go:135-146` | `shuffle_vars` applies the inverse of the C++ permutation |
-| [nlsat_03-F5](#nlsat-03-f5) | medium | confirmed | `pkg/nlsat/tactic/nlsat_tactic.go:155-189` | nlsat tactic omits the `algebraic` parameters and does not give the solver its own parameterised algebraic manager |
-| [nlsat_03-F6](#nlsat-03-f6) | medium | high | `pkg/nlsat/solver.go:258-263` | `Solver` has no `m_incremental`; `inline_vars` runs once per solver instead of on every non-incremental check, and would run inside nlqsat |
-| [nlsat_03-F7](#nlsat-03-f7) | medium | medium | `pkg/nlsat/variable_order.go:206-211,341-347` | `ReorderVariables` rebuilds Boolean watch lists, and `Check` skips identity reorders, so watch order differs from C++ |
-| [qe_01-F4](#qe-01-f4) | medium | high | `pkg/qe/datalog_atoms.go:131-137` | datalog QE: the small-domain test is `<=` instead of `<`, and the "other value" branch substitutes false for negative equality atoms (C++ uses true) |
-| [qe_01-F5](#qe-01-f5) | medium | high | `pkg/qe/arithmetic_qe_term.go:175-201` | get_coeff/get_const build `rest` as a left-nested chain of binary `+` instead of one n-ary mk_add |
-| [qe_01-F6](#qe-01-f6) | medium | medium | `pkg/qe/arithmetic_project_formula.go:5-16` | qe-sat partial projection orders atoms by a DFS walk, not by the context's atom_set (obj_hashtable) order |
-| [qe_02-F1](#qe-02-f1) | medium | confirmed | `pkg/qe/equality_der_conjunctions.go:332` | eq::der `reduce_var_set` and its traces use the simplifying ast_util `mk_and` instead of `m.mk_and` |
-| [qe_02-F3](#qe-02-f3) | medium | high | `pkg/qe/expr_quantifier_bool_partition.go:58` | `process_partition` builds the blocking clause from the new child, not `m_current` |
-| [qe_02-F4](#qe-02-f4) | medium | confirmed | `pkg/qe/expr_quantifier_scalar_branch.go:191-231` | Go-only recognizer guard in the datatype `subst` step changes the QE result against z3 4.7.1; the z3 bug is not recorded |
-| [qe_02-F5](#qe-02-f5) | medium | confirmed | `pkg/qe/fourier_motzkin.go:143-149` | FM's documented `m_expr2bvar` reset changes qe-light output against z3 4.7.1; the z3 bug is not recorded |
-| [qe_02-F6](#qe-02-f6) | medium | medium | `pkg/qe/expr_quantifier_scalar_branch.go:167-236` | plugin `add_constraint` calls made during `subst` are deferred until after substitution |
-| [qe_02-F7](#qe-02-f7) | medium | high | `pkg/qe/legacy_arithmetic_linear.go:297,318-340` | legacy (Spacer) arithmetic MBP builds intermediate terms differently from `arith_project_util` |
-| [qe_03-F2](#qe-03-f2) | medium | confirmed | `pkg/qe/nlqsat_tactic.go:353` | nlqsat compiles its goal with factorization off; the C++ goal2nlsat factors |
-| [qe_03-F3](#qe-03-f3) | medium | confirmed | `pkg/qe/nlqsat_tactic.go:214` | nlqsat reports its own proof-mode failure; the C++ fails inside tseitin-cnf |
-| [qe_03-F5](#qe-03-f5) | medium | high | `pkg/qe/legacy_array_ackermann.go:151` | `array_project_selects_util` walks array variables in input order, not in `obj_map` order |
-| [qe_04-F2](#qe-04-f2) | medium | medium | `pkg/qe/qe_arithmetic_plugin_classify.go:65-79` | arithmetic plugins' `IsUninterpreted` treat an n-ary `*` with a numeral as interpreted; C++ `is_mul(f, m, n)` matches only binary products |
-| [qe_05-F3](#qe-05-f3) | medium | high | `pkg/qe/simplify_quantifier_rewriter.go:340-348,362-376` | simplify rewriter (qe-sat preprocessing, datalog unbound-var fix) uses raw `not` instead of ast_util `mk_not` |
-| [qe_05-F4](#qe-05-f4) | medium | high | `pkg/qe/sat_strengthen.go:14-36` | qe-sat NNF strengthening/weakening walk atoms in AST-id order, not obj_hashtable order |
-| [qe_05-F5](#qe-05-f5) | medium | confirmed | `pkg/qe/sat_partial_search.go:157-161` | qe-sat never prints the `(qt i)` verbose line |
-| [qe_05-F6](#qe-05-f6) | medium | high | `pkg/qe/quant_elim.go` | `qe`, `qe-sat` and the QE simplify rewriter emit none of their `qe` TRACE records |
-| [opt_01-F4](#opt-01-f4) | medium | confirmed | `pkg/opt/maxres_upper_block.go:10-28` | `maxres.add_upper_bound_block` builds a different (and correct) blocker than z3 4.7.1, whose `pb_util::mk_lt` aliasing bug yields an all-zero-coefficient `pbge`; the divergence is undocumented |
-| [opt_01-F5](#opt-01-f5) | medium | confirmed | `pkg/opt/maxres_stats.go:15-27` | MaxRes statistics never reach `-st`; `maxres-cores` / `maxres-correction-sets` are missing and `Cores` counts the wrong event |
-| [opt_01-F6](#opt-01-f6) | medium | high | `pkg/opt/maxres_mutex_preprocess.go:36-42` | MaxRes engine construction failures (mutex discovery returning l_undef/l_false) abort check-sat instead of returning the status |
-| [opt_02-F1](#opt-02-f1) | medium | confirmed | `pkg/opt/pb_sls_*.go` | `opt.enable_sls=true` runs a PB-SLS search the C++ never runs (pb_sls only reachable from the dead `opt_sls_solver.h`) |
-| [opt_02-F2](#opt-02-f2) | medium | confirmed | `pkg/opt/maxsmt_sort_model.go:138-187` | sortmax counts satisfied inputs with model completion, so negated soft constraints count as already satisfied |
-| [opt_02-F3](#opt-02-f3) | medium | high | `pkg/opt/sortmax_encoded_comparator.go:37-45` | the sortmax comparator always builds `(or a b)`/`(and a b)`; `psort_nw::mk_max`/`mk_min` return `a` when `a == b` |
-| [opt_02-F4](#opt-02-f4) | medium | confirmed | `pkg/opt/opb_parse.go:176-316` | the OPB parser rejects inputs z3 accepts and accepts inputs z3 rejects; error text and exit code also differ |
-| [opt_02-F5](#opt-02-f5) | medium | confirmed | `pkg/opt/wcnf_parse.go:74-149` | the WCNF parser is line-based and strict; z3's token-stream parser accepts files g3 rejects |
-| [tactic_top_01-F3](#tactic-top-01-f3) | medium | confirmed | `pkg/tactic/tactic_probe_structural.go:88-131` | num-consts probes visit quantifier patterns; the C++ ignores patterns |
-| [tactic_top_01-F4](#tactic-top-01-f4) | medium | confirmed | `pkg/tactic/tactic_sine.go:197-209` | sine-filter keeps the bodies of quantifiers that have only `:no-pattern` |
-| [tactic_top_01-F6](#tactic-top-01-f6) | medium | confirmed | `pkg/tactic/tactic_and_then.go:146-177` | and_then (and repeat) drop t2's model converter, proof converter and core when that mode is off |
-| [tactic_top_01-F7](#tactic-top-01-f7) | medium | high | `pkg/tactic/horn_subsume_model_converter.go:233-235` | horn_subsume mk_horn and add_default_false_interpretation build ASTs and register declarations in a different order |
-| [tactic_arith_01-F1](#tactic-arith-01-f1) | medium | confirmed | `pkg/tactic/arith/degree_shift_collect.go:50-57` | degree-shift `save` skips obj_map re-insert, so the table never expands and fresh-variable order differs |
-| [tactic_arith_01-F2](#tactic-arith-01-f2) | medium | confirmed | `pkg/tactic/arith/eq2bv_collect.go:132-142` | eq2bv `add_fd` skips obj_map re-insert, so the table never expands and the `z!N` order differs |
-| [tactic_arith_01-F3](#tactic-arith-01-f3) | medium | confirmed | `pkg/tactic/arith/eq2bv_rewrite.go:238-267` | eq2bv's persistent rewriter cache is a z3 4.7.1 soundness bug; g3 does not copy it and it is not recorded |
-| [tactic_arith_01-F4](#tactic-arith-01-f4) | medium | high | `pkg/tactic/arith/bv2real_rewriter.go:261` | bv2real builds AST arguments left to right where GCC evaluates them right to left |
-| [tactic_arith_01-F5](#tactic-arith-01-f5) | medium | high | `pkg/tactic/arith/bv2int_rules.go:204` | bv2int builds `mk_uminus` and `is_bv2int_diff` operands in the wrong order |
-| [tactic_arith_01-F6](#tactic-arith-01-f6) | medium | high | `pkg/tactic/arith/degree_shift_tactic.go:155-219` | degree-shift builds the model-converter powers after rewriting, not inside `prepare_substitution` |
-| [tactic_arith_01-F7](#tactic-arith-01-f7) | medium | high | `pkg/tactic/arith/eq2bv_apply.go:145` | eq2bv builds the bound formulas before rewriting the goal |
-| [tactic_arith_02-F5](#tactic-arith-02-f5) | medium | confirmed | `pkg/tactic/arith/lia2card_comparison.go:126-131` | lia2card `mk_eq` with no weighted arguments returns `true`/`false` instead of `(and ge le)` or `(_ pbeq 0)` |
-| [tactic_arith_03-F3](#tactic-arith-03-f3) | medium | confirmed | `pkg/tactic/arith/qfnra_purify_forward_trig.go:130-133,170-199` | purify-arith extension model converter lists angles in creation order, not `m_sin_cos` obj_map order |
-| [tactic_arith_03-F4](#tactic-arith-03-f4) | medium | confirmed | `pkg/tactic/arith/pb2bv_apply.go:239-249` | pb2bv model converter and filter list bits in creation order, not `m_const2bit` obj_map order |
-| [tactic_arith_03-F5](#tactic-arith-03-f5) | medium | confirmed | `pkg/tactic/arith/pb2bv_convert.go:253-278` | pb2bv error names the offending monomial instead of the atom (shadowed `term`) |
-| [tactic_arith_03-F6](#tactic-arith-03-f6) | medium | confirmed | `pkg/tactic/arith/probe_arith_statistics_traversal.go:9-53` | arith-max-deg / arith-avg-deg / arith-max-bw / arith-avg-bw ignore quantifier bodies and patterns |
-| [tactic_arith_03-F7](#tactic-arith-03-f7) | medium | confirmed | `pkg/tactic/arith/recover_01_model.go:48-67` | recover-01 extension model converter puts all Boolean definitions first; z3 interleaves them with each recovered variable |
-| [tactic_arith_03-F8](#tactic-arith-03-f8) | medium | confirmed | `pkg/tactic/arith/qfnra_purify_quantifier.go:198-213` | purify-arith adds a `quant-intro (refl ...)` step for every unchanged quantifier when proofs are on |
-| [tactic_arith_03-F9](#tactic-arith-03-f9) | medium | confirmed | `pkg/tactic/arith/recover_01_apply.go:158-177` | recover-01 rewrite loop reads past the goal after an update makes it inconsistent |
-| [tactic_bv_01-F2](#tactic-bv-01-f2) | medium | confirmed | `pkg/tactic/bv/elim_small_bv_tactic.go:384` | elim-small-bv passes its tactic params to the th_rewriter, and its own rewriter has no `max_steps_exceeded` hook |
-| [tactic_bv_01-F3](#tactic-bv-01-f3) | medium | confirmed | `pkg/tactic/bv/bv1_blaster_rewriter.go:106-150` | bv1-blast model converter lists variables in insertion order, not `obj_map` order |
-| [tactic_bv_01-F4](#tactic-bv-01-f4) | medium | confirmed | `pkg/tactic/bv/bv_bounds_recognize.go:63-105` | bv-bounds `is_bound` accepts `(= numeral numeral)` as a bound on a numeral |
-| [tactic_bv_01-F5](#tactic-bv-01-f5) | medium | confirmed | `pkg/tactic/bv/bvarray2uf_tactic.go:192` | bvarray2uf does not declare `produce_models`, so `using-params` rejects it |
-| [tactic_core_01-F1](#tactic-core-01-f1) | medium | confirmed | `pkg/tactic/core/cofactor_term_ite_tactic.go:126-139,158` | cofactor-term-ite keeps `cofactor_equalities`/`max_memory` after cleanup; C++ reverts them to the constructor params |
-| [tactic_core_01-F2](#tactic-core-01-f2) | medium | confirmed | `pkg/tactic/core/injectivity_apply.go:39-41` | injectivity resets its rewriter cache on every application; C++ keeps `m_eq`'s cache, so stale results survive |
-| [tactic_core_02-F2](#tactic-core-02-f2) | medium | confirmed | `pkg/tactic/core/pb_preprocess_terms.go:153-164` | pb-preprocess `pureLiteral` rejects `(not true)`/`(not false)`, which C++ `pure_args` accepts |
-| [tactic_core_02-F3](#tactic-core-02-f3) | medium | confirmed | `pkg/tactic/core/pb_preprocess_simplify.go:180-242` | pb-preprocess declassifier skips quantifier patterns |
-| [tactic_core_02-F4](#tactic-core-02-f4) | medium | confirmed | `pkg/tactic/core/pb_preprocess_tactic.go:97-101` | pb-preprocess verbose output: an extra tactic report and the missing IF_VERBOSE(3) lines |
-| [tactic_core_02-F5](#tactic-core-02-f5) | medium | confirmed | `pkg/tactic/core/solve_eqs_tactic.go:285-291,402` | solve-eqs and tseitin-cnf print the `report_tactic_progress` line before the tactic report |
-| [tactic_small_01-F1](#tactic-small-01-f1) | medium | confirmed | `pkg/tactic/aig/aig_gates.go:25` | `composeGate` releases gate temporaries in reverse order, so `Ite`/`Iff` free nodes in a different order and later AIG ids change |
-| [tactic_small_01-F2](#tactic-small-01-f2) | medium | confirmed | `pkg/tactic/aig/aig_gates.go:160-238` | `AndArgs`/`OrArgs` sort two operands (the C++ does not) and do not apply the sort to the result stack |
-| [tactic_small_01-F3](#tactic-small-01-f3) | medium | confirmed | `pkg/tactic/fpa/fpa2bv_tactic.go:63-107` | the `fpa2bv` tactic never applies the `max_steps` (and `max_memory`) parameters to its rewriter |
-| [tactic_small_01-F4](#tactic-small-01-f4) | medium | confirmed | `pkg/tactic/nlsat_smt/nl_purify_predicates.go:108,179` | the `nl-purify` Boolean-mode rewriter shares the result for a root atom, where the C++ makes a second predicate |
-| [tactic_small_01-F5](#tactic-small-01-f5) | medium | high | `pkg/tactic/nlsat_smt/nl_purify_solve.go:118-122` | `nl-purify` hands on nlsat's model converter when nlsat is undecided; the C++ leaves `mc` null |
-| [tactic_small_01-F6](#tactic-small-01-f6) | medium | high | `pkg/tactic/nlsat_smt/nl_purify_core.go:68` | the `nl-purify` blocking clause uses raw `mk_not`, while the C++ uses `ast_util::mk_not` |
-| [tactic_small_01-F7](#tactic-small-01-f7) | medium | high | `pkg/tactic/nlsat_smt/nl_purify_equalities.go:58` | `nl-purify` walks interface variables and used assumptions in insertion order instead of hash-table order |
-| [tactic_small_02-F1](#tactic-small-02-f1) | medium | confirmed | `pkg/tactic/portfolio/smt_strategic_solver.go:366` | QF_BV strategic solver always uses inc_sat as the incremental backend, ignoring `rewriter.hi_div0` |
-| [tactic_small_02-F2](#tactic-small-02-f2) | medium | confirmed | `pkg/tactic/smtlogics/nra_tactic.go:41` | NRA strategy runs the whole QF_NRA portfolio instead of the C++ three-attempt NLSAT `or_else` |
-| [tactic_small_02-F3](#tactic-small-02-f3) | medium | high | `pkg/tactic/smtlogics/qfnra_tactic.go:73-79` | QF_NRA nla2bv routes keep `nla2bv_max_bv_size` alive through a Go-only `using_params` wrapper |
-| [tactic_sls_ufbv_01-F2](#tactic-sls-ufbv-01-f2) | medium | high | `pkg/tactic/sls/sls_tracker_initialize.go:119` | SLS tracker and engine TRACE sites under tag `sls` (and `sls_top`, `sls_score`, `sls_eval`, `sls_model`) are not ported |
-| [muz_base_02-F1](#muz-base-02-f1) | medium | high | `pkg/muz/base/rule_set.go:453-608` | `RuleSet.Finalize` computes strata with a DFS numbering that differs from `rule_stratifier::process` |
-| [muz_base_02-F2](#muz-base-02-f2) | medium | confirmed | `pkg/muz/base/rule_transformer.go:158-197` | `RuleTransformer.Apply` drops the `(transform ...)` verbose lines and the "destratified negation" warning |
-| [muz_base_02-F3](#muz-base-02-f3) | medium | high | `pkg/muz/base/rule_unbound.go:168` | Unbound-variable fixing on a proof-carrying rule builds two rewrite/modus-ponens steps where mk_horn_rule builds one |
-| [muz_fp_01-F5](#muz-fp-01-f5) | medium | confirmed | `pkg/muz/fp/datalog_bit_blast.go:80-203` | with `xform.bit_blast`, the answer is printed in the original BV columns (documented deviation, observable) |
-| [muz_fp_01-F6](#muz-fp-01-f6) | medium | confirmed | `pkg/muz/fp/datalog_check_relation.go:120-130` | `check_relation` and `default_table_checked` reject the bitvector table plugin that z3 accepts |
-| [muz_fp_02-F4](#muz-fp-02-f4) | medium | confirmed | `pkg/muz/fp/datalog_interval_dispatch.go:65-92` | interval, Karr and bound backends refuse options and rule shapes that the C++ relation engine evaluates |
-| [muz_fp_02-F7](#muz-fp-02-f7) | medium | confirmed | `pkg/muz/fp/datalog_karr_similarity.go:15` | a similarity compressor threshold of 0 or 1 makes every Datalog query fail |
-| [muz_fp_03-F5](#muz-fp-03-f5) | medium | confirmed | `pkg/muz/fp/default_finite_table.go:33-40` | `datalog.default_table` mapping: `bitvector` and unknown names become `hashtable` |
-| [muz_fp_03-F6](#muz-fp-03-f6) | medium | confirmed | `pkg/muz/fp/datalog_udoc_interpreted.go:139-148` | doc guard failures report a Go error instead of `query failed: Guard expression is not handled<expr>` + `unknown` |
-| [muz_fp_03-F7](#muz-fp-03-f7) | medium | confirmed | `pkg/muz/fp/propositional_engine.go:2253-2255,2790-2795` | cancellation or timeout during a datalog query prints `(error "line L column C: canceled")` without `query failed:` / `unknown` |
-| [muz_fp_03-F8](#muz-fp-03-f8) | medium | high | `pkg/muz/fp/datalog_restart.go:31-109` | datalog restart loop ignores the soft timeout (`m_fparams.m_timeout`, i.e. `smt.timeout`) |
-| [muz_fp_04-F1](#muz-fp-04-f1) | medium | confirmed | `pkg/muz/fp/pdr_engine.go:93-112` | PDR statistics accumulate across SMT-LIB queries; `updt_params` must discard them |
-| [muz_fp_04-F2](#muz-fp-04-f2) | medium | confirmed | `pkg/muz/fp/spacer_engine.go:756-823` | Spacer query skips the `IF_VERBOSE(2, display_rules)` dump of the transformed rules |
-| [muz_fp_04-F3](#muz-fp-04-f3) | medium | high | `pkg/muz/fp/propositional_engine.go:3374-3400` | `PropositionalEngine.Query` sends a nullary registered predicate through `rel_query` instead of `context::query` |
-| [muz_pdr_01-F2](#muz-pdr-01-f2) | medium | confirmed | `pkg/muz/pdr/answer_trace.go:20-33,201-231` | get_trace variable offset (`max_var`) is recomputed each step instead of the C++ running maximum |
-| [muz_pdr_01-F3](#muz-pdr-01-f3) | medium | confirmed | `pkg/muz/pdr/context_solve.go:277-335` | "PDR max depth" misses the per-level update from `solve_impl` |
-| [muz_pdr_01-F4](#muz-pdr-01-f4) | medium | confirmed | `pkg/muz/pdr/context_solve.go` | PDR search verbose diagnostics are missing |
-| [muz_pdr_01-F5](#muz-pdr-01-f5) | medium | high | `pkg/muz/pdr/generalizer_arithmetic.go:317-372` | arithmetic inductive `substitute_alias` matches any smaller/larger bound instead of exactly r±1 |
-| [muz_pdr_02-F3](#muz-pdr-02-f3) | medium | confirmed | `pkg/muz/pdr/predicate_transformer.go:297-325` | PDR `IF_VERBOSE` output of frame, solver, closure and validation code is missing |
-| [muz_pdr_02-F4](#muz-pdr-02-f4) | medium | high | `pkg/muz/pdr/predicate_properties.go:17-63` | `InheritProperties` uses a different order and runs before the users' use-lists exist |
-| [muz_pdr_02-F5](#muz-pdr-02-f5) | medium | medium | `pkg/muz/pdr/pdr_util.go:115` | `reduceDisequalities` evaluates with model completion and array normalization |
-| [muz_pdr_02-F6](#muz-pdr-02-f6) | medium | medium | `pkg/muz/pdr/smt_context_manager.go:80` | PDR SMT contexts always produce models; C++ enables model generation only for checks that request a model |
-| [muz_pdr_02-F7](#muz-pdr-02-f7) | medium | medium | `pkg/muz/pdr/predicate_transformer.go:104` | The predicate signature is created when the transformer is constructed; C++ creates it lazily during `init_rule` |
-| [muz_spacer_01-F1](#muz-spacer-01-f1) | medium | confirmed | `pkg/muz/spacer/derivation.go:360,424,554,601` | Derivation uses raw `mk_and` instead of the spacer manager's bool_rewriter `mk_and` |
-| [muz_spacer_01-F2](#muz-spacer-01-f2) | medium | confirmed | `pkg/muz/spacer/lemma_array_generalizer.go:15-127` | Array-equality generalizer orders candidate arrays by insertion, not `func_decl_set` order |
-| [muz_spacer_01-F3](#muz-spacer-01-f3) | medium | confirmed | `pkg/muz/spacer/itp_solver.go:596-685` | Interpolating solver drops the `time.itp_solver.itp_core` watch and statistic |
-| [muz_spacer_01-F4](#muz-spacer-01-f4) | medium | confirmed | `pkg/muz/spacer/predicate_transformer.go:559` | `SPACER num propagations` counts calls, but the live C++ frames never increment it |
-| [muz_spacer_01-F5](#muz-spacer-01-f5) | medium | confirmed | `pkg/muz/spacer/manager.go:101-154` | `spacer.eq_prop=false` handling is incomplete, and seed/mbqi/eq_prop reach every solver family |
-| [muz_spacer_02-F4](#muz-spacer-02-f4) | medium | high | `pkg/muz/spacer/predicate_reach.go:228-247` | `InitReachFacts` adds initial reach facts in rule order, not `m_rule2tag` table order |
-| [muz_spacer_02-F5](#muz-spacer-02-f5) | medium | high | `pkg/muz/spacer/predicate_reachability.go:154-163` | `is_reachable` (`confirmConcreteReachability`) asks for an unsat core that the C++ never computes |
-| [muz_rel_01-F1](#muz-rel-01-f1) | medium | confirmed | `pkg/muz/rel/aag_exporter.go:25` | `fixedpoint.print_aig` is ignored; the AAG exporter is test-only and not faithful |
-| [muz_rel_02-F1](#muz-rel-02-f1) | medium | confirmed | `pkg/muz/rel/finite_checked_pair.go:127-140,374-390,542-555,587-600,691-704` | check_table operations do not print their `IF_VERBOSE(1)` trace lines |
-| [muz_rel_02-F2](#muz-rel-02-f2) | medium | high | `pkg/muz/rel/external_relation_rules.go:72-698` | external-relation rule evaluation is a Go-only evaluator, not the rel_context/dl_compiler pipeline |
-| [muz_rel_02-F3](#muz-rel-02-f3) | medium | high | `pkg/muz/rel/external_interval_product_union.go:144-204` | external/interval product union with delta (and unaligned union) skips C++ `mk_empty`/`clone` callbacks |
-| [muz_rel_03-F1](#muz-rel-03-f1) | medium | confirmed | `pkg/muz/rel/instruction_io.go:96-105` | `instr_io` load keeps an empty relation in the register instead of `make_empty` |
-| [muz_rel_03-F2](#muz-rel-03-f2) | medium | confirmed | `pkg/muz/rel/instruction_interpreted.go:186-236` | `filter_interpreted` and `setNonemptyFiniteRegister` leave empty Sparse, lazy-sparse and checked results in the register |
-| [muz_rel_04-F1](#muz-rel-04-f1) | medium | confirmed | `pkg/muz/rel/relation_manager_display_output.go:95-163` | `DisplayOutputTables` prints output relations in declaration order, not decl_set hash order |
-| [muz_rel_05-F1](#muz-rel-05-f1) | medium | confirmed | `pkg/muz/rel/table.go:90-100` | `HashTable` iterates rows in insertion order; C++ `hashtable_table` iterates in hash-slot order |
-| [muz_rel_05-F2](#muz-rel-05-f2) | medium | confirmed | `pkg/muz/rel/sparse_interval_sieve_product.go:88-98` | `CanSelectSparseIntervalSieveProduct` refuses `tr_sparse interval_relation` on purely finite (and purely arithmetic) predicates, which z3 evaluates |
-| [muz_rel_05-F3](#muz-rel-05-f3) | medium | confirmed | `pkg/muz/rel/table.go:262-293` | the full-table construction never emits `WARNING: creating large table of size N for relation P` |
-| [muz_rel_06-F2](#muz-rel-06-f2) | medium | high | `pkg/muz/rel/udoc_guard.go:62-99` | guard/rest splitting uses a DFS `and`-flattener and order, not `flatten_and` and `extract_equalities` |
-| [muz_rel_06-F4](#muz-rel-06-f4) | medium | high | `pkg/muz/rel/udoc_guard_compile.go:119` | projected UDoc results use push instead of `udoc::insert` |
-| [muz_rel_06-F5](#muz-rel-06-f5) | medium | high | `pkg/muz/rel/udoc_sieve_negation.go:8-31` | `UDocSieve.FilterByNegation` does not follow C++ `sieve_relation_plugin::mk_filter_by_negation_fn` |
-| [muz_transforms_01-F1](#muz-transforms-01-f1) | medium | confirmed | `pkg/muz/transforms/boolean_normalizer.go:386-465` | Boolean normalizer skips the BR_REWRITE1 re-reduction after an equivalence is detected |
-| [muz_transforms_01-F2](#muz-transforms-01-f2) | medium | confirmed | `pkg/muz/transforms/array_instantiation.go:126-144, 222-277` | array instantiation `retrieve_all_selects` walks equivalence classes in insertion order, not the union-find `next` cycle from the array |
-| [muz_transforms_01-F3](#muz-transforms-01-f3) | medium | confirmed | `pkg/muz/transforms/coi.go:148-199` | cone-of-influence model-converter entries are in rule order, not `func_decl_set`/`obj_map` hash order |
-| [muz_transforms_01-F4](#muz-transforms-01-f4) | medium | high | `pkg/muz/transforms/rule_coalesce.go:354-420` | coalesce walks heads in first-appearance order instead of `begin_grouped_rules` (`m_head2rules` table) order |
-| [muz_transforms_01-F5](#muz-transforms-01-f5) | medium | high | `pkg/muz/transforms/rule_coalesce.go:251` | coalesce builds raw `and`/`or` where the C++ uses `bool_rewriter::mk_and`/`mk_or` |
-| [muz_transforms_02-F2](#muz-transforms-02-f2) | medium | high | `pkg/muz/transforms/rule_slice.go:565-578` | slice `updateRule` skips `rm.fix_unbound_vars(new_rule, false)`, so constraints over sliced-away variables are kept |
-| [muz_transforms_02-F3](#muz-transforms-02-f3) | medium | confirmed | `pkg/muz/transforms/rule_slice.go:42-57,658-705` | slice `declare_predicates` walks predicates in insertion order instead of `m_sliceable` (obj_map) order, so fresh `!slice!N` names differ |
-| [muz_transforms_02-F4](#muz-transforms-02-f4) | medium | medium | `pkg/muz/transforms/simple_joins_global.go:52-214,248-292` | simple joins break pair-cost ties in rule-encounter order and place the joined literal at the lower tail position |
-| [muz_transforms_02-F5](#muz-transforms-02-f5) | medium | medium | `pkg/muz/transforms/subsumption_checker.go:465-471` | subsumption checker sorts rules with a stable sort; `std::sort` is unstable above 16 rules |
-| [muz_small_01-F1](#muz-small-01-f1) | medium | confirmed | `pkg/muz/ddnf/preprocess.go:160-174` | DDNF `processMany` visits connective arguments in reverse of `process_todo`, so DDNF node IDs and the dumped rules differ |
-| [muz_small_01-F2](#muz-small-01-f2) | medium | confirmed | `pkg/muz/ddnf/preprocess.go:158-174` | DDNF preprocessing and compilation test raw decl kinds without the basic family, so arithmetic `>` is treated as `and` |
-| [muz_small_01-F3](#muz-small-01-f3) | medium | confirmed | `pkg/muz/clp/engine_types.go:17` | CLP solver `unknown` becomes a plain Go error, not z3's `query failed: undef` + `unknown` |
-| [muz_small_01-F4](#muz-small-01-f4) | medium | confirmed | `pkg/muz/bmc/linear_search.go:37` | BMC `checkpoint` returns `fmt.Errorf("bmc: canceled")` instead of `default_exception(Z3_CANCELED_MSG)` |
-| [muz_small_01-F5](#muz-small-01-f5) | medium | high | `pkg/muz/bmc/nonlinear_compile.go:394-436` | nonlinear BMC `Compile` groups predicates in rule order instead of the rule set's grouped-map order |
-| [muz_small_01-F6](#muz-small-01-f6) | medium | confirmed | `pkg/muz/bmc/linear_search.go:31-55` | BMC `IF_VERBOSE` progress and model output is not ported |
-| [muz_small_01-F7](#muz-small-01-f7) | medium | high | `pkg/muz/bmc/quantified_linear_compile.go:16-118` | quantified-linear BMC compiles a whole width before asserting anything, and builds its ASTs in a different order |
-| [muz_small_01-F10](#muz-small-01-f10) | medium | confirmed | `pkg/muz/ddnf/compiler.go:92` | DDNF compile failures (for example a sort mismatch) are script errors, not `query failed: ...` + `unknown` |
-| [muz_small_02-F2](#muz-small-02-f2) | medium | confirmed | `pkg/muz/tab/clause_display.go:69` | tab verbose clause/predicate output uses the legacy SMT printer instead of `mk_pp` (ismt2) |
-| [duality_01-F4](#duality-01-f4) | medium | confirmed | `pkg/duality/counterexample_display.go:96-196` | the counterexample `(subst ...)` values come from a reconstructed proof witness instead of `tree->Eval(&edge, skolem)` |
-| [duality_01-F5](#duality-01-f5) | medium | high | `pkg/duality/boolean_factors.go:104-111` | `ReallySimplifyAndOr` orders common factors by arena slot; C++ orders them by AST id |
-| [duality_01-F6](#duality-01-f6) | medium | high | `pkg/duality/derivation_fast.go:51-56` | `buildFast` adds a `CheckSat(nil)` before `Solve` and so discards the proof the C++ reuses |
-| [duality_02-F2](#duality-02-f2) | medium | high | `pkg/duality/implicant.go:324-348` | `FixCurrentState` treats the `@underN` flags as don't-cares; the C++ passes an empty set |
-| [duality_02-F3](#duality-02-f3) | medium | medium | `pkg/duality/implicant_full.go:76-100` | decl-kind dispatch without a basic-family check: arithmetic `>` (OP_GT = 5) is taken for `and` in `UnderapproxFullFormula` and `CloneQuantAndSimp` |
-| [duality_02-F4](#duality-02-f4) | medium | high | `pkg/duality/implicant.go:86-94` | `conjoin` is replaced by "true / the single literal / `and`"; the C++ always builds `(and ...)`, including `(and)` and `(and x)` |
-| [duality_03-F2](#duality-03-f2) | medium | confirmed | `pkg/duality/unhoist.go:197-205` | `unhoistLoop` deduplicates `parent.Incoming`; z3 rewrites a repeated-child edge twice and fails |
-| [interp_01-F4](#interp-01-f4) | medium | confirmed | `pkg/interp/direct_proof_simplify.go:102-107` | error kinds collapsed: `iz3_exception` messages, `proof_error` and `cannot_simplify` all become `ProofError`, and the `@sum` fallback catches all of them |
-| [interp_01-F7](#interp-01-f7) | medium | high | `pkg/interp/direct_proof_rewrite.go:1402-1418` | `simplifySymmetry` wraps a commuted negation chain in the condition; the C++ drops it |
-| [interp_01-F8](#interp-01-f8) | medium | high | `pkg/interp/direct_proof_rewrite.go:978-996` | `simplifyModusPonens` omits `normalize(nQ2)` for inequality conclusions |
-| [interp_01-F9](#interp-01-f9) | medium | high | `pkg/interp/direct_proof_rewrite.go:479-512` | `chainSideConjunction` folds `chain_conditions`/`chain_formulas` in reverse order |
-| [interp_01-F10](#interp-01-f10) | medium | medium | `pkg/interp/direct_proof_simplify.go:97-98` | `simplifyProofTerm` rejects `@leq2eq`/`@eq2leq` without placeholders; the C++ clones them |
-| [interp_01-F11](#interp-01-f11) | medium | confirmed | `direct_proof_equality.go:199-211` | AST creation order does not follow GCC's right-to-left argument evaluation, and a placeholder is created eagerly |
-| [interp_01-F12](#interp-01-f12) | medium | high | `pkg/interp/direct_proof_equality.go:180` | `makeMixedCongruence` picks the first matching argument position; `make_mixed_congruence` picks the last |
-| [interp_01-F13](#interp-01-f13) | medium | high | `pkg/interp/base_simplify.go:50-54` | `Base.simplifyConjunction` re-examines the element swapped in from the back; `simplify_and` skips it |
-| [interp_01-F14](#interp-01-f14) | medium | medium | `pkg/interp/direct_proof_localization.go:119-137` | `localizeTerm` handles an empty-scope `select` array, and a cache hit, differently from `localize_term` |
-| [interp_02-F3](#interp-02-f3) | medium | confirmed | `pkg/interp/manager.go:530` | `Manager.MakeQuantifier` omits the `itp` qid that `iz3mgr::make_quant` sets |
-| [interp_02-F4](#interp-02-f4) | medium | confirmed | `pkg/interp/translation_rules.go:385-386` | unsupported proof rule does not print the `IF_VERBOSE(0)` "Unsupported proof rule:" line |
-| [interp_02-F5](#interp-02-f5) | medium | high | `pkg/interp/translation_rules.go:420-437` | array theory lemma ignores `expect_clause` when building the axiom literals |
-| [interp_02-F6](#interp-02-f6) | medium | high | `pkg/interp/translation_rules.go:349-362` | `PR_COMMUTATIVITY` builds `comm_equiv` with a hard-coded `Iff` instead of `op(con)` |
-| [interp_02-F7](#interp-02-f7) | medium | medium | `pkg/interp/translation_analysis.go:209-249` | `localityRecursive` drops the `PR_QUANT_INST` side effect `iproof->make_axiom(lits)` |
-| [interp_02-F8](#interp-02-f8) | medium | medium | `pkg/interp/translation_analysis.go:111-151` | `scanSkolemsRecursive` drops the `ast_scope(arg(conc(proof),1))` call, which freezes memoized scopes in C++ |
-| [interp_02-F9](#interp-02-f9) | medium | high |  | AST construction order differs from the GCC build in several translation helpers |
-| [interp_02-F10](#interp-02-f10) | medium | confirmed | `pkg/interp/proof.go:124-136` | interpolation profile output lacks the `iz3proof::interpolate` timers and prints times with full precision |
-| [interp_02-F11](#interp-02-f11) | medium | medium | `pkg/interp/pp.go:110-137` | `PrettyPrintProblem` declares symbols through `ast_pp_util` instead of `free_func_visitor` + `mk_smt_pp`, and names duplicate constraints differently |
-| [solver_misc_01-F1](#solver-misc-01-f1) | medium | confirmed | `pkg/solver/tactic_solver.go:227` | TacticSolver.Labels returns the tactic's labels; C++ tactic2solver::get_labels returns none |
-| [api_01-F3](#api-01-f3) | medium | confirmed | `pkg/api/api_ast_vector_object.go:177-214` | `ASTVector.String` / `ASTMap.String` print function declarations as their bare name and drop the `mk_ismt2_pp` indent (2 / 3) |
-| [api_01-F4](#api-01-f4) | medium | high | `pkg/api/api_ast_simplify_interrupt.go:80-96` | `SMTContext.Simplify` runs the `simplify` *command* path, not the `Z3_simplify` API path (wrong timeout default, extra rlimit, attached th_solver) |
-| [api_02-F3](#api-02-f3) | medium | confirmed | `pkg/api/api_optimize_parse.go:14-21` | `Optimize.Parse` parses into the optimizer's own command context, so declarations persist across calls and `push`/`pop` in the text change the optimizer's scopes |
-| [api_02-F4](#api-02-f4) | medium | confirmed | `pkg/api/api_numerals.go:112-118` | `IsNumeral` returns false for `true`/`false`; `Z3_is_numeral_ast` returns true |
-| [api_02-F5](#api-02-f5) | medium | confirmed | `pkg/api/api_sequences.go:65-78` | `SMTContext.String` does not decode escape sequences; `Z3_mk_string` builds `zstring(str, ascii)`, which does |
-| [api_02-F6](#api-02-f6) | medium | confirmed | `pkg/api/api_interp_write.go:76-100` | `WriteInterpolationProblem` with one sequence constraint does not mark it as an interpolant |
-| [api_03-F2](#api-03-f2) | medium | confirmed | `pkg/api/z3_replayer_parse.go:89-103` | replayer argument errors inside a command are fatal instead of `[z3 exception]: ...` and continue |
-| [api_03-F3](#api-03-f3) | medium | confirmed | `pkg/api/z3_generated_pseudo_boolean_commands.go:41-48` | `Z3_mk_pble`/`pbge`/`pbeq` replay succeeds although 4.7.1 always throws (log writes `u`, exec reads `get_int_array`) |
-| [api_03-F4](#api-03-f4) | medium | confirmed | `pkg/api/z3_generated_ast_owners.go:54-66` | a null object argument is a fatal replay error; `Z3_inc_ref(c, NULL)` is a no-op in C++ |
-| [api_03-F5](#api-03-f5) | medium | confirmed | `pkg/api/z3_generated_solver_commands.go:319-331,472-482` | `Z3_solver_from_string`/`Z3_fixedpoint_from_string` parse errors do not print the parser's `(error ...)` line |
-| [api_03-F6](#api-03-f6) | medium | confirmed | `pkg/api/z3_generated_optimize_commands.go:133-150` | Go-only rejection of numeric / empty symbols (optimize soft ids, parser bindings, parameter names) |
-| [cmd_context_01-F2](#cmd-context-01-f2) | medium | confirmed | `pkg/cmd_context/context.go:1233-1236` | wrong error texts for declarations and applications |
-| [cmd_context_01-F5](#cmd-context-01-f5) | medium | confirmed | `pkg/cmd_context/optimization_failure.go:10-28` | an exception during `check-sat` with objectives becomes `unknown`; C++ raises a command error |
-| [cmd_context_01-F6](#cmd-context-01-f6) | medium | confirmed | `pkg/cmd_context/context.go:619-845` | `set-option` handling of built-in options does not follow `set_option_cmd` |
-| [cmd_context_01-F7](#cmd-context-01-f7) | medium | confirmed | `pkg/cmd_context/fixedpoint_timeout.go:17-32` | the fixedpoint `query` command uses the global `timeout`, and a canceled query is reported as a positioned error |
-| [cmd_context_01-F8](#cmd-context-01-f8) | medium | confirmed | `pkg/cmd_context/echo_command.go:31-33` | `WriteEcho` doubles embedded quotes in SMT-LIB2-compliant mode |
-| [cmd_context_01-F9](#cmd-context-01-f9) | medium | confirmed | `pkg/cmd_context/datalog_lexer.go:47-166` | the Datalog front end is a re-implementation, not a port of `dlexer`/`dparser` |
-| [cmd_context_02-F2](#cmd-context-02-f2) | medium | confirmed | `pkg/cmd_context/wcnf_loader.go:14-44` | WCNF input runs normalize's simplify_fmls; opt::context::m_is_clausal is not ported |
-| [cmd_context_02-F3](#cmd-context-02-f3) | medium | confirmed | `pkg/cmd_context/results.go:330-359` | get-assignment walks named terms in insertion order, not the m_macros dictionary order |
-| [cmd_context_02-F4](#cmd-context-02-f4) | medium | confirmed | `pkg/cmd_context/recursive_functions.go:80-90` | define-fun-rec with a variable body: the macro is scoped and checked in Go; C++ insert_macro is neither |
-| [cmd_context_02-F5](#cmd-context-02-f5) | medium | confirmed | `pkg/cmd_context/options.go:18` | get-option matches the built-in keywords after "-"→"_" normalization; C++ compares the raw keyword |
-| [cmd_context_02-F6](#cmd-context-02-f6) | medium | confirmed | `pkg/cmd_context/tactic_commands.go:509-532` | check-sat-using: print_unsat_core printed only for unsat, and core/model/proof stored regardless of the produce_* options |
-| [cmd_context_02-F9](#cmd-context-02-f9) | medium | high | `pkg/cmd_context/replay_smt2.go:264-317` | Z3_optimize_to_string is the Go-only replay exporter, not opt::context::to_string |
-| [cmd_context_02-F10](#cmd-context-02-f10) | medium | high | `pkg/cmd_context/optimization_soft_expression.go:52-63` | get_objective of a one-term MaxSMT group is wrapped in `+` |
-| [cmd_context_02-F11](#cmd-context-02-f11) | medium | confirmed | `pkg/cmd_context/wpa_parser.go` | WPA directory benchmarks are implemented in Go; the C++ reference aborts (dead code on Linux) |
-| [cmd_context_02-F14](#cmd-context-02-f14) | medium | medium | `pkg/cmd_context/sort_declarations.go:44-56` | declare-sort (arity 0) and define-sort create their sorts eagerly; C++ instantiates lazily |
-| [parsers_shell_01-F5](#parsers-shell-01-f5) | medium | confirmed | `pkg/parsers/smt2/commands.go:446-510` | set-option built-in options: wrong value-kind handling, `:print-warning` rejected, `:expand-definitions` not "unsupported", wrong messages |
-| [parsers_shell_01-F6](#parsers-shell-01-f6) | medium | confirmed | `pkg/parsers/smt2/commands.go:219-234` | `:error-behavior immediate-exit` and `parser.error_for_visual_studio` are ignored by the parser's error reporting |
-| [parsers_shell_01-F7](#parsers-shell-01-f7) | medium | confirmed | `pkg/shell/smtlib_frontend.go:94-150` | global `-T` timeout does not end the SMT-LIB run; later commands still execute |
-| [parsers_shell_01-F8](#parsers-shell-01-f8) | medium | confirmed | `pkg/parsers/smt2/commands.go` | hand-written dispatch gives different syntax-error texts and accepts what `parse_ext_cmd` rejects |
-| [parsers_shell_01-F9](#parsers-shell-01-f9) | medium | confirmed | `pkg/parsers/smt2/apply_tactic.go:12-22` | `apply` and `eval` accept `:rlimit`, which the C++ commands reject |
-| [parsers_shell_01-F10](#parsers-shell-01-f10) | medium | confirmed | `pkg/parsers/smt2/tactics.go:359-389` | probe expressions: n-ary `+`/`*` fold differently, and binary `-`, `/`, `=>` accept any number of arguments |
-| [parsers_shell_01-F11](#parsers-shell-01-f11) | medium | confirmed | `pkg/parsers/smt2/datatypes.go:111-135, 186-188, 269-271, 346-360` | `declare-datatype(s)` adds a Go-only arity check, does not pre-insert SMT-LIB 2.6 sort headers, and words two errors differently |
-| [parsers_shell_01-F12](#parsers-shell-01-f12) | medium | confirmed | `pkg/shell/datalog_frontend_load.go:15-31` | Datalog, DIMACS and MPS front ends: open failures and Datalog parse failures give different messages and exit codes |
-| [FUZZ_A-F9](#fuzz-a-f9) | low | confirmed | `pkg/cmd_context/optimization.go:975-994` | interval display builds the two to_expr values in the wrong order/lifetime |
-| [FUZZ_C-F7](#fuzz-c-f7) | low | confirmed | `pkg/tactic/arith/qfnra_purify_tactic.go:359-437` | purify-arith division and zero-power constraints are built in left-to-right order |
-| [smtcore_01-F8](#smtcore-01-f8) | low | confirmed | `pkg/smtcore/ctx_solver_simplify_tactic.go:261` | ctx-solver-simplify does not print its verbose `:num-steps` line |
-| [smtcore_01-F9](#smtcore-01-f9) | low | confirmed | `pkg/smtcore/smt_assumptions.go:81-89` | invalid assumptions produce an error instead of the C++ warning plus l_undef |
-| [smtcore_01-F10](#smtcore-01-f10) | low | high | `pkg/smtcore/smt_asserted_propagate.go:180` | addAssertionSubstitution returns after the "incompatible" trace instead of falling through |
-| [smtcore_02-F11](#smtcore-02-f11) | low | confirmed | `pkg/smtcore/smt_clause_maintenance.go:118-208` | verbose progress lines of lemma GC and get-consequences are missing |
-| [smtcore_02-F12](#smtcore-02-f12) | low | high | `pkg/smtcore/smt_context_display.go:107-134` | context dump omits the reserved `true` variable and prints the scope level as base level |
-| [smtcore_04-F6](#smtcore-04-f6) | low | high | `pkg/smtcore/smt_literal_display.go:21` | `SMTLiteral.Display` ignores `Z3_TRACE_NO_PP` |
-| [smtcore_04-F7](#smtcore-04-f7) | low | high | `pkg/smtcore/smt_kernel.go:1800` | `SMTKernel.Display` prints with the legacy benchmark printer, not `mk_ismt2_pp` |
-| [smtcore_04-F8](#smtcore-04-f8) | low | high | `pkg/smtcore/smt_kernel_results.go:143-158, 230` | `SMTKernel.RelevantLiterals` returns trail order instead of Boolean-variable order |
-| [smtcore_05-F9](#smtcore-05-f9) | low | high | `pkg/smtcore/smt_model_checker.go:585-613` | restricted loop asserts a blocking clause after add_instance has failed on a private value |
-| [smtcore_05-F10](#smtcore-05-f10) | low | high | `pkg/smtcore/smt_model_finder_auf_analyzer.go:172-181` | processUApp visits `x + k` as a term when its f_var_plus_offset qinfo is a duplicate |
-| [smtcore_06-F12](#smtcore-06-f12) | low | high | `pkg/smtcore/smt_quick_checker.go:562-616` | quick checker differs from `quick_checker` in enumeration order, congruence lookup, lifetime and release order (latent) |
-| [smtcore_06-F13](#smtcore-06-f13) | low | high | `pkg/smtcore/smt_solver_objective.go:69-75` | `installOptimizerArithmetic` installs `theory_inf_arith` for `arith.solver=5` |
-| [smtcore_07-F4](#smtcore-07-f4) | low | high | `pkg/smtcore/smt_theory_arith_core.go:1068-1083` | `mkToIntAxiom` creates the numeral `1.0` before the `lo` atom |
-| [smtcore_07-F5](#smtcore-07-f5) | low | high | `pkg/smtcore/smt_theory_arith_core.go:2933-2942` | `explainBound` drops `if (!b->has_justification()) continue;` |
-| [smtcore_07-F6](#smtcore-07-f6) | low | medium | `pkg/smtcore/smt_theory_arith_core.go:707-713` | `mkAxiom` keeps a rewritten negation alive until return; C++ releases it at `s_ante = s_ante_n` |
-| [smtcore_07-F7](#smtcore-07-f7) | low | high | `pkg/smtcore/smt_theory_arith_core.go:170` | `processAtoms` reads the cumulative conflict counter instead of the per-search one |
-| [smtcore_08-F4](#smtcore-08-f4) | low | high | `pkg/smtcore/smt_theory_arith_nl.go:273-275` | `smtArithRatBitsize` counts the denominator of integers (`rational::bitsize` does not) |
-| [smtcore_10-F11](#smtcore-10-f11) | low | confirmed | `pkg/smtcore/theory_bv.go:910-970` | `expand_diseq` trace record is not ported |
-| [smtcore_10-F13](#smtcore-10-f13) | low | high | `pkg/smtcore/theory_diff_logic_integer.go:403-416` | `SMTIntegerDiffTheory.Propagate` explains conflicts with `traverse_neg_cycle`, not `traverse_neg_cycle2` |
-| [smtcore_11-F5](#smtcore-11-f5) | low | high | `pkg/smtcore/theory_lra_operator_axioms.go:162-193` | LRA `Relevant` builds the rem / to_int axiom terms in a different order from `mk_rem_axiom` / `mk_to_int_axiom` |
-| [smtcore_11-F6](#smtcore-11-f6) | low | high | `pkg/smtcore/theory_opt.go:112-136` | `SMTTheoryOptimizationUtil.IsLinear` accepts n-ary multiplication; C++ `is_mul(t, t1, t2)` matches only binary |
-| [smtcore_14-F4](#smtcore-14-f4) | low | high | `pkg/smtcore/proto_model/cleanup.go:165` | `ProtoModel.Cleanup` does not remove unused auxiliary declarations from the model's declaration list |
-| [sat_01-F5](#sat-01-f5) | low | high | `pkg/sat/sat_cleaner.go:156-167` | `satCleaner.cleanup` calls `extension.Simplify()`; C++ `solver::cleanup` only calls `clauses_modifed()` |
-| [sat_01-F6](#sat-01-f6) | low | high | `pkg/sat/dimacs_parse.go:14-67` | `ReadDIMACSCNF` is a line/field tokenizer, not the C++ character scanner |
-| [sat_01-F7](#sat-01-f7) | low | high | `pkg/sat/sat_aig_*.go` | `sat_aig_*`, `sat_cut*`, `sat_lut*` (45 files) have no C++ counterpart and are reachable only from tests; `satLUTFinder.Run` consumes unrelated clauses |
-| [sat_02-F4](#sat-02-f4) | low | high | `pkg/sat/sat_solver_conflict_helpers.go:317-318` | `processConsequent` and `getMaxLevel` drop the antecedent loop for `EXT_JUSTIFICATION` |
-| [sat_02-F5](#sat-02-f5) | low | high | `pkg/sat/sat_simplifier_cleanup.go:241-258` | `satSimplifier.scopedFinalize` re-reads `needCleanup` at each stage; C++ `scoped_finalize_fn` tests it once |
-| [sat_03-F3](#sat-03-f3) | low | confirmed | `pkg/sat/sat_solver_parallel_exchange.go:5-52` | `exchangeParallelBound` never prints the `(sat-sync out: N in: M)` verbose line |
-| [sat_04-F3](#sat-04-f3) | low | high | `pkg/sat/sat_solver_search.go:314-321` | `boundedSearch` returns `final_check`'s `l_undef` instead of continuing the search loop |
-| [sat_05-F2](#sat-05-f2) | low | confirmed | `pkg/sat/tactic/sat_tactic.go:521-522` | the `(ast-table ...)` verbose line from `compact_memory` is not printed |
-| [ast_rewriter_01-F8](#ast-rewriter-01-f8) | low | high | `pkg/ast/rewriter/arith_transcendental.go:68-78` | AST construction order differs from the GCC right-to-left order in trig and `mod` rewrites |
-| [ast_rewriter_02-F3](#ast-rewriter-02-f3) | low | high | `pkg/ast/rewriter/bv_rewriter_blast_eq.go:124-140` | `mk_blast_eq_value` builds the bit extract before the bit numeral (GCC builds the numeral first) |
-| [ast_rewriter_02-F4](#ast-rewriter-02-f4) | low | high | `pkg/ast/rewriter/bv_bounds_trace.go:26-45` | `bv_bounds` TRACE output uses the legacy SMT printer instead of `mk_ismt2_pp` |
-| [ast_rewriter_03-F4](#ast-rewriter-03-f4) | low | high |  | several BV rewrites (and enum2bv) build their AST in left-to-right order; GCC builds nested arguments right to left |
-| [ast_rewriter_03-F5](#ast-rewriter-03-f5) | low | high | `pkg/ast/rewriter/bv_rewriter_leq_trace.go:30-46` | trace text differs: `le_extra` drops the indent of 2, DER separates the elimination order with spaces instead of commas |
-| [ast_rewriter_03-F6](#ast-rewriter-03-f6) | low | medium | `pkg/ast/rewriter/bv_trailing_table.go:20-71` | `bv_trailing` releases cache entries in insertion order, not obj_map order |
-| [ast_rewriter_03-F7](#ast-rewriter-03-f7) | low | high | `pkg/ast/rewriter/expr_replacer.go:256-268` | `DefaultExprReplacer.Rewrite` / `RewriteWithProof` neither reset the cache nor drop used dependencies, as every C++ `operator()` overload does |
-| [ast_rewriter_04-F5](#ast-rewriter-04-f5) | low | high | `pkg/ast/rewriter/factor_rewriter.go:478` | factor_rewriter `mk_eq` collapses a single disjunct; C++ builds a unary `or` |
-| [ast_rewriter_04-F6](#ast-rewriter-04-f6) | low | high | `pkg/ast/rewriter/factor_rewriter.go:411-435` | factor_rewriter `mk_is_negative` construction order and temporaries lifetime differ from C++ |
-| [ast_rewriter_04-F7](#ast-rewriter-04-f7) | low | high | `pkg/ast/rewriter/fpa_comparisons.go:42-60` | fpa_rewriter `mk_lt` infinity rewrite builds `(= x inf)` before `(= x NaN)`; GCC builds NaN first |
-| [ast_rewriter_04-F8](#ast-rewriter-04-f8) | low | high | `pkg/ast/rewriter/pb2bv_rewriter.go:286` | pb2bv strips double negations where C++ uses plain `m.mk_not`, and does not fold true/false where C++ uses `::mk_not` |
-| [ast_rewriter_04-F9](#ast-rewriter-04-f9) | low | high | `pkg/ast/rewriter/pb_rewriter_validate.go:287-316` | pb_rewriter `pb` trace prints with the legacy SMT printer; `pb_validate` keeps the first variable for repeated atoms |
-| [ast_rewriter_05-F4](#ast-rewriter-05-f4) | low | high | `pkg/ast/rewriter/string_regex_automaton.go:39-86` | `NewStringRegexAutomaton` never compresses, but the theory_str complement automaton comes from `re2automaton::operator()`, which does |
-| [ast_rewriter_05-F5](#ast-rewriter-05-f5) | low | high | `pkg/ast/rewriter/seq_rewriter.go:719-756` | AST construction order differs from GCC's right-to-left argument evaluation in several `seq_rewriter` rules |
-| [ast_rewriter_05-F6](#ast-rewriter-05-f6) | low | confirmed | `pkg/ast/rewriter/seq_rewriter.go:651-662` | 32-bit `is_unsigned` semantics are not followed in `RewriteIndex` and `RewriteRegexLoop` |
-| [ast_rewriter_05-F7](#ast-rewriter-05-f7) | low | high | `pkg/ast/rewriter/unused_vars_ufbv.go:45,52` | Go-only `elim_unused_vars` TRACE with no C++ counterpart |
-| [ast_rewriter_06-F2](#ast-rewriter-06-f2) | low | high | `pkg/ast/rewriter/bit_blaster/gates.go:72,165` | TRACE sites missing in the bit-blaster gates and engine (`xor3`, `xor3_sorted`, `carry`, `carry_sorted`, and the `bit_blaster` tag in `mk_udiv_urem` / `mk_rotate_left`) |
-| [ast_sub_01-F5](#ast-sub-01-f5) | low | high | `pkg/ast/macros/macro_candidates.go:55-66` | quasi_macro_head_to_macro_head builds the head app before the condition `and` |
-| [ast_sub_02-F6](#ast-sub-02-f6) | low | high | `pkg/ast/normal_forms/defined_names.go:322-420` | defined_names builds both conjuncts before quantifying either |
-| [ast_sub_02-F7](#ast-sub-02-f7) | low | medium | `pkg/ast/normal_forms/nnf.go:593-606` | NNF convertDefault creates `not(t)` even without proofs, and before `not(n2)` |
-| [ast_sub_02-F8](#ast-sub-02-f8) | low | high | `pkg/ast/normal_forms/skolemizer.go:313-331` | proof-mode constructions in skolemizer and NNF labels are built in the wrong order |
-| [ast_sub_02-F9](#ast-sub-02-f9) | low | high | `pkg/ast/normal_forms/skolemizer.go:26,112-130` | Skolemizer cache never evicts, while the C++ act_cache does |
-| [ast_sub_02-F10](#ast-sub-02-f10) | low | high | `pkg/ast/proofs/checker_basic.go:28` | proof checker accepts PR_TRUE, and accepts farkas th-lemmas whose coefficient is not rational |
-| [ast_sub_02-F11](#ast-sub-02-f11) | low | high | `pkg/ast/proofs/checker.go:220` | checker side conditions use the ast_util or/and, which collapse 0/1-arg cases |
-| [ast_sub_02-F12](#ast-sub-02-f12) | low | high | `pkg/ast/pattern/expr_pattern_match.go:500-509` | pattern database `instantiate` builds arguments left to right; C++ `for_each_ast` builds them right to left |
-| [ast_sub_03-F1](#ast-sub-03-f1) | low | high | `pkg/ast/proofs/reduce_hypotheses_legacy.go:36-42` | legacy reduce_hypotheses keeps the first unit proof per fact; C++ obj_map::insert keeps the last |
-| [ast_sub_03-F2](#ast-sub-03-f2) | low | high | `pkg/ast/proofs/checker.go:188-202` | proof-checker `sameEquivalence` (SAME_OP) compares decl kinds without checking the family |
-| [ast_sub_03-F3](#ast-sub-03-f3) | low | high | `pkg/ast/proofs/checker_rules.go:57-125` | `checkQuantIntro` accepts `=` and mixed `~`/`iff` operators |
-| [ast_sub_03-F4](#ast-sub-03-f4) | low | high | `pkg/ast/substitution/substitution_tree_visit.go:216-218,341-357` | substitution-tree var-query visit keeps going after the visitor asks to stop |
-| [ast_sub_03-F5](#ast-sub-03-f5) | low | high | `pkg/ast/proofs/elim_aux_assertions.go:97-99` | elim_aux_assertions turns two debug-only C++ assertions into errors in every build |
-| [ast_01-F2](#ast-01-f2) | low | high | `pkg/ast/ast_activity_cache.go:187-192` | ActivityCache.Insert skips chashtable::insert_if_not_there's growth check for an existing key |
-| [ast_06-F4](#ast-06-f4) | low | high | `pkg/ast/ast_seq_plugin.go:420` | the `re.allchar` (`OP_RE_FULL_CHAR_SET`) psig memory trace names line 570 instead of 552 |
-| [ast_08-F2](#ast-08-f2) | low | high | `pkg/ast/util_psort_ast_bounds.go:251-263` | `eq` builds its result with the guarded `psort_nw::mk_min` instead of `ctx.mk_min` |
-| [ast_08-F3](#ast-08-f3) | low | high | `pkg/ast/util_psort_ast_encoding.go` | Go-only cardinality encodings and weighted PB networks have no 4.7.1 counterpart |
-| [model_01-F6](#model-01-f6) | low | high | `pkg/model/model_evaluator.go:674-688` | the Boolean-family branch of ReduceApp re-evaluates the result and writes an extra trace record |
-| [model_01-F7](#model-01-f7) | low | medium | `pkg/model/model_translation.go:83-110` | `Model.Translate` translates the key before the value; GCC evaluates the value first |
-| [model_01-F8](#model-01-f8) | low | high | `pkg/model/model_implicant_check_trace.go:124-132` | the verbose "assigned" label prints "unknown" for numeric and value terms; the C++ prints "false" |
-| [model_01-F9](#model-01-f9) | low | high | `pkg/model/model_printers.go:165-275` | the debug, v2 and bv2fpa display printers drop the C++ indent argument |
-| [util_numeral_02-F2](#util-numeral-02-f2) | low | high | `pkg/util/numeral/mpbq_format.go:101-104` | `BinaryRationalManager` SMT2 display puts two spaces before `(^ 2` |
-| [util_numeral_03-F2](#util-numeral-03-f2) | low | high | `pkg/util/numeral/mpf_power_memory_trace.go:13-32` | the MPF power-cache memory TRACE reports the Go wrapper size instead of `sizeof(mpz)`, and frees cache entries in a different order |
-| [util_lp_01-F1](#util-lp-01-f1) | low | confirmed | `pkg/util/lp/driver_lar_examples.go:119-142` | LP test-driver reports print in sorted or insertion order instead of C++ `unordered_map` order |
-| [util_lp_04-F3](#util-lp-04-f3) | low | confirmed | `pkg/util/lp/mps_reader_float.go:133-158` | `readLine` clears the line after a final line with no trailing newline, where `std::getline` keeps it |
-| [util_lp_06-F2](#util-lp-06-f2) | low | high | `pkg/util/lp/smt_reader_constraint.go:21-32` | the test `smt_reader` parses integers with `strconv.ParseInt` where the C++ uses `atoi` |
-| [util_misc_01-F1](#util-misc-01-f1) | low | confirmed | `pkg/util/mincut/min_cut.go:254-283` | `MinCut.augmentPath` uses a different residual graph than C++ `min_cut::augment_path`, and the C++ fault it avoids is not registered as an exclusion |
-| [math_polynomial_01-F2](#math-polynomial-01-f2) | low | medium | `pkg/math/polynomial/algebraic_manager_arithmetic.go:10-55` | polynomial evaluation over algebraic values skips the `manager::add/mul/power` TRACE("anum_detail") records |
-| [math_polynomial_03-F1](#math-polynomial-03-f1) | low | high | `pkg/math/polynomial/polynomial_composition.go:911-916` | ComposeXMinusConstant (mk_x_minus_c) drops the TRACE("polynomial") "x - c:" line |
-| [math_polynomial_03-F2](#math-polynomial-03-f2) | low | high | `pkg/math/polynomial/polynomial_discriminant.go:76-77` | Discriminant drops TRACE("resultant") "discriminant sign:" |
-| [math_polynomial_04-F3](#math-polynomial-04-f3) | low | high | `pkg/math/polynomial/polynomial_gcd_simplify.go:26-61` | GCDSimplifyInto, polynomialContent and GreaterEqual have no 4.7.1 counterpart |
-| [math_polynomial_05-F1](#math-polynomial-05-f1) | low | high | `pkg/math/polynomial/polynomial_lazard_trace.go:63-72` | Se_Lazard final TRACE prints `Y` as a polynomial; the C++ prints a pointer address |
-| [math_polynomial_05-F2](#math-polynomial-05-f2) | low | high | `pkg/math/polynomial/polynomial_monomial_factory.go:340-354` | `MonomialManager.convertCreated` never grows its scratch monomial, so monomials with more than 128 powers fail |
-| [math_polynomial_06-F1](#math-polynomial-06-f1) | low | high | `pkg/math/polynomial/polynomial_quasi_resultant.go:142-173` | quasi_resultant is missing the TRACE("polynomial") emitted on every loop iteration |
-| [math_polynomial_06-F2](#math-polynomial-06-f2) | low | high | `pkg/math/polynomial/polynomial_quasi_resultant.go:28-35` | QuasiResultant keeps one history record per call forever (Go-only, unbounded growth) |
-| [math_polynomial_08-F2](#math-polynomial-08-f2) | low | high | `pkg/math/polynomial/upolynomial_division.go:41-64` | `divScalarWithSourceContext` drops the `CTRACE("upolynomial", !divides(b, p[i]))` record |
-| [math_polynomial_09-F2](#math-polynomial-09-f2) | low | confirmed | `pkg/math/polynomial/upolynomial_factor_verbose.go:5-34` | g3 prints `(polynomial-factorization :distinct-factors N)` at `-v:1000`; the reference build compiles it out |
-| [math_realclosure_01-F12](#math-realclosure-01-f12) | low | high | `pkg/math/realclosure/display_definition_ranked.go:33-36` | displayRankedAlgebraicDefinition prints a "{condition}" placeholder instead of the sign conditions |
-| [math_realclosure_01-F13](#math-realclosure-01-f13) | low | high | `pkg/math/realclosure/query_*.go` | test-only facades and post-4.7.1 query functions with no C++ counterpart |
-| [math_realclosure_01b-F2](#math-realclosure-01b-f2) | low | high | `pkg/math/realclosure/integer_content_value.go:11-37` | accumulateIntegerContent ignores the is_denominator_one condition of gcd_int_coeffs |
-| [math_realclosure_02-F5](#math-realclosure-02-f5) | low | high | `pkg/math/realclosure/value_compare_api.go:31-33` | compareValues treats any two degree-1 values over the same root as equal |
-| [math_subpaving_02-F3](#math-subpaving-02-f3) | low | high | `pkg/math/subpaving/fixed_clause.go:198` | MPFX context checkpoints skip the max_memory test and cooperate() |
-| [math_subpaving_03-F4](#math-subpaving-03-f4) | low | high | `pkg/math/subpaving/hardware_search_trace.go:24-35` | hardware `display_params` trace prints epsilon and max_bound in scientific notation instead of `to_rational_string` |
-| [math_subpaving_03-F5](#math-subpaving-03-f5) | low | high | `pkg/math/subpaving/tactic/arbitrary_goal_internalize.go:108-160` | `subpaving_ref_count` trace misses the tactic's `ref_buffer` inc/dec records and prints dec-ref atoms with the tactic display proc |
-| [math_subpaving_04-F4](#math-subpaving-04-f4) | low | high | `pkg/math/subpaving/tactic/selected_tactic_adapter.go:162-168` | selector `ResetStatistics` does not reset the inner core's accumulated statistics |
-| [math_misc_01-F5](#math-misc-01-f5) | low | high | `pkg/math/hilbert/hilbert_basis.go:435-457` | hilbert checkpoint is called at different points and fewer times than `m_limit.inc()` in C++ |
-| [math_misc_01-F6](#math-misc-01-f6) | low | high | `pkg/math/interval/arbitrary_root.go:387-408` | nth-root conservative fallback silently "fixes" the C++ uninitialized `one` |
-| [math_misc_01-F7](#math-misc-01-f7) | low | high | `pkg/math/automata/automaton_compress_sink.go:5-30` | automaton `sinkify_dead_states` drops its `TRACE("seq")` output |
-| [math_misc_01-F8](#math-misc-01-f8) | low | high | `pkg/math/automata/symbolic.go` | Go-only or divergent helper APIs with no live consumer |
-| [math_misc_02-F4](#math-misc-02-f4) | low | high | `pkg/math/simplex/model_based_opt.go:793-830` | `ModelBasedOpt.DisplayRow` spacing differs from `model_based_opt::display` (the qe trace) |
-| [math_misc_02-F5](#math-misc-02-f5) | low | high | `pkg/math/interval/modular_interval_negate.go:12-19` | `ModularInterval.Negate` of a loose interval does not reproduce the source's `interval(0, uMaxInt(sz), true)` |
-| [math_misc_02-F6](#math-misc-02-f6) | low | high | `pkg/math/simplex/arith_freedom.go` | the Go-only `theory_arith` helper layer in `pkg/math/simplex` has no production caller |
-| [nlsat_01-F5](#nlsat-01-f5) | low | high | `pkg/nlsat/fourier_motzkin_patch.go` | Fourier-Motzkin bound patching and Maximize are ported from code that 4.7.1 does not have or never calls |
-| [nlsat_01-F6](#nlsat-01-f6) | low | medium | `pkg/nlsat/clause_empty_normalize.go:7` | createClause turns an empty literal list into `[false]`; C++ has no such path |
-| [nlsat_02-F3](#nlsat-02-f3) | low | high | `pkg/nlsat/simple_checker*.go` | 60 simplify/simple_checker files have no 4.7.1 counterpart and are reachable only from tests |
-| [nlsat_03-F8](#nlsat-03-f8) | low | confirmed | `pkg/nlsat/solver.go:265` | two deliberate fixes of z3 4.7.1 bugs in variable reordering are not recorded as exclusions |
-| [nlsat_03-F9](#nlsat-03-f9) | low | high | `pkg/nlsat/tactic/nlsat2goal.go:71-99` | `GoalConverter` (nlsat2goal) builds different ASTs from C++ (latent: only the unregistered nlqe mode uses it) |
-| [nlsat_03-F10](#nlsat-03-f10) | low | high | `pkg/nlsat/simplify_subsumption*.go` | code in this shard with no 4.7.1 counterpart (unreachable) |
-| [qe_01-F7](#qe-01-f7) | low | high | `pkg/qe/arithmetic_project.go:396-415` | the MBP divisibility row creates `(mod t k)` before the integer `0`; GCC creates the `0` first |
-| [qe_01-F8](#qe-01-f8) | low | high | `pkg/qe/arithmetic_qe_relation.go:47-58` | comparisonPolynomial and MatchLT simplify `p` even when the other side is the numeral 0; the C++ returns `p` unsimplified |
-| [qe_01-F9](#qe-01-f9) | low | high | `pkg/qe/arithmetic_branch_definition_div.go` | test-only definition and witness APIs diverge from get_def and x_subst |
-| [qe_02-F2](#qe-02-f2) | low | high | `pkg/qe/legacy_arithmetic_factor_mod.go:195` | `factor_mod_terms` collapses the singleton `(and eq)` that the C++ builds with `m.mk_and` |
-| [qe_02-F8](#qe-02-f8) | low | high | `pkg/qe/expr_quantifier_tree_pop_bool.go:41-46` | the pop path computes `get_partition` twice |
-| [qe_03-F7](#qe-03-f7) | low | high | `pkg/qe/legacy_projection.go:248-268` | `qe_project` never emits the `spacer_mbp` "Before projection" trace |
-| [qe_04-F3](#qe-04-f3) | low | high | `pkg/qe/qe_datatype_plugin_atoms.go:122-133` | datatype `Prepare` uses a per-pass `seen` set; C++ `datatype_atoms::m_mark` is shared by the positive and negative passes |
-| [qe_05-F7](#qe-05-f7) | low | high | `pkg/qe/simplify_quantifier_rewriter.go:249-258` | QE simplify rewriter builds `update_quantifier(q, new_body)` before reduce_quantifier |
-| [opt_01-F7](#opt-01-f7) | low | confirmed | `pkg/opt/maxsmt_engine_select.go:9-17` | unrecognized `opt.maxsat_engine` silently maps to maxres without z3's warning |
-| [opt_01-F8](#opt-01-f8) | low | confirmed | `maxres_search.go` | MaxRes / maxsmt / sortmax `IF_VERBOSE` progress output is not emitted |
-| [opt_02-F6](#opt-02-f6) | low | confirmed | `pkg/opt/maxsmt_engine_select.go:9-17` | an unknown `opt.maxsat_engine` does not print z3's warning |
-| [tactic_top_01-F8](#tactic-top-01-f8) | low | high | `pkg/tactic/tactic_goal_display.go:258-452` | Go-only goal CNF/DIMACS code differs from 4.7.1 `goal::display_dimacs` and has no 4.7.1 API |
-| [tactic_arith_02-F6](#tactic-arith-02-f6) | low | confirmed | `pkg/tactic/arith/nla2bv_trace.go:151-155` | nla2bv verbose prints the bool as `true`/`false`; C++ streams it as `1`/`0` |
-| [tactic_arith_02-F7](#tactic-arith-02-f7) | low | high | `pkg/tactic/arith/lia2card_comparison.go:134-145` | lia2card `mk_eq` builds `pbge` before `pble` (GCC builds `mk_le` first) |
-| [tactic_arith_03-F10](#tactic-arith-03-f10) | low | high | `pkg/tactic/arith/qfnra_purify_tactic.go:475-500,519-574` | purify-arith still builds some terms in a different order from z3 (even roots, zero power, root objects, inverse trig with proofs) |
-| [tactic_bv_01-F6](#tactic-bv-01-f6) | low | confirmed | `pkg/tactic/bv/elim_small_bv_tactic.go:134-146` | elim-small-bv has no tactic report, no progress report, wrong param descriptions, and drops its traces |
-| [tactic_bv_01-F7](#tactic-bv-01-f7) | low | high | `pkg/tactic/bv/bv_bounds_interval.go:126-157` | bv-bounds stores negated bounds as tight, so the undo trail and `scope_level` differ |
-| [tactic_bv_01-F8](#tactic-bv-01-f8) | low | high | `pkg/tactic/bv/bv_bounds_state.go` | missing TRACE sites in propagate-bv-bounds and bvarray2uf; bv-slice has no 4.7.1 source |
-| [tactic_core_01-F3](#tactic-core-01-f3) | low | high | `pkg/tactic/core/cofactor_term_ite_rewriter.go:131-143` | cofactor-term-ite checkpoint omits the `m.canceled()` test |
-| [tactic_core_01-F5](#tactic-core-01-f5) | low | confirmed | `pkg/tactic/core/distribute_forall_tactic.go:98-110` | distribute-forall under proofs builds a rewrite step; C++ leaves `result_pr` null and segfaults (undocumented fork deviation) |
-| [tactic_core_01-F6](#tactic-core-01-f6) | low | high | `pkg/tactic/core/dom_simplify_trace.go:47-74` | dom-simplify dominator-tree TRACE uses a different layout from `expr_dominators::display` |
-| [tactic_core_02-F6](#tactic-core-02-f6) | low | confirmed | `pkg/tactic/core/tseitin_cnf_tactic.go:228-239` | tseitin-cnf parameter descriptions differ from the C++ |
-| [tactic_core_02-F7](#tactic-core-02-f7) | low | high | `pkg/tactic/core/tseitin_cnf_encode.go:1135-1149` | tseitin-cnf does not replace each processed formula with `true`, so AST lifetimes and ids differ |
-| [tactic_core_02-F8](#tactic-core-02-f8) | low | high | `pkg/tactic/core/tseitin_cnf_encode.go:365-383` | tseitin-cnf `checkpoint` checks memory before cancellation and uses the resource-limit message |
-| [tactic_core_02-F9](#tactic-core-02-f9) | low | high | `pkg/tactic/core/symmetry_reduce_tactic.go:228-233` | symmetry-reduce removes the selected index from T; C++ `T.erase(t)` removes the first occurrence |
-| [tactic_core_02-F10](#tactic-core-02-f10) | low | high | `pkg/tactic/core/split_clause_tactic.go:215-221,460-480` | missing TRACE sites and a non-empty split-clause proof-converter display |
-| [tactic_core_02-F11](#tactic-core-02-f11) | low | high | `pkg/tactic/core/tseitin_cnf_tactic.go:263-272` | tseitin-cnf `Translate` copies the aux-var statistic |
-| [tactic_small_01-F8](#tactic-small-01-f8) | low | high | `pkg/tactic/aig/aig_goal_formula.go:183-200` | `aig2expr::mk_ite` builds its three arguments left to right; GCC builds them right to left |
-| [tactic_small_01-F9](#tactic-small-01-f9) | low | high | `pkg/tactic/nlsat_smt/nl_purify_trace.go` | most `nlsat_smt` TRACE sites are not ported |
-| [tactic_small_02-F4](#tactic-small-02-f4) | low | high | `pkg/tactic/portfolio/fd_tactic.go:16-35` | Go-only finite-domain tactic code with no 4.7.1 counterpart |
-| [tactic_sls_ufbv_01-F3](#tactic-sls-ufbv-01-f3) | low | high | `pkg/tactic/sls/bvsls_optimizer.go` | BVOptimizer ports dead C++ (`bvsls_opt_engine`) and does not follow its maximize/what_if semantics |
-| [tactic_sls_ufbv_01-F4](#tactic-sls-ufbv-01-f4) | low | high | `pkg/tactic/sls/sls_engine_runtime.go:598-613` | Engine.CheckRestart saturates restart_next at UINT_MAX when restarts>>1 >= 31; the C++ keeps restarting |
-| [muz_base_01-F1](#muz-base-01-f1) | low | high | `pkg/muz/base/boogie_proof.go:228-265` | `boogieInputResolution` rewrites inner premises that the C++ `mk_input_resolution` never touches |
-| [muz_base_01-F2](#muz-base-01-f2) | low | high | `pkg/muz/base/boogie_proof.go:269-322` | the Boogie certificate drops the C++ stdout diagnostics (`get_subst` dump; `set proof` / `proof set` are discarded by the callers) |
-| [muz_base_01-F3](#muz-base-01-f3) | low | high | `pkg/muz/base/hnf_proof_worklist.go:138-200` | proof-mode HNF builds its fresh ASTs in a different order from `hnf::imp` (not-and negations and `def_intro` vs `update_quantifier`) |
-| [muz_base_01-F4](#muz-base-01-f4) | low | high | `pkg/muz/base/datalog_context_query_prepare.go:29` | `DatalogContext.AddQuery` departs from `rule_manager::mk_query` (no rewrite in quantifier pull, extra error, missing well-formedness check) |
-| [muz_base_02-F4](#muz-base-02-f4) | low | high | `pkg/muz/base/rule_set.go:752` | `RuleSet` reset discards the `m_head2rules` table capacity |
-| [muz_base_02-F5](#muz-base-02-f5) | low | high | `pkg/muz/base/rule_set.go:369-395` | `InheritPredicates` rebuilds pred→orig from orig→pred instead of copying `m_pred2orig` |
-| [muz_base_02-F6](#muz-base-02-f6) | low | high | `pkg/muz/base/util_uint64_scan.go:11-25` | `ReadUint64` accepts 18446744073709551610–18446744073709551615, which `read_uint64` rejects |
-| [muz_fp_02-F6](#muz-fp-02-f6) | low | high | `pkg/muz/fp/datalog_parser_domains.go:17-31` | the `muz/fp` legacy Datalog parser differs from `dparser` (int domains, undeclared body predicates, arithmetic `<`, facts) |
-| [muz_fp_03-F9](#muz-fp-03-f9) | low | high | `pkg/muz/fp/datalog_sparse_interval_evaluator.go:150-181` | sparse/interval `Query` ignores imprecision of empty relations in multi-relation queries |
-| [muz_fp_03-F10](#muz-fp-03-f10) | low | high | `pkg/muz/fp/ddnf_engine.go:89-93` | ddnf unstratified-negation error is a plain error, not the query exception |
-| [muz_fp_04-F4](#muz-fp-04-f4) | low | confirmed | `pkg/muz/fp/pdr_engine.go:804-811` | an out-of-range `pdr.cache_mode` aborts the query in g3; z3 accepts it and answers |
-| [muz_fp_04-F5](#muz-fp-04-f5) | low | high | `pkg/muz/fp/propositional_engine.go:979,1018,1033` | `UpdateRule` rejection messages differ from `context::update_rule` |
-| [muz_fp_04-F6](#muz-fp-04-f6) | low | high | `pkg/muz/fp/propositional_engine.go:2523-2527` | `QueryPredicates` with more than one relation on a non-Datalog engine records status "approximated" |
-| [muz_fp_04-F7](#muz-fp-04-f7) | low | high | `pkg/muz/fp/spacer_karr_results.go:16-79` | Karr invariant model converter builds different terms (nested `+`, raw `and`, no bool_rewriter) |
-| [muz_pdr_01-F6](#muz-pdr-01-f6) | low | high | `pkg/muz/pdr/generalizers.go:213-226` | induction generalizer runs on an empty core |
-| [muz_pdr_01-F7](#muz-pdr-01-f7) | low | high | `pkg/muz/pdr/generalizer_induction.go:309-339` | induction transition axiom builds a flat `or` where C++ nests binary `or`s |
-| [muz_pdr_01-F8](#muz-pdr-01-f8) | low | medium | `pkg/muz/pdr/generalizer_arithmetic.go:248-271` | arithmetic inductive bound pairs are visited in encounter order, not r_map order |
-| [muz_pdr_02-F8](#muz-pdr-02-f8) | low | medium | `pkg/muz/pdr/result_validation.go:37,113` | Validation kernels skip PDR's arithmetic settings |
-| [muz_pdr_02-F9](#muz-pdr-02-f9) | low | high | `pkg/muz/pdr/pdr_closure.go:289-310,333-347` | AST construction order and term identity differ in closure and expand_literals |
-| [muz_spacer_01-F6](#muz-spacer-01-f6) | low | confirmed | `pkg/muz/spacer/context.go:728-819` | Spacer's `IF_VERBOSE` progress output is not ported |
-| [muz_spacer_01-F7](#muz-spacer-01-f7) | low | high | `pkg/muz/spacer/context_validate.go:23-26,166-168` | `pdr.validate_result` failures use different messages and print nothing |
-| [muz_spacer_02-F6](#muz-spacer-02-f6) | low | high | `pkg/muz/spacer/predicate_reach.go:200` | most `spacer`-tagged TRACE sites in the shard's functions are not emitted |
-| [muz_spacer_02-F7](#muz-spacer-02-f7) | low | high | `pkg/muz/spacer/virtual_solver_dump.go:67-81` | virtual-solver benchmark dump differs in format and recheck output |
-| [muz_rel_01-F2](#muz-rel-01-f2) | low | high | `pkg/muz/rel/bound_relation.go:131-176` | `BoundRelation.addBound` adds a visited set that `bound_relation::mk_lt` does not have |
-| [muz_rel_01-F3](#muz-rel-01-f3) | low | high | `pkg/muz/rel/doc_cube.go:455-505` | `DocManager.FoldNeg` and `DocManager.Join` turn a debug-only `SASSERT(well_formed)` into a result |
-| [muz_rel_01-F4](#muz-rel-01-f4) | low | high | `pkg/muz/rel/doc_solver.go:14-49` | `DocManager.ToFormula` simplifies the conjunction that `doc_manager::to_formula` builds raw |
-| [muz_rel_01-F5](#muz-rel-01-f5) | low | high | `pkg/muz/rel/doc_cube.go:680-703` | `DocManager.DisplayRange` omits the `union_bvec` line breaks for negative sets |
-| [muz_rel_01-F6](#muz-rel-01-f6) | low | high | `pkg/muz/rel/explanation_relation_filter.go:164-166` | `ExplanationRelation.FilterInterpreted` and `Union` fail where the release C++ continues past `UNREACHABLE` |
-| [muz_rel_01-F7](#muz-rel-01-f7) | low | high | `pkg/muz/rel/check_table.go` | `CheckTable` and the `CheckedRelation` family are dead; `CheckedRelation` has no C++ counterpart |
-| [muz_rel_02-F4](#muz-rel-02-f4) | low | high | `pkg/muz/rel/external_relation.go:166-199` | external relation accessors build temporary applications to obtain declarations (extra ASTs, different ids) |
-| [muz_rel_03-F3](#muz-rel-03-f3) | low | high | `pkg/muz/rel/instruction_relation_explanation.go:337-361` | relation-explanation `filter_equal` / `filter_identical` / `join` skip their counters when the source register is empty |
-| [muz_rel_03-F4](#muz-rel-03-f4) | low | confirmed | `pkg/muz/rel/instruction*.go` | instruction diagnostics: no `-v:2` instruction log or `looping ...` line, and `DisplayHead`/annotation text differs |
-| [muz_rel_04-F2](#muz-rel-04-f2) | low | confirmed | `pkg/muz/rel/relation_manager_default_finite.go:66-89` | lazy_sparse nullary union target: z3 segfaults, g3 answers (z3-bug divergence not recorded) |
-| [muz_rel_04-F3](#muz-rel-04-f3) | low | high | `pkg/muz/rel/karr_relation.go:468-536` | Karr union/delta in the numeric explanation product does not follow `karr_relation::mk_union` |
-| [muz_rel_04-F4](#muz-rel-04-f4) | low | high | `pkg/muz/rel/relation_explanation_product_display.go:30-53` | relation-level explanation `Display` prints sieve masks as column indices instead of `svector<bool>` |
-| [muz_rel_04-F5](#muz-rel-04-f5) | low | high | `pkg/muz/rel/relation_formula_checker.go:32-71` | `check_relation` verification emits none of the C++ verbose diagnostics |
-| [muz_rel_04-F6](#muz-rel-04-f6) | low | high | `pkg/muz/rel/lazy_table.go` | two Go-only relation layers have no production caller (LazyTable over HashTable, SieveRelation over HashTable) |
-| [muz_rel_05-F4](#muz-rel-05-f4) | low | high | `pkg/muz/rel/sieve_relation.go` | the HashTable-backed `SieveRelation` and `TableRelation.FilterByIntersection` have no production caller, and the sieve display text does not match C++ |
-| [muz_rel_06-F3](#muz-rel-06-f3) | low | high | `pkg/muz/rel/udoc_guard_compile.go:492-527, 580-588` | `applyGuard`'s `not`/`or`/iff branches skip `simplify` and use a raw `not` |
-| [muz_rel_06-F6](#muz-rel-06-f6) | low | high | `pkg/muz/rel/udoc_relation_join_project.go:61-82` | `JoinProject` takes the intersection shortcut in fewer cases than C++ (documented, but changes behavior) |
-| [muz_transforms_01-F6](#muz-transforms-01-f6) | low | high | `pkg/muz/transforms/quantifier_instantiation.go:620-647` | quantifier instantiation swaps the modus-ponens premises of the weakening proof |
-| [muz_transforms_01-F7](#muz-transforms-01-f7) | low | high | `pkg/muz/transforms/filter_rules.go:271-287` | filter rules never attach proofs (`mk_rule_asserted_proof` / `mk_rule_rewrite_proof` missing) |
-| [muz_transforms_01-F8](#muz-transforms-01-f8) | low | medium | `pkg/muz/transforms/magic_sets.go:271-326` | magic-sets `get_unbound_cost` ignores `try_get_sort_constant_count` |
-| [muz_transforms_02-F6](#muz-transforms-02-f6) | low | high | `pkg/muz/transforms/unbound_compressor.go:172-308` | unbound compressor decompression omits `fix_unbound_vars` and builds a different rule multiset |
-| [muz_transforms_02-F7](#muz-transforms-02-f7) | low | high | `pkg/muz/transforms/rule_inliner.go:758-765` | inliner planning adds Go-only self-loop forbidding and counts dropped allowed heads as a change |
-| [muz_small_01-F8](#muz-small-01-f8) | low | confirmed | `pkg/muz/bmc/quantified_linear_bind.go:15-108` | QBMC `get_model` follows a newer upstream fix, not 4.7.1 (bindings at the level instead of the rule index, facts end the trace at any level); this is not recorded as a fork fix |
-| [muz_small_01-F9](#muz-small-01-f9) | low | confirmed | `pkg/muz/ddnf/compiler.go:355` | DDNF `compileEquality` looks up the node table by the variable's width; C++ uses the constant's width (and crashes on extracts) |
-| [muz_small_01-F11](#muz-small-01-f11) | low | medium | `pkg/muz/dataflow/reachability.go:185-197` | reachability `TopDown` also propagates through `RuleSet.Dependencies`, which has no C++ counterpart |
-| [muz_small_02-F3](#muz-small-02-f3) | low | confirmed | `pkg/muz/tab/search.go:205-323` | most tab `IF_VERBOSE` output is missing (apply_rule, subsumption, certificate, proof body) |
-| [muz_small_02-F4](#muz-small-02-f4) | low | high | `pkg/muz/tab/query.go:145-163` | a query with no predicates gets an extra tautology check that C++ does not do |
-| [duality_01-F7](#duality-01-f7) | low | medium | `pkg/duality/elim_ite.go:104-127` | AST construction order differs from the GCC build in `ElimIte` and `FourierMotzkinCheap` |
-| [duality_01-F8](#duality-01-f8) | low | high | `pkg/duality/gauss_elim.go:111-116` | the variable projector's stdout diagnostics are missing |
-| [duality_02-F6](#duality-02-f6) | low | high | `pkg/duality/model_constraints.go:77` | `ModelValueAsConstraint` builds `iff` for Boolean parameters where the C++ `operator==` builds `=` (OP_EQ) |
-| [duality_02-F7](#duality-02-f7) | low | high | `pkg/duality/projection_bounds.go:123-145` | variable projector: construction order and arity handling differ from `IsCanonIneq` / `IndexLA` |
-| [duality_03-F3](#duality-03-f3) | low | high | `pkg/duality/subst_atom.go:41-51,86-90` | `SubstAtom` recognizes `and`/`or`/`not` by raw decl kind without checking the basic family |
-| [duality_03-F4](#duality-03-f4) | low | high | `pkg/duality/wrapper_ast.go:231-234` | wrapper `Sort.Kind` swaps Int and Real |
-| [duality_03-F5](#duality-03-f5) | low | high | `pkg/duality/unwinding_extend.go:55` | eager deduction checks conjectures with the derivation checker instead of `gen_cands_rpfp` |
-| [duality_03-F6](#duality-03-f6) | low | medium | `pkg/duality/unwinding_feasible.go:94-114` | `CandidateFeasible` recursion-bound exit pops the solver scope that the C++ leaks |
-| [duality_03-F7](#duality-03-f7) | low | medium | `pkg/duality/term_tree.go:84-116` | `TermTree.Close` releases children and terms back to front |
-| [interp_01-F15](#interp-01-f15) | low | high | `pkg/interp/manager.go:530` | `MakeQuantifier` omits the quantifier id `itp` that `make_quant` sets |
-| [interp_01-F16](#interp-01-f16) | low | high | `pkg/interp/manager.go:209-218` | `Manager.Operator` does not classify `pi`/`e` as `Numeral` |
-| [interp_01-F17](#interp-01-f17) | low | high | `pkg/interp/checker.go:59,119` | `CheckInterpolants` (parents API) uses tree scopes for its second diagnostic; the C++ checker uses linear ones |
-| [solver_misc_01-F2](#solver-misc-01-f2) | low | high | `pkg/solver/solver.go:384-397` | DefaultGetConsequences drops errors from the non-Boolean consequence branch (`:=` shadowing) |
-| [solver_misc_01-F3](#solver-misc-01-f3) | low | high | `pkg/solver/solver_tactic.go:479-513` | SolverTactic (solver2tactic) carries smt_tactic-only policy: preserved-precision checks, candidate models, a different unknown message and extra parameters |
-| [solver_misc_02-F1](#solver-misc-02-f1) | low | confirmed | `pkg/cmd/g3/main.go:56-63` | `runArgumentsWithDiagnostics` prints Go-only `-h` / `-version` text instead of the ported `display_usage` / `display_version` |
-| [api_01-F5](#api-01-f5) | low | confirmed | `pkg/api/api_ast_inspection.go:124-135` | `DeclarationName` / `SortName` / `DeclarationSymbolParameter` render numerical and null symbols as `k!N` / `null` |
-| [api_01-F6](#api-01-f6) | low | high | `pkg/api/api_ast_benchmark.go:19-24` | `BenchmarkSMT2` treats empty strings as absent symbols |
-| [api_01-F7](#api-01-f7) | low | high | `pkg/api/api_bitvectors.go:215-249` | AST construction order differs in `BitVectorToInt(signed)` and `BitVectorSDivNoOverflow` |
-| [api_01-F8](#api-01-f8) | low | high | `pkg/api/api_goal_translation.go:21-23` | `APIGoal.Translate` rejects same-context translation; `APIGoal.DIMACS` has no 4.7.1 counterpart |
-| [api_02-F7](#api-02-f7) | low | confirmed | `pkg/api/api_interp_read.go:101-143` | `ReadInterpolationProblem` handles a one-assertion file and the `;! THEORY=` value differently from `Z3_read_interpolation_problem` |
-| [api_02-F8](#api-02-f8) | low | confirmed | `pkg/api/api_quantifiers.go:238-257` | `PatternString` prints with let-aliases; `Z3_pattern_to_string` (`Z3_ast_to_string`) disables them |
-| [api_02-F9](#api-02-f9) | low | high | `pkg/api/api_params_object.go:192-199,219-232` | `ParameterDescriptions.Kind`/`Documentation` normalize the name; `Z3_param_descrs_get_kind`/`get_documentation` look it up verbatim |
-| [api_03-F7](#api-03-f7) | low | high | `pkg/api/z3_generated_datatype_inspection.go:85-88` | datatype accessor/constructor/recognizer queries skip `save_ast_trail` |
-| [api_03-F8](#api-03-f8) | low | high | `pkg/api/z3_generated_declaration_commands.go:39-47` | a `$ \|\|` (empty, non-null) symbol becomes `symbol::null` in every replay command except fixedpoint rules |
-| [api_03-F9](#api-03-f9) | low | confirmed | `pkg/api/z3_replayer_scanner.go:33-153` | replay scanner diagnostics, CRLF and overflow differ; no `-v:1` progress line |
-| [api_03-F10](#api-03-f10) | low | high | `pkg/api/z3_log_escape.go:13-30` | log writer escapes bytes >= 0x80 differently from `ll_escaped` (signed `char`); `D` of inf/nan differs |
-| [cmd_context_01-F10](#cmd-context-01-f10) | low | confirmed | `pkg/cmd_context/macros.go:121-125` | a popped macro name still blocks bare function-declaration references in C++ but not in Go |
-| [cmd_context_01-F11](#cmd-context-01-f11) | low | confirmed | `pkg/cmd_context/array_map.go:14-61` | `DeclareMap` checks and error texts differ from `declare_map_cmd` |
-| [cmd_context_01-F12](#cmd-context-01-f12) | low | confirmed | `pkg/cmd_context/context.go:405-411` | a failure to open an output channel appends the Go OS error to the message |
-| [cmd_context_01-F13](#cmd-context-01-f13) | low | high | `pkg/cmd_context/apply_tactic.go:50-58` | `ApplyTactic` calls `set_logic` on the tactic; `apply_tactic_cmd` does not |
-| [cmd_context_01-F14](#cmd-context-01-f14) | low | high | `pkg/cmd_context/context.go:1368-1392` | `Pop` releases declarations and macros in a different order than `cmd_context::pop` |
-| [cmd_context_01-F15](#cmd-context-01-f15) | low | high | `pkg/cmd_context/model_completion.go:176-187, 256-305` | `validateModel` builds its evaluator without `max_degree`/`sort_store`, and its under-specified scan skips quantifier bodies |
-| [cmd_context_01-F16](#cmd-context-01-f16) | low | medium | `pkg/cmd_context/opb_loader.go:20-87` | the OPB loader builds a different AST from `opb::parse` |
-| [cmd_context_02-F7](#cmd-context-02-f7) | low | confirmed | `pkg/cmd_context/results.go:573` | get-unsat-core without produce-unsat-cores gives the wrong message |
-| [cmd_context_02-F8](#cmd-context-02-f8) | low | confirmed | `pkg/cmd_context/sort_declarations.go:131` | sort-constructor arity error text differs |
-| [cmd_context_02-F12](#cmd-context-02-f12) | low | high | `pkg/cmd_context/parser_bindings.go:30-35` | Parser bindings: a sort name that already exists is an error; C++ skips it |
-| [cmd_context_02-F13](#cmd-context-02-f13) | low | high | `pkg/cmd_context/solver_factory_strategic.go:12` | Z3_mk_solver_for_logic error text |
-| [parsers_shell_01-F13](#parsers-shell-01-f13) | low | confirmed | `pkg/shell/dimacs_statistics.go:15` | `-st` on a DIMACS file omits `:total-time` (time rounded to 0.00 before `update`) |
-| [parsers_shell_01-F14](#parsers-shell-01-f14) | low | confirmed | `pkg/parsers/smt2/help_commands.go:308-313` | `(help)` output loses its final newline, and `(help-tactic)` changes the `if` combinator text |
-| [parsers_shell_01-F15](#parsers-shell-01-f15) | low | confirmed | `pkg/parsers/smt2/debug_commands.go:610-626` | `dbg-sexpr` prints atoms differently from `sexpr::display` |
-| [parsers_shell_01-F16](#parsers-shell-01-f16) | low | confirmed | `pkg/parsers/util/pattern_validation.go:46-115` | pattern validator warns once per occurrence; C++ `for_each_expr` visits each shared node once |
-| [parsers_shell_01-F17](#parsers-shell-01-f17) | low | confirmed | `pkg/parsers/util/simple_parser.go:30-35, 164-168` | simple/cost parser writes `parser error` without the `WARNING: ` prefix, bypassing the warning service |
-| [parsers_shell_01-F18](#parsers-shell-01-f18) | low | confirmed | `pkg/shell/command_line.go:237-238` | invalid command-line option message keeps the `:argument` part |
+| ID | Severity | Confidence | Status | Where (Go) | Finding |
+|---|---|---|---|---|---|
+| [FUZZ_K-F1](#fuzz-k-f1) | critical | confirmed | fixed (2cdb6f15e) | `pkg/interp/orchestration.go:53-158` | `ProofInterpolants` uses the full multi-frame translation; C++ uses BINARY_INTERPOLATION (one A/B translation per interpolant) |
+| [smtcore_09-F1](#smtcore-09-f1) | critical | confirmed | fixed (96fb8b92c) | `pkg/smtcore/theory_array.go:213-230` | array InternalizeTerm never attaches a theory var to a non-array-op argument (ite array), so axioms are lost and the answer is wrong |
+| [ast_03-F1](#ast-03-f1) | critical | confirmed | fixed (20d0cc3c1) | `pkg/ast/ast_datatype_utility.go:140-197` | `DatatypeAccessorIndex` uses a creation-order registry that goes stale when a datatype is declared again; accessor rewriting picks the wrong field |
+| [math_realclosure_01-F1](#math-realclosure-01-f1) | critical | confirmed | fixed (126304ca5) | `pkg/math/realclosure/algebraic_clean_denominator.go:8-41` | cleanAnyValueDenominator ignores rational-function denominators, so isolate_roots returns the wrong roots |
+| [tactic_arith_03-F1](#tactic-arith-03-f1) | critical | confirmed | fixed (351b9baec) | `pkg/tactic/arith/pb2bv_convert.go:157-186` | pb2bv numeral-on-left atoms: `(= c x)` is encoded unsoundly (copied z3 bug) and `(<= c x)`/`(>= c x)` with c not in {0,1} fail |
+| [tactic_bv_01-F1](#tactic-bv-01-f1) | critical | confirmed | fixed (8dad08d48) | `pkg/tactic/bv/elim_small_bv_tactic.go:192-205,236-328` | elim-small-bv step counter is cumulative and loses the outer-loop guard; a quantifier becomes `true` |
+| [muz_rel_06-F1](#muz-rel-06-f1) | critical | confirmed | fixed (989db0132) | `pkg/muz/rel/udoc_guard_compile.go:641-667` | `applyBitVectorEquality` merges into a shared union-find, so equalities leak across the guard |
+| [interp_02-F1](#interp-02-f1) | critical | confirmed | fixed (8b26997a0) | `pkg/interp/translation_idioms.go:208-220` | `translateProofIdiom` tests MP/QUANT_INST tautology with `Locality` instead of `get_locality_rec`, so the idiom never fires |
+| [FUZZ-F1](#fuzz-f1) | high | confirmed | fixed (611faa66f) | `pkg/smtcore/smt_theory_arith_core.go:781` | `SMTTheoryArith.addRelWatch` fails on the true literal, so `rem` with a numeral divisor answers `unknown` |
+| [FUZZ_A-F1](#fuzz-a-f1) | high | confirmed | fixed (f65f7aa80) | `pkg/cmd_context/optimization.go:529-531` | get-objectives after unsat/unknown initial check refuses instead of printing optsmt/maxsmt initial bounds |
+| [FUZZ_A-F4](#fuzz-a-f4) | high | confirmed | fixed (1871763bd) | `pkg/opt/arithmetic_solver.go:996-1000` | unknown initial check without a model aborts check-sat with "invalid AST owner" |
+| [FUZZ_A-F6](#fuzz-a-f6) | high | confirmed | fixed (b3967f229) | `pkg/opt/objective_purifier_arithmetic.go:44-62` | objective purify tests the term's sort instead of its head symbol (is_arith_expr) |
+| [FUZZ_A-F7](#fuzz-a-f7) | high | confirmed | fixed (33825a01f) | `pkg/smtcore/smt_theory_arith_eq.go:26-28` | fixed_var_eh rejects an epsilon-valued fixed bound (SASSERT turned into an error) |
+| [FUZZ_A-F10](#fuzz-a-f10) | high | confirmed | fixed (38521794c) | `pkg/opt/arithmetic_solver.go:725-745` | exception inside the MaxSMT engine aborts check-sat instead of becoming unknown |
+| [FUZZ_B-F1](#fuzz-b-f1) | high | confirmed | fixed (b63ff9c67) | `pkg/tactic/core/dom_simplify_rewrite.go:69-113` | dom-simplify does not use expr_substitution_simplifier; Go folds `not`/reflexive `=` on its own |
+| [FUZZ_B-F2](#fuzz-b-f2) | high | confirmed | fixed (b63ff9c67) | `pkg/tactic/core/dom_simplify_context.go:25-30,17-24` | Go substitution scope lets a later binding override an earlier one; C++ keeps the first |
+| [FUZZ_B-F3](#fuzz-b-f3) | high | confirmed | fixed (b63ff9c67) | `pkg/tactic/core/dom_simplify_context.go:85-102` | an equality with no orientable side is not recorded as `eq → true` |
+| [FUZZ_B-F4](#fuzz-b-f4) | high | confirmed | fixed (b63ff9c67) | `pkg/tactic/core/dom_simplify_rewrite.go:254-260` | simplify_ite returns the wrong result: branch checks in the wrong order, rewritten condition dropped, is_false tested after assert_expr |
+| [FUZZ_B-F6](#fuzz-b-f6) | high | confirmed | decided (6c1426ad6) | `pkg/tactic/core/dom_simplify_plugin.go:264-270` | simplify_rec skips the root's self-edge in the dominator tree (z3 behavior here is unsound) |
+| [FUZZ_C-F1](#fuzz-c-f1) | high | confirmed | fixed (5e8304e47) | `pkg/tactic/bv/bvarray2uf_rewriter.go:49` | bvarray2uf rewriter is a hand-written memo walk, not rewriter_tpl; it skips the built-in simplification and misnames fresh functions |
+| [FUZZ_C-F2](#fuzz-c-f2) | high | confirmed | fixed (fd009604f) | `pkg/tactic/core/pb_preprocess_simplify.go:7-11,281-289` | pb-preprocess replaces the C++ m_ge-index bookkeeping and accumulating subsumption vectors with "fixed" logic (documented deviation, observable) |
+| [FUZZ_C-F3](#fuzz-c-f3) | high | confirmed | fixed (727f7c1fb) | `pkg/tactic/arith/qfnra_purify_tactic.go:165-186` | purify-arith mod handling, fresh-variable order, apply-def argument order, and filter order differ from C++ |
+| [FUZZ_C-F4](#fuzz-c-f4) | high | confirmed | fixed (3ad21645d) | `pkg/qe/projection_literals.go:105` | qe MBP extract_bools turns the release-compiled SASSERT into an error ("AST source precondition") |
+| [FUZZ_D-F1](#fuzz-d-f1) | high | confirmed | fixed (002deff0b) | `pkg/tactic/smtlogics/qfnia_tactic.go:115` | QF_NIA nlsat route calls the bare nlsat tactic instead of mk_qfnra_nlsat_tactic |
+| [FUZZ_D-F4](#fuzz-d-f4) | high | confirmed | fixed (db12cbb9b) | `pkg/ast/rewriter/arith_polynomial.go:279-370` | hoist_multiplication is not a port of poly_rewriter::hoist_multiplication / merge_muls |
+| [FUZZ_D-F5](#fuzz-d-f5) | high | confirmed | fixed (d2cfe02f8) | `pkg/tactic/arith/bv2int_rewriter.go:545-553` | bv2int mk_bv_mul keeps intermediate extensions alive (AST id order) |
+| [FUZZ_F-F1](#fuzz-f-f1) | high | confirmed | fixed (c8f96aae4) | `pkg/muz/spacer/predicate_expand.go:208` | spacer `ExpandObligation` l_undef branch calls create_children on a fact rule (no uninterpreted tail) |
+| [FUZZ_G-F1](#fuzz-g-f1) | high | confirmed | fixed (a292dc766) | `pkg/smtcore/theory_str_terms.go:192-247` | `concatTerm`/`assertFlattenedConcatLength` creates the leaf lengths before `str.len(concat)` |
+| [FUZZ_G-F2](#fuzz-g-f2) | high | confirmed | fixed (4d6b077a1) | `pkg/smtcore/theory_str_free_variable_order.go:23-83` | `stringFreeVariableOrder` emits free-variable testers in handle-sorted order, not `obj_hashtable` order |
+| [FUZZ_G-F3](#fuzz-g-f3) | high | confirmed | fixed (01f95cb51) | `pkg/smtcore/theory_str_relations.go:64-118` | `instantiateBoundaryRelation` (prefixof/suffixof axiom) builds terms in left-to-right order |
+| [FUZZ_G-F4](#fuzz-g-f4) | high | confirmed | fixed (01f95cb51) | `pkg/smtcore/theory_str_arrangements.go:73-81` | `freshNonemptyString` (`mk_nonempty_str_var`) asserts an extra `!(a = "")` axiom |
+| [FUZZ_G-F5](#fuzz-g-f5) | high | confirmed | fixed (c3c7a7ba3) | `pkg/smtcore/theory_str_extract.go:34-135` | `instantiateCharAt` builds terms in a different order and keeps different owners |
+| [FUZZ_G-F6](#fuzz-g-f6) | high | confirmed | fixed (4ff13ed5e) | `pkg/smtcore/theory_str_extract.go:137-345` | `instantiateSubstring` builds terms in a different order and keeps different owners |
+| [FUZZ_G-F7](#fuzz-g-f7) | high | confirmed | fixed (e8bc459b6) | `pkg/smtcore/theory_str_replace.go:60-181` | `instantiateReplace` builds terms in a different order and keeps different owners |
+| [FUZZ_G-F8](#fuzz-g-f8) | high | confirmed | fixed (4ff13ed5e) | `pkg/smtcore/theory_str_concat_classes.go:96-100` | `simplifyStringConcat` asserts `(or (not (and ...)) (= node result))` with a raw `MkEq` through `imply`; `assertAxiom` skips the `b_internalized` guard |
+| [FUZZ_H-F11](#fuzz-h-f11) | high | confirmed | fixed (fa7cf28cb) | `pkg/tactic/arith/fix_dl_var_target.go:76-82` | fix-dl-var picks among tied variables in insertion order, not `obj_map` table order |
+| [FUZZ_I-F1](#fuzz-i-f1) | high | confirmed | fixed (74afa32af) | `pkg/cmd_context/context.go:977-989` | `Context.mkSolver` interpolating/proof branch never calls `SetProduceModels`, so proof mode has no model |
+| [FUZZ_I-F2](#fuzz-i-f2) | high | confirmed | fixed (5600060dc) | `pkg/cmd_context/results.go:67` | the command-context and model printers ignore the `pp.*` printer parameters |
+| [FUZZ_I-F7](#fuzz-i-f7) | high | confirmed | fixed (0333e1139) | `pkg/smtcore/smt_theory_seq.go:999-1022` | theory_seq's `m_rewrite` uses a private, default global-parameter service, so global `rewriter.*` settings do not reach it |
+| [FUZZ_J-F1](#fuzz-j-f1) | high | confirmed | fixed (5dcd4ab9b) | `pkg/tactic/arith/lia2card_tactic.go:314` | `LIA2CardTactic.Apply` loops to the goal's entry size; an update that makes the goal inconsistent shrinks it, and the next `goal.Form` reads out of bounds |
+| [FUZZ_J-F2](#fuzz-j-f2) | high | confirmed | fixed (6eeef79e0) | `pkg/opt/maxres_split.go:14-41` | MaxRes `splitCore` deletes the weights of removed assumptions; `m_asm2weight` keeps them, so a later core of the same batch fails with "invalid MaxRes state" |
+| [FUZZ_K-F2](#fuzz-k-f2) | high | confirmed | fixed (6499d9e00) |  | interpolation temporaries do not die where the C++ `ast_r` dies, so AST ids are recycled differently and sum monomials come out in another order |
+| [smtcore_01-F1](#smtcore-01-f1) | high | confirmed | decided (6c1426ad6) | `pkg/smtcore/smt_asserted_ite.go:85` | eliminatePendingTermITEs builds a fresh elim_term_ite rewriter per pass; C++ keeps one rewriter (and its cache) for the life of asserted_formulas |
+| [smtcore_01-F2](#smtcore-01-f2) | high | confirmed | decided (6c1426ad6) | `pkg/smtcore/smt_asserted_driver.go:143` | reduceAssertedPending always expands stored macros (documented deviation that changes answers) |
+| [smtcore_02-F1](#smtcore-02-f1) | high | confirmed | fixed (875cf0367) | `pkg/smtcore/smt_case_split_queue.go:152-158` | `NextCaseSplit` lets the queue's phase override the quantifier rule |
+| [smtcore_02-F2](#smtcore-02-f2) | high | confirmed | fixed (8ccccbe60) | `pkg/smtcore/smt_cg_table.go:74-81` | congruence table matches flat-associative binary applications modulo commutativity |
+| [smtcore_03-F1](#smtcore-03-f1) | high | confirmed | fixed (05c02067f) | `pkg/smtcore/smt_internalizer.go:1307` | `Assert` has no port of `context::assert_distinct` (large `distinct`) |
+| [smtcore_03-F2](#smtcore-03-f2) | high | confirmed | fixed (ad3699ad2) | `pkg/smtcore/smt_internalizer_order.go:104` | deep-expression top-sort treats any non-Boolean operator of kind 4 as a term `ite` |
+| [smtcore_03-F3](#smtcore-03-f3) | high | confirmed | fixed (50acf4832) | `pkg/smtcore/smt_equality_atom_index.go:14` | `hasRelevantFalseEquality` counts Boolean `iff` atoms; C++ `is_diseq` never does |
+| [smtcore_03-F4](#smtcore-03-f4) | high | confirmed | fixed (ee01adbab) | `pkg/smtcore/smt_dyn_ack_manager.go:32-53` | dyn-ack triple instantiation fails with proofs enabled |
+| [smtcore_04-F1](#smtcore-04-f1) | high | confirmed | fixed (821ff3b3a) | `pkg/smtcore/smt_mam_compiler.go:573` | `smtMAMCompiler.isSemiCompatibleCheck` fails the whole pattern insertion when the CHECK enode has no label hash |
+| [smtcore_04-F2](#smtcore-04-f2) | high | confirmed | fixed (429713149) | `pkg/smtcore/smt_kernel.go:1483` | no model after an `unknown` check (quantifier or theory incompleteness) |
+| [smtcore_05-F1](#smtcore-05-f1) | high | confirmed | fixed (193fef036) | `pkg/smtcore/smt_model_finder.go:448-495` | processNonAUFMacros walks full and conditional macros in insertion order, not obj_map table order |
+| [smtcore_05-F2](#smtcore-05-f2) | high | confirmed | fixed (03b6b2f43) | `pkg/smtcore/smt_model_finder_auf_classify.go:236-270` | classifyAUF is a second implementation of m_is_auf and disagrees with the analyzer |
+| [smtcore_05-F3](#smtcore-05-f3) | high | confirmed | fixed (738a8ea23) | `pkg/smtcore/smt_model_finder_auf_classify.go:184-234` | isAUFSelect skips the array argument, so nested selects become select_var qinfos |
+| [smtcore_06-F2](#smtcore-06-f2) | high | confirmed | fixed (89633f97f) | `pkg/smtcore/smt_setup_unknown.go:91` | `setupUnknownStaticPolicy` applies `setup_QF_AX(st)` where C++ calls the featureless `setup_QF_AX()` |
+| [smtcore_07-F1](#smtcore-07-f1) | high | confirmed | fixed (49062f2f2) | `pkg/smtcore/smt_tactic_impl.go:301` | `SMTTactic.Apply` / `PrepareCandidateModel` builds a model after a conflict-limit failure |
+| [smtcore_08-F1](#smtcore-08-f1) | high | confirmed | fixed (a8a70f1b4) | `pkg/smtcore/smt_theory_propagation.go:163-204` | `propagateAssignedAtom` calls the theory's `assign_eh` for an equality atom that is also a theory atom (missing `else`) |
+| [smtcore_09-F2](#smtcore-09-f2) | high | confirmed | fixed (b6522ad86) | `pkg/smtcore/smt_utvpi_graph.go:132-134` | UTVPI parityConflict/enforceParity turn fractional or infeasible Int-vertex states into an internal error |
+| [smtcore_10-F1](#smtcore-10-f1) | high | confirmed | fixed (9b06ff96b) | `pkg/smtcore/theory_bv_operators.go:543-571` | `internalizeSplice` creates every argument's variable and bits before adding any bit (concat order) |
+| [smtcore_10-F2](#smtcore-10-f2) | high | confirmed | fixed (701fc2d06) | `pkg/smtcore/theory_dense_diff_logic.go:208-238` | dense `InternalizeAtom` uses the sparse `decompose` instead of the dense shape match, rejecting offset terms |
+| [smtcore_10-F3](#smtcore-10-f3) | high | confirmed | decided (f0ba9996d) | `pkg/smtcore/theory_datatype_recognizers.go:21-26` | `propagateRecognizer` returns an error where C++ release continues with an empty recognizer table |
+| [smtcore_10-F15](#smtcore-10-f15) | high | confirmed | decided (35a93d112) | `pkg/ast/rewriter/datatype_rewriter.go:122-150` | (outside this shard) `update-field` over a constructor is rewritten by Go and left unchanged by the reference C++ |
+| [smtcore_11-F1](#smtcore-11-f1) | high | confirmed | fixed (019c24ced) | `pkg/smtcore/theory_lra.go:632-652` | `SMTLRATheory.InternalizeEquality` ignores theory variables inherited through merges, so equality-adapter axioms are skipped |
+| [smtcore_11-F2](#smtcore-11-f2) | high | confirmed | fixed (8794f8584) | `pkg/smtcore/theory_fpa.go:673-677` | `SMTFloatingPointTheory.ModelValue` treats an `fp` triple of numerals as a final value, so models print `(fp ...)` and model evaluation stops working |
+| [smtcore_11-F3](#smtcore-11-f3) | high | medium | fixed (e88d94e7a) | `pkg/smtcore/theory_fpa.go:336-345` | FPA (and datalog) `assert_cnstr` / `mark_as_relevant` skip the `true` literal, so `true` is never made relevant and the search diverges at relevancy 2 |
+| [smtcore_12-F1](#smtcore-12-f1) | high | confirmed | fixed (917cef3f0) | `pkg/smtcore/theory_str_automaton_bounds.go:128` | findStringAutomatonInitialBounds errors when the language has no nonzero-length word; the C++ release build continues |
+| [smtcore_12-F2](#smtcore-12-f2) | high | confirmed | fixed (5bf2a4e08) | `pkg/smtcore/theory_str_conversion*.go` | z3str3 gives a wrong `unsat` for `(= i (str.to.int x)) (= i 12)` |
+| [smtcore_13-F3](#smtcore-13-f3) | high | confirmed | fixed (9e33a63d3) | `pkg/smtcore/theory_str_regex.go:99-101` | unknown regex operators make z3str3 answer `unknown` where the C++ answers `sat` |
+| [smtcore_13-F5](#smtcore-13-f5) | high | confirmed | fixed (ec7969edf) | `pkg/smtcore/theory_utvpi.go:251-257` | UTVPI InternalizeTerm creates an enode before its arguments are internalized |
+| [smtcore_13-F6](#smtcore-13-f6) | high | confirmed | fixed (8a8869d6d) | `pkg/smtcore/theory_utvpi.go:125-137` | UTVPI ApplySortConstraint creates graph variables for every arithmetic enode, and model values bypass the arithmetic factory |
+| [smtcore_14-F1](#smtcore-14-f1) | high | confirmed | fixed (2f7ab6d45) | `pkg/cmd_context/context.go:1428` | `Context.CheckSat` (plain `check-sat`) never applies `timeout` or `rlimit`; `Push`/`Pop` never push the resource limit |
+| [sat_01-F1](#sat-01-f1) | high | confirmed | fixed (2eb953390) | `pkg/sat/sat_big_reduce.go:62` | `satBIG.reduceTransitive` runs by default in every SCC pass; the C++ has no transitive reduction, no `scc.tr` parameter and no `sat_big` |
+| [sat_03-F1](#sat-03-f1) | high | confirmed | fixed (60d142c50) | `pkg/sat/sat_solver_index_sets.go:12` | `satSolverIndexSet` iterates in insertion order, C++ `index_set` iterates in hash-table slot order (changes `get-consequences` output) |
+| [ast_rewriter_01-F1](#ast-rewriter-01-f1) | high | confirmed | fixed (515be27de) | `pkg/ast/rewriter/arith_rewriter.go:847-1019` | `rewritePower` skips the 1/0 base and zero-exponent rules for non-numeral or huge exponents |
+| [ast_rewriter_01-F2](#ast-rewriter-01-f2) | high | confirmed | fixed (f3006f496) | `pkg/ast/rewriter/arith_algebraic.go:124-201` | algebraic `+`/`*` folding requires every argument to be a numeral |
+| [ast_rewriter_03-F1](#ast-rewriter-03-f1) | high | confirmed | fixed (4563d42f9) | `pkg/ast/rewriter/der_rewrite.go:95-178` | DER (`der` tactic) ports a newer upstream der.cpp: it eliminates existentials, flattens the body with flatten_or, and changes the unit case |
+| [ast_rewriter_03-F2](#ast-rewriter-03-f2) | high | confirmed | fixed (923d6d680) | `pkg/ast/rewriter/enum2bv_rewriter.go:38-40,805-835` | enum2bv exposes its decl maps as Go maps, so model-converter insertion order (and `get-model` order) is random |
+| [ast_rewriter_04-F1](#ast-rewriter-04-f1) | high | confirmed | fixed (631ae5860) | `pkg/ast/rewriter/factor_rewriter.go:256-267` | factor_rewriter `collect_powers`/`mk_eq`/`mk_is_negative` iterate powers in insertion order instead of obj_map table order |
+| [ast_rewriter_04-F2](#ast-rewriter-04-f2) | high | confirmed | fixed (229b3eee2) | `pkg/ast/rewriter/pb2bv_rewriter.go:277` | pb2bv `weighted` always divides coefficients and bound by their gcd (not in 4.7.1) |
+| [ast_sub_02-F1](#ast-sub-02-f1) | high | confirmed | fixed (c79e1a502) | `pkg/ast/normal_forms/nnf.go:397-399` | NNF and/or uses ast_util MkAndArray/MkOrArray, so unary and/or are dropped, and with proofs the tactic fails |
+| [ast_03-F2](#ast-03-f2) | high | confirmed | fixed (87b548fd9) | `pkg/ast/ast_datatype_definition.go:194-203` | `MkDatatypes` does not reset the plugin's `datatype::util` when it replaces a definition, so stale constructors come back |
+| [ast_03-F3](#ast-03-f3) | high | confirmed | fixed (78a128564) | `pkg/ast/ast_datatype_cardinality.go:49-95` | datatype cardinality recurses into same-block datatypes; C++ treats them as infinite, so the finite/infinite classification, the models and the splits differ |
+| [ast_05-F1](#ast-05-f1) | high | confirmed | fixed (03847f44e) | `pkg/ast/ast_fpa_rm_binary_decl.go:12-15` | unary `fp.sub` is rejected instead of being turned into `fp.neg` (`floatingPointRMBinaryDecl` / FPA dispatch) |
+| [ast_07-F1](#ast-07-f1) | high | confirmed | fixed (9d6b4a759) | `pkg/ast/ast_smt2_boolean_tree.go:181-206` | SMT2 printer never consults `env.uses()`, so `let` aliases and renamed binders can capture declared symbols |
+| [model_01-F2](#model-01-f2) | high | confirmed | fixed (9316a50cc) | `pkg/model/model_evaluator.go:690-722,795-810` | ReduceApp skips `evaluate_partial_theory_func` when the arith, BV, datatype, PB or seq rewriter fails |
+| [util_numeral_02-F1](#util-numeral-02-f1) | high | confirmed | fixed (c29f887d1) | `pkg/util/numeral/mpf_numeral_interval.go:129-176` | `ArbitraryFloatNumeralManager.Floor`/`Ceil` run `check()` on input, scratch and result, which f2n::floor/ceil do not do (they only SASSERT), so floor/ceil that gives zero fails |
+| [util_lp_05-F1](#util-lp-05-f1) | high | confirmed | fixed (8ba18a46f) | `pkg/util/lp/primal_price_rational.go:206` | `SortNonBasis` uses Go `sort.Slice` instead of `std::sort`, so the non-basis order differs and LRA optimization returns a different model |
+| [math_realclosure_01-F2](#math-realclosure-01-f2) | high | confirmed | fixed (054632ba4) | `pkg/math/realclosure/root_bound_intervals.go:46-107` | makeRootBoundInterval rejects the inverted bound interval of an empty half-line, so root isolation errors on common polynomials |
+| [math_realclosure_01-F3](#math-realclosure-01-f3) | high | confirmed | fixed (126304ca5) | `pkg/math/realclosure/algebraic_clean_denominator.go:12-36` | the "any" root-isolation pipeline cannot handle transcendental or infinitesimal coefficients |
+| [math_realclosure_01-F4](#math-realclosure-01-f4) | high | high | fixed (7caf5ad4d) | `pkg/math/realclosure/root_bisect_any.go:12-92` | bisectAnyRoots lacks the infinitesimal sign-determination escape, so it can recurse without end |
+| [math_realclosure_01-F5](#math-realclosure-01-f5) | high | confirmed | fixed (cfe683951) | `pkg/math/realclosure/infinitesimal_refine.go:43-105` | determineInfinitesimalValueSign builds closed intervals that contain 0, so Inv of an infinitesimal value fails |
+| [math_realclosure_01-F7](#math-realclosure-01-f7) | high | confirmed | fixed (126304ca5) | `pkg/math/realclosure/denominator_value_tower.go:11-67` | cleanTowerValueDenominator (RCFNumeratorDenominator) differs from clean_denominators_core |
+| [math_realclosure_01-F8](#math-realclosure-01-f8) | high | confirmed | fixed (35a91650e) | `pkg/math/realclosure/algebraic_value_interval_update.go:7-12` | refining an algebraic value with non-rational coefficients fails |
+| [math_realclosure_01b-F1](#math-realclosure-01b-f1) | high | confirmed | fixed (9780a1d3d) | `pkg/math/realclosure/polynomial_inverse_mod_ranked.go:11-82` | invertRankedPolynomialModulo uses extended Euclid instead of inv_algebraic's Q/R recurrence, so 1/q is not reduced and the extension is not refined |
+| [math_realclosure_02-F1](#math-realclosure-02-f1) | high | confirmed | fixed (ff73a992e) | `pkg/math/realclosure/value_negate_ranked.go:27` | negateRankedRetainedValue drops the denominator of transcendental/infinitesimal values (Neg/Sub return wrong values) |
+| [math_realclosure_02-F2](#math-realclosure-02-f2) | high | confirmed | fixed (d3ef9999b) | `pkg/math/realclosure/value_display_api.go:115-149` | displayValue (the API Display of algebraic values) ignores numerator coefficients, rejects every other polynomial, and formats coefficients and sign conditions differently from the C++ |
+| [math_realclosure_02-F3](#math-realclosure-02-f3) | high | confirmed | fixed (9780a1d3d) | `pkg/math/realclosure/value_inverse_ranked.go:52-58` | inverseRankedRetainedValue fails when the numerator shares a factor with a reducible defining polynomial (C++ refines the extension and retries) |
+| [math_subpaving_01-F1](#math-subpaving-01-f1) | high | confirmed | fixed (7ae5db378) | `pkg/math/subpaving/arbitrary_interval_div.go:25-31,79-81` | interval `Div` rejects a zero-containing denominator that C++ divides (SASSERT only), failing the whole tactic |
+| [math_subpaving_02-F1](#math-subpaving-02-f1) | high | confirmed | fixed (68dfb82f0) | `pkg/math/subpaving/fixed_monomial.go:240-262` | propagateMonomialDownward (MPFX, HWF) clears `first`, so it divides by the first other factor instead of the last |
+| [math_subpaving_04-F1](#math-subpaving-04-f1) | high | confirmed | fixed (773234cfd) | `pkg/math/subpaving/tactic/public_factory.go:60` | `:numeral mpff` subpaving tactic fails to construct ("arena: invalid configuration") |
+| [math_misc_01-F1](#math-misc-01-f1) | high | confirmed | fixed (0c48eeff7) | `pkg/math/grobner/grobner.go:404` | grobner merge_monomials never charges the resource limit (`m_manager.limit().inc(sz)` dropped) |
+| [nlsat_01-F1](#nlsat-01-f1) | high | confirmed | decided (223907cb8) | `pkg/nlsat/explain_signed_projection.go:62-121` | signedProjectInfinity uses the real sign of p; C++ uses `unsigned s`, so the sign is always "positive" |
+| [nlsat_02-F1](#nlsat-02-f1) | high | confirmed | fixed (eb73a0951) | `pkg/nlsat/search_state.go:111` | newSearchState turns `max_conflicts=0` into "unlimited" |
+| [nlsat_03-F1](#nlsat-03-f1) | high | confirmed | fixed (d946c24c9) | `pkg/nlsat/tactic/nlsat_tactic.go:204-261` | nlsat tactic ignores global `nlsat.*` module parameters (`set-option :nlsat.X`) |
+| [qe_01-F1](#qe-01-f1) | high | confirmed | fixed (5da0a7019) | `pkg/qe/expr_quantifier_branch_limit.go:60-64` | constrainExprQEBranch passes an unreferenced `b <= k-1` literal into add_constraint, which frees it, so `(apply qe)` fails with "invalid AST owner" |
+| [qe_01-F2](#qe-01-f2) | high | confirmed | decided (8259a67e3) | `pkg/qe/arithmetic_model_project_real.go:5-13` | realBranch (project_real) picks the bound direction using get_bound_sizes' doubled counts; the C++ compares raw counts |
+| [qe_01-F3](#qe-01-f3) | high | confirmed | decided (3d0f75726) | `pkg/qe/arithmetic_cooper_lcm.go:9-23` | cooperLCM uses \|divisor\| and rejects 0; the C++ `lcm` keeps the sign and accepts 0 (mod by 0 or by a negative constant) |
+| [qe_03-F1](#qe-03-f1) | high | confirmed | fixed (9284fa159) | `pkg/qe/nlarith_branch_builder.go:5-190` | nlarith branch construction is a re-implementation with raw constructors, so `qe :qe_nonlinear true` gives different results |
+| [qe_03-F4](#qe-03-f4) | high | high | fixed (4b99c94dd) | `pkg/qe/legacy_array_formula.go:41-133` | legacy array-equality projection (`array_project_eqs_util`) is restructured; it picks different substitution equalities and can leave the projected variable in the result |
+| [qe_03-F6](#qe-03-f6) | high | high | fixed (37c4e59d4) | `pkg/qe/legacy_skolem_projection.go:41-90` | `ProjectSkolem` (`Z3_qe_model_project_skolem`) skips the `th_rewriter` passes and the simplifying replacer of `spacer_legacy_mbp.cpp` |
+| [qe_04-F1](#qe-04-f1) | high | high | fixed (9284fa159) | `pkg/qe/qe_nlarith_plugin_branch.go:8-36` | nlarith plugin `Assign`/`Substitute` skip `factor_rewriter_star` + `th_rewriter` and substitute predicates sequentially |
+| [qe_05-F1](#qe-05-f1) | high | confirmed | fixed (ef4d8fdac) | `pkg/qe/sat_tactic.go:268-273` | qe-sat refuses proof and unsat-core goals (Go-only fail_if checks) |
+| [qe_05-F2](#qe-05-f2) | high | confirmed | fixed (6b4e4387f) | `pkg/qe/quant_elim.go:839-849` | qe-sat partial projection cannot blast_or, so integer projection with non-unit coefficients fails |
+| [opt_01-F1](#opt-01-f1) | high | confirmed | fixed (71899e211) | `pkg/opt/maxsmt_engine_select.go:24-29` | sortmax falls back to MaxRes for non-unsigned weights instead of throwing (answers sat where z3 answers unknown) |
+| [opt_01-F2](#opt-01-f2) | high | confirmed | fixed (b8564cd5e) | `pkg/opt/maxres_sls.go:11-50` | `opt.enable_sls=true` runs a Go-only PB-SLS candidate search inside MaxRes (dead C++ in 4.7.1) |
+| [opt_01-F3](#opt-01-f3) | high | confirmed | fixed (60ada95fd) | `pkg/opt/maxres_hill_climb.go:15-21` | hill-climb `sort_assumptions` uses a stable sort where `std::sort` is unstable, so models differ with 17+ tied-weight assumptions (default params) |
+| [tactic_top_01-F1](#tactic-top-01-f1) | high | confirmed | fixed (beb5d09e0) | `pkg/tactic/tactic_and_then.go:200-213` | and_then / repeat drop the earlier subgoals when a later subgoal is decided sat |
+| [tactic_top_01-F2](#tactic-top-01-f2) | high | confirmed | fixed (f5c67e722) | `pkg/tactic/tactic_probe.go:266-271` | probe `<` and `>` treat NaN differently from the C++ `not(le)` encoding |
+| [tactic_top_01-F5](#tactic-top-01-f5) | high | confirmed | fixed (4657384da) | `pkg/tactic/tactic_sine.go:304-307` | sine-filter fails with proofs enabled (Goal.AssertWithProof turns a SASSERT into an error) |
+| [tactic_arith_02-F1](#tactic-arith-02-f1) | high | confirmed | fixed (90f1f65f6) | `pkg/tactic/arith/factor_tactic.go:85-97` | factor `ReduceApp` factors equalities whose arguments are not arithmetic applications (sort test instead of `is_arith_expr`) |
+| [tactic_arith_02-F2](#tactic-arith-02-f2) | high | confirmed | decided (60e06fba0) | `pkg/tactic/arith/qfnra_purify_tactic.go:786` | forward-trig `find_unsafe` runs on the original goal instead of lazily on the partly rewritten goal (z3 is unsound here) |
+| [tactic_arith_02-F4](#tactic-arith-02-f4) | high | confirmed | fixed (c07d38d41) | `pkg/tactic/arith/lia2card_tactic.go:373-424` | lia2card re-asserts 0/1 bounds in bound-manager order instead of `obj_hashtable` (`m_01s`) table order |
+| [tactic_arith_03-F2](#tactic-arith-03-f2) | high | confirmed | fixed (1db5f92bc) | `pkg/tactic/arith/qfnra_purify_forward_trig.go:170-187` | purify-arith model converter filters every sin/cos basis constant (duplicates, and hides constants z3 keeps) |
+| [tactic_core_02-F1](#tactic-core-02-f1) | high | confirmed | fixed (1cae0e1c6) | `pkg/tactic/core/pb_preprocess_normalize.go:79-87` | pb-preprocess `normalize` dereferences nil on a negated pbge with non-literal arguments |
+| [tactic_sls_ufbv_01-F1](#tactic-sls-ufbv-01-f1) | high | confirmed | decided (242626470) | `pkg/tactic/ufbv/match_subst.go:107-155` | matchSubst.bindIdentical binds unbound variables that C++ match_args_aux_proc leaves unbound (z3 answers sat, g3 answers unsat) |
+| [muz_fp_01-F1](#muz-fp-01-f1) | high | confirmed | fixed (c95c56c7d) | `pkg/muz/fp/bmc_engine.go:26-46` | BMC `nonlinear::setup` must inherit `m_fparams.m_mbqi` from the previous query; Go resets it every query |
+| [muz_fp_01-F2](#muz-fp-01-f2) | high | confirmed | fixed (505a84bbf) | `pkg/muz/fp/rule_fragment.go:16-41` | the Datalog engine skips `check_infinite_sorts`, so Int/Real programs are answered where z3 rejects them |
+| [muz_fp_01-F3](#muz-fp-01-f3) | high | confirmed | fixed (d8b95bb88) | `pkg/muz/fp/datalog_bound_dispatch.go:22-47` | with the default `pentagon` relation, an unused Int relation makes every Datalog query fail |
+| [muz_fp_01-F4](#muz-fp-01-f4) | high | confirmed | fixed (be9771c15) | `pkg/muz/fp/propositional_engine.go:2619-2628, 2652-2656` | `generate_explanations` is applied to relation queries `(query r)`; the C++ applies it only to expression queries |
+| [muz_fp_02-F2](#muz-fp-02-f2) | high | confirmed | fixed (0170cd37c) | `pkg/muz/fp/datalog_interval_dispatch.go:50-108` | arithmetic `default_relation` favourites never fall back, so finite-domain programs fail |
+| [muz_fp_02-F3](#muz-fp-02-f3) | high | confirmed | fixed (595d9dc95) | `pkg/muz/fp/datalog_karr_dispatch.go:19-43` | Karr selection does not follow `xform.karr`, and Karr handles only Int columns |
+| [muz_fp_02-F5](#muz-fp-02-f5) | high | confirmed | fixed (ea2ad24ea) | `pkg/muz/fp/datalog_model.go:14-106` | the Datalog engine returns a model built from relation tables; the C++ returns an empty model |
+| [muz_fp_03-F2](#muz-fp-03-f2) | high | confirmed | fixed (6eba90aa6) | `pkg/muz/fp/datalog_udoc_dispatch.go:184-259` | doc (udoc) backend skips `rel_context::transform_rules`, so it errors on, or reorders, programs C++ answers |
+| [muz_fp_03-F3](#muz-fp-03-f3) | high | confirmed | fixed (5751d9159) | `pkg/muz/fp/horn_tactic.go:332` | HornTactic `classify`/`isImplication` call `GetDeclKind` on Boolean-variable or quantifier disjuncts and abort |
+| [muz_fp_03-F4](#muz-fp-03-f4) | high | confirmed | fixed (c9d215bb6) | `pkg/muz/fp/horn_tactic.go:546` | Horn tactic and horn-simplify force `auto-config`, ignoring `fixedpoint.engine` |
+| [muz_pdr_01-F1](#muz-pdr-01-f1) | high | confirmed | fixed (8be654071) | `pkg/muz/pdr/answer.go:532-555` | `Context.Answer` replaces get_trace with Go-only "nonlinear → true" and "recursive anchor" heuristics |
+| [muz_pdr_02-F1](#muz-pdr-02-f1) | high | confirmed | fixed (6d88af5df) | `pkg/muz/pdr/predicate_nonground_diagnostic.go:13-35` | PDR default_exceptions (non-ground tail, etc.) abort the script instead of becoming `query failed` |
+| [muz_pdr_02-F2](#muz-pdr-02-f2) | high | confirmed | fixed (e1a6d6e6f) | `pkg/muz/pdr/proof_rule_reduction.go:304-438` | `generate_proof_trace` proof is not a port of `model_search::get_proof_trace` / `context::get_proof` |
+| [muz_spacer_02-F1](#muz-spacer-02-f1) | high | confirmed | fixed (a1dd5114f) | `pkg/muz/spacer/predicate_rules.go:133` | `spacerRuleBuilder.blastTermITE` runs elim_term_ite instead of blast_term_ite |
+| [muz_spacer_02-F2](#muz-spacer-02-f2) | high | confirmed | fixed (4ac9f5491) | `pkg/muz/spacer/unsat_core_plugin_farkas.go:22-34,76-95` | `UnsatCoreFarkasPlugin` combines premises with PDR's always-splitting constraint builder |
+| [muz_transforms_02-F1](#muz-transforms-02-f1) | high | confirmed | fixed (ea2ad24ea) | `pkg/muz/transforms/rule_inliner.go:1107-1165` | eager inliner `Transform` never records the `del_rule(m_mc, r, true)` entries, so eliminated predicates are missing from the model |
+| [muz_small_02-F1](#muz-small-02-f1) | high | confirmed | fixed (8f4f34858) | `pkg/muz/tab/selection.go:21-25` | `newPredicateSelection` maps `basic-weight` to `weight`; C++ `set_strategy` keeps BASIC_WEIGHT_SELECT |
+| [duality_01-F2](#duality-01-f2) | high | confirmed | fixed (9cd67177d) | `pkg/duality/ground_literals.go:54-58` | `GetGroundLitsUnderQuants` and `ReallySimplifyAndOr` compare decl kinds without checking the basic family, so arithmetic `>`, `+`, `-`, `/` are taken for `and`/`or`/`iff`/`=>` |
+| [duality_01-F3](#duality-01-f3) | high | confirmed | fixed (932626af9) | `pkg/muz/duality/native_solver.go:37` | the native Duality solver is given `eq2ineq=true`; C++ never sets it, and z3 refuses or answers differently |
+| [duality_02-F5](#duality-02-f5) | high | medium | partly (2f3fff766) | `pkg/duality/interpolation_distinct.go:17-112` | the large-`distinct` UIF encoding is rebuilt with a fresh `@distinct` declaration on every interpolation call and is never the formula asserted in the solver; g3 hangs where z3 answers |
+| [duality_03-F1](#duality-03-f1) | high | confirmed | fixed (82360f0f6) | `pkg/duality/derivation_updates.go:35-73` | `BacktrackingDerivation.RecordAnnotationUpdate` never adds the source node to the outer `updated_nodes` set |
+| [interp_01-F2](#interp-01-f2) | high | confirmed | fixed (efb58e642) | `pkg/interp/direct_proof_eq2leq.go:229-233` | `equalityEndpointsFromInequality` accepts a Real `0.0` where `eq_from_ineq` requires the Int numeral 0 (pointer compare) |
+| [interp_01-F3](#interp-01-f3) | high | confirmed | fixed (e92a46781) | `pkg/interp/translation_reconstruct.go:446-460` | `reconstructFarkasWithDual` uses Farkas temporaries after the inner `IsSAT` solver has freed them (out of shard, found by fuzzing) |
+| [interp_01-F5](#interp-01-f5) | high | high | fixed (09c88dc0e) | `pkg/interp/direct_proof_sum.go:389-391` | `@normal` and rewrite-chain cases dropped in `simplifyRotatedSum`, `divideInequality` and `simplifyRotatedLeqToEq` |
+| [interp_01-F6](#interp-01-f6) | high | medium | fixed (27e2832c7) | `pkg/interp/direct_proof_arithmetic.go:69-105` | `MakeLeqToEq` lacks the mixed-term branch that falls back to `make_axiom` |
+| [interp_02-F2](#interp-02-f2) | high | confirmed | fixed (58e77835b) | `pkg/interp/manager_rewrite.go:16-66` | `Manager.ReallySimplify` enables `som`/`sort_sums`; the C++ sites call `z3_simplify`, and `z3_really_simplify`'s colon keys are inert anyway |
+| [api_01-F1](#api-01-f1) | high | confirmed | fixed (b056b8724) | `pkg/api/api_ast_substitution.go:184-215` | `SMTContext.Substitute` uses `default_expr_replacer` instead of `expr_safe_replace` (bound variables captured, not shifted) |
+| [api_01-F2](#api-01-f2) | high | confirmed | fixed (d99339d98) | `pkg/api/api_datatype_queries.go:66-76` | datatype testers returned as `OP_DT_RECOGNISER` ("is_c") where the C API returns `get_constructor_is` (`OP_DT_IS`, "is") |
+| [api_02-F1](#api-02-f1) | high | confirmed | fixed (882663234) | `pkg/api/api_numerals.go:14-92` | `SMTContext.Numeral` accepts any text; `Z3_mk_numeral` rejects characters outside its numeral alphabet |
+| [api_02-F2](#api-02-f2) | high | confirmed | fixed (9b95a2415) | `pkg/api/api_optimize_parse.go:28-35` | `Optimize.ParseFile` ignores the `.opb` / `.wcnf` extension and always parses SMT-LIB |
+| [api_03-F1](#api-03-f1) | high | confirmed | fixed (0448cc708) | `pkg/api/z3_generated_context_commands.go:74` | replay never installs `Z3_replayer_error_handler`; API errors abort the replay or are silent |
+| [cmd_context_01-F1](#cmd-context-01-f1) | high | confirmed | fixed (ca8c66c5d) | `pkg/cmd_context/applications.go:221-264` | `MakeApp` rejects overloads that differ only in range ("ambiguous function reference") |
+| [cmd_context_01-F3](#cmd-context-01-f3) | high | confirmed | fixed (8a0efe94c) | `pkg/cmd_context/optimization.go:129` | objectives and soft constraints go through `check_logic`, which `opt::context` never does |
+| [cmd_context_01-F4](#cmd-context-01-f4) | high | confirmed | fixed (299f5f872) | `pkg/cmd_context/optimization.go:480-552` | `runOptimize` drops the quantified-constraints warning and the "unbounded objectives on quantified constraints" error |
+| [cmd_context_02-F1](#cmd-context-02-f1) | high | confirmed | fixed (b98c80fd1) | `pkg/cmd_context/result_access.go:62-86` | `get-consequences` leaves no model and an empty reason-unknown (Context.Consequences / SMTSolver.GetConsequences) |
+| [parsers_shell_01-F1](#parsers-shell-01-f1) | high | confirmed | fixed (b49c75462) | `pkg/parsers/smt2/commands.go:750-760` | `assert` accepts a non-Boolean term (missing `is_bool` check) |
+| [parsers_shell_01-F2](#parsers-shell-01-f2) | high | confirmed | fixed (10655415c) | `pkg/parsers/smt2/commands.go` | commands check `)` before applying their effect; the C++ applies the effect first |
+| [parsers_shell_01-F3](#parsers-shell-01-f3) | high | confirmed | fixed (e987571bf) | `pkg/parsers/smt2/expressions.go:299-416` | `match` expressions are not supported |
+| [parsers_shell_01-F4](#parsers-shell-01-f4) | high | confirmed | fixed (b21390aab) | `pkg/parsers/smt2/expressions.go:507-538` | a quantifier with an empty variable list is accepted |
+| [FUZZ-F2](#fuzz-f2) | medium | confirmed | fixed (611faa66f) | `pkg/smtcore/smt_theory_arith_core.go:981` | `mkRemAxiom` holds references the C++ leaves unowned, so AST ids, statistics and the trace diverge after a `rem` axiom |
+| [FUZZ-F3](#fuzz-f3) | medium | confirmed | fixed (c7747787c) | `pkg/muz/pdr/answer.go:556` | PDR answer is built with a raw `and`, so a one-step certificate prints `(and (q0 2))` instead of `(q0 2)` |
+| [FUZZ-F4](#fuzz-f4) | medium | confirmed | fixed (6e718f89a) | `pkg/parsers/smt2/commands.go:422` | `(set-logic X)` with an unsupported logic raises an error instead of printing `unsupported` and continuing |
+| [FUZZ-F5](#fuzz-f5) | medium | confirmed | partly (ce01f1eaf) | `pkg/smtcore/smt_search.go:279` | many `IF_VERBOSE` progress messages of the C++ are never printed (`-v:N` output differs) |
+| [FUZZ-F6](#fuzz-f6) | medium | confirmed | fixed (6e718f89a) | `pkg/parsers/smt2/commands.go:1085` | an unsupported `get-info` / `get-option` key prints its `; key line: L position: P` note on standard output, before `unsupported` |
+| [FUZZ-F7](#fuzz-f7) | medium | confirmed | fixed (b4a5df7d4) | `pkg/parsers/smt2/commands.go:1384` | commands and a parameter that the reference build compiles out (`#ifndef _EXTERNAL_RELEASE`) are available in g3 |
+| [FUZZ-F8](#fuzz-f8) | medium | high | fixed (17b20ec2b) | `pkg/smtcore/smt_search.go:405` | an exhausted resource limit is recorded as RESOURCE_LIMIT where the C++ records CANCELED, and check_finalize sets a failure the C++ does not |
+| [FUZZ_A-F2](#fuzz-a-f2) | medium | confirmed | fixed (76014c852) | `pkg/opt/arithmetic_solver.go:1097-1107` | lex objective before an unbounded one loses its interval (shown as single value) |
+| [FUZZ_A-F3](#fuzz-a-f3) | medium | confirmed | fixed (747bb47c8) | `pkg/cmd_context/optimization_normalized_execution.go:347-362` | converted (0-1 / BV) objectives after an unbounded lex objective print their initial cost instead of an interval |
+| [FUZZ_A-F5](#fuzz-a-f5) | medium | confirmed | fixed (9a850c09c) | `pkg/opt/arithmetic_solver.go:1359-1373` | undecided search shows converted objectives with swapped/raw MaxSAT bounds |
+| [FUZZ_A-F8](#fuzz-a-f8) | medium | confirmed | fixed (b76880444) | `pkg/ast/rewriter/arith_polynomial.go:1084-1138` | arith rewriter elim_to_real temporaries have the wrong lifetime (AST id/trace divergence) |
+| [FUZZ_A-F11](#fuzz-a-f11) | medium | confirmed | fixed (52bee9558) | `pkg/opt/maxres_candidate.go:58-64` | maxres initial candidate evaluates m_asms with model completion, mutating the shared base model |
+| [FUZZ_A-F12](#fuzz-a-f12) | medium | confirmed | fixed (4b1426dbc) | `pkg/cmd_context/optimization.go:707-715` | (get-info :reason-unknown) after a decided optimization prints "" instead of the solver's text |
+| [FUZZ_A-F13](#fuzz-a-f13) | medium | confirmed | fixed (ec323c2a9) | `pkg/cmd_context/optimization.go:791-793` | get-objectives precondition uses a "checked" flag instead of objective counts |
+| [FUZZ_B-F5](#fuzz-b-f5) | medium | confirmed | fixed (b63ff9c67) | `pkg/tactic/core/dom_simplify_rewrite.go:171-175` | the rebuilt and/or uses `MkAndArgs`/`MkOrArgs` instead of `mk_and`/`mk_or`, so a unary `and` is not unwrapped |
+| [FUZZ_B-F7](#fuzz-b-f7) | medium | confirmed | fixed (b63ff9c67) | `pkg/tactic/core/dom_simplify_dominators.go:40-53` | dominator-tree child order is post-order in Go; the C++ uses m_doms obj_map (hash) order |
+| [FUZZ_B-F8](#fuzz-b-f8) | medium | confirmed | fixed (b63ff9c67) | `pkg/tactic/core/dom_simplify_dominators.go:57-116` | compute_post_order visits the first argument first; C++ pushes all unmarked arguments, so the last argument is numbered first |
+| [FUZZ_B-F9](#fuzz-b-f9) | medium | confirmed | fixed (b63ff9c67) | `pkg/tactic/core/dom_simplify_plugin.go:157-216` | expr_ref lifetimes not mirrored, so AST ids and the trace log differ even when stdout matches |
+| [FUZZ_C-F5](#fuzz-c-f5) | medium | confirmed | fixed (f5e9530a7) | `pkg/tactic/tactic_base.go:438` | tactic Exec does not print the `(tactic-exception "...")` verbose line |
+| [FUZZ_C-F6](#fuzz-c-f6) | medium | confirmed | fixed (276da0923) | `pkg/parsers/smt2/expressions.go:215-218` | SMT2 parser releases a failed expression frame immediately; C++ keeps the stack until reset() |
+| [FUZZ_D-F6](#fuzz-d-f6) | medium | confirmed | fixed (58cd60f99) | `pkg/ast/rewriter/arith_rewriter.go:691-721` | mk_mod_core `arg1 == arg2` builds (mod 0 0) before abs (construction order) |
+| [FUZZ_F-F2](#fuzz-f-f2) | medium | confirmed | fixed (f1325438b) | `pkg/muz/spacer/predicate_reachability.go:154-163` | spacer weak-abstraction parameter override is scoped to the solver check, not to all of `expand_node` |
+| [FUZZ_F-F3](#fuzz-f-f3) | medium | confirmed | fixed (395395d34) | `pkg/muz/pdr/predicate_rules.go:19` | pdr walks `p.rules` (rule order) where the C++ walks `m_tag2rule` (obj_map hash order) |
+| [FUZZ_F-F4](#fuzz-f-f4) | medium | confirmed | fixed (8ef46d0e6) | `pkg/qe/equality_der_conjunctions.go:298` | `qe.EqualityDER` drops the `m_subst_map` / `m_new_args` member lifetimes |
+| [FUZZ_F-F5](#fuzz-f-f5) | medium | confirmed | fixed (395395d34) | `pkg/muz/pdr/farkas_learner.go:311` | pdr `FarkasLearner.proofPostOrder` visits proof parents first-to-last; the C++ finishes the last parent first |
+| [FUZZ_F-F6](#fuzz-f-f6) | medium | high | fixed (2019a0f66) | `pkg/duality/counterexample_display.go:65-79` | duality counterexample `step` prints the evaluated node instead of `(name args...)` |
+| [FUZZ_H-F6](#fuzz-h-f6) | medium | confirmed | fixed (25f6b9cb9) | `pkg/tactic/core/cofactor_term_ite_rewriter.go:126-128` | cofactor-term-ite `bottom_up_elim`: AST lifetimes and the `m_has_term_ite` gate differ from the C++ |
+| [FUZZ_H-F8](#fuzz-h-f8) | medium | confirmed | fixed (311dbe633) | `pkg/cmd_context/apply_tactic_output.go:17-23` | `apply` prints goals without cmd_context's `pp_env` |
+| [FUZZ_H-F10](#fuzz-h-f10) | medium | confirmed | fixed (0bc4e0d8b) | `pkg/model/fpa/bv2fpa_model.go:158-196` | bv2fpa `convertMinMaxSpecials` compares sign values numerically, where the C++ compares AST identity |
+| [FUZZ_I-F3](#fuzz-i-f3) | medium | confirmed | fixed (62867eb07) | `pkg/parsers/smt2/check_sat_command.go:36` | `dump_models` is never acted on after `check-sat` |
+| [FUZZ_I-F4](#fuzz-i-f4) | medium | confirmed | fixed (62867eb07) | `pkg/cmd_context/context.go:1532-1547` | `get-model` ignores `model.v1`/`model.v2` (`cmd_context::display_model`) |
+| [FUZZ_I-F5](#fuzz-i-f5) | medium | confirmed | fixed (71d4865ac) | `pkg/tactic/core/elim_term_ite_tactic.go:280-285` | `EliminateTermITETactic.CollectStatistics` reports `:elim-term-ite-consts`, which the C++ tactic has no `collect_statistics` for |
+| [FUZZ_I-F6](#fuzz-i-f6) | medium | confirmed | fixed (889a8bdac) | `pkg/smtcore/smt_theory_arith_core.go:238-242` | `smt.arith.random_initial_value` gives a random initial value of the wrong sign for mi/inf/si/smi ext |
+| [FUZZ_I-F12](#fuzz-i-f12) | medium | confirmed | fixed (80f026544) | `pkg/parsers/smt2` | an assertion that refers to a failed `declare-const` reports "AST source precondition" instead of "invalid number of arguments to fp" |
+| [FUZZ_J-F3](#fuzz-j-f3) | medium | confirmed | fixed (c5c6058fe) | `pkg/opt/arithmetic_solver.go:830-832` | `opt.optsmt_engine=farkas`: `optimizeBoxEngineObjective` treats a missing per-objective model as an error; C++ `lex` returns `l_true` with `optsmt::m_model` (null here) |
+| [FUZZ_J-F4](#fuzz-j-f4) | medium | confirmed | fixed (24ce6bb21) | `pkg/cmd_context/opb_loader.go:53-63` | OPB loader turns a one-term constraint into a Boolean literal (Go-only shortcut); `opt_parse` always builds `(op (ite c k 0) b)` |
+| [FUZZ_J-F5](#fuzz-j-f5) | medium | confirmed | fixed (423c68bf7) | `pkg/opt/arithmetic_solver.go:805-848` | `lex` with `farkas`/`symba` returns the per-objective box model `m_models[i]`; C++ `execute_min_max` takes `optsmt::m_model` |
+| [FUZZ_J-F6](#fuzz-j-f6) | medium | confirmed | fixed (6950d41f0) | `pkg/shell/opb_frontend_output.go:23` | OPB/WCNF `-st` prints the SMT-LIB command-context statistics instead of `opt::context::collect_statistics` plus the `time:` line |
+| [smtcore_01-F3](#smtcore-01-f3) | medium | confirmed | fixed (4411a0498) | `pkg/smtcore/smt_arith_eq_adapter_source.go:333` | arithmetic equality adapter queues restart pairs against the search level instead of the base level |
+| [smtcore_01-F4](#smtcore-01-f4) | medium | confirmed | fixed (2fdf822b7) | `pkg/smtcore/smt_arith_eq_solver.go:232` | SolveEquations resets the `useful` row list per pivot; the C++ never resets it |
+| [smtcore_01-F5](#smtcore-01-f5) | medium | confirmed | fixed (638f1494d) | `pkg/smtcore/ctx_solver_simplify_tactic.go:82` | ctx-solver-simplify applies tactic parameters to the inner solver's smt_params; the C++ never does |
+| [smtcore_01-F6](#smtcore-01-f6) | medium | confirmed | fixed (922da573f) | `pkg/smtcore/smt_boolean_propagation.go:257` | Propagate (bcp) drops the per-literal get_cancel_flag(), so the resource counter and cancellation point differ |
+| [smtcore_01-F7](#smtcore-01-f7) | medium | medium | fixed (369f5fdb5) | `pkg/smtcore/smt_assume_eq.go:12` | setScopedTrueFirst does not push a trail entry when the flag is already set |
+| [smtcore_02-F5](#smtcore-02-f5) | medium | confirmed | fixed (29dcbeeee) | `pkg/smtcore/smt_case_split_queue.go:111-131` | `occurrencePhase` counts packed binary clauses |
+| [smtcore_02-F7](#smtcore-02-f7) | medium | confirmed | fixed (919cd9467) | `pkg/smtcore/smt_consequences.go:479` | `GetConsequences` rebuilds `m_var2val` for every call; C++ keeps the table and its capacity |
+| [smtcore_02-F8](#smtcore-02-f8) | medium | confirmed | fixed (24256ce4b) | `pkg/smtcore/smt_conflict_proof.go:799` | proof of an extended theory equality propagation states `(= lhs rhs)` instead of `mk_eq_atom(lhs, rhs)` |
+| [smtcore_02-F9](#smtcore-02-f9) | medium | confirmed | decided (fdec6aeb4) | `pkg/smtcore/smt_case_split_queue.go:191-193` | `smt.case_split=6` uses the configured phase selection; the reference build always decides negative |
+| [smtcore_02-F10](#smtcore-02-f10) | medium | high | fixed (cde6a05c8) | `pkg/smtcore/smt_clause_maintenance.go:142-165` | `del_inactive_lemmas1` path sorts a copy; C++ sorts `m_lemmas` in place |
+| [smtcore_03-F5](#smtcore-03-f5) | medium | confirmed | fixed (bfbdc0211) | `pkg/smtcore/smt_dyn_ack_manager.go:134-143` | dyn-ack builds equality atoms with `MkEq` instead of `context::mk_eq_atom` |
+| [smtcore_03-F6](#smtcore-03-f6) | medium | confirmed | fixed (c0abf73c5) | `pkg/smtcore/smt_dyn_ack_manager.go:260-280` | `used_cg_eh`/`used_eq_eh` events from the resolution loop reach dyn-ack one conflict late |
+| [smtcore_03-F7](#smtcore-03-f7) | medium | confirmed | fixed (1137586fb) | `pkg/smtcore/smt_dyn_ack_pairs.go:35` | dyn-ack parameter validation rejects values C++ accepts |
+| [smtcore_03-F8](#smtcore-03-f8) | medium | high | fixed (b79adb00c) | `pkg/smtcore/smt_search.go:467-481` | `propagate_eh` is skipped when the context is still inconsistent after `resolve_conflict` |
+| [smtcore_03-F9](#smtcore-03-f9) | medium | high | fixed (704b6714e) | `pkg/smtcore/smt_internalizer.go:370-377` | an auxiliary lemma with a true first watch and a false second watch is not put on the reinit stack |
+| [smtcore_03-F10](#smtcore-03-f10) | medium | high | fixed (550f5ecbf) | `pkg/smtcore/smt_implied_equalities.go:38-47` | implied equalities return different class identifiers and drop the result on `unknown` |
+| [smtcore_03-F11](#smtcore-03-f11) | medium | medium | fixed (7dec89618) | `pkg/smtcore/smt_dyn_ack_pairs.go:131-141` | a pair queued twice makes `markInstantiated` fail where C++ instantiates again |
+| [smtcore_04-F3](#smtcore-04-f3) | medium | confirmed | fixed (443c2aa13) | `pkg/smtcore/smt_mam_interpreter.go:42-43, 363, 493` | MAM cancellation and resource-limit calls are dropped (hooks declared, never assigned) |
+| [smtcore_04-F4](#smtcore-04-f4) | medium | confirmed | fixed (2ccd407b7) | `pkg/smtcore/smt_kernel.go:812` | `SMTKernel.assertFormulaCore` omits the leading `get_cancel_flag()` of `context::assert_expr_core` |
+| [smtcore_04-F5](#smtcore-04-f5) | medium | confirmed | fixed (67b5862ce) | `pkg/smtcore/smt_learned_persistence.go:373` | delayed learned units are never dropped at base level, so `delay_units_threshold` counts the wrong set |
+| [smtcore_05-F4](#smtcore-05-f4) | medium | confirmed | partly (1b60b26ff) | `pkg/smtcore/smt_model_finder_auf_offsets.go:68-94` | bit-vector offset, bound and exception terms are fully rewritten; the C++ applies one poly_rewriter step |
+| [smtcore_05-F5](#smtcore-05-f5) | medium | confirmed | fixed (27968c2cf) | `pkg/smtcore/smt_model_checker.go:754-757` | Check never records "max mbqi instantiations reached" as the reason for unknown |
+| [smtcore_05-F6](#smtcore-05-f6) | medium | confirmed | fixed (0c08a8519) | `pkg/smtcore/smt_qi_instance.go:327` | instance creation never prints the smt.qi.profile_freq statistics line |
+| [smtcore_05-F7](#smtcore-05-f7) | medium | confirmed | fixed (b8796db47) | `pkg/smtcore/smt_qi_cost.go:77-90` | an invalid qi.cost falls back silently; the C++ warns |
+| [smtcore_05-F8](#smtcore-05-f8) | medium | high | fixed (fe9a1de3d) | `pkg/smtcore/smt_model_finder.go:111` | model-finder checkpoints are placed differently, so the resource counter advances differently |
+| [smtcore_06-F3](#smtcore-06-f3) | medium | confirmed | fixed (9e87add06) | `pkg/smtcore/smt_search.go:468` | restart test in `boundedSearch` measures depth from the search level, not `m_base_lvl` |
+| [smtcore_06-F4](#smtcore-06-f4) | medium | confirmed | fixed (d368e5f90) | `pkg/smtcore/smt_search.go:640` | lemma GC runs inside `resolveSearchConflict`, before the restart and conflict-limit exits |
+| [smtcore_06-F7](#smtcore-06-f7) | medium | confirmed | fixed (47fc36164) | `pkg/smtcore/smt_quantifier_manager.go:244-257` | `CanPropagate` reports unscanned enodes, so quantifier matching runs before the next decision when relevancy is off |
+| [smtcore_06-F8](#smtcore-06-f8) | medium | confirmed | fixed (242b7132f) | `pkg/smtcore/smt_solver_core.go:273-299` | `extendUnsatCore` ignores `smt.core.extend_patterns*` set as module parameters, and iterates assertions in insertion order |
+| [smtcore_06-F9](#smtcore-06-f9) | medium | confirmed | fixed (0c08a8519) | `pkg/smtcore/smt_quantifier_registry.go:61` | `SMTQuantifierRegistry.Delete` omits the `qi.profile` statistics line |
+| [smtcore_06-F11](#smtcore-06-f11) | medium | high | fixed (d0cbabf45) | `pkg/smtcore/smt_setup.go:237-342` | `smtInstallRetainedSetup` registers arithmetic before bit-vectors for QF_BVRE |
+| [smtcore_07-F2](#smtcore-07-f2) | medium | confirmed | fixed (b5e617a60) | `pkg/smtcore/smt_theory_arith_core.go:2364` | `eliminate` charges the resource limit with a numerator word count instead of `storage_size()` |
+| [smtcore_07-F3](#smtcore-07-f3) | medium | confirmed | fixed (bf777ccaf) | `pkg/smtcore/smt_theory_arith_core.go:3070` | `smt.arith.dump_lemmas` is ignored by `theory_arith` (no `dump_lemmas` calls) |
+| [smtcore_08-F2](#smtcore-08-f2) | medium | confirmed | fixed (39ea1db38) | `pkg/smtcore/smt_theory_seq_axioms.go:233-241` | theory_seq reads arithmetic values and bounds from `theory_inf_arith`, which the C++ `get_th_arith` casts reject |
+| [smtcore_08-F3](#smtcore-08-f3) | medium | high | fixed (922da573f) | `pkg/smtcore/smt_theory_propagation.go:365-446` | `PropagateCore` drops both cancellation / resource-limit checks of `context::propagate` |
+| [smtcore_09-F3](#smtcore-09-f3) | medium | confirmed | fixed (cd623e613) | `pkg/smtcore/theory_array_default_values.go:65-101` | instantiate_default_store_axiom builds default(base) before the epsilon equalities |
+| [smtcore_09-F4](#smtcore-09-f4) | medium | confirmed | fixed (55dc54313) | `pkg/smtcore/theory_array_shared.go:111-123` | mk_interface_eqs pairs the class roots instead of get_enode(th_var) |
+| [smtcore_09-F5](#smtcore-09-f5) | medium | confirmed | fixed (7a096fc07) | `pkg/smtcore/theory_array_sorts.go:52-58` | restoreArraySorts releases ext skolem decls back to front; C++ releases front to back |
+| [smtcore_09-F6](#smtcore-09-f6) | medium | confirmed | fixed (3abd180d9) | `pkg/smtcore/theory_array_parents.go:504-535` | assertDelayedStoreAxioms runs the map axioms per variable; C++ runs every axiom 2b first, then every map axiom |
+| [smtcore_09-F7](#smtcore-09-f7) | medium | confirmed | fixed (16c1bfa1c) | `pkg/smtcore/theory_array.go:132-159` | Boolean array terms get their bool_var after the axioms instead of inside internalize_term_core |
+| [smtcore_10-F4](#smtcore-10-f4) | medium | confirmed | fixed (bd9770f33) | `pkg/smtcore/theory_datatype_occurs.go:122-124` | datatype occurs check returns early when the context is already inconsistent |
+| [smtcore_10-F5](#smtcore-10-f5) | medium | confirmed | fixed (20e55ee42) | `pkg/smtcore/theory_dense_diff_equality.go:119-258` | dense equality axioms are not built the way `arith_eq_adapter::mk_axioms` builds them |
+| [smtcore_10-F6](#smtcore-10-f6) | medium | confirmed | fixed (8ed3b265b) | `pkg/smtcore/theory_dense_diff_logic.go:413-448` | dense `FinalCheck` does not implement `theory::assume_eqs` |
+| [smtcore_10-F7](#smtcore-10-f7) | medium | confirmed | fixed (b0c592471) | `pkg/smtcore/theory_dense_diff_logic.go:172-178,187-190,204-207,235-238,247-250` | dense theory does not print the `non-diff logic expression` message |
+| [smtcore_10-F8](#smtcore-10-f8) | medium | confirmed | fixed (a5b7453c4) | `pkg/smtcore/theory_diff_logic_conflict.go:12-54` | sparse difference logic ignores `smt.arith.dump_lemmas` |
+| [smtcore_10-F9](#smtcore-10-f9) | medium | confirmed | fixed (17ffa232b) | `pkg/smtcore/theory_bv_propagation_trace.go:28-55` | `propagate_bits` conflict trace prints literals as bare numbers |
+| [smtcore_10-F10](#smtcore-10-f10) | medium | confirmed | fixed (27b2d0d0d) | `pkg/smtcore/theory_bv_fixed_trace.go:47-70` | BV trace records use the wrong expression printer (lines 321, 557, 911) |
+| [smtcore_10-F12](#smtcore-10-f12) | medium | confirmed | fixed (a2f9e51d9) | `pkg/smtcore/theory_dense_diff_logic.go` | difference-logic theories emit almost none of the C++ TRACE records |
+| [smtcore_10-F14](#smtcore-10-f14) | medium | medium | fixed (20e55ee42) | `pkg/smtcore/theory_dense_diff_equality.go:279-286` | dense `Restart` returns an error when a restart pair lost its theory variable |
+| [smtcore_11-F4](#smtcore-11-f4) | medium | confirmed | fixed (ed42e1ee7) | `pkg/smtcore/theory_lra.go:826` | `SMTLRATheory.PushScope` copies the whole `unassigned` vector on every scope (O(vars) per decision), so memory and time grow quadratically |
+| [smtcore_12-F4](#smtcore-12-f4) | medium | confirmed | fixed (62dcbc0f3) | `pkg/math/simplex/simplex.go:458-495` | PB simplex picks pivots and counts rows differently (deterministic tie-break instead of `m_random()%n`) |
+| [smtcore_12-F5](#smtcore-12-f5) | medium | confirmed | fixed (ae64dbc58) | `pkg/smtcore/theory_pb.go:355-356` | `pb clauses` statistic appears in `-st` output; the C++ has no such key |
+| [smtcore_13-F2](#smtcore-13-f2) | medium | confirmed | fixed (714fb39b7) | `pkg/smtcore/theory_str_extract.go:137-345` | instantiateSubstring creates its atoms in a different order than the C++ |
+| [smtcore_13-F4](#smtcore-13-f4) | medium | confirmed | fixed (60579d4ad) | `pkg/smtcore/theory_str_suffix_arrangements.go:96` | concat arrangements create equality atoms too early or in the wrong order (types 2, 3 and 6) |
+| [smtcore_13-F7](#smtcore-13-f7) | medium | confirmed | fixed | `pkg/smtcore/theory_utvpi.go:236-239` | UTVPI InternalizeTerm returns on a two-term sum before creating its variables |
+| [smtcore_13-F8](#smtcore-13-f8) | medium | confirmed | fixed | `pkg/smtcore/theory_wmaxsat.go:154-156` | the weighted MaxSAT theory sorts costs ascending; the C++ sorts descending |
+| [smtcore_13-F9](#smtcore-13-f9) | medium | medium | fixed | `pkg/smtcore/theory_str_regex_stage.go:328-372` | refineBound builds the guard conjunction before the right-hand side |
+| [smtcore_13-F10](#smtcore-13-f10) | medium | high | fixed | `pkg/smtcore/theory_wmaxsat.go:299-313` | theory_wmaxsat FinalCheck raises a conflict that the C++ final_check_eh does not |
+| [smtcore_14-F2](#smtcore-14-f2) | medium | confirmed | fixed | `pkg/smtcore/watch_list.go:85` | `SMTWatchList.InsertLiteral` / `RemoveLiteral` are O(n) per call where the C++ is O(1); quadratic on wide binary-clause fan-out |
+| [smtcore_14-F3](#smtcore-14-f3) | medium | confirmed | fixed | `pkg/smtcore/proto_model/proto_model.go:269` | `ProtoModel.Eval` returns the evaluator's exception instead of catching it and returning false |
+| [sat_01-F2](#sat-01-f2) | medium | confirmed | fixed | `pkg/sat/sat_tactic_boundary.go:19` | SCC statistic is published as `sat scc elim vars` instead of the C++ key `elim bool vars` |
+| [sat_01-F3](#sat-01-f3) | medium | confirmed | fixed (d1a69fa63) | `pkg/sat/dimacs.go:62-64` | malformed DIMACS input: different diagnostic text and exit status |
+| [sat_01-F4](#sat-01-f4) | medium | confirmed | fixed (d1a69fa63) | `pkg/sat/dimacs.go:65-74` | `parseInt` accumulates in 64-bit `int`; a literal beyond 32 bits makes g3 allocate billions of variables where the C++ answers |
+| [sat_02-F3](#sat-02-f3) | medium | high | fixed | `pkg/sat/sat_solver_assignment.go:15-30` | `satSolverPropagationState.assign` does not emit the `sat_assign` TRACE of `solver::assign` |
+| [sat_03-F2](#sat-03-f2) | medium | confirmed | fixed | `pkg/sat/sat_solver_parallel_portfolio.go:27-40,42-75` | `satParallelPortfolio` transfers the winning worker's model and core after all lanes ran; C++ transfers at first finish, so the owner's own `check` result overwrites it |
+| [sat_04-F1](#sat-04-f1) | medium | confirmed | fixed | `pkg/sat/sat_solver/solver_trace.go:229` | `Solver.finishDIMACS` sorts the atom map by variable; C++ prints `c <var> <atom>` lines in `obj_map` table order |
+| [sat_04-F2](#sat-04-f2) | medium | confirmed | fixed | `pkg/parsers/smt2/check_sat_assumptions.go:19-31` | `check-sat-assuming` / `check-sat` accept arbitrary Boolean terms; C++ rejects anything but a (negated) constant |
+| [sat_05-F1](#sat-05-f1) | medium | confirmed | fixed | `pkg/sat/tactic/sat_tactic_trace.go:83-100` | `writeDIMACSAtoms` sorts the atom comment lines by variable, but the C++ prints them in obj_map order |
+| [ast_rewriter_01-F3](#ast-rewriter-01-f3) | medium | confirmed | fixed | `pkg/ast/rewriter/arith_algebraic.go:26-42` | `max_degree` is applied to algebraic comparisons and rational/irrational division |
+| [ast_rewriter_01-F6](#ast-rewriter-01-f6) | medium | confirmed | fixed | `pkg/ast/rewriter/arith_transcendental.go:289-323` | `sin`/`cos` stop at an unmatched `pi` offset and never reach the `2*pi*to_real(n)` rule |
+| [ast_rewriter_01-F7](#ast-rewriter-01-f7) | medium | confirmed | fixed | `pkg/ast/rewriter/arith_algebraic.go:286-294` | even root of a negative irrational is silently refused; the C++ fails with an error |
+| [ast_rewriter_02-F1](#ast-rewriter-02-f1) | medium | confirmed | fixed | `pkg/ast/rewriter/bv_polynomial_mul_core.go:14,343` | BV (and arith) "sum of monomials blowup" is a plain Go error, not a rewriter_exception, so `simplify` reports it the wrong way |
+| [ast_rewriter_02-F2](#ast-rewriter-02-f2) | medium | confirmed | fixed | `pkg/ast/rewriter/bv_polynomial_sort.go:12-23` | `bvPolynomialSortMonomials` breaks `mon_lt` ties differently from `std::sort`, changing `bvmul` argument order |
+| [ast_rewriter_03-F3](#ast-rewriter-03-f3) | medium | confirmed | fixed | `pkg/ast/rewriter/elim_bounds.go:71-74` | elim_bounds does not recognize a Real `-1` coefficient |
+| [ast_rewriter_04-F3](#ast-rewriter-04-f3) | medium | confirmed | decided | `pkg/ast/rewriter/pb2bv_rewriter.go:294-296,314-316` | pb2bv rejects non-integer bounds/coefficients with an error where C++ builds a circuit |
+| [ast_rewriter_04-F4](#ast-rewriter-04-f4) | medium | medium | fixed | `pkg/ast/rewriter/expr_safe_replace.go:131-157` | expr_safe_replace quantifier case keeps the shifted substitution terms alive until the whole `Apply` ends |
+| [ast_rewriter_05-F1](#ast-rewriter-05-f1) | medium | confirmed | fixed | `pkg/ast/rewriter/seq_rewriter.go:192-199` | `RewriteApp` drops the single-argument `re.++` / `re.union` rule |
+| [ast_rewriter_05-F2](#ast-rewriter-05-f2) | medium | confirmed | fixed | `pkg/ast/rewriter/seq_rewriter.go:573-600` | `RewriteAt` bounds the index with the flattened concat; `mk_seq_at` only bounds a single atom |
+| [ast_rewriter_05-F3](#ast-rewriter-05-f3) | medium | confirmed | fixed | `pkg/ast/rewriter/th_rewriter.go:233` | `th_rewriter` passes `rewriter.ignore_patterns_on_ground_qbody` to `elim_unused_vars`; the C++ passes an empty `params_ref` |
+| [ast_rewriter_06-F1](#ast-rewriter-06-f1) | medium | confirmed | fixed | `pkg/ast/rewriter/bit_blaster/gates.go:24-44,68-70` | bit-blaster gate layer ignores global `rewriter.ite_extra_rules` / `local_ctx` (hard-coded bool_rewriter defaults) |
+| [ast_sub_01-F1](#ast-sub-01-f1) | medium | confirmed | fixed | `pkg/ast/macros/quasi_macros.go:465-496` | QuasiMacros.Apply never runs quasi_macros::m_rewriter on the expanded formulas |
+| [ast_sub_01-F2](#ast-sub-01-f2) | medium | confirmed | fixed | `pkg/ast/macros/macro_expander.go:231-255` | Macro expansion's th_rewriter uses a private default global-params service, so `rewriter.*` settings are ignored |
+| [ast_sub_01-F3](#ast-sub-01-f3) | medium | medium | fixed | `pkg/ast/macros/macro_candidates.go:248-274` | Macro candidate conditions use ast_util mk_and/mk_not instead of bool_rewriter |
+| [ast_sub_01-F4](#ast-sub-01-f4) | medium | medium | fixed | `pkg/ast/macros/macro_numeric.go:342-349` | IsPseudoHead tests only the null family and misses declare-sort sorts |
+| [ast_sub_02-F2](#ast-sub-02-f2) | medium | confirmed | fixed | `pkg/ast/pattern/reduce_quantifier.go:371-380` | pattern-inference pull proof uses `rewrite` instead of the pull_quant proof chain |
+| [ast_sub_02-F3](#ast-sub-02-f3) | medium | confirmed | fixed | `pkg/ast/normal_forms/pull_boolean.go:41-162` | PullQuantifierNoProof has no cache for shared subterms, so pull_quant runs again on each occurrence (extra fresh names; can blow up on DAGs) |
+| [ast_sub_02-F4](#ast-sub-02-f4) | medium | confirmed | fixed | `pkg/tactic/core/nnf_tactic.go:138` | nnf/snf tactics reject every nnf parameter (`CollectParamDescrs` is empty), and an invalid mode has a different message |
+| [ast_sub_02-F5](#ast-sub-02-f5) | medium | high | fixed | `pkg/ast/normal_forms/nnf.go:474-508` | NNF ite/iff/xor build the two disjunctions in the wrong order (GCC evaluates arguments right to left) |
+| [ast_01-F1](#ast-01-f1) | medium | confirmed | fixed | `pkg/ast/ast_array_decl.go:76-137` | array decl plugin errors return ErrASTDomain instead of z3's exception text |
+| [ast_02-F1](#ast-02-f1) | medium | confirmed | fixed | `pkg/ast/ast_bv_parameterized_decl.go:269-273` | `bitVectorExprDeclArguments` drops the "Argument ... at position i does not match declaration ..." message |
+| [ast_02-F2](#ast-02-f2) | medium | confirmed | fixed | `pkg/ast/ast_bv_plugin.go:333-344` | `BitVectorSort(0)` reports `AST source precondition` instead of "bit-vector size must be greater than zero" |
+| [ast_03-F4](#ast-03-f4) | medium | confirmed | fixed | `pkg/ast/ast_datatype_decl.go:124-262` | datatype declaration errors lose the C++ `VALIDATE_PARAM` predicate text and the `update-field` messages |
+| [ast_03-F5](#ast-03-f5) | medium | confirmed | fixed | `pkg/ast/ast_core_factories.go:436-438` | quantifiers with both patterns and no-patterns fail with a generic Go error instead of `ast_exception("simultaneous patterns and no-patterns not supported")` |
+| [ast_04-F1](#ast-04-f1) | medium | confirmed | fixed | `pkg/ast/ast_format_pp.go:284-342` | PrintFormat with no parameter owners ignores global `pp.*` parameters |
+| [ast_04-F2](#ast-04-f2) | medium | high | fixed | `pkg/ast/ast_expr_abstract.go:255-299` | expr_abstract omits the nested "expr_abstract" trace for quantifier bodies and patterns |
+| [ast_05-F2](#ast-05-f2) | medium | confirmed | fixed | `pkg/ast/ast_fpa_fp_decl.go:10-36` | FPA declaration and sort error paths return `ErrASTDomain` ("g3: AST source precondition") instead of the C++ exception text |
+| [ast_06-F1](#ast-06-f1) | medium | confirmed | fixed | `pkg/ast/ast_seq_decl.go:94-115` | `sequenceDecl` sort-checks `re.all` / `re.allchar` / `re.empty` against the signature where the C++ does not |
+| [ast_06-F2](#ast-06-f2) | medium | confirmed | fixed | `pkg/ast/ast_seq_decl.go:117-150` | `sequenceDecl` rejects declaration parameters that `seq_decl_plugin::mk_func_decl` ignores |
+| [ast_06-F3](#ast-06-f3) | medium | confirmed | fixed | `pkg/ast/ast_pattern.go:23-33` | `IsPattern` / `RewriterPattern` omit `is_pattern`'s "every argument is an application" test |
+| [ast_07-F2](#ast-07-f2) | medium | confirmed | fixed | `pkg/ast/ast_smt2_boolean_tree.go:125-163` | shared-subterm detection is recomputed per quantifier body instead of once (`m_soccs`) for the whole root |
+| [ast_07-F3](#ast-07-f3) | medium | confirmed | fixed | `pkg/ast/ast_smt2_sort.go:155` | base `SMT2PPSort` prints parametric user sorts as applications; C++ prints only the name |
+| [ast_07-F4](#ast-07-f4) | medium | confirmed | fixed | `pkg/ast/ast_smt_legacy_decl.go:22` | legacy benchmark printer drops the indentation space that `newline()` emits after each sort/datatype declaration |
+| [ast_07-F5](#ast-07-f5) | medium | confirmed | fixed | `pkg/ast/ast_sort_dependency_order.go:103-169` | decl_collector sort order uses insertion order instead of `top_sort`'s `obj_map` iteration order |
+| [ast_07-F6](#ast-07-f6) | medium | confirmed | fixed | `pkg/ast/ast_smt2_quantifier_root.go:71-94` | quantifier binder renaming fails with an error when the renamed name needs quoting |
+| [ast_08-F1](#ast-08-f1) | medium | confirmed | fixed | `pkg/ast/util_psort_ast_sorting.go:16-33,35-80,81-140,141-244,301-475,476-706` | psort AST network emits only entry `pb` traces; dualize/mk_at_most_1/add_clause/add_subset and all completion traces are missing |
+| [model_01-F1](#model-01-f1) | medium | confirmed | fixed | `pkg/model/model_evaluator.go:218-229` | ModelEvaluator does not force `flat` on the arithmetic and bit-vector rewriters |
+| [model_01-F3](#model-01-f3) | medium | confirmed | fixed | `pkg/model/model_evaluator_array_equality.go:309-327` | `mk_array_eq_core` walks `table1` in insertion order, not hashtable order |
+| [model_01-F4](#model-01-f4) | medium | confirmed | fixed | `pkg/model/model_printers.go:278-290,637-651` | the SMT2 model printer does not skip variable names that are already in use |
+| [model_01-F5](#model-01-f5) | medium | high | decided | `pkg/model/model_implicant_array.go:390-405` | `evalArrayEq` clears a nested "true" result that the C++ keeps |
+| [util_numeral_03-F1](#util-numeral-03-f1) | medium | confirmed | fixed | `pkg/util/numeral/mpf_rational_set_allocation.go:52-86` | MPF per-invocation histories (rational-set, round, value-copy) are never retired; memory grows per FP op and cleanup at close is quadratic |
+| [util_lp_02-F1](#util-lp-02-f1) | medium | confirmed | fixed | `pkg/util/lp/driver_rational_benchmark.go:56` | rational/pair benchmark drivers draw numerator before denominator (GCC draws the denominator first) |
+| [util_lp_03-F1](#util-lp-03-f1) | medium | confirmed | fixed | `pkg/util/lp/lar_signature.go:8-11,110-117,119-213` | solution signature iterated in ascending order instead of libstdc++ unordered_map order (LU mode models differ) |
+| [util_lp_04-F1](#util-lp-04-f1) | medium | confirmed | fixed | `pkg/util/lp/mps_reader_float.go:122-132` | `mpsNumber` uses strict `strconv.ParseFloat` where the C++ uses `atof`, so g3 rejects MPS files that z3 reads |
+| [util_lp_04-F2](#util-lp-04-f2) | medium | confirmed | fixed | `pkg/util/lp/mps_reader_float.go:558-560` | `readBounds` returns `ErrBounds` on the empty line left by end of file, where the C++ just leaves the loop |
+| [util_lp_06-F1](#util-lp-06-f1) | medium | confirmed | fixed | `pkg/util/lp/solver_model_report_float.go:28-44` | `FloatPrimalSimplex.PrintModel` sorts column names instead of using the C++ `unordered_map` order |
+| [util_params_01-F1](#util-params-01-f1) | medium | confirmed | fixed | `pkg/util/params/util_gparams_dictionary.go:14-56` | gparams module-descriptor dictionary iterates in registration order instead of z3 hash-table order (`-p`, `-pd`, `-pm`) |
+| [math_polynomial_01-F1](#math-polynomial-01-f1) | medium | confirmed | fixed | `pkg/math/polynomial/algebraic_isolation.go:262-296` | `isolate_roots` sorts roots with a heap sort, so root comparisons happen in a different order and with swapped arguments compared with C++ `std::sort` |
+| [math_polynomial_04-F1](#math-polynomial-04-f1) | medium | high | fixed | `pkg/math/polynomial/polynomial_gcd_power_buffer.go:51-53` | mod_gcd sorts var_min_degrees with Go sort.Slice instead of libstdc++ std::sort (tie order diverges at 13+ variables) |
+| [math_polynomial_04-F2](#math-polynomial-04-f2) | medium | high | fixed | `pkg/math/polynomial/polynomial_gcd_modular.go:56,250,305,317,365` | mod_gcd trace records print polynomial_ref values with use_star=true, and the u_Zp/v_Zp record uses the wrong label |
+| [math_polynomial_08-F1](#math-polynomial-08-f1) | medium | confirmed | fixed | `pkg/math/polynomial/upolynomial_division_remainder.go:76-92,119-127` | `remStateWithSourceContext` emits the `rem_bug` TRACE only under root-ID/Sturm-sequence frames |
+| [math_polynomial_09-F1](#math-polynomial-09-f1) | medium | confirmed | fixed | `pkg/math/polynomial/upolynomial_factor_frontend_invocation.go:242-248` | `UPolynomialFactorizationService.Factor` keeps about 12 KB of "history" per call for the life of the service |
+| [math_polynomial_10-F1](#math-polynomial-10-f1) | medium | confirmed | fixed | `pkg/math/polynomial/upolynomial_isolation.go:186` | DRS root isolation (sqf_isolate_roots / drs_isolate_roots / drs_isolate_0_1_roots) emits none of its `upolynomial` TRACE records |
+| [math_polynomial_11-F1](#math-polynomial-11-f1) | medium | confirmed | fixed | `pkg/math/polynomial/upolynomial_transforms.go:12-89` | translate (kinds 3/4, translate_bq/translate_q) drops the two TRACE("upolynomial") sites |
+| [math_realclosure_01-F6](#math-realclosure-01-f6) | medium | confirmed | fixed | `pkg/math/realclosure/infinitesimal_refine.go:194-206` | refineInfinitesimalPolynomialValue does not refine values infinitely close to 0 |
+| [math_realclosure_01-F9](#math-realclosure-01-f9) | medium | confirmed | fixed | `pkg/math/realclosure/root_bound_intervals.go:93-105` | root isolation intervals are closed where C++ uses open intervals |
+| [math_realclosure_01-F10](#math-realclosure-01-f10) | medium | confirmed | fixed | `pkg/math/realclosure/polynomial_square_free_any.go:7-37` | square-free under use_prem does not use prem_gcd or normalize_int_coeffs, so the stored defining polynomial differs |
+| [math_realclosure_01-F11](#math-realclosure-01-f11) | medium | confirmed | fixed | `pkg/math/realclosure/display_helpers_ranked.go:35-37` | rankedCoefficientNeedsParentheses ignores the "denominator is not one" condition of use_parenthesis |
+| [math_realclosure_02-F4](#math-realclosure-02-f4) | medium | confirmed | fixed | `pkg/math/realclosure/value_add_ranked.go:121-125` | ranked add/mul test the singleton result before normalize_fraction, so a fraction that cancels to a constant stays a rational-function value |
+| [math_subpaving_01-F3](#math-subpaving-01-f3) | medium | confirmed | fixed | `pkg/math/subpaving/arbitrary_context_relevance.go:50-216` | Arbitrary `RelevantNewBound` lacks the C++ catch of `C::exception`, so an mpf non-regular result aborts propagation instead of just rejecting the bound |
+| [math_subpaving_01-F4](#math-subpaving-01-f4) | medium | confirmed | fixed | `pkg/math/subpaving/arbitrary_monomial_propagate.go:169-189` | Arbitrary `propagateMonomialDownward` clears `first`, so `d` is the first other factor instead of the C++ last other factor |
+| [math_subpaving_01-F5](#math-subpaving-01-f5) | medium | high | fixed | `pkg/math/subpaving/fast_monomial.go:107-130` | Fast `PropagateMonomial` found-zero branch filters the zero bounds through normalize/relevance; C++ calls `propagate_bound` directly |
+| [math_subpaving_02-F2](#math-subpaving-02-f2) | medium | confirmed | fixed | `pkg/math/subpaving/hardware_context_bounds.go:131-138` | a node with a conflict is not removed from the leaf list (HWF), and the root is always queued (MPFX) |
+| [math_subpaving_04-F2](#math-subpaving-04-f2) | medium | confirmed | fixed | `pkg/math/subpaving/tactic/fixed_core_tactic.go:273` | MPFX print_nodes displays definitions with `use_star=true` |
+| [math_subpaving_04-F3](#math-subpaving-04-f3) | medium | confirmed | fixed | `pkg/math/subpaving/tactic/hardware_core_tactic.go:186,203` | non-MPQ engines return "unsupported atom" (and other converter errors) as plain errors, not tactic exceptions |
+| [math_misc_01-F2](#math-misc-01-f2) | medium | high | fixed | `pkg/math/grobner/grobner.go:87-118` | grobner equation sets iterate in insertion order, not in `obj_hashtable` slot order |
+| [math_misc_01-F3](#math-misc-01-f3) | medium | high | fixed | `pkg/math/hilbert/hilbert_basis.go:310-326` | hilbert subsumption index ignores the C++ split by weight sign (positive vectors can be pruned by zero-weight ones) |
+| [math_misc_01-F4](#math-misc-01-f4) | medium | high | fixed | `pkg/math/hilbert/ordered_passive.go:76-99` | hilbert passive queue and final basis sort break ties differently from the C++ heap and `std::sort` |
+| [math_misc_02-F1](#math-misc-02-f1) | medium | confirmed | fixed | `pkg/math/simplex/model_based_opt.go:373-423` | `resolveInteger` skips the source `normalize(row_dst)` on the opposite-sign integer path |
+| [math_misc_02-F2](#math-misc-02-f2) | medium | high | fixed | `pkg/math/simplex/simplex.go:558-593` | `MakeFeasible` (non-arithmetic policy) drops `check_blands_rule` and skips patch entries the C++ counts as iterations |
+| [math_misc_02-F3](#math-misc-02-f3) | medium | high | fixed | `pkg/math/simplex/matrix.go:64-84` | `Matrix` row and column entry order ignores the sparse_matrix free-list slot reuse |
+| [nlsat_01-F2](#nlsat-01-f2) | medium | confirmed | decided | `pkg/nlsat/evaluator.go:162-187` | evalInequality multiplies raw signs in 64-bit int; C++ multiplies in 32-bit int and overflows |
+| [nlsat_01-F3](#nlsat-01-f3) | medium | high | decided | `pkg/nlsat/explain_virtual_substitution.go:96-161` | signedSolveLinearEquality rebuilds the A-power table per polynomial; C++ never resets `qs` |
+| [nlsat_01-F4](#nlsat-01-f4) | medium | high | decided | `pkg/nlsat/explain_normalize.go:261-265` | normalize and simplify test `sign < 0` where C++ tests `s == -1` |
+| [nlsat_02-F2](#nlsat-02-f2) | medium | confirmed | decided | `pkg/nlsat/inline_variables.go:243-266` | inline_vars substitution diverges from 4.7.1 in undocumented ways (zero factors, constant folding, clause dedup/tautology) |
+| [nlsat_03-F3](#nlsat-03-f3) | medium | confirmed | fixed | `pkg/nlsat/solver.go:65-130` | the `seed` parameter never reaches the interval-set manager (`m_ism.set_seed`) |
+| [nlsat_03-F4](#nlsat-03-f4) | medium | confirmed | fixed | `pkg/nlsat/variable_order.go:135-146` | `shuffle_vars` applies the inverse of the C++ permutation |
+| [nlsat_03-F5](#nlsat-03-f5) | medium | confirmed | fixed | `pkg/nlsat/tactic/nlsat_tactic.go:155-189` | nlsat tactic omits the `algebraic` parameters and does not give the solver its own parameterised algebraic manager |
+| [nlsat_03-F6](#nlsat-03-f6) | medium | high | fixed | `pkg/nlsat/solver.go:258-263` | `Solver` has no `m_incremental`; `inline_vars` runs once per solver instead of on every non-incremental check, and would run inside nlqsat |
+| [nlsat_03-F7](#nlsat-03-f7) | medium | medium | fixed | `pkg/nlsat/variable_order.go:206-211,341-347` | `ReorderVariables` rebuilds Boolean watch lists, and `Check` skips identity reorders, so watch order differs from C++ |
+| [qe_01-F4](#qe-01-f4) | medium | high | decided | `pkg/qe/datalog_atoms.go:131-137` | datalog QE: the small-domain test is `<=` instead of `<`, and the "other value" branch substitutes false for negative equality atoms (C++ uses true) |
+| [qe_01-F5](#qe-01-f5) | medium | high | fixed | `pkg/qe/arithmetic_qe_term.go:175-201` | get_coeff/get_const build `rest` as a left-nested chain of binary `+` instead of one n-ary mk_add |
+| [qe_01-F6](#qe-01-f6) | medium | medium | fixed | `pkg/qe/arithmetic_project_formula.go:5-16` | qe-sat partial projection orders atoms by a DFS walk, not by the context's atom_set (obj_hashtable) order |
+| [qe_02-F1](#qe-02-f1) | medium | confirmed | fixed | `pkg/qe/equality_der_conjunctions.go:332` | eq::der `reduce_var_set` and its traces use the simplifying ast_util `mk_and` instead of `m.mk_and` |
+| [qe_02-F3](#qe-02-f3) | medium | high | fixed | `pkg/qe/expr_quantifier_bool_partition.go:58` | `process_partition` builds the blocking clause from the new child, not `m_current` |
+| [qe_02-F4](#qe-02-f4) | medium | confirmed | decided | `pkg/qe/expr_quantifier_scalar_branch.go:191-231` | Go-only recognizer guard in the datatype `subst` step changes the QE result against z3 4.7.1; the z3 bug is not recorded |
+| [qe_02-F5](#qe-02-f5) | medium | confirmed | decided | `pkg/qe/fourier_motzkin.go:143-149` | FM's documented `m_expr2bvar` reset changes qe-light output against z3 4.7.1; the z3 bug is not recorded |
+| [qe_02-F6](#qe-02-f6) | medium | medium | fixed | `pkg/qe/expr_quantifier_scalar_branch.go:167-236` | plugin `add_constraint` calls made during `subst` are deferred until after substitution |
+| [qe_02-F7](#qe-02-f7) | medium | high | fixed | `pkg/qe/legacy_arithmetic_linear.go:297,318-340` | legacy (Spacer) arithmetic MBP builds intermediate terms differently from `arith_project_util` |
+| [qe_03-F2](#qe-03-f2) | medium | confirmed | fixed | `pkg/qe/nlqsat_tactic.go:353` | nlqsat compiles its goal with factorization off; the C++ goal2nlsat factors |
+| [qe_03-F3](#qe-03-f3) | medium | confirmed | fixed | `pkg/qe/nlqsat_tactic.go:214` | nlqsat reports its own proof-mode failure; the C++ fails inside tseitin-cnf |
+| [qe_03-F5](#qe-03-f5) | medium | high | fixed | `pkg/qe/legacy_array_ackermann.go:151` | `array_project_selects_util` walks array variables in input order, not in `obj_map` order |
+| [qe_04-F2](#qe-04-f2) | medium | medium | fixed | `pkg/qe/qe_arithmetic_plugin_classify.go:65-79` | arithmetic plugins' `IsUninterpreted` treat an n-ary `*` with a numeral as interpreted; C++ `is_mul(f, m, n)` matches only binary products |
+| [qe_05-F3](#qe-05-f3) | medium | high | fixed | `pkg/qe/simplify_quantifier_rewriter.go:340-348,362-376` | simplify rewriter (qe-sat preprocessing, datalog unbound-var fix) uses raw `not` instead of ast_util `mk_not` |
+| [qe_05-F4](#qe-05-f4) | medium | high | fixed | `pkg/qe/sat_strengthen.go:14-36` | qe-sat NNF strengthening/weakening walk atoms in AST-id order, not obj_hashtable order |
+| [qe_05-F5](#qe-05-f5) | medium | confirmed | fixed | `pkg/qe/sat_partial_search.go:157-161` | qe-sat never prints the `(qt i)` verbose line |
+| [qe_05-F6](#qe-05-f6) | medium | high | partly | `pkg/qe/quant_elim.go` | `qe`, `qe-sat` and the QE simplify rewriter emit none of their `qe` TRACE records |
+| [opt_01-F4](#opt-01-f4) | medium | confirmed | decided | `pkg/opt/maxres_upper_block.go:10-28` | `maxres.add_upper_bound_block` builds a different (and correct) blocker than z3 4.7.1, whose `pb_util::mk_lt` aliasing bug yields an all-zero-coefficient `pbge`; the divergence is undocumented |
+| [opt_01-F5](#opt-01-f5) | medium | confirmed | fixed | `pkg/opt/maxres_stats.go:15-27` | MaxRes statistics never reach `-st`; `maxres-cores` / `maxres-correction-sets` are missing and `Cores` counts the wrong event |
+| [opt_01-F6](#opt-01-f6) | medium | high | fixed | `pkg/opt/maxres_mutex_preprocess.go:36-42` | MaxRes engine construction failures (mutex discovery returning l_undef/l_false) abort check-sat instead of returning the status |
+| [opt_02-F1](#opt-02-f1) | medium | confirmed | fixed (b8564cd5e) | `pkg/opt/pb_sls_*.go` | `opt.enable_sls=true` runs a PB-SLS search the C++ never runs (pb_sls only reachable from the dead `opt_sls_solver.h`) |
+| [opt_02-F2](#opt-02-f2) | medium | confirmed | fixed | `pkg/opt/maxsmt_sort_model.go:138-187` | sortmax counts satisfied inputs with model completion, so negated soft constraints count as already satisfied |
+| [opt_02-F3](#opt-02-f3) | medium | high | fixed | `pkg/opt/sortmax_encoded_comparator.go:37-45` | the sortmax comparator always builds `(or a b)`/`(and a b)`; `psort_nw::mk_max`/`mk_min` return `a` when `a == b` |
+| [opt_02-F4](#opt-02-f4) | medium | confirmed | partly | `pkg/opt/opb_parse.go:176-316` | the OPB parser rejects inputs z3 accepts and accepts inputs z3 rejects; error text and exit code also differ |
+| [opt_02-F5](#opt-02-f5) | medium | confirmed | fixed | `pkg/opt/wcnf_parse.go:74-149` | the WCNF parser is line-based and strict; z3's token-stream parser accepts files g3 rejects |
+| [tactic_top_01-F3](#tactic-top-01-f3) | medium | confirmed | fixed | `pkg/tactic/tactic_probe_structural.go:88-131` | num-consts probes visit quantifier patterns; the C++ ignores patterns |
+| [tactic_top_01-F4](#tactic-top-01-f4) | medium | confirmed | fixed | `pkg/tactic/tactic_sine.go:197-209` | sine-filter keeps the bodies of quantifiers that have only `:no-pattern` |
+| [tactic_top_01-F6](#tactic-top-01-f6) | medium | confirmed | fixed | `pkg/tactic/tactic_and_then.go:146-177` | and_then (and repeat) drop t2's model converter, proof converter and core when that mode is off |
+| [tactic_top_01-F7](#tactic-top-01-f7) | medium | high | fixed | `pkg/tactic/horn_subsume_model_converter.go:233-235` | horn_subsume mk_horn and add_default_false_interpretation build ASTs and register declarations in a different order |
+| [tactic_arith_01-F1](#tactic-arith-01-f1) | medium | confirmed | fixed | `pkg/tactic/arith/degree_shift_collect.go:50-57` | degree-shift `save` skips obj_map re-insert, so the table never expands and fresh-variable order differs |
+| [tactic_arith_01-F2](#tactic-arith-01-f2) | medium | confirmed | fixed | `pkg/tactic/arith/eq2bv_collect.go:132-142` | eq2bv `add_fd` skips obj_map re-insert, so the table never expands and the `z!N` order differs |
+| [tactic_arith_01-F3](#tactic-arith-01-f3) | medium | confirmed | decided | `pkg/tactic/arith/eq2bv_rewrite.go:238-267` | eq2bv's persistent rewriter cache is a z3 4.7.1 soundness bug; g3 does not copy it and it is not recorded |
+| [tactic_arith_01-F4](#tactic-arith-01-f4) | medium | high | fixed | `pkg/tactic/arith/bv2real_rewriter.go:261` | bv2real builds AST arguments left to right where GCC evaluates them right to left |
+| [tactic_arith_01-F5](#tactic-arith-01-f5) | medium | high | fixed | `pkg/tactic/arith/bv2int_rules.go:204` | bv2int builds `mk_uminus` and `is_bv2int_diff` operands in the wrong order |
+| [tactic_arith_01-F6](#tactic-arith-01-f6) | medium | high | fixed | `pkg/tactic/arith/degree_shift_tactic.go:155-219` | degree-shift builds the model-converter powers after rewriting, not inside `prepare_substitution` |
+| [tactic_arith_01-F7](#tactic-arith-01-f7) | medium | high | fixed | `pkg/tactic/arith/eq2bv_apply.go:145` | eq2bv builds the bound formulas before rewriting the goal |
+| [tactic_arith_02-F5](#tactic-arith-02-f5) | medium | confirmed | decided | `pkg/tactic/arith/lia2card_comparison.go:126-131` | lia2card `mk_eq` with no weighted arguments returns `true`/`false` instead of `(and ge le)` or `(_ pbeq 0)` |
+| [tactic_arith_03-F3](#tactic-arith-03-f3) | medium | confirmed | fixed | `pkg/tactic/arith/qfnra_purify_forward_trig.go:130-133,170-199` | purify-arith extension model converter lists angles in creation order, not `m_sin_cos` obj_map order |
+| [tactic_arith_03-F4](#tactic-arith-03-f4) | medium | confirmed | fixed | `pkg/tactic/arith/pb2bv_apply.go:239-249` | pb2bv model converter and filter list bits in creation order, not `m_const2bit` obj_map order |
+| [tactic_arith_03-F5](#tactic-arith-03-f5) | medium | confirmed | fixed | `pkg/tactic/arith/pb2bv_convert.go:253-278` | pb2bv error names the offending monomial instead of the atom (shadowed `term`) |
+| [tactic_arith_03-F6](#tactic-arith-03-f6) | medium | confirmed | fixed | `pkg/tactic/arith/probe_arith_statistics_traversal.go:9-53` | arith-max-deg / arith-avg-deg / arith-max-bw / arith-avg-bw ignore quantifier bodies and patterns |
+| [tactic_arith_03-F7](#tactic-arith-03-f7) | medium | confirmed | fixed | `pkg/tactic/arith/recover_01_model.go:48-67` | recover-01 extension model converter puts all Boolean definitions first; z3 interleaves them with each recovered variable |
+| [tactic_arith_03-F8](#tactic-arith-03-f8) | medium | confirmed | fixed | `pkg/tactic/arith/qfnra_purify_quantifier.go:198-213` | purify-arith adds a `quant-intro (refl ...)` step for every unchanged quantifier when proofs are on |
+| [tactic_arith_03-F9](#tactic-arith-03-f9) | medium | confirmed | fixed | `pkg/tactic/arith/recover_01_apply.go:158-177` | recover-01 rewrite loop reads past the goal after an update makes it inconsistent |
+| [tactic_bv_01-F2](#tactic-bv-01-f2) | medium | confirmed | fixed | `pkg/tactic/bv/elim_small_bv_tactic.go:384` | elim-small-bv passes its tactic params to the th_rewriter, and its own rewriter has no `max_steps_exceeded` hook |
+| [tactic_bv_01-F3](#tactic-bv-01-f3) | medium | confirmed | fixed | `pkg/tactic/bv/bv1_blaster_rewriter.go:106-150` | bv1-blast model converter lists variables in insertion order, not `obj_map` order |
+| [tactic_bv_01-F4](#tactic-bv-01-f4) | medium | confirmed | fixed | `pkg/tactic/bv/bv_bounds_recognize.go:63-105` | bv-bounds `is_bound` accepts `(= numeral numeral)` as a bound on a numeral |
+| [tactic_bv_01-F5](#tactic-bv-01-f5) | medium | confirmed | fixed | `pkg/tactic/bv/bvarray2uf_tactic.go:192` | bvarray2uf does not declare `produce_models`, so `using-params` rejects it |
+| [tactic_core_01-F1](#tactic-core-01-f1) | medium | confirmed | fixed | `pkg/tactic/core/cofactor_term_ite_tactic.go:126-139,158` | cofactor-term-ite keeps `cofactor_equalities`/`max_memory` after cleanup; C++ reverts them to the constructor params |
+| [tactic_core_01-F2](#tactic-core-01-f2) | medium | confirmed | fixed | `pkg/tactic/core/injectivity_apply.go:39-41` | injectivity resets its rewriter cache on every application; C++ keeps `m_eq`'s cache, so stale results survive |
+| [tactic_core_02-F2](#tactic-core-02-f2) | medium | confirmed | fixed | `pkg/tactic/core/pb_preprocess_terms.go:153-164` | pb-preprocess `pureLiteral` rejects `(not true)`/`(not false)`, which C++ `pure_args` accepts |
+| [tactic_core_02-F3](#tactic-core-02-f3) | medium | confirmed | fixed | `pkg/tactic/core/pb_preprocess_simplify.go:180-242` | pb-preprocess declassifier skips quantifier patterns |
+| [tactic_core_02-F4](#tactic-core-02-f4) | medium | confirmed | fixed | `pkg/tactic/core/pb_preprocess_tactic.go:97-101` | pb-preprocess verbose output: an extra tactic report and the missing IF_VERBOSE(3) lines |
+| [tactic_core_02-F5](#tactic-core-02-f5) | medium | confirmed | fixed | `pkg/tactic/core/solve_eqs_tactic.go:285-291,402` | solve-eqs and tseitin-cnf print the `report_tactic_progress` line before the tactic report |
+| [tactic_small_01-F1](#tactic-small-01-f1) | medium | confirmed | fixed | `pkg/tactic/aig/aig_gates.go:25` | `composeGate` releases gate temporaries in reverse order, so `Ite`/`Iff` free nodes in a different order and later AIG ids change |
+| [tactic_small_01-F2](#tactic-small-01-f2) | medium | confirmed | fixed | `pkg/tactic/aig/aig_gates.go:160-238` | `AndArgs`/`OrArgs` sort two operands (the C++ does not) and do not apply the sort to the result stack |
+| [tactic_small_01-F3](#tactic-small-01-f3) | medium | confirmed | fixed | `pkg/tactic/fpa/fpa2bv_tactic.go:63-107` | the `fpa2bv` tactic never applies the `max_steps` (and `max_memory`) parameters to its rewriter |
+| [tactic_small_01-F4](#tactic-small-01-f4) | medium | confirmed | fixed | `pkg/tactic/nlsat_smt/nl_purify_predicates.go:108,179` | the `nl-purify` Boolean-mode rewriter shares the result for a root atom, where the C++ makes a second predicate |
+| [tactic_small_01-F5](#tactic-small-01-f5) | medium | high | fixed | `pkg/tactic/nlsat_smt/nl_purify_solve.go:118-122` | `nl-purify` hands on nlsat's model converter when nlsat is undecided; the C++ leaves `mc` null |
+| [tactic_small_01-F6](#tactic-small-01-f6) | medium | high | fixed | `pkg/tactic/nlsat_smt/nl_purify_core.go:68` | the `nl-purify` blocking clause uses raw `mk_not`, while the C++ uses `ast_util::mk_not` |
+| [tactic_small_01-F7](#tactic-small-01-f7) | medium | high | fixed | `pkg/tactic/nlsat_smt/nl_purify_equalities.go:58` | `nl-purify` walks interface variables and used assumptions in insertion order instead of hash-table order |
+| [tactic_small_02-F1](#tactic-small-02-f1) | medium | confirmed | fixed | `pkg/tactic/portfolio/smt_strategic_solver.go:366` | QF_BV strategic solver always uses inc_sat as the incremental backend, ignoring `rewriter.hi_div0` |
+| [tactic_small_02-F2](#tactic-small-02-f2) | medium | confirmed | fixed | `pkg/tactic/smtlogics/nra_tactic.go:41` | NRA strategy runs the whole QF_NRA portfolio instead of the C++ three-attempt NLSAT `or_else` |
+| [tactic_small_02-F3](#tactic-small-02-f3) | medium | high | fixed | `pkg/tactic/smtlogics/qfnra_tactic.go:73-79` | QF_NRA nla2bv routes keep `nla2bv_max_bv_size` alive through a Go-only `using_params` wrapper |
+| [tactic_sls_ufbv_01-F2](#tactic-sls-ufbv-01-f2) | medium | high | fixed | `pkg/tactic/sls/sls_tracker_initialize.go:119` | SLS tracker and engine TRACE sites under tag `sls` (and `sls_top`, `sls_score`, `sls_eval`, `sls_model`) are not ported |
+| [muz_base_02-F1](#muz-base-02-f1) | medium | high | fixed | `pkg/muz/base/rule_set.go:453-608` | `RuleSet.Finalize` computes strata with a DFS numbering that differs from `rule_stratifier::process` |
+| [muz_base_02-F2](#muz-base-02-f2) | medium | confirmed | fixed | `pkg/muz/base/rule_transformer.go:158-197` | `RuleTransformer.Apply` drops the `(transform ...)` verbose lines and the "destratified negation" warning |
+| [muz_base_02-F3](#muz-base-02-f3) | medium | high | fixed | `pkg/muz/base/rule_unbound.go:168` | Unbound-variable fixing on a proof-carrying rule builds two rewrite/modus-ponens steps where mk_horn_rule builds one |
+| [muz_fp_01-F5](#muz-fp-01-f5) | medium | confirmed | fixed | `pkg/muz/fp/datalog_bit_blast.go:80-203` | with `xform.bit_blast`, the answer is printed in the original BV columns (documented deviation, observable) |
+| [muz_fp_01-F6](#muz-fp-01-f6) | medium | confirmed | fixed | `pkg/muz/fp/datalog_check_relation.go:120-130` | `check_relation` and `default_table_checked` reject the bitvector table plugin that z3 accepts |
+| [muz_fp_02-F4](#muz-fp-02-f4) | medium | confirmed | fixed | `pkg/muz/fp/datalog_interval_dispatch.go:65-92` | interval, Karr and bound backends refuse options and rule shapes that the C++ relation engine evaluates |
+| [muz_fp_02-F7](#muz-fp-02-f7) | medium | confirmed | fixed | `pkg/muz/fp/datalog_karr_similarity.go:15` | a similarity compressor threshold of 0 or 1 makes every Datalog query fail |
+| [muz_fp_03-F5](#muz-fp-03-f5) | medium | confirmed | fixed | `pkg/muz/fp/default_finite_table.go:33-40` | `datalog.default_table` mapping: `bitvector` and unknown names become `hashtable` |
+| [muz_fp_03-F6](#muz-fp-03-f6) | medium | confirmed | fixed | `pkg/muz/fp/datalog_udoc_interpreted.go:139-148` | doc guard failures report a Go error instead of `query failed: Guard expression is not handled<expr>` + `unknown` |
+| [muz_fp_03-F7](#muz-fp-03-f7) | medium | confirmed | fixed | `pkg/muz/fp/propositional_engine.go:2253-2255,2790-2795` | cancellation or timeout during a datalog query prints `(error "line L column C: canceled")` without `query failed:` / `unknown` |
+| [muz_fp_03-F8](#muz-fp-03-f8) | medium | high | fixed | `pkg/muz/fp/datalog_restart.go:31-109` | datalog restart loop ignores the soft timeout (`m_fparams.m_timeout`, i.e. `smt.timeout`) |
+| [muz_fp_04-F1](#muz-fp-04-f1) | medium | confirmed | fixed | `pkg/muz/fp/pdr_engine.go:93-112` | PDR statistics accumulate across SMT-LIB queries; `updt_params` must discard them |
+| [muz_fp_04-F2](#muz-fp-04-f2) | medium | confirmed | fixed | `pkg/muz/fp/spacer_engine.go:756-823` | Spacer query skips the `IF_VERBOSE(2, display_rules)` dump of the transformed rules |
+| [muz_fp_04-F3](#muz-fp-04-f3) | medium | high | fixed | `pkg/muz/fp/propositional_engine.go:3374-3400` | `PropositionalEngine.Query` sends a nullary registered predicate through `rel_query` instead of `context::query` |
+| [muz_pdr_01-F2](#muz-pdr-01-f2) | medium | confirmed | open | `pkg/muz/pdr/answer_trace.go:20-33,201-231` | get_trace variable offset (`max_var`) is recomputed each step instead of the C++ running maximum |
+| [muz_pdr_01-F3](#muz-pdr-01-f3) | medium | confirmed | fixed | `pkg/muz/pdr/context_solve.go:277-335` | "PDR max depth" misses the per-level update from `solve_impl` |
+| [muz_pdr_01-F4](#muz-pdr-01-f4) | medium | confirmed | fixed | `pkg/muz/pdr/context_solve.go` | PDR search verbose diagnostics are missing |
+| [muz_pdr_01-F5](#muz-pdr-01-f5) | medium | high | fixed | `pkg/muz/pdr/generalizer_arithmetic.go:317-372` | arithmetic inductive `substitute_alias` matches any smaller/larger bound instead of exactly r±1 |
+| [muz_pdr_02-F3](#muz-pdr-02-f3) | medium | confirmed | fixed | `pkg/muz/pdr/predicate_transformer.go:297-325` | PDR `IF_VERBOSE` output of frame, solver, closure and validation code is missing |
+| [muz_pdr_02-F4](#muz-pdr-02-f4) | medium | high | fixed | `pkg/muz/pdr/predicate_properties.go:17-63` | `InheritProperties` uses a different order and runs before the users' use-lists exist |
+| [muz_pdr_02-F5](#muz-pdr-02-f5) | medium | medium | fixed | `pkg/muz/pdr/pdr_util.go:115` | `reduceDisequalities` evaluates with model completion and array normalization |
+| [muz_pdr_02-F6](#muz-pdr-02-f6) | medium | medium | fixed | `pkg/muz/pdr/smt_context_manager.go:80` | PDR SMT contexts always produce models; C++ enables model generation only for checks that request a model |
+| [muz_pdr_02-F7](#muz-pdr-02-f7) | medium | medium | fixed | `pkg/muz/pdr/predicate_transformer.go:104` | The predicate signature is created when the transformer is constructed; C++ creates it lazily during `init_rule` |
+| [muz_spacer_01-F1](#muz-spacer-01-f1) | medium | confirmed | fixed | `pkg/muz/spacer/derivation.go:360,424,554,601` | Derivation uses raw `mk_and` instead of the spacer manager's bool_rewriter `mk_and` |
+| [muz_spacer_01-F2](#muz-spacer-01-f2) | medium | confirmed | fixed | `pkg/muz/spacer/lemma_array_generalizer.go:15-127` | Array-equality generalizer orders candidate arrays by insertion, not `func_decl_set` order |
+| [muz_spacer_01-F3](#muz-spacer-01-f3) | medium | confirmed | fixed | `pkg/muz/spacer/itp_solver.go:596-685` | Interpolating solver drops the `time.itp_solver.itp_core` watch and statistic |
+| [muz_spacer_01-F4](#muz-spacer-01-f4) | medium | confirmed | fixed | `pkg/muz/spacer/predicate_transformer.go:559` | `SPACER num propagations` counts calls, but the live C++ frames never increment it |
+| [muz_spacer_01-F5](#muz-spacer-01-f5) | medium | confirmed | fixed | `pkg/muz/spacer/manager.go:101-154` | `spacer.eq_prop=false` handling is incomplete, and seed/mbqi/eq_prop reach every solver family |
+| [muz_spacer_02-F4](#muz-spacer-02-f4) | medium | high | fixed | `pkg/muz/spacer/predicate_reach.go:228-247` | `InitReachFacts` adds initial reach facts in rule order, not `m_rule2tag` table order |
+| [muz_spacer_02-F5](#muz-spacer-02-f5) | medium | high | fixed | `pkg/muz/spacer/predicate_reachability.go:154-163` | `is_reachable` (`confirmConcreteReachability`) asks for an unsat core that the C++ never computes |
+| [muz_rel_01-F1](#muz-rel-01-f1) | medium | confirmed | partly | `pkg/muz/rel/aag_exporter.go:25` | `fixedpoint.print_aig` is ignored; the AAG exporter is test-only and not faithful |
+| [muz_rel_02-F1](#muz-rel-02-f1) | medium | confirmed | fixed | `pkg/muz/rel/finite_checked_pair.go:127-140,374-390,542-555,587-600,691-704` | check_table operations do not print their `IF_VERBOSE(1)` trace lines |
+| [muz_rel_02-F2](#muz-rel-02-f2) | medium | high | fixed (91ab29f61) | `pkg/muz/rel/external_relation_rules.go:72-698` | external-relation rule evaluation is a Go-only evaluator, not the rel_context/dl_compiler pipeline |
+| [muz_rel_02-F3](#muz-rel-02-f3) | medium | high | obsolete (91ab29f61) | `pkg/muz/rel/external_interval_product_union.go:144-204` | external/interval product union with delta (and unaligned union) skips C++ `mk_empty`/`clone` callbacks |
+| [muz_rel_03-F1](#muz-rel-03-f1) | medium | confirmed | fixed | `pkg/muz/rel/instruction_io.go:96-105` | `instr_io` load keeps an empty relation in the register instead of `make_empty` |
+| [muz_rel_03-F2](#muz-rel-03-f2) | medium | confirmed | fixed | `pkg/muz/rel/instruction_interpreted.go:186-236` | `filter_interpreted` and `setNonemptyFiniteRegister` leave empty Sparse, lazy-sparse and checked results in the register |
+| [muz_rel_04-F1](#muz-rel-04-f1) | medium | confirmed | fixed | `pkg/muz/rel/relation_manager_display_output.go:95-163` | `DisplayOutputTables` prints output relations in declaration order, not decl_set hash order |
+| [muz_rel_05-F1](#muz-rel-05-f1) | medium | confirmed | fixed | `pkg/muz/rel/table.go:90-100` | `HashTable` iterates rows in insertion order; C++ `hashtable_table` iterates in hash-slot order |
+| [muz_rel_05-F2](#muz-rel-05-f2) | medium | confirmed | fixed | `pkg/muz/rel/sparse_interval_sieve_product.go:88-98` | `CanSelectSparseIntervalSieveProduct` refuses `tr_sparse interval_relation` on purely finite (and purely arithmetic) predicates, which z3 evaluates |
+| [muz_rel_05-F3](#muz-rel-05-f3) | medium | confirmed | fixed | `pkg/muz/rel/table.go:262-293` | the full-table construction never emits `WARNING: creating large table of size N for relation P` |
+| [muz_rel_06-F2](#muz-rel-06-f2) | medium | high | obsolete (74d7dcf33) | `pkg/muz/rel/udoc_guard.go:62-99` | guard/rest splitting uses a DFS `and`-flattener and order, not `flatten_and` and `extract_equalities` |
+| [muz_rel_06-F4](#muz-rel-06-f4) | medium | high | obsolete (74d7dcf33) | `pkg/muz/rel/udoc_guard_compile.go:119` | projected UDoc results use push instead of `udoc::insert` |
+| [muz_rel_06-F5](#muz-rel-06-f5) | medium | high | decided | `pkg/muz/rel/udoc_sieve_negation.go:8-31` | `UDocSieve.FilterByNegation` does not follow C++ `sieve_relation_plugin::mk_filter_by_negation_fn` |
+| [muz_transforms_01-F1](#muz-transforms-01-f1) | medium | confirmed | fixed | `pkg/muz/transforms/boolean_normalizer.go:386-465` | Boolean normalizer skips the BR_REWRITE1 re-reduction after an equivalence is detected |
+| [muz_transforms_01-F2](#muz-transforms-01-f2) | medium | confirmed | fixed | `pkg/muz/transforms/array_instantiation.go:126-144, 222-277` | array instantiation `retrieve_all_selects` walks equivalence classes in insertion order, not the union-find `next` cycle from the array |
+| [muz_transforms_01-F3](#muz-transforms-01-f3) | medium | confirmed | fixed | `pkg/muz/transforms/coi.go:148-199` | cone-of-influence model-converter entries are in rule order, not `func_decl_set`/`obj_map` hash order |
+| [muz_transforms_01-F4](#muz-transforms-01-f4) | medium | high | fixed | `pkg/muz/transforms/rule_coalesce.go:354-420` | coalesce walks heads in first-appearance order instead of `begin_grouped_rules` (`m_head2rules` table) order |
+| [muz_transforms_01-F5](#muz-transforms-01-f5) | medium | high | fixed | `pkg/muz/transforms/rule_coalesce.go:251` | coalesce builds raw `and`/`or` where the C++ uses `bool_rewriter::mk_and`/`mk_or` |
+| [muz_transforms_02-F2](#muz-transforms-02-f2) | medium | high | fixed | `pkg/muz/transforms/rule_slice.go:565-578` | slice `updateRule` skips `rm.fix_unbound_vars(new_rule, false)`, so constraints over sliced-away variables are kept |
+| [muz_transforms_02-F3](#muz-transforms-02-f3) | medium | confirmed | fixed | `pkg/muz/transforms/rule_slice.go:42-57,658-705` | slice `declare_predicates` walks predicates in insertion order instead of `m_sliceable` (obj_map) order, so fresh `!slice!N` names differ |
+| [muz_transforms_02-F4](#muz-transforms-02-f4) | medium | medium | fixed | `pkg/muz/transforms/simple_joins_global.go:52-214,248-292` | simple joins break pair-cost ties in rule-encounter order and place the joined literal at the lower tail position |
+| [muz_transforms_02-F5](#muz-transforms-02-f5) | medium | medium | fixed | `pkg/muz/transforms/subsumption_checker.go:465-471` | subsumption checker sorts rules with a stable sort; `std::sort` is unstable above 16 rules |
+| [muz_small_01-F1](#muz-small-01-f1) | medium | confirmed | fixed | `pkg/muz/ddnf/preprocess.go:160-174` | DDNF `processMany` visits connective arguments in reverse of `process_todo`, so DDNF node IDs and the dumped rules differ |
+| [muz_small_01-F2](#muz-small-01-f2) | medium | confirmed | fixed | `pkg/muz/ddnf/preprocess.go:158-174` | DDNF preprocessing and compilation test raw decl kinds without the basic family, so arithmetic `>` is treated as `and` |
+| [muz_small_01-F3](#muz-small-01-f3) | medium | confirmed | fixed | `pkg/muz/clp/engine_types.go:17` | CLP solver `unknown` becomes a plain Go error, not z3's `query failed: undef` + `unknown` |
+| [muz_small_01-F4](#muz-small-01-f4) | medium | confirmed | fixed | `pkg/muz/bmc/linear_search.go:37` | BMC `checkpoint` returns `fmt.Errorf("bmc: canceled")` instead of `default_exception(Z3_CANCELED_MSG)` |
+| [muz_small_01-F5](#muz-small-01-f5) | medium | high | fixed | `pkg/muz/bmc/nonlinear_compile.go:394-436` | nonlinear BMC `Compile` groups predicates in rule order instead of the rule set's grouped-map order |
+| [muz_small_01-F6](#muz-small-01-f6) | medium | confirmed | fixed | `pkg/muz/bmc/linear_search.go:31-55` | BMC `IF_VERBOSE` progress and model output is not ported |
+| [muz_small_01-F7](#muz-small-01-f7) | medium | high | fixed | `pkg/muz/bmc/quantified_linear_compile.go:16-118` | quantified-linear BMC compiles a whole width before asserting anything, and builds its ASTs in a different order |
+| [muz_small_01-F10](#muz-small-01-f10) | medium | confirmed | fixed | `pkg/muz/ddnf/compiler.go:92` | DDNF compile failures (for example a sort mismatch) are script errors, not `query failed: ...` + `unknown` |
+| [muz_small_02-F2](#muz-small-02-f2) | medium | confirmed | fixed | `pkg/muz/tab/clause_display.go:69` | tab verbose clause/predicate output uses the legacy SMT printer instead of `mk_pp` (ismt2) |
+| [duality_01-F4](#duality-01-f4) | medium | confirmed | decided | `pkg/duality/counterexample_display.go:96-196` | the counterexample `(subst ...)` values come from a reconstructed proof witness instead of `tree->Eval(&edge, skolem)` |
+| [duality_01-F5](#duality-01-f5) | medium | high | fixed | `pkg/duality/boolean_factors.go:104-111` | `ReallySimplifyAndOr` orders common factors by arena slot; C++ orders them by AST id |
+| [duality_01-F6](#duality-01-f6) | medium | high | decided | `pkg/duality/derivation_fast.go:51-56` | `buildFast` adds a `CheckSat(nil)` before `Solve` and so discards the proof the C++ reuses |
+| [duality_02-F2](#duality-02-f2) | medium | high | decided | `pkg/duality/implicant.go:324-348` | `FixCurrentState` treats the `@underN` flags as don't-cares; the C++ passes an empty set |
+| [duality_02-F3](#duality-02-f3) | medium | medium | fixed | `pkg/duality/implicant_full.go:76-100` | decl-kind dispatch without a basic-family check: arithmetic `>` (OP_GT = 5) is taken for `and` in `UnderapproxFullFormula` and `CloneQuantAndSimp` |
+| [duality_02-F4](#duality-02-f4) | medium | high | fixed | `pkg/duality/implicant.go:86-94` | `conjoin` is replaced by "true / the single literal / `and`"; the C++ always builds `(and ...)`, including `(and)` and `(and x)` |
+| [duality_03-F2](#duality-03-f2) | medium | confirmed | decided | `pkg/duality/unhoist.go:197-205` | `unhoistLoop` deduplicates `parent.Incoming`; z3 rewrites a repeated-child edge twice and fails |
+| [interp_01-F4](#interp-01-f4) | medium | confirmed | fixed | `pkg/interp/direct_proof_simplify.go:102-107` | error kinds collapsed: `iz3_exception` messages, `proof_error` and `cannot_simplify` all become `ProofError`, and the `@sum` fallback catches all of them |
+| [interp_01-F7](#interp-01-f7) | medium | high | fixed | `pkg/interp/direct_proof_rewrite.go:1402-1418` | `simplifySymmetry` wraps a commuted negation chain in the condition; the C++ drops it |
+| [interp_01-F8](#interp-01-f8) | medium | high | fixed | `pkg/interp/direct_proof_rewrite.go:978-996` | `simplifyModusPonens` omits `normalize(nQ2)` for inequality conclusions |
+| [interp_01-F9](#interp-01-f9) | medium | high | fixed | `pkg/interp/direct_proof_rewrite.go:479-512` | `chainSideConjunction` folds `chain_conditions`/`chain_formulas` in reverse order |
+| [interp_01-F10](#interp-01-f10) | medium | medium | fixed (c28b71b02) | `pkg/interp/direct_proof_simplify.go:97-98` | `simplifyProofTerm` rejects `@leq2eq`/`@eq2leq` without placeholders; the C++ clones them |
+| [interp_01-F11](#interp-01-f11) | medium | confirmed | fixed | `direct_proof_equality.go:199-211` | AST creation order does not follow GCC's right-to-left argument evaluation, and a placeholder is created eagerly |
+| [interp_01-F12](#interp-01-f12) | medium | high | fixed | `pkg/interp/direct_proof_equality.go:180` | `makeMixedCongruence` picks the first matching argument position; `make_mixed_congruence` picks the last |
+| [interp_01-F13](#interp-01-f13) | medium | high | fixed | `pkg/interp/base_simplify.go:50-54` | `Base.simplifyConjunction` re-examines the element swapped in from the back; `simplify_and` skips it |
+| [interp_01-F14](#interp-01-f14) | medium | medium | fixed | `pkg/interp/direct_proof_localization.go:119-137` | `localizeTerm` handles an empty-scope `select` array, and a cache hit, differently from `localize_term` |
+| [interp_02-F3](#interp-02-f3) | medium | confirmed | fixed | `pkg/interp/manager.go:530` | `Manager.MakeQuantifier` omits the `itp` qid that `iz3mgr::make_quant` sets |
+| [interp_02-F4](#interp-02-f4) | medium | confirmed | fixed | `pkg/interp/translation_rules.go:385-386` | unsupported proof rule does not print the `IF_VERBOSE(0)` "Unsupported proof rule:" line |
+| [interp_02-F5](#interp-02-f5) | medium | high | fixed | `pkg/interp/translation_rules.go:420-437` | array theory lemma ignores `expect_clause` when building the axiom literals |
+| [interp_02-F6](#interp-02-f6) | medium | high | fixed | `pkg/interp/translation_rules.go:349-362` | `PR_COMMUTATIVITY` builds `comm_equiv` with a hard-coded `Iff` instead of `op(con)` |
+| [interp_02-F7](#interp-02-f7) | medium | medium | fixed | `pkg/interp/translation_analysis.go:209-249` | `localityRecursive` drops the `PR_QUANT_INST` side effect `iproof->make_axiom(lits)` |
+| [interp_02-F8](#interp-02-f8) | medium | medium | fixed | `pkg/interp/translation_analysis.go:111-151` | `scanSkolemsRecursive` drops the `ast_scope(arg(conc(proof),1))` call, which freezes memoized scopes in C++ |
+| [interp_02-F9](#interp-02-f9) | medium | high | fixed |  | AST construction order differs from the GCC build in several translation helpers |
+| [interp_02-F10](#interp-02-f10) | medium | confirmed | fixed | `pkg/interp/proof.go:124-136` | interpolation profile output lacks the `iz3proof::interpolate` timers and prints times with full precision |
+| [interp_02-F11](#interp-02-f11) | medium | medium | fixed | `pkg/interp/pp.go:110-137` | `PrettyPrintProblem` declares symbols through `ast_pp_util` instead of `free_func_visitor` + `mk_smt_pp`, and names duplicate constraints differently |
+| [solver_misc_01-F1](#solver-misc-01-f1) | medium | confirmed | fixed | `pkg/solver/tactic_solver.go:227` | TacticSolver.Labels returns the tactic's labels; C++ tactic2solver::get_labels returns none |
+| [api_01-F3](#api-01-f3) | medium | confirmed | fixed | `pkg/api/api_ast_vector_object.go:177-214` | `ASTVector.String` / `ASTMap.String` print function declarations as their bare name and drop the `mk_ismt2_pp` indent (2 / 3) |
+| [api_01-F4](#api-01-f4) | medium | high | fixed | `pkg/api/api_ast_simplify_interrupt.go:80-96` | `SMTContext.Simplify` runs the `simplify` *command* path, not the `Z3_simplify` API path (wrong timeout default, extra rlimit, attached th_solver) |
+| [api_02-F3](#api-02-f3) | medium | confirmed | fixed | `pkg/api/api_optimize_parse.go:14-21` | `Optimize.Parse` parses into the optimizer's own command context, so declarations persist across calls and `push`/`pop` in the text change the optimizer's scopes |
+| [api_02-F4](#api-02-f4) | medium | confirmed | fixed | `pkg/api/api_numerals.go:112-118` | `IsNumeral` returns false for `true`/`false`; `Z3_is_numeral_ast` returns true |
+| [api_02-F5](#api-02-f5) | medium | confirmed | fixed | `pkg/api/api_sequences.go:65-78` | `SMTContext.String` does not decode escape sequences; `Z3_mk_string` builds `zstring(str, ascii)`, which does |
+| [api_02-F6](#api-02-f6) | medium | confirmed | fixed | `pkg/api/api_interp_write.go:76-100` | `WriteInterpolationProblem` with one sequence constraint does not mark it as an interpolant |
+| [api_03-F2](#api-03-f2) | medium | confirmed | fixed | `pkg/api/z3_replayer_parse.go:89-103` | replayer argument errors inside a command are fatal instead of `[z3 exception]: ...` and continue |
+| [api_03-F3](#api-03-f3) | medium | confirmed | decided | `pkg/api/z3_generated_pseudo_boolean_commands.go:41-48` | `Z3_mk_pble`/`pbge`/`pbeq` replay succeeds although 4.7.1 always throws (log writes `u`, exec reads `get_int_array`) |
+| [api_03-F4](#api-03-f4) | medium | confirmed | fixed | `pkg/api/z3_generated_ast_owners.go:54-66` | a null object argument is a fatal replay error; `Z3_inc_ref(c, NULL)` is a no-op in C++ |
+| [api_03-F5](#api-03-f5) | medium | confirmed | fixed | `pkg/api/z3_generated_solver_commands.go:319-331,472-482` | `Z3_solver_from_string`/`Z3_fixedpoint_from_string` parse errors do not print the parser's `(error ...)` line |
+| [api_03-F6](#api-03-f6) | medium | confirmed | partly | `pkg/api/z3_generated_optimize_commands.go:133-150` | Go-only rejection of numeric / empty symbols (optimize soft ids, parser bindings, parameter names) |
+| [cmd_context_01-F2](#cmd-context-01-f2) | medium | confirmed | fixed | `pkg/cmd_context/context.go:1233-1236` | wrong error texts for declarations and applications |
+| [cmd_context_01-F5](#cmd-context-01-f5) | medium | confirmed | fixed | `pkg/cmd_context/optimization_failure.go:10-28` | an exception during `check-sat` with objectives becomes `unknown`; C++ raises a command error |
+| [cmd_context_01-F6](#cmd-context-01-f6) | medium | confirmed | fixed | `pkg/cmd_context/context.go:619-845` | `set-option` handling of built-in options does not follow `set_option_cmd` |
+| [cmd_context_01-F7](#cmd-context-01-f7) | medium | confirmed | fixed | `pkg/cmd_context/fixedpoint_timeout.go:17-32` | the fixedpoint `query` command uses the global `timeout`, and a canceled query is reported as a positioned error |
+| [cmd_context_01-F8](#cmd-context-01-f8) | medium | confirmed | fixed | `pkg/cmd_context/echo_command.go:31-33` | `WriteEcho` doubles embedded quotes in SMT-LIB2-compliant mode |
+| [cmd_context_01-F9](#cmd-context-01-f9) | medium | confirmed | fixed | `pkg/cmd_context/datalog_lexer.go:47-166` | the Datalog front end is a re-implementation, not a port of `dlexer`/`dparser` |
+| [cmd_context_02-F2](#cmd-context-02-f2) | medium | confirmed | fixed | `pkg/cmd_context/wcnf_loader.go:14-44` | WCNF input runs normalize's simplify_fmls; opt::context::m_is_clausal is not ported |
+| [cmd_context_02-F3](#cmd-context-02-f3) | medium | confirmed | fixed | `pkg/cmd_context/results.go:330-359` | get-assignment walks named terms in insertion order, not the m_macros dictionary order |
+| [cmd_context_02-F4](#cmd-context-02-f4) | medium | confirmed | fixed | `pkg/cmd_context/recursive_functions.go:80-90` | define-fun-rec with a variable body: the macro is scoped and checked in Go; C++ insert_macro is neither |
+| [cmd_context_02-F5](#cmd-context-02-f5) | medium | confirmed | fixed | `pkg/cmd_context/options.go:18` | get-option matches the built-in keywords after "-"→"_" normalization; C++ compares the raw keyword |
+| [cmd_context_02-F6](#cmd-context-02-f6) | medium | confirmed | fixed | `pkg/cmd_context/tactic_commands.go:509-532` | check-sat-using: print_unsat_core printed only for unsat, and core/model/proof stored regardless of the produce_* options |
+| [cmd_context_02-F9](#cmd-context-02-f9) | medium | high | open | `pkg/cmd_context/replay_smt2.go:264-317` | Z3_optimize_to_string is the Go-only replay exporter, not opt::context::to_string |
+| [cmd_context_02-F10](#cmd-context-02-f10) | medium | high | fixed | `pkg/cmd_context/optimization_soft_expression.go:52-63` | get_objective of a one-term MaxSMT group is wrapped in `+` |
+| [cmd_context_02-F11](#cmd-context-02-f11) | medium | confirmed | fixed | `pkg/cmd_context/wpa_parser.go` | WPA directory benchmarks are implemented in Go; the C++ reference aborts (dead code on Linux) |
+| [cmd_context_02-F14](#cmd-context-02-f14) | medium | medium | open | `pkg/cmd_context/sort_declarations.go:44-56` | declare-sort (arity 0) and define-sort create their sorts eagerly; C++ instantiates lazily |
+| [parsers_shell_01-F5](#parsers-shell-01-f5) | medium | confirmed | fixed | `pkg/parsers/smt2/commands.go:446-510` | set-option built-in options: wrong value-kind handling, `:print-warning` rejected, `:expand-definitions` not "unsupported", wrong messages |
+| [parsers_shell_01-F6](#parsers-shell-01-f6) | medium | confirmed | fixed (6dbea7981) | `pkg/parsers/smt2/commands.go:219-234` | `:error-behavior immediate-exit` and `parser.error_for_visual_studio` are ignored by the parser's error reporting |
+| [parsers_shell_01-F7](#parsers-shell-01-f7) | medium | confirmed | fixed (3e98a903d) | `pkg/shell/smtlib_frontend.go:94-150` | global `-T` timeout does not end the SMT-LIB run; later commands still execute |
+| [parsers_shell_01-F8](#parsers-shell-01-f8) | medium | confirmed | partly | `pkg/parsers/smt2/commands.go` | hand-written dispatch gives different syntax-error texts and accepts what `parse_ext_cmd` rejects |
+| [parsers_shell_01-F9](#parsers-shell-01-f9) | medium | confirmed | fixed (3152cd3e9) | `pkg/parsers/smt2/apply_tactic.go:12-22` | `apply` and `eval` accept `:rlimit`, which the C++ commands reject |
+| [parsers_shell_01-F10](#parsers-shell-01-f10) | medium | confirmed | fixed | `pkg/parsers/smt2/tactics.go:359-389` | probe expressions: n-ary `+`/`*` fold differently, and binary `-`, `/`, `=>` accept any number of arguments |
+| [parsers_shell_01-F11](#parsers-shell-01-f11) | medium | confirmed | partly | `pkg/parsers/smt2/datatypes.go:111-135, 186-188, 269-271, 346-360` | `declare-datatype(s)` adds a Go-only arity check, does not pre-insert SMT-LIB 2.6 sort headers, and words two errors differently |
+| [parsers_shell_01-F12](#parsers-shell-01-f12) | medium | confirmed | fixed | `pkg/shell/datalog_frontend_load.go:15-31` | Datalog, DIMACS and MPS front ends: open failures and Datalog parse failures give different messages and exit codes |
+| [FUZZ_A-F9](#fuzz-a-f9) | low | confirmed | fixed | `pkg/cmd_context/optimization.go:975-994` | interval display builds the two to_expr values in the wrong order/lifetime |
+| [FUZZ_C-F7](#fuzz-c-f7) | low | confirmed | fixed | `pkg/tactic/arith/qfnra_purify_tactic.go:359-437` | purify-arith division and zero-power constraints are built in left-to-right order |
+| [smtcore_01-F8](#smtcore-01-f8) | low | confirmed | fixed | `pkg/smtcore/ctx_solver_simplify_tactic.go:261` | ctx-solver-simplify does not print its verbose `:num-steps` line |
+| [smtcore_01-F9](#smtcore-01-f9) | low | confirmed | open | `pkg/smtcore/smt_assumptions.go:81-89` | invalid assumptions produce an error instead of the C++ warning plus l_undef |
+| [smtcore_01-F10](#smtcore-01-f10) | low | high | open | `pkg/smtcore/smt_asserted_propagate.go:180` | addAssertionSubstitution returns after the "incompatible" trace instead of falling through |
+| [smtcore_02-F11](#smtcore-02-f11) | low | confirmed | fixed | `pkg/smtcore/smt_clause_maintenance.go:118-208` | verbose progress lines of lemma GC and get-consequences are missing |
+| [smtcore_02-F12](#smtcore-02-f12) | low | high | open | `pkg/smtcore/smt_context_display.go:107-134` | context dump omits the reserved `true` variable and prints the scope level as base level |
+| [smtcore_04-F6](#smtcore-04-f6) | low | high | open | `pkg/smtcore/smt_literal_display.go:21` | `SMTLiteral.Display` ignores `Z3_TRACE_NO_PP` |
+| [smtcore_04-F7](#smtcore-04-f7) | low | high | open | `pkg/smtcore/smt_kernel.go:1800` | `SMTKernel.Display` prints with the legacy benchmark printer, not `mk_ismt2_pp` |
+| [smtcore_04-F8](#smtcore-04-f8) | low | high | open | `pkg/smtcore/smt_kernel_results.go:143-158, 230` | `SMTKernel.RelevantLiterals` returns trail order instead of Boolean-variable order |
+| [smtcore_05-F9](#smtcore-05-f9) | low | high | open | `pkg/smtcore/smt_model_checker.go:585-613` | restricted loop asserts a blocking clause after add_instance has failed on a private value |
+| [smtcore_05-F10](#smtcore-05-f10) | low | high | fixed | `pkg/smtcore/smt_model_finder_auf_analyzer.go:172-181` | processUApp visits `x + k` as a term when its f_var_plus_offset qinfo is a duplicate |
+| [smtcore_06-F12](#smtcore-06-f12) | low | high | partly | `pkg/smtcore/smt_quick_checker.go:562-616` | quick checker differs from `quick_checker` in enumeration order, congruence lookup, lifetime and release order (latent) |
+| [smtcore_06-F13](#smtcore-06-f13) | low | high | open | `pkg/smtcore/smt_solver_objective.go:69-75` | `installOptimizerArithmetic` installs `theory_inf_arith` for `arith.solver=5` |
+| [smtcore_07-F4](#smtcore-07-f4) | low | high | open | `pkg/smtcore/smt_theory_arith_core.go:1068-1083` | `mkToIntAxiom` creates the numeral `1.0` before the `lo` atom |
+| [smtcore_07-F5](#smtcore-07-f5) | low | high | open | `pkg/smtcore/smt_theory_arith_core.go:2933-2942` | `explainBound` drops `if (!b->has_justification()) continue;` |
+| [smtcore_07-F6](#smtcore-07-f6) | low | medium | open | `pkg/smtcore/smt_theory_arith_core.go:707-713` | `mkAxiom` keeps a rewritten negation alive until return; C++ releases it at `s_ante = s_ante_n` |
+| [smtcore_07-F7](#smtcore-07-f7) | low | high | open | `pkg/smtcore/smt_theory_arith_core.go:170` | `processAtoms` reads the cumulative conflict counter instead of the per-search one |
+| [smtcore_08-F4](#smtcore-08-f4) | low | high | fixed | `pkg/smtcore/smt_theory_arith_nl.go:273-275` | `smtArithRatBitsize` counts the denominator of integers (`rational::bitsize` does not) |
+| [smtcore_10-F11](#smtcore-10-f11) | low | confirmed | open | `pkg/smtcore/theory_bv.go:910-970` | `expand_diseq` trace record is not ported |
+| [smtcore_10-F13](#smtcore-10-f13) | low | high | open | `pkg/smtcore/theory_diff_logic_integer.go:403-416` | `SMTIntegerDiffTheory.Propagate` explains conflicts with `traverse_neg_cycle`, not `traverse_neg_cycle2` |
+| [smtcore_11-F5](#smtcore-11-f5) | low | high | open | `pkg/smtcore/theory_lra_operator_axioms.go:162-193` | LRA `Relevant` builds the rem / to_int axiom terms in a different order from `mk_rem_axiom` / `mk_to_int_axiom` |
+| [smtcore_11-F6](#smtcore-11-f6) | low | high | open | `pkg/smtcore/theory_opt.go:112-136` | `SMTTheoryOptimizationUtil.IsLinear` accepts n-ary multiplication; C++ `is_mul(t, t1, t2)` matches only binary |
+| [smtcore_14-F4](#smtcore-14-f4) | low | high | open | `pkg/smtcore/proto_model/cleanup.go:165` | `ProtoModel.Cleanup` does not remove unused auxiliary declarations from the model's declaration list |
+| [sat_01-F5](#sat-01-f5) | low | high | open | `pkg/sat/sat_cleaner.go:156-167` | `satCleaner.cleanup` calls `extension.Simplify()`; C++ `solver::cleanup` only calls `clauses_modifed()` |
+| [sat_01-F6](#sat-01-f6) | low | high | open | `pkg/sat/dimacs_parse.go:14-67` | `ReadDIMACSCNF` is a line/field tokenizer, not the C++ character scanner |
+| [sat_01-F7](#sat-01-f7) | low | high | open | `pkg/sat/sat_aig_*.go` | `sat_aig_*`, `sat_cut*`, `sat_lut*` (45 files) have no C++ counterpart and are reachable only from tests; `satLUTFinder.Run` consumes unrelated clauses |
+| [sat_02-F4](#sat-02-f4) | low | high | open | `pkg/sat/sat_solver_conflict_helpers.go:317-318` | `processConsequent` and `getMaxLevel` drop the antecedent loop for `EXT_JUSTIFICATION` |
+| [sat_02-F5](#sat-02-f5) | low | high | open | `pkg/sat/sat_simplifier_cleanup.go:241-258` | `satSimplifier.scopedFinalize` re-reads `needCleanup` at each stage; C++ `scoped_finalize_fn` tests it once |
+| [sat_03-F3](#sat-03-f3) | low | confirmed | open | `pkg/sat/sat_solver_parallel_exchange.go:5-52` | `exchangeParallelBound` never prints the `(sat-sync out: N in: M)` verbose line |
+| [sat_04-F3](#sat-04-f3) | low | high | open | `pkg/sat/sat_solver_search.go:314-321` | `boundedSearch` returns `final_check`'s `l_undef` instead of continuing the search loop |
+| [sat_05-F2](#sat-05-f2) | low | confirmed | open | `pkg/sat/tactic/sat_tactic.go:521-522` | the `(ast-table ...)` verbose line from `compact_memory` is not printed |
+| [ast_rewriter_01-F8](#ast-rewriter-01-f8) | low | high | open | `pkg/ast/rewriter/arith_transcendental.go:68-78` | AST construction order differs from the GCC right-to-left order in trig and `mod` rewrites |
+| [ast_rewriter_02-F3](#ast-rewriter-02-f3) | low | high | fixed | `pkg/ast/rewriter/bv_rewriter_blast_eq.go:124-140` | `mk_blast_eq_value` builds the bit extract before the bit numeral (GCC builds the numeral first) |
+| [ast_rewriter_02-F4](#ast-rewriter-02-f4) | low | high | open | `pkg/ast/rewriter/bv_bounds_trace.go:26-45` | `bv_bounds` TRACE output uses the legacy SMT printer instead of `mk_ismt2_pp` |
+| [ast_rewriter_03-F4](#ast-rewriter-03-f4) | low | high | open |  | several BV rewrites (and enum2bv) build their AST in left-to-right order; GCC builds nested arguments right to left |
+| [ast_rewriter_03-F5](#ast-rewriter-03-f5) | low | high | open | `pkg/ast/rewriter/bv_rewriter_leq_trace.go:30-46` | trace text differs: `le_extra` drops the indent of 2, DER separates the elimination order with spaces instead of commas |
+| [ast_rewriter_03-F6](#ast-rewriter-03-f6) | low | medium | open | `pkg/ast/rewriter/bv_trailing_table.go:20-71` | `bv_trailing` releases cache entries in insertion order, not obj_map order |
+| [ast_rewriter_03-F7](#ast-rewriter-03-f7) | low | high | open | `pkg/ast/rewriter/expr_replacer.go:256-268` | `DefaultExprReplacer.Rewrite` / `RewriteWithProof` neither reset the cache nor drop used dependencies, as every C++ `operator()` overload does |
+| [ast_rewriter_04-F5](#ast-rewriter-04-f5) | low | high | open | `pkg/ast/rewriter/factor_rewriter.go:478` | factor_rewriter `mk_eq` collapses a single disjunct; C++ builds a unary `or` |
+| [ast_rewriter_04-F6](#ast-rewriter-04-f6) | low | high | open | `pkg/ast/rewriter/factor_rewriter.go:411-435` | factor_rewriter `mk_is_negative` construction order and temporaries lifetime differ from C++ |
+| [ast_rewriter_04-F7](#ast-rewriter-04-f7) | low | high | open | `pkg/ast/rewriter/fpa_comparisons.go:42-60` | fpa_rewriter `mk_lt` infinity rewrite builds `(= x inf)` before `(= x NaN)`; GCC builds NaN first |
+| [ast_rewriter_04-F8](#ast-rewriter-04-f8) | low | high | open | `pkg/ast/rewriter/pb2bv_rewriter.go:286` | pb2bv strips double negations where C++ uses plain `m.mk_not`, and does not fold true/false where C++ uses `::mk_not` |
+| [ast_rewriter_04-F9](#ast-rewriter-04-f9) | low | high | open | `pkg/ast/rewriter/pb_rewriter_validate.go:287-316` | pb_rewriter `pb` trace prints with the legacy SMT printer; `pb_validate` keeps the first variable for repeated atoms |
+| [ast_rewriter_05-F4](#ast-rewriter-05-f4) | low | high | open | `pkg/ast/rewriter/string_regex_automaton.go:39-86` | `NewStringRegexAutomaton` never compresses, but the theory_str complement automaton comes from `re2automaton::operator()`, which does |
+| [ast_rewriter_05-F5](#ast-rewriter-05-f5) | low | high | open | `pkg/ast/rewriter/seq_rewriter.go:719-756` | AST construction order differs from GCC's right-to-left argument evaluation in several `seq_rewriter` rules |
+| [ast_rewriter_05-F6](#ast-rewriter-05-f6) | low | confirmed | open | `pkg/ast/rewriter/seq_rewriter.go:651-662` | 32-bit `is_unsigned` semantics are not followed in `RewriteIndex` and `RewriteRegexLoop` |
+| [ast_rewriter_05-F7](#ast-rewriter-05-f7) | low | high | open | `pkg/ast/rewriter/unused_vars_ufbv.go:45,52` | Go-only `elim_unused_vars` TRACE with no C++ counterpart |
+| [ast_rewriter_06-F2](#ast-rewriter-06-f2) | low | high | open | `pkg/ast/rewriter/bit_blaster/gates.go:72,165` | TRACE sites missing in the bit-blaster gates and engine (`xor3`, `xor3_sorted`, `carry`, `carry_sorted`, and the `bit_blaster` tag in `mk_udiv_urem` / `mk_rotate_left`) |
+| [ast_sub_01-F5](#ast-sub-01-f5) | low | high | open | `pkg/ast/macros/macro_candidates.go:55-66` | quasi_macro_head_to_macro_head builds the head app before the condition `and` |
+| [ast_sub_02-F6](#ast-sub-02-f6) | low | high | open | `pkg/ast/normal_forms/defined_names.go:322-420` | defined_names builds both conjuncts before quantifying either |
+| [ast_sub_02-F7](#ast-sub-02-f7) | low | medium | open | `pkg/ast/normal_forms/nnf.go:593-606` | NNF convertDefault creates `not(t)` even without proofs, and before `not(n2)` |
+| [ast_sub_02-F8](#ast-sub-02-f8) | low | high | open | `pkg/ast/normal_forms/skolemizer.go:313-331` | proof-mode constructions in skolemizer and NNF labels are built in the wrong order |
+| [ast_sub_02-F9](#ast-sub-02-f9) | low | high | fixed | `pkg/ast/normal_forms/skolemizer.go:26,112-130` | Skolemizer cache never evicts, while the C++ act_cache does |
+| [ast_sub_02-F10](#ast-sub-02-f10) | low | high | open | `pkg/ast/proofs/checker_basic.go:28` | proof checker accepts PR_TRUE, and accepts farkas th-lemmas whose coefficient is not rational |
+| [ast_sub_02-F11](#ast-sub-02-f11) | low | high | open | `pkg/ast/proofs/checker.go:220` | checker side conditions use the ast_util or/and, which collapse 0/1-arg cases |
+| [ast_sub_02-F12](#ast-sub-02-f12) | low | high | open | `pkg/ast/pattern/expr_pattern_match.go:500-509` | pattern database `instantiate` builds arguments left to right; C++ `for_each_ast` builds them right to left |
+| [ast_sub_03-F1](#ast-sub-03-f1) | low | high | open | `pkg/ast/proofs/reduce_hypotheses_legacy.go:36-42` | legacy reduce_hypotheses keeps the first unit proof per fact; C++ obj_map::insert keeps the last |
+| [ast_sub_03-F2](#ast-sub-03-f2) | low | high | open | `pkg/ast/proofs/checker.go:188-202` | proof-checker `sameEquivalence` (SAME_OP) compares decl kinds without checking the family |
+| [ast_sub_03-F3](#ast-sub-03-f3) | low | high | open | `pkg/ast/proofs/checker_rules.go:57-125` | `checkQuantIntro` accepts `=` and mixed `~`/`iff` operators |
+| [ast_sub_03-F4](#ast-sub-03-f4) | low | high | open | `pkg/ast/substitution/substitution_tree_visit.go:216-218,341-357` | substitution-tree var-query visit keeps going after the visitor asks to stop |
+| [ast_sub_03-F5](#ast-sub-03-f5) | low | high | open | `pkg/ast/proofs/elim_aux_assertions.go:97-99` | elim_aux_assertions turns two debug-only C++ assertions into errors in every build |
+| [ast_01-F2](#ast-01-f2) | low | high | open | `pkg/ast/ast_activity_cache.go:187-192` | ActivityCache.Insert skips chashtable::insert_if_not_there's growth check for an existing key |
+| [ast_06-F4](#ast-06-f4) | low | high | open | `pkg/ast/ast_seq_plugin.go:420` | the `re.allchar` (`OP_RE_FULL_CHAR_SET`) psig memory trace names line 570 instead of 552 |
+| [ast_08-F2](#ast-08-f2) | low | high | open | `pkg/ast/util_psort_ast_bounds.go:251-263` | `eq` builds its result with the guarded `psort_nw::mk_min` instead of `ctx.mk_min` |
+| [ast_08-F3](#ast-08-f3) | low | high | fixed | `pkg/ast/util_psort_ast_encoding.go` | Go-only cardinality encodings and weighted PB networks have no 4.7.1 counterpart |
+| [model_01-F6](#model-01-f6) | low | high | open | `pkg/model/model_evaluator.go:674-688` | the Boolean-family branch of ReduceApp re-evaluates the result and writes an extra trace record |
+| [model_01-F7](#model-01-f7) | low | medium | open | `pkg/model/model_translation.go:83-110` | `Model.Translate` translates the key before the value; GCC evaluates the value first |
+| [model_01-F8](#model-01-f8) | low | high | open | `pkg/model/model_implicant_check_trace.go:124-132` | the verbose "assigned" label prints "unknown" for numeric and value terms; the C++ prints "false" |
+| [model_01-F9](#model-01-f9) | low | high | open | `pkg/model/model_printers.go:165-275` | the debug, v2 and bv2fpa display printers drop the C++ indent argument |
+| [util_numeral_02-F2](#util-numeral-02-f2) | low | high | open | `pkg/util/numeral/mpbq_format.go:101-104` | `BinaryRationalManager` SMT2 display puts two spaces before `(^ 2` |
+| [util_numeral_03-F2](#util-numeral-03-f2) | low | high | open | `pkg/util/numeral/mpf_power_memory_trace.go:13-32` | the MPF power-cache memory TRACE reports the Go wrapper size instead of `sizeof(mpz)`, and frees cache entries in a different order |
+| [util_lp_01-F1](#util-lp-01-f1) | low | confirmed | open | `pkg/util/lp/driver_lar_examples.go:119-142` | LP test-driver reports print in sorted or insertion order instead of C++ `unordered_map` order |
+| [util_lp_04-F3](#util-lp-04-f3) | low | confirmed | open | `pkg/util/lp/mps_reader_float.go:133-158` | `readLine` clears the line after a final line with no trailing newline, where `std::getline` keeps it |
+| [util_lp_06-F2](#util-lp-06-f2) | low | high | open | `pkg/util/lp/smt_reader_constraint.go:21-32` | the test `smt_reader` parses integers with `strconv.ParseInt` where the C++ uses `atoi` |
+| [util_misc_01-F1](#util-misc-01-f1) | low | confirmed | fixed | `pkg/util/mincut/min_cut.go:254-283` | `MinCut.augmentPath` uses a different residual graph than C++ `min_cut::augment_path`, and the C++ fault it avoids is not registered as an exclusion |
+| [math_polynomial_01-F2](#math-polynomial-01-f2) | low | medium | open | `pkg/math/polynomial/algebraic_manager_arithmetic.go:10-55` | polynomial evaluation over algebraic values skips the `manager::add/mul/power` TRACE("anum_detail") records |
+| [math_polynomial_03-F1](#math-polynomial-03-f1) | low | high | open | `pkg/math/polynomial/polynomial_composition.go:911-916` | ComposeXMinusConstant (mk_x_minus_c) drops the TRACE("polynomial") "x - c:" line |
+| [math_polynomial_03-F2](#math-polynomial-03-f2) | low | high | open | `pkg/math/polynomial/polynomial_discriminant.go:76-77` | Discriminant drops TRACE("resultant") "discriminant sign:" |
+| [math_polynomial_04-F3](#math-polynomial-04-f3) | low | high | open | `pkg/math/polynomial/polynomial_gcd_simplify.go:26-61` | GCDSimplifyInto, polynomialContent and GreaterEqual have no 4.7.1 counterpart |
+| [math_polynomial_05-F1](#math-polynomial-05-f1) | low | high | open | `pkg/math/polynomial/polynomial_lazard_trace.go:63-72` | Se_Lazard final TRACE prints `Y` as a polynomial; the C++ prints a pointer address |
+| [math_polynomial_05-F2](#math-polynomial-05-f2) | low | high | open | `pkg/math/polynomial/polynomial_monomial_factory.go:340-354` | `MonomialManager.convertCreated` never grows its scratch monomial, so monomials with more than 128 powers fail |
+| [math_polynomial_06-F1](#math-polynomial-06-f1) | low | high | open | `pkg/math/polynomial/polynomial_quasi_resultant.go:142-173` | quasi_resultant is missing the TRACE("polynomial") emitted on every loop iteration |
+| [math_polynomial_06-F2](#math-polynomial-06-f2) | low | high | open | `pkg/math/polynomial/polynomial_quasi_resultant.go:28-35` | QuasiResultant keeps one history record per call forever (Go-only, unbounded growth) |
+| [math_polynomial_08-F2](#math-polynomial-08-f2) | low | high | open | `pkg/math/polynomial/upolynomial_division.go:41-64` | `divScalarWithSourceContext` drops the `CTRACE("upolynomial", !divides(b, p[i]))` record |
+| [math_polynomial_09-F2](#math-polynomial-09-f2) | low | confirmed | fixed | `pkg/math/polynomial/upolynomial_factor_verbose.go:5-34` | g3 prints `(polynomial-factorization :distinct-factors N)` at `-v:1000`; the reference build compiles it out |
+| [math_realclosure_01-F12](#math-realclosure-01-f12) | low | high | fixed | `pkg/math/realclosure/display_definition_ranked.go:33-36` | displayRankedAlgebraicDefinition prints a "{condition}" placeholder instead of the sign conditions |
+| [math_realclosure_01-F13](#math-realclosure-01-f13) | low | high | open | `pkg/math/realclosure/query_*.go` | test-only facades and post-4.7.1 query functions with no C++ counterpart |
+| [math_realclosure_01b-F2](#math-realclosure-01b-f2) | low | high | open | `pkg/math/realclosure/integer_content_value.go:11-37` | accumulateIntegerContent ignores the is_denominator_one condition of gcd_int_coeffs |
+| [math_realclosure_02-F5](#math-realclosure-02-f5) | low | high | open | `pkg/math/realclosure/value_compare_api.go:31-33` | compareValues treats any two degree-1 values over the same root as equal |
+| [math_subpaving_02-F3](#math-subpaving-02-f3) | low | high | open | `pkg/math/subpaving/fixed_clause.go:198` | MPFX context checkpoints skip the max_memory test and cooperate() |
+| [math_subpaving_03-F4](#math-subpaving-03-f4) | low | high | open | `pkg/math/subpaving/hardware_search_trace.go:24-35` | hardware `display_params` trace prints epsilon and max_bound in scientific notation instead of `to_rational_string` |
+| [math_subpaving_03-F5](#math-subpaving-03-f5) | low | high | open | `pkg/math/subpaving/tactic/arbitrary_goal_internalize.go:108-160` | `subpaving_ref_count` trace misses the tactic's `ref_buffer` inc/dec records and prints dec-ref atoms with the tactic display proc |
+| [math_subpaving_04-F4](#math-subpaving-04-f4) | low | high | open | `pkg/math/subpaving/tactic/selected_tactic_adapter.go:162-168` | selector `ResetStatistics` does not reset the inner core's accumulated statistics |
+| [math_misc_01-F5](#math-misc-01-f5) | low | high | partly | `pkg/math/hilbert/hilbert_basis.go:435-457` | hilbert checkpoint is called at different points and fewer times than `m_limit.inc()` in C++ |
+| [math_misc_01-F6](#math-misc-01-f6) | low | high | open | `pkg/math/interval/arbitrary_root.go:387-408` | nth-root conservative fallback silently "fixes" the C++ uninitialized `one` |
+| [math_misc_01-F7](#math-misc-01-f7) | low | high | open | `pkg/math/automata/automaton_compress_sink.go:5-30` | automaton `sinkify_dead_states` drops its `TRACE("seq")` output |
+| [math_misc_01-F8](#math-misc-01-f8) | low | high | open | `pkg/math/automata/symbolic.go` | Go-only or divergent helper APIs with no live consumer |
+| [math_misc_02-F4](#math-misc-02-f4) | low | high | open | `pkg/math/simplex/model_based_opt.go:793-830` | `ModelBasedOpt.DisplayRow` spacing differs from `model_based_opt::display` (the qe trace) |
+| [math_misc_02-F5](#math-misc-02-f5) | low | high | open | `pkg/math/interval/modular_interval_negate.go:12-19` | `ModularInterval.Negate` of a loose interval does not reproduce the source's `interval(0, uMaxInt(sz), true)` |
+| [math_misc_02-F6](#math-misc-02-f6) | low | high | fixed | `pkg/math/simplex/arith_freedom.go` | the Go-only `theory_arith` helper layer in `pkg/math/simplex` has no production caller |
+| [nlsat_01-F5](#nlsat-01-f5) | low | high | open | `pkg/nlsat/fourier_motzkin_patch.go` | Fourier-Motzkin bound patching and Maximize are ported from code that 4.7.1 does not have or never calls |
+| [nlsat_01-F6](#nlsat-01-f6) | low | medium | open | `pkg/nlsat/clause_empty_normalize.go:7` | createClause turns an empty literal list into `[false]`; C++ has no such path |
+| [nlsat_02-F3](#nlsat-02-f3) | low | high | open | `pkg/nlsat/simple_checker*.go` | 60 simplify/simple_checker files have no 4.7.1 counterpart and are reachable only from tests |
+| [nlsat_03-F8](#nlsat-03-f8) | low | confirmed | fixed | `pkg/nlsat/solver.go:265` | two deliberate fixes of z3 4.7.1 bugs in variable reordering are not recorded as exclusions |
+| [nlsat_03-F9](#nlsat-03-f9) | low | high | open | `pkg/nlsat/tactic/nlsat2goal.go:71-99` | `GoalConverter` (nlsat2goal) builds different ASTs from C++ (latent: only the unregistered nlqe mode uses it) |
+| [nlsat_03-F10](#nlsat-03-f10) | low | high | open | `pkg/nlsat/simplify_subsumption*.go` | code in this shard with no 4.7.1 counterpart (unreachable) |
+| [qe_01-F7](#qe-01-f7) | low | high | open | `pkg/qe/arithmetic_project.go:396-415` | the MBP divisibility row creates `(mod t k)` before the integer `0`; GCC creates the `0` first |
+| [qe_01-F8](#qe-01-f8) | low | high | open | `pkg/qe/arithmetic_qe_relation.go:47-58` | comparisonPolynomial and MatchLT simplify `p` even when the other side is the numeral 0; the C++ returns `p` unsimplified |
+| [qe_01-F9](#qe-01-f9) | low | high | open | `pkg/qe/arithmetic_branch_definition_div.go` | test-only definition and witness APIs diverge from get_def and x_subst |
+| [qe_02-F2](#qe-02-f2) | low | high | open | `pkg/qe/legacy_arithmetic_factor_mod.go:195` | `factor_mod_terms` collapses the singleton `(and eq)` that the C++ builds with `m.mk_and` |
+| [qe_02-F8](#qe-02-f8) | low | high | open | `pkg/qe/expr_quantifier_tree_pop_bool.go:41-46` | the pop path computes `get_partition` twice |
+| [qe_03-F7](#qe-03-f7) | low | high | open | `pkg/qe/legacy_projection.go:248-268` | `qe_project` never emits the `spacer_mbp` "Before projection" trace |
+| [qe_04-F3](#qe-04-f3) | low | high | open | `pkg/qe/qe_datatype_plugin_atoms.go:122-133` | datatype `Prepare` uses a per-pass `seen` set; C++ `datatype_atoms::m_mark` is shared by the positive and negative passes |
+| [qe_05-F7](#qe-05-f7) | low | high | open | `pkg/qe/simplify_quantifier_rewriter.go:249-258` | QE simplify rewriter builds `update_quantifier(q, new_body)` before reduce_quantifier |
+| [opt_01-F7](#opt-01-f7) | low | confirmed | open | `pkg/opt/maxsmt_engine_select.go:9-17` | unrecognized `opt.maxsat_engine` silently maps to maxres without z3's warning |
+| [opt_01-F8](#opt-01-f8) | low | confirmed | fixed | `maxres_search.go` | MaxRes / maxsmt / sortmax `IF_VERBOSE` progress output is not emitted |
+| [opt_02-F6](#opt-02-f6) | low | confirmed | open | `pkg/opt/maxsmt_engine_select.go:9-17` | an unknown `opt.maxsat_engine` does not print z3's warning |
+| [tactic_top_01-F8](#tactic-top-01-f8) | low | high | open | `pkg/tactic/tactic_goal_display.go:258-452` | Go-only goal CNF/DIMACS code differs from 4.7.1 `goal::display_dimacs` and has no 4.7.1 API |
+| [tactic_arith_02-F6](#tactic-arith-02-f6) | low | confirmed | fixed | `pkg/tactic/arith/nla2bv_trace.go:151-155` | nla2bv verbose prints the bool as `true`/`false`; C++ streams it as `1`/`0` |
+| [tactic_arith_02-F7](#tactic-arith-02-f7) | low | high | open | `pkg/tactic/arith/lia2card_comparison.go:134-145` | lia2card `mk_eq` builds `pbge` before `pble` (GCC builds `mk_le` first) |
+| [tactic_arith_03-F10](#tactic-arith-03-f10) | low | high | open | `pkg/tactic/arith/qfnra_purify_tactic.go:475-500,519-574` | purify-arith still builds some terms in a different order from z3 (even roots, zero power, root objects, inverse trig with proofs) |
+| [tactic_bv_01-F6](#tactic-bv-01-f6) | low | confirmed | partly | `pkg/tactic/bv/elim_small_bv_tactic.go:134-146` | elim-small-bv has no tactic report, no progress report, wrong param descriptions, and drops its traces |
+| [tactic_bv_01-F7](#tactic-bv-01-f7) | low | high | open | `pkg/tactic/bv/bv_bounds_interval.go:126-157` | bv-bounds stores negated bounds as tight, so the undo trail and `scope_level` differ |
+| [tactic_bv_01-F8](#tactic-bv-01-f8) | low | high | open | `pkg/tactic/bv/bv_bounds_state.go` | missing TRACE sites in propagate-bv-bounds and bvarray2uf; bv-slice has no 4.7.1 source |
+| [tactic_core_01-F3](#tactic-core-01-f3) | low | high | fixed | `pkg/tactic/core/cofactor_term_ite_rewriter.go:131-143` | cofactor-term-ite checkpoint omits the `m.canceled()` test |
+| [tactic_core_01-F5](#tactic-core-01-f5) | low | confirmed | fixed | `pkg/tactic/core/distribute_forall_tactic.go:98-110` | distribute-forall under proofs builds a rewrite step; C++ leaves `result_pr` null and segfaults (undocumented fork deviation) |
+| [tactic_core_01-F6](#tactic-core-01-f6) | low | high | open | `pkg/tactic/core/dom_simplify_trace.go:47-74` | dom-simplify dominator-tree TRACE uses a different layout from `expr_dominators::display` |
+| [tactic_core_02-F6](#tactic-core-02-f6) | low | confirmed | fixed | `pkg/tactic/core/tseitin_cnf_tactic.go:228-239` | tseitin-cnf parameter descriptions differ from the C++ |
+| [tactic_core_02-F7](#tactic-core-02-f7) | low | high | open | `pkg/tactic/core/tseitin_cnf_encode.go:1135-1149` | tseitin-cnf does not replace each processed formula with `true`, so AST lifetimes and ids differ |
+| [tactic_core_02-F8](#tactic-core-02-f8) | low | high | open | `pkg/tactic/core/tseitin_cnf_encode.go:365-383` | tseitin-cnf `checkpoint` checks memory before cancellation and uses the resource-limit message |
+| [tactic_core_02-F9](#tactic-core-02-f9) | low | high | open | `pkg/tactic/core/symmetry_reduce_tactic.go:228-233` | symmetry-reduce removes the selected index from T; C++ `T.erase(t)` removes the first occurrence |
+| [tactic_core_02-F10](#tactic-core-02-f10) | low | high | open | `pkg/tactic/core/split_clause_tactic.go:215-221,460-480` | missing TRACE sites and a non-empty split-clause proof-converter display |
+| [tactic_core_02-F11](#tactic-core-02-f11) | low | high | open | `pkg/tactic/core/tseitin_cnf_tactic.go:263-272` | tseitin-cnf `Translate` copies the aux-var statistic |
+| [tactic_small_01-F8](#tactic-small-01-f8) | low | high | open | `pkg/tactic/aig/aig_goal_formula.go:183-200` | `aig2expr::mk_ite` builds its three arguments left to right; GCC builds them right to left |
+| [tactic_small_01-F9](#tactic-small-01-f9) | low | high | open | `pkg/tactic/nlsat_smt/nl_purify_trace.go` | most `nlsat_smt` TRACE sites are not ported |
+| [tactic_small_02-F4](#tactic-small-02-f4) | low | high | open | `pkg/tactic/portfolio/fd_tactic.go:16-35` | Go-only finite-domain tactic code with no 4.7.1 counterpart |
+| [tactic_sls_ufbv_01-F3](#tactic-sls-ufbv-01-f3) | low | high | open | `pkg/tactic/sls/bvsls_optimizer.go` | BVOptimizer ports dead C++ (`bvsls_opt_engine`) and does not follow its maximize/what_if semantics |
+| [tactic_sls_ufbv_01-F4](#tactic-sls-ufbv-01-f4) | low | high | open | `pkg/tactic/sls/sls_engine_runtime.go:598-613` | Engine.CheckRestart saturates restart_next at UINT_MAX when restarts>>1 >= 31; the C++ keeps restarting |
+| [muz_base_01-F1](#muz-base-01-f1) | low | high | open | `pkg/muz/base/boogie_proof.go:228-265` | `boogieInputResolution` rewrites inner premises that the C++ `mk_input_resolution` never touches |
+| [muz_base_01-F2](#muz-base-01-f2) | low | high | open | `pkg/muz/base/boogie_proof.go:269-322` | the Boogie certificate drops the C++ stdout diagnostics (`get_subst` dump; `set proof` / `proof set` are discarded by the callers) |
+| [muz_base_01-F3](#muz-base-01-f3) | low | high | open | `pkg/muz/base/hnf_proof_worklist.go:138-200` | proof-mode HNF builds its fresh ASTs in a different order from `hnf::imp` (not-and negations and `def_intro` vs `update_quantifier`) |
+| [muz_base_01-F4](#muz-base-01-f4) | low | high | open | `pkg/muz/base/datalog_context_query_prepare.go:29` | `DatalogContext.AddQuery` departs from `rule_manager::mk_query` (no rewrite in quantifier pull, extra error, missing well-formedness check) |
+| [muz_base_02-F4](#muz-base-02-f4) | low | high | fixed | `pkg/muz/base/rule_set.go:752` | `RuleSet` reset discards the `m_head2rules` table capacity |
+| [muz_base_02-F5](#muz-base-02-f5) | low | high | open | `pkg/muz/base/rule_set.go:369-395` | `InheritPredicates` rebuilds pred→orig from orig→pred instead of copying `m_pred2orig` |
+| [muz_base_02-F6](#muz-base-02-f6) | low | high | decided | `pkg/muz/base/util_uint64_scan.go:11-25` | `ReadUint64` accepts 18446744073709551610–18446744073709551615, which `read_uint64` rejects |
+| [muz_fp_02-F6](#muz-fp-02-f6) | low | high | open | `pkg/muz/fp/datalog_parser_domains.go:17-31` | the `muz/fp` legacy Datalog parser differs from `dparser` (int domains, undeclared body predicates, arithmetic `<`, facts) |
+| [muz_fp_03-F9](#muz-fp-03-f9) | low | high | obsolete | `pkg/muz/fp/datalog_sparse_interval_evaluator.go:150-181` | sparse/interval `Query` ignores imprecision of empty relations in multi-relation queries |
+| [muz_fp_03-F10](#muz-fp-03-f10) | low | high | open | `pkg/muz/fp/ddnf_engine.go:89-93` | ddnf unstratified-negation error is a plain error, not the query exception |
+| [muz_fp_04-F4](#muz-fp-04-f4) | low | confirmed | open | `pkg/muz/fp/pdr_engine.go:804-811` | an out-of-range `pdr.cache_mode` aborts the query in g3; z3 accepts it and answers |
+| [muz_fp_04-F5](#muz-fp-04-f5) | low | high | open | `pkg/muz/fp/propositional_engine.go:979,1018,1033` | `UpdateRule` rejection messages differ from `context::update_rule` |
+| [muz_fp_04-F6](#muz-fp-04-f6) | low | high | open | `pkg/muz/fp/propositional_engine.go:2523-2527` | `QueryPredicates` with more than one relation on a non-Datalog engine records status "approximated" |
+| [muz_fp_04-F7](#muz-fp-04-f7) | low | high | obsolete | `pkg/muz/fp/spacer_karr_results.go:16-79` | Karr invariant model converter builds different terms (nested `+`, raw `and`, no bool_rewriter) |
+| [muz_pdr_01-F6](#muz-pdr-01-f6) | low | high | open | `pkg/muz/pdr/generalizers.go:213-226` | induction generalizer runs on an empty core |
+| [muz_pdr_01-F7](#muz-pdr-01-f7) | low | high | open | `pkg/muz/pdr/generalizer_induction.go:309-339` | induction transition axiom builds a flat `or` where C++ nests binary `or`s |
+| [muz_pdr_01-F8](#muz-pdr-01-f8) | low | medium | open | `pkg/muz/pdr/generalizer_arithmetic.go:248-271` | arithmetic inductive bound pairs are visited in encounter order, not r_map order |
+| [muz_pdr_02-F8](#muz-pdr-02-f8) | low | medium | open | `pkg/muz/pdr/result_validation.go:37,113` | Validation kernels skip PDR's arithmetic settings |
+| [muz_pdr_02-F9](#muz-pdr-02-f9) | low | high | open | `pkg/muz/pdr/pdr_closure.go:289-310,333-347` | AST construction order and term identity differ in closure and expand_literals |
+| [muz_spacer_01-F6](#muz-spacer-01-f6) | low | confirmed | open | `pkg/muz/spacer/context.go:728-819` | Spacer's `IF_VERBOSE` progress output is not ported |
+| [muz_spacer_01-F7](#muz-spacer-01-f7) | low | high | open | `pkg/muz/spacer/context_validate.go:23-26,166-168` | `pdr.validate_result` failures use different messages and print nothing |
+| [muz_spacer_02-F6](#muz-spacer-02-f6) | low | high | open | `pkg/muz/spacer/predicate_reach.go:200` | most `spacer`-tagged TRACE sites in the shard's functions are not emitted |
+| [muz_spacer_02-F7](#muz-spacer-02-f7) | low | high | open | `pkg/muz/spacer/virtual_solver_dump.go:67-81` | virtual-solver benchmark dump differs in format and recheck output |
+| [muz_rel_01-F2](#muz-rel-01-f2) | low | high | open | `pkg/muz/rel/bound_relation.go:131-176` | `BoundRelation.addBound` adds a visited set that `bound_relation::mk_lt` does not have |
+| [muz_rel_01-F3](#muz-rel-01-f3) | low | high | open | `pkg/muz/rel/doc_cube.go:455-505` | `DocManager.FoldNeg` and `DocManager.Join` turn a debug-only `SASSERT(well_formed)` into a result |
+| [muz_rel_01-F4](#muz-rel-01-f4) | low | high | open | `pkg/muz/rel/doc_solver.go:14-49` | `DocManager.ToFormula` simplifies the conjunction that `doc_manager::to_formula` builds raw |
+| [muz_rel_01-F5](#muz-rel-01-f5) | low | high | fixed | `pkg/muz/rel/doc_cube.go:680-703` | `DocManager.DisplayRange` omits the `union_bvec` line breaks for negative sets |
+| [muz_rel_01-F6](#muz-rel-01-f6) | low | high | obsolete | `pkg/muz/rel/explanation_relation_filter.go:164-166` | `ExplanationRelation.FilterInterpreted` and `Union` fail where the release C++ continues past `UNREACHABLE` |
+| [muz_rel_01-F7](#muz-rel-01-f7) | low | high | partly | `pkg/muz/rel/check_table.go` | `CheckTable` and the `CheckedRelation` family are dead; `CheckedRelation` has no C++ counterpart |
+| [muz_rel_02-F4](#muz-rel-02-f4) | low | high | fixed | `pkg/muz/rel/external_relation.go:166-199` | external relation accessors build temporary applications to obtain declarations (extra ASTs, different ids) |
+| [muz_rel_03-F3](#muz-rel-03-f3) | low | high | obsolete | `pkg/muz/rel/instruction_relation_explanation.go:337-361` | relation-explanation `filter_equal` / `filter_identical` / `join` skip their counters when the source register is empty |
+| [muz_rel_03-F4](#muz-rel-03-f4) | low | confirmed | fixed | `pkg/muz/rel/instruction*.go` | instruction diagnostics: no `-v:2` instruction log or `looping ...` line, and `DisplayHead`/annotation text differs |
+| [muz_rel_04-F2](#muz-rel-04-f2) | low | confirmed | fixed | `pkg/muz/rel/relation_manager_default_finite.go:66-89` | lazy_sparse nullary union target: z3 segfaults, g3 answers (z3-bug divergence not recorded) |
+| [muz_rel_04-F3](#muz-rel-04-f3) | low | high | fixed | `pkg/muz/rel/karr_relation.go:468-536` | Karr union/delta in the numeric explanation product does not follow `karr_relation::mk_union` |
+| [muz_rel_04-F4](#muz-rel-04-f4) | low | high | obsolete | `pkg/muz/rel/relation_explanation_product_display.go:30-53` | relation-level explanation `Display` prints sieve masks as column indices instead of `svector<bool>` |
+| [muz_rel_04-F5](#muz-rel-04-f5) | low | high | fixed | `pkg/muz/rel/relation_formula_checker.go:32-71` | `check_relation` verification emits none of the C++ verbose diagnostics |
+| [muz_rel_04-F6](#muz-rel-04-f6) | low | high | open | `pkg/muz/rel/lazy_table.go` | two Go-only relation layers have no production caller (LazyTable over HashTable, SieveRelation over HashTable) |
+| [muz_rel_05-F4](#muz-rel-05-f4) | low | high | open | `pkg/muz/rel/sieve_relation.go` | the HashTable-backed `SieveRelation` and `TableRelation.FilterByIntersection` have no production caller, and the sieve display text does not match C++ |
+| [muz_rel_06-F3](#muz-rel-06-f3) | low | high | obsolete | `pkg/muz/rel/udoc_guard_compile.go:492-527, 580-588` | `applyGuard`'s `not`/`or`/iff branches skip `simplify` and use a raw `not` |
+| [muz_rel_06-F6](#muz-rel-06-f6) | low | high | obsolete | `pkg/muz/rel/udoc_relation_join_project.go:61-82` | `JoinProject` takes the intersection shortcut in fewer cases than C++ (documented, but changes behavior) |
+| [muz_transforms_01-F6](#muz-transforms-01-f6) | low | high | fixed | `pkg/muz/transforms/quantifier_instantiation.go:620-647` | quantifier instantiation swaps the modus-ponens premises of the weakening proof |
+| [muz_transforms_01-F7](#muz-transforms-01-f7) | low | high | open | `pkg/muz/transforms/filter_rules.go:271-287` | filter rules never attach proofs (`mk_rule_asserted_proof` / `mk_rule_rewrite_proof` missing) |
+| [muz_transforms_01-F8](#muz-transforms-01-f8) | low | medium | open | `pkg/muz/transforms/magic_sets.go:271-326` | magic-sets `get_unbound_cost` ignores `try_get_sort_constant_count` |
+| [muz_transforms_02-F6](#muz-transforms-02-f6) | low | high | fixed | `pkg/muz/transforms/unbound_compressor.go:172-308` | unbound compressor decompression omits `fix_unbound_vars` and builds a different rule multiset |
+| [muz_transforms_02-F7](#muz-transforms-02-f7) | low | high | fixed | `pkg/muz/transforms/rule_inliner.go:758-765` | inliner planning adds Go-only self-loop forbidding and counts dropped allowed heads as a change |
+| [muz_small_01-F8](#muz-small-01-f8) | low | confirmed | fixed | `pkg/muz/bmc/quantified_linear_bind.go:15-108` | QBMC `get_model` follows a newer upstream fix, not 4.7.1 (bindings at the level instead of the rule index, facts end the trace at any level); this is not recorded as a fork fix |
+| [muz_small_01-F9](#muz-small-01-f9) | low | confirmed | fixed | `pkg/muz/ddnf/compiler.go:355` | DDNF `compileEquality` looks up the node table by the variable's width; C++ uses the constant's width (and crashes on extracts) |
+| [muz_small_01-F11](#muz-small-01-f11) | low | medium | open | `pkg/muz/dataflow/reachability.go:185-197` | reachability `TopDown` also propagates through `RuleSet.Dependencies`, which has no C++ counterpart |
+| [muz_small_02-F3](#muz-small-02-f3) | low | confirmed | fixed | `pkg/muz/tab/search.go:205-323` | most tab `IF_VERBOSE` output is missing (apply_rule, subsumption, certificate, proof body) |
+| [muz_small_02-F4](#muz-small-02-f4) | low | high | open | `pkg/muz/tab/query.go:145-163` | a query with no predicates gets an extra tautology check that C++ does not do |
+| [duality_01-F7](#duality-01-f7) | low | medium | open | `pkg/duality/elim_ite.go:104-127` | AST construction order differs from the GCC build in `ElimIte` and `FourierMotzkinCheap` |
+| [duality_01-F8](#duality-01-f8) | low | high | open | `pkg/duality/gauss_elim.go:111-116` | the variable projector's stdout diagnostics are missing |
+| [duality_02-F6](#duality-02-f6) | low | high | open | `pkg/duality/model_constraints.go:77` | `ModelValueAsConstraint` builds `iff` for Boolean parameters where the C++ `operator==` builds `=` (OP_EQ) |
+| [duality_02-F7](#duality-02-f7) | low | high | open | `pkg/duality/projection_bounds.go:123-145` | variable projector: construction order and arity handling differ from `IsCanonIneq` / `IndexLA` |
+| [duality_03-F3](#duality-03-f3) | low | high | open | `pkg/duality/subst_atom.go:41-51,86-90` | `SubstAtom` recognizes `and`/`or`/`not` by raw decl kind without checking the basic family |
+| [duality_03-F4](#duality-03-f4) | low | high | open | `pkg/duality/wrapper_ast.go:231-234` | wrapper `Sort.Kind` swaps Int and Real |
+| [duality_03-F5](#duality-03-f5) | low | high | open | `pkg/duality/unwinding_extend.go:55` | eager deduction checks conjectures with the derivation checker instead of `gen_cands_rpfp` |
+| [duality_03-F6](#duality-03-f6) | low | medium | open | `pkg/duality/unwinding_feasible.go:94-114` | `CandidateFeasible` recursion-bound exit pops the solver scope that the C++ leaks |
+| [duality_03-F7](#duality-03-f7) | low | medium | open | `pkg/duality/term_tree.go:84-116` | `TermTree.Close` releases children and terms back to front |
+| [interp_01-F15](#interp-01-f15) | low | high | fixed | `pkg/interp/manager.go:530` | `MakeQuantifier` omits the quantifier id `itp` that `make_quant` sets |
+| [interp_01-F16](#interp-01-f16) | low | high | open | `pkg/interp/manager.go:209-218` | `Manager.Operator` does not classify `pi`/`e` as `Numeral` |
+| [interp_01-F17](#interp-01-f17) | low | high | open | `pkg/interp/checker.go:59,119` | `CheckInterpolants` (parents API) uses tree scopes for its second diagnostic; the C++ checker uses linear ones |
+| [solver_misc_01-F2](#solver-misc-01-f2) | low | high | open | `pkg/solver/solver.go:384-397` | DefaultGetConsequences drops errors from the non-Boolean consequence branch (`:=` shadowing) |
+| [solver_misc_01-F3](#solver-misc-01-f3) | low | high | open | `pkg/solver/solver_tactic.go:479-513` | SolverTactic (solver2tactic) carries smt_tactic-only policy: preserved-precision checks, candidate models, a different unknown message and extra parameters |
+| [solver_misc_02-F1](#solver-misc-02-f1) | low | confirmed | open | `pkg/cmd/g3/main.go:56-63` | `runArgumentsWithDiagnostics` prints Go-only `-h` / `-version` text instead of the ported `display_usage` / `display_version` |
+| [api_01-F5](#api-01-f5) | low | confirmed | open | `pkg/api/api_ast_inspection.go:124-135` | `DeclarationName` / `SortName` / `DeclarationSymbolParameter` render numerical and null symbols as `k!N` / `null` |
+| [api_01-F6](#api-01-f6) | low | high | open | `pkg/api/api_ast_benchmark.go:19-24` | `BenchmarkSMT2` treats empty strings as absent symbols |
+| [api_01-F7](#api-01-f7) | low | high | open | `pkg/api/api_bitvectors.go:215-249` | AST construction order differs in `BitVectorToInt(signed)` and `BitVectorSDivNoOverflow` |
+| [api_01-F8](#api-01-f8) | low | high | open | `pkg/api/api_goal_translation.go:21-23` | `APIGoal.Translate` rejects same-context translation; `APIGoal.DIMACS` has no 4.7.1 counterpart |
+| [api_02-F7](#api-02-f7) | low | confirmed | open | `pkg/api/api_interp_read.go:101-143` | `ReadInterpolationProblem` handles a one-assertion file and the `;! THEORY=` value differently from `Z3_read_interpolation_problem` |
+| [api_02-F8](#api-02-f8) | low | confirmed | open | `pkg/api/api_quantifiers.go:238-257` | `PatternString` prints with let-aliases; `Z3_pattern_to_string` (`Z3_ast_to_string`) disables them |
+| [api_02-F9](#api-02-f9) | low | high | open | `pkg/api/api_params_object.go:192-199,219-232` | `ParameterDescriptions.Kind`/`Documentation` normalize the name; `Z3_param_descrs_get_kind`/`get_documentation` look it up verbatim |
+| [api_03-F7](#api-03-f7) | low | high | open | `pkg/api/z3_generated_datatype_inspection.go:85-88` | datatype accessor/constructor/recognizer queries skip `save_ast_trail` |
+| [api_03-F8](#api-03-f8) | low | high | open | `pkg/api/z3_generated_declaration_commands.go:39-47` | a `$ \|\|` (empty, non-null) symbol becomes `symbol::null` in every replay command except fixedpoint rules |
+| [api_03-F9](#api-03-f9) | low | confirmed | open | `pkg/api/z3_replayer_scanner.go:33-153` | replay scanner diagnostics, CRLF and overflow differ; no `-v:1` progress line |
+| [api_03-F10](#api-03-f10) | low | high | open | `pkg/api/z3_log_escape.go:13-30` | log writer escapes bytes >= 0x80 differently from `ll_escaped` (signed `char`); `D` of inf/nan differs |
+| [cmd_context_01-F10](#cmd-context-01-f10) | low | confirmed | open | `pkg/cmd_context/macros.go:121-125` | a popped macro name still blocks bare function-declaration references in C++ but not in Go |
+| [cmd_context_01-F11](#cmd-context-01-f11) | low | confirmed | open | `pkg/cmd_context/array_map.go:14-61` | `DeclareMap` checks and error texts differ from `declare_map_cmd` |
+| [cmd_context_01-F12](#cmd-context-01-f12) | low | confirmed | open | `pkg/cmd_context/context.go:405-411` | a failure to open an output channel appends the Go OS error to the message |
+| [cmd_context_01-F13](#cmd-context-01-f13) | low | high | open | `pkg/cmd_context/apply_tactic.go:50-58` | `ApplyTactic` calls `set_logic` on the tactic; `apply_tactic_cmd` does not |
+| [cmd_context_01-F14](#cmd-context-01-f14) | low | high | open | `pkg/cmd_context/context.go:1368-1392` | `Pop` releases declarations and macros in a different order than `cmd_context::pop` |
+| [cmd_context_01-F15](#cmd-context-01-f15) | low | high | open | `pkg/cmd_context/model_completion.go:176-187, 256-305` | `validateModel` builds its evaluator without `max_degree`/`sort_store`, and its under-specified scan skips quantifier bodies |
+| [cmd_context_01-F16](#cmd-context-01-f16) | low | medium | open | `pkg/cmd_context/opb_loader.go:20-87` | the OPB loader builds a different AST from `opb::parse` |
+| [cmd_context_02-F7](#cmd-context-02-f7) | low | confirmed | open | `pkg/cmd_context/results.go:573` | get-unsat-core without produce-unsat-cores gives the wrong message |
+| [cmd_context_02-F8](#cmd-context-02-f8) | low | confirmed | open | `pkg/cmd_context/sort_declarations.go:131` | sort-constructor arity error text differs |
+| [cmd_context_02-F12](#cmd-context-02-f12) | low | high | open | `pkg/cmd_context/parser_bindings.go:30-35` | Parser bindings: a sort name that already exists is an error; C++ skips it |
+| [cmd_context_02-F13](#cmd-context-02-f13) | low | high | open | `pkg/cmd_context/solver_factory_strategic.go:12` | Z3_mk_solver_for_logic error text |
+| [parsers_shell_01-F13](#parsers-shell-01-f13) | low | confirmed | open | `pkg/shell/dimacs_statistics.go:15` | `-st` on a DIMACS file omits `:total-time` (time rounded to 0.00 before `update`) |
+| [parsers_shell_01-F14](#parsers-shell-01-f14) | low | confirmed | fixed | `pkg/parsers/smt2/help_commands.go:308-313` | `(help)` output loses its final newline, and `(help-tactic)` changes the `if` combinator text |
+| [parsers_shell_01-F15](#parsers-shell-01-f15) | low | confirmed | open | `pkg/parsers/smt2/debug_commands.go:610-626` | `dbg-sexpr` prints atoms differently from `sexpr::display` |
+| [parsers_shell_01-F16](#parsers-shell-01-f16) | low | confirmed | open | `pkg/parsers/util/pattern_validation.go:46-115` | pattern validator warns once per occurrence; C++ `for_each_expr` visits each shared node once |
+| [parsers_shell_01-F17](#parsers-shell-01-f17) | low | confirmed | fixed (2aade2cf5) | `pkg/parsers/util/simple_parser.go:30-35, 164-168` | simple/cost parser writes `parser error` without the `WARNING: ` prefix, bypassing the warning service |
+| [parsers_shell_01-F18](#parsers-shell-01-f18) | low | confirmed | open | `pkg/shell/command_line.go:237-238` | invalid command-line option message keeps the `:argument` part |
 
 ## Findings
 
@@ -996,7 +996,257 @@ Sorted by severity, then by area.
 
 *FUZZ_K.* Group K holds 13 interpolation scripts: 11 fuzz scripts (`compute-interpolant` with nested and tree forms) and 2 hand-written cases (`get-interpolant` after `check-sat`, and a tree over an uninterpreted function). There are two distinct root causes: - **F1 (critical, confirmed).** The Go port runs the disabled non-binary branch of `iz3interp::proof_to_interpolant`. The C++ compiles `#define BINARY_INTERPOLATION` and re-translates the proof as a two-frame A/B problem for every interpolant. A fix verified in the scratch copy makes 9 of the 13 scripts byte-identical to `build/z3`. - **F2 (high, confirmed, fix partially verified).** The Go interp layer does not model the C++ `ast_r` lifetimes. Temporaries are left at refcount 0, or pinned in `owned` lists until `Close`. In C++ they die at reassignment or scope exit. AST ids are therefore recycled differently, and the final `th_rewriter` sorts sum monomials by id. This explains the other 4 scripts (only the order of monomials differs). Two targeted lifetime corrections each moved the first divergence in the deletion log further along (deletion #75, then #81, then #144 of 317), which confirms the mechanism. A complete fix needs a lifetime pass over the whole `DirectProofInterpolator` and `FullTranslation`. Counts: 1 critical, 1 high.
 
+## Status sweep of 2026-11-18
+
+Each finding was checked against the code at faaa2bfd4 (and updated for fd009604f and d1a69fa63): **526 fixed, 30 decided, 10 obsolete, 14 partly fixed, 190 open** (3 of them fixed since the sweep). The Status column above gives the result, with the fixing commit where one names it. Findings that are not fully fixed:
+
+| ID | Severity | Status | Where / evidence | What remains |
+|---|---|---|---|---|
+| FUZZ_B-F6 | high | decided | 6c1426ad6 | owner kept g3's sound skip of the root self-edge (z3 unsound); z3_bug_dom_simplify_root_resimplify vector; z3 fork now agrees |
+| nlsat_01-F1 | high | decided | 223907cb8 | owner decision (keep the signed sign); fork uses int sign; vector z3_bug_nlsat_signed_infinity_sign |
+| qe_01-F2 | high | decided | 8259a67e3 | owner decision (copying z3 loops); fork uses get_bound_sizes; vector z3_bug_qe_sat_project_real_direction |
+| qe_01-F3 | high | decided | 3d0f75726 | owner decision (z3's false is unsound); g3 and fork (9936ca711) reject k=0 and use \|k\| |
+| smtcore_01-F1 | high | decided | 6c1426ad6 | z3 4.7.1 bug (stale elim_term_ite cache after pop); g3 keeps correct behavior; vector z3_bug_elim_term_ite_stale_cache, z3 fork now agrees |
+| smtcore_01-F2 | high | decided | 6c1426ad6 | z3 bug (stale macro after macro_finder off); g3 behavior kept, fork fixed; small leftover: g3 lacks the fork's new (smt.expand-macros) -v:10 line (smt_asserted_macros.go:81) |
+| smtcore_10-F15 | high | decided | 35a93d112 | z3 4.7.1 update-field bug; g3 rewrite kept; fork backports f989e4eb38 (aec02f8de) |
+| smtcore_10-F3 | high | decided | f0ba9996d | owner adopted upstream fix 7fc4653e47 in g3 and the fork (ebcebc895); vector z3_bug_dt_recognizer_relevancy1 |
+| tactic_arith_02-F2 | high | decided | 60e06fba0 | z3 unsound; g3's eager find_unsafe kept; fork fixed; vector z3_bug_forward_trig_unsafe_after_purify (db9463d20) |
+| tactic_sls_ufbv_01-F1 | high | decided | 242626470 | z3 wrong sat; g3 kept; fork binds unbound identical vars; vector 348a11470 |
+| duality_02-F5 | high | partly | 2f3fff766 | hang fixed (one conversion at assert); repro certificate still names @Fail!0 where z3 prints @Fail!1 (fresh-name counter) |
+| api_03-F3 | medium | decided | 4913b1d45 60ae897e7 api/z3_generated_pseudo_boolean_commands.go:49 | FORK FIX #41 (owner list) |
+| ast_rewriter_04-F3 | medium | decided | ced98bfe3 bf7f92b19 ast/rewriter/pb2bv_rewriter.go:556 | FORK FIX #26: fork and g3 reject fractional 0-1 sums (upstream fix) |
+| duality_01-F4 | medium | decided | a771cbed6 c21a5b071 | FORK FIX #63: certificate witnesses |
+| duality_01-F6 | medium | decided | c9d71d841 15f16ee36 | FORK FIX #47: Build re-check |
+| duality_02-F2 | medium | decided | 64f41b16d 6dac9039e | FORK FIX #46: @under flags as don't-cares |
+| duality_03-F2 | medium | decided | fab4cf5cc eeccf0133 | FORK FIX #14 (owner list) |
+| model_01-F5 | medium | decided | eff65eb03 d4a17d0cb model/model_implicant_array.go:400 | FORK FIX #45: g3 keeps clearing nested true |
+| muz_rel_06-F5 | medium | decided | 748e0e081 887331306 muz/rel/dl_sieve_relation.go:689 | FORK FIX #54 |
+| nlsat_01-F2 | medium | decided | 1473b32f1 0421d3b4e nlsat/evaluator.go:158 | FORK FIX #29 (owner list) |
+| nlsat_01-F3 | medium | decided | f56da6929 38d936df0 | FORK FIX #30 (owner list) |
+| nlsat_01-F4 | medium | decided | 5126cea09 d9eea36cb | FORK FIX #31 (owner list) |
+| nlsat_02-F2 | medium | decided | 3991679a6 0e00b2eb3 | FORK FIX #32: inline_vars divergences recorded as z3 bugs |
+| opt_01-F4 | medium | decided | 7f68cde3c faacdd663 | FORK FIX #38 (owner list) |
+| qe_01-F4 | medium | decided | 843a255af 060eea5c7 qe/datalog_branch.go:158 | FORK FIX #64 (small-domain) and #53 (other-value), both locked as z3 bugs |
+| qe_02-F4 | medium | decided | a7b4f8aa5 3f6a9f82d | FORK FIX #36 (owner list) |
+| qe_02-F5 | medium | decided | babfca1d3 4d711c61c | FORK FIX #37 (owner list) |
+| smtcore_02-F9 | medium | decided | fdec6aeb4 | owner: no copying of z3's uninitialized phase; fork initializes to l_undef (93a286ac9) |
+| tactic_arith_01-F3 | medium | decided | 0bcc96ef7 4c7765336 | FORK FIX #21: eq2bv resets its rewriter per goal; recorded with vector |
+| tactic_arith_02-F5 | medium | decided | tactic/arith/lia2card_comparison.go:153 | compile_equality now gives pbeq; empty non-compiled sum folded per FORK FIX #27 (z3 loops) |
+| muz_rel_02-F3 | medium | obsolete | 91ab29f61 | external/interval product union code deleted with the Go external evaluators |
+| muz_rel_06-F2 | medium | obsolete | 74d7dcf33 | typed UDoc stack deleted; udoc_plugin.go ports extract_equalities (udoc_plugin.go:1495) |
+| muz_rel_06-F4 | medium | obsolete | 74d7dcf33 | typed UDoc stack deleted; udoc_plugin.go uses DocUnion insert (udoc_plugin.go:1197) |
+| cmd_context_02-F14 | medium | open | pkg/cmd_context/sort_declarations.go:44-56, 85-94 | 0-ary declare-sort and define-sort still build their sort eagerly |
+| cmd_context_02-F9 | medium | open | pkg/cmd_context/replay_smt2.go:264, optimization_api.go:120 | Z3_optimize_to_string still uses Go-only WriteReplaySMT2 exporter, not a port of opt::context::to_string |
+| muz_pdr_01-F2 | medium | open | muz/pdr/answer_trace.go:203 | max_var still recomputed each step (traceMaximumVariable), not a running max from the raw root rule |
+| FUZZ-F5 | medium | partly | ce01f1eaf | repro -v:100 output now matches (g3trace builds); ~85 of the 205 tabled C++ verbose sites still have no Go text (e.g. ast-table, smt.reducing, sat abort lines, spacer qe_project, proof_checker, pdr generalizers, combined-solver solver-2 lines) |
+| api_03-F6 | medium | partly | 5f734cdb6; pkg/api/z3_generated_optimize_commands.go:151 | numeric ids fixed; a non-null empty-string soft id is still rejected |
+| muz_rel_01-F1 | medium | partly | d3ca48223 muz/fp/datalog_print_aig.go:52 | print_aig now truncates the file and exits 0; AAG exporter still unwired and unfaithful (outputs larger than z3's stream buffer differ) |
+| opt_02-F4 | medium | partly | 3f18d0a9d opt/opb_scanner.go:88 | max: kept as z3 bug (FORK FIX #39); coefficient-less terms still rejected and errors still "ERROR: opb:N" rc 110 (t4/t5 repro) |
+| parsers_shell_01-F11 | medium | partly | 07236f822 (partial) | up-front psort_dt_decl header insertion and unchecked header arity not ported |
+| parsers_shell_01-F8 | medium | partly | ca460be0b (partial); pkg/parsers/smt2/commands.go:324,347,354 | generic texts remain ("unexpected input, expected token %d", "symbol expected", "unsigned numeral expected") in helper paths |
+| qe_05-F6 | medium | partly | 709571156 qe/quant_elim.go:77 | quant_elim_plugin::check, sat_tactic::qt and qe-sat solver_context/extrapolation/hoist TRACE sites still unported |
+| smtcore_05-F4 | medium | partly | 1b60b26ff | repro search stats now match z3 (7 inst, 389 bool vars, 88 decisions); rlimit-count still 14228 vs z3 14196 (cause not traced) |
+| muz_base_02-F6 | low | decided | pkg/muz/base/util_uint64_scan.go:7-11 (fork FIX #68 advances s; g3 matches fork) | z3's read_uint64 overflow branch was fork-fixed; g3 keeps the correct bound |
+| muz_fp_03-F9 | low | obsolete | 892f809b6 (datalog_sparse_interval_evaluator.go deleted) | Go-only interval/product evaluators deleted |
+| muz_fp_04-F7 | low | obsolete | b5f418400 (spacer_karr_results.go and Go Karr conversion deleted) | Go Karr model conversion deleted; note add_invariant_model_converter itself is not ported in transforms/karr_invariants.go |
+| muz_rel_01-F6 | low | obsolete | d876eea29 (explanation_relation_filter.go/operations.go deleted) | Go explanation evaluators deleted |
+| muz_rel_03-F3 | low | obsolete | d876eea29 (instruction_relation_explanation.go deleted) | relation-level explanation path deleted |
+| muz_rel_04-F4 | low | obsolete | d876eea29 (relation_explanation_product_display.go deleted) | relation-level explanation product deleted |
+| muz_rel_06-F3 | low | obsolete | 74d7dcf33 (udoc_guard_compile.go deleted); replacement udoc_plugin.go:1806 applyGuard simplifies | old guard compiler deleted |
+| muz_rel_06-F6 | low | obsolete | 74d7dcf33 (udoc_relation_join_project.go deleted); replacement udoc_plugin.go:1128 | old UDoc join_project deleted |
+| api_01-F5 | low | open | pkg/api/api_ast_inspection.go:133,138; api_ast_declaration_parameters.go:123 | still m.Symbols.Display (k!N/null) instead of SymbolString |
+| api_01-F6 | low | open | pkg/api/api_ast_benchmark.go:19-24 | empty string still treated as null symbol |
+| api_01-F7 | low | open | pkg/api/api_bitvectors.go (BitVectorToInt); api_bitvector_overflow.go (SDivNoOverflow) | 2^sz numeral after zero/bvslt; -1 before (= a min) |
+| api_01-F8 | low | open | pkg/api/api_goal_translation.go:21-23; api_goal_dimacs.go:3 | same-context Translate still rejected; Go-only DIMACS API remains |
+| api_02-F7 | low | open | pkg/api/api_interp_read.go:102-111 | THEORY parsed with ParseUint after TrimSpace; single-assertion handling unchanged |
+| api_02-F8 | low | open | pkg/api/api_quantifiers.go:250 | PatternString still uses SimpleASTPrinterContext, not ASTString mode |
+| api_02-F9 | low | open | pkg/api/api_params_object.go:203,230 | Kind/Documentation still normalize the name |
+| api_03-F10 | low | open | pkg/api/z3_log_escape.go:13-30; z3_log_scalars.go:19-22 | bytes>=0x80 escaped unsigned; inf/nan not as C++ |
+| api_03-F7 | low | open | pkg/api/z3_generated_datatype_inspection.go:83-88 | only 219 uses storeAST; 212/214/216/217/218 skip save_ast_trail |
+| api_03-F8 | low | open | pkg/api/z3_generated_declaration_commands.go:39-47 | empty non-null "$ \|\|" still becomes symbol::null via StringSymbol |
+| api_03-F9 | low | open | pkg/api/z3_replayer_scanner.go:48-113 | scanner messages, strconv overflow, no -v:1 progress line |
+| ast_01-F2 | low | open | pkg/ast/ast_activity_cache.go:183-186; ast_activity_chashtable.go:145 | growth check still only on insert of an absent key |
+| ast_06-F4 | low | open | pkg/ast/ast_seq_plugin.go:450 | re.allchar row still names line 570 instead of 552 |
+| ast_08-F2 | low | open | pkg/ast/util_psort_ast_bounds.go:215 | eq still ends with guarded s.minimum, not ctx.mk_min |
+| ast_rewriter_01-F8 | low | open | pkg/ast/rewriter/arith_transcendental.go:101-110, 586-596 | sqrt and piFraction still build left to right |
+| ast_rewriter_02-F4 | low | open | pkg/ast/rewriter/bv_bounds_trace.go:31 | bv_bounds trace still uses NewLegacySMTPrinter |
+| ast_rewriter_03-F4 | low | open | pkg/ast/rewriter/bv_rewriter_udiv.go:157, bv_rewriter_sdiv.go:55, bv_rewriter_srem.go:112, bv_rewriter_scalar.go:121 | BV rewrites still build left to right ("unspecified order" comments remain) |
+| ast_rewriter_03-F5 | low | open | pkg/ast/rewriter/bv_rewriter_leq_trace.go:30-46; der_trace_sort.go:40 | le_extra trace has no indent; DER order still space-separated |
+| ast_rewriter_03-F6 | low | open | pkg/ast/rewriter/bv_trailing_table.go:54-70 | close still walks insdict insertion order, not obj_map order |
+| ast_rewriter_03-F7 | low | open | pkg/ast/rewriter/expr_replacer.go:271-285 | Rewrite/RewriteWithProof still keep cache and dependencies |
+| ast_rewriter_04-F5 | low | open | pkg/ast/rewriter/factor_rewriter.go:489 | mk_eq still uses collapsing MkOrArray |
+| ast_rewriter_04-F6 | low | open | pkg/ast/rewriter/factor_rewriter.go:411-440 | isNegative still builds pp before nn, np before pn; temporaries held to end |
+| ast_rewriter_04-F7 | low | open | pkg/ast/rewriter/fpa_comparisons.go:42-60 | (= x inf) still built before the NaN test |
+| ast_rewriter_04-F8 | low | open | pkg/ast/rewriter/pb2bv_rewriter.go:173,276,311,423,611 | strip-only negate still used where C++ uses mk_not / ::mk_not |
+| ast_rewriter_04-F9 | low | open | pkg/ast/rewriter/pb_rewriter_validate.go:244,300,203 | legacy printer in pb trace; first variable still wins |
+| ast_rewriter_05-F4 | low | open | pkg/ast/rewriter/string_regex_automaton.go:39-48 | NewStringRegexAutomaton still does not Compress |
+| ast_rewriter_05-F5 | low | open | pkg/ast/rewriter/seq_rewriter.go:777-792, 1042-1051 | str.to_int builds 0 before -1; re.complement builds left first |
+| ast_rewriter_05-F6 | low | open | pkg/ast/rewriter/seq_rewriter.go:665-711, 1252 | RewriteIndex has no 32-bit offset limit; loop bounds still capped at MaxInt32 |
+| ast_rewriter_05-F7 | low | open | pkg/ast/rewriter/unused_vars_trace.go:21, unused_vars_trace_result.go:16 | Go-only elim_unused_vars trace still emitted |
+| ast_rewriter_06-F2 | low | open | pkg/ast/rewriter/bit_blaster/gates.go (MkXor3, MkCarry); engine_division.go; engine_logic.go | xor3/carry/_sorted and bit_blaster udiv/rotate TRACE sites still not emitted |
+| ast_sub_01-F5 | low | open | pkg/ast/macros/macro_candidates.go:59-65 | head app still built before the condition and |
+| ast_sub_02-F10 | low | open | pkg/ast/proofs/checker_basic.go:28; checker_arith.go:66-67 | PR_TRUE still accepted; non-rational farkas coeff still yields valid |
+| ast_sub_02-F11 | low | open | pkg/ast/proofs/checker.go:226; checker_hyper.go:28,70,100,255 | side conditions still use collapsing MkOrArray/MkAndArray |
+| ast_sub_02-F12 | low | open | pkg/ast/pattern/expr_pattern_match.go:502-507 | instantiate still builds arguments left to right |
+| ast_sub_02-F6 | low | open | pkg/ast/normal_forms/defined_names.go:408-415 | both conjuncts still built before quantifying |
+| ast_sub_02-F7 | low | open | pkg/ast/normal_forms/nnf.go:633-640 | convertDefault still builds not(t) unconditionally and first |
+| ast_sub_02-F8 | low | open | pkg/ast/normal_forms/skolemizer.go:324-331; nnf.go convertLabel | MkNot(q) still built before MkNot(value) |
+| ast_sub_03-F1 | low | open | pkg/ast/proofs/reduce_hypotheses_legacy.go:36-42 | first unit proof still wins |
+| ast_sub_03-F2 | low | open | pkg/ast/proofs/checker.go:195-207 | sameEquivalence still compares kinds without family |
+| ast_sub_03-F3 | low | open | pkg/ast/proofs/checker_rules.go:61,69 | checkQuantIntro still uses c.equiv (accepts =, mixed ~/iff) |
+| ast_sub_03-F4 | low | open | pkg/ast/substitution/substitution_tree_visit.go:179 | visitRoot still returns only error; stop signal lost |
+| ast_sub_03-F5 | low | open | pkg/ast/proofs/elim_aux_assertions.go:97-98, 213-214 | debug-only SASSERTs still errors in every build |
+| cmd_context_01-F10 | low | open | pkg/cmd_context/macros.go:158 | restoreMacros still deletes the map entry |
+| cmd_context_01-F11 | low | open | pkg/cmd_context/array_map.go:59 | no Array-availability check; ": %w" suffix remains |
+| cmd_context_01-F12 | low | open | pkg/cmd_context/context.go:473 | OS error still appended to output-stream message |
+| cmd_context_01-F13 | low | open | pkg/cmd_context/apply_tactic.go:57 | ApplyTactic still calls SetLogic |
+| cmd_context_01-F14 | low | open | pkg/cmd_context/context.go:1458-1466 | Pop still restores psorts, macros (backward), declarations in Go order |
+| cmd_context_01-F15 | low | open | pkg/cmd_context/model_completion.go:203 | evaluator without max_degree/sort_store; scan skips quantifiers |
+| cmd_context_01-F16 | low | open | pkg/cmd_context/opb_terms.go:30; pkg/shell/opb_frontend.go:43 | OPB loader still flat MkAndArray, string symbols, QF_LIA |
+| cmd_context_02-F12 | low | open | pkg/cmd_context/parser_bindings.go:42-44 | existing sort name still an error |
+| cmd_context_02-F13 | low | open | pkg/cmd_context/solver_factory_strategic.go:14 | still logic %q quoting |
+| cmd_context_02-F7 | low | open | pkg/cmd_context/results.go:572-573; result_access.go:124 | produce-unsat-cores off and unavailable still merged into one message |
+| cmd_context_02-F8 | low | open | pkg/cmd_context/sort_declarations.go:131; datatype_declarations.go:84; context.go:1190,1194; parsers/smt2/commands.go:1872,2032 | sort-constructor arity texts still Go-specific |
+| duality_01-F7 | low | open | pkg/duality/elim_ite.go:104-125; fourier_motzkin.go:119-123 | ElimIte and FM still build left to right |
+| duality_01-F8 | low | open | pkg/duality/gauss_elim.go:111-116; fourier_motzkin.go:104 | projector stdout diagnostics still missing |
+| duality_02-F6 | low | open | pkg/duality/model_constraints.go:77,214 | MkEq still builds iff for Boolean parameters |
+| duality_02-F7 | low | open | pkg/duality/projection_bounds.go:130-143; projection_index.go | canonical still normalizes bound before building (- lhs); n-ary -/* handling unchanged |
+| duality_03-F3 | low | open | pkg/duality/subst_atom.go:46-47, 86-90 | and/or/not recognized by decl kind without family check |
+| duality_03-F4 | low | open | pkg/duality/wrapper_ast.go:231-234 | Sort.Kind still maps arith kind 0 to Int, 1 to Real (swapped) |
+| duality_03-F5 | low | open | pkg/duality/unwinding_extend.go:56 | eager deduction still uses services.Bounds.Checker (Local), not gen_cands_rpfp |
+| duality_03-F6 | low | open | pkg/duality/unwinding_feasible.go:104 | deferred Pop still restores the scope C++ leaks |
+| duality_03-F7 | low | open | pkg/duality/term_tree.go:85-100 | Close still releases children and terms back to front |
+| interp_01-F16 | low | open | pkg/interp/manager.go:155-160, 209-218 | pi/e still not classified as Numeral |
+| interp_01-F17 | low | open | pkg/interp/checker.go:59 | parents API still builds tree scopes for the second diagnostic |
+| math_misc_01-F6 | low | open | pkg/math/interval/arbitrary_root.go:387-390 (and fast/fixed/hardware copies) | Go still sets one=1; no fork fix in src/math/interval and no exclusion |
+| math_misc_01-F7 | low | open | pkg/math/automata/automaton_compress_sink.go:5 | sinkify_dead_states still has no TRACE("seq") |
+| math_misc_01-F8 | low | open | pkg/math/automata/symbolic.go; automaton.go:89; math/interval/dependent_*.go (10 files); grobner.go:743 | Go-only helper APIs still present |
+| math_misc_02-F4 | low | open | pkg/math/simplex/model_based_opt.go:1097-1126 | DisplayRow spacing still differs from model_based_opt::display |
+| math_misc_02-F5 | low | open | pkg/math/interval/modular_interval_negate.go:12-13 | loose Negate still keeps size and tight=true |
+| math_polynomial_01-F2 | low | open | pkg/math/polynomial/polynomial_evaluation_algebraic.go:242-248 | t_eval still calls AlgebraicRootCore directly, skipping manager anum_detail traces |
+| math_polynomial_03-F1 | low | open | pkg/math/polynomial/polynomial_composition.go (ComposeXMinusConstant) | "x - c:" trace still missing |
+| math_polynomial_03-F2 | low | open | pkg/math/polynomial/polynomial_discriminant.go:76 | "discriminant sign:" trace still missing |
+| math_polynomial_04-F3 | low | open | pkg/math/polynomial/polynomial_gcd_simplify.go, polynomial_gcd_content.go, polynomial_ge.go | non-4.7.1 helpers still present and used by nlsat simplify_* files |
+| math_polynomial_05-F1 | low | open | pkg/math/polynomial/polynomial_lazard_trace.go:68 | Y still displayed as a polynomial |
+| math_polynomial_05-F2 | low | open | pkg/math/polynomial/polynomial_monomial_factory.go:338-350 | convertCreated still never grows the scratch monomial |
+| math_polynomial_06-F1 | low | open | pkg/math/polynomial/polynomial_quasi_resultant.go | per-iteration quasi_resultant trace still missing |
+| math_polynomial_06-F2 | low | open | pkg/math/polynomial/polynomial_quasi_resultant.go:33 | history still appended per call without bound |
+| math_polynomial_08-F2 | low | open | pkg/math/polynomial/upolynomial_division.go:41-64 | CTRACE upolynomial !divides record still missing |
+| math_realclosure_01-F13 | low | open | pkg/math/realclosure/query_*.go (8 files), root_dispatch_*.go, polynomial_*_any.go | test-only/post-4.7.1 facades still present |
+| math_realclosure_01b-F2 | low | open | pkg/math/realclosure/integer_content_value.go:11-37 | functionDenominator still not checked (is_denominator_one) |
+| math_realclosure_02-F5 | low | open | pkg/math/realclosure/value_compare_api.go:31-33 | degree-1 same-root shortcut still returns equal |
+| math_subpaving_02-F3 | low | open | pkg/math/subpaving/fixed_clause.go:198; fixed_context_propagate.go:190; fixed_search.go:55 | MPFX checkpoints still skip max_memory/cooperate |
+| math_subpaving_03-F4 | low | open | pkg/math/subpaving/hardware_search_trace.go:24,31 | epsilon/max_bound still ToString (scientific) |
+| math_subpaving_03-F5 | low | open | pkg/math/subpaving/tactic/arbitrary_goal_internalize.go | ref_buffer inc/dec records missing; dec-ref uses tactic display proc |
+| math_subpaving_04-F4 | low | open | pkg/math/subpaving/tactic/selected_tactic_adapter.go:162-168 | ResetStatistics still does not reset inner core |
+| model_01-F6 | low | open | pkg/model/model_evaluator.go:686-699 | Boolean branch still re-evaluates and traces the reduced app |
+| model_01-F7 | low | open | pkg/model/model_translation.go:85-108 | Translate still translates the key before the value |
+| model_01-F8 | low | open | pkg/model/model_implicant_check_trace.go:12-20 | concrete state still printed as unknown |
+| model_01-F9 | low | open | pkg/model/model_printers.go:133 (WriteDebug), model_v2_display.go, fpa/bv2fpa_display.go | debug/v2/bv2fpa printers still drop the indent argument |
+| muz_base_01-F1 | low | open | pkg/muz/base/boogie_proof.go:229-233 | inner loop still tests the premise fact, not the proof |
+| muz_base_01-F2 | low | open | pkg/muz/base/boogie_proof.go (getSubstitution); pkg/muz/fp/pdr_certificate.go:54; pkg/muz/pdr/context_certificate.go:65 | get_subst dump missing; callers still pass io.Discard |
+| muz_base_01-F3 | low | open | pkg/muz/base/hnf_proof_worklist.go:192 (MkNot up front), :431-436 | proof-mode HNF still builds negations before memo/freshHead and def_intro before update_quantifier |
+| muz_base_01-F4 | low | open | pkg/muz/base/datalog_context_query_prepare.go:24-29; datalog_context_query_signature.go:11 | AddQuery still uses hoister without rewrite; extra names>sorts error remains |
+| muz_base_02-F5 | low | open | pkg/muz/base/rule_set.go (InheritPredicates loop at +16..+24) | pred2orig still rebuilt from orig2pred |
+| muz_fp_02-F6 | low | open | pkg/muz/fp/datalog_parser_domains.go:17-31; datalog_parser.go:31-39 | legacy muz/fp Datalog parser still present (no non-test callers) and still differs from dparser |
+| muz_fp_03-F10 | low | open | pkg/muz/fp/ddnf_engine.go:114 | still errors.New("Negation is not stratified!"), not ErrUnstratifiedNegation |
+| muz_fp_04-F4 | low | open | pkg/muz/fp/pdr_engine.go:778 | out-of-range pdr.cache_mode still aborts the query |
+| muz_fp_04-F5 | low | open | pkg/muz/fp/propositional_engine.go:971,1010,1025 | UpdateRule rejection texts still Go-specific |
+| muz_fp_04-F6 | low | open | pkg/muz/fp/propositional_engine.go:2653-2656 | multi-relation query on non-Datalog engine still records "approximated" |
+| muz_pdr_01-F6 | low | open | pkg/muz/pdr/generalizer_induction.go:495; generalizers.go:219-221 | induction generalizer still runs on empty cores |
+| muz_pdr_01-F7 | low | open | pkg/muz/pdr/generalizer_induction.go:322 | transition axiom still flat MkOrArray |
+| muz_pdr_01-F8 | low | open | pkg/muz/pdr/generalizer_arithmetic.go:289 | bound pairs still in encounter order, not r_map order |
+| muz_pdr_02-F8 | low | open | pkg/muz/pdr/result_validation.go:37,114; validate_model.go:246 | validation solvers still skip PDR arithmetic settings |
+| muz_pdr_02-F9 | low | open | pkg/muz/pdr/pdr_closure.go:289-310; prop_solver.go:515 | current still built before sum; bv numeral 1 used instead of bit1 |
+| muz_rel_01-F2 | low | open | pkg/muz/rel/bound_relation.go:142-155 | Go-only seen guard in addBound remains, not recorded as a fork deviation |
+| muz_rel_01-F3 | low | open | pkg/muz/rel/doc_cube.go (FoldNeg returns WellFormed); doc_projection.go:558 | debug SASSERT(well_formed) still turned into results/errors |
+| muz_rel_01-F4 | low | open | pkg/muz/rel/doc_solver.go:16-31 | ToFormula still simplifies (drops true, MkNotSimplified) |
+| muz_rel_04-F6 | low | open | pkg/muz/rel/lazy_table*.go (6 files), sieve_operations.go | Go-only Hash LazyTable and SieveRelation operations still present |
+| muz_rel_05-F4 | low | open | pkg/muz/rel/sieve_relation*.go (11 files), table_relation_intersection.go | HashTable SieveRelation layer and FilterByIntersection still present |
+| muz_small_01-F11 | low | open | pkg/muz/dataflow/reachability.go:189 | TopDown still propagates through RuleSet.Dependencies |
+| muz_small_02-F4 | low | open | pkg/muz/tab/query.go:146 | extra tautology check kept, not recorded in z3_bug_exclusions.txt |
+| muz_spacer_01-F6 | low | open | pkg/muz/spacer/context_diagnostics.go:33 (only 8 call sites) | Spacer IF_VERBOSE progress output still largely unported |
+| muz_spacer_01-F7 | low | open | pkg/muz/spacer/context_validate.go:24,167 | validation failure texts still Go-specific; nothing written to verbose |
+| muz_spacer_02-F6 | low | open | pkg/muz/spacer/predicate_reach.go, prop_solver.go, predicate_reachability.go | most spacer TRACE sites (updating reach ctx, add_formula) still missing |
+| muz_spacer_02-F7 | low | open | pkg/muz/spacer/virtual_solver_dump.go:68 | benchmark dump format/recheck still differs |
+| muz_transforms_01-F7 | low | open | pkg/muz/transforms/filter_rules.go | still no mk_rule_asserted_proof / mk_rule_rewrite_proof |
+| muz_transforms_01-F8 | low | open | pkg/muz/transforms/magic_sets.go:287-335 | unboundCost still ignores try_get_sort_constant_count |
+| nlsat_01-F5 | low | open | pkg/nlsat/fourier_motzkin_patch*.go, explain_maximize.go; solver.go:377 | FM patch and Maximize (no 4.7.1 counterpart) still present |
+| nlsat_01-F6 | low | open | pkg/nlsat/clause_empty_normalize.go:3-12 | still silently makes [false]; header still cites unrelated lines |
+| nlsat_02-F3 | low | open | pkg/nlsat/simple_checker*.go, simplify_*.go (73 files); solver.go:377 | test-only post-4.7.1 simplify family still present |
+| nlsat_03-F10 | low | open | pkg/nlsat/simplify_*.go, univariate_conjunction.go, tactic/model_projection.go, solver.go:412 | unreachable non-4.7.1 code and simplifications counter remain |
+| nlsat_03-F9 | low | open | pkg/nlsat/tactic/nlsat2goal.go:71-99, 207 | left-nested binary products/sums, atom-wide integer flag, nlsat-root-<n> names remain (latent) |
+| opt_01-F7 | low | open | pkg/opt/maxsmt_engine_select.go:9-17 | unknown maxsat_engine still mapped without warning |
+| opt_02-F6 | low | open | pkg/opt/maxsmt_engine_select.go:9-17 | unknown opt.maxsat_engine still silent (no warning_msg) |
+| parsers_shell_01-F13 | low | open | pkg/shell/dimacs_statistics.go:15 | total time still rounded to 10 ms before update |
+| parsers_shell_01-F15 | low | open | pkg/parsers/smt2/debug_commands.go:612,622 | dbg-sexpr atoms still Go-formatted |
+| parsers_shell_01-F16 | low | open | pkg/parsers/util/pattern_validation.go:46-115 | no visited set; warns per occurrence |
+| parsers_shell_01-F18 | low | open | pkg/shell/command_line.go:237 | invalid option message still keeps the :argument part |
+| qe_01-F7 | low | open | pkg/qe/arithmetic_project.go:412-420 | mod still created before the integer 0 |
+| qe_01-F8 | low | open | pkg/qe/arithmetic_qe_relation.go:47-58, 108-119 | zero case still rewrites p |
+| qe_01-F9 | low | open | pkg/qe/arithmetic_branch_definition_div.go:22, arithmetic_branch_definition_finite.go | test-only definition APIs still present and divergent (OP_DIV) |
+| qe_02-F2 | low | open | pkg/qe/legacy_arithmetic_factor_mod.go:195 | still MkAndArray (collapses singleton) |
+| qe_02-F8 | low | open | pkg/qe/expr_quantifier_tree_pop_bool.go:39-45 | partition still computed twice |
+| qe_03-F7 | low | open | pkg/qe/legacy_projection.go (project) | "Before projection" trace still missing |
+| qe_04-F3 | low | open | pkg/qe/qe_datatype_plugin_atoms.go:122-123 | seen set still reset per pass |
+| qe_05-F7 | low | open | pkg/qe/simplify_quantifier_rewriter.go:249 | update_quantifier still built before reduce_quantifier |
+| sat_01-F5 | low | open | pkg/sat/sat_cleaner.go:164 | cleanup still calls extension.Simplify() |
+| sat_01-F6 | low | open | pkg/sat/dimacs_parse.go:26 | ReadDIMACSCNF still a strings.Fields tokenizer |
+| sat_01-F7 | low | open | pkg/sat/sat_lut_run.go:37-48; 58 sat_aig/cut/lut files remain | test-only aig/cut/lut families not deleted; Run still consumes non-subset clauses |
+| sat_02-F4 | low | open | pkg/sat/sat_solver_conflict_helpers.go:108,318 | EXT_JUSTIFICATION antecedents fetched but not looped over |
+| sat_02-F5 | low | open | pkg/sat/sat_simplifier_cleanup.go:246-258 | needCleanup re-read at each finalize stage |
+| sat_03-F3 | low | open | pkg/sat/sat_solver_parallel_exchange.go | (sat-sync out: in:) verbose line still missing |
+| sat_04-F3 | low | open | pkg/sat/sat_solver_search.go:320 | boundedSearch still returns finalExtensionCheck's l_undef |
+| sat_05-F2 | low | open | pkg/sat/tactic/sat_tactic.go:522 | (ast-table ...) compact_memory verbose line not printed |
+| smtcore_01-F10 | low | open | pkg/smtcore/smt_asserted_propagate.go:180 | still returns after the "incompatible" trace; n -> true not inserted |
+| smtcore_01-F9 | low | open | pkg/smtcore/smt_assumptions.go:87 | invalid assumption still returns ErrASTDomain instead of warning + l_undef |
+| smtcore_02-F12 | low | open | pkg/smtcore/smt_context_display.go:114; smt_context_display_full.go:31 | true var p!0 still omitted; base-lvl still prints scope level |
+| smtcore_04-F6 | low | open | pkg/smtcore/smt_literal_display.go:21 | SMTLiteral.Display still ignores Z3_TRACE_NO_PP |
+| smtcore_04-F7 | low | open | pkg/smtcore/smt_kernel.go:1911 | SMTKernel.Display still uses NewLegacySMTPrinter (ast_smt_pp) instead of mk_ismt2_pp |
+| smtcore_04-F8 | low | open | pkg/smtcore/smt_kernel_results.go:143-157 | relevant literals still collected in trail order inside assignedLiterals loop |
+| smtcore_05-F9 | low | open | pkg/smtcore/smt_model_checker.go:607-623 | blocking clause still added before the exhausted break |
+| smtcore_06-F13 | low | open | pkg/smtcore/smt_solver_objective.go:71 | arith.solver=5 still installs theory_inf_arith |
+| smtcore_07-F4 | low | open | pkg/smtcore/smt_theory_arith_core.go:1152-1163 | numeral 1 still created before the lo atom |
+| smtcore_07-F5 | low | open | pkg/smtcore/smt_theory_arith_core.go:3279-3288 | explainBound still lacks the has_justification() continue |
+| smtcore_07-F6 | low | open | pkg/smtcore/smt_theory_arith_core.go (mkAxiom) | rewritten negation still held by function-scope ref until return |
+| smtcore_07-F7 | low | open | pkg/smtcore/smt_theory_arith_core.go:192 | processAtoms still reads cumulative statistics.NumConflicts |
+| smtcore_10-F11 | low | open | pkg/smtcore/theory_bv.go (NewDisequality) | expand_diseq trace record/counters not ported |
+| smtcore_10-F13 | low | open | pkg/smtcore/theory_diff_logic_integer.go:448-466 | integer diff Propagate still uses traverse_neg_cycle explanations (latent; real/mixed path correct) |
+| smtcore_11-F5 | low | open | pkg/smtcore/theory_lra_operator_axioms.go:250-271 (rem), 162-193 (to_int) | LRA rem/to_int axiom terms still built in Go order |
+| smtcore_11-F6 | low | open | pkg/smtcore/theory_opt.go:112-136 | IsLinear still accepts n-ary (* 2 x y) |
+| smtcore_14-F4 | low | open | pkg/smtcore/proto_model/cleanup.go:165-177 | unused aux decls not pruned from ModelCore.declarations (m_decls) |
+| solver_misc_01-F2 | low | open | pkg/solver/solver.go (DefaultGetConsequences, core, e := s.UnsatCore()) | inner e still shadows; errors dropped |
+| solver_misc_01-F3 | low | open | pkg/solver/solver_tactic.go:482,510,532,559 | smt_tactic-only precision checks, message and params remain |
+| solver_misc_02-F1 | low | open | pkg/cmd/g3/main.go:64-68 | Go-only -h / -version text still printed |
+| tactic_arith_02-F7 | low | open | pkg/tactic/arith/lia2card_comparison.go:168-173 | pbge still built before pble |
+| tactic_arith_03-F10 | low | open | pkg/tactic/arith/qfnra_purify_tactic.go:480-495; qfnra_purify_inverse_trig.go:110-120 | zero-power not built before 0^0; inverse-trig guards both built before either is added (div order fixed by FUZZ_C-F7) |
+| tactic_bv_01-F7 | low | open | pkg/tactic/bv/bv_bounds_interval.go:129-152 | negated tight bounds still stored tight |
+| tactic_bv_01-F8 | low | open | pkg/tactic/bv/bv_bounds_*.go; bv_slice_*.go (8 files) | bv-bounds/bvarray2uf TRACE sites missing; non-4.7.1 bv_slice still present |
+| tactic_core_01-F6 | low | open | pkg/tactic/core/dom_simplify_trace.go:61 | dominator tree trace still writes s+"\n" before children |
+| tactic_core_02-F10 | low | open | pkg/tactic/core/split_clause_tactic.go:460-480; tseitin_cnf_encode.go | TRACE sites missing; proof-converter Display still writes |
+| tactic_core_02-F11 | low | open | pkg/tactic/core/tseitin_cnf_tactic.go (Translate) | Translate still copies numAux |
+| tactic_core_02-F7 | low | open | pkg/tactic/core/tseitin_cnf_encode.go:1153 | processed formula not replaced with true |
+| tactic_core_02-F8 | low | open | pkg/tactic/core/tseitin_cnf_encode.go:365-383 | memory still checked before cancel; CancelMessage() used |
+| tactic_core_02-F9 | low | open | pkg/tactic/core/symmetry_reduce_tactic.go:238 | removes selected index, not first occurrence |
+| tactic_sls_ufbv_01-F3 | low | open | pkg/tactic/sls/bvsls_optimizer.go, bvsls_moves.go, bvsls_model.go | dead-C++ BVOptimizer still present and divergent |
+| tactic_sls_ufbv_01-F4 | low | open | pkg/tactic/sls/sls_engine_runtime.go (CheckRestart) | still saturates restartNext at UINT_MAX for shift>=31 |
+| tactic_small_01-F8 | low | open | pkg/tactic/aig/aig_goal_formula.go:183 | mk_ite arguments still converted left to right |
+| tactic_small_01-F9 | low | open | pkg/tactic/nlsat_smt/nl_purify_trace.go | most nlsat_smt TRACE sites still missing |
+| tactic_small_02-F4 | low | open | pkg/tactic/portfolio/fd_tactic.go, fd_tactic_factory.go, fd_lazy_tactic.go | Go-only FD tactic code still present |
+| tactic_top_01-F8 | low | open | pkg/tactic/tactic_goal_display.go:258-264; tactic_goal_cnf.go; pkg/api/api_goal_dimacs.go:3 | Go-only newer DIMACS/CNF code and wrong Source headers remain |
+| util_lp_01-F1 | low | open | pkg/util/lp/driver_lar_examples.go:119-124; driver_arguments.go | LP driver reports still sorted/insertion order, not unordered_map order |
+| util_lp_04-F3 | low | open | pkg/util/lp/mps_reader_float.go:250; mps_reader_exact.go:255 | readLine still clears m.line after an unterminated last line |
+| util_lp_06-F2 | low | open | pkg/util/lp/smt_reader_constraint.go:22,117 | smtInteger still strconv.ParseInt, not atoi |
+| util_numeral_02-F2 | low | open | pkg/util/numeral/mpbq_format.go:105 | still two spaces before "(^ 2" |
+| util_numeral_03-F2 | low | open | pkg/util/numeral/mpf_power_memory_trace.go:14; mpf_powers_runtime.go | trace still prints Go wrapper header size; dealloc order not u_map order |
+| math_misc_01-F5 | low | partly | pkg/math/hilbert/hilbert_basis.go:465,476; ordered_saturate.go:48,75; pkg/muz/fp/datalog_relation_plugins.go:41-44 | loop shapes fixed; karr checkpoint closure still only reads Canceled() and never increments the limit |
+| muz_rel_01-F7 | low | partly | checked_*.go deleted; pkg/muz/rel/check_table.go:22 remains | CheckedRelation family gone; dead CheckTable (no non-test caller) still present |
+| smtcore_06-F12 | low | partly | pkg/smtcore/smt_quick_checker.go:255 (FindApp used), :586-595, smt_quantifier_manager.go:101 | (b) congruence via FindApp fixed; (a) recursive nesting order, (c) long-lived checker remain |
+| tactic_bv_01-F6 | low | partly | pkg/tactic/bv/elim_small_bv_tactic.go:134-146 (param descrs fixed), :388 Apply | still no tactic report, no :elim-small-bv-num-eliminated progress, no traces |
+
+
 <a id="fuzz-f1"></a>
+
 #### FUZZ-F1: `SMTTheoryArith.addRelWatch` fails on the true literal, so `rem` with a numeral divisor answers `unknown`
 
 - Severity: high
