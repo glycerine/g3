@@ -132,43 +132,22 @@ func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer
 				return err
 			}
 			if forall {
-				proof, err := g.extractCounterexampleProof(node, make(map[*Node]bool), factory, background...)
+				// FORK FIX #63: the original rule's witness, else the
+				// counterexample model's value of each skolem.
+				witness, hasWitness, err := g.findStepWitness(factory, node, background)
 				if err != nil {
 					return err
 				}
-				defer func() { result = errors.Join(result, m.DelRef(&proof)) }()
-				ph, err := m.RefGet(proof)
-				if err != nil {
-					return err
-				}
-				substitutions, err := ast.NewASTProofHyperOutput(m)
-				if err != nil {
-					return err
-				}
-				defer func() { result = errors.Join(result, substitutions.Close()) }()
-				conclusion, err := m.NewRef(ast.ASTHandle{})
-				if err != nil {
-					return err
-				}
-				defer func() { result = errors.Join(result, m.DelRef(&conclusion)) }()
-				var premises []ast.ASTHandle
 				defer func() {
-					for _, p := range premises {
-						result = errors.Join(result, m.DecRef(p))
+					for i := range witness {
+						result = errors.Join(result, m.DelRef(&witness[i]))
 					}
 				}()
-				matched, err := m.MatchProofHyperResolve(ph, &premises, conclusion, substitutions)
+				bound, err := m.GetNumDeclarations(clause)
 				if err != nil {
 					return err
 				}
-				if !matched {
-					return ErrProofWitness
-				}
-				values, err := substitutions.Substitution(0)
-				if err != nil {
-					return err
-				}
-				for i := range values {
+				for i := 0; i < int(bound); i++ {
 					name, err := m.GetDeclarationName(clause, uint32(i))
 					if err != nil {
 						return err
@@ -185,6 +164,27 @@ func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer
 					if err != nil {
 						return err
 					}
+					// expr val = has_witness ? witness[j] : tree->Eval(&edge, skolem)
+					var value ast.ASTHandle
+					var evaluated *Expr
+					if hasWitness {
+						value, err = m.RefGet(witness[i])
+					} else {
+						var skolem *Expr
+						if skolem, err = NewExpr(g.context, constant); err == nil {
+							evaluated, err = g.Eval(edge, skolem)
+							err = errors.Join(err, skolem.Close())
+							if err == nil {
+								value, err = evaluated.Raw()
+							}
+						}
+					}
+					if err != nil {
+						if evaluated != nil {
+							err = errors.Join(err, evaluated.Close())
+						}
+						return errors.Join(err, m.DelRef(&ref))
+					}
 					err = func() error {
 						if _, err := io.WriteString(out, "    (= "); err != nil {
 							return err
@@ -195,7 +195,7 @@ func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer
 						if _, err := io.WriteString(out, " "); err != nil {
 							return err
 						}
-						if err := writeExpr(out, values[len(values)-1-i]); err != nil {
+						if err := writeExpr(out, value); err != nil {
 							return err
 						}
 						_, err := io.WriteString(out, ")\n")
@@ -220,6 +220,9 @@ func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer
 							e = errors.Join(e, localTerm.Close())
 						}
 						err = e
+					}
+					if evaluated != nil {
+						err = errors.Join(err, evaluated.Close())
 					}
 					err = errors.Join(err, m.DelRef(&ref))
 					if err != nil {
