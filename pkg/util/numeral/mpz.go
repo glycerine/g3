@@ -1397,6 +1397,13 @@ func (m *IntegerManager) publishTmpAtWithAllocationContext(idx int, dst *Int, si
 		return arena.ErrInvalidSlot
 	}
 	ref := m.Tmp[idx]
+	// The top-down zero scan reads the payload once (Digit's limits and
+	// bounds panic, without a cell lookup per limb).
+	if d, limit, ok := m.digitsDirect(ref); ok {
+		for size > 0 && directDigit(d, limit, size-1) == 0 {
+			size--
+		}
+	}
 	for size > 0 && m.Digit(ref, size-1) == 0 {
 		size--
 	}

@@ -331,31 +331,27 @@ func (m *NaturalManager) divideMany(size, n uint32, q limbView) error {
 		small := uint32(qh)
 		// Source mul(&small,1,v,n,ms), Algorithm M with the zero-digit branch.
 		m.traceMPNBinary([]uint32{small}, m.Division[v][:n], "*")
-		m.sourceDivWrite(ms, 0, 0)
-		for i := uint32(0); i < n; i++ {
-			digit := m.sourceDivRead(v, i)
+		// The loops below read and write the same limbs as sourceDivRead
+		// and sourceDivWrite, through slices taken once per step.
+		vd, msd, ud := m.Division[v][:n], m.Division[ms][:n+1], m.Division[u][j:j+n+1]
+		msd[0] = 0
+		for i, digit := range vd {
 			if digit == 0 {
-				m.sourceDivWrite(ms, i+1, 0)
+				msd[i+1] = 0
 				continue
 			}
-			t := uint64(small)*uint64(digit) + uint64(m.sourceDivRead(ms, i))
-			m.sourceDivWrite(ms, i, uint32(t))
-			m.sourceDivWrite(ms, i+1, uint32(t>>32))
+			t := uint64(small)*uint64(digit) + uint64(msd[i])
+			msd[i] = uint32(t)
+			msd[i+1] = uint32(t >> 32)
 		}
 		m.traceMPNUnary(m.Division[ms][:n+1], 427, true)
 		m.traceMPNBinary(m.Division[u][j:j+n+1], m.Division[ms][:n+1], "-")
 		var borrow uint32
-		for i := uint32(0); i < n+1; i++ {
-			a, b := m.sourceDivRead(u, j+i), m.sourceDivRead(ms, i)
-			r := a - b
-			c1 := r > a
-			out := r - borrow
-			c2 := out > r
-			m.sourceDivWrite(u, j+i, out)
-			borrow = 0
-			if c1 || c2 {
-				borrow = 1
-			}
+		for i, a := range ud {
+			// a - b - borrow with the source's borrow out (r > a || out > r).
+			d := uint64(a) - uint64(msd[i]) - uint64(borrow)
+			ud[i] = uint32(d)
+			borrow = uint32(d>>63) & 1
 		}
 		m.traceMPNUnary(m.Division[u][j:j+n+1], 427, true)
 		q.write(j, small)
