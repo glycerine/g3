@@ -10,7 +10,6 @@ import (
 	"errors"
 	"io"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -162,20 +161,6 @@ func (m *RelationManager) closeRelationElements() (result error) {
 	}
 	m.arithElements, m.arithIndex = nil, nil
 	return result
-}
-
-// relationNumeral is arith_util::is_numeral(e, r) into a big.Rat
-// (karr_relation's numerals until they hold rationals).
-func relationNumeral(m *ast.ASTManager, value ast.ASTHandle) (*big.Rat, bool, error) {
-	text, _, matched, err := m.ArithmeticNumeralText(value)
-	if err != nil || !matched {
-		return nil, false, err
-	}
-	number, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
-	}
-	return number, true, nil
 }
 
 // relationRational is arith_util::is_numeral(e, r): r is a rational of the

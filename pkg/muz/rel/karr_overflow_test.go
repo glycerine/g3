@@ -12,11 +12,11 @@ func TestKarrDualizationOverflowPreservesOwners(t *testing.T) {
 	largeInt := new(big.Int).Lsh(big.NewInt(1), 63)
 	large := new(big.Rat).SetInt(largeInt)
 	source := NewKarrEmpty(karrTestQ(), 1, nil)
-	if err := source.AddFact([]*big.Rat{large}); err != nil {
+	if err := source.AddFactRat([]*big.Rat{large}); err != nil {
 		t.Fatal(err)
 	}
 	target := NewKarrEmpty(karrTestQ(), 1, nil)
-	if err := target.AddFact([]*big.Rat{big.NewRat(4, 1)}); err != nil {
+	if err := target.AddFactRat([]*big.Rat{big.NewRat(4, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	before, err := target.Inequalities()
@@ -39,7 +39,7 @@ func TestKarrDualizationOverflowPreservesOwners(t *testing.T) {
 		}
 	}
 	small := NewKarrEmpty(karrTestQ(), 1, nil)
-	if err := small.AddFact([]*big.Rat{big.NewRat(5, 1)}); err != nil {
+	if err := small.AddFactRat([]*big.Rat{big.NewRat(5, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	if changed, err := target.Union(small, nil); err != nil || !changed {
@@ -50,16 +50,21 @@ func TestKarrDualizationOverflowPreservesOwners(t *testing.T) {
 	homogeneous := NewKarrFull(karrTestQ(), 1, nil)
 	homogeneous.inequalitiesValid = false
 	homogeneous.basisValid = true
-	homogeneous.basis.append([]big.Rat{*large}, big.NewRat(0, 1), true)
+	if err := karrPushBig(homogeneous.q, &homogeneous.basis, []big.Rat{*large}, big.NewRat(0, 1), true); err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 2; i++ {
 		if _, err := homogeneous.Inequalities(); !errors.Is(err, hilbert.ErrOverflow) {
 			t.Fatal("large homogeneous row", err)
 		}
-		if homogeneous.inequalitiesValid || homogeneous.basis.A[0][0].Cmp(large) != 0 {
+		entry, err := karrBig(homogeneous.q, &homogeneous.basis.A[0][0])
+		if err != nil || homogeneous.inequalitiesValid || entry.Cmp(large) != 0 {
 			t.Fatal("failed homogeneous conversion changed basis")
 		}
 	}
-	homogeneous.basis.A[0][0].SetInt64(1)
+	if err := homogeneous.q.SetInt64(&homogeneous.basis.A[0][0], 1); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := homogeneous.Inequalities(); err != nil {
 		t.Fatal("homogeneous retry", err)
 	}

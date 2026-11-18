@@ -29,7 +29,7 @@ func evaluateKarr(row []big.Rat, constant *big.Rat, point []int64) big.Rat {
 	return result
 }
 
-func requireKarrPoint(t *testing.T, matrix KarrMatrix, point []int64) {
+func requireKarrPoint(t *testing.T, matrix karrBigMatrix, point []int64) {
 	t.Helper()
 	for i := range matrix.A {
 		value := evaluateKarr(matrix.A[i], &matrix.B[i], point)
@@ -41,11 +41,11 @@ func requireKarrPoint(t *testing.T, matrix KarrMatrix, point []int64) {
 
 func TestKarrFactUnionAndDualization(t *testing.T) {
 	first := NewKarrEmpty(karrTestQ(), 2, nil)
-	if err := first.AddFact([]*big.Rat{karrRat(1), karrRat(2)}); err != nil {
+	if err := first.AddFactRat([]*big.Rat{karrRat(1), karrRat(2)}); err != nil {
 		t.Fatal(err)
 	}
 	second := NewKarrEmpty(karrTestQ(), 2, nil)
-	if err := second.AddFact([]*big.Rat{karrRat(2), karrRat(4)}); err != nil {
+	if err := second.AddFactRat([]*big.Rat{karrRat(2), karrRat(4)}); err != nil {
 		t.Fatal(err)
 	}
 	changed, err := first.Union(second, nil)
@@ -68,11 +68,11 @@ func TestKarrFactUnionAndDualization(t *testing.T) {
 
 func TestKarrJoinProjectAndRename(t *testing.T) {
 	left := NewKarrEmpty(karrTestQ(), 2, nil)
-	if err := left.AddFact([]*big.Rat{karrRat(2), karrRat(3)}); err != nil {
+	if err := left.AddFactRat([]*big.Rat{karrRat(2), karrRat(3)}); err != nil {
 		t.Fatal(err)
 	}
 	right := NewKarrEmpty(karrTestQ(), 1, nil)
-	if err := right.AddFact([]*big.Rat{karrRat(2)}); err != nil {
+	if err := right.AddFactRat([]*big.Rat{karrRat(2)}); err != nil {
 		t.Fatal(err)
 	}
 	joined, err := KarrJoin(left, right, []uint32{0}, []uint32{0})
@@ -134,7 +134,9 @@ func karrPushRow(r *KarrRelation, row []big.Rat, constant *big.Rat, equal bool) 
 	if err := r.getIneqs(); err != nil {
 		return err
 	}
-	r.inequalities.append(row, constant, equal)
+	if err := karrPushBig(r.q, &r.inequalities, row, constant, equal); err != nil {
+		return err
+	}
 	r.basisValid = false
 	return nil
 }

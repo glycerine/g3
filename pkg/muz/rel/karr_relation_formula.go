@@ -4,10 +4,10 @@ package rel
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // ToFormula is karr_relation::to_formula: false when empty, otherwise the
@@ -30,10 +30,11 @@ func (r *KarrRelation) ToFormula(manager *ast.ASTManager, sorts []ast.ASTHandle)
 	if err != nil {
 		return result, err
 	}
-	matrix, err := r.Inequalities()
-	if err != nil {
+	// matrix const& M = get_ineqs()
+	if err = r.getIneqs(); err != nil {
 		return result, err
 	}
+	matrix := &r.inequalities
 	// conj: the expr_ref_vector of the row formulas.
 	var conj []ast.ASTRef
 	owned := false
@@ -51,7 +52,7 @@ func (r *KarrRelation) ToFormula(manager *ast.ASTManager, sorts []ast.ASTHandle)
 		if len(row) != int(r.dimension) {
 			return result, ErrKarrDimension
 		}
-		formula, err := karrRowFormula(manager, family, row, &matrix.B[rowIndex], matrix.Eq[rowIndex])
+		formula, err := karrRowFormula(manager, r.q, family, row, &matrix.B[rowIndex], matrix.Eq[rowIndex])
 		if err != nil {
 			return result, err
 		}
@@ -76,7 +77,7 @@ func (r *KarrRelation) ToFormula(manager *ast.ASTManager, sorts []ast.ASTHandle)
 // karrRowFormula is karr_relation::to_formula(row, b, is_eq, conj): the
 // pushed formula as an owned reference. Its locals sum, zero and lhs die at
 // the return (lhs, zero, then sum).
-func karrRowFormula(manager *ast.ASTManager, family ast.FamilyID, row []big.Rat, b *big.Rat, isEq bool) (result ast.ASTRef, resultErr error) {
+func karrRowFormula(manager *ast.ASTManager, q *numeral.RationalManager, family ast.FamilyID, row []numeral.Rational, b *numeral.Rational, isEq bool) (result ast.ASTRef, resultErr error) {
 	var sum []ast.ASTRef
 	var zero, lhs ast.ASTRef
 	defer func() {
@@ -105,11 +106,10 @@ func karrRowFormula(manager *ast.ASTManager, family ast.FamilyID, row []big.Rat,
 	if err != nil {
 		return result, err
 	}
-	one := big.NewRat(1, 1)
 	terms := make([]ast.ASTHandle, 0, len(row)+1)
 	for i := range row {
 		coefficient := &row[i]
-		if coefficient.Sign() == 0 {
+		if coefficient.IsZero() {
 			continue
 		}
 		variable, err := manager.MkVar(uint32(i), intSort)
@@ -117,8 +117,12 @@ func karrRowFormula(manager *ast.ASTManager, family ast.FamilyID, row []big.Rat,
 			return result, err
 		}
 		term := variable
-		if coefficient.Cmp(one) != 0 {
-			numeral, err := manager.ArithmeticNumeralRat(coefficient, true)
+		isOne, err := q.IsOne(coefficient)
+		if err != nil {
+			return result, err
+		}
+		if !isOne {
+			numeral, err := manager.ArithmeticNumeralFromRational(coefficient, true)
 			if err != nil {
 				return result, err
 			}
@@ -133,8 +137,8 @@ func karrRowFormula(manager *ast.ASTManager, family ast.FamilyID, row []big.Rat,
 		sum = append(sum, ref)
 		terms = append(terms, h)
 	}
-	if b.Sign() != 0 {
-		ref, h, err := hold(manager.ArithmeticNumeralRat(b, true))
+	if !b.IsZero() {
+		ref, h, err := hold(manager.ArithmeticNumeralFromRational(b, true))
 		if err != nil {
 			return result, err
 		}
