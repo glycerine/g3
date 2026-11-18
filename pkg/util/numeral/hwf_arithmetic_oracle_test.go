@@ -128,8 +128,8 @@ func TestHardwareFloatDirectedRoundingMatchesExactOracle(t *testing.T) {
 		var a, b float64
 		switch i % 4 {
 		case 0: // any finite bit patterns
-			a = math.Float64frombits(r.Uint64() &^ (0x7ff << 52) | uint64(r.Intn(0x7ff))<<52)
-			b = math.Float64frombits(r.Uint64() &^ (0x7ff << 52) | uint64(r.Intn(0x7ff))<<52)
+			a = math.Float64frombits(r.Uint64()&^(0x7ff<<52) | uint64(r.Intn(0x7ff))<<52)
+			b = math.Float64frombits(r.Uint64()&^(0x7ff<<52) | uint64(r.Intn(0x7ff))<<52)
 		case 1: // ordinary magnitudes
 			a = (r.Float64() - 0.5) * math.Ldexp(1, r.Intn(64)-32)
 			b = (r.Float64() - 0.5) * math.Ldexp(1, r.Intn(64)-32)
