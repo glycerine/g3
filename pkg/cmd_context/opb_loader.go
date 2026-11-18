@@ -13,9 +13,9 @@ type OPBLoadSummary struct {
 	Objectives  int
 }
 
-// LoadOPB expects an arithmetic-capable command context selected before its
-// manager is initialized. NewOPBFrontend selects QF_LIA for the live shell
-// consumer; direct users retain control of their solver strategy.
+// LoadOPB builds and registers the statements of an OPB document in file
+// order, as opb::parse does while it reads them: an objective is
+// opt.add_objective(t, false), a constraint opt.add_hard_constraint(t).
 func (c *Context) LoadOPB(document opt.OPBDocument) (OPBLoadSummary, error) {
 	if c == nil {
 		return OPBLoadSummary{}, fmt.Errorf("opb: nil command context")
@@ -24,41 +24,36 @@ func (c *Context) LoadOPB(document opt.OPBDocument) (OPBLoadSummary, error) {
 	if err != nil {
 		return OPBLoadSummary{}, err
 	}
-	zero, err := manager.ArithmeticIntegerNumeralText("0")
-	if err != nil {
-		return OPBLoadSummary{}, err
-	}
-	declarations := make(map[int32]ast.ASTHandle)
+	variables := make(map[uint32]bool)
 	summary := OPBLoadSummary{}
-	for index := range document.Objectives {
-		objective := &document.Objectives[index]
-		if len(objective.Terms) == 0 {
-			return OPBLoadSummary{}, fmt.Errorf("opb: objective %d is empty", index+1)
+	for index := range document.Statements {
+		statement := &document.Statements[index]
+		if len(statement.Terms) == 0 {
+			return OPBLoadSummary{}, fmt.Errorf("opb: statement %d is empty", index+1)
 		}
-		expression, e := c.makeOPBSum(objective.Terms, objective.MinimizeSyntax, declarations, zero)
+		if statement.Objective {
+			// parse_objective: t = mk_add(t, parse_term()) for min:,
+			// mk_sub for max:.
+			expression, e := c.makeOPBSum(statement.Terms, statement.MinimizeSyntax, variables)
+			if e == nil {
+				e = c.AddObjective(expression, false)
+			}
+			if e != nil {
+				return OPBLoadSummary{}, fmt.Errorf("opb: statement %d: %w", index+1, e)
+			}
+			summary.Objectives++
+			continue
+		}
+		left, e := c.makeOPBSum(statement.Terms, true, variables)
 		if e != nil {
-			return OPBLoadSummary{}, fmt.Errorf("opb: objective %d: %w", index+1, e)
+			return OPBLoadSummary{}, fmt.Errorf("opb: statement %d: %w", index+1, e)
 		}
-		if e = c.AddObjective(expression, false); e != nil {
-			return OPBLoadSummary{}, fmt.Errorf("opb: objective %d: %w", index+1, e)
-		}
-		summary.Objectives++
-	}
-	for index := range document.Constraints {
-		constraint := &document.Constraints[index]
-		if len(constraint.Terms) == 0 {
-			return OPBLoadSummary{}, fmt.Errorf("opb: constraint %d is empty", index+1)
-		}
-		left, e := c.makeOPBSum(constraint.Terms, true, declarations, zero)
-		if e != nil {
-			return OPBLoadSummary{}, fmt.Errorf("opb: constraint %d: %w", index+1, e)
-		}
-		right, e := opbNumeral(manager, constraint.Bound)
+		right, e := opbNumeral(manager, statement.Bound)
 		if e != nil {
 			return OPBLoadSummary{}, e
 		}
 		var formula ast.ASTHandle
-		switch constraint.Relation {
+		switch statement.Relation {
 		case opt.OPBGreaterEqual:
 			formula, e = manager.MkArithmeticGE(left, right)
 		case opt.OPBEqual:
@@ -66,16 +61,16 @@ func (c *Context) LoadOPB(document opt.OPBDocument) (OPBLoadSummary, error) {
 		case opt.OPBLessEqual:
 			formula, e = manager.MkArithmeticLE(left, right)
 		default:
-			return OPBLoadSummary{}, fmt.Errorf("opb: constraint %d has invalid relation", index+1)
+			return OPBLoadSummary{}, fmt.Errorf("opb: statement %d has invalid relation", index+1)
 		}
 		if e == nil {
 			e = c.Assert(formula, "")
 		}
 		if e != nil {
-			return OPBLoadSummary{}, fmt.Errorf("opb: constraint %d: %w", index+1, e)
+			return OPBLoadSummary{}, fmt.Errorf("opb: statement %d: %w", index+1, e)
 		}
 		summary.Constraints++
 	}
-	summary.Variables = len(declarations)
+	summary.Variables = len(variables)
 	return summary, nil
 }

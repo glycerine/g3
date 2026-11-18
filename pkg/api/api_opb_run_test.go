@@ -14,7 +14,7 @@ func TestSMTContextRunOPBReturnsCopiedHardResult(t *testing.T) {
 	if result.Status != lbool.True || result.Summary != (OPBLoadSummary{Variables: 1, Constraints: 1}) {
 		t.Fatal("OPB hard result", result.Status, result.Summary)
 	}
-	if len(result.Document.Constraints) != 1 || len(result.Document.Constraints[0].Terms[0].Literals) != 1 || result.Document.Constraints[0].Terms[0].Literals[0].Variable != 1 {
+	if len(result.Document.Statements) != 1 || len(result.Document.Statements[0].Terms[0].Literals) != 1 || result.Document.Statements[0].Terms[0].Literals[0].Variable != 1 {
 		t.Fatal("OPB copied document", result.Document)
 	}
 	if result.Output != "sat\n" || result.Elapsed <= 0 {

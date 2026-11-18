@@ -14,8 +14,9 @@ func TestParseOPBOptionalConstraintSemicolonsAndObjectiveEOF(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ParseOPB(%q): %v", input, err)
 		}
-		if len(document.Constraints) != 2 || len(document.Objectives) != 1 ||
-			len(document.Objectives[0].Terms) != 1 || document.Objectives[0].Terms[0].Coefficient != "2" {
+		s := document.Statements
+		if len(s) != 3 || s[0].Objective || s[1].Objective || !s[2].Objective ||
+			len(s[2].Terms) != 1 || s[2].Terms[0].Coefficient != "2" {
 			t.Fatalf("ParseOPB(%q): %#v", input, document)
 		}
 	}
@@ -31,18 +32,19 @@ min: + 2 x1 -3 ~x2 x3;
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(document.Objectives) != 1 || len(document.Constraints) != 2 || !document.Objectives[0].MinimizeSyntax {
+	s := document.Statements
+	if len(s) != 3 || !s[0].Objective || !s[0].MinimizeSyntax || s[1].Objective || s[2].Objective {
 		t.Fatalf("document = %#v", document)
 	}
-	terms := document.Objectives[0].Terms
+	terms := s[0].Terms
 	if len(terms) != 2 || terms[0].Coefficient != "2" || terms[1].Coefficient != "-3" {
 		t.Fatalf("objective terms = %#v", terms)
 	}
 	if len(terms[1].Literals) != 2 || terms[1].Literals[0] != (OPBLiteral{Variable: 2, Negative: true}) || terms[1].Literals[1] != (OPBLiteral{Variable: 3}) {
 		t.Fatalf("product = %#v", terms[1].Literals)
 	}
-	if document.Constraints[0].Relation != OPBGreaterEqual || document.Constraints[0].Bound != "1" || document.Constraints[1].Relation != OPBLessEqual {
-		t.Fatal("relations", document.Constraints)
+	if s[1].Relation != OPBGreaterEqual || s[1].Bound != "1" || s[2].Relation != OPBLessEqual {
+		t.Fatal("relations", s)
 	}
 }
 
@@ -51,7 +53,21 @@ func TestParseOPBPreservesMaxSyntaxAndEquality(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(document.Objectives) != 1 || document.Objectives[0].MinimizeSyntax || document.Constraints[0].Relation != OPBEqual {
+	s := document.Statements
+	if len(s) != 2 || !s[0].Objective || s[0].MinimizeSyntax || s[1].Relation != OPBEqual {
 		t.Fatal(document)
+	}
+}
+
+// The fork's reader consumes the "m" once; "mix1" then reads as the
+// coefficient-less term x1 of a constraint (FORK FIX #39).
+func TestParseOPBMPrefixFallsBackToConstraint(t *testing.T) {
+	document, err := ParseOPB(strings.NewReader("mix1 >= 1;"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := document.Statements
+	if len(s) != 1 || s[0].Objective || s[0].Terms[0].Coefficient != "0" || s[0].Terms[0].Literals[0].Variable != 1 {
+		t.Fatalf("%#v", document)
 	}
 }

@@ -996,8 +996,10 @@ func (c *Context) registerManagerPlugins(m *ast.ASTManager) error {
 // ast_manager whose datalog::context constructor runs reg_decl_plugins, so
 // datalog_relation gets family id 9 (before seq, fpa and pb) instead of the
 // cmd_context order. The family id enters every finite sort's hash, and so
-// the decl_set order of the output relations (AUDIT.md muz_rel_04-F1). It
-// must run before the manager exists; afterwards it reports false.
+// the decl_set order of the output relations (AUDIT.md muz_rel_04-F1).
+// opt_frontend's parse_opt makes the same bare manager for its
+// opt::context, with no cmd_context solver (AUDIT.md cmd_context_01-F16).
+// It must run before the manager exists; afterwards it reports false.
 func (c *Context) UseDatalogFrontendManager() bool {
 	if c.manager != nil {
 		return false

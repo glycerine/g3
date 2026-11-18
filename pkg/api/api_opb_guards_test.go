@@ -11,7 +11,7 @@ func TestSMTContextRunOPBGuardsAndSessionIsolation(t *testing.T) {
 	if _, err := f.c.RunOPB(nil, nil); !errors.Is(err, ErrSMTContextOwner) {
 		t.Fatal("nil OPB reader", err)
 	}
-	if _, err := f.c.RunOPB(strings.NewReader("1 x1 >= ;"), nil); err == nil {
+	if _, err := f.c.RunOPB(strings.NewReader("1 y1 >= 1;"), nil); err == nil {
 		t.Fatal("malformed OPB succeeded")
 	}
 	if _, err := f.c.RunOPBFile("", nil); err == nil {

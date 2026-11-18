@@ -38,10 +38,11 @@ func NewOPBFrontend(context *cmd_context.Context, output io.Writer, options OPBF
 	if context == nil || output == nil {
 		return nil, ErrOPBFrontend
 	}
-	// OPB terms are integer-valued ITEs over Boolean literals. Select the
-	// retained mixed Boolean/LIA strategy before the manager is initialized.
-	if err := context.SetLogic("QF_LIA"); err != nil {
-		return nil, err
+	// opt_frontend.cpp parse_opt: a bare ast_manager with reg_decl_plugins
+	// and a plain opt::context; no logic is set and no cmd_context solver
+	// exists.
+	if !context.UseDatalogFrontendManager() {
+		return nil, ErrOPBFrontend
 	}
 	timer := options.Timer
 	if timer == nil {
