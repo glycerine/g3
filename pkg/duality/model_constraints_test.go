@@ -76,7 +76,9 @@ func TestRPFPModelConstraintsRenameWithoutScalarCompletion(t *testing.T) {
 	must(err)
 	truth, err := m.MkTrue()
 	must(err)
-	expected, err := m.MkEq(xh, truth)
+	// AUDIT.md duality_02-F6: t == expr(ctx, r) is OP_EQ, not iff, for a
+	// Bool parameter.
+	expected, err := m.MkFamilyApp(m.BasicFamilyID(), int32(ast.ASTOpEq), nil, []ast.ASTHandle{xh, truth})
 	must(err)
 	requireConjoin(t, m, raw, expected)
 	after, err := g.dualModel.ConstantInterpretation(missingDecl)

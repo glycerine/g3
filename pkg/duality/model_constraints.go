@@ -74,7 +74,9 @@ func (g *RPFP) ModelValueAsConstraint(term *Expr) (out *Expr, result error) {
 			return nil, err
 		}
 		if !value.IsNull() {
-			equality, err := m.MkEq(h, value)
+			// expr == expr is mk_app(basic, OP_EQ) even for Bool (AUDIT.md
+			// duality_02-F6).
+			equality, err := m.MkFamilyApp(m.BasicFamilyID(), int32(ast.ASTOpEq), nil, []ast.ASTHandle{h, value})
 			if err != nil {
 				return nil, err
 			}
@@ -211,7 +213,7 @@ func (g *RPFP) modelArrayEntriesAsConstraint(h ast.ASTHandle, finite arrayModelV
 		if err != nil {
 			return nil, err
 		}
-		equality, err := wrap(m.MkEq(sh, finite.entries[key]))
+		equality, err := wrap(m.MkFamilyApp(m.BasicFamilyID(), int32(ast.ASTOpEq), nil, []ast.ASTHandle{sh, finite.entries[key]}))
 		if err != nil {
 			return nil, err
 		}
