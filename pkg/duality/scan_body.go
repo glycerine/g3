@@ -10,10 +10,9 @@ import (
 // ScannedBody owns the rewritten formula and positional relation declarations.
 // Children are borrowed from the source graph in the same order as Parameters.
 type ScannedBody struct {
-	Term             *Expr
-	Parameters       []*FuncDecl
-	Children         []*Node
-	QuantifiedTheory bool
+	Term       *Expr
+	Parameters []*FuncDecl
+	Children   []*Node
 	// memo holds the ScanBody memo's references (FromClauses' scan_memo,
 	// a hash_space::hash_map<ast,Term>): the source keeps them until the end
 	// of the FromClauses loop iteration.
@@ -59,18 +58,6 @@ func (s *ScannedBody) Close() error {
 // Quantifier patterns are left untouched, as in the source FromClauses path.
 // Source: duality_rpfp.cpp, ScanBody and SuffixFuncDecl.
 func (g *RPFP) ScanBody(term *Expr, predicates map[ast.ASTHandle]*Node) (out *ScannedBody, result error) {
-	return g.scanBody(term, predicates, false)
-}
-
-// scanBodyTheoryQuantifiers keeps relation applications below binders as
-// quantified theory obligations. A point-instance RPFP child cannot represent
-// a universally quantified relation application: RedDualRela would equate
-// every bound value to one child tuple.
-func (g *RPFP) scanBodyTheoryQuantifiers(term *Expr, predicates map[ast.ASTHandle]*Node) (out *ScannedBody, result error) {
-	return g.scanBody(term, predicates, true)
-}
-
-func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifiedTheory bool) (out *ScannedBody, result error) {
 	if err := g.open(); err != nil {
 		return nil, err
 	}
@@ -97,15 +84,10 @@ func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifi
 			out = nil
 		}
 	}()
-	type scanKey struct {
-		handle   ast.ASTHandle
-		bound    bool
-		eligible bool
-	}
-	memo := make(map[scanKey]ast.ASTHandle)
-	var visit func(ast.ASTHandle, bool, bool) (ast.ASTHandle, error)
-	visit = func(h ast.ASTHandle, bound, eligible bool) (ast.ASTHandle, error) {
-		key := scanKey{handle: h, bound: bound && quantifiedTheory, eligible: !quantifiedTheory || eligible}
+	memo := make(map[ast.ASTHandle]ast.ASTHandle)
+	var visit func(ast.ASTHandle) (ast.ASTHandle, error)
+	visit = func(h ast.ASTHandle) (ast.ASTHandle, error) {
+		key := h
 		id, err := m.GetASTID(h)
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -132,7 +114,7 @@ func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifi
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			if node, ok := predicates[decl]; ok && !(quantifiedTheory && bound) {
+			if node, ok := predicates[decl]; ok {
 				name, err := m.GetASTName(decl)
 				if err != nil {
 					return ast.ASTHandle{}, err
@@ -174,58 +156,14 @@ func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifi
 				}
 				out.Parameters = append(out.Parameters, parameter)
 				out.Children = append(out.Children, node)
-			} else if ok && quantifiedTheory && bound {
-				out.QuantifiedTheory = true
 			}
 			args := make([]ast.ASTHandle, n)
-			quantifiedArgument := int32(-1)
-			family, familyErr := m.GetFamilyID(h)
-			op, opErr := m.GetDeclKind(h)
-			if familyErr != nil || opErr != nil {
-				return ast.ASTHandle{}, errors.Join(familyErr, opErr)
-			}
-			if quantifiedTheory && eligible && !bound && n == 2 {
-				if family == m.BasicFamilyID() && (op == ast.ASTOpEq || op == ast.ASTOpIff) {
-					for i := uint32(0); i < 2; i++ {
-						candidate, getErr := m.GetArg(h, i)
-						if getErr != nil {
-							return ast.ASTHandle{}, getErr
-						}
-						other, getErr := m.GetArg(h, 1-i)
-						if getErr != nil {
-							return ast.ASTHandle{}, getErr
-						}
-						kind, getErr := m.GetKind(candidate)
-						if getErr != nil {
-							return ast.ASTHandle{}, getErr
-						}
-						forall := false
-						if kind == ast.ASTQuantifier {
-							forall, getErr = m.IsForall(candidate)
-							if getErr != nil {
-								return ast.ASTHandle{}, getErr
-							}
-						}
-						if forall && m.IsTrue(other) {
-							quantifiedArgument = int32(i)
-							break
-						}
-					}
-				}
-			}
 			for i := range args {
 				arg, err := m.GetArg(h, uint32(i))
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
-				childEligible := true
-				if quantifiedTheory {
-					// QuantifierAbstraction emits these wrappers directly or as
-					// top-level conjuncts. Do not generalize through arbitrary
-					// Boolean contexts, even if their current polarity is positive.
-					childEligible = eligible && family == m.BasicFamilyID() && op == ast.ASTOpAnd
-				}
-				args[i], err = visit(arg, bound || int32(i) == quantifiedArgument, childEligible)
+				args[i], err = visit(arg)
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
@@ -239,7 +177,7 @@ func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifi
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			body, err = visit(body, bound, !quantifiedTheory && eligible)
+			body, err = visit(body)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -269,7 +207,7 @@ func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifi
 	if err != nil {
 		return out, err
 	}
-	h, err := visit(root, false, true)
+	h, err := visit(root)
 	if err != nil {
 		return out, err
 	}

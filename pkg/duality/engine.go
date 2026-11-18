@@ -308,11 +308,6 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 	if err != nil {
 		return false, err
 	}
-	if !safe && e.counterexampleHasQuantifiedTheory() {
-		if err := e.validateQuantifiedCounterexample(); err != nil {
-			return false, err
-		}
-	}
 	e.learnedReplay = false
 	return safe, nil
 }

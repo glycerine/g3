@@ -203,7 +203,7 @@ func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*N
 		return err
 	}
 	defer func() { result = errors.Join(result, normalized.close()) }()
-	scanned, err := g.scanBodyTheoryQuantifiers(normalized.Body, predicates)
+	scanned, err := g.ScanBody(normalized.Body, predicates)
 	if err != nil {
 		return err
 	}
@@ -344,7 +344,6 @@ func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*N
 	if err != nil {
 		return err
 	}
-	edge.quantifiedTheory = scanned.QuantifiedTheory
 	labeledRaw, err := labeled.Raw()
 	if err != nil {
 		return err
