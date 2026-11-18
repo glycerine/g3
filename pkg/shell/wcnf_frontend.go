@@ -36,6 +36,11 @@ func NewWCNFFrontend(c *cmd_context.Context, output io.Writer, options WCNFFront
 	if c == nil || output == nil {
 		return nil, ErrWCNFFrontend
 	}
+	// opt_frontend.cpp parse_opt: a bare ast_manager with reg_decl_plugins
+	// and a plain opt::context; no cmd_context solver exists.
+	if !c.UseDatalogFrontendManager() {
+		return nil, ErrWCNFFrontend
+	}
 	timer := options.Timer
 	if timer == nil {
 		timer = BorrowProcessTimeoutService()
