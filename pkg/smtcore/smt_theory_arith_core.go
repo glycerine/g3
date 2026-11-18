@@ -1153,11 +1153,13 @@ func (t *SMTTheoryArith) mkToIntAxiom(n ast.ASTHandle) (err error) {
 	if err != nil {
 		return err
 	}
-	one, err := t.mkNumeralInt(&x, 1, false)
+	lo, err := t.mkApp(&x, smtArithOpGE, diff, zero)
 	if err != nil {
 		return err
 	}
-	lo, err := t.mkApp(&x, smtArithOpGE, diff, zero)
+	// The source builds lo and hi in separate full expressions: 1.0 is
+	// created after lo.
+	one, err := t.mkNumeralInt(&x, 1, false)
 	if err != nil {
 		return err
 	}
