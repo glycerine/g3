@@ -129,11 +129,12 @@ type Context struct {
 	sortArities      map[string]uint32
 	sortConstructors map[string]sortConstructorDeclaration
 	// sortInfos is pdecl_manager::m_sort2info (sortInfoOrder keeps its
-	// insertion order for release); sortDefinitionInfos holds each
+	// obj_map layout, the order reset_sort_info releases it in);
+	// sortDefinitionInfos holds each
 	// define-sort body's psort applications; psortRecording is non-nil
 	// while such a body is parsed.
 	sortInfos                map[ast.ASTHandle]*sortInfoRecord
-	sortInfoOrder            []ast.ASTHandle
+	sortInfoOrder            *ast.ObjMap
 	sortDefinitionInfos      map[string][]pendingSortInfo
 	psortRecording           *[]pendingSortInfo
 	sortConstructorTrail     []string
@@ -1468,15 +1469,17 @@ func (c *Context) Pop(count uint32) error {
 	if err := c.invalidateOptimizationState(); err != nil {
 		return err
 	}
+	// cmd_context::pop: restore_func_decls, restore_psort_decls,
+	// restore_macros, then the assertions.
 	if !c.GlobalDeclarations {
-		c.restorePSortDecls(s.psorts)
-		if err := c.restoreMacros(s.macros); err != nil {
-			return err
-		}
 		if err := c.restoreDeclarations(s.functions, s.sorts); err != nil {
 			return err
 		}
+		c.restorePSortDecls(s.psorts)
 		if err := c.restoreSortConstructors(s.sortConstructors); err != nil {
+			return err
+		}
+		if err := c.restoreMacros(s.macros); err != nil {
 			return err
 		}
 	}
@@ -1494,11 +1497,18 @@ func (c *Context) Pop(count uint32) error {
 }
 
 func (c *Context) restoreDeclarations(functions, sorts int) error {
-	// restore_func_decls erases the m_func_decls_stack suffix forward.
+	// restore_func_decls erases the m_func_decls_stack suffix forward;
+	// func_decls::erase dec_refs each declaration as it is erased.
 	if functions < len(c.functionTrail) {
-		for _, row := range c.functionTrail[functions:] {
+		for i := functions; i < len(c.functionTrail); i++ {
+			row := &c.functionTrail[i]
 			if err := c.eraseFuncDecl(row.name, row.handle); err != nil {
 				return err
+			}
+			if row.ref != (ast.ASTRef{}) {
+				if err := c.manager.DelRef(&row.ref); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -1510,11 +1520,6 @@ func (c *Context) restoreDeclarations(functions, sorts int) error {
 			delete(c.functions, row.name)
 		} else {
 			c.functions[row.name] = values[:len(values)-1]
-		}
-		if row.ref != (ast.ASTRef{}) {
-			if err := c.manager.DelRef(&row.ref); err != nil {
-				return err
-			}
 		}
 		c.functionTrail = c.functionTrail[:i]
 	}

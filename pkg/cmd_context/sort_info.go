@@ -97,8 +97,10 @@ func (c *Context) storeSortInfo(sort ast.ASTHandle, info ast.SMT2SortInfo) error
 		c.sortInfos = make(map[ast.ASTHandle]*sortInfoRecord)
 	}
 	c.sortInfos[sort] = &sortInfoRecord{info: info, refs: refs}
-	c.sortInfoOrder = append(c.sortInfoOrder, sort)
-	return nil
+	if c.sortInfoOrder == nil {
+		c.sortInfoOrder = ast.NewObjMap(c.manager)
+	}
+	return c.sortInfoOrder.Insert(sort, [2]ast.ASTHandle{})
 }
 
 // SaveIndexedSortInfo records an indexed builtin sort instantiation
@@ -195,10 +197,14 @@ func (c *Context) instantiateSortDefinitionInfos(name string, formals, arguments
 
 // resetSortInfo is pdecl_manager::reset_sort_info.
 func (c *Context) resetSortInfo() (result error) {
-	for _, sort := range c.sortInfoOrder {
-		record := c.sortInfos[sort]
-		for j := len(record.refs) - 1; j >= 0; j-- {
-			result = errors.Join(result, c.manager.DelRef(&record.refs[j]))
+	// reset_sort_info walks m_sort2info in table order: dec_ref(s), then
+	// app_sort_info::finalize's dec_array_ref of the arguments.
+	if c.sortInfoOrder != nil {
+		for _, entry := range c.sortInfoOrder.Entries() {
+			record := c.sortInfos[entry.Key]
+			for j := range record.refs {
+				result = errors.Join(result, c.manager.DelRef(&record.refs[j]))
+			}
 		}
 	}
 	c.sortInfos = nil

@@ -143,10 +143,13 @@ func (c *Context) resetMacros() error {
 	return err
 }
 
+// restoreMacros is cmd_context::restore_macros: erase_macro for the
+// m_macros_stack suffix, forward.
 func (c *Context) restoreMacros(size int) error {
-	for len(c.macroTrail) > size {
-		i := len(c.macroTrail) - 1
-		name := c.macroTrail[i]
+	if size >= len(c.macroTrail) {
+		return nil
+	}
+	for _, name := range c.macroTrail[size:] {
 		values := c.macros[name]
 		d := &values[len(values)-1]
 		for j := range d.refs {
@@ -158,8 +161,8 @@ func (c *Context) restoreMacros(size int) error {
 		// empty) m_macros entry, so contains_macro(name) stays true;
 		// only reset_macros removes entries.
 		c.macros[name] = values[:len(values)-1]
-		c.macroTrail = c.macroTrail[:i]
 	}
+	c.macroTrail = c.macroTrail[:size]
 	return nil
 }
 
