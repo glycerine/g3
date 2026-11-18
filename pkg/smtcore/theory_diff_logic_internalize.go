@@ -10,7 +10,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -82,7 +81,7 @@ func (t *SMTIntegerDiffTheory) initDiffLogic(state *SMTInternalizerState) error 
 		return errors.New("smt: theory_diff_logic needs the AST manager's rational manager")
 	}
 	t.graph.q = t.q
-	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), true)
+	zero, err := smtMkArithNumeralInt(state.manager, 0, true)
 	if err != nil {
 		return err
 	}

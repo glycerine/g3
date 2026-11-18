@@ -126,9 +126,9 @@ func TestSMTBVBitOccurrencesPreservePositionsSignsAndSourceHeadOrder(t *testing.
 	astTestMust(t, s.AssignLiteral(NewSMTLiteral(qv, false), NewSMTBooleanAxiom()))
 	_, err = s.PropagateCore()
 	astTestMust(t, err)
-	value, fixed, err := bv.fixedLiteralValue(variable)
+	value, fixed, err := bv.testFixedLiteralValue(variable)
 	astTestMust(t, err)
-	if !fixed || value.String() != "23" {
+	if !fixed || value != "23" {
 		t.Fatal("actual assignment callback lost a repeated position", value, fixed)
 	}
 	before := m.Stats()

@@ -1,7 +1,6 @@
 package protomodel
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -139,7 +138,7 @@ func TestValueFactoriesSomeFreshFreezeAndNumericValues(t *testing.T) {
 	if r0 == r1 {
 		t.Fatal("arithmetic factory did not advance")
 	}
-	threeHalves, err := af.MkNumValue(big.NewRat(3, 2), false)
+	threeHalves, err := protoMkNumValue(t, af, 3, 2, false)
 	protoMust(t, err)
 	if text, integer, matched, err := m.ArithmeticNumeralText(threeHalves); err != nil || !matched || integer || text != "3/2" {
 		t.Fatal("explicit arithmetic factory numeral", text, integer, matched, err)
@@ -158,7 +157,7 @@ func TestValueFactoriesSomeFreshFreezeAndNumericValues(t *testing.T) {
 	if b0 == b1 {
 		t.Fatal("bit-vector factory did not advance")
 	}
-	b255, err := bf.MkNumValue(big.NewRat(-1, 1), 8)
+	b255, err := protoMkNumValue(t, bf, -1, 1, 8)
 	protoMust(t, err)
 	if text, matched, err := m.BitVectorNumeralText(b255); err != nil || !matched || text != "255" {
 		t.Fatal("explicit bit-vector factory numeral", text, matched, err)
@@ -357,4 +356,28 @@ func TestProtoModelEvalReturnsFalseOnEvaluatorException(t *testing.T) {
 			t.Fatal("evaluation after a caught exception", ok, value)
 		}
 	}
+}
+
+// protoMkNumValue is mk_num_value(rational(n, d), arg) for an arithmetic
+// (bool is_int) or bit-vector (uint32 width) factory.
+func protoMkNumValue(t *testing.T, f any, n, d int32, arg any) (ast.ASTHandle, error) {
+	t.Helper()
+	var m *ast.ASTManager
+	switch f := f.(type) {
+	case *ArithmeticFactory:
+		m = f.manager
+	case *BitVectorFactory:
+		m = f.manager
+	}
+	q := m.NumeralService().Manager
+	r := unumeral.NewRational()
+	protoMust(t, q.SetFractionSigned(&r, n, d))
+	defer q.Del(&r)
+	switch f := f.(type) {
+	case *ArithmeticFactory:
+		return f.MkNumValueRational(&r, arg.(bool))
+	case *BitVectorFactory:
+		return f.MkNumValueRational(&r, uint32(arg.(int)))
+	}
+	return ast.ASTHandle{}, ast.ErrASTDomain
 }

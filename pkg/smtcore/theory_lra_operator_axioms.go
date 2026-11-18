@@ -4,7 +4,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -30,7 +29,7 @@ func (c *smtLRAAxiomCall) app(op int32, args ...ast.ASTHandle) (ast.ASTHandle, e
 	return c.hold(c.owner.axiomManager.MkFamilyApp(c.owner.FamilyID(), op, nil, args))
 }
 func (c *smtLRAAxiomCall) number(n int64, integer bool) (ast.ASTHandle, error) {
-	return c.hold(c.owner.axiomManager.ArithmeticNumeralRat(big.NewRat(n, 1), integer))
+	return c.hold(smtMkArithNumeralInt(c.owner.axiomManager, n, integer))
 }
 func (c *smtLRAAxiomCall) literal(h ast.ASTHandle) (SMTLiteral, error) {
 	if err := c.owner.state.Internalize(h, false); err != nil {

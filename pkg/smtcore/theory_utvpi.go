@@ -4,7 +4,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -72,7 +71,7 @@ func (t *SMTUTVPITheory) Initialize(state *SMTInternalizerState) error {
 	}
 	t.graph.graph.q = t.linearizer.q
 	t.syntax.q = t.linearizer.q
-	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), true)
+	zero, err := smtMkArithNumeralInt(state.manager, 0, true)
 	if err != nil {
 		return err
 	}
@@ -527,13 +526,8 @@ func (t *SMTUTVPITheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator
 	if !t.HasVariable(v) || int(v) >= len(t.values) {
 		return nil, ast.ErrASTDomain
 	}
-	// mk_value: m_factory->mk_num_value(num, is_int); the factory takes
-	// math/big values (a boundary).
-	value, err := smtQBig(t.linearizer.q, &t.values[v])
-	if err != nil {
-		return nil, err
-	}
-	expression, err := t.factory.MkNumValue(value, t.graph.integer[v])
+	// mk_value: m_factory->mk_num_value(num, is_int).
+	expression, err := t.factory.MkNumValueRational(&t.values[v], t.graph.integer[v])
 	if err != nil {
 		return nil, err
 	}

@@ -444,11 +444,6 @@ func (t *SMTRealDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenera
 	if err := t.modelNum(&assignment, &num); err != nil {
 		return nil, err
 	}
-	// mk_num_value takes the AST's math/big value (a boundary).
-	value, err := smtQBig(t.q, &num)
-	if err != nil {
-		return nil, err
-	}
 	// mk_num_value(num, m_util.is_int(n->get_owner())), for every Ext.
 	sort, err := state.manager.GetSort(node.owner)
 	if err != nil {
@@ -458,8 +453,12 @@ func (t *SMTRealDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenera
 	if err != nil {
 		return nil, err
 	}
-	t.traceDL("arith", "mk_value", 908, func() string { return t.dlPP(node.owner) + " |-> " + value.RatString() + "\n" })
-	expression, err := state.manager.ArithmeticNumeralRat(value, integer)
+	t.traceDL("arith", "mk_value", 908, func() string {
+		text, e := t.q.String(&num)
+		t.realGraph.keep(e)
+		return t.dlPP(node.owner) + " |-> " + text + "\n"
+	})
+	expression, err := state.manager.ArithmeticNumeralFromRational(&num, integer)
 	if err != nil {
 		return nil, err
 	}

@@ -6,24 +6,24 @@ package smtcore
 import (
 	"errors"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // The expression overload is a read-side native query. It must neither
 // internalize an expression nor reconstruct its cached AST bit circuit.
-func (t *SMTBitVectorTheory) fixedExpressionValue(expression ast.ASTHandle) (*big.Int, bool, error) {
+func (t *SMTBitVectorTheory) fixedExpressionValue(expression ast.ASTHandle, result *numeral.Rational) (bool, error) {
 	s, err := t.State()
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 	node := s.context.enodes.get(expression)
 	if node == nil {
-		return nil, false, nil
+		return false, nil
 	}
-	return t.fixedLiteralValue(node.TheoryVar(t.FamilyID()))
+	return t.fixedLiteralValue(node.TheoryVar(t.FamilyID()), result)
 }
 
 // Borrowed theory/enode lifetime matches dl_value_proc. No numeral,
@@ -82,25 +82,23 @@ func (p *smtDatalogValueProcedure) MakeValue(generator *SMTModelGenerator, _ []a
 			}
 		}
 	}
+	// rational val lives until mk_value returns.
+	numerals := s.manager.NumeralService()
+	value, err := numerals.NewValue()
+	if err != nil {
+		return result, err
+	}
+	defer func() { err = errors.Join(err, numerals.Del(&value)) }()
 	var number uint64
 	if s.context.enodes.get(representative) != nil && ok && bv != nil {
-		value, fixed, e := bv.fixedExpressionValue(representative)
+		fixed, e := bv.fixedExpressionValue(representative, &value.Raw)
 		if e != nil {
 			return result, e
 		}
 		if fixed {
 			// Source rational::get_int64 invokes the retained MPQ/MPZ assertion
 			// and conversion policy, then converts to dl_decl_util's uint64 input.
-			numerals := s.manager.NumeralService()
-			numeral, e := numerals.NewValue()
-			if e != nil {
-				return result, e
-			}
-			defer func() { err = errors.Join(err, numerals.Del(&numeral)) }()
-			if e = numerals.SetString(&numeral, value.String()); e != nil {
-				return result, e
-			}
-			signed, e := numerals.Int64(&numeral)
+			signed, e := numerals.Int64(&value)
 			if e != nil {
 				return result, e
 			}

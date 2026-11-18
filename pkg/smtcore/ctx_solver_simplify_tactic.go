@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/glycerine/g3/pkg/util/statistics"
-	"math/big"
 	"reflect"
 	"strconv"
 
@@ -567,7 +566,7 @@ func (t *ContextSolverSimplifyTactic) mkFresh(id *uint32, s ast.ASTHandle) (ast.
 			}
 		}
 	}
-	numeral, err := m.ArithmeticNumeralRat(big.NewRat(int64(*id), 1), true)
+	numeral, err := smtMkArithNumeralInt(m, int64(*id), true)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

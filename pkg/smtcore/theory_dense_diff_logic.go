@@ -5,7 +5,6 @@ package smtcore
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -848,11 +847,7 @@ func (t *SMTDenseDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGener
 	if err := q.Add(&n, &k, &n); err != nil {
 		return nil, err
 	}
-	value, err := smtQBig(q, &n)
-	if err != nil {
-		return nil, err
-	}
-	expression, err := t.state.manager.ArithmeticNumeralRat(value, t.integer[v])
+	expression, err := t.state.manager.ArithmeticNumeralFromRational(&n, t.integer[v])
 	if err != nil {
 		return nil, err
 	}
@@ -906,5 +901,5 @@ func (t *SMTDenseDiffTheory) denseZeroFor(expression ast.ASTHandle) (ast.ASTHand
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return m.ArithmeticNumeralRat(new(big.Rat), integer)
+	return smtMkArithNumeralInt(m, 0, integer)
 }

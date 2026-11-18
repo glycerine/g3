@@ -58,7 +58,7 @@ func TestSMTBVFixedCacheCallbackOrderQueueAndProofParentOrder(t *testing.T) {
 	bvFixedAssign(t, s, bv, rv, 1)
 	before := len(s.pending)
 	astTestMust(t, bv.fixedVariable(lv))
-	key := smtBVFixedKey{width: 2, value: "1"}
+	key := smtBVFixedKey{width: 2, value: smtQMapKey{n: 1, d: 1}}
 	if bvFixedRepresentative(t, bv, key) != lv || len(s.pending) != before || bv.statistics.theoryToCoreEq != 0 {
 		t.Fatal("first notification scanned another fixed word")
 	}
@@ -147,7 +147,7 @@ func TestSMTBVFixedCacheStaleAssignmentsAndDeletedVariables(t *testing.T) {
 			}
 			bvFixedAssign(t, s, bv, old, 1)
 			astTestMust(t, bv.fixedVariable(old))
-			key := smtBVFixedKey{width: 2, value: "1"}
+			key := smtBVFixedKey{width: 2, value: smtQMapKey{n: 1, d: 1}}
 			astTestMust(t, s.PopScopes(1))
 			if bvFixedRepresentative(t, bv, key) != old {
 				t.Fatal("source cache was incorrectly backtracked")
@@ -181,7 +181,7 @@ func TestSMTBVFixedCacheReusedSlotWidthAndMatchingValue(t *testing.T) {
 			_, current := bvFixedSymbolic(t, m, s, bv, "current-fixed", 2)
 			bvFixedAssign(t, s, bv, current, 1)
 			astTestMust(t, bv.fixedVariable(current))
-			key := smtBVFixedKey{width: 2, value: "1"}
+			key := smtBVFixedKey{width: 2, value: smtQMapKey{n: 1, d: 1}}
 			if width == 2 {
 				if bvFixedRepresentative(t, bv, key) != reused || bv.statistics.theoryToCoreEq != 1 {
 					t.Fatal("source accepts a reused slot whose width/value still match")
@@ -273,7 +273,7 @@ func TestSMTBVFixedCacheKeyIncludesWidth(t *testing.T) {
 		_, v := bvFixedSymbolic(t, m, s, bv, fmt.Sprintf("width-%d", width), width)
 		bvFixedAssign(t, s, bv, v, 1)
 		astTestMust(t, bv.fixedVariable(v))
-		if bvFixedRepresentative(t, bv, smtBVFixedKey{width: width, value: "1"}) != v {
+		if bvFixedRepresentative(t, bv, smtBVFixedKey{width: width, value: smtQMapKey{n: 1, d: 1}}) != v {
 			t.Fatal("wrong width representative")
 		}
 	}
@@ -308,7 +308,7 @@ func TestSMTBVFixedCacheReusedSlotForBVToInt(t *testing.T) {
 	_, current := bvFixedSymbolic(t, m, s, bv, "conversion-current-fixed", 2)
 	bvFixedAssign(t, s, bv, current, 1)
 	astTestMust(t, bv.fixedVariable(current))
-	if bvFixedRepresentative(t, bv, smtBVFixedKey{width: 2, value: "1"}) != current || bv.statistics.theoryToCoreEq != 0 {
+	if bvFixedRepresentative(t, bv, smtBVFixedKey{width: 2, value: smtQMapKey{n: 1, d: 1}}) != current || bv.statistics.theoryToCoreEq != 0 {
 		t.Fatal("non-BV cache representative accepted")
 	}
 }
@@ -328,7 +328,7 @@ func TestSMTBVFixedEqualityAllocationRefusalRetainsRepresentativeAndRetries(t *t
 	if !errors.Is(err, arena.ErrInjectedFailure) {
 		t.Fatal("expected actual cold equality/bit-clause allocation refusal", err)
 	}
-	key := smtBVFixedKey{width: 257, value: "0"}
+	key := smtBVFixedKey{width: 257, value: smtQMapKey{n: 0, d: 1}}
 	if bvFixedRepresentative(t, bv, key) != left || bv.statistics.theoryToCoreEq != 1 || bv.statistics.eqDynamic != 1 {
 		t.Fatal("source failure prefix changed cache/counters", bv.statistics)
 	}
@@ -347,4 +347,17 @@ func TestSMTBVFixedEqualityAllocationRefusalRetainsRepresentativeAndRetries(t *t
 	if bvFixedRepresentative(t, bv, key) != left || bv.statistics.theoryToCoreEq != 2 || bv.statistics.eqDynamic != 2 {
 		t.Fatal("retry did not preserve native representative/counters")
 	}
+}
+
+// testFixedLiteralValue is get_fixed_value(v, val) with val as text.
+func (t *SMTBitVectorTheory) testFixedLiteralValue(v SMTTheoryVar) (string, bool, error) {
+	q := t.state.manager.NumeralService().Manager
+	value := smtQZero()
+	defer smtQDel(q, &value)
+	fixed, err := t.fixedLiteralValue(v, &value)
+	if err != nil {
+		return "", fixed, err
+	}
+	text, err := q.String(&value)
+	return text, fixed, err
 }

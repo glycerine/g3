@@ -715,11 +715,6 @@ func (t *SMTIntegerDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGen
 	if err := t.graph.Assignment(int32(variable), &q); err != nil {
 		return nil, err
 	}
-	// mk_numeral takes the AST's text numeral (a boundary).
-	value, err := smtQBig(t.q, &q)
-	if err != nil {
-		return nil, err
-	}
 	// mk_num_value(num, m_util.is_int(n->get_owner())).
 	sort, err := state.manager.GetSort(node.owner)
 	if err != nil {
@@ -729,7 +724,7 @@ func (t *SMTIntegerDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGen
 	if err != nil {
 		return nil, err
 	}
-	numeral, err := state.manager.ArithmeticNumeralRat(value, integer)
+	numeral, err := state.manager.ArithmeticNumeralFromRational(&q, integer)
 	if err != nil {
 		return nil, err
 	}

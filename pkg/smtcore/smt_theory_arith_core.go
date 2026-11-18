@@ -3833,11 +3833,7 @@ func (t *SMTTheoryArith) toExpr(val *smtArithmeticValue, isInt bool) (ast.ASTHan
 	if val.infinitesimal.Sign() != 0 {
 		return ast.ASTHandle{}, false, nil
 	}
-	b, err := smtQBig(t.q, &val.rational)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	h, err := t.state.manager.ArithmeticNumeralRat(b, isInt)
+	h, err := t.state.manager.ArithmeticNumeralFromRational(&val.rational, isInt)
 	return h, err == nil, err
 }
 

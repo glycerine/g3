@@ -3,6 +3,7 @@ package smtcore
 import (
 	"math/big"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -87,4 +88,28 @@ func (t *SMTLRATheory) testBigOf(r *numeral.Rational) *big.Rat {
 		panic(err)
 	}
 	return b
+}
+
+// testCachedModelValue is get_value(v) as math/big, for assertions.
+func (t *SMTLRATheory) testCachedModelValue(v SMTTheoryVar) (*big.Rat, error) {
+	q := t.state.manager.NumeralService().Manager
+	value := smtQZero()
+	defer smtQDel(q, &value)
+	if err := t.cachedModelValue(v, &value); err != nil {
+		return nil, err
+	}
+	return smtQBig(q, &value)
+}
+
+// numeralBig is a.is_numeral(h) read as math/big, for assertions.
+func (t *SMTLRATheory) numeralBig(h ast.ASTHandle) (*big.Rat, bool, error) {
+	q := t.state.manager.NumeralService().Manager
+	value := smtQZero()
+	defer smtQDel(q, &value)
+	_, matched, err := t.state.manager.ArithmeticNumeralRational(h, &value)
+	if err != nil || !matched {
+		return nil, false, err
+	}
+	b, err := smtQBig(q, &value)
+	return b, err == nil, err
 }

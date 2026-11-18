@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter/bit_blaster"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -126,23 +126,41 @@ func (t *SMTBitVectorTheory) symbolicBits(expression ast.ASTHandle, width uint32
 	return result, nil
 }
 
-func (t *SMTBitVectorTheory) numeralBits(expression ast.ASTHandle, width uint32) ([]ast.ASTHandle, error) {
+// numeralBits is internalize_num's is_numeral(n, val, sz) and
+// m_bb.num2bits(val, sz, bits): aux = val; bit i is aux % 2 != 0, then
+// aux = div(aux, 2). val and aux die when the bits are built.
+func (t *SMTBitVectorTheory) numeralBits(expression ast.ASTHandle, width uint32) (result []ast.ASTHandle, err error) {
 	state, _ := t.State()
-	text, matched, err := state.manager.BitVectorNumeralText(expression)
+	q := state.manager.NumeralService().Manager
+	value, aux, two, rem := smtQZero(), smtQZero(), smtQInt(2), smtQZero()
+	defer func() {
+		for _, r := range []*numeral.Rational{&rem, &two, &aux, &value} {
+			err = errors.Join(err, smtQDel(q, r))
+		}
+	}()
+	_, matched, err := state.manager.BitVectorNumeralRational(expression, &value)
 	if err != nil || !matched {
 		if err != nil {
 			return nil, err
 		}
 		return nil, ast.ErrASTDomain
 	}
-	value, ok := new(big.Int).SetString(text, 10)
-	if !ok || value.Sign() < 0 {
+	if value.IsNeg() {
 		return nil, ast.ErrASTDomain
 	}
-	result := make([]ast.ASTHandle, width)
+	if err = q.Copy(&aux, &value); err != nil {
+		return nil, err
+	}
+	result = make([]ast.ASTHandle, width)
 	for i := range result {
-		result[i], err = state.manager.MkBoolVal(value.Bit(i) != 0)
+		if err = q.Mod(&aux, &two, &rem); err != nil {
+			return nil, err
+		}
+		result[i], err = state.manager.MkBoolVal(!rem.IsZero())
 		if err != nil {
+			return nil, err
+		}
+		if err = q.IDiv(&aux, &two, &aux); err != nil {
 			return nil, err
 		}
 	}
@@ -1215,7 +1233,7 @@ func (t *SMTBitVectorTheory) IncludeFunctionInterpretation(declaration ast.ASTHa
 	return err == nil && op >= 12 && op <= 16
 }
 
-func (t *SMTBitVectorTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator) (SMTModelValueProcedure, error) {
+func (t *SMTBitVectorTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator) (_ SMTModelValueProcedure, err error) {
 	if node == nil || generator == nil || generator.model == nil {
 		return nil, ast.ErrASTDomain
 	}
@@ -1235,7 +1253,11 @@ func (t *SMTBitVectorTheory) ModelValue(node *SMTEnode, generator *SMTModelGener
 	if !t.HasVariable(variable) {
 		return nil, ast.ErrASTDomain
 	}
-	value, fixed, err := t.fixedLiteralValue(variable)
+	// numeral val lives until mk_value returns.
+	q := state.manager.NumeralService().Manager
+	value := smtQZero()
+	defer func() { err = errors.Join(err, smtQDel(q, &value)) }()
+	fixed, err := t.fixedLiteralValue(variable, &value)
 	if err != nil {
 		return nil, err
 	}
@@ -1250,7 +1272,7 @@ func (t *SMTBitVectorTheory) ModelValue(node *SMTEnode, generator *SMTModelGener
 	if !ok || factory == nil {
 		return nil, ast.ErrASTDomain
 	}
-	numeral, err := factory.MkNumValue(new(big.Rat).SetInt(value), width)
+	numeral, err := factory.MkNumValueRational(&value, width)
 	if err != nil {
 		return nil, err
 	}

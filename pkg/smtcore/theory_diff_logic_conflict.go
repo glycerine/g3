@@ -4,7 +4,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -50,7 +49,8 @@ func (t *SMTRealDiffTheory) setNegativeCycleConflict(literals []SMTLiteral) (res
 			return err
 		}
 		defer func() { result = errors.Join(result, smtArithmeticReleaseParameters(state.manager, parameters)) }()
-		one, err := state.manager.NewParameterRat(big.NewRat(1, 1))
+		r1 := smtQInt(1)
+		one, err := state.manager.NewParameterFromRational(&r1)
 		if err != nil {
 			return err
 		}

@@ -45,7 +45,7 @@ func TestSMTLRALifecycleTraceFeasibilityCacheAndFactoryOrdering(t *testing.T) {
 		lraFix(t, f, x, 3)
 		f.propagate(true)
 		astTestMust(t, f.a.initializeVariableValues())
-		previous, err := f.a.cachedModelValue(v)
+		previous, err := f.a.testCachedModelValue(v)
 		astTestMust(t, err)
 		if previous.Cmp(big.NewRat(4, 1)) != 0 {
 			t.Fatal("initial model", previous)
@@ -77,7 +77,7 @@ func TestSMTLRALifecycleTraceFeasibilityCacheAndFactoryOrdering(t *testing.T) {
 		modelTags.Enable("arith")
 		f.a.trace = modelTags
 		astTestMust(t, f.a.InitializeModel(g))
-		value, err := f.a.cachedModelValue(v)
+		value, err := f.a.testCachedModelValue(v)
 		astTestMust(t, err)
 		want := int64(4)
 		if tags.ShouldTrace("arith_verbose") {

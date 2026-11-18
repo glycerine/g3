@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -250,11 +249,11 @@ func (a *smtLRAEqualityAdapter) MkAxiomsNodes(n1, n2 *SMTEnode) (result error) {
 		if err != nil {
 			return err
 		}
-		minusOne, err := pin(m.ArithmeticNumeralRat(big.NewRat(-1, 1), kind == 1))
+		minusOne, err := pin(smtMkArithNumeralInt(m, -1, kind == 1))
 		if err != nil {
 			return err
 		}
-		zero, err := pin(m.ArithmeticNumeralRat(new(big.Rat), kind == 1))
+		zero, err := pin(smtMkArithNumeralInt(m, 0, kind == 1))
 		if err != nil {
 			return err
 		}

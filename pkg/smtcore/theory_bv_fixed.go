@@ -8,23 +8,31 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// smtBVFixedKey is value_sort_pair (val, sz) as a Go map key.
 type smtBVFixedKey struct {
 	width uint32
-	value string
+	value smtQMapKey
 }
 
 // The source cache is not backtracked. Each hit validates the old variable
 // against its current slot, sort, width, assignment and numeric value.
-func (t *SMTBitVectorTheory) fixedVariable(variable SMTTheoryVar) error {
+func (t *SMTBitVectorTheory) fixedVariable(variable SMTTheoryVar) (err error) {
 	s, err := t.State()
 	if err != nil {
 		return err
 	}
+	// numeral val and val2 live until fixed_var_eh returns.
+	q := s.manager.NumeralService().Manager
+	value, oldValue := smtQZero(), smtQZero()
+	defer func() {
+		err = errors.Join(err, smtQDel(q, &oldValue))
+		err = errors.Join(err, smtQDel(q, &value))
+	}()
 	node, err := t.Enode(variable)
 	if err != nil {
 		return err
 	}
-	value, fixed, err := t.fixedLiteralValue(variable)
+	fixed, err := t.fixedLiteralValue(variable, &value)
 	if err != nil {
 		return err
 	}
@@ -35,7 +43,11 @@ func (t *SMTBitVectorTheory) fixedVariable(variable SMTTheoryVar) error {
 	if err != nil {
 		return err
 	}
-	key := smtBVFixedKey{width: width, value: value.String()}
+	valueKey, err := smtQKey(q, &value)
+	if err != nil {
+		return err
+	}
+	key := smtBVFixedKey{width: width, value: valueKey}
 	old, found := t.fixedVariables[key]
 	if !found {
 		t.fixedVariables[key] = variable
@@ -62,11 +74,16 @@ func (t *SMTBitVectorTheory) fixedVariable(variable SMTTheoryVar) error {
 		}
 	}
 	if valid {
-		oldValue, oldFixed, err := t.fixedLiteralValue(old)
+		oldFixed, err := t.fixedLiteralValue(old, &oldValue)
 		if err != nil {
 			return err
 		}
-		valid = oldFixed && value.Cmp(oldValue) == 0
+		valid = oldFixed
+		if valid {
+			if valid, err = q.Equal(&value, &oldValue); err != nil {
+				return err
+			}
+		}
 	}
 	if !valid {
 		delete(t.fixedVariables, key)

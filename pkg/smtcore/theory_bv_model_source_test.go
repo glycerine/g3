@@ -56,9 +56,9 @@ func TestSMTBVModelValueNativePrefixAndDebugFixedness(t *testing.T) {
 				astTestMust(t, s.AssignLiteral(literal, NewSMTBooleanAxiom()))
 			}
 			astTestMust(t, bv.InitializeModel(g))
-			prefix, fixed, err := bv.fixedLiteralValue(v)
+			prefix, fixed, err := bv.testFixedLiteralValue(v)
 			astTestMust(t, err)
-			if prefix.String() != tc.want || fixed != tc.fixed {
+			if prefix != tc.want || fixed != tc.fixed {
 				t.Fatal("source get_fixed_value prefix", prefix, fixed, tc.want, tc.fixed)
 			}
 			before := m.Stats()

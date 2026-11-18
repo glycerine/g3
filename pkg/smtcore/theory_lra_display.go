@@ -35,11 +35,20 @@ func (t *SMTLRATheory) Display(out io.Writer) error {
 			return err
 		}
 		if t.canGetModelValue(SMTTheoryVar(v)) {
-			value, err := t.cachedModelValue(SMTTheoryVar(v))
+			astQ := s.manager.NumeralService().Manager
+			value := smtQZero()
+			err := t.cachedModelValue(SMTTheoryVar(v), &value)
+			var text string
+			if err == nil {
+				text, err = astQ.String(&value)
+			}
+			if e := smtQDel(astQ, &value); e != nil && err == nil {
+				err = e
+			}
 			if err != nil {
 				return err
 			}
-			if err = smtWriteTheoryText(out, ", value: "+value.RatString()); err != nil {
+			if err = smtWriteTheoryText(out, ", value: "+text); err != nil {
 				return err
 			}
 		}

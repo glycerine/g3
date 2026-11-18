@@ -5,7 +5,6 @@ package protomodel
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -113,16 +112,27 @@ func (f *numeralFactory) valueSet(sort ast.ASTHandle) (*numeralValueSet, error) 
 	return set, nil
 }
 
-func (f *numeralFactory) insert(value *big.Rat, sort ast.ASTHandle) (ast.ASTHandle, bool, error) {
+// insertInt is mk_value(rational(v), s): the rational temporary is small,
+// so it owns no cell, and it dies after the call.
+func (f *numeralFactory) insertInt(v int32, sort ast.ASTHandle) (result ast.ASTHandle, fresh bool, err error) {
 	set, err := f.valueSet(sort)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	numeral, err := f.makeValue(value, sort)
+	numerals := f.manager.NumeralService()
+	value, err := numerals.NewValue()
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	return f.insertValue(set, numeral)
+	defer func() { err = errors.Join(err, numerals.CleanupValue(&value)) }()
+	if err = numerals.Manager.SetInt32(&value.Raw, v); err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	created, err := f.makeOwnedValue(&value, sort)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	return f.insertValue(set, created)
 }
 
 // insertOwned is insert for a value of the AST manager's numeral service.
@@ -165,7 +175,7 @@ func (f *numeralFactory) SomeValue(sort ast.ASTHandle) (ast.ASTHandle, error) {
 	if set := f.sets[sort]; set != nil && len(set.values) != 0 {
 		return set.table.FirstKeys(1)[0], nil
 	}
-	value, _, err := f.insert(big.NewRat(0, 1), sort)
+	value, _, err := f.insertInt(0, sort)
 	return value, err
 }
 
@@ -186,7 +196,7 @@ func (f *numeralFactory) SomeValues(sort ast.ASTHandle, first, second ast.ASTRef
 		if err := f.manager.SetRef(first, set.table.FirstKeys(1)[0]); err != nil {
 			return false, err
 		}
-		value, _, err := f.insert(big.NewRat(0, 1), sort)
+		value, _, err := f.insertInt(0, sort)
 		if err != nil {
 			return false, err
 		}
@@ -202,7 +212,7 @@ func (f *numeralFactory) SomeValues(sort ast.ASTHandle, first, second ast.ASTRef
 			return false, err
 		}
 		if a == b {
-			value, _, err = f.insert(big.NewRat(1, 1), sort)
+			value, _, err = f.insertInt(1, sort)
 			if err != nil {
 				return false, err
 			}
@@ -211,14 +221,14 @@ func (f *numeralFactory) SomeValues(sort ast.ASTHandle, first, second ast.ASTRef
 			}
 		}
 	} else {
-		value, _, err := f.insert(big.NewRat(0, 1), sort)
+		value, _, err := f.insertInt(0, sort)
 		if err != nil {
 			return false, err
 		}
 		if err = f.manager.SetRef(first, value); err != nil {
 			return false, err
 		}
-		value, _, err = f.insert(big.NewRat(1, 1), sort)
+		value, _, err = f.insertInt(1, sort)
 		if err != nil {
 			return false, err
 		}
@@ -370,32 +380,8 @@ func (f *numeralFactory) Close() (err error) {
 	return err
 }
 
-func (f *numeralFactory) makeValue(value *big.Rat, sort ast.ASTHandle) (ast.ASTHandle, error) {
-	if value == nil {
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	if f.bitVector {
-		bits, err := f.manager.BitVectorSize(sort)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		return f.manager.BitVectorNumeralRat(value, bits)
-	}
-	family, err := f.manager.GetFamilyID(sort)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if family != f.family {
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	kind, err := f.manager.GetDeclKind(sort)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return f.manager.ArithmeticNumeralRat(value, kind == 1)
-}
-
-// makeOwnedValue is makeValue for a value of the AST manager's numeral service.
+// makeOwnedValue is mk_value_core for a value of the AST manager's numeral
+// service.
 func (f *numeralFactory) makeOwnedValue(value *numeral.OwnedRational, sort ast.ASTHandle) (ast.ASTHandle, error) {
 	if f.bitVector {
 		bits, err := f.manager.BitVectorSize(sort)
@@ -448,25 +434,9 @@ func (f *ArithmeticFactory) MkNumValueRational(value *numeral.Rational, integer 
 	return result, err
 }
 
-func (f *ArithmeticFactory) MkNumValue(value *big.Rat, integer bool) (ast.ASTHandle, error) {
-	if f == nil || f.numeralFactory == nil {
-		return ast.ASTHandle{}, ast.ErrASTHandle
-	}
-	if err := f.open(); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	kind := int32(0)
-	if integer {
-		kind = 1
-	}
-	sort, err := f.manager.MkFamilySort(f.family, kind, nil)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	numeral, _, err := f.insert(value, sort)
-	return numeral, err
-}
-func (f *BitVectorFactory) MkNumValue(value *big.Rat, bits uint32) (ast.ASTHandle, error) {
+// MkNumValueRational is mk_num_value for a rational of the AST manager's
+// numeral service manager (NumeralService().Manager).
+func (f *BitVectorFactory) MkNumValueRational(value *numeral.Rational, bits uint32) (result ast.ASTHandle, err error) {
 	if f == nil || f.numeralFactory == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
 	}
@@ -477,6 +447,15 @@ func (f *BitVectorFactory) MkNumValue(value *big.Rat, bits uint32) (ast.ASTHandl
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	numeral, _, err := f.insert(value, sort)
-	return numeral, err
+	numerals := f.manager.NumeralService()
+	owned, err := numerals.NewValue()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { err = errors.Join(err, numerals.CleanupValue(&owned)) }()
+	if err = numerals.Manager.Copy(&owned.Raw, value); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	result, _, err = f.insertOwned(&owned, sort)
+	return result, err
 }

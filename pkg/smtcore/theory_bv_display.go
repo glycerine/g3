@@ -5,30 +5,47 @@ package smtcore
 import (
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (t *SMTBitVectorTheory) fixedLiteralValue(variable SMTTheoryVar) (*big.Int, bool, error) {
+// fixedLiteralValue is get_fixed_value(v, result): result, a rational of
+// the AST manager's numeral manager owned by the caller, is reset and then
+// accumulates m_bb.power(i) for each true bit.
+func (t *SMTBitVectorTheory) fixedLiteralValue(variable SMTTheoryVar, result *numeral.Rational) (bool, error) {
 	if variable < 0 || int(variable) >= len(t.bitLiterals) {
-		return nil, false, ast.ErrASTDomain
+		return false, ast.ErrASTDomain
 	}
-	value := new(big.Int)
+	numerals := t.state.manager.NumeralService()
+	q := numerals.Manager
+	if err := q.Reset(result); err != nil {
+		return false, err
+	}
 	for index, bit := range t.bitLiterals[variable] {
 		assigned, err := t.state.Assignment(bit)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if assigned == lbool.Undef {
-			return value, false, nil
+			return false, nil
 		}
 		if assigned == lbool.True {
-			value.SetBit(value, index, 1)
+			power, err := numerals.PowerOfTwo(uint32(index))
+			if err != nil {
+				return false, err
+			}
+			err = q.Add(result, &power.Raw, result)
+			if e := numerals.Del(&power); e != nil && err == nil {
+				err = e
+			}
+			if err != nil {
+				return false, err
+			}
 		}
 	}
-	return value, true, nil
+	return true, nil
 }
 
 func (t *SMTBitVectorTheory) DisplayVariable(out io.Writer, variable SMTTheoryVar) error {
@@ -70,14 +87,20 @@ func (t *SMTBitVectorTheory) DisplayVariable(out io.Writer, variable SMTTheoryVa
 			return err
 		}
 	}
-	value, fixed, err := t.fixedLiteralValue(variable)
+	q := s.manager.NumeralService().Manager
+	value := smtQZero()
+	fixed, err := t.fixedLiteralValue(variable, &value)
+	if err == nil && fixed {
+		var text string
+		if text, err = q.String(&value); err == nil {
+			err = smtWriteTheoryText(out, ", value: "+text)
+		}
+	}
+	if e := smtQDel(q, &value); e != nil && err == nil {
+		err = e
+	}
 	if err != nil {
 		return err
-	}
-	if fixed {
-		if err = smtWriteTheoryText(out, ", value: "+value.String()); err != nil {
-			return err
-		}
 	}
 	return smtWriteTheoryText(out, "\n")
 }

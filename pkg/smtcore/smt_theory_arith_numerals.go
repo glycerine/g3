@@ -16,7 +16,7 @@ package smtcore
 // 0): initialize with smtQZero / init before use.
 
 import (
-	"math"
+	"github.com/glycerine/g3/pkg/ast"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -388,8 +388,8 @@ func smtQIntPtr(v int32) *numeral.Rational {
 
 // smtQMapKey is a Go map key for the source's hash tables keyed by
 // rational: equal values have equal keys. A value whose numerator and
-// denominator fit an int is kept in n/d (big empty), any other value as
-// big.Rat.RatString text. It is read without a trace.
+// denominator fit an int32 is kept in n/d (big empty), any other value as
+// its normalized n/d text. It is read without a trace.
 type smtQMapKey struct {
 	n, d int32
 	big  string
@@ -399,16 +399,24 @@ func smtQKey(q *numeral.RationalManager, r *numeral.Rational) (smtQMapKey, error
 	if r.IsSmall() {
 		return smtQMapKey{n: r.Num.Val, d: r.Den.Val}, nil
 	}
-	b, err := smtQBig(q, r)
+	z := q.Integers()
+	if smallN, err := z.IsInt32(&r.Num); err != nil {
+		return smtQMapKey{}, err
+	} else if smallD, err := z.IsInt32(&r.Den); err != nil {
+		return smtQMapKey{}, err
+	} else if smallN && smallD {
+		n, err := z.Int32(&r.Num)
+		if err != nil {
+			return smtQMapKey{}, err
+		}
+		d, err := z.Int32(&r.Den)
+		return smtQMapKey{n: n, d: d}, err
+	}
+	text, err := q.String(r)
 	if err != nil {
 		return smtQMapKey{}, err
 	}
-	if n, d := b.Num(), b.Denom(); n.IsInt64() && d.IsInt64() {
-		if nv, dv := n.Int64(), d.Int64(); nv >= math.MinInt32 && nv <= math.MaxInt32 && dv <= math.MaxInt32 {
-			return smtQMapKey{n: int32(nv), d: int32(dv)}, nil
-		}
-	}
-	return smtQMapKey{big: b.RatString()}, nil
+	return smtQMapKey{big: text}, nil
 }
 
 // qkey is smtQKey with failures kept in qErr.
@@ -416,4 +424,19 @@ func (t *SMTTheoryArith) qkey(r *numeral.Rational) smtQMapKey {
 	k, err := smtQKey(t.q, r)
 	t.keep(err)
 	return k
+}
+
+// smtMkArithNumeralInt is arith_util::mk_numeral(rational(v), is_int): the
+// rational temporary dies after the call.
+func smtMkArithNumeralInt(m *ast.ASTManager, v int64, integer bool) (ast.ASTHandle, error) {
+	q := m.NumeralService().Manager
+	r := smtQZero()
+	if err := q.SetInt64(&r, v); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	h, err := m.ArithmeticNumeralFromRational(&r, integer)
+	if e := smtQDel(q, &r); e != nil && err == nil {
+		err = e
+	}
+	return h, err
 }

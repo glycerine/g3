@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -202,20 +201,22 @@ func (t *SMTLRATheory) operation(h ast.ASTHandle) (int32, bool, error) {
 }
 
 // numeral is a.is_numeral(h, out). The AST's rational lives on the AST
-// manager's mpq manager and the theory's on its own: the value crosses
-// managers through math/big (a boundary).
-func (t *SMTLRATheory) numeral(h ast.ASTHandle, out *numeral.Rational) (bool, error) {
-	value, matched, err := t.numeralBig(h)
-	if err != nil || !matched {
+// manager's mpq manager and the theory's on its own (in the source both are
+// the one rational manager): the value is read into an AST-manager
+// temporary and copied across.
+func (t *SMTLRATheory) numeral(h ast.ASTHandle, out *numeral.Rational) (matched bool, err error) {
+	astQ := t.state.manager.NumeralService().Manager
+	value := smtQZero()
+	defer func() { err = errors.Join(err, smtQDel(astQ, &value)) }()
+	if _, matched, err = t.state.manager.ArithmeticNumeralRational(h, &value); err != nil || !matched {
 		return false, err
 	}
-	return true, t.numerals.SetBigRat(out, value)
+	return true, t.numerals.CopyFrom(out, astQ, &value)
 }
 
 // isNumeral is a.is_numeral(h).
 func (t *SMTLRATheory) isNumeral(h ast.ASTHandle) (bool, error) {
-	_, matched, err := t.numeralBig(h)
-	return matched, err
+	return t.state.manager.IsArithmeticNumeral(h)
 }
 
 // delNumerals frees the bounds' values (~bound) and the term bound vectors
@@ -284,17 +285,6 @@ func (t *SMTLRATheory) takeQErr(err error) error {
 	}
 	t.qErr = nil
 	return err
-}
-
-func (t *SMTLRATheory) numeralBig(h ast.ASTHandle) (*big.Rat, bool, error) {
-	value, _, matched, err := t.state.manager.ArithmeticNumeralBigRat(h)
-	if err != nil || !matched {
-		if matched {
-			return nil, false, ast.ErrASTDomain
-		}
-		return nil, false, err
-	}
-	return value, true, nil
 }
 
 func (t *SMTLRATheory) underspecifiedTerm(h ast.ASTHandle) (bool, error) {

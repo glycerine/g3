@@ -32,7 +32,6 @@ const (
 // literal coefficients and then equality coefficients. Callers release them
 // after their justification has taken its own copies.
 func (a *smtArithmeticAntecedents) parameters(m *ast.ASTManager, rule string) (result []ast.ASTParameter, err error) {
-	q := m.NumeralService().Manager
 	if a.numParameters() == 0 {
 		return nil, nil
 	}
@@ -53,11 +52,7 @@ func (a *smtArithmeticAntecedents) parameters(m *ast.ASTManager, rule string) (r
 	result = append(result, p)
 	for _, coefficients := range [][]numeral.Rational{a.literalCoefficients, a.equalityCoefficients} {
 		for i := range coefficients {
-			coefficient, e := smtQBig(q, &coefficients[i])
-			if e != nil {
-				return result, e
-			}
-			p, err = m.NewParameterRat(coefficient)
+			p, err = m.NewParameterFromRational(&coefficients[i])
 			if err != nil {
 				return result, err
 			}

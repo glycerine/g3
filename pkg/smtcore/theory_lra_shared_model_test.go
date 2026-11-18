@@ -274,13 +274,13 @@ func TestSMTLRAModelMissingColumnCacheAndFeasibilityReset(t *testing.T) {
 	if f.a.canGetModelValue(xv) {
 		t.Fatal("proper column was available before model initialization")
 	}
-	value, err := f.a.cachedModelValue(v)
+	value, err := f.a.testCachedModelValue(v)
 	astTestMust(t, err)
 	if value.Cmp(big.NewRat(2, 1)) != 0 || !f.a.canGetModelValue(xv) {
 		t.Fatal("source missing-column zero insertion changed", value)
 	}
 	astTestMust(t, f.a.initializeVariableValues())
-	value, err = f.a.cachedModelValue(v)
+	value, err = f.a.testCachedModelValue(v)
 	astTestMust(t, err)
 	if value.Cmp(big.NewRat(2, 1)) != 0 {
 		t.Fatal("GetModel unexpectedly erased the cached term")
@@ -291,7 +291,7 @@ func TestSMTLRAModelMissingColumnCacheAndFeasibilityReset(t *testing.T) {
 		t.Fatal("make_feasible failed to reset rational cache")
 	}
 	astTestMust(t, f.a.initializeVariableValues())
-	value, err = f.a.cachedModelValue(v)
+	value, err = f.a.testCachedModelValue(v)
 	astTestMust(t, err)
 	if value.Cmp(big.NewRat(8, 1)) != 0 {
 		t.Fatal("fresh model term did not use new column values", value)
