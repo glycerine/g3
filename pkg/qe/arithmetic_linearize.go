@@ -201,7 +201,7 @@ func (c *arithmeticProjectionCall) linearizeMod(multiplier *unumeral.Rational, h
 	if err != nil {
 		return err
 	}
-	return mboAddDivides(c.mbo, coeffs, q, &c0, mul1)
+	return errors.Join(c.mbo.AddDivides(coeffs, &c0, mul1), simplex.DelTerms(q, coeffs))
 }
 
 // insertMul is imp::insert_mul(x, v, ts).
@@ -494,7 +494,7 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 					if e != nil {
 						return false, e
 					}
-					return true, mboAddConstraint(c.mbo, coeffs, q, constant, simplex.Equal)
+					return true, errors.Join(c.mbo.AddConstraint(coeffs, constant, simplex.Equal), simplex.DelTerms(q, coeffs))
 				}
 			}
 		}
@@ -526,5 +526,5 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 	if err != nil {
 		return false, err
 	}
-	return true, mboAddConstraint(c.mbo, coeffs, q, constant, relation)
+	return true, errors.Join(c.mbo.AddConstraint(coeffs, constant, relation), simplex.DelTerms(q, coeffs))
 }

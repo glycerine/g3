@@ -289,10 +289,10 @@ func TestArithmeticProjectionMaximizeModelsAndBounds(t *testing.T) {
 					t.Fatal(value)
 				}
 			} else {
-				if value.Infinite || value.Value.RatString() != expected {
+				if value.Infinite || optimumText(m, &value.Value) != expected {
 					t.Fatal(value)
 				}
-				if (value.Epsilon.Sign() < 0) != (mode == "strict") {
+				if (optimumSign(m, &value.Epsilon) < 0) != (mode == "strict") {
 					t.Fatal(value)
 				}
 			}

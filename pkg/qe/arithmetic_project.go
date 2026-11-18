@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (p *ArithmeticProjection) Project(md *model.ModelCore, vars, forms *[]ast.ASTRef) (err error) {
@@ -80,7 +80,7 @@ func (p *ArithmeticProjection) ProjectVariable(md *model.ModelCore, variable ast
 	return len(*local) == 0, err
 }
 
-func (c *arithmeticProjectionCall) project(vars, forms *[]ast.ASTRef) error {
+func (c *arithmeticProjectionCall) project(vars, forms *[]ast.ASTRef) (err error) {
 	p := c.owner
 	m := p.manager
 	j := 0
@@ -123,7 +123,6 @@ func (c *arithmeticProjectionCall) project(vars, forms *[]ast.ASTRef) error {
 		return err
 	}
 	variableSet := make(map[ast.ASTHandle]bool)
-	var err error
 	c.mark, err = ast.NewASTExprMark(m)
 	if err != nil {
 		return err
@@ -234,11 +233,18 @@ func (c *arithmeticProjectionCall) project(vars, forms *[]ast.ASTRef) error {
 	if err := p.emit("operator()", 368, func(w io.Writer) error { return c.mbo.Display(w) }); err != nil {
 		return err
 	}
-	for _, row := range c.mbo.LiveRows() {
-		if len(row.Terms) == 0 {
+	// vector<row> rows; mbo.get_live_rows(rows): copies, destroyed when
+	// operator() returns.
+	rows, err := c.mbo.LiveRows()
+	defer func() { err = errors.Join(err, simplex.DelRows(p.q(), rows)) }()
+	if err != nil {
+		return err
+	}
+	for i := range rows {
+		if len(rows[i].Terms) == 0 {
 			continue
 		}
-		if err := c.projectRow(forms, &row, index); err != nil {
+		if err = c.projectRow(forms, &rows[i], index); err != nil {
 			return err
 		}
 	}
@@ -288,7 +294,11 @@ func (c *arithmeticProjectionCall) projectRow(forms *[]ast.ASTRef, row *simplex.
 	}
 	if !m.IsTrue(value) {
 		line, label := 427, "Evaluated "
-		if len(row.Terms) == 1 && row.Terms[0].Coefficient.Sign() < 0 && row.Relation != simplex.Divides {
+		unitNegative, e := c.unitNegative(row)
+		if e != nil {
+			return e
+		}
+		if unitNegative {
 			line, label = 394, "Evaluated unit "
 		}
 		if err = p.emit("operator()", line, func(w io.Writer) error {
@@ -322,7 +332,11 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 			return h, m.SetRef(r, h)
 		}
 	}
-	unitNegative := len(row.Terms) == 1 && row.Terms[0].Coefficient.Sign() < 0 && row.Relation != simplex.Divides
+	unitNegative, err := c.unitNegative(row)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	qm := p.q()
 	var last ast.ASTHandle
 	for _, v := range row.Terms {
 		if int(v.Variable) >= len(index) {
@@ -332,22 +346,9 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		q := new(big.Rat).Set(&v.Coefficient)
-		if unitNegative {
-			q.Neg(q)
-		}
-		if q.Cmp(big.NewRat(1, 1)) != 0 {
-			integer, _, err := p.arithmetic(h)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			coefficient, err := m.ArithmeticNumeralRat(q, integer)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			if h, err = into(t)(m.MkArithmeticMul(coefficient, h)); err != nil {
-				return ast.ASTHandle{}, err
-			}
+		h, err = c.termExpression(qm, &v.Coefficient, unitNegative, h, into(t))
+		if err != nil {
+			return ast.ASTHandle{}, err
 		}
 		last = h
 		if !unitNegative {
@@ -362,12 +363,17 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	q := new(big.Rat).Set(&row.Constant)
-	if !unitNegative {
-		q.Neg(q)
+	// rational r = unit ? rows[i].m_coeff : -rows[i].m_coeff
+	q := unumeral.NewRational()
+	err = qm.Copy(&q, &row.Constant)
+	if err == nil && !unitNegative {
+		err = qm.Neg(&q)
 	}
-	rhs, err := into(s)(m.ArithmeticNumeralRat(q, integer))
-	if err != nil {
+	var rhs ast.ASTHandle
+	if err == nil {
+		rhs, err = into(s)(m.ArithmeticNumeralFromRational(&q, integer))
+	}
+	if err = errors.Join(err, qm.Del(&q)); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	lhs := last
@@ -394,12 +400,16 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 		return into(t)(m.MkEq(lhs, rhs))
 	}
 	if row.Relation == simplex.Divides {
-		if row.Constant.Sign() != 0 {
+		constant, err := qm.Sign(&row.Constant)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if constant != 0 {
 			if lhs, err = into(t)(m.MkArithmeticSub(lhs, rhs)); err != nil {
 				return ast.ASTHandle{}, err
 			}
 		}
-		modulus, err := m.ArithmeticNumeralRat(&row.Modulus, true)
+		modulus, err := m.ArithmeticNumeralFromRational(&row.Modulus, true)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -421,4 +431,44 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 		op++
 	}
 	return into(t)(m.MkFamilyApp(p.family, op, nil, []ast.ASTHandle{lhs, rhs}))
+}
+
+// unitNegative is the source's row test r.m_vars.size() == 1 &&
+// r.m_vars[0].m_coeff.is_neg() && r.m_type != opt::t_mod.
+func (c *arithmeticProjectionCall) unitNegative(row *simplex.OptRow) (bool, error) {
+	if len(row.Terms) != 1 || row.Relation == simplex.Divides {
+		return false, nil
+	}
+	sign, err := c.owner.q().Sign(&row.Terms[0].Coefficient)
+	return sign < 0, err
+}
+
+// termExpression is one summand of the row: rational r = unit ? -coeff :
+// coeff (a temporary of the iteration), and t = r * x unless r is one.
+func (c *arithmeticProjectionCall) termExpression(qm *unumeral.RationalManager, coefficient *unumeral.Rational, unitNegative bool, h ast.ASTHandle, into func(ast.ASTHandle, error) (ast.ASTHandle, error)) (result ast.ASTHandle, err error) {
+	p := c.owner
+	m := p.manager
+	r := unumeral.NewRational()
+	defer func() { err = errors.Join(err, qm.Del(&r)) }()
+	if err = qm.Copy(&r, coefficient); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if unitNegative {
+		if err = qm.Neg(&r); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	one, err := qm.IsOne(&r)
+	if err != nil || one {
+		return h, err
+	}
+	integer, _, err := p.arithmetic(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	coefficientNumeral, err := m.ArithmeticNumeralFromRational(&r, integer)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return into(m.MkArithmeticMul(coefficientNumeral, h))
 }

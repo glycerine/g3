@@ -87,7 +87,7 @@ func newQSATSearch(m *ast.ASTManager, mode qsatMode, config Config) (result *qsa
 	if err = m.Budget().Reserve(n); err != nil {
 		return nil, err
 	}
-	s := &qsatSearch{manager: m, config: config, mode: mode, bytes: n}
+	s := &qsatSearch{manager: m, config: config, mode: mode, bytes: n, valueSaved: simplex.NewOptimum()}
 	s.self = s
 	defer func() {
 		if err != nil {
@@ -402,6 +402,9 @@ func (s *qsatSearch) Close() error {
 		return err
 	}
 	if err := s.saved.Close(); err != nil {
+		return err
+	}
+	if err := s.valueSaved.Del(s.manager.NumeralService().Manager); err != nil {
 		return err
 	}
 	for _, v := range []*[]ast.ASTRef{&s.answers, &s.assumptions, &s.projectionVariables, &s.freeVariables} {

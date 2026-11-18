@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -28,10 +29,10 @@ func TestQMaxRetainedOptimizerSurface(t *testing.T) {
 	forms := predicateRefs(t, f, form)
 	var out tactic.ModelRef
 	t.Cleanup(func() { fmMust(t, out.Close()) })
-	var value simplex.Optimum
+	value := simplex.NewOptimum()
 	status, err := q.Maximize(*forms, x, &value, &out)
 	fmMust(t, err)
-	if status != lbool.True || value.Infinite || value.Value.RatString() != "3" {
+	if status != lbool.True || value.Infinite || optimumText(m, &value.Value) != "3" {
 		t.Fatal(status, value)
 	}
 	var st statistics.Statistics
@@ -68,10 +69,10 @@ func TestQMaxQuantifiedRealBoundCPP(t *testing.T) {
 	forms := predicateRefs(t, f, form)
 	var out tactic.ModelRef
 	t.Cleanup(func() { fmMust(t, out.Close()) })
-	var value simplex.Optimum
+	value := simplex.NewOptimum()
 	status, err := q.Maximize(*forms, x, &value, &out)
 	fmMust(t, err)
-	if status != lbool.True || value.Infinite || value.Value.RatString() != "3" || value.Epsilon.Sign() != 0 {
+	if status != lbool.True || value.Infinite || optimumText(m, &value.Value) != "3" || optimumSign(m, &value.Epsilon) != 0 {
 		t.Fatal(status, value)
 	}
 	md, err := out.Get()
@@ -80,7 +81,7 @@ func TestQMaxQuantifiedRealBoundCPP(t *testing.T) {
 	fmMust(t, err)
 	actual, err := md.ConstantInterpretation(decl)
 	fmMust(t, err)
-	bound := f.own(m.ArithmeticNumeralRat(&value.Value, false))
+	bound := f.own(m.ArithmeticNumeralFromRational(&value.Value, false))
 	improvement := f.own(m.MkFamilyApp(f.r.arithmetic, 5, nil, []ast.ASTHandle{x, bound}))
 	attainable := f.own(m.MkEq(x, actual))
 	format := func(h ast.ASTHandle) string {
@@ -113,7 +114,7 @@ func TestQMaxAllocationFrontiers(t *testing.T) {
 					forms := predicateRefs(t, f, form)
 					var out tactic.ModelRef
 					t.Cleanup(func() { fmMust(t, out.Close()) })
-					var value simplex.Optimum
+					value := simplex.NewOptimum()
 					var status lbool.LBool
 					m.Budget().FailAfter(stop)
 					if phase == "constructor" {
@@ -150,4 +151,22 @@ func TestQMaxAllocationFrontiers(t *testing.T) {
 			}
 		})
 	}
+}
+
+// optimumText and optimumSign read an Optimum component, a rational of the
+// AST manager's rational manager.
+func optimumText(m *ast.ASTManager, r *unumeral.Rational) string {
+	text, err := m.NumeralService().Manager.String(r)
+	if err != nil {
+		panic(err)
+	}
+	return text
+}
+
+func optimumSign(m *ast.ASTManager, r *unumeral.Rational) int {
+	sign, err := m.NumeralService().Manager.Sign(r)
+	if err != nil {
+		panic(err)
+	}
+	return int(sign)
 }

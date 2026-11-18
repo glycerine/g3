@@ -110,7 +110,7 @@ func TestQSATSearchAllocationFrontiers(t *testing.T) {
 					var objective ast.ASTHandle
 					var out tactic.ModelRef
 					t.Cleanup(func() { fmMust(t, out.Close()) })
-					var value simplex.Optimum
+					value := simplex.NewOptimum()
 					if maximizing {
 						kind = qsatMaximize
 						objective = f.constant("stopObjective", f.real)
@@ -239,7 +239,7 @@ func TestQSATSearchMaximizeModelsAndBounds(t *testing.T) {
 			forms := predicateRefs(t, f, form)
 			var out tactic.ModelRef
 			t.Cleanup(func() { fmMust(t, out.Close()) })
-			var value simplex.Optimum
+			value := simplex.NewOptimum()
 			status, err := s.maximize(*forms, x, &out, &value)
 			fmMust(t, err)
 			if mode == "unsat" {
@@ -255,7 +255,7 @@ func TestQSATSearchMaximizeModelsAndBounds(t *testing.T) {
 				if !value.Infinite {
 					t.Fatal(value)
 				}
-			} else if value.Infinite || value.Value.RatString() != "3" || (value.Epsilon.Sign() < 0) != (mode == "strict") {
+			} else if value.Infinite || optimumText(m, &value.Value) != "3" || (optimumSign(m, &value.Epsilon) < 0) != (mode == "strict") {
 				t.Fatal(value)
 			}
 			md, err := out.Get()
@@ -307,7 +307,7 @@ func TestQSATSearchCPPMaximumBounds(t *testing.T) {
 			forms := predicateRefs(t, f, form)
 			var md tactic.ModelRef
 			t.Cleanup(func() { fmMust(t, md.Close()) })
-			var value simplex.Optimum
+			value := simplex.NewOptimum()
 			status, err := s.maximize(*forms, x, &md, &value)
 			fmMust(t, err)
 			if status != lbool.True {

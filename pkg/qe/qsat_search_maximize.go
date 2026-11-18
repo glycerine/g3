@@ -3,36 +3,65 @@ package qe
 // Source: src/qe/qsat.cpp qsat::maximize_model/maximize_core.
 
 import (
+	"errors"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func copyQSATOptimum(dst *simplex.Optimum, src *simplex.Optimum) {
-	dst.Infinite = src.Infinite
-	dst.Value.Set(&src.Value)
-	dst.Epsilon.Set(&src.Epsilon)
-}
-func qsatOptimumString(v *simplex.Optimum) string {
-	s := v.Value.RatString()
-	if v.Epsilon.Sign() != 0 {
+// qsatOptimumString is inf_eps::to_string.
+func qsatOptimumString(q *unumeral.RationalManager, v *simplex.Optimum) (string, error) {
+	s, err := q.String(&v.Value)
+	if err != nil {
+		return "", err
+	}
+	epsilon, err := q.Sign(&v.Epsilon)
+	if err != nil {
+		return "", err
+	}
+	if epsilon != 0 {
 		sign := " +e*"
-		if v.Epsilon.Sign() < 0 {
+		if epsilon < 0 {
 			sign = " -e*"
 		}
-		s = "(" + s + sign + new(big.Rat).Abs(&v.Epsilon).RatString() + ")"
+		// abs(m_infinitesimal) is a temporary of the expression.
+		a := unumeral.NewRational()
+		err = q.Copy(&a, &v.Epsilon)
+		if err == nil {
+			err = q.Abs(&a)
+		}
+		var text string
+		if err == nil {
+			text, err = q.String(&a)
+		}
+		if err = errors.Join(err, q.Del(&a)); err != nil {
+			return "", err
+		}
+		s = "(" + s + sign + text + ")"
 	}
 	if v.Infinite {
-		if v.Value.Sign() == 0 && v.Epsilon.Sign() == 0 {
-			return "oo"
+		value, err := q.Sign(&v.Value)
+		if err != nil {
+			return "", err
 		}
-		return "(oo + " + s + ")"
+		if value == 0 && epsilon == 0 {
+			return "oo", nil
+		}
+		return "(oo + " + s + ")", nil
 	}
-	return s
+	return s, nil
+}
+
+func (s *qsatSearch) verboseOptimum(prefix string, v *simplex.Optimum) error {
+	text, err := qsatOptimumString(s.manager.NumeralService().Manager, v)
+	if err != nil {
+		return err
+	}
+	return s.verbose(prefix + text + ")\n")
 }
 func (s *qsatSearch) maximizeCore(core *[]ast.ASTRef) error {
 	if s.value == nil || s.objective.IsNull() {
@@ -49,8 +78,10 @@ func (s *qsatSearch) maximizeCore(core *[]ast.ASTRef) error {
 		return err
 	}
 	s.wasSat = s.wasSat || len(*core) > 0
-	copyQSATOptimum(s.value, &s.valueSaved)
-	if err := s.verbose("(maximize " + qsatOptimumString(s.value) + ")\n"); err != nil {
+	if err := s.value.Set(s.manager.NumeralService().Manager, &s.valueSaved); err != nil {
+		return err
+	}
+	if err := s.verboseOptimum("(maximize ", s.value); err != nil {
 		return err
 	}
 	h, err := s.manager.RefGet(s.improvement)
@@ -96,15 +127,19 @@ func (s *qsatSearch) maximizeModelCore(c *qsatSearchCall) error {
 	if err = s.requireDefinitions("maximize_model1"); err != nil {
 		return err
 	}
+	// m_value = m_mbp.maximize(...): the returned inf_eps is a temporary.
+	q := s.manager.NumeralService().Manager
 	v, err := s.mbp.Maximize(md, *asms, s.objective, ge, s.improvement)
-	if err != nil {
+	if err == nil {
+		err = s.valueSaved.Set(q, &v)
+	}
+	if err = errors.Join(err, v.Del(q)); err != nil {
 		return err
 	}
-	copyQSATOptimum(&s.valueSaved, &v)
 	if err = s.requireDefinitions("maximize_model2"); err != nil {
 		return err
 	}
-	if err = s.verbose("(qsat-maximize-bound: " + qsatOptimumString(&s.valueSaved) + ")\n"); err != nil {
+	if err = s.verboseOptimum("(qsat-maximize-bound: ", &s.valueSaved); err != nil {
 		return err
 	}
 	h, err := s.manager.RefGet(ge)

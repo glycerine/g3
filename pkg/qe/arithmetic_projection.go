@@ -167,7 +167,7 @@ func (p *ArithmeticProjection) begin(md *model.ModelCore) (*arithmeticProjection
 	if err := p.drain(); err != nil {
 		return nil, err
 	}
-	c := &arithmeticProjectionCall{owner: p, mbo: simplex.NewModelBasedOpt(), ids: insdict.NewDictFunc[ast.ASTHandle, uint32](projectionHandleHash)}
+	c := &arithmeticProjectionCall{owner: p, mbo: simplex.NewModelBasedOpt(p.q()), ids: insdict.NewDictFunc[ast.ASTHandle, uint32](projectionHandleHash)}
 	p.pending = append(p.pending, c)
 	return c, nil
 }
@@ -242,7 +242,12 @@ func (c *arithmeticProjectionCall) close() error {
 		}
 		c.refs = c.refs[:i]
 	}
-	c.mbo = nil
+	if c.mbo != nil {
+		if err := c.mbo.Close(); err != nil {
+			return err
+		}
+		c.mbo = nil
+	}
 	c.ids = nil
 	return nil
 }
@@ -490,31 +495,40 @@ func (c *arithmeticProjectionCall) idTrace(h ast.ASTHandle, trace func(value ast
 	if err != nil {
 		return 0, err
 	}
-	if id, err = mboAddVariable(c.mbo, qm, &r, integer); err != nil {
+	if id, err = c.mbo.AddVariable(&r, integer); err != nil {
 		return 0, err
 	}
 	c.ids.Set(h, id)
 	return id, nil
 }
-func (c *arithmeticProjectionCall) coefficients(terms *projectionTermMap) ([]simplex.LinearTerm, error) {
+
+// coefficients is extract_coefficients(mbo, model, ts, tids, coeffs): the
+// caller owns the returned vars and frees them (simplex.DelTerms) where the
+// source's local `vars coeffs` dies.
+func (c *arithmeticProjectionCall) coefficients(terms *projectionTermMap) (result []simplex.LinearTerm, err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, simplex.DelTerms(terms.q, result))
+			result = nil
+		}
+	}()
 	if err := c.evaluator.SetModelCompletion(true); err != nil {
 		return nil, err
 	}
-	var result []simplex.LinearTerm
 	keys, values := terms.entries()
 	for i, h := range keys {
 		id, err := c.id(h)
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 		zero, err := terms.q.IsZero(values[i])
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 		if !zero {
-			term, err := mboLinearTerm(terms.q, id, values[i])
+			term, err := simplex.NewLinearTerm(terms.q, id, values[i])
 			if err != nil {
-				return nil, err
+				return result, err
 			}
 			result = append(result, term)
 		} else {
@@ -525,7 +539,7 @@ func (c *arithmeticProjectionCall) coefficients(terms *projectionTermMap) ([]sim
 				_, _ = io.WriteString(w, " has coefficeint 0\n")
 				return nil
 			}); err != nil {
-				return nil, err
+				return result, err
 			}
 		}
 	}

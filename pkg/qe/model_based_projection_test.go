@@ -182,7 +182,7 @@ func TestModelBasedProjectionMaximizeForwarding(t *testing.T) {
 			bounds := predicateRefs(t, f, ast.ASTHandle{}, ast.ASTHandle{})
 			v, err := p.Maximize(c.md.Core(), *forms, c.x, (*bounds)[0], (*bounds)[1])
 			fmMust(t, err)
-			if v.Infinite || v.Value.RatString() != "3" || (v.Epsilon.Sign() < 0) != strict {
+			if v.Infinite || optimumText(m, &v.Value) != "3" || (optimumSign(m, &v.Epsilon) < 0) != strict {
 				t.Fatal(v)
 			}
 			arithmeticEvaluate(t, f, c.md, *forms)

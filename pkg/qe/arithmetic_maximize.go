@@ -55,8 +55,9 @@ func (p *ArithmeticProjection) Maximize(md *model.ModelCore, forms []ast.ASTRef,
 		coeffs, err = c.coefficients(terms)
 	}
 	if err == nil {
-		err = mboSetObjective(c.mbo, coeffs, q, &constant)
+		err = c.mbo.SetObjective(coeffs, &constant)
 	}
+	err = errors.Join(err, simplex.DelTerms(q, coeffs))
 	if err = errors.Join(err, terms.release(), q.Del(&mul), q.Del(&constant)); err != nil {
 		return value, err
 	}
@@ -94,12 +95,15 @@ func (p *ArithmeticProjection) Maximize(md *model.ModelCore, forms []ast.ASTRef,
 			return value, e
 		}
 		if fid == ast.NullFamilyID && n == 0 {
-			v, e := c.mbo.Value(id)
-			if e != nil {
-				return value, e
+			// a.mk_numeral(mbo.get_value(id), false): the value is a
+			// temporary of the statement.
+			v := unumeral.NewRational()
+			e = c.mbo.Value(id, &v)
+			var numeral ast.ASTHandle
+			if e == nil {
+				numeral, e = c.hold(p.manager.ArithmeticNumeralFromRational(&v, false))
 			}
-			numeral, e := c.hold(p.manager.ArithmeticNumeralRat(v, false))
-			if e != nil {
+			if e = errors.Join(e, q.Del(&v)); e != nil {
 				return value, e
 			}
 			if e = md.RegisterConstant(d, numeral); e != nil {
@@ -118,7 +122,7 @@ func (p *ArithmeticProjection) Maximize(md *model.ModelCore, forms []ast.ASTRef,
 			}
 		}
 	}
-	bound, err := c.hold(p.manager.ArithmeticNumeralRat(&value.Value, false))
+	bound, err := c.hold(p.manager.ArithmeticNumeralFromRational(&value.Value, false))
 	if err != nil {
 		return value, err
 	}
@@ -133,7 +137,9 @@ func (p *ArithmeticProjection) Maximize(md *model.ModelCore, forms []ast.ASTRef,
 			return value, err
 		}
 		strong, err = c.hold(p.manager.MkFalse())
-	} else if value.Epsilon.Sign() < 0 {
+	} else if epsilon, e := q.Sign(&value.Epsilon); e != nil {
+		return value, e
+	} else if epsilon < 0 {
 		weak, err = c.hold(p.manager.MkArithmeticGE(objective, current))
 		if err != nil {
 			return value, err
