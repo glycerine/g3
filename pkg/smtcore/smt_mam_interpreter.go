@@ -163,8 +163,6 @@ func (it *smtMAMInterpreter) enodesOf(lbl ast.ASTHandle) []*SMTEnode {
 
 func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32) *SMTEnode {
 	lbl := c.label
-	all := it.enodesOf(lbl)
-	minSz := len(all)
 	// quick filter: does any joint point have zero parents?
 	for i := uint32(0); i < c.numArgs; i++ {
 		var n *SMTEnode
@@ -184,6 +182,8 @@ func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32
 			return nil
 		}
 	}
+	all := it.enodesOf(lbl) // min_sz = get_num_enodes_of(lbl); no side effects
+	minSz := len(all)
 	// traverse each joint and select the best one.
 	var best *[]*SMTEnode
 	for i := uint32(0); i < c.numArgs; i++ {

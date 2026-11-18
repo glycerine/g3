@@ -1014,6 +1014,11 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if len(bucket) == 0 || bucket[len(bucket)-1] != node {
 		return fmt.Errorf("enode declaration %d is not bucket tail (size %d): %w", node.declaration.Slot(), len(bucket), ast.ErrASTDomain)
 	}
+	apps := s.context.decl2enodes[node.declaration]
+	indexed := len(node.arguments) != 0 && !node.IsEquality()
+	if indexed && (len(apps) == 0 || apps[len(apps)-1] != node) {
+		return fmt.Errorf("enode declaration %d is not decl2enodes tail: %w", node.declaration.Slot(), ast.ErrASTDomain)
+	}
 	// undo_mk_enode: erase e if e->is_cgr() && !e->is_true_eq() &&
 	// e->is_cgc_enabled(). A leaf has no m_cg.
 	if node.IsCongruenceRoot() && node.NumArgs() != 0 && node.congruenceEnabled && !node.IsTrueEquality() {
@@ -1026,12 +1031,12 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 		}
 	}
 	s.context.enodes.del(node.owner)
+	// Popped tails are cleared: a Go backing array would keep the
+	// deleted enode reachable.
+	bucket[len(bucket)-1] = nil
 	s.context.byDeclaration[node.declaration] = bucket[:len(bucket)-1]
-	if len(node.arguments) != 0 && !node.IsEquality() {
-		apps := s.context.decl2enodes[node.declaration]
-		if len(apps) == 0 || apps[len(apps)-1] != node {
-			return fmt.Errorf("enode declaration %d is not decl2enodes tail: %w", node.declaration.Slot(), ast.ErrASTDomain)
-		}
+	if indexed {
+		apps[len(apps)-1] = nil
 		s.context.decl2enodes[node.declaration] = apps[:len(apps)-1]
 	}
 	// Source relevancy marks belong to the expression's relevancy scope.
