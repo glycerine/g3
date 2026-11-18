@@ -4633,8 +4633,9 @@ void tst_z3_4_7_1_proof_checker_rejects() {
     {
         proof_checker pc(m);
         expr_ref_vector side(m);
-        parameter params[3] = { parameter(symbol("arith")), parameter(symbol("farkas")), parameter(symbol("not-a-coefficient")) };
-        proof_ref pr(m.mk_th_lemma(a.get_family_id(), m.mk_false(), 0, nullptr, 3, params), m);
+        // mk_th_lemma prepends the family name ("arith") itself.
+        parameter params[2] = { parameter(symbol("farkas")), parameter(symbol("not-a-coefficient")) };
+        proof_ref pr(m.mk_th_lemma(a.get_family_id(), m.mk_false(), 0, nullptr, 2, params), m);
         farkas_ok = pc.check(pr, side);
     }
     std::cout << "proof_checker_rejects: true-axiom " << true_ok << " farkas symbol " << farkas_ok << "\n";
