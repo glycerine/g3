@@ -471,7 +471,8 @@ func (c *Context) setOutputChannel(name string, regular bool) error {
 			if !regular {
 				_ = c.unbindDiagnosticGlobals()
 			}
-			return fmt.Errorf("failed to set output stream '%s': %w", name, err)
+			// stream_ref::set: the message has no OS error text.
+			return fmt.Errorf("failed to set output stream '%s'", name)
 		}
 		*output, *file = opened, opened
 	}

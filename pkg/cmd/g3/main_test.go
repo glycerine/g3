@@ -336,6 +336,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_01-F12: stream_ref::set's message carries no OS error.
+	"output_channel_open_failure.smt2": "(error \"line 1 column 37: failed to set output stream '/nonexistent/dir/x'\")\nafter\n",
 	// AUDIT.md cmd_context_02-F7: produce-unsat-cores is tested first.
 	"get_unsat_core_disabled.smt2": "unsat\n(error \"line 3 column 15: unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)\")\n",
 	// AUDIT.md cmd_context_02-F8: smt2parser's own arity texts, reported
@@ -2378,6 +2380,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"output_channel_open_failure.smt2": true,
 	"get_unsat_core_disabled.smt2": true,
 	"sort_constructor_arity_error.smt2": true,
 	"plugins6_declare_rel_arguments.smt2": true,
