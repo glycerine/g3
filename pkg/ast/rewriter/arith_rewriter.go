@@ -518,36 +518,6 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 	return RewriteDone, r.setBool(out, kind == arithOpLE && cmp <= 0 || kind == arithOpGE && cmp >= 0)
 }
 
-func (r *ArithRewriter) rewriteNumeralFold(kind int32, args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
-	identity := int64(0)
-	if kind == arithOpMul {
-		identity = 1
-	}
-	value := new(big.Rat).SetInt64(identity)
-	integer := true
-	for i := uint32(0); i < args.Count(); i++ {
-		h, err := args.At(i)
-		if err != nil {
-			return RewriteFailed, err
-		}
-		v, isInteger, matched, err := r.numeral(h)
-		if err != nil || !matched {
-			return RewriteFailed, err
-		}
-		integer = integer && isInteger
-		if kind == arithOpAdd {
-			value.Add(value, v)
-		} else {
-			value.Mul(value, v)
-		}
-	}
-	h, err := r.makeNumeral(value, integer)
-	if err != nil {
-		return RewriteFailed, err
-	}
-	return RewriteDone, r.manager.SetRef(out, h)
-}
-
 func (r *ArithRewriter) rewriteUnaryMinus(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
 	v, integer, matched, err := r.numeral(arg)
 	if err != nil {
