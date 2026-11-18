@@ -242,18 +242,21 @@ func (s *satSimplifier) scopedFinalize() error {
 		var e error
 		switch s.scopedStage {
 		case 0:
+			// scoped_finalize_fn tests m_need_cleanup once; cleanup_clause
+			// may set it again during the stages below (AUDIT.md sat_02-F5).
+			s.finalizeNeedCleanup = s.needCleanup
 			s.traceFinalizeCleanupBranch()
-			if s.needCleanup {
+			if s.finalizeNeedCleanup {
 				e = s.cleanupWatches()
 			}
 		case 1:
-			if s.needCleanup {
+			if s.finalizeNeedCleanup {
 				e = s.cleanupClauses(true, eliminated, s.learnedInUseLists)
 			} else if eliminated {
 				e = s.cleanupClauses(true, true, s.learnedInUseLists)
 			}
 		case 2:
-			if s.needCleanup {
+			if s.finalizeNeedCleanup {
 				e = s.cleanupClauses(false, eliminated, true)
 			}
 		case 3:

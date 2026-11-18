@@ -16,8 +16,11 @@ import (
 // Concrete source member owner. Solver services are real borrowed owners; this
 // is not the complete solver constructor. Only kernel owns visited/counters.
 type satSimplifier struct {
-	debug                                                                        *diagnostic.DebugContext
-	scopedStage                                                                  uint32
+	debug       *diagnostic.DebugContext
+	scopedStage uint32
+	// finalizeNeedCleanup is m_need_cleanup as scoped_finalize_fn read it
+	// on entry; a field because Close can resume the staged destructor.
+	finalizeNeedCleanup                                                          bool
 	subReportActive                                                              bool
 	self                                                                         *satSimplifier
 	blocked                                                                      satSimplifierBlocked
