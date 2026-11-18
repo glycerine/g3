@@ -6,6 +6,7 @@ package bv
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"io"
 	"math"
 	"reflect"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/cooperate"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -397,6 +399,13 @@ func (t *ElimSmallBVTactic) Apply(g *tactic.Goal, r *tactic.TacticResult) (err e
 	if err = r.Prepare(t.manager); err != nil {
 		return err
 	}
+	// tactic_report report("elim-small-bv", *g) precedes the proof and core
+	// checks.
+	report, err := tactic.NewTacticReport("elim-small-bv", g)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, report.Close()) }()
 	if err = tactic.FailIfProofGeneration("elim-small-bv", g); err != nil {
 		return err
 	}
@@ -465,8 +474,19 @@ func (t *ElimSmallBVTactic) Apply(g *tactic.Goal, r *tactic.TacticResult) (err e
 			return e
 		}
 	}
+	if e = tactic.ReportTacticProgress(":elim-small-bv-num-eliminated", cfg.eliminated); e != nil {
+		return e
+	}
 	if e = g.IncDepth(); e != nil {
 		return e
 	}
-	return r.AddGoal(g)
+	if e = r.AddGoal(g); e != nil {
+		return e
+	}
+	tags := diagnostic.BorrowProcessTraceTags()
+	e = tags.EmitConditional("elim-small-bv", "operator()", "src/tactic/bv/elim_small_bv_tactic.cpp", 278, func() bool { return true }, func(w io.Writer) error { return g.Display(w) })
+	if e != nil && !tags.IsStreamFailure(e) {
+		return e
+	}
+	return nil
 }
