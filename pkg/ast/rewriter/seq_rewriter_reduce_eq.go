@@ -10,9 +10,10 @@ package rewriter
 // as its expr_ref_vectors do.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const seqOpItos int32 = 27 // OP_STRING_ITOS
@@ -795,11 +796,25 @@ func (r *SequenceRewriter) solveItos(ls, rs []ast.ASTHandle, lhs, rhs *[]ast.AST
 				return false, err
 			}
 			if ok3 {
-				if v, parsed := new(big.Int).SetString(s, 10); parsed && v.String() == s {
-					n, err := r.manager.ArithmeticIntegerNumeralText(v.String())
+				// rational r(s1.c_str()); if (s1 == r.to_string())
+				q := r.manager.NumeralService().Manager
+				v := unumeral.NewRational()
+				same := false
+				if q.SetString(&v, s) == nil && v.IsInt() {
+					text, err := q.String(&v)
 					if err != nil {
-						return false, err
+						return false, errors.Join(err, q.Del(&v))
 					}
+					same = text == s
+				}
+				var n ast.ASTHandle
+				if same {
+					n, err = r.manager.ArithmeticNumeralFromRational(&v, true)
+				}
+				if err = errors.Join(err, q.Del(&v)); err != nil {
+					return false, err
+				}
+				if same {
 					if err := r.vPush(lhs, l); err != nil {
 						return false, err
 					}

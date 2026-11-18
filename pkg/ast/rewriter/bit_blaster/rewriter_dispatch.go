@@ -4,10 +4,10 @@ package bit_blaster
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	parent "github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 var ErrUnsupportedOperator = parent.NewRewriterException("operator is not supported, you must simplify the goal before applying bit-blasting")
@@ -17,26 +17,22 @@ func (r *BitBlasterRewriter) reduceNumeral(decl ast.ASTHandle, out ast.ASTRef) (
 	if err != nil {
 		return err
 	}
-	text, matched, err := r.manager.BitVectorNumeralText(term)
+	// rational v; unsigned bv_sz; m_util.is_numeral(t, v, bv_sz)
+	q := r.manager.NumeralService().Manager
+	value := unumeral.NewRational()
+	defer func() { result = errors.Join(result, q.Del(&value)) }()
+	width, matched, err := r.manager.BitVectorNumeralRational(term, &value)
 	if err != nil {
 		return err
 	}
 	if !matched {
 		return ast.ErrASTDomain
 	}
-	width, err := r.manager.BitVectorSize(term)
-	if err != nil {
-		return err
-	}
-	value, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		return ast.ErrASTDomain
-	}
 	// m_out.reset(); m_blaster.num2bits(v, bv_sz, m_out); mk_mkbv(m_out)
 	if err = r.resetBits(&r.outBits); err != nil {
 		return err
 	}
-	r.outBits, err = r.blaster.NumToBits(value, int(width))
+	r.outBits, err = r.blaster.NumToBits(&value, int(width))
 	if err != nil {
 		return err
 	}

@@ -4,25 +4,42 @@ package bit_blaster
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (e *Engine) extendedRotate(left bool, bits, amountBits []ast.ASTHandle) (out []ast.ASTRef, result error) {
 	if len(bits) == 0 || len(bits) != len(amountBits) {
 		return nil, ast.ErrASTDomain
 	}
-	if amount, yes := e.Numeral(amountBits); yes {
-		modulus := big.NewInt(int64(len(bits)))
-		n := new(big.Int).Mod(amount, modulus).Uint64()
+	// numeral k; if (is_numeral(sz, b_bits, k)) { r = k % sz; ... }
+	q := e.numerals()
+	amount, yes, err := e.numeralValue(amountBits)
+	if err != nil {
+		return nil, err
+	}
+	if yes {
+		modulus := unumeral.NewRational()
+		var n uint64
+		err = errors.Join(q.SetUint64(&modulus, uint64(len(bits))), q.Mod(&amount, &modulus, &amount))
+		if err == nil {
+			n, err = q.Uint64(&amount)
+		}
+		if err = errors.Join(err, q.Del(&modulus), q.Del(&amount)); err != nil {
+			return nil, err
+		}
 		if left {
 			return e.MkRotateLeft(bits, n)
 		}
 		return e.MkRotateRight(bits, n)
 	}
+	if err = q.Del(&amount); err != nil {
+		return nil, err
+	}
 	m := e.config.manager
-	widthBits, err := e.NumToBits(big.NewInt(int64(len(bits))), len(bits))
+	sz := unumeral.Rational{Num: unumeral.NewInt(int32(len(bits))), Den: unumeral.NewInt(1)}
+	widthBits, err := e.NumToBits(&sz, len(bits))
 	if err != nil {
 		return nil, err
 	}

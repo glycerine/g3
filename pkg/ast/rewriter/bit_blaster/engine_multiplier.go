@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // MkMultiplier uses the retained default ripple multiplier. The optional
@@ -15,18 +16,32 @@ func (e *Engine) MkMultiplier(a, b []ast.ASTHandle) (out []ast.ASTRef, result er
 		return nil, ast.ErrASTDomain
 	}
 	width := len(a)
-	bNumber, aNumeral := e.Numeral(a)
+	// numeral n_a, n_b;
+	q := e.numerals()
+	aNumber, bNumber := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { result = errors.Join(result, q.Del(&aNumber), q.Del(&bNumber)) }()
+	aNumeral, err := e.Numeral(a, &bNumber)
+	if err != nil {
+		return nil, err
+	}
 	if aNumeral {
 		a, b = b, a
 	}
 	if e.IsMinusOne(b) {
 		return e.MkNeg(a)
 	}
-	if aNumber, yes := e.Numeral(a); yes {
-		return e.NumToBits(aNumber.Mul(aNumber, bNumber), width)
+	if yes, err := e.Numeral(a, &aNumber); err != nil {
+		return nil, err
+	} else if yes {
+		if err = q.Mul(&aNumber, &bNumber, &aNumber); err != nil {
+			return nil, err
+		}
+		return e.NumToBits(&aNumber, width)
 	}
 	m := e.config.manager
-	if _, yes := e.Numeral(b); yes {
+	if yes, err := e.Numeral(b, &aNumber); err != nil {
+		return nil, err
+	} else if yes {
 		discarded, err := e.constCaseMultiplier(b, a)
 		if err != nil {
 			return nil, err
@@ -233,12 +248,23 @@ func (e *Engine) constCaseMultiplierAt(inA bool, index int, a, b []ast.ASTHandle
 		index++
 	}
 	if index == width {
-		aNumber, aOK := e.Numeral(a)
-		bNumber, bOK := e.Numeral(b)
-		if !aOK || !bOK {
-			return nil, ast.ErrASTDomain
+		q := e.numerals()
+		aNumber, bNumber := unumeral.NewRational(), unumeral.NewRational()
+		aOK, err := e.Numeral(a, &aNumber)
+		bOK := false
+		if err == nil {
+			bOK, err = e.Numeral(b, &bNumber)
 		}
-		return e.NumToBits(aNumber.Mul(aNumber, bNumber), width)
+		if err == nil && (!aOK || !bOK) {
+			err = ast.ErrASTDomain
+		}
+		if err == nil {
+			err = q.Mul(&aNumber, &bNumber, &aNumber)
+		}
+		if err == nil {
+			out, err = e.NumToBits(&aNumber, width)
+		}
+		return out, errors.Join(err, q.Del(&aNumber), q.Del(&bNumber))
 	}
 	x := b[index]
 	if inA {

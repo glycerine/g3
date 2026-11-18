@@ -7,16 +7,17 @@ package ast
 
 import (
 	"errors"
-	"math/big"
 
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// FPAMpfFields are an mpf's fields as fpa2bv_converter reads them.
+// FPAMpfFields are an mpf's fields as fpa2bv_converter reads them. The
+// significand is the decimal text of the mpf manager's mpz: that manager
+// owns its own integers, apart from the AST manager's rational manager.
 type FPAMpfFields struct {
 	NaN, Inf, Zero bool
 	Sign           bool
-	Significand    *big.Int
+	Significand    string
 	Exponent       int64
 }
 
@@ -38,20 +39,23 @@ func FPARoundingMode(bvRM int64) (unumeral.ArbitraryFloatRoundingMode, error) {
 	return 0, ErrASTDomain
 }
 
-// FPAMpfSetRational is set(v, ebits, sbits, rm, q) followed by its fields.
-func (m *ASTManager) FPAMpfSetRational(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, q *big.Rat) (FPAMpfFields, error) {
+// FPAMpfSetRational is set(v, ebits, sbits, rm, q) followed by its fields;
+// q is a rational of NumeralService().Manager.
+func (m *ASTManager) FPAMpfSetRational(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, q *unumeral.Rational) (FPAMpfFields, error) {
 	return m.fpaMpfSet(ebits, sbits, mode, nil, q, false)
 }
 
 // FPAMpfSetExponentRational is set(v, ebits, sbits, rm, e, q) followed by
 // its fields.
-func (m *ASTManager) FPAMpfSetExponentRational(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, e *big.Int, q *big.Rat) (FPAMpfFields, error) {
+// e (an integer) and q are rationals of NumeralService().Manager.
+func (m *ASTManager) FPAMpfSetExponentRational(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, e, q *unumeral.Rational) (FPAMpfFields, error) {
 	return m.fpaMpfSet(ebits, sbits, mode, e, q, false)
 }
 
 // MkFPANumeralExponentRational is m_plugin->mk_numeral(v) for v set from
 // (rm, e, q).
-func (m *ASTManager) MkFPANumeralExponentRational(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, e *big.Int, q *big.Rat) (ASTHandle, error) {
+// e (an integer) and q are rationals of NumeralService().Manager.
+func (m *ASTManager) MkFPANumeralExponentRational(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, e, q *unumeral.Rational) (ASTHandle, error) {
 	if err := m.lock(); err != nil {
 		return ASTHandle{}, err
 	}
@@ -65,7 +69,7 @@ func (m *ASTManager) MkFPANumeralExponentRational(ebits, sbits uint32, mode unum
 	return out, err
 }
 
-func (m *ASTManager) fpaMpfSet(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, e *big.Int, q *big.Rat, _ bool) (fields FPAMpfFields, result error) {
+func (m *ASTManager) fpaMpfSet(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, e, q *unumeral.Rational, _ bool) (fields FPAMpfFields, result error) {
 	if err := m.lock(); err != nil {
 		return fields, err
 	}
@@ -91,21 +95,17 @@ func (m *ASTManager) fpaMpfSet(ebits, sbits uint32, mode unumeral.ArbitraryFloat
 		if err != nil {
 			return err
 		}
-		text, err := integer.String(sig)
-		if err != nil {
-			return err
-		}
-		var ok bool
-		if fields.Significand, ok = new(big.Int).SetString(text, 10); !ok {
-			return ErrASTDomain
-		}
-		return nil
+		fields.Significand, err = integer.String(sig)
+		return err
 	})
 	return fields, result
 }
 
 // withMpf sets a scoped mpf and runs body with it; the manager lock is held.
-func (m *ASTManager) withMpf(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, e *big.Int, q *big.Rat, body func(*astFloatingPointPluginOwner, *unumeral.ArbitraryFloat) error) (result error) {
+func (m *ASTManager) withMpf(ebits, sbits uint32, mode unumeral.ArbitraryFloatRoundingMode, e, q *unumeral.Rational, body func(*astFloatingPointPluginOwner, *unumeral.ArbitraryFloat) error) (result error) {
+	if q == nil {
+		return ErrASTDomain
+	}
 	p := m.floatingPointPlugin
 	if p == nil || p.self != p || !p.published || p.sourceEnded {
 		return ErrASTHandle
@@ -126,14 +126,22 @@ func (m *ASTManager) withMpf(ebits, sbits uint32, mode unumeral.ArbitraryFloatRo
 		result = errors.Join(result, qm.Del(&r))
 		result = errors.Join(result, qm.Z.Del(&exponent))
 	}()
-	if err = qm.Z.SetString(&r.Num, q.Num().String()); err != nil {
+	// The mpf manager's rationals are its own: q crosses as its text.
+	text, err := m.numerals.Manager.String(q)
+	if err != nil {
 		return err
 	}
-	if err = qm.Z.SetString(&r.Den, q.Denom().String()); err != nil {
+	if err = qm.SetString(&r, text); err != nil {
 		return err
 	}
 	if e != nil {
-		if err = qm.Z.SetString(&exponent, e.String()); err != nil {
+		if !e.IsInt() {
+			return ErrASTDomain
+		}
+		if text, err = m.numerals.Manager.String(e); err != nil {
+			return err
+		}
+		if err = qm.Z.SetString(&exponent, text); err != nil {
 			return err
 		}
 		err = p.numeric.SetExponentRational(&v.value, ebits, sbits, mode, &exponent, &r)

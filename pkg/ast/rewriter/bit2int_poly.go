@@ -3,9 +3,10 @@ package rewriter
 // Source: src/ast/rewriter/bit2int.cpp:185-235.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (b *Bit2Int) isArithmeticOperation(term ast.ASTHandle, kind int32) (bool, error) {
@@ -21,26 +22,22 @@ func (b *Bit2Int) isArithmeticOperation(term ast.ASTHandle, kind int32) (bool, e
 	return op == kind, err
 }
 
-func (b *Bit2Int) arithmeticInteger(term ast.ASTHandle) (*big.Int, bool, error) {
-	text, integer, matched, err := b.manager.ArithmeticNumeralText(term)
-	if err != nil || !matched || !integer {
-		return nil, false, err
-	}
-	value, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
-	}
-	return value, true, nil
+// arithmeticInteger is is_numeral(n, k, is_int) && is_int into k, a
+// rational of the AST manager's NumeralService().Manager.
+func (b *Bit2Int) arithmeticInteger(term ast.ASTHandle, k *unumeral.Rational) (bool, error) {
+	integer, matched, err := b.manager.ArithmeticNumeralRational(term, k)
+	return err == nil && matched && integer, err
 }
 
-func (b *Bit2Int) positiveArithmeticNumeral(c *bit2IntCall, value *big.Int) (ast.ASTHandle, error) {
+// positiveArithmeticNumeral is m_arith_util.mk_numeral(-k, true).
+func (b *Bit2Int) positiveArithmeticNumeral(c *bit2IntCall, k *unumeral.Rational) (ast.ASTHandle, error) {
 	service := b.manager.NumeralService()
 	rational, err := service.NewValue()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	defer service.Del(&rational)
-	if err = service.SetString(&rational, value.String()); err != nil {
+	if err = errors.Join(service.Manager.Copy(&rational.Raw, k), service.Manager.Neg(&rational.Raw)); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	term, err := b.manager.ArithmeticNumeral(&rational, true)
@@ -51,6 +48,10 @@ func (b *Bit2Int) positiveArithmeticNumeral(c *bit2IntCall, value *big.Int) (ast
 }
 
 func (b *Bit2Int) isBVPoly(c *bit2IntCall, root ast.ASTHandle) (pos, neg ast.ASTHandle, matched bool, err error) {
+	// numeral k;
+	q := b.manager.NumeralService().Manager
+	value := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&value)) }()
 	zero, err := b.manager.RefGet(b.bit0)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
@@ -75,15 +76,15 @@ func (b *Bit2Int) isBVPoly(c *bit2IntCall, root ast.ASTHandle) (pos, neg ast.AST
 			}
 			continue
 		}
-		value, numeral, err := b.arithmeticInteger(term)
+		numeral, err := b.arithmeticInteger(term, &value)
 		if err != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 		}
 		if numeral {
-			if value.Sign() >= 0 {
+			if !value.IsNeg() {
 				pos, matched, err = b.mkAdd(c, term, pos)
 			} else {
-				positive, x := b.positiveArithmeticNumeral(c, new(big.Int).Neg(value))
+				positive, x := b.positiveArithmeticNumeral(c, &value)
 				if x != nil {
 					return ast.ASTHandle{}, ast.ASTHandle{}, false, x
 				}
@@ -132,7 +133,7 @@ func (b *Bit2Int) isBVPoly(c *bit2IntCall, root ast.ASTHandle) (pos, neg ast.AST
 					return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 				}
 				for _, pair := range [][2]ast.ASTHandle{{left, right}, {right, left}} {
-					coefficient, numeral, err := b.arithmeticInteger(pair[0])
+					numeral, err := b.arithmeticInteger(pair[0], &value)
 					if err != nil {
 						return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 					}
@@ -140,7 +141,7 @@ func (b *Bit2Int) isBVPoly(c *bit2IntCall, root ast.ASTHandle) (pos, neg ast.AST
 					if err != nil {
 						return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 					}
-					if numeral && coefficient.Cmp(big.NewInt(-1)) == 0 && other {
+					if numeral && value.IsMinusOne() && other {
 						neg, matched, err = b.mkAdd(c, pair[1], neg)
 						if err != nil || !matched {
 							return ast.ASTHandle{}, ast.ASTHandle{}, false, err

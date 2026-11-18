@@ -3,12 +3,11 @@ package macros
 // Source: src/ast/macros/macro_finder.cpp/.h.
 
 import (
-	"math/big"
-
 	"errors"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -382,7 +381,7 @@ func (f *Finder) arithmeticMacro(q, proof ast.ASTHandle, dependency ast.ASTDepen
 	}
 	// m.mk_app(new_body->get_decl(), k_app, m_autil.mk_int(0)): an Int
 	// zero, coerced by mk_app (to_real) for a Real head.
-	zero, err := f.manager.ArithmeticNumeralRat(new(big.Rat), true)
+	zero, err := f.manager.ArithmeticNumeralFromRational(&unumeral.Rational{Num: unumeral.NewInt(0), Den: unumeral.NewInt(1)}, true)
 	if err != nil {
 		return false, err
 	}

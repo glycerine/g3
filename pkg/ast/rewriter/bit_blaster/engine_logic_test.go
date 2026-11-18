@@ -1,7 +1,6 @@
 package bit_blaster
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -10,7 +9,7 @@ import (
 
 func logicBits(t *testing.T, e *Engine, value int64, width int) ([]ast.ASTRef, []ast.ASTHandle) {
 	t.Helper()
-	refs, err := e.NumToBits(big.NewInt(value), width)
+	refs, err := e.NumToBits(bbSmall(value), width)
 	paramsMust(t, err)
 	return refs, arithmeticHandles(t, e, refs)
 }

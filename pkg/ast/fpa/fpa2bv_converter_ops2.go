@@ -4,8 +4,6 @@ package fpa
 // mk_round_to_integral, mk_float_eq/lt/gt/le/ge, mk_is_* decl forms).
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -59,8 +57,7 @@ func (c *FPA2BVConverter) mkSqrt(fd ast.ASTHandle, args []ast.ASTHandle, result 
 	zA.set(c.concat(zero1.get(), aSig.get()))
 	c.simpIte(eIsOdd.get(), aZ.get(), zA.get(), sigPrime)
 	Q, R, S, T := f.ref(), f.ref(), f.ref(), f.ref()
-	p2 := new(big.Int).Lsh(big.NewInt(1), uint(sbits+3))
-	Q.set(c.bvNumBig(p2, sbits+5))
+	Q.set(c.bvNumPowers2(sbits+3, false, 0, sbits+5))
 	R.set(c.bvSub(c.concat(sigPrime.get(), c.bvNum(0, 4)), Q.get()))
 	S.set(Q.get())
 	for i := uint32(0); i < sbits+3; i++ {
@@ -160,7 +157,7 @@ func (c *FPA2BVConverter) mkRoundToIntegral(s ast.ASTHandle, rm, x, result *eref
 	c.mkOne(s, one1.get(), none)
 	c.mkIte(sgnEq1.get(), none.get(), pone.get(), xone)
 	pow2Sbitsm1, m1 := f.ref(), f.ref()
-	pow2Sbitsm1.set(c.bvNumBig(new(big.Int).Lsh(big.NewInt(1), uint(sbits-1)), sbits))
+	pow2Sbitsm1.set(c.bvNumPowers2(sbits-1, false, 0, sbits))
 	m1.set(c.bvNeg(c.bvNum(1, ebits)))
 	c.simpEq(aSig.get(), pow2Sbitsm1.get(), t1)
 	c.simpEq(aExp.get(), m1.get(), t2)

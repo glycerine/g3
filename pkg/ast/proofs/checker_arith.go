@@ -2,11 +2,11 @@ package proofs
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -19,7 +19,10 @@ const (
 	proofArithMul int32 = 9
 )
 
-func (c *Checker) parameterSymbolsAndCoefficients(p ast.ASTHandle) (first, second string, coeffs []*big.Rat, result error) {
+// parameterSymbolsAndCoefficients returns the coefficients as rationals of
+// the AST manager's NumeralService().Manager owned by the caller
+// (releaseCoefficients).
+func (c *Checker) parameterSymbolsAndCoefficients(p ast.ASTHandle) (first, second string, coeffs []unumeral.Rational, result error) {
 	d, err := c.manager.GetDecl(p)
 	if err != nil {
 		return "", "", nil, err
@@ -65,33 +68,46 @@ func (c *Checker) parameterSymbolsAndCoefficients(p ast.ASTHandle) (first, secon
 		if e != nil || !matched {
 			return "", "", nil, errors.Join(e, service.Del(&q))
 		}
-		text, e := service.String(&q)
-		e = errors.Join(e, service.Del(&q))
+		coeffs = append(coeffs, unumeral.NewRational())
+		e = errors.Join(service.Manager.Copy(&coeffs[len(coeffs)-1], &q.Raw), service.Del(&q))
 		if e != nil {
-			return "", "", nil, e
+			return "", "", nil, errors.Join(e, c.releaseCoefficients(coeffs))
 		}
-		r, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return "", "", nil, ast.ErrASTDomain
-		}
-		coeffs = append(coeffs, r)
 	}
 	return first, second, coeffs, nil
 }
 
-func scaleRationalCoefficients(values []*big.Rat) {
-	lcm := big.NewInt(1)
-	for _, q := range values {
-		d := new(big.Int).Set(q.Denom())
-		g := new(big.Int).GCD(nil, nil, lcm, d)
-		lcm.Mul(new(big.Int).Quo(lcm, g), d)
+func (c *Checker) releaseCoefficients(values []unumeral.Rational) (err error) {
+	q := c.manager.NumeralService().Manager
+	for i := range values {
+		err = errors.Join(err, q.Del(&values[i]))
 	}
-	if lcm.Cmp(big.NewInt(1)) == 0 {
-		return
+	return err
+}
+
+// scaleRationalCoefficients multiplies the coefficients by the lcm of their
+// denominators.
+func (c *Checker) scaleRationalCoefficients(values []unumeral.Rational) (err error) {
+	q := c.manager.NumeralService().Manager
+	lcm, d := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&lcm), q.Del(&d)) }()
+	if err = q.SetInt32(&lcm, 1); err != nil {
+		return err
 	}
-	for _, q := range values {
-		q.Mul(q, new(big.Rat).SetInt(lcm))
+	for i := range values {
+		if err = errors.Join(q.DenominatorRational(&values[i], &d), q.LCM(&lcm, &d, &lcm)); err != nil {
+			return err
+		}
 	}
+	if lcm.IsOne() {
+		return nil
+	}
+	for i := range values {
+		if err = q.Mul(&values[i], &lcm, &values[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type proofArithRewriter struct {
@@ -163,20 +179,11 @@ func (r *proofArithRewriter) rewrite(h ast.ASTHandle) (result ast.ASTHandle, bod
 	return r.manager.RefGet(out)
 }
 
-func (c *Checker) rationalNumeral(value *big.Rat, integer bool) (ast.ASTHandle, error) {
-	s := c.manager.NumeralService()
-	q, err := s.NewValue()
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	defer s.Del(&q)
-	if err = s.SetString(&q, value.RatString()); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return c.manager.ArithmeticNumeral(&q, integer)
+func (c *Checker) rationalNumeral(value *unumeral.Rational, integer bool) (ast.ASTHandle, error) {
+	return c.manager.ArithmeticNumeralFromRational(value, integer)
 }
 
-func (c *Checker) checkArithLiteral(arith ast.FamilyID, isPositive bool, literal ast.ASTHandle, coefficient *big.Rat, sum ast.ASTHandle, strict *bool, rw *proofArithRewriter) (ast.ASTHandle, bool, error) {
+func (c *Checker) checkArithLiteral(arith ast.FamilyID, isPositive bool, literal ast.ASTHandle, coefficient *unumeral.Rational, sum ast.ASTHandle, strict *bool, rw *proofArithRewriter) (_ ast.ASTHandle, _ bool, resultErr error) {
 	if n, yes, err := c.op(literal, ast.ASTOpNot, 1); err != nil {
 		return sum, false, err
 	} else if yes {
@@ -218,14 +225,22 @@ func (c *Checker) checkArithLiteral(arith ast.FamilyID, isPositive bool, literal
 	if !integer && (isPositive && (kind == proofArithGT || kind == proofArithLT) || !isPositive && (kind == proofArithGE || kind == proofArithLE)) {
 		*strict = true
 	}
-	abs := new(big.Rat).Abs(new(big.Rat).Set(coefficient))
-	sign1 := abs
-	if equality {
-		sign1 = new(big.Rat).Set(coefficient)
+	// rational sign1 = abs(coeff) (coeff itself for an equality), sign2 = -sign1
+	q := c.manager.NumeralService().Manager
+	sign1, sign2 := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&sign1), q.Del(&sign2)) }()
+	err = q.Copy(&sign1, coefficient)
+	if err == nil && !equality {
+		err = q.Abs(&sign1)
 	}
-	sign2 := new(big.Rat).Neg(new(big.Rat).Set(sign1))
+	if err == nil {
+		err = errors.Join(q.Copy(&sign2, &sign1), q.Neg(&sign2))
+	}
+	if err != nil {
+		return sum, false, err
+	}
 	if sum.IsNull() {
-		sum, err = c.rationalNumeral(big.NewRat(0, 1), integer)
+		sum, err = c.rationalNumeral(&unumeral.Rational{Num: unumeral.NewInt(0), Den: unumeral.NewInt(1)}, integer)
 		if err != nil {
 			return sum, false, err
 		}
@@ -235,7 +250,7 @@ func (c *Checker) checkArithLiteral(arith ast.FamilyID, isPositive bool, literal
 		a0, a1 = a1, a0
 	}
 	strictInequality := isPositive && (kind == proofArithGT || kind == proofArithLT) || !isPositive && (kind == proofArithGE || kind == proofArithLE)
-	n1, err := c.rationalNumeral(sign1, integer)
+	n1, err := c.rationalNumeral(&sign1, integer)
 	if err != nil {
 		return sum, false, err
 	}
@@ -245,7 +260,7 @@ func (c *Checker) checkArithLiteral(arith ast.FamilyID, isPositive bool, literal
 			return sum, false, err
 		}
 	}
-	n2, err := c.rationalNumeral(sign2, integer)
+	n2, err := c.rationalNumeral(&sign2, integer)
 	if err != nil {
 		return sum, false, err
 	}
@@ -274,10 +289,13 @@ func (c *Checker) checkTheoryLemma(p ast.ASTHandle) (valid bool, side []ast.ASTH
 	if err != nil {
 		return false, nil, err
 	}
+	defer func() { result = errors.Join(result, c.releaseCoefficients(coeffs)) }()
 	if first != "arith" || second != "farkas" {
 		return true, nil, nil
 	}
-	scaleRationalCoefficients(coeffs)
+	if err = c.scaleRationalCoefficients(coeffs); err != nil {
+		return false, nil, err
+	}
 	arithSymbol, err := c.manager.Symbols.Intern("arith")
 	if err != nil {
 		return false, nil, err
@@ -307,7 +325,7 @@ func (c *Checker) checkTheoryLemma(p ast.ASTHandle) (valid bool, side []ast.ASTH
 			return false, nil
 		}
 		var ok bool
-		sum, ok, err = c.checkArithLiteral(arith, positive, literal, coeffs[offset], sum, &strict, rw)
+		sum, ok, err = c.checkArithLiteral(arith, positive, literal, &coeffs[offset], sum, &strict, rw)
 		offset++
 		return ok, err
 	}
@@ -347,7 +365,7 @@ func (c *Checker) checkTheoryLemma(p ast.ASTHandle) (valid bool, side []ast.ASTH
 	if err != nil {
 		return false, nil, err
 	}
-	zero, err := c.rationalNumeral(big.NewRat(0, 1), sortKind == 1)
+	zero, err := c.rationalNumeral(&unumeral.Rational{Num: unumeral.NewInt(0), Den: unumeral.NewInt(1)}, sortKind == 1)
 	if err != nil {
 		return false, nil, err
 	}

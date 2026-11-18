@@ -1,7 +1,6 @@
 package rewriter
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -158,7 +157,7 @@ func TestSequenceRewriterEqualityArithmeticLengthAndSubsequence(t *testing.T) {
 	concat := func(left, right ast.ASTHandle) ast.ASTHandle {
 		return pin(m.MkSequenceConcat(left, right))
 	}
-	numeral := pin(rw.makeInteger(big.NewInt(0)))
+	numeral := pin(rw.makeSmallInteger(0))
 	integerSort, err := m.GetSort(numeral)
 	astTestMust(t, err)
 	n := pin(m.MkConst(astTestSymbol(t, m, "equality-n"), integerSort))

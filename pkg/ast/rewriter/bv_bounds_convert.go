@@ -3,9 +3,8 @@ package rewriter
 // Source: src/ast/rewriter/bv_bounds.cpp:68-238,332-450.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (b *BVBounds) basicBinary(h ast.ASTHandle, op int32) (ast.ASTHandle, ast.ASTHandle, bool, error) {
@@ -27,7 +26,7 @@ func (b *BVBounds) basicBinary(h ast.ASTHandle, op int32) (ast.ASTHandle, ast.AS
 
 // splitRewrittenULE recognizes the extract-and-ULE shape emitted by the BV
 // rewriter for a shortened unsigned comparison.
-func (b *BVBounds) splitRewrittenULE(h ast.ASTHandle) (ast.ASTHandle, *big.Int, bool, error) {
+func (b *BVBounds) splitRewrittenULE(h ast.ASTHandle) (ast.ASTHandle, *unumeral.Rational, bool, error) {
 	equality, ule, yes, err := b.basicBinary(h, ast.ASTOpAnd)
 	if err != nil || !yes {
 		return ast.ASTHandle{}, nil, false, err
@@ -52,7 +51,7 @@ func (b *BVBounds) splitRewrittenULE(h ast.ASTHandle) (ast.ASTHandle, *big.Int, 
 		return ast.ASTHandle{}, nil, false, err
 	}
 	eqValue, eqWidth, yes, err := b.numeral(eqRight)
-	if err != nil || !yes || eqValue.Sign() != 0 {
+	if err != nil || !yes || !eqValue.IsZero() {
 		return ast.ASTHandle{}, nil, false, err
 	}
 	var uleBase ast.ASTHandle
@@ -68,10 +67,10 @@ func (b *BVBounds) splitRewrittenULE(h ast.ASTHandle) (ast.ASTHandle, *big.Int, 
 	return eqBase, value, true, nil
 }
 
-func (b *BVBounds) signed(value *big.Int, width uint32) *big.Int {
-	out := bvCopy(value)
-	if width != 0 && out.Cmp(new(big.Int).Lsh(big.NewInt(1), uint(width-1))) >= 0 {
-		out.Sub(out, bvPower(width))
+func (b *BVBounds) signed(value *unumeral.Rational, width uint32) *unumeral.Rational {
+	out := b.cpy(value)
+	if width != 0 && b.cmp(out, b.pow(width-1)) >= 0 {
+		b.num.sub(out, out, b.pow(width))
 	}
 	return out
 }
@@ -95,7 +94,7 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 		if bound, e := b.toBound(value); e != nil {
 			return bvUndefined, e
 		} else if bound {
-			return b.record(value, new(big.Int), constant, negated, intervals)
+			return b.record(value, b.z(0), constant, negated, intervals)
 		}
 	}
 	// (= ((_ extract (width-1) low) x) 0) bounds the high portion of x.
@@ -104,7 +103,7 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 	} else if yes {
 		if zero, _, numeral, e := b.numeral(right); e != nil {
 			return bvUndefined, e
-		} else if numeral && zero.Sign() == 0 {
+		} else if numeral && zero.IsZero() {
 			var base ast.ASTHandle
 			var low, high uint32
 			if extract, e := b.manager.BitVectorExtractValue(left, &low, &high, &base); e != nil {
@@ -115,7 +114,7 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 					return bvUndefined, e
 				}
 				if high+1 == width {
-					return b.record(base, new(big.Int), new(big.Int).Sub(bvPower(low), big.NewInt(1)), negated, intervals)
+					return b.record(base, b.z(0), b.subR(b.pow(low), b.z(1)), negated, intervals)
 				}
 			}
 		}
@@ -145,10 +144,10 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 			return bvUndefined, err
 		}
 		if leftBound && rn && rw == width {
-			return b.record(left, new(big.Int), rv, negated, intervals)
+			return b.record(left, b.z(0), rv, negated, intervals)
 		}
 		if rightBound && ln && lw == width {
-			return b.record(right, lv, bvMax(width), negated, intervals)
+			return b.record(right, lv, b.max(width), negated, intervals)
 		}
 		var a, x ast.ASTHandle
 		if add, e := b.manager.BitVectorAddOperands(left, &a, &x); e != nil {
@@ -160,13 +159,13 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 				if bound, e := b.toBound(x); e != nil {
 					return bvUndefined, e
 				} else if bound && x == right {
-					if av.Sign() == 0 {
+					if av.IsZero() {
 						if negated {
 							return bvUnsat, nil
 						}
 						return bvConverted, nil
 					}
-					return b.record(right, new(big.Int).Sub(bvPower(width), av), bvMax(width), negated, intervals)
+					return b.record(right, b.subR(b.pow(width), av), b.max(width), negated, intervals)
 				}
 			}
 		}
@@ -182,17 +181,17 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 				return bvUndefined, e
 			}
 			if an && aw == width && bound && ln && lw == width {
-				modulus, one := bvPower(width), big.NewInt(1)
-				if lv.Sign() == 0 {
+				modulus, one := b.pow(width), b.z(1)
+				if lv.IsZero() {
 					if negated {
 						return bvUnsat, nil
 					}
 					return bvConverted, nil
 				}
-				if lv.Cmp(av) < 0 {
-					lo := new(big.Int).Sub(modulus, av)
-					hi := new(big.Int).Sub(new(big.Int).Add(modulus, lv), new(big.Int).Add(av, one))
-					if lo.Cmp(hi) <= 0 {
+				if b.cmp(lv, av) < 0 {
+					lo := b.subR(modulus, av)
+					hi := b.subR(b.addR(modulus, lv), b.addR(av, one))
+					if b.cmp(lo, hi) <= 0 {
 						return b.record(x, lo, hi, !negated, intervals)
 					}
 					if negated {
@@ -200,9 +199,9 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 					}
 					return bvConverted, nil
 				}
-				lo := new(big.Int).Sub(lv, av)
-				hi := new(big.Int).Sub(new(big.Int).Sub(modulus, av), one)
-				if lo.Cmp(hi) <= 0 {
+				lo := b.subR(lv, av)
+				hi := b.subR(b.subR(modulus, av), one)
+				if b.cmp(lo, hi) <= 0 {
 					return b.record(x, lo, hi, negated, intervals)
 				}
 				if negated {
@@ -222,12 +221,12 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 			if e != nil {
 				return bvUndefined, e
 			}
-			if an && aw == width && bound && rn && rw == width && av.Sign() > 0 && rv.Sign() > 0 {
-				modulus, one := bvPower(width), big.NewInt(1)
-				if av.Cmp(rv) <= 0 {
-					lo := new(big.Int).Add(new(big.Int).Sub(rv, av), one)
-					hi := new(big.Int).Sub(new(big.Int).Sub(modulus, av), one)
-					if lo.Cmp(hi) <= 0 {
+			if an && aw == width && bound && rn && rw == width && av.IsPos() && rv.IsPos() {
+				modulus, one := b.pow(width), b.z(1)
+				if b.cmp(av, rv) <= 0 {
+					lo := b.addR(b.subR(rv, av), one)
+					hi := b.subR(b.subR(modulus, av), one)
+					if b.cmp(lo, hi) <= 0 {
 						return b.record(x, lo, hi, !negated, intervals)
 					}
 					if negated {
@@ -235,8 +234,8 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 					}
 					return bvConverted, nil
 				}
-				lo := new(big.Int).Sub(modulus, av)
-				hi := new(big.Int).Add(lo, rv)
+				lo := b.subR(modulus, av)
+				hi := b.addR(lo, rv)
 				return b.record(x, lo, hi, negated, intervals)
 			}
 		}
@@ -249,17 +248,17 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 			return bvUndefined, e
 		}
 		if ok1 && ok2 && v1 == v2 {
-			if c1.Cmp(c2) == 0 {
+			if b.cmp(c1, c2) == 0 {
 				if negated {
 					return bvUnsat, nil
 				}
 				return bvConverted, nil
 			}
-			modulus, one := bvPower(width), big.NewInt(1)
-			if c1.Cmp(c2) < 0 {
-				return b.record(v1, new(big.Int).Sub(modulus, c2), new(big.Int).Sub(new(big.Int).Sub(modulus, c1), one), !negated, intervals)
+			modulus, one := b.pow(width), b.z(1)
+			if b.cmp(c1, c2) < 0 {
+				return b.record(v1, b.subR(modulus, c2), b.subR(b.subR(modulus, c1), one), !negated, intervals)
 			}
-			return b.record(v1, new(big.Int).Sub(modulus, c1), new(big.Int).Sub(new(big.Int).Sub(modulus, c2), one), negated, intervals)
+			return b.record(v1, b.subR(modulus, c1), b.subR(b.subR(modulus, c2), one), negated, intervals)
 		}
 	}
 	if yes, err := b.manager.BitVectorSLEOperands(h, &left, &right); err != nil {
@@ -274,7 +273,7 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 		} else if value, w, numeral, e := b.numeral(right); e != nil {
 			return bvUndefined, e
 		} else if bound && numeral && w == width {
-			minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), uint(width-1)))
+			minimum := b.negR(b.pow(width - 1))
 			return b.convertSigned(left, minimum, b.signed(value, width), negated, intervals)
 		}
 		if bound, e := b.toBound(right); e != nil {
@@ -282,7 +281,7 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 		} else if value, w, numeral, e := b.numeral(left); e != nil {
 			return bvUndefined, e
 		} else if bound && numeral && w == width {
-			maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(width-1)), big.NewInt(1))
+			maximum := b.subR(b.pow(width-1), b.z(1))
 			return b.convertSigned(right, b.signed(value, width), maximum, negated, intervals)
 		}
 	}
@@ -290,7 +289,8 @@ func (b *BVBounds) convert(h ast.ASTHandle, intervals *[]bvBoundInterval, negate
 }
 
 // AddConstraint adds every interval recognized from one source constraint.
-func (b *BVBounds) AddConstraint(h ast.ASTHandle) (bool, error) {
+func (b *BVBounds) AddConstraint(h ast.ASTHandle) (_ bool, resultErr error) {
+	defer b.numeralFailure(&resultErr)
 	if err := b.open(); err != nil {
 		return false, err
 	}
@@ -331,10 +331,10 @@ func (b *BVBounds) AddConstraint(h ast.ASTHandle) (bool, error) {
 			return false, err
 		}
 		if leftBound && rn && rw == width {
-			return b.AddBoundUnsigned(left, new(big.Int), rv, negated)
+			return b.AddBoundUnsigned(left, b.z(0), rv, negated)
 		}
 		if rightBound && ln && lw == width {
-			return b.AddBoundUnsigned(right, lv, bvMax(width), negated)
+			return b.AddBoundUnsigned(right, lv, b.max(width), negated)
 		}
 		var coefficient, value ast.ASTHandle
 		if add, e := b.manager.BitVectorAddOperands(left, &coefficient, &value); e != nil {
@@ -345,10 +345,10 @@ func (b *BVBounds) AddConstraint(h ast.ASTHandle) (bool, error) {
 			} else if bound, e := b.toBound(value); e != nil {
 				return false, e
 			} else if numeral && w == width && bound && value == right {
-				if c.Sign() <= 0 {
+				if !c.IsPos() {
 					return b.okay, nil
 				}
-				return b.AddBoundUnsigned(right, new(big.Int).Sub(bvPower(width), c), bvMax(width), negated)
+				return b.AddBoundUnsigned(right, b.subR(b.pow(width), c), b.max(width), negated)
 			}
 		}
 		if add, e := b.manager.BitVectorAddOperands(right, &coefficient, &value); e != nil {
@@ -362,19 +362,19 @@ func (b *BVBounds) AddConstraint(h ast.ASTHandle) (bool, error) {
 			if e != nil {
 				return false, e
 			}
-			if numeral && w == width && bound && ln && lw == width && c.Sign() > 0 && lv.Sign() > 0 {
-				modulus, one := bvPower(width), big.NewInt(1)
-				if lv.Cmp(c) < 0 {
-					lo := new(big.Int).Sub(modulus, c)
-					hi := new(big.Int).Sub(new(big.Int).Add(modulus, lv), new(big.Int).Add(c, one))
-					if lo.Cmp(hi) <= 0 {
+			if numeral && w == width && bound && ln && lw == width && c.IsPos() && lv.IsPos() {
+				modulus, one := b.pow(width), b.z(1)
+				if b.cmp(lv, c) < 0 {
+					lo := b.subR(modulus, c)
+					hi := b.subR(b.addR(modulus, lv), b.addR(c, one))
+					if b.cmp(lo, hi) <= 0 {
 						return b.AddBoundUnsigned(value, lo, hi, !negated)
 					}
 					return b.okay, nil
 				}
-				lo := new(big.Int).Sub(lv, c)
-				hi := new(big.Int).Sub(new(big.Int).Sub(modulus, c), one)
-				if lo.Cmp(hi) <= 0 {
+				lo := b.subR(lv, c)
+				hi := b.subR(b.subR(modulus, c), one)
+				if b.cmp(lo, hi) <= 0 {
 					return b.AddBoundUnsigned(value, lo, hi, negated)
 				}
 				return b.okay, nil
@@ -391,18 +391,18 @@ func (b *BVBounds) AddConstraint(h ast.ASTHandle) (bool, error) {
 			if e != nil {
 				return false, e
 			}
-			if numeral && w == width && bound && rn && rw == width && c.Sign() > 0 && rv.Sign() > 0 {
-				modulus, one := bvPower(width), big.NewInt(1)
-				if c.Cmp(rv) <= 0 {
-					lo := new(big.Int).Add(new(big.Int).Sub(rv, c), one)
-					hi := new(big.Int).Sub(new(big.Int).Sub(modulus, c), one)
-					if lo.Cmp(hi) <= 0 {
+			if numeral && w == width && bound && rn && rw == width && c.IsPos() && rv.IsPos() {
+				modulus, one := b.pow(width), b.z(1)
+				if b.cmp(c, rv) <= 0 {
+					lo := b.addR(b.subR(rv, c), one)
+					hi := b.subR(b.subR(modulus, c), one)
+					if b.cmp(lo, hi) <= 0 {
 						return b.AddBoundUnsigned(value, lo, hi, !negated)
 					}
 					return b.okay, nil
 				}
-				lo := new(big.Int).Sub(modulus, c)
-				return b.AddBoundUnsigned(value, lo, new(big.Int).Add(lo, rv), negated)
+				lo := b.subR(modulus, c)
+				return b.AddBoundUnsigned(value, lo, b.addR(lo, rv), negated)
 			}
 		}
 		v1, c1, ok1, err := b.constantAdd(width, left)
@@ -414,14 +414,14 @@ func (b *BVBounds) AddConstraint(h ast.ASTHandle) (bool, error) {
 			return false, err
 		}
 		if ok1 && ok2 && v1 == v2 {
-			if c1.Cmp(c2) == 0 {
+			if b.cmp(c1, c2) == 0 {
 				return b.okay, nil
 			}
-			modulus, one := bvPower(width), big.NewInt(1)
-			if c1.Cmp(c2) < 0 {
-				return b.AddBoundUnsigned(v1, new(big.Int).Sub(modulus, c2), new(big.Int).Sub(new(big.Int).Sub(modulus, c1), one), !negated)
+			modulus, one := b.pow(width), b.z(1)
+			if b.cmp(c1, c2) < 0 {
+				return b.AddBoundUnsigned(v1, b.subR(modulus, c2), b.subR(b.subR(modulus, c1), one), !negated)
 			}
-			return b.AddBoundUnsigned(v1, new(big.Int).Sub(modulus, c1), new(big.Int).Sub(new(big.Int).Sub(modulus, c2), one), negated)
+			return b.AddBoundUnsigned(v1, b.subR(modulus, c1), b.subR(b.subR(modulus, c2), one), negated)
 		}
 	}
 	if yes, err := b.manager.BitVectorSLEOperands(h, &left, &right); err != nil {
@@ -436,7 +436,7 @@ func (b *BVBounds) AddConstraint(h ast.ASTHandle) (bool, error) {
 		} else if value, w, numeral, e := b.numeral(right); e != nil {
 			return false, e
 		} else if bound && numeral && w == width {
-			minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), uint(width-1)))
+			minimum := b.negR(b.pow(width - 1))
 			return b.AddBoundSigned(left, minimum, b.signed(value, width), negated)
 		}
 		if bound, e := b.toBound(right); e != nil {
@@ -444,7 +444,7 @@ func (b *BVBounds) AddConstraint(h ast.ASTHandle) (bool, error) {
 		} else if value, w, numeral, e := b.numeral(left); e != nil {
 			return false, e
 		} else if bound && numeral && w == width {
-			maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(width-1)), big.NewInt(1))
+			maximum := b.subR(b.pow(width-1), b.z(1))
 			return b.AddBoundSigned(right, b.signed(value, width), maximum, negated)
 		}
 	}

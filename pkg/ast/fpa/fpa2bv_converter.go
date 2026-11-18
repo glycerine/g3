@@ -16,10 +16,10 @@ package fpa
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -241,12 +241,60 @@ func (c *FPA2BVConverter) bvSort(sz uint32) ast.ASTHandle {
 	return c.must(c.m.BitVectorSort(sz))
 }
 
-// bvNum is m_bv_util.mk_numeral(rational(v), sz).
-func (c *FPA2BVConverter) bvNum(v int64, sz uint32) ast.ASTHandle {
-	return c.must(c.m.BitVectorNumeralRat(new(big.Rat).SetInt64(v), sz))
+// The converter's rational/mpz values are rationals of the AST manager's
+// NumeralService().Manager, each released where it was made.
+func (c *FPA2BVConverter) q() *unumeral.RationalManager { return c.m.NumeralService().Manager }
+
+// withRational runs body with a fresh rational and releases it.
+func (c *FPA2BVConverter) withRational(body func(r *unumeral.Rational)) {
+	r := unumeral.NewRational()
+	defer func() { c.chk(c.q().Del(&r)) }()
+	body(&r)
 }
-func (c *FPA2BVConverter) bvNumBig(v *big.Int, sz uint32) ast.ASTHandle {
-	return c.must(c.m.BitVectorNumeralRat(new(big.Rat).SetInt(v), sz))
+
+// bvNum is m_bv_util.mk_numeral(rational(v), sz).
+func (c *FPA2BVConverter) bvNum(v int64, sz uint32) (result ast.ASTHandle) {
+	c.withRational(func(r *unumeral.Rational) {
+		c.chk(c.q().SetInt64(r, v))
+		result = c.bvNumRat(r, sz)
+	})
+	return result
+}
+
+// bvNumRat is m_bv_util.mk_numeral(r, sz).
+func (c *FPA2BVConverter) bvNumRat(r *unumeral.Rational, sz uint32) ast.ASTHandle {
+	return c.must(c.m.BitVectorNumeralFromRational(r, sz))
+}
+
+// bvNumText is m_bv_util.mk_numeral of an mpz given as decimal text.
+func (c *FPA2BVConverter) bvNumText(text string, sz uint32) (result ast.ASTHandle) {
+	c.withRational(func(r *unumeral.Rational) {
+		c.chk(c.q().SetString(r, text))
+		result = c.bvNumRat(r, sz)
+	})
+	return result
+}
+
+// powers2 sets out to m_powers2(n) (negated on request) plus offset:
+// m_powers2.m1(n, negated) is powers2(n, negated, -1) for n's sign.
+func (c *FPA2BVConverter) powers2(n uint32, negated bool, offset int64, out *unumeral.Rational) {
+	q := c.q()
+	off := unumeral.NewRational()
+	defer func() { c.chk(q.Del(&off)) }()
+	c.chk(errors.Join(q.SetInt32(out, 2), q.Power(out, n, out)))
+	if negated {
+		c.chk(q.Neg(out))
+	}
+	c.chk(errors.Join(q.SetInt64(&off, offset), q.Add(out, &off, out)))
+}
+
+// bvNumPowers2 is mk_numeral(powers2(n, negated, offset), sz).
+func (c *FPA2BVConverter) bvNumPowers2(n uint32, negated bool, offset int64, sz uint32) (result ast.ASTHandle) {
+	c.withRational(func(r *unumeral.Rational) {
+		c.powers2(n, negated, offset, r)
+		result = c.bvNumRat(r, sz)
+	})
+	return result
 }
 func (c *FPA2BVConverter) bvApp(op int32, args ...ast.ASTHandle) ast.ASTHandle {
 	return c.must(c.m.MkFamilyApp(c.bvFid, op, nil, args))
@@ -308,14 +356,13 @@ func (c *FPA2BVConverter) redand(a ast.ASTHandle) ast.ASTHandle {
 	return c.must(c.m.MkBitVectorReductionAnd(a))
 }
 
-// m_mpf_manager.m_powers2.m1(n, negated): 2^n - 1, negated on request.
-func powers2m1(n uint32, negated bool) *big.Int {
-	v := new(big.Int).Lsh(big.NewInt(1), uint(n))
-	v.Sub(v, big.NewInt(1))
+// bvNumPowers2m1 is mk_numeral(m_mpf_manager.m_powers2.m1(n, negated), sz):
+// 2^n - 1, negated on request.
+func (c *FPA2BVConverter) bvNumPowers2m1(n uint32, negated bool, sz uint32) ast.ASTHandle {
 	if negated {
-		v.Neg(v)
+		return c.bvNumPowers2(n, true, 1, sz)
 	}
-	return v
+	return c.bvNumPowers2(n, false, -1, sz)
 }
 
 // ---- fpa_util ----

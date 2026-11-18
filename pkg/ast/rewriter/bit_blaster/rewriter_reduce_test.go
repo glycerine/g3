@@ -1,7 +1,6 @@
 package bit_blaster
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -9,7 +8,7 @@ import (
 
 func rewriterConstant(t *testing.T, r *BitBlasterRewriter, value int64, width int) ast.ASTRef {
 	t.Helper()
-	bits, err := r.blaster.NumToBits(big.NewInt(value), width)
+	bits, err := r.blaster.NumToBits(bbSmall(value), width)
 	paramsMust(t, err)
 	handles := arithmeticHandles(t, r.blaster, bits)
 	term, err := r.manager.MkBitVectorFromBits(handles)

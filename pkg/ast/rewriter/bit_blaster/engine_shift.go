@@ -4,9 +4,9 @@ package bit_blaster
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type shiftDirection uint8
@@ -17,11 +17,20 @@ const (
 	shiftArithmeticRight
 )
 
-func (e *Engine) constantShift(bits []ast.ASTHandle, amount *big.Int, direction shiftDirection) ([]ast.ASTRef, error) {
+func (e *Engine) constantShift(bits []ast.ASTHandle, amount *unumeral.Rational, direction shiftDirection) ([]ast.ASTRef, error) {
 	width := len(bits)
 	n := width
-	if amount.IsUint64() && amount.Uint64() < uint64(width) {
-		n = int(amount.Uint64())
+	q := e.numerals()
+	if small, err := q.IsUint64(amount); err != nil {
+		return nil, err
+	} else if small {
+		v, err := q.Uint64(amount)
+		if err != nil {
+			return nil, err
+		}
+		if v < uint64(width) {
+			n = int(v)
+		}
 	}
 	falsehood, err := e.config.manager.MkFalse()
 	if err != nil {
@@ -57,8 +66,19 @@ func (e *Engine) shift(bits, amountBits []ast.ASTHandle, direction shiftDirectio
 	if len(bits) == 0 || len(bits) != len(amountBits) {
 		return nil, ast.ErrASTDomain
 	}
-	if amount, yes := e.Numeral(amountBits); yes {
-		return e.constantShift(bits, amount, direction)
+	amount, yes, err := e.numeralValue(amountBits)
+	if err != nil {
+		return nil, err
+	}
+	if yes {
+		out, err := e.constantShift(bits, &amount, direction)
+		if err = errors.Join(err, e.numerals().Del(&amount)); err != nil {
+			return nil, errors.Join(err, releaseRefs(e.config.manager, out))
+		}
+		return out, nil
+	}
+	if err = e.numerals().Del(&amount); err != nil {
+		return nil, err
 	}
 	m := e.config.manager
 	out, result = e.copyBits(bits)

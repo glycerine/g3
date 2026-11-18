@@ -5,10 +5,10 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -128,15 +128,19 @@ func (b *Bit2Int) getB2ISize(term ast.ASTHandle) (uint32, error) {
 	return b.manager.BitVectorSize(arg)
 }
 
-func bit2IntNumeralBits(value *big.Int) uint32 {
-	if value == nil {
-		return 0
+// bit2IntNumeralBits is get_numeral_bits(k): the bits of abs(k), at least
+// one.
+func bit2IntNumeralBits(q *unumeral.RationalManager, k *unumeral.Rational) (uint32, error) {
+	if k.IsZero() {
+		return 1, nil
 	}
-	n := new(big.Int).Abs(value)
-	if n.Sign() == 0 {
-		return 1
+	n := unumeral.NewRational()
+	err := errors.Join(q.Copy(&n, k), q.Abs(&n))
+	var bits uint32
+	if err == nil {
+		bits, err = q.Bitsize(&n)
 	}
-	return uint32(n.BitLen())
+	return bits, errors.Join(err, q.Del(&n))
 }
 
 func (b *Bit2Int) extractBV(c *bit2IntCall, term ast.ASTHandle) (bit2IntTerm, bool, error) {
@@ -156,30 +160,28 @@ func (b *Bit2Int) extractBV(c *bit2IntCall, term ast.ASTHandle) (bit2IntTerm, bo
 		bits, err = c.hold(bits)
 		return bit2IntTerm{bits: bits, width: width}, true, err
 	}
-	text, integer, matched, err := b.manager.ArithmeticNumeralText(term)
-	if err != nil || !matched || !integer {
-		return bit2IntTerm{}, false, err
-	}
-	value, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		return bit2IntTerm{}, false, ast.ErrASTDomain
-	}
-	width := bit2IntNumeralBits(value)
+	// numeral k; is_numeral(n, k, is_int) && is_int
 	service := b.manager.NumeralService()
 	rational, err := service.NewValue()
 	if err != nil {
 		return bit2IntTerm{}, false, err
 	}
 	defer service.Del(&rational)
-	if err = service.SetString(&rational, text); err != nil {
+	integer, matched, err := b.manager.ArithmeticNumeralRational(term, &rational.Raw)
+	if err != nil || !matched || !integer {
 		return bit2IntTerm{}, false, err
 	}
+	width, err := bit2IntNumeralBits(service.Manager, &rational.Raw)
+	if err != nil {
+		return bit2IntTerm{}, false, err
+	}
+	negative := rational.Raw.IsNeg()
 	bits, err := b.manager.BitVectorNumeral(&rational, width)
 	if err != nil {
 		return bit2IntTerm{}, false, err
 	}
 	bits, err = c.hold(bits)
-	return bit2IntTerm{bits: bits, width: width, sign: value.Sign() < 0}, true, err
+	return bit2IntTerm{bits: bits, width: width, sign: negative}, true, err
 }
 
 func (b *Bit2Int) alignSize(c *bit2IntCall, term ast.ASTHandle, width uint32) (ast.ASTHandle, error) {

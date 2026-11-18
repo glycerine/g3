@@ -1,7 +1,6 @@
 package rewriter
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -367,8 +366,8 @@ func TestSequenceRewriterContainsConcatReductions(t *testing.T) {
 		t.Fatalf("trimmed base: status=%d matched=%v base=%v needle=%v", status, matched, base, retainedNeedle)
 	}
 
-	zero := pin(rw.makeInteger(big.NewInt(0)))
-	one := pin(rw.makeInteger(big.NewInt(1)))
+	zero := pin(rw.makeSmallInteger(0))
+	one := pin(rw.makeSmallInteger(1))
 	extract := pin(m.MkSequenceExtract(x, zero, one))
 	status, err = rw.RewriteContains(x, extract, out)
 	astTestMust(t, err)

@@ -3,12 +3,12 @@ package rewriter
 import (
 	"bytes"
 	"errors"
-	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestBVBoundsSourceDebugGuards(t *testing.T) {
@@ -19,22 +19,22 @@ func TestBVBoundsSourceDebugGuards(t *testing.T) {
 	bounds, err := NewBVBounds(m)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, bounds.Close()) })
-	for _, interval := range [][2]*big.Int{
-		{big.NewInt(-1), big.NewInt(7)},
-		{big.NewInt(8), big.NewInt(7)},
-		{big.NewInt(0), big.NewInt(256)},
+	for _, interval := range [][2]*unumeral.Rational{
+		{pbSmall(-1), pbSmall(7)},
+		{pbSmall(8), pbSmall(7)},
+		{pbSmall(0), pbSmall(256)},
 	} {
 		if _, err = bounds.AddBoundUnsigned(x, interval[0], interval[1], false); !errors.Is(err, ast.ErrASTDomain) {
 			t.Fatal("unsigned interval source assertion", interval, err)
 		}
 	}
-	if _, err = bounds.BoundLower(x, big.NewInt(-1)); !errors.Is(err, ast.ErrASTDomain) {
+	if _, err = bounds.BoundLower(x, pbSmall(-1)); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("lower-bound source assertion", err)
 	}
-	if _, err = bounds.BoundUpper(x, big.NewInt(256)); !errors.Is(err, ast.ErrASTDomain) {
+	if _, err = bounds.BoundUpper(x, pbSmall(256)); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("upper-bound source assertion", err)
 	}
-	if _, err = bounds.AddBoundSigned(x, big.NewInt(2), big.NewInt(1), false); !errors.Is(err, ast.ErrASTDomain) {
+	if _, err = bounds.AddBoundSigned(x, pbSmall(2), pbSmall(1), false); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("signed interval source assertion", err)
 	}
 }
@@ -60,13 +60,13 @@ func TestBVBoundsSourceTraceRecords(t *testing.T) {
 	astTestMust(t, err)
 	x, err := m.MkConst(astTestSymbol(t, m, "bv-bounds-trace-x"), sort)
 	astTestMust(t, err)
-	if _, err = bounds.AddBoundUnsigned(x, big.NewInt(2), big.NewInt(7), false); err != nil {
+	if _, err = bounds.AddBoundUnsigned(x, pbSmall(2), pbSmall(7), false); err != nil {
 		t.Fatal(err)
 	}
 	if sat, e := bounds.IsSatisfiable(); e != nil || !sat {
 		t.Fatal("trace satisfiability", sat, e)
 	}
-	bounds.Reset()
+	astTestMust(t, bounds.Reset())
 	seven := bvAddNum(t, m, 7, 8)
 	constraint, err := m.MkBitVectorULE(x, seven)
 	astTestMust(t, err)
@@ -178,7 +178,7 @@ func TestBVBoundsNegativeIntervalsAndSignedConstraint(t *testing.T) {
 	b, err := NewBVBounds(m)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, b.Close()) })
-	if okay, err := b.AddBoundUnsigned(x, big.NewInt(0), big.NewInt(254), true); err != nil || !okay {
+	if okay, err := b.AddBoundUnsigned(x, pbSmall(0), pbSmall(254), true); err != nil || !okay {
 		t.Fatal("negative interval", okay, err)
 	}
 	if sat, err := b.IsSatisfiable(); err != nil || !sat {
@@ -186,21 +186,26 @@ func TestBVBoundsNegativeIntervalsAndSignedConstraint(t *testing.T) {
 	}
 	singletons, err := b.Singletons()
 	astTestMust(t, err)
-	if value := singletons[x]; value == nil || value.Int64() != 255 {
+	if value := singletons[x]; value == nil || !bvBoundsIs(value, 255) {
 		t.Fatal("negative interval singleton", value)
 	}
 
-	b.Reset()
+	astTestMust(t, b.Reset())
 	minusOne := bvAddNum(t, m, 255, 8)
 	signedUpper, err := m.MkBitVectorSLE(x, minusOne)
 	astTestMust(t, err)
 	if okay, err := b.AddConstraint(signedUpper); err != nil || !okay {
 		t.Fatal("signed bound", okay, err)
 	}
-	if okay, err := b.AddBoundUnsigned(x, big.NewInt(0), big.NewInt(127), false); err != nil || !okay {
+	if okay, err := b.AddBoundUnsigned(x, pbSmall(0), pbSmall(127), false); err != nil || !okay {
 		t.Fatal("unsigned bound addition", okay, err)
 	}
 	if sat, err := b.IsSatisfiable(); err != nil || sat {
 		t.Fatal("signed/unsigned contradiction", sat, err)
 	}
+}
+
+func bvBoundsIs(r *unumeral.Rational, want int32) bool {
+	v, ok := r.SmallInt32()
+	return ok && v == want
 }

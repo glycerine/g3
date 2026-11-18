@@ -5,13 +5,13 @@ package bit_blaster
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/messages"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // Engine is the concrete AST specialization of bit_blaster_tpl. Inputs borrow
@@ -95,20 +95,47 @@ func (e *Engine) handles(refs []ast.ASTRef) ([]ast.ASTHandle, error) {
 	return result, nil
 }
 
-// Numeral recognizes a little-endian Boolean bit vector and returns its
-// nonnegative value. The returned integer is independent of the engine.
-func (e *Engine) Numeral(bits []ast.ASTHandle) (*big.Int, bool) {
-	value := new(big.Int)
-	for i, bit := range bits {
-		switch {
-		case e.config.manager.IsTrue(bit):
-			value.SetBit(value, i, 1)
-		case e.config.manager.IsFalse(bit):
-		default:
-			return value, false
+// numerals is the rational manager of the engine's numerals (numeral =
+// rational, the AST manager's NumeralService().Manager).
+func (e *Engine) numerals() *unumeral.RationalManager {
+	return e.config.manager.NumeralService().Manager
+}
+
+// Numeral is is_numeral(sz, bits, r): when every little-endian bit is true
+// or false, out (a rational of the AST manager's NumeralService().Manager)
+// receives their value, sum of power(i) over the true bits.
+func (e *Engine) Numeral(bits []ast.ASTHandle, out *unumeral.Rational) (bool, error) {
+	for _, bit := range bits {
+		if !e.config.manager.IsTrue(bit) && !e.config.manager.IsFalse(bit) {
+			return false, nil
 		}
 	}
-	return value, true
+	q := e.numerals()
+	two := unumeral.Rational{Num: unumeral.NewInt(2), Den: unumeral.NewInt(1)}
+	if err := q.SetInt32(out, 0); err != nil {
+		return false, err
+	}
+	for i := len(bits) - 1; i >= 0; i-- {
+		if err := q.Mul(out, &two, out); err != nil {
+			return false, err
+		}
+		if e.config.manager.IsTrue(bits[i]) {
+			if err := q.Inc(out); err != nil {
+				return false, err
+			}
+		}
+	}
+	return true, nil
+}
+
+// numeralValue is Numeral into a fresh rational the caller releases.
+func (e *Engine) numeralValue(bits []ast.ASTHandle) (unumeral.Rational, bool, error) {
+	out := unumeral.NewRational()
+	ok, err := e.Numeral(bits, &out)
+	if err != nil {
+		return out, false, errors.Join(err, e.numerals().Del(&out))
+	}
+	return out, ok, nil
 }
 
 func (e *Engine) IsMinusOne(bits []ast.ASTHandle) bool {
@@ -120,22 +147,35 @@ func (e *Engine) IsMinusOne(bits []ast.ASTHandle) bool {
 	return true
 }
 
-// NumToBits returns the low width bits of a nonnegative integer, least
-// significant bit first, matching _num2bits in the source.
-func (e *Engine) NumToBits(value *big.Int, width int) (out []ast.ASTRef, result error) {
-	if value == nil || value.Sign() < 0 || width < 0 {
+// NumToBits returns the low width bits of a nonnegative integer (a rational
+// of the AST manager's NumeralService().Manager), least significant bit
+// first, matching _num2bits in the source.
+func (e *Engine) NumToBits(value *unumeral.Rational, width int) (out []ast.ASTRef, result error) {
+	if value == nil || value.IsNeg() || width < 0 {
 		return nil, ast.ErrASTDomain
 	}
+	// rational aux = v; rational two(2);
+	q := e.numerals()
+	aux, bit := unumeral.NewRational(), unumeral.NewRational()
+	two := unumeral.Rational{Num: unumeral.NewInt(2), Den: unumeral.NewInt(1)}
 	defer func() {
+		result = errors.Join(result, q.Del(&aux), q.Del(&bit))
 		if result != nil {
 			result = errors.Join(result, releaseRefs(e.config.manager, out))
 			out = nil
 		}
 	}()
+	if err := q.Copy(&aux, value); err != nil {
+		return nil, err
+	}
 	for i := 0; i < width; i++ {
 		var h ast.ASTHandle
-		var err error
-		if value.Bit(i) == 0 {
+		// (aux % two).is_zero(); aux = div(aux, two)
+		err := errors.Join(q.Mod(&aux, &two, &bit), q.IDiv(&aux, &two, &aux))
+		if err != nil {
+			return nil, err
+		}
+		if bit.IsZero() {
 			h, err = e.config.manager.MkFalse()
 		} else {
 			h, err = e.config.manager.MkTrue()

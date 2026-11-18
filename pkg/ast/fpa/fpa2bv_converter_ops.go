@@ -4,9 +4,8 @@ package fpa
 // mk_min, mk_max, mk_min_max_unspecified, mk_fma).
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // bvult is the BVULT(X, Y, R) macro.
@@ -77,9 +76,13 @@ func (c *FPA2BVConverter) mkRem(s ast.ASTHandle, x, y, result *eref) {
 	c.unpack(x.get(), aSgn, aSig, aExp, aLz, true)
 	c.unpack(y.get(), bSgn, bSig, bExp, bLz, true)
 	// max. exponent difference is (2^ebits) - 3
-	maxExpDiff := new(big.Int).Lsh(big.NewInt(1), uint(ebits))
-	maxExpDiff.Sub(maxExpDiff, big.NewInt(3))
-	maxExpDiffUI := uint32(maxExpDiff.Uint64())
+	var maxExpDiffUI uint32
+	c.withRational(func(r *unumeral.Rational) {
+		c.powers2(ebits, false, -3, r)
+		v, err := c.q().Uint64(r)
+		c.chk(err)
+		maxExpDiffUI = uint32(v)
+	})
 	aExpExt, bExpExt := f.ref(), f.ref()
 	aExpExt.set(c.signExtend(2, aExp.get()))
 	bExpExt.set(c.signExtend(2, bExp.get()))
@@ -116,8 +119,9 @@ func (c *FPA2BVConverter) mkRem(s ast.ASTHandle, x, y, result *eref) {
 	_, _ = rGeZero, rLeZero
 	roundedSubY, roundedAddY := f.ref(), f.ref()
 	// mpf two = 2, zero = 0 in (ebits, sbits).
-	c.mkNumeralValue(s, false, big.NewInt(0), 1, false, false, twoE)
-	c.mkNumeralValue(s, false, big.NewInt(0), mpfBotExp(ebits), false, false, zeroE)
+	zeroSig := unumeral.Rational{Num: unumeral.NewInt(0), Den: unumeral.NewInt(1)}
+	c.mkNumeralValue(s, false, &zeroSig, 1, false, false, twoE)
+	c.mkNumeralValue(s, false, &zeroSig, c.mpfBotExp(ebits), false, false, zeroE)
 	c.mkDiv(s, rneBV, y, twoE, yHalf)
 	c.mkNeg(s, yHalf, nyHalf)
 	c.mkIsZero(yHalf.get(), yHalfIsZero)
@@ -151,8 +155,14 @@ func (c *FPA2BVConverter) mkRem(s ast.ASTHandle, x, y, result *eref) {
 
 // mpfBotExp is mpf_manager::mk_bot_exp(ebits): the stored exponent of
 // zeros and denormals.
-func mpfBotExp(ebits uint32) int64 {
-	return -int64(powers2m1(ebits-1, false).Int64())
+func (c *FPA2BVConverter) mpfBotExp(ebits uint32) (exp int64) {
+	c.withRational(func(r *unumeral.Rational) {
+		c.powers2(ebits-1, true, 1, r)
+		v, err := c.q().Int64(r)
+		c.chk(err)
+		exp = v
+	})
+	return exp
 }
 
 // mkAbsDecl is mk_abs(f, num, args, result).

@@ -4,9 +4,9 @@ package bit_blaster
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // releaseGroups runs the expr_ref_vector destructors of locals declared
@@ -222,10 +222,22 @@ func (e *Engine) MkSignedRem(a, b []ast.ASTHandle) (out []ast.ASTRef, result err
 		return nil, err
 	}
 	var remainder []ast.ASTRef
-	if numeral, yes := e.Numeral(absBHandles); yes && positivePowerOfTwo(numeral) {
-		shift := numeral.BitLen() - 1
+	// if (is_numeral(sz, abs_b_bits, n_b) && n_b.is_power_of_two(shift))
+	numeral, yes, err := e.numeralValue(absBHandles)
+	if err != nil {
+		return nil, err
+	}
+	power, shiftBits := false, uint32(0)
+	if yes {
+		power, shiftBits, err = e.numerals().IsPowerOfTwo(&numeral)
+	}
+	if err = errors.Join(err, e.numerals().Del(&numeral)); err != nil {
+		return nil, err
+	}
+	if power {
+		shift := int(shiftBits)
 		if shift == 0 {
-			remainder, err = e.NumToBits(big.NewInt(0), len(a))
+			remainder, err = e.NumToBits(&unumeral.Rational{Num: unumeral.NewInt(0), Den: unumeral.NewInt(1)}, len(a))
 		} else {
 			remainder, err = e.MkZeroExtend(absAHandles[:shift], len(a)-shift)
 		}
@@ -250,14 +262,6 @@ func (e *Engine) MkSignedRem(a, b []ast.ASTHandle) (out []ast.ASTRef, result err
 		return nil, err
 	}
 	return e.MkMultiplexer(aSign, negativeRemainderBits, remainderBits)
-}
-
-func positivePowerOfTwo(value *big.Int) bool {
-	if value == nil || value.Sign() <= 0 {
-		return false
-	}
-	minusOne := new(big.Int).Sub(new(big.Int).Set(value), big.NewInt(1))
-	return new(big.Int).And(new(big.Int).Set(value), minusOne).Sign() == 0
 }
 
 func (e *Engine) MkSignedMod(a, b []ast.ASTHandle) (out []ast.ASTRef, result error) {
@@ -304,7 +308,7 @@ func (e *Engine) MkSignedMod(a, b []ast.ASTHandle) (out []ast.ASTRef, result err
 	if err != nil {
 		return nil, err
 	}
-	zeroRefs, err := e.NumToBits(big.NewInt(0), len(a))
+	zeroRefs, err := e.NumToBits(&unumeral.Rational{Num: unumeral.NewInt(0), Den: unumeral.NewInt(1)}, len(a))
 	zero, err := keep(zeroRefs, err)
 	if err != nil {
 		return nil, err

@@ -1,7 +1,6 @@
 package bit_blaster
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -35,11 +34,11 @@ func arithmeticRelease(t *testing.T, m *ast.ASTManager, refs []ast.ASTRef) {
 
 func arithmeticValue(t *testing.T, e *Engine, refs []ast.ASTRef) int64 {
 	t.Helper()
-	value, ok := e.Numeral(arithmeticHandles(t, e, refs))
+	value, ok := bbNumeral(t, e, arithmeticHandles(t, e, refs))
 	if !ok {
 		t.Fatal("constant arithmetic produced a symbolic bit")
 	}
-	return value.Int64()
+	return value
 }
 
 func TestBitBlasterArithmeticExhaustiveConstants(t *testing.T) {
@@ -48,7 +47,7 @@ func TestBitBlasterArithmeticExhaustiveConstants(t *testing.T) {
 		limit := int64(1 << width)
 		mask := limit - 1
 		for a := int64(0); a < limit; a++ {
-			aRefs, err := engine.NumToBits(big.NewInt(a), width)
+			aRefs, err := engine.NumToBits(bbSmall(a), width)
 			paramsMust(t, err)
 			aBits := arithmeticHandles(t, engine, aRefs)
 
@@ -60,7 +59,7 @@ func TestBitBlasterArithmeticExhaustiveConstants(t *testing.T) {
 			arithmeticRelease(t, m, negative)
 
 			for b := int64(0); b < limit; b++ {
-				bRefs, err := engine.NumToBits(big.NewInt(b), width)
+				bRefs, err := engine.NumToBits(bbSmall(b), width)
 				paramsMust(t, err)
 				bBits := arithmeticHandles(t, engine, bRefs)
 
@@ -92,9 +91,9 @@ func TestBitBlasterArithmeticExhaustiveConstants(t *testing.T) {
 
 func TestBitBlasterNumeralAndArithmeticDomains(t *testing.T) {
 	m, engine := arithmeticEngine(t)
-	bits, err := engine.NumToBits(big.NewInt(5), 4)
+	bits, err := engine.NumToBits(bbSmall(5), 4)
 	paramsMust(t, err)
-	if value, ok := engine.Numeral(arithmeticHandles(t, engine, bits)); !ok || value.Int64() != 5 {
+	if value, ok := bbNumeral(t, engine, arithmeticHandles(t, engine, bits)); !ok || value != 5 {
 		t.Fatal("little-endian numeral round trip", value, ok)
 	}
 	if engine.IsMinusOne(arithmeticHandles(t, engine, bits)) {
@@ -102,7 +101,7 @@ func TestBitBlasterNumeralAndArithmeticDomains(t *testing.T) {
 	}
 	arithmeticRelease(t, m, bits)
 
-	if _, err = engine.NumToBits(big.NewInt(-1), 4); err == nil {
+	if _, err = engine.NumToBits(bbSmall(-1), 4); err == nil {
 		t.Fatal("negative numeral accepted")
 	}
 	if _, err = engine.MkAdder(nil, nil); err == nil {

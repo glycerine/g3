@@ -4,9 +4,8 @@ package fpa
 // 3342-3706 (mk_fp .. mk_rounding_mode).
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -87,16 +86,17 @@ func (c *FPA2BVConverter) mkNumeral(n ast.ASTHandle, result *eref) {
 	if !ok {
 		c.chk(ast.ErrASTDomain)
 	}
-	sig, ok := new(big.Int).SetString(parts.Significand, 10)
-	if !ok {
-		c.chk(ast.ErrASTDomain)
-	}
-	c.mkNumeralValue(s, parts.Sign, sig, parts.Exponent, false, parts.Infinite, result)
+	c.withRational(func(sig *unumeral.Rational) {
+		if c.q().SetString(sig, parts.Significand) != nil {
+			c.chk(ast.ErrASTDomain)
+		}
+		c.mkNumeralValue(s, parts.Sign, sig, parts.Exponent, false, parts.Infinite, result)
+	})
 }
 
 // mkNumeralValue is mk_numeral(sort * s, mpf const & v, result) given v's
 // sign, significand, exponent and NaN/infinity class.
-func (c *FPA2BVConverter) mkNumeralValue(s ast.ASTHandle, sign bool, sig *big.Int, exp int64, nan, inf bool, result *eref) {
+func (c *FPA2BVConverter) mkNumeralValue(s ast.ASTHandle, sign bool, sig *unumeral.Rational, exp int64, nan, inf bool, result *eref) {
 	ebits, sbits := c.sortShape(s)
 	if nan {
 		c.mkNanSort(s, result)
@@ -115,7 +115,7 @@ func (c *FPA2BVConverter) mkNumeralValue(s ast.ASTHandle, sign bool, sig *big.In
 			sg = 1
 		}
 		bvSgn.set(c.bvNum(sg, 1))
-		bvSig.set(c.bvNumBig(sig, sbits-1))
+		bvSig.set(c.bvNumRat(sig, sbits-1))
 		e.set(c.bvNum(exp, ebits))
 		c.mkBias(e.get(), biasedExp)
 		result.set(c.mkFP(bvSgn.get(), biasedExp.get(), bvSig.get()))
@@ -373,7 +373,7 @@ func (c *FPA2BVConverter) mkZero(s ast.ASTHandle, sgn ast.ASTHandle, result *ere
 func (c *FPA2BVConverter) mkOne(s ast.ASTHandle, sign ast.ASTHandle, result *eref) {
 	ebits, sbits := c.sortShape(s)
 	sig := c.bvNum(0, sbits-1)
-	exp := c.bvNumBig(powers2m1(ebits-1, false), ebits)
+	exp := c.bvNumPowers2m1(ebits-1, false, ebits)
 	result.set(c.mkFP(sign, exp, sig))
 }
 
@@ -530,7 +530,7 @@ func (c *FPA2BVConverter) mkIsNormal(e ast.ASTHandle, result *eref) {
 	c.mkIsDenormal(e, isDenormal)
 	c.mkIsZero(e, isZero)
 	ebits := c.bvSize(exp)
-	p.set(c.bvNumBig(powers2m1(ebits, false), ebits))
+	p.set(c.bvNumPowers2m1(ebits, false, ebits))
 	c.simpEq(exp, p.get(), isSpecial)
 	orEx := f.ref()
 	c.simpOr(orEx, isSpecial.get(), isDenormal.get())
@@ -555,7 +555,7 @@ func (c *FPA2BVConverter) mkIsRM(rme ast.ASTHandle, rm int64, result *eref) {
 // ---- exponents ----
 
 func (c *FPA2BVConverter) mkTopExp(sz uint32, result *eref) {
-	result.set(c.bvNumBig(powers2m1(sz, false), sz))
+	result.set(c.bvNumPowers2m1(sz, false, sz))
 }
 
 func (c *FPA2BVConverter) mkBotExp(sz uint32, result *eref) {
@@ -563,12 +563,11 @@ func (c *FPA2BVConverter) mkBotExp(sz uint32, result *eref) {
 }
 
 func (c *FPA2BVConverter) mkMinExp(ebits uint32, result *eref) {
-	z := powers2m1(ebits-1, true)
-	result.set(c.bvNumBig(z.Add(z, big.NewInt(1)), ebits))
+	result.set(c.bvNumPowers2(ebits-1, true, 2, ebits))
 }
 
 func (c *FPA2BVConverter) mkMaxExp(ebits uint32, result *eref) {
-	result.set(c.bvNumBig(powers2m1(ebits-1, false), ebits))
+	result.set(c.bvNumPowers2m1(ebits-1, false, ebits))
 }
 
 // mkLeadingZeros is mk_leading_zeros(e, max_bits, result).
@@ -611,7 +610,7 @@ func (c *FPA2BVConverter) mkBias(e ast.ASTHandle, result *eref) {
 	f := c.frame()
 	defer f.done()
 	bias := f.ref()
-	bias.set(c.bvNumBig(powers2m1(ebits-1, false), ebits))
+	bias.set(c.bvNumPowers2m1(ebits-1, false, ebits))
 	result.set(c.bvAdd(e, bias.get()))
 }
 

@@ -4,14 +4,14 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type bvBoundInterval struct {
-	lo, hi  *big.Int
+	lo, hi  *unumeral.Rational
 	negated bool
 	value   ast.ASTHandle
 }
@@ -30,12 +30,13 @@ const (
 type BVBounds struct {
 	self                       *BVBounds
 	manager                    *ast.ASTManager
-	lowers, uppers, singletons map[ast.ASTHandle]*big.Int
+	lowers, uppers, singletons map[ast.ASTHandle]*unumeral.Rational
 	negative                   map[ast.ASTHandle][]bvBoundInterval
 	// m_unsigned_lowers, m_unsigned_uppers, m_singletons and
 	// m_negative_intervals table orders.
 	lowerOrder, upperOrder, singletonOrder, negativeOrder *ast.ObjMap
 	okay, closed                                          bool
+	num                                                   *pbNumbers
 }
 
 // bvBoundsKeys lists a table's keys in iteration order.
@@ -57,7 +58,9 @@ func NewBVBounds(m *ast.ASTManager) (*BVBounds, error) {
 	}
 	b := &BVBounds{manager: m, okay: true}
 	b.self = b
-	b.Reset()
+	if err := b.Reset(); err != nil {
+		return nil, err
+	}
 	return b, nil
 }
 
@@ -68,28 +71,85 @@ func (b *BVBounds) open() error {
 	return nil
 }
 
-func bvCopy(v *big.Int) *big.Int    { return new(big.Int).Set(v) }
-func bvPower(width uint32) *big.Int { return new(big.Int).Lsh(big.NewInt(1), uint(width)) }
-func bvMax(width uint32) *big.Int   { return new(big.Int).Sub(bvPower(width), big.NewInt(1)) }
+// The bounds' numerals (numeral = rational, of the AST manager's
+// NumeralService().Manager) all live in b.num, released by Reset/Close: the
+// source's bv_bounds is a short-lived local of one reduce_app_core. The
+// helpers below return fresh rationals of b.num; operation failures are
+// sticky in b.num.err and reported by the public entry points.
 
-func bvBoundsDebugInterval(width uint32, lo, hi *big.Int) error {
-	if ast.ASTSourceDebug && (lo == nil || hi == nil || lo.Sign() < 0 || lo.Cmp(hi) > 0 || hi.Cmp(bvPower(width)) >= 0) {
+func (b *BVBounds) z(v int64) *unumeral.Rational {
+	out := b.num.fresh()
+	b.num.setInt(out, v)
+	return out
+}
+func (b *BVBounds) cpy(v *unumeral.Rational) *unumeral.Rational {
+	out := b.num.fresh()
+	b.num.set(out, v)
+	return out
+}
+
+// pow is rational::power_of_two(width).
+func (b *BVBounds) pow(width uint32) *unumeral.Rational {
+	out := b.z(2)
+	b.num.fail(b.num.q.Power(out, width, out))
+	return out
+}
+
+// max is power_of_two(width) - 1.
+func (b *BVBounds) max(width uint32) *unumeral.Rational { return b.subR(b.pow(width), b.z(1)) }
+func (b *BVBounds) addR(x, y *unumeral.Rational) *unumeral.Rational {
+	out := b.num.fresh()
+	b.num.add(out, x, y)
+	return out
+}
+func (b *BVBounds) subR(x, y *unumeral.Rational) *unumeral.Rational {
+	out := b.num.fresh()
+	b.num.sub(out, x, y)
+	return out
+}
+func (b *BVBounds) negR(x *unumeral.Rational) *unumeral.Rational {
+	out := b.cpy(x)
+	b.num.neg(out)
+	return out
+}
+func (b *BVBounds) cmp(x, y *unumeral.Rational) int { return b.num.cmp(x, y) }
+
+// numeralFailure reports a sticky numeral failure from a public entry point.
+func (b *BVBounds) numeralFailure(err *error) {
+	if b != nil && b.num != nil && b.num.err != nil && *err == nil {
+		*err = b.num.err
+	}
+}
+
+func (b *BVBounds) str(x *unumeral.Rational) string {
+	text, err := b.num.q.String(x)
+	b.num.fail(err)
+	return text
+}
+
+func (b *BVBounds) debugInterval(width uint32, lo, hi *unumeral.Rational) error {
+	if ast.ASTSourceDebug && (lo == nil || hi == nil || lo.IsNeg() || b.cmp(lo, hi) > 0 || b.cmp(hi, b.pow(width)) >= 0) {
 		return ast.ErrASTDomain
 	}
 	return nil
 }
 
-func (b *BVBounds) Reset() {
+func (b *BVBounds) Reset() (err error) {
 	if b == nil {
-		return
+		return nil
 	}
-	b.lowers = make(map[ast.ASTHandle]*big.Int)
-	b.uppers = make(map[ast.ASTHandle]*big.Int)
-	b.singletons = make(map[ast.ASTHandle]*big.Int)
+	if b.num != nil {
+		err = b.num.release()
+	}
+	b.num = newPBNumbers(b.manager)
+	b.lowers = make(map[ast.ASTHandle]*unumeral.Rational)
+	b.uppers = make(map[ast.ASTHandle]*unumeral.Rational)
+	b.singletons = make(map[ast.ASTHandle]*unumeral.Rational)
 	b.negative = make(map[ast.ASTHandle][]bvBoundInterval)
 	b.lowerOrder, b.upperOrder = ast.NewObjMap(b.manager), ast.NewObjMap(b.manager)
 	b.singletonOrder, b.negativeOrder = ast.NewObjMap(b.manager), ast.NewObjMap(b.manager)
 	b.okay = true
+	return err
 }
 
 func (b *BVBounds) Close() error {
@@ -99,21 +159,24 @@ func (b *BVBounds) Close() error {
 	if b.closed {
 		return nil
 	}
-	b.Reset()
+	err := b.Reset()
+	if err == nil {
+		err = b.num.release()
+	}
 	b.closed = true
-	return nil
+	return err
 }
 
 func (b *BVBounds) IsOkay() bool { return b != nil && b.self == b && !b.closed && b.okay }
 
 // Singletons returns independent integer copies of the source singleton map.
-func (b *BVBounds) Singletons() (map[ast.ASTHandle]*big.Int, error) {
+func (b *BVBounds) Singletons() (map[ast.ASTHandle]*unumeral.Rational, error) {
 	if err := b.open(); err != nil {
 		return nil, err
 	}
-	out := make(map[ast.ASTHandle]*big.Int, len(b.singletons))
+	out := make(map[ast.ASTHandle]*unumeral.Rational, len(b.singletons))
 	for h, v := range b.singletons {
-		out[h] = bvCopy(v)
+		out[h] = b.cpy(v)
 	}
 	return out, nil
 }
@@ -131,17 +194,14 @@ func (b *BVBounds) isOperation(h ast.ASTHandle, family ast.FamilyID, kind int32)
 	return op == kind, err
 }
 
-func (b *BVBounds) numeral(h ast.ASTHandle) (*big.Int, uint32, bool, error) {
-	text, matched, err := b.manager.BitVectorNumeralText(h)
+func (b *BVBounds) numeral(h ast.ASTHandle) (*unumeral.Rational, uint32, bool, error) {
+	// m_bv_util.is_numeral(e, val, bv_sz)
+	value := b.num.fresh()
+	width, matched, err := b.manager.BitVectorNumeralRational(h, value)
 	if err != nil || !matched {
-		return nil, 0, matched, err
+		return nil, 0, false, err
 	}
-	value, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		return nil, 0, false, ast.ErrASTDomain
-	}
-	width, err := b.manager.BitVectorSize(h)
-	return value, width, err == nil, err
+	return value, width, true, nil
 }
 
 func (b *BVBounds) toBound(h ast.ASTHandle) (bool, error) {
@@ -160,7 +220,7 @@ func (b *BVBounds) toBound(h ast.ASTHandle) (bool, error) {
 	return !yes, err
 }
 
-func (b *BVBounds) constantAdd(width uint32, h ast.ASTHandle) (ast.ASTHandle, *big.Int, bool, error) {
+func (b *BVBounds) constantAdd(width uint32, h ast.ASTHandle) (ast.ASTHandle, *unumeral.Rational, bool, error) {
 	if ast.ASTSourceDebug {
 		actual, err := b.manager.BitVectorSize(h)
 		if err != nil {
@@ -176,7 +236,7 @@ func (b *BVBounds) constantAdd(width uint32, h ast.ASTHandle) (ast.ASTHandle, *b
 		return ast.ASTHandle{}, nil, false, err
 	}
 	if !yes {
-		return h, new(big.Int), true, nil
+		return h, b.z(0), true, nil
 	}
 	if bound, e := b.toBound(left); e != nil {
 		return ast.ASTHandle{}, nil, false, e
@@ -199,65 +259,65 @@ func (b *BVBounds) constantAdd(width uint32, h ast.ASTHandle) (ast.ASTHandle, *b
 	return ast.ASTHandle{}, nil, false, nil
 }
 
-func (b *BVBounds) record(value ast.ASTHandle, lo, hi *big.Int, negated bool, intervals *[]bvBoundInterval) (bvConversion, error) {
+func (b *BVBounds) record(value ast.ASTHandle, lo, hi *unumeral.Rational, negated bool, intervals *[]bvBoundInterval) (bvConversion, error) {
 	marker := "["
 	if negated {
 		marker = "~["
 	}
-	if err := b.traceValue("record", 25, "record0 ", value, ":"+marker+lo.String()+";"+hi.String()+"]"); err != nil {
+	if err := b.traceValue("record", 25, "record0 ", value, ":"+marker+b.str(lo)+";"+b.str(hi)+"]"); err != nil {
 		return bvUndefined, err
 	}
 	width, err := b.manager.BitVectorSize(value)
 	if err != nil {
 		return bvUndefined, err
 	}
-	if err = bvBoundsDebugInterval(width, lo, hi); err != nil {
+	if err = b.debugInterval(width, lo, hi); err != nil {
 		return bvUndefined, err
 	}
-	minimum := new(big.Int)
-	maximum := bvMax(width)
+	minimum := b.z(0)
+	maximum := b.max(width)
 	if current, found := b.lowers[value]; found {
-		minimum = bvCopy(current)
+		minimum = b.cpy(current)
 	}
 	if current, found := b.uppers[value]; found {
-		maximum = bvCopy(current)
+		maximum = b.cpy(current)
 	}
-	lo, hi = bvCopy(lo), bvCopy(hi)
-	loMin := lo.Cmp(minimum) <= 0
-	hiMax := hi.Cmp(maximum) >= 0
+	lo, hi = b.cpy(lo), b.cpy(hi)
+	loMin := b.cmp(lo, minimum) <= 0
+	hiMax := b.cmp(hi, maximum) >= 0
 	if negated {
 		if loMin && hiMax {
 			return bvUnsat, nil
 		}
-		if lo.Cmp(maximum) > 0 || hi.Cmp(minimum) < 0 {
+		if b.cmp(lo, maximum) > 0 || b.cmp(hi, minimum) < 0 {
 			return bvConverted, nil
 		}
 		if loMin {
 			negated = false
-			lo.Add(hi, big.NewInt(1))
-			hi.Set(maximum)
-			loMin, hiMax = lo.Cmp(minimum) <= 0, true
+			b.num.add(lo, hi, b.z(1))
+			b.num.set(hi, maximum)
+			loMin, hiMax = b.cmp(lo, minimum) <= 0, true
 		} else if hiMax {
 			negated = false
-			hi.Sub(lo, big.NewInt(1))
-			lo.Set(minimum)
-			hiMax, loMin = hi.Cmp(maximum) >= 0, true
+			b.num.sub(hi, lo, b.z(1))
+			b.num.set(lo, minimum)
+			hiMax, loMin = b.cmp(hi, maximum) >= 0, true
 		}
 	}
 	if loMin {
-		lo.Set(minimum)
+		b.num.set(lo, minimum)
 	}
 	if hiMax {
-		hi.Set(maximum)
+		b.num.set(hi, maximum)
 	}
 	marker = "["
 	if negated {
 		marker = "~["
 	}
-	if err = b.traceValue("record", 57, "record1 ", value, ":"+marker+lo.String()+";"+hi.String()+"]"); err != nil {
+	if err = b.traceValue("record", 57, "record1 ", value, ":"+marker+b.str(lo)+";"+b.str(hi)+"]"); err != nil {
 		return bvUndefined, err
 	}
-	if lo.Cmp(hi) > 0 {
+	if b.cmp(lo, hi) > 0 {
 		if negated {
 			return bvConverted, nil
 		}
@@ -273,7 +333,8 @@ func (b *BVBounds) record(value ast.ASTHandle, lo, hi *big.Int, negated bool, in
 	return bvConverted, nil
 }
 
-func (b *BVBounds) BoundLower(value ast.ASTHandle, lower *big.Int) (bool, error) {
+func (b *BVBounds) BoundLower(value ast.ASTHandle, lower *unumeral.Rational) (_ bool, resultErr error) {
+	defer b.numeralFailure(&resultErr)
 	if err := b.open(); err != nil {
 		return false, err
 	}
@@ -281,10 +342,10 @@ func (b *BVBounds) BoundLower(value ast.ASTHandle, lower *big.Int) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	if ast.ASTSourceDebug && (lower == nil || lower.Sign() < 0 || lower.Cmp(bvPower(width)) >= 0) {
+	if ast.ASTSourceDebug && (lower == nil || lower.IsNeg() || b.cmp(lower, b.pow(width)) >= 0) {
 		return false, ast.ErrASTDomain
 	}
-	if err = b.traceValue("bound_lo", 524, "lower ", value, ":"+lower.String()); err != nil {
+	if err = b.traceValue("bound_lo", 524, "lower ", value, ":"+b.str(lower)); err != nil {
 		return false, err
 	}
 	current, found := b.lowers[value]
@@ -293,13 +354,14 @@ func (b *BVBounds) BoundLower(value ast.ASTHandle, lower *big.Int) (bool, error)
 			return false, err
 		}
 	}
-	if !found || current.Cmp(lower) < 0 {
-		b.lowers[value] = bvCopy(lower)
+	if !found || b.cmp(current, lower) < 0 {
+		b.lowers[value] = b.cpy(lower)
 	}
 	return b.okay, nil
 }
 
-func (b *BVBounds) BoundUpper(value ast.ASTHandle, upper *big.Int) (bool, error) {
+func (b *BVBounds) BoundUpper(value ast.ASTHandle, upper *unumeral.Rational) (_ bool, resultErr error) {
+	defer b.numeralFailure(&resultErr)
 	if err := b.open(); err != nil {
 		return false, err
 	}
@@ -307,10 +369,10 @@ func (b *BVBounds) BoundUpper(value ast.ASTHandle, upper *big.Int) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	if ast.ASTSourceDebug && (upper == nil || upper.Sign() < 0 || upper.Cmp(bvPower(width)) >= 0) {
+	if ast.ASTSourceDebug && (upper == nil || upper.IsNeg() || b.cmp(upper, b.pow(width)) >= 0) {
 		return false, ast.ErrASTDomain
 	}
-	if err = b.traceValue("bound_up", 535, "upper ", value, ":"+upper.String()); err != nil {
+	if err = b.traceValue("bound_up", 535, "upper ", value, ":"+b.str(upper)); err != nil {
 		return false, err
 	}
 	current, found := b.uppers[value]
@@ -319,21 +381,21 @@ func (b *BVBounds) BoundUpper(value ast.ASTHandle, upper *big.Int) (bool, error)
 			return false, err
 		}
 	}
-	if !found || upper.Cmp(current) < 0 {
-		b.uppers[value] = bvCopy(upper)
+	if !found || b.cmp(upper, current) < 0 {
+		b.uppers[value] = b.cpy(upper)
 	}
 	return b.okay, nil
 }
 
-func (b *BVBounds) addNegative(value ast.ASTHandle, lo, hi *big.Int) error {
+func (b *BVBounds) addNegative(value ast.ASTHandle, lo, hi *unumeral.Rational) error {
 	width, err := b.manager.BitVectorSize(value)
 	if err != nil {
 		return err
 	}
-	if err = bvBoundsDebugInterval(width, lo, hi); err != nil {
+	if err = b.debugInterval(width, lo, hi); err != nil {
 		return err
 	}
-	if err = b.traceValue("add_neg_bound", 545, "negative bound ", value, ":"+lo.String()+";"+hi.String()); err != nil {
+	if err = b.traceValue("add_neg_bound", 545, "negative bound ", value, ":"+b.str(lo)+";"+b.str(hi)); err != nil {
 		return err
 	}
 	if _, found := b.negative[value]; !found {
@@ -341,11 +403,12 @@ func (b *BVBounds) addNegative(value ast.ASTHandle, lo, hi *big.Int) error {
 			return err
 		}
 	}
-	b.negative[value] = append(b.negative[value], bvBoundInterval{lo: bvCopy(lo), hi: bvCopy(hi), value: value})
+	b.negative[value] = append(b.negative[value], bvBoundInterval{lo: b.cpy(lo), hi: b.cpy(hi), value: value})
 	return nil
 }
 
-func (b *BVBounds) AddBoundUnsigned(value ast.ASTHandle, lo, hi *big.Int, negated bool) (bool, error) {
+func (b *BVBounds) AddBoundUnsigned(value ast.ASTHandle, lo, hi *unumeral.Rational, negated bool) (_ bool, resultErr error) {
+	defer b.numeralFailure(&resultErr)
 	if err := b.open(); err != nil {
 		return false, err
 	}
@@ -353,26 +416,26 @@ func (b *BVBounds) AddBoundUnsigned(value ast.ASTHandle, lo, hi *big.Int, negate
 	if err != nil {
 		return false, err
 	}
-	if err = bvBoundsDebugInterval(width, lo, hi); err != nil {
+	if err = b.debugInterval(width, lo, hi); err != nil {
 		return false, err
 	}
 	marker := "["
 	if negated {
 		marker = "~["
 	}
-	if err = b.traceValue("add_bound_unsigned", 453, "bound_unsigned ", value, ": "+marker+lo.String()+";"+hi.String()+"]"); err != nil {
+	if err = b.traceValue("add_bound_unsigned", 453, "bound_unsigned ", value, ": "+marker+b.str(lo)+";"+b.str(hi)+"]"); err != nil {
 		return false, err
 	}
-	one, maximum := big.NewInt(1), bvMax(width)
-	loMin, hiMax := lo.Sign() == 0, hi.Cmp(maximum) == 0
+	one, maximum := b.z(1), b.max(width)
+	loMin, hiMax := lo.IsZero(), b.cmp(hi, maximum) == 0
 	if negated {
 		switch {
 		case loMin && hiMax:
 			b.okay = false
 		case loMin:
-			_, err = b.BoundLower(value, new(big.Int).Add(hi, one))
+			_, err = b.BoundLower(value, b.addR(hi, one))
 		case hiMax:
-			_, err = b.BoundUpper(value, new(big.Int).Sub(lo, one))
+			_, err = b.BoundUpper(value, b.subR(lo, one))
 		default:
 			err = b.addNegative(value, lo, hi)
 		}
@@ -391,31 +454,31 @@ func (b *BVBounds) AddBoundUnsigned(value ast.ASTHandle, lo, hi *big.Int, negate
 	return b.okay, nil
 }
 
-func (b *BVBounds) convertSigned(value ast.ASTHandle, lo, hi *big.Int, negated bool, intervals *[]bvBoundInterval) (bvConversion, error) {
+func (b *BVBounds) convertSigned(value ast.ASTHandle, lo, hi *unumeral.Rational, negated bool, intervals *[]bvBoundInterval) (bvConversion, error) {
 	width, err := b.manager.BitVectorSize(value)
 	if err != nil {
 		return bvUndefined, err
 	}
-	if ast.ASTSourceDebug && (lo == nil || hi == nil || lo.Cmp(hi) > 0) {
+	if ast.ASTSourceDebug && (lo == nil || hi == nil || b.cmp(lo, hi) > 0) {
 		return bvUndefined, ast.ErrASTDomain
 	}
 	marker := "["
 	if negated {
 		marker = "~["
 	}
-	if err = b.traceValue("convert_signed", 476, "convert_signed ", value, ":"+marker+lo.String()+";"+hi.String()+"]"); err != nil {
+	if err = b.traceValue("convert_signed", 476, "convert_signed ", value, ":"+marker+b.str(lo)+";"+b.str(hi)+"]"); err != nil {
 		return bvUndefined, err
 	}
-	zero, one, modulus := new(big.Int), big.NewInt(1), bvPower(width)
-	loNegative, hiNegative := lo.Sign() < 0, hi.Sign() < 0
+	zero, one, modulus := b.z(0), b.z(1), b.pow(width)
+	loNegative, hiNegative := lo.IsNeg(), hi.IsNeg()
 	if !loNegative && !hiNegative {
 		return b.record(value, lo, hi, negated, intervals)
 	}
 	if loNegative && hiNegative {
-		return b.record(value, new(big.Int).Add(modulus, lo), new(big.Int).Add(modulus, hi), negated, intervals)
+		return b.record(value, b.addR(modulus, lo), b.addR(modulus, hi), negated, intervals)
 	}
 	if negated {
-		a, err := b.record(value, new(big.Int).Add(modulus, lo), new(big.Int).Sub(modulus, one), true, intervals)
+		a, err := b.record(value, b.addR(modulus, lo), b.subR(modulus, one), true, intervals)
 		if err != nil || a == bvUnsat {
 			return a, err
 		}
@@ -425,20 +488,21 @@ func (b *BVBounds) convertSigned(value ast.ASTHandle, lo, hi *big.Int, negated b
 		}
 		return bvConverted, nil
 	}
-	lower := new(big.Int).Add(hi, one)
-	upper := new(big.Int).Sub(new(big.Int).Add(modulus, lo), one)
-	if lower.Cmp(upper) <= 0 {
+	lower := b.addR(hi, one)
+	upper := b.subR(b.addR(modulus, lo), one)
+	if b.cmp(lower, upper) <= 0 {
 		return b.record(value, lower, upper, true, intervals)
 	}
 	return bvConverted, nil
 }
 
-func (b *BVBounds) AddBoundSigned(value ast.ASTHandle, lo, hi *big.Int, negated bool) (bool, error) {
+func (b *BVBounds) AddBoundSigned(value ast.ASTHandle, lo, hi *unumeral.Rational, negated bool) (_ bool, resultErr error) {
+	defer b.numeralFailure(&resultErr)
 	marker := " "
 	if negated {
 		marker = "~"
 	}
-	if err := b.traceValue("add_bound_signed", 500, "bound_signed ", value, ":"+marker+lo.String()+";"+hi.String()); err != nil {
+	if err := b.traceValue("add_bound_signed", 500, "bound_signed ", value, ":"+marker+b.str(lo)+";"+b.str(hi)); err != nil {
 		return false, err
 	}
 	var intervals []bvBoundInterval
@@ -474,89 +538,90 @@ func (b *BVBounds) satisfiableValue(value ast.ASTHandle) (result bool, err error
 	if err != nil {
 		return false, err
 	}
-	lower, upper := new(big.Int), bvMax(width)
+	lower, upper := b.z(0), b.max(width)
 	if v, found := b.lowers[value]; found {
-		lower = bvCopy(v)
+		lower = b.cpy(v)
 	}
 	if v, found := b.uppers[value]; found {
-		upper = bvCopy(v)
+		upper = b.cpy(v)
 	}
-	if lower.Cmp(upper) > 0 {
+	if b.cmp(lower, upper) > 0 {
 		return false, nil
 	}
-	if err = b.traceText("is_sat_core", 623, "is_sat bound:"+lower.String()+"-"+upper.String()); err != nil {
+	if err = b.traceText("is_sat_core", 623, "is_sat bound:"+b.str(lower)+"-"+b.str(upper)); err != nil {
 		return false, err
 	}
 	intervals := b.negative[value]
-	sort.Slice(intervals, func(i, j int) bool { return intervals[i].lo.Cmp(intervals[j].lo) < 0 })
-	one := big.NewInt(1)
-	ptr := bvCopy(lower)
-	newLo := bvCopy(lower)
-	newHi := new(big.Int).Sub(lower, one)
+	sort.Slice(intervals, func(i, j int) bool { return b.cmp(intervals[i].lo, intervals[j].lo) < 0 })
+	one := b.z(1)
+	ptr := b.cpy(lower)
+	newLo := b.cpy(lower)
+	newHi := b.subR(lower, one)
 	sat := false
 	for _, interval := range intervals {
-		if ptr.Cmp(interval.hi) > 0 {
+		if b.cmp(ptr, interval.hi) > 0 {
 			continue
 		}
-		if ptr.Cmp(interval.lo) < 0 {
+		if b.cmp(ptr, interval.lo) < 0 {
 			if !sat {
-				newLo.Set(ptr)
+				b.num.set(newLo, ptr)
 			}
-			newHi.Sub(interval.lo, one)
-			if newHi.Cmp(upper) > 0 {
-				newHi.Set(upper)
+			b.num.sub(newHi, interval.lo, one)
+			if b.cmp(newHi, upper) > 0 {
+				b.num.set(newHi, upper)
 			}
 			sat = true
 		}
-		if err = b.traceText("is_sat_core", 644, "is_sat new_lo, new_hi:"+newLo.String()+"-"+newHi.String()); err != nil {
+		if err = b.traceText("is_sat_core", 644, "is_sat new_lo, new_hi:"+b.str(newLo)+"-"+b.str(newHi)); err != nil {
 			return false, err
 		}
-		ptr.Add(interval.hi, one)
-		if err = b.traceText("is_sat_core", 646, "is_sat ptr, new_hi:"+ptr.String()+"-"+newHi.String()); err != nil {
+		b.num.add(ptr, interval.hi, one)
+		if err = b.traceText("is_sat_core", 646, "is_sat ptr, new_hi:"+b.str(ptr)+"-"+b.str(newHi)); err != nil {
 			return false, err
 		}
-		if ptr.Cmp(upper) > 0 {
+		if b.cmp(ptr, upper) > 0 {
 			break
 		}
 	}
-	if ptr.Cmp(upper) <= 0 {
+	if b.cmp(ptr, upper) <= 0 {
 		if !sat {
-			newLo.Set(ptr)
+			b.num.set(newLo, ptr)
 		}
-		newHi.Set(upper)
+		b.num.set(newHi, upper)
 		sat = true
 	}
-	if newHi.Cmp(upper) < 0 {
+	if b.cmp(newHi, upper) < 0 {
 		_, err = b.BoundUpper(value, newHi)
 	}
-	if err == nil && newLo.Cmp(lower) > 0 {
+	if err == nil && b.cmp(newLo, lower) > 0 {
 		_, err = b.BoundLower(value, newLo)
 	}
 	if err != nil {
 		return false, err
 	}
-	if err = b.traceText("is_sat_core", 658, "is_sat new_lo, new_hi:"+newLo.String()+"-"+newHi.String()); err != nil {
+	if err = b.traceText("is_sat_core", 658, "is_sat new_lo, new_hi:"+b.str(newLo)+"-"+b.str(newHi)); err != nil {
 		return false, err
 	}
-	if sat && newLo.Cmp(newHi) == 0 {
+	if sat && b.cmp(newLo, newHi) == 0 {
 		if _, found := b.singletons[value]; found {
 			if ast.ASTSourceDebug {
 				return false, ast.ErrASTDomain
 			}
 		} else {
-			if err = b.traceValue("record_singleton", 600, "singleton:", value, ":"+newLo.String()); err != nil {
+			if err = b.traceValue("record_singleton", 600, "singleton:", value, ":"+b.str(newLo)); err != nil {
 				return false, err
 			}
 			if _, err = b.singletonOrder.InsertIfNotThere(value); err != nil {
 				return false, err
 			}
-			b.singletons[value] = bvCopy(newLo)
+			b.singletons[value] = b.cpy(newLo)
 		}
 	}
 	return sat, nil
 }
 
-func (b *BVBounds) IsSatisfiable() (bool, error) {
+func (b *BVBounds) IsSatisfiable() (_ bool, resultErr error) {
+	defer b.numeralFailure(&resultErr)
 	if err := b.open(); err != nil {
 		return false, err
 	}
@@ -589,14 +654,14 @@ func (b *BVBounds) IsSatisfiable() (bool, error) {
 	return true, nil
 }
 
-func (b *BVBounds) bitVectorNumeral(value *big.Int, width uint32) (result ast.ASTHandle, err error) {
+func (b *BVBounds) bitVectorNumeral(value *unumeral.Rational, width uint32) (result ast.ASTHandle, err error) {
 	service := b.manager.NumeralService()
 	n, err := service.NewValue()
 	if err != nil {
 		return result, err
 	}
 	defer func() { err = errors.Join(err, service.Del(&n)) }()
-	if err = service.SetString(&n, value.String()); err != nil {
+	if err = service.SetString(&n, b.str(value)); err != nil {
 		return result, err
 	}
 	return b.manager.BitVectorNumeral(&n, width)
@@ -604,7 +669,8 @@ func (b *BVBounds) bitVectorNumeral(value *big.Int, width uint32) (result ast.AS
 
 // Rewrite implements bv_bounds::rewrite for bounded Boolean conjunctions and
 // disjunctions. The object retains the accumulated bounds, as in the source.
-func (b *BVBounds) Rewrite(limit uint32, declaration ast.ASTHandle, arguments ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+func (b *BVBounds) Rewrite(limit uint32, declaration ast.ASTHandle, arguments ast.AppArguments, out ast.ASTRef) (_ RewriteStatus, resultErr error) {
+	defer b.numeralFailure(&resultErr)
 	if err := b.open(); err != nil {
 		return RewriteFailed, err
 	}
@@ -677,17 +743,17 @@ func (b *BVBounds) Rewrite(limit uint32, declaration ast.ASTHandle, arguments as
 			if e != nil {
 				return RewriteFailed, e
 			}
-			lo, hi := new(big.Int), bvMax(width)
+			lo, hi := b.z(0), b.max(width)
 			if v, found := b.lowers[value]; found {
 				lo = v
 			}
 			if v, found := b.uppers[value]; found {
 				hi = v
 			}
-			if err = b.traceValue("rewrite", 302, "bounds: ", value, "["+lo.String()+"-"+hi.String()+"]"); err != nil {
+			if err = b.traceValue("rewrite", 302, "bounds: ", value, "["+b.str(lo)+"-"+b.str(hi)+"]"); err != nil {
 				return RewriteFailed, err
 			}
-			isSingleton = lo.Cmp(hi) == 0
+			isSingleton = b.cmp(lo, hi) == 0
 		}
 		if !redundant && !isSingleton {
 			remaining = append(remaining, entry.original)

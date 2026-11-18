@@ -7,10 +7,11 @@ package fpa
 // mk_to_real_unspecified).
 
 import (
+	"errors"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // ---- arith_util ----
@@ -37,22 +38,20 @@ func (c *FPA2BVConverter) arithSortKind(e ast.ASTHandle) int32 {
 func (c *FPA2BVConverter) isIntExpr(e ast.ASTHandle) bool  { return c.arithSortKind(e) == 1 }
 func (c *FPA2BVConverter) isRealExpr(e ast.ASTHandle) bool { return c.arithSortKind(e) == 0 }
 
-// arithNumeral is m_arith_util.is_numeral(e, q).
-func (c *FPA2BVConverter) arithNumeral(e ast.ASTHandle) (*big.Rat, bool) {
-	text, _, ok, err := c.m.ArithmeticNumeralText(e)
+// arithNumeral is m_arith_util.is_numeral(e, q) into q.
+func (c *FPA2BVConverter) arithNumeral(e ast.ASTHandle, q *unumeral.Rational) bool {
+	_, ok, err := c.m.ArithmeticNumeralRational(e, q)
 	c.chk(err)
-	if !ok {
-		return nil, false
-	}
-	q, ok := new(big.Rat).SetString(text)
-	if !ok {
-		c.chk(ast.ErrASTDomain)
-	}
-	return q, true
+	return ok
 }
 
-func (c *FPA2BVConverter) arithNum(q *big.Rat, isInt bool) ast.ASTHandle {
-	return c.must(c.m.ArithmeticNumeralRat(q, isInt))
+func (c *FPA2BVConverter) arithNum(q *unumeral.Rational, isInt bool) ast.ASTHandle {
+	return c.must(c.m.ArithmeticNumeralFromRational(q, isInt))
+}
+
+// arithSmall is m_arith_util.mk_numeral(rational(v), isInt).
+func (c *FPA2BVConverter) arithSmall(v int32, isInt bool) ast.ASTHandle {
+	return c.arithNum(&unumeral.Rational{Num: unumeral.NewInt(v), Den: unumeral.NewInt(1)}, isInt)
 }
 func (c *FPA2BVConverter) arithApp(op int32, args ...ast.ASTHandle) ast.ASTHandle {
 	return c.must(c.m.MkFamilyApp(c.arithFid(), op, nil, args))
@@ -73,11 +72,11 @@ func (c *FPA2BVConverter) arithUminus(a ast.ASTHandle) ast.ASTHandle {
 	return c.must(c.m.MkArithmeticNeg(a))
 }
 
-// bvNumeral is m_bv_util.is_numeral(e, val, sz).
-func (c *FPA2BVConverter) bvNumeral(e ast.ASTHandle) (*big.Int, bool) {
-	v, _, ok, err := c.m.BitVectorNumeralBigInt(e)
+// bvNumeral is m_bv_util.is_numeral(e, val, sz) into val.
+func (c *FPA2BVConverter) bvNumeral(e ast.ASTHandle, val *unumeral.Rational) bool {
+	_, ok, err := c.m.BitVectorNumeralRational(e, val)
 	c.chk(err)
-	return v, ok
+	return ok
 }
 
 func (c *FPA2BVConverter) isBV(e ast.ASTHandle) bool {
@@ -117,7 +116,8 @@ func (c *FPA2BVConverter) mkToFP(fd ast.ASTHandle, args []ast.ASTHandle, result 
 }
 
 func (c *FPA2BVConverter) isArithNumeral(e ast.ASTHandle) bool {
-	_, ok := c.arithNumeral(e)
+	ok, err := c.m.IsArithmeticNumeral(e)
+	c.chk(err)
 	return ok
 }
 
@@ -188,13 +188,11 @@ func (c *FPA2BVConverter) mkToFPFloat(toSrt, rm, x ast.ASTHandle, result *eref) 
 		sl := c.signExtend(2, lz.get())
 		expSubLz.set(c.bvSub(c.signExtend(2, exp.get()), sl))
 		maxExp, minExp, expInRange := g.ref(), g.ref(), g.ref()
-		z := new(big.Int).Lsh(big.NewInt(1), uint(toEbits+1))
-		z.Neg(z)
 		low := c.bvNum(0, 1)
-		maxExp.set(c.concat(c.bvNumBig(powers2m1(toEbits, false), toEbits+1), low))
-		minExp.set(c.bvNumBig(z.Add(z, big.NewInt(2)), toEbits+2))
+		maxExp.set(c.concat(c.bvNumPowers2m1(toEbits, false, toEbits+1), low))
+		minExp.set(c.bvNumPowers2(toEbits+1, true, 2, toEbits+2))
 		firstOvfExp, firstUdfExp := g.ref(), g.ref()
-		firstOvfExp.set(c.bvNumBig(powers2m1(toEbits+1, false), fromEbits+2))
+		firstOvfExp.set(c.bvNumPowers2m1(toEbits+1, false, fromEbits+2))
 		lo := c.bvNum(1, toEbits+1)
 		hi := c.bvNeg(c.bvNum(1, ebitsDiff+3))
 		firstUdfExp.set(c.concat(hi, lo))
@@ -231,7 +229,7 @@ func (c *FPA2BVConverter) fieldsFP(v ast.FPAMpfFields, ebits, sbits uint32, sgn,
 		sg = 1
 	}
 	sgn.set(c.bvNum(sg, 1))
-	sig.set(c.bvNumBig(v.Significand, sbits-1))
+	sig.set(c.bvNumText(v.Significand, sbits-1))
 	unbiasedExp.set(c.bvNum(v.Exponent, ebits))
 	c.mkBias(unbiasedExp.get(), exp)
 }
@@ -240,12 +238,18 @@ func (c *FPA2BVConverter) fieldsFP(v ast.FPAMpfFields, ebits, sbits uint32, sgn,
 func (c *FPA2BVConverter) mkToFPReal(fd, s, rm, x ast.ASTHandle, result *eref) {
 	bvRM := c.rmArg(rm)
 	ebits, sbits := c.sortShape(s)
-	rmv, rmNum := c.bvNumeral(bvRM)
-	q, xNum := c.arithNumeral(x)
+	// rational tmp_rat; mpq q; rational bv_rm
+	rmv, qv := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { c.chk(errors.Join(c.q().Del(&rmv), c.q().Del(&qv))) }()
+	q := &qv
+	rmNum := c.bvNumeral(bvRM, &rmv)
+	xNum := c.arithNumeral(x, q)
 	if rmNum && xNum {
-		mode, err := ast.FPARoundingMode(rmv.Int64())
+		rmInt, err := c.q().Int64(&rmv)
 		c.chk(err)
-		if q.Sign() == 0 {
+		mode, err := ast.FPARoundingMode(rmInt)
+		c.chk(err)
+		if q.IsZero() {
 			c.mkPzeroSort(c.rangeOf(fd), result)
 			return
 		}
@@ -257,7 +261,7 @@ func (c *FPA2BVConverter) mkToFPReal(fd, s, rm, x ast.ASTHandle, result *eref) {
 		c.fieldsFP(v, ebits, sbits, sgn, sig, exp, unbiasedExp)
 		result.set(c.mkFP(sgn.get(), exp.get(), sig.get()))
 	} else if xNum {
-		if q.Sign() == 0 {
+		if q.IsZero() {
 			c.mkPzeroSort(c.rangeOf(fd), result)
 			return
 		}
@@ -299,8 +303,8 @@ func (c *FPA2BVConverter) mkToFPReal(fd, s, rm, x ast.ASTHandle, result *eref) {
 		bv0, bv1, zero, two := f.ref(), f.ref(), f.ref(), f.ref()
 		bv0.set(c.bvNum(0, 1))
 		bv1.set(c.bvNum(1, 1))
-		zero.set(c.arithNum(new(big.Rat), false))
-		two.set(c.arithNum(big.NewRat(2, 1), false))
+		zero.set(c.arithSmall(0, false))
+		two.set(c.arithSmall(2, false))
 		sgn, sig, exp := f.ref(), f.ref(), f.ref()
 		p1, p2, p3 := "fpa2bv_to_fp_real_sgn", "fpa2bv_to_fp_real_sig", "fpa2bv_to_fp_real_exp"
 		sgn.set(c.mkFreshConst(&p1, 1))
@@ -318,27 +322,34 @@ func (c *FPA2BVConverter) mkToFPReal(fd, s, rm, x ast.ASTHandle, result *eref) {
 func (c *FPA2BVConverter) mkToFPRealInt(fd ast.ASTHandle, args []ast.ASTHandle, result *eref) {
 	ebits, sbits := c.sortShape(c.rangeOf(fd))
 	bvRM := c.rmArg(args[0])
-	var q, e *big.Rat
+	// rational q, e;
+	qv, ev := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { c.chk(errors.Join(c.q().Del(&qv), c.q().Del(&ev))) }()
+	q, e := &qv, &ev
+	var okE, okQ bool
 	if c.isIntExpr(args[1]) && c.isRealExpr(args[2]) {
-		e, _ = c.arithNumeral(args[1])
-		q, _ = c.arithNumeral(args[2])
+		okE = c.arithNumeral(args[1], e)
+		okQ = c.arithNumeral(args[2], q)
 	} else {
-		e, _ = c.arithNumeral(args[2])
-		q, _ = c.arithNumeral(args[1])
+		okE = c.arithNumeral(args[2], e)
+		okQ = c.arithNumeral(args[1], q)
 	}
-	if e == nil || q == nil {
+	if !okE || !okQ {
 		c.chk(ast.ErrASTDomain)
 	}
-	if q.Sign() == 0 {
+	if q.IsZero() {
 		c.mkPzeroSort(c.rangeOf(fd), result)
 		return
 	}
-	exp := e.Num()
+	// e.to_mpq().numerator()
+	exp := unumeral.NewRational()
+	defer func() { c.chk(c.q().Del(&exp)) }()
+	c.chk(c.q().NumeratorRational(e, &exp))
 	var vals [5]ast.ASTHandle
 	for i, r := range []int64{bvRMTiesToEven, bvRMTiesToAway, bvRMToPositive, bvRMToNegative, bvRMToZero} {
 		mode, err := ast.FPARoundingMode(r)
 		c.chk(err)
-		vals[i] = c.must(c.m.MkFPANumeralExponentRational(ebits, sbits, mode, exp, q))
+		vals[i] = c.must(c.m.MkFPANumeralExponentRational(ebits, sbits, mode, &exp, q))
 	}
 	f := c.frame()
 	defer f.done()
@@ -379,9 +390,9 @@ func (c *FPA2BVConverter) mkToReal(fd ast.ASTHandle, args []ast.ASTHandle, resul
 	sgn, sig, exp, lz := f.ref(), f.ref(), f.ref(), f.ref()
 	c.unpack(x, sgn, sig, exp, lz, true)
 	rsig, bit, bitEq1, rsigMul2, zero, one, two, bv0, bv1 := f.ref(), f.ref(), f.ref(), f.ref(), f.ref(), f.ref(), f.ref(), f.ref(), f.ref()
-	zero.set(c.arithNum(new(big.Rat), false))
-	one.set(c.arithNum(big.NewRat(1, 1), false))
-	two.set(c.arithNum(big.NewRat(2, 1), false))
+	zero.set(c.arithSmall(0, false))
+	one.set(c.arithSmall(1, false))
+	two.set(c.arithSmall(2, false))
 	bv0.set(c.bvNum(0, 1))
 	bv1.set(c.bvNum(1, 1))
 	rsig.set(one.get())
@@ -392,9 +403,11 @@ func (c *FPA2BVConverter) mkToReal(fd ast.ASTHandle, args []ast.ASTHandle, resul
 		ite := c.mIte(bitEq1.get(), one.get(), zero.get())
 		rsig.set(c.arithAdd(rsigMul2.get(), ite))
 	}
-	p2 := new(big.Int).Lsh(big.NewInt(1), uint(sbits-1))
 	ep2 := f.ref()
-	ep2.set(c.arithNum(new(big.Rat).SetInt(p2), false))
+	c.withRational(func(p2 *unumeral.Rational) {
+		c.powers2(sbits-1, false, 0, p2)
+		ep2.set(c.arithNum(p2, false))
+	})
 	rsig.set(c.arithDiv(rsig.get(), ep2.get()))
 	expN, expP, expIsNeg, expAbs := f.ref(), f.ref(), f.ref(), f.ref()
 	expIsNeg.set(c.mEq(c.extract(ebits-1, ebits-1, exp.get()), bv1.get()))
@@ -721,7 +734,7 @@ func (c *FPA2BVConverter) mkToBVUnspecified(fd ast.ASTHandle, args []ast.ASTHand
 // mkToRealUnspecified is mk_to_real_unspecified(f, num, args, result).
 func (c *FPA2BVConverter) mkToRealUnspecified(fd ast.ASTHandle, args []ast.ASTHandle, result *eref) {
 	if c.hiFPUnspecified {
-		result.set(c.arithNum(new(big.Rat), false))
+		result.set(c.arithSmall(0, false))
 		return
 	}
 	f := c.frame()

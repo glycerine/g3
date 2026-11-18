@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
@@ -155,7 +155,7 @@ func (r *SequenceRewriter) RewriteApp(decl ast.ASTHandle, args ast.AppArguments,
 			return r.RewriteIndex(values[0], values[1], values[2], out)
 		}
 		if len(values) == 2 {
-			zero, e := r.makeInteger(big.NewInt(0))
+			zero, e := r.makeSmallInteger(0)
 			if e != nil {
 				return RewriteFailed, e
 			}
@@ -247,31 +247,25 @@ func (r *SequenceRewriter) assignBoolean(value bool, out ast.ASTRef) (RewriteSta
 	return RewriteDone, r.manager.SetRef(out, result)
 }
 
-func (r *SequenceRewriter) integerValue(h ast.ASTHandle) (*big.Int, bool, error) {
-	text, integer, matched, err := r.manager.ArithmeticNumeralText(h)
-	if err != nil || !matched || !integer {
-		return nil, false, err
-	}
-	value, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
-	}
-	return value, true, nil
+// numerals is the rational manager of the rewriter's `rational` locals (the
+// AST manager's NumeralService().Manager).
+func (r *SequenceRewriter) numerals() *unumeral.RationalManager {
+	return r.manager.NumeralService().Manager
 }
 
-func (r *SequenceRewriter) rationalValue(h ast.ASTHandle) (*big.Rat, bool, error) {
-	text, _, matched, err := r.manager.ArithmeticNumeralText(h)
-	if err != nil || !matched {
-		return nil, false, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
-	}
-	return value, true, nil
+// integerValue is m_autil.is_numeral(h, out) && is_int.
+func (r *SequenceRewriter) integerValue(h ast.ASTHandle, out *unumeral.Rational) (bool, error) {
+	integer, matched, err := r.manager.ArithmeticNumeralRational(h, out)
+	return err == nil && matched && integer, err
 }
 
-func (r *SequenceRewriter) assignInteger(value *big.Int, out ast.ASTRef) (status RewriteStatus, err error) {
+// rationalValue is m_autil.is_numeral(h, out).
+func (r *SequenceRewriter) rationalValue(h ast.ASTHandle, out *unumeral.Rational) (bool, error) {
+	_, matched, err := r.manager.ArithmeticNumeralRational(h, out)
+	return err == nil && matched, err
+}
+
+func (r *SequenceRewriter) assignInteger(value *unumeral.Rational, out ast.ASTRef) (status RewriteStatus, err error) {
 	result, err := r.makeInteger(value)
 	if err != nil {
 		return RewriteFailed, err
@@ -282,20 +276,22 @@ func (r *SequenceRewriter) assignInteger(value *big.Int, out ast.ASTRef) (status
 	return RewriteDone, nil
 }
 
-func (r *SequenceRewriter) makeInteger(value *big.Int) (result ast.ASTHandle, err error) {
-	service := r.manager.NumeralService()
-	if service == nil || value == nil {
+// assignSmallInteger is assignInteger of rational(v).
+func (r *SequenceRewriter) assignSmallInteger(v int32, out ast.ASTRef) (RewriteStatus, error) {
+	return r.assignInteger(&unumeral.Rational{Num: unumeral.NewInt(v), Den: unumeral.NewInt(1)}, out)
+}
+
+// makeInteger is m_autil.mk_numeral(value, true).
+func (r *SequenceRewriter) makeInteger(value *unumeral.Rational) (result ast.ASTHandle, err error) {
+	if r.manager.NumeralService() == nil || value == nil {
 		return result, ast.ErrASTHandle
 	}
-	numeral, err := service.NewValue()
-	if err != nil {
-		return result, err
-	}
-	defer func() { err = errors.Join(err, service.Del(&numeral)) }()
-	if err = service.SetString(&numeral, value.String()); err != nil {
-		return result, err
-	}
-	return r.manager.ArithmeticNumeral(&numeral, true)
+	return r.manager.ArithmeticNumeralFromRational(value, true)
+}
+
+// makeSmallInteger is m_autil.mk_numeral(rational(v), true).
+func (r *SequenceRewriter) makeSmallInteger(v int32) (ast.ASTHandle, error) {
+	return r.makeInteger(&unumeral.Rational{Num: unumeral.NewInt(v), Den: unumeral.NewInt(1)})
 }
 
 func (r *SequenceRewriter) assignEmptyLike(h ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
@@ -330,7 +326,10 @@ func (r *SequenceRewriter) RewriteLength(a ast.ASTHandle, out ast.ASTRef) (statu
 		}
 	}
 	es := r.esMember.items
-	length := new(big.Int)
+	// unsigned len = 0 accumulated as a rational, then mk_numeral(rational(len, ui64))
+	q := r.numerals()
+	length, piece := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&length), q.Del(&piece)) }()
 	j := 0
 	for i := range es {
 		text, stringValue, err := m.SequenceStringValue(es[i])
@@ -338,7 +337,9 @@ func (r *SequenceRewriter) RewriteLength(a ast.ASTHandle, out ast.ASTRef) (statu
 			return RewriteFailed, err
 		}
 		if stringValue {
-			length.Add(length, new(big.Int).SetUint64(uint64(len(text))))
+			if err = errors.Join(q.SetUint64(&piece, uint64(len(text))), q.Add(&length, &piece, &length)); err != nil {
+				return RewriteFailed, err
+			}
 			continue
 		}
 		unit, err := m.IsSequenceUnit(es[i])
@@ -346,7 +347,9 @@ func (r *SequenceRewriter) RewriteLength(a ast.ASTHandle, out ast.ASTRef) (statu
 			return RewriteFailed, err
 		}
 		if unit {
-			length.Add(length, big.NewInt(1))
+			if err = q.Inc(&length); err != nil {
+				return RewriteFailed, err
+			}
 			continue
 		}
 		empty, err := m.IsSequenceEmpty(es[i])
@@ -363,7 +366,7 @@ func (r *SequenceRewriter) RewriteLength(a ast.ASTHandle, out ast.ASTRef) (statu
 		j++
 	}
 	if j == 0 {
-		return r.assignInteger(length, out)
+		return r.assignInteger(&length, out)
 	}
 	if j == len(es) && j == 1 {
 		return RewriteFailed, nil
@@ -380,8 +383,8 @@ func (r *SequenceRewriter) RewriteLength(a ast.ASTHandle, out ast.ASTRef) (statu
 			return RewriteFailed, e
 		}
 	}
-	if length.Sign() != 0 {
-		term, e := r.makeInteger(length)
+	if !length.IsZero() {
+		term, e := r.makeInteger(&length)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -490,19 +493,23 @@ func (r *SequenceRewriter) assignSequenceRelation(leftParts, rightParts []ast.AS
 	return resultStatus, nil
 }
 
-func (r *SequenceRewriter) RewriteExtract(a, position, length ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *SequenceRewriter) RewriteExtract(a, position, length ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, resultErr error) {
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}
-	pos, posNumeral, err := r.integerValue(position)
+	// rational pos, len;
+	q := r.numerals()
+	pos, size, textLength := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&pos), q.Del(&size), q.Del(&textLength)) }()
+	posNumeral, err := r.integerValue(position, &pos)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	size, sizeNumeral, err := r.integerValue(length)
+	sizeNumeral, err := r.integerValue(length, &size)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if posNumeral && pos.Sign() < 0 || sizeNumeral && size.Sign() <= 0 {
+	if posNumeral && pos.IsNeg() || sizeNumeral && !size.IsPos() {
 		return r.assignEmptyLike(a, out)
 	}
 	text, constant, err := r.manager.SequenceStringValue(a)
@@ -510,16 +517,34 @@ func (r *SequenceRewriter) RewriteExtract(a, position, length ast.ASTHandle, out
 		return RewriteFailed, err
 	}
 	// case 1.1: pos >= length(base), whatever the length argument.
-	if constant && posNumeral && pos.Cmp(new(big.Int).SetUint64(uint64(len(text)))) >= 0 {
-		return r.assignEmptyLike(a, out)
+	if constant && posNumeral {
+		if err = q.SetUint64(&textLength, uint64(len(text))); err != nil {
+			return RewriteFailed, err
+		}
+		if c, err := q.Compare(&pos, &textLength); err != nil {
+			return RewriteFailed, err
+		} else if c >= 0 {
+			return r.assignEmptyLike(a, out)
+		}
 	}
 	// constantPos &= pos.is_unsigned(); constantLen &= len.is_unsigned().
-	posNumeral = posNumeral && pos.IsUint64() && pos.Uint64() <= math.MaxUint32
-	sizeNumeral = sizeNumeral && size.IsUint64() && size.Uint64() <= math.MaxUint32
+	var start, count uint32
+	if posNumeral {
+		if posNumeral, err = q.IsUnsigned(&pos); err == nil && posNumeral {
+			start, err = q.Unsigned(&pos)
+		}
+	}
+	if err == nil && sizeNumeral {
+		if sizeNumeral, err = q.IsUnsigned(&size); err == nil && sizeNumeral {
+			count, err = q.Unsigned(&size)
+		}
+	}
+	if err != nil {
+		return RewriteFailed, err
+	}
 	if !posNumeral || !sizeNumeral {
 		return RewriteFailed, nil
 	}
-	start, count := uint32(pos.Uint64()), uint32(size.Uint64())
 	if constant {
 		// The source adds the unsigned positions with 32-bit wraparound and
 		// hands zstring::extract an int length.
@@ -565,16 +590,30 @@ func (r *SequenceRewriter) RewriteExtract(a, position, length ast.ASTHandle, out
 	return r.assignSequenceParts(parts, a, out)
 }
 
-func (r *SequenceRewriter) RewriteAt(a, index ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *SequenceRewriter) RewriteAt(a, index ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, resultErr error) {
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}
-	position, numeral, err := r.integerValue(index)
+	// rational r;
+	q := r.numerals()
+	position := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&position)) }()
+	numeral, err := r.integerValue(index, &position)
 	if err != nil || !numeral {
 		return RewriteFailed, err
 	}
-	if position.Sign() < 0 {
+	if position.IsNeg() {
 		return r.assignEmptyLike(a, out)
+	}
+	small, err := q.IsUint64(&position)
+	if err != nil {
+		return RewriteFailed, err
+	}
+	var at uint64
+	if small {
+		if at, err = q.Uint64(&position); err != nil {
+			return RewriteFailed, err
+		}
 	}
 	// min_length(1, &a, len) bounds a itself only: a concatenation is
 	// unbounded here, whatever its leaves are.
@@ -582,7 +621,7 @@ func (r *SequenceRewriter) RewriteAt(a, index ast.ASTHandle, out ast.ASTRef) (Re
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if bounded && (!position.IsUint64() || position.Uint64() >= uint64(knownLength)) {
+	if bounded && (!small || at >= uint64(knownLength)) {
 		return r.assignEmptyLike(a, out)
 	}
 	text, constant, err := r.manager.SequenceStringValue(a)
@@ -590,23 +629,23 @@ func (r *SequenceRewriter) RewriteAt(a, index ast.ASTHandle, out ast.ASTRef) (Re
 		return RewriteFailed, err
 	}
 	if constant {
-		if !position.IsUint64() || position.Uint64() >= uint64(len(text)) {
+		if !small || at >= uint64(len(text)) {
 			return r.assignEmptyLike(a, out)
 		}
-		result, err := r.manager.MkString(text[position.Uint64() : position.Uint64()+1])
+		result, err := r.manager.MkString(text[at : at+1])
 		if err != nil {
 			return RewriteFailed, err
 		}
 		return RewriteDone, r.manager.SetRef(out, result)
 	}
-	if !position.IsUint64() || position.Uint64() > math.MaxUint32 {
+	if !small || at > math.MaxUint32 {
 		return RewriteFailed, nil
 	}
 	leaves, err := r.manager.SequenceFlattenConcat(a)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	indexValue := position.Uint64()
+	indexValue := at
 	for _, leaf := range leaves {
 		unit, e := r.manager.IsSequenceUnit(leaf)
 		if e != nil {
@@ -623,16 +662,20 @@ func (r *SequenceRewriter) RewriteAt(a, index ast.ASTHandle, out ast.ASTRef) (Re
 	return RewriteFailed, nil
 }
 
-func (r *SequenceRewriter) RewriteIndex(a, needle, offset ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *SequenceRewriter) RewriteIndex(a, needle, offset ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, resultErr error) {
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}
-	position, numeral, err := r.integerValue(offset)
+	// rational r;
+	q := r.numerals()
+	position, baseLength := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&position), q.Del(&baseLength)) }()
+	numeral, err := r.integerValue(offset, &position)
 	if err != nil || !numeral {
 		return RewriteFailed, err
 	}
-	if position.Sign() < 0 {
-		return r.assignInteger(big.NewInt(-1), out)
+	if position.IsNeg() {
+		return r.assignSmallInteger(-1, out)
 	}
 	base, baseString, err := r.manager.SequenceStringValue(a)
 	if err != nil {
@@ -643,39 +686,57 @@ func (r *SequenceRewriter) RewriteIndex(a, needle, offset ast.ASTHandle, out ast
 		return RewriteFailed, err
 	}
 	if baseString && patternString {
-		baseLength := new(big.Int).SetUint64(uint64(len(base)))
-		if position.Cmp(baseLength) > 0 || position.Cmp(baseLength) == 0 && pattern != "" {
-			return r.assignInteger(big.NewInt(-1), out)
+		if err = q.SetUint64(&baseLength, uint64(len(base))); err != nil {
+			return RewriteFailed, err
 		}
-		start := position.Uint64()
+		c, err := q.Compare(&position, &baseLength)
+		if err != nil {
+			return RewriteFailed, err
+		}
+		if c > 0 || c == 0 && pattern != "" {
+			return r.assignSmallInteger(-1, out)
+		}
+		start, err := q.Uint64(&position)
+		if err != nil {
+			return RewriteFailed, err
+		}
 		found := strings.Index(base[start:], pattern)
 		if found < 0 {
-			return r.assignInteger(big.NewInt(-1), out)
+			return r.assignSmallInteger(-1, out)
 		}
-		answer := new(big.Int).Add(position, new(big.Int).SetUint64(uint64(found)))
-		return r.assignInteger(answer, out)
+		// mk_numeral(rational(idx), true)
+		if err = q.SetUint64(&position, start+uint64(found)); err != nil {
+			return RewriteFailed, err
+		}
+		return r.assignInteger(&position, out)
 	}
 	empty, err := r.manager.IsSequenceEmpty(needle)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if empty && position.Sign() == 0 {
+	if empty && position.IsZero() {
 		return RewriteDone, r.manager.SetRef(out, offset)
 	}
 	return RewriteFailed, nil
 }
 
-func (r *SequenceRewriter) RewriteIntToString(a ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *SequenceRewriter) RewriteIntToString(a ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, resultErr error) {
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}
-	value, matched, err := r.rationalValue(a)
+	// rational r; r.to_string()
+	q := r.numerals()
+	value := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&value)) }()
+	matched, err := r.rationalValue(a, &value)
 	if err != nil || !matched {
 		return RewriteFailed, err
 	}
 	text := ""
-	if value.IsInt() && value.Sign() >= 0 {
-		text = value.Num().String()
+	if value.IsInt() && !value.IsNeg() {
+		if text, err = q.String(&value); err != nil {
+			return RewriteFailed, err
+		}
 	}
 	result, err := r.manager.MkString(text)
 	if err != nil {
@@ -698,19 +759,22 @@ func (r *SequenceRewriter) RewriteStringToInt(a ast.ASTHandle, out ast.ASTRef) (
 			valid = '0' <= text[i] && text[i] <= '9'
 		}
 		if !valid {
-			return r.assignInteger(big.NewInt(-1), out)
+			return r.assignSmallInteger(-1, out)
 		}
-		value, ok := new(big.Int).SetString(text, 10)
-		if !ok {
-			return RewriteFailed, ast.ErrASTDomain
+		// rational r(s.c_str()); mk_numeral(r, true)
+		q := r.numerals()
+		value := unumeral.NewRational()
+		defer func() { err = errors.Join(err, q.Del(&value)) }()
+		if err = q.SetString(&value, text); err != nil {
+			return RewriteFailed, err
 		}
-		return r.assignInteger(value, out)
+		return r.assignInteger(&value, out)
 	}
 	integer, matched, err := r.manager.SequenceIntToStringArgument(a)
 	if err != nil || !matched {
 		return RewriteFailed, err
 	}
-	zero, err := r.makeInteger(big.NewInt(0))
+	zero, err := r.makeSmallInteger(0)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -725,7 +789,7 @@ func (r *SequenceRewriter) RewriteStringToInt(a ast.ASTHandle, out ast.ASTRef) (
 		return RewriteFailed, err
 	}
 	refs = append(refs, zeroRef)
-	minusOne, err := r.makeInteger(big.NewInt(-1))
+	minusOne, err := r.makeSmallInteger(-1)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -1164,26 +1228,45 @@ func (r *SequenceRewriter) RewriteRegexStar(a ast.ASTHandle, out ast.ASTRef) (Re
 	return RewriteFailed, nil
 }
 
-func (r *SequenceRewriter) RewriteRegexLoop(args []ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *SequenceRewriter) RewriteRegexLoop(args []ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, resultErr error) {
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}
 	if len(args) != 2 && len(args) != 3 {
 		return RewriteFailed, nil
 	}
-	lower, matched, err := r.integerValue(args[1])
-	if err != nil || !matched || lower.Sign() < 0 || !lower.IsUint64() || lower.Uint64() > math.MaxInt32 {
+	// rational n1, n2; is_numeral(args[1], n1) && n1.is_unsigned()
+	q := r.numerals()
+	bound := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&bound)) }()
+	loopBound := func(h ast.ASTHandle) (int32, bool, error) {
+		matched, err := r.integerValue(h, &bound)
+		if err != nil || !matched || bound.IsNeg() {
+			return 0, false, err
+		}
+		small, err := q.IsUint64(&bound)
+		if err != nil || !small {
+			return 0, false, err
+		}
+		v, err := q.Uint64(&bound)
+		if err != nil || v > math.MaxInt32 {
+			return 0, false, err
+		}
+		return int32(v), true, nil
+	}
+	lower, matched, err := loopBound(args[1])
+	if err != nil || !matched {
 		return RewriteFailed, err
 	}
 	var result ast.ASTHandle
 	if len(args) == 2 {
-		result, err = r.manager.MkRegexLoop(args[0], int32(lower.Uint64()))
+		result, err = r.manager.MkRegexLoop(args[0], lower)
 	} else {
-		upper, upperMatched, e := r.integerValue(args[2])
-		if e != nil || !upperMatched || upper.Sign() < 0 || !upper.IsUint64() || upper.Uint64() > math.MaxInt32 {
+		upper, upperMatched, e := loopBound(args[2])
+		if e != nil || !upperMatched {
 			return RewriteFailed, e
 		}
-		result, err = r.manager.MkRegexLoop(args[0], int32(lower.Uint64()), int32(upper.Uint64()))
+		result, err = r.manager.MkRegexLoop(args[0], lower, upper)
 	}
 	if err != nil {
 		return RewriteFailed, err

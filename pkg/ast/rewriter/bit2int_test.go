@@ -1,16 +1,18 @@
 package rewriter
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func bigIntTest(text string) *big.Int {
-	v, _ := new(big.Int).SetString(text, 10)
-	return v
+// bit2IntBitsOf is bit2IntNumeralBits of the small integer v.
+func bit2IntBitsOf(t *testing.T, m *ast.ASTManager, v int32) uint32 {
+	t.Helper()
+	bits, err := bit2IntNumeralBits(m.NumeralService().Manager, pbSmall(v))
+	astTestMust(t, err)
+	return bits
 }
 
 func bit2IntArithmeticNumeral(t *testing.T, m *ast.ASTManager, value string) ast.ASTHandle {
@@ -31,7 +33,7 @@ func TestBit2IntExtractionAlignmentAndCacheFoundation(t *testing.T) {
 	b, err := NewBit2Int(m)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, b.Close()) })
-	if bit2IntNumeralBits(bigIntTest("0")) != 1 || bit2IntNumeralBits(bigIntTest("-1")) != 1 || bit2IntNumeralBits(bigIntTest("8")) != 4 {
+	if bit2IntBitsOf(t, m, 0) != 1 || bit2IntBitsOf(t, m, -1) != 1 || bit2IntBitsOf(t, m, 8) != 4 {
 		t.Fatal("numeral bit widths")
 	}
 
