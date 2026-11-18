@@ -84,8 +84,6 @@ func TestLPSMTReaderIntegerAndAssertionDomains(t *testing.T) {
 		{"(* (~ 2 3) x)", true, -2},
 		{"(* 2 x ignored)", true, 2},
 		{"(* -0 x)", true, 0},
-		{"(* 2147483648 x)", false, 0},
-		{"(* 2junk x)", false, 0},
 		{"(* 2)", false, 0},
 	} {
 		h := newLPPairHarness(t)
@@ -408,5 +406,44 @@ func TestLPSMTReaderErasedAssertionsAndMalformedTokens(t *testing.T) {
 		}
 		h.must(r.Close())
 		lpExactVectorNamedCensus(t, h, nil)
+	}
+}
+
+// AUDIT.md util_lp_06-F2: numerals go through atoi, which keeps the longest
+// integer prefix ("3.5" is 3, "2x" is 2).
+func TestSMTReaderAtoiNumerals(t *testing.T) {
+	h := newLPPairHarness(t)
+	r := NewSMTReader(h.m, strings.NewReader(":formula (and (<= (+ (* 3.5 x) 2x) 0))\n"))
+	r.Messages = io.Discard
+	h.must(r.Read())
+	if !r.IsOK() || len(r.Constraints) != 1 {
+		t.Fatal(r.IsOK(), len(r.Constraints))
+	}
+	c := r.Constraints[0]
+	if strings.Join(c.Names, ",") != "x" {
+		t.Fatal(c.Names)
+	}
+	lpSparseRationalCheck(t, h, &c.Values.Data[0], big.NewRat(-2, 1))
+	lpSparseRationalCheck(t, h, &c.Values.Data[1], big.NewRat(3, 1))
+	h.must(r.Close())
+	// atoi truncates strtol's 2147483648 to int; is_integer holds for both.
+	for _, tc := range []struct {
+		expr  string
+		value int64
+	}{{"(* 2147483648 x)", -2147483648}, {"(* 2junk x)", 2}} {
+		h := newLPPairHarness(t)
+		r := NewSMTReader(h.m, strings.NewReader(":formula (and (<= "+tc.expr+" 0))"))
+		r.Messages = io.Discard
+		h.must(r.Read())
+		lpSparseRationalCheck(t, h, r.Constraints[0].Coefficient(0), big.NewRat(tc.value, 1))
+		h.must(r.Close())
+	}
+	for _, tc := range []struct {
+		text string
+		want int32
+	}{{" 42", 42}, {"-7z", -7}, {"+5", 5}, {"x", 0}, {"4294967297", 1}, {"99999999999999999999", -1}, {"-99999999999999999999", 0}} {
+		if got := smtAtoi(tc.text); got != tc.want {
+			t.Fatal(tc.text, got, tc.want)
+		}
 	}
 }

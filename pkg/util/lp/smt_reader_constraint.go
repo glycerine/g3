@@ -3,7 +3,7 @@ package lp
 // Source: src/test/smt_reader.h:71-81,178-292.
 
 import (
-	"strconv"
+	"math"
 
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
@@ -18,17 +18,60 @@ type SMTFormulaConstraint struct {
 	calls  exactEtaCalls
 }
 
-func smtInteger(text string) (int32, error) {
-	n, err := strconv.ParseInt(text, 10, 32)
-	if err != nil {
-		return 0, err
+// smtAtoi is glibc atoi, (int) strtol(s, NULL, 10): leading C isspace bytes
+// are skipped, an optional sign is read, then the longest digit prefix,
+// saturating at LONG_MIN/LONG_MAX (64 bits) before the truncation to int.
+// Text without digits gives 0 (AUDIT.md util_lp_06-F2).
+func smtAtoi(text string) int32 {
+	i := 0
+	for i < len(text) && mpsIsCSpace(text[i]) {
+		i++
 	}
-	if n == 0 && (text == "" || text[0] < '0' || text[0] > '9') {
+	negative := false
+	if i < len(text) && (text[i] == '+' || text[i] == '-') {
+		negative = text[i] == '-'
+		i++
+	}
+	var magnitude uint64
+	saturated := false
+	for ; i < len(text) && text[i] >= '0' && text[i] <= '9'; i++ {
+		d := uint64(text[i] - '0')
+		if !saturated && magnitude > (1<<63-d)/10 {
+			saturated = true
+		}
+		if !saturated {
+			magnitude = magnitude*10 + d
+		}
+	}
+	var value int64
+	switch {
+	case saturated && negative:
+		value = math.MinInt64
+	case saturated:
+		value = math.MaxInt64
+	case negative:
+		value = -int64(magnitude)
+	case magnitude > math.MaxInt64:
+		value = math.MaxInt64
+	default:
+		value = int64(magnitude)
+	}
+	return int32(value)
+}
+
+// smtIsInteger is smt_reader::is_integer.
+func smtIsInteger(text string) bool {
+	return len(text) != 0 && (smtAtoi(text) != 0 || text[0] >= '0' && text[0] <= '9')
+}
+
+// smtInteger is str_to_int: SASSERT(is_integer(s)); atoi(s).
+func smtInteger(text string) (int32, error) {
+	if !smtIsInteger(text) {
 		if err := sourceAssertionFailure(); err != nil {
 			return 0, err
 		}
 	}
-	return int32(n), nil
+	return smtAtoi(text), nil
 }
 
 func smtAssert(ok bool) error {
@@ -114,9 +157,7 @@ func (c *SMTFormulaConstraint) addProduct(el SMTLispElement) error {
 	if err = smtAssert(len(name.Elements) == 0); err != nil {
 		return err
 	}
-	parsed, e := strconv.ParseInt(name.Head, 10, 32)
-	isInteger := e == nil && parsed != 0 || len(name.Head) > 0 && name.Head[0] >= '0' && name.Head[0] <= '9'
-	if isInteger {
+	if smtIsInteger(name.Head) {
 		if err = sourceAssertionFailure(); err != nil {
 			return err
 		}
