@@ -32,7 +32,7 @@ func (w *signMatrixFailWriter) WriteString(text string) (int, error) {
 
 func TestSignMatrixSourceDisplayAndWriterPrefixes(t *testing.T) {
 	var matrix signMatrix
-	matrix.make(2, 3)
+	matrix.makeT(2, 3)
 	matrix.setSmall(1, -20, 30000, 0, -4, 5)
 	want := "2 x 3 Matrix\n   1  -20 30000\n   0   -4    5\n"
 	var out bytes.Buffer

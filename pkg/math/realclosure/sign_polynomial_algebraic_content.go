@@ -2,55 +2,78 @@ package realclosure
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (s *realValueStore) integerContentValue(value *realValue, gcd *big.Int) bool {
+// integerContentValue is gcd_int_coeffs(value * a, mpz & g): g is an
+// integer qm() rational; false when a coefficient is not an integer.
+func (s *realValueStore) integerContentValue(value *realValue, gcd *numeral.Rational) (bool, error) {
 	if value == nil {
-		return true
+		return true, nil
 	}
 	if !s.realOperand(value) {
-		return false
+		return false, nil
 	}
 	if !value.isRational {
 		for _, coefficient := range value.functionNumerator.coefficients {
-			if !s.integerContentValue(coefficient, gcd) {
-				return false
+			ok, err := s.integerContentValue(coefficient, gcd)
+			if err != nil || !ok {
+				return false, err
 			}
 		}
-		return true
+		return true, nil
 	}
-	text, err := s.numbers.String(&value.rational)
+	integer, err := s.numbers.IsInt(&value.rational)
+	if err != nil || !integer {
+		return false, err
+	}
+	zero, err := s.numbers.IsZero(gcd)
 	if err != nil {
-		return false
+		return false, err
 	}
-	q, ok := new(big.Rat).SetString(text)
-	if !ok || q.Denom().Cmp(big.NewInt(1)) != 0 {
-		return false
+	if zero {
+		// qm().set(g, numerator); qm().abs(g)
+		if err = s.numbers.Copy(gcd, &value.rational); err == nil {
+			err = s.numbers.Abs(gcd)
+		}
+		return err == nil, err
 	}
-	magnitude := new(big.Int).Abs(q.Num())
-	gcd.GCD(nil, nil, gcd, magnitude)
-	return true
+	if err = s.numbers.GCD(gcd, &value.rational, gcd); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
-func (s *realValueStore) normalizeIntegerContentNormalized(values []*realValue) error {
-	var gcd big.Int
+// normalizeIntegerContentNormalized is normalize_int_coeffs: divide every
+// coefficient by the gcd of the integer coefficients when it is not one.
+func (s *realValueStore) normalizeIntegerContentNormalized(values []*realValue) (err error) {
+	gcd := numeral.NewRational()
+	defer func() { err = errors.Join(err, s.numbers.Del(&gcd)) }()
 	for _, value := range values {
-		if !s.integerContentValue(value, &gcd) {
+		ok, e := s.integerContentValue(value, &gcd)
+		if e != nil {
+			return e
+		}
+		if !ok {
 			return nil
 		}
-		if gcd.Cmp(big.NewInt(1)) == 0 {
+		one, e := s.numbers.IsOne(&gcd)
+		if e != nil {
+			return e
+		}
+		if one {
 			return nil
 		}
 	}
-	if gcd.Sign() == 0 || gcd.Cmp(big.NewInt(1)) == 0 {
-		return nil
+	zero, err := s.numbers.IsZero(&gcd)
+	if err != nil || zero {
+		return err
 	}
-	coefficient, err := s.ownBigPolynomial([]big.Rat{*new(big.Rat).SetInt(&gcd)})
+	coefficient, err := s.ownRationalPolynomial([]numeral.Rational{gcd})
 	if err != nil || len(coefficient) != 1 {
-		return arena.ErrInvalidSlot
+		return errors.Join(err, arena.ErrInvalidSlot)
 	}
 	divisor := coefficient[0]
 	for i, value := range values {

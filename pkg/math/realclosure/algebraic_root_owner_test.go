@@ -31,7 +31,7 @@ func TestAlgebraicRootsShareSignDetAndReleaseSourceOrder(t *testing.T) {
 	must(err)
 	q, err := store.newRational(2, 1)
 	must(err)
-	state := newSignDetermination(2)
+	state := newTestSignDetermination(2)
 	must(state.attachInitialPolynomial(store, one))
 	kept, allOne, err := state.advanceWithPolynomials(1, 1, 0, []*realValue{q}, []int{2, 1}, [][]*realValue{{one}, {q}})
 	must(err)

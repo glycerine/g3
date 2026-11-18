@@ -3,7 +3,11 @@ package realclosure
 // Source: src/math/realclosure/realclosure.cpp:778-808, 1780-1804,
 // and 2050-2093.
 
-import "github.com/glycerine/g3/pkg/arena"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/arena"
+)
 
 // attachInitialPolynomial establishes prs = [1] for the source's initial
 // one-by-one sign matrix. The caller retains ownership of its input value.
@@ -28,11 +32,11 @@ func (s *signDetermination) advanceWithPolynomials(equal, positive, negative int
 	if s == nil || s.store == nil || len(s.prs) != s.matrix.rows {
 		return false, false, arena.ErrInvalidSlot
 	}
-	qMatrix, usefulSigns := signDetMatrix(equal, positive, negative)
+	qRows, _, usefulSigns := signDetShape(equal, positive, negative)
 	if !usefulSigns {
 		return false, false, nil
 	}
-	if len(expandedPrs) != s.matrix.rows*qMatrix.rows {
+	if len(expandedPrs) != s.matrix.rows*qRows {
 		return false, false, arena.ErrInvalidSlot
 	}
 	var newQ realPolynomial
@@ -49,7 +53,13 @@ func (s *signDetermination) advanceWithPolynomials(equal, positive, negative int
 			return false, false, err
 		}
 	}
-	kept, allOne, rows := s.advanceCore(equal, positive, negative, expandedTarski)
+	kept, allOne, rows, advanceErr := s.advanceCore(equal, positive, negative, expandedTarski)
+	if advanceErr != nil {
+		for i := range newPrs {
+			advanceErr = errors.Join(advanceErr, s.store.resetPolynomial(&newPrs[i]))
+		}
+		return false, false, errors.Join(advanceErr, s.store.resetPolynomial(&newQ))
+	}
 	if !kept {
 		for i := range newPrs {
 			if err := s.store.resetPolynomial(&newPrs[i]); err != nil {

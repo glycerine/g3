@@ -110,11 +110,11 @@ func (s *signDetermination) advanceBoundedRational(p, q []*realValue, interval *
 	if bodyErr != nil {
 		return false, false, errors.Join(bodyErr, s.store.releaseSturmCoefficients(q2))
 	}
-	qMatrix, useful := signDetMatrix(equal, positive, negative)
+	_, qCols, useful := signDetShape(equal, positive, negative)
 	if !useful {
 		return false, false, s.store.releaseSturmCoefficients(q2)
 	}
-	useSquare := qMatrix.cols == 3
+	useSquare := qCols == 3
 	expandedTarski, expanded, owned, bodyErr := s.expandTarskiRational(p, q, q2, interval, useSquare, usePrem)
 	if bodyErr == nil {
 		kept, allOne, bodyErr = s.advanceWithPolynomials(equal, positive, negative, q, expandedTarski, expanded)

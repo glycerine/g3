@@ -40,7 +40,10 @@ func (m *signMatrix) display(w io.Writer, cellWidth uint32) error {
 					return err
 				}
 			}
-			text := m.at(row, col).String()
+			text, err := m.z.String(m.at(row, col))
+			if err != nil {
+				return err
+			}
 			for pad := uint32(len(text)); pad < cellWidth; pad++ {
 				if err := writeSignMatrixText(w, " "); err != nil {
 					return err

@@ -4,7 +4,7 @@ import "testing"
 
 func TestSignDeterminationExpansionConsumesAlgebraicPolynomialProduct(t *testing.T) {
 	f := newRealFunctionFixture(t)
-	state := newSignDetermination(2)
+	state := newTestSignDetermination(2)
 	mustRealFunction(t, state.attachInitialPolynomial(f.store, f.one))
 	t.Cleanup(func() { mustRealFunction(t, state.closePolynomials()) })
 	// [[1,1],[0,1]] * [1,1] = [2,1]. Both sign columns survive.

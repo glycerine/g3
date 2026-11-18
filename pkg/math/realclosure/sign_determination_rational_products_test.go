@@ -39,7 +39,7 @@ func TestSignDeterminationRationalProductsAndThreeWayExpansion(t *testing.T) {
 		t.Fatal("convolution changed its borrowed operands or failed cancellation")
 	}
 	must(store.releaseCoefficients(product))
-	state := newSignDetermination(3)
+	state := newTestSignDetermination(3)
 	must(state.attachInitialPolynomial(store, one))
 	// For roots -1, 0, 1, q=x has signs -, 0, +. The source Tarski
 	// results for 1, q, q² are 3, 0, 2, respectively.
@@ -48,7 +48,7 @@ func TestSignDeterminationRationalProductsAndThreeWayExpansion(t *testing.T) {
 	if !kept || !allOne || len(state.prs) != 3 || len(state.qs) != 1 || len(state.prs[0].coefficients) != 1 || len(state.prs[1].coefficients) != 2 || len(state.prs[2].coefficients) != 3 || state.prs[1].coefficients[0] != nil || state.prs[2].coefficients[0] != nil || state.prs[2].coefficients[1] != nil {
 		t.Fatal("three-way sign expansion did not construct 1, q, and q² rows")
 	}
-	if cardinalities, ok := state.matrix.solveInt(state.tarski); !ok || len(cardinalities) != 3 || cardinalities[0] != 1 || cardinalities[1] != 1 || cardinalities[2] != 1 {
+	if cardinalities, ok := state.matrix.solveIntT(state.tarski); !ok || len(cardinalities) != 3 || cardinalities[0] != 1 || cardinalities[1] != 1 || cardinalities[2] != 1 {
 		t.Fatalf("expanded rows did not separate the three roots: %v, %v", cardinalities, ok)
 	}
 	for _, row := range state.prs {

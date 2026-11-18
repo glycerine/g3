@@ -4,7 +4,7 @@ import "testing"
 
 func TestNormalizedSignDeterminationAdvanceComputesAlgebraicTarskiGroups(t *testing.T) {
 	f := newNormalizedSignQueryFixture(t)
-	state := newSignDetermination(2)
+	state := newTestSignDetermination(2)
 	mustRealFunction(t, state.attachInitialPolynomial(f.store, f.one))
 	t.Cleanup(func() { mustRealFunction(t, state.closePolynomials()) })
 	kept, allOne, err := state.advanceNormalizedUnbounded(f.polynomial, f.x, []int{2, 0})

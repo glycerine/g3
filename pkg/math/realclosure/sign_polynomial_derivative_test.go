@@ -112,7 +112,7 @@ func TestRealClosureRationalDerivativeKeepsCoefficientOwnership(t *testing.T) {
 		if rootCount != 3 || firstQuery != 0 || secondQuery != 2 {
 			t.Fatalf("Sturm-Tarski values with use_prem=%v: roots=%d, q=%d, q²=%d", usePseudo, rootCount, firstQuery, secondQuery)
 		}
-		state := newSignDetermination(rootCount)
+		state := newTestSignDetermination(rootCount)
 		must(state.attachInitialPolynomial(store, one))
 		kept, allOne, err := state.advanceFromTarski(query, firstQuery, secondQuery, []int{rootCount, firstQuery, secondQuery})
 		must(err)

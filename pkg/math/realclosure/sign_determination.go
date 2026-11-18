@@ -3,6 +3,12 @@ package realclosure
 // Source: src/math/realclosure/realclosure.cpp:254-281, 1743-1775,
 // 1967-1978, and 2018-2090.
 
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
+)
+
 // signCondition is one conjunct in the persistent sign assignment chain.
 // Several surviving columns may share an antecedent.
 type signCondition struct {
@@ -24,14 +30,28 @@ type signDetermination struct {
 	prs, qs     []realPolynomial
 }
 
-func newSignDetermination(numRoots int) *signDetermination {
+// newSignDetermination starts with the 1x1 matrix [1] over the integer
+// manager z; closeMatrix releases the matrix unless finish moved it.
+func newSignDetermination(z *numeral.IntegerManager, numRoots int) (*signDetermination, error) {
 	if numRoots < 2 {
 		panic("realclosure: sign determination requires multiple roots")
 	}
 	s := &signDetermination{tarski: []int{numRoots}, conditions: []*signCondition{nil}, numRoots: numRoots}
-	s.matrix.make(1, 1)
-	s.matrix.at(0, 0).SetInt64(1)
-	return s
+	if err := s.matrix.make(z, 1, 1); err != nil {
+		return nil, err
+	}
+	if err := z.SetInt64(s.matrix.at(0, 0), 1); err != nil {
+		return nil, errors.Join(err, s.matrix.del())
+	}
+	return s, nil
+}
+
+// closeMatrix releases the working matrix (scoped_mpz_matrix M).
+func (s *signDetermination) closeMatrix() error {
+	if s == nil {
+		return nil
+	}
+	return s.matrix.del()
 }
 
 // keepSignAssignment follows imp::keep_new_sc_assignment. At least two
@@ -62,22 +82,30 @@ func keepSignAssignment(cardinalities []int, useSquare bool) bool {
 // caller computes those results from the polynomial sequence; this method
 // performs the source matrix/cardinality/column transition. A rejected q
 // leaves the state intact. The returned flags are kept and all-one.
-func (s *signDetermination) advance(equal, positive, negative int, expandedTarski []int) (bool, bool) {
-	kept, allOne, _ := s.advanceCore(equal, positive, negative, expandedTarski)
-	return kept, allOne
+func (s *signDetermination) advance(equal, positive, negative int, expandedTarski []int) (bool, bool, error) {
+	kept, allOne, _, err := s.advanceCore(equal, positive, negative, expandedTarski)
+	return kept, allOne, err
 }
 
-func (s *signDetermination) advanceCore(equal, positive, negative int, expandedTarski []int) (bool, bool, []int) {
-	qMatrix, usefulSigns := signDetMatrix(equal, positive, negative)
-	if !usefulSigns {
-		return false, false, nil
+func (s *signDetermination) advanceCore(equal, positive, negative int, expandedTarski []int) (kept, allOne bool, rows []int, err error) {
+	z := s.matrix.z
+	qMatrix, usefulSigns, err := signDetMatrix(z, equal, positive, negative)
+	if err != nil || !usefulSigns {
+		return false, false, nil, err
 	}
-	var expanded signMatrix
-	expanded.tensorProduct(&s.matrix, &qMatrix)
+	expanded := signMatrix{z: z}
+	selected := signMatrix{z: z}
+	defer func() { err = errors.Join(err, selected.del(), expanded.del(), qMatrix.del()) }()
+	if err = expanded.tensorProduct(&s.matrix, &qMatrix); err != nil {
+		return false, false, nil, err
+	}
 	if len(expandedTarski) != expanded.rows {
 		panic("realclosure: Tarski result count differs from sign matrix")
 	}
-	cardinalities, solvable := expanded.solveInt(expandedTarski)
+	cardinalities, solvable, err := expanded.solveInt(expandedTarski)
+	if err != nil {
+		return false, false, nil, err
+	}
 	if !solvable {
 		panic("realclosure: sign matrix has no integer cardinalities")
 	}
@@ -88,26 +116,33 @@ func (s *signDetermination) advanceCore(equal, positive, negative int, expandedT
 	}
 	useSquare := qMatrix.cols == 3
 	if !keepSignAssignment(cardinalities, useSquare) {
-		return false, false, nil
+		return false, false, nil, nil
 	}
 	columns := make([]int, 0, expanded.cols)
 	conditions := make([]*signCondition, 0, expanded.cols)
-	allOne := true
+	allOne = true
 	for col, count := range cardinalities {
 		if count == 0 {
 			continue
 		}
 		old := col / qMatrix.cols
-		sign := int(qMatrix.at(1, col%qMatrix.cols).Int64())
+		sign64, e := qMatrix.int64At(1, col%qMatrix.cols)
+		if e != nil {
+			return false, false, nil, e
+		}
+		sign := int(sign64)
 		conditions = append(conditions, &signCondition{polynomial: s.polynomials, sign: sign, previous: s.conditions[old]})
 		columns = append(columns, col)
 		if count > 1 {
 			allOne = false
 		}
 	}
-	var selected signMatrix
-	selected.filterColumns(&expanded, columns)
-	rows := selected.independentRows(&selected)
+	if err = selected.filterColumns(&expanded, columns); err != nil {
+		return false, false, nil, err
+	}
+	if rows, err = selected.independentRows(&selected); err != nil {
+		return false, false, nil, err
+	}
 	if len(rows) != len(columns) {
 		panic("realclosure: surviving sign columns are dependent")
 	}
@@ -115,9 +150,11 @@ func (s *signDetermination) advanceCore(equal, positive, negative int, expandedT
 	for i, row := range rows {
 		tarski[i] = expandedTarski[row]
 	}
-	s.matrix = selected
+	if err = s.matrix.move(&selected); err != nil {
+		return false, false, nil, err
+	}
 	s.tarski = tarski
 	s.conditions = conditions
 	s.polynomials++
-	return true, allOne, rows
+	return true, allOne, rows, nil
 }

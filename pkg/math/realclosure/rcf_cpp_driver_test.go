@@ -17,9 +17,9 @@ func TestRealClosureSourceMatrixExamples(t *testing.T) {
 		{[]int64{1, 1, 1, 0, 1, 1, 0, 1, 1}, []int{3, 2, 2}, nil, false},
 	} {
 		var a signMatrix
-		a.make(3, 3)
+		a.makeT(3, 3)
 		a.setSmall(tc.matrix...)
-		got, ok := a.solveInt(tc.right)
+		got, ok := a.solveIntT(tc.right)
 		if ok != tc.solved || ok && !reflect.DeepEqual(got, tc.want) {
 			t.Fatal("source matrix solve", got, ok, tc.want, tc.solved)
 		}
@@ -33,23 +33,23 @@ func TestRealClosureSourceMatrixExamples(t *testing.T) {
 		{[]int64{1, 1, 1, 1, 1, 1, 1, 0, 1, 2, 1, 2, 3, 1, 3}, []int{0, 2}},
 	} {
 		var a, selected signMatrix
-		a.make(5, 3)
+		a.makeT(5, 3)
 		a.setSmall(tc.values...)
-		if got := selected.independentRows(&a); !reflect.DeepEqual(got, tc.want) {
+		if got := selected.independentRowsT(&a); !reflect.DeepEqual(got, tc.want) {
 			t.Fatal("source independent rows", got, tc.want)
 		}
 	}
 	var a, product, selected signMatrix
-	a.make(3, 3)
+	a.makeT(3, 3)
 	a.setSmall(1, 1, 1, 0, 1, -1, 0, 1, 1)
-	if got, ok := a.solveInt([]int{10, -2, 8}); !ok || !reflect.DeepEqual(got, []int{2, 3, 5}) {
+	if got, ok := a.solveIntT([]int{10, -2, 8}); !ok || !reflect.DeepEqual(got, []int{2, 3, 5}) {
 		t.Fatal("source displayed solve", got, ok)
 	}
-	product.tensorProduct(&a, &a)
-	selected.filterColumns(&product, []int{1, 3, 7, 8})
+	mustSign(product.tensorProduct(&a, &a))
+	mustSign(selected.filterColumns(&product, []int{1, 3, 7, 8}))
 	for row := 0; row < 9; row++ {
 		for col, original := range []int{1, 3, 7, 8} {
-			if selected.at(row, col).Cmp(product.at(row, original)) != 0 {
+			if !cellsEqual(&selected, row, col, &product, row, original) {
 				t.Fatal("source tensor column", row, col)
 			}
 		}

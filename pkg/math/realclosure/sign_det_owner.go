@@ -75,7 +75,9 @@ func (d *signDet) release() error {
 // dispose follows del_sign_det: matrix, distinct sign-condition nodes, prs,
 // Tarski results, qs. Native Go slices replace the array allocation headers.
 func (d *signDet) dispose() error {
-	d.matrix = signMatrix{}
+	if err := d.matrix.del(); err != nil {
+		return err
+	}
 	for _, head := range d.conditions {
 		for current := head; current != nil && !current.deleted; {
 			previous := current.previous

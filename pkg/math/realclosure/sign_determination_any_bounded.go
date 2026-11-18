@@ -67,11 +67,11 @@ func (s *signDetermination) advanceBoundedAny(p, q []*realValue, interval *Binar
 	if bodyErr != nil {
 		return false, false, errors.Join(bodyErr, s.store.releaseSturmCoefficients(q2))
 	}
-	qMatrix, useful := signDetMatrix(equal, positive, negative)
+	_, qCols, useful := signDetShape(equal, positive, negative)
 	if !useful {
 		return false, false, s.store.releaseSturmCoefficients(q2)
 	}
-	queries, expanded, owned, bodyErr := s.expandTarskiAny(p, q, q2, interval, qMatrix.cols == 3, usePrem)
+	queries, expanded, owned, bodyErr := s.expandTarskiAny(p, q, q2, interval, qCols == 3, usePrem)
 	if bodyErr == nil {
 		kept, allOne, bodyErr = s.advanceWithPolynomials(equal, positive, negative, q, queries, expanded)
 	}

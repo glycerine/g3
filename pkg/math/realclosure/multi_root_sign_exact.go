@@ -16,9 +16,10 @@ func (s *realValueStore) exactMultiRootPolynomialSign(value *realValue, usePrem 
 		return 0, err
 	}
 	defer func() { err = errors.Join(err, s.releaseMultiRootProducts(products)) }()
-	_, cardinalities, qMatrix, err := solveCompletedSignExtension(root.signs, counts, expanded)
+	signs, cardinalities, qMatrix, err := solveCompletedSignExtension(root.signs, counts, expanded)
 	if err != nil {
 		return 0, err
 	}
+	defer func() { err = errors.Join(err, signs.del(), qMatrix.del()) }()
 	return selectExtendedRootSign(root, cardinalities, &qMatrix)
 }

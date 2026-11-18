@@ -27,12 +27,16 @@ func (o *algebraicRootOwner) isolateAnyRootsBySigns(p []*realValue, numRoots int
 	if err != nil {
 		return nil, errors.Join(err, o.values.releaseSturmScratch(one))
 	}
-	state := newSignDetermination(numRoots)
+	state, err := newSignDetermination(o.values.numbers.Z, numRoots)
+	if err != nil {
+		return nil, errors.Join(err, o.values.closePolynomialSequenceAfterTemporaries(derivatives), o.values.releaseSturmScratch(one))
+	}
 	var result *signDet
 	defer func() {
 		if state != nil && state.store != nil {
 			err = errors.Join(err, state.closePolynomials())
 		}
+		err = errors.Join(err, state.closeMatrix())
 		if result != nil && result.refs == 0 && !result.deleted {
 			err = errors.Join(err, result.dispose())
 		}

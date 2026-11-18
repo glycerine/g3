@@ -26,7 +26,10 @@ func selectExtendedRootSign(root *algebraicRoot, cardinalities []int, qMatrix *s
 	if selected == -1 {
 		return 0, arena.ErrInvalidSlot
 	}
-	sign := qMatrix.at(1, selected).Int64()
+	sign, err := qMatrix.int64At(1, selected)
+	if err != nil {
+		return 0, err
+	}
 	if sign < 0 {
 		return -1, nil
 	}

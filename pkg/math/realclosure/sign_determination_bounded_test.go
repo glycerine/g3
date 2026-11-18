@@ -86,7 +86,7 @@ func TestBoundedRationalSignDeterminationThreeRootPath(t *testing.T) {
 			one, minusOne := f.rational(1), f.rational(-1)
 			p := []*realValue{nil, minusOne, nil, one} // x^3-x
 			q := []*realValue{nil, one}                // x
-			state := newSignDetermination(3)
+			state := newTestSignDetermination(3)
 			if err := state.attachInitialPolynomial(f.store, one); err != nil {
 				t.Fatal(err)
 			}
@@ -97,7 +97,7 @@ func TestBoundedRationalSignDeterminationThreeRootPath(t *testing.T) {
 			if state.matrix.rows != 3 || state.matrix.cols != 3 || len(state.prs) != 3 || len(state.qs) != 1 || len(state.conditions) != 3 || state.polynomials != 1 {
 				t.Fatal("three-root state dimensions")
 			}
-			if got, ok := state.matrix.solveInt(state.tarski); !ok || len(got) != 3 || got[0] != 1 || got[1] != 1 || got[2] != 1 {
+			if got, ok := state.matrix.solveIntT(state.tarski); !ok || len(got) != 3 || got[0] != 1 || got[1] != 1 || got[2] != 1 {
 				t.Fatal("three-root cardinalities", got, ok)
 			}
 			if err := state.closePolynomials(); err != nil {
@@ -115,7 +115,7 @@ func TestBoundedRationalSignDeterminationTwoStepFourRootPath(t *testing.T) {
 			p := []*realValue{four, nil, minusFive, nil, one} // x^4-5x^2+4
 			first := []*realValue{nil, one}                   // x
 			second := []*realValue{minusTwo, nil, one}        // x^2-2
-			state := newSignDetermination(4)
+			state := newTestSignDetermination(4)
 			if err := state.attachInitialPolynomial(f.store, one); err != nil {
 				t.Fatal(err)
 			}
@@ -127,7 +127,7 @@ func TestBoundedRationalSignDeterminationTwoStepFourRootPath(t *testing.T) {
 			if err != nil || !kept || !allOne || state.matrix.rows != 4 || len(state.prs) != 4 || len(state.qs) != 2 || state.polynomials != 2 {
 				t.Fatal("second four-root transition", kept, allOne, err, state.matrix.rows, len(state.prs))
 			}
-			if got, ok := state.matrix.solveInt(state.tarski); !ok || len(got) != 4 || got[0] != 1 || got[1] != 1 || got[2] != 1 || got[3] != 1 {
+			if got, ok := state.matrix.solveIntT(state.tarski); !ok || len(got) != 4 || got[0] != 1 || got[1] != 1 || got[2] != 1 || got[3] != 1 {
 				t.Fatal("four-root cardinalities", got, ok)
 			}
 			if err := state.closePolynomials(); err != nil {
@@ -141,7 +141,7 @@ func TestBoundedRationalSignDeterminationRejectsUselessPolynomial(t *testing.T) 
 	f := newBoundedSignFixture(t, -2, 2)
 	one, minusOne := f.rational(1), f.rational(-1)
 	p := []*realValue{nil, minusOne, nil, one}
-	state := newSignDetermination(3)
+	state := newTestSignDetermination(3)
 	if err := state.attachInitialPolynomial(f.store, one); err != nil {
 		t.Fatal(err)
 	}

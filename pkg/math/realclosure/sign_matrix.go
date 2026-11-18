@@ -3,76 +3,149 @@ package realclosure
 // Source: src/math/realclosure/mpz_matrix.cpp:38-90 and
 // src/math/realclosure/realclosure.cpp:1887-1927.
 
-import "math/big"
+import (
+	"errors"
 
-// signMatrix is the concrete integer matrix used by real-closure sign
-// determination. Cells are independent big.Int values, including after a copy.
+	"github.com/glycerine/g3/pkg/util/numeral"
+)
+
+// signMatrix is the mpz_matrix used by real-closure sign determination.
+// Cells are mpz values of the store's integer manager z (the source's
+// mpz_matrix_manager over qm()); del releases them.
 type signMatrix struct {
+	z          *numeral.IntegerManager
 	rows, cols int
-	cells      []big.Int
+	cells      []numeral.Int
 }
 
-func (m *signMatrix) make(rows, cols int) {
-	if rows <= 0 || cols <= 0 {
+// make is mpz_matrix_manager::mk: it releases the previous cells first.
+func (m *signMatrix) make(z *numeral.IntegerManager, rows, cols int) error {
+	if rows <= 0 || cols <= 0 || z == nil {
 		panic("realclosure: empty sign matrix")
 	}
-	m.rows, m.cols = rows, cols
-	m.cells = make([]big.Int, rows*cols)
+	if err := m.del(); err != nil {
+		return err
+	}
+	m.z, m.rows, m.cols = z, rows, cols
+	m.cells = make([]numeral.Int, rows*cols)
+	return nil
 }
 
-func (m *signMatrix) at(row, col int) *big.Int {
+// del is mpz_matrix_manager::del.
+func (m *signMatrix) del() (err error) {
+	for i := range m.cells {
+		err = errors.Join(err, m.z.Del(&m.cells[i]))
+	}
+	z := m.z
+	*m = signMatrix{z: z}
+	return err
+}
+
+// move publishes src into m (releasing m's cells) and leaves src empty.
+func (m *signMatrix) move(src *signMatrix) error {
+	if m == src {
+		return nil
+	}
+	if err := m.del(); err != nil {
+		return err
+	}
+	*m = *src
+	*src = signMatrix{z: m.z}
+	return nil
+}
+
+func (m *signMatrix) at(row, col int) *numeral.Int {
 	return &m.cells[row*m.cols+col]
 }
 
-func (m *signMatrix) copyFrom(src *signMatrix) {
+// int64At reads a cell known to hold a sign or small count.
+func (m *signMatrix) int64At(row, col int) (int64, error) {
+	return m.z.Int64(m.at(row, col))
+}
+
+func (m *signMatrix) copyFrom(src *signMatrix) error {
 	if m == src {
-		return
+		return nil
 	}
-	m.make(src.rows, src.cols)
+	if err := m.make(src.z, src.rows, src.cols); err != nil {
+		return err
+	}
 	for i := range src.cells {
-		m.cells[i].Set(&src.cells[i])
+		if err := m.z.Copy(&m.cells[i], &src.cells[i]); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // tensorProduct follows mpz_matrix_manager::tensor_product. Building the
 // result before publication also permits the destination to alias an input.
-func (m *signMatrix) tensorProduct(a, b *signMatrix) {
-	var result signMatrix
-	result.make(a.rows*b.rows, a.cols*b.cols)
+func (m *signMatrix) tensorProduct(a, b *signMatrix) error {
+	result := signMatrix{z: a.z}
+	if err := result.make(a.z, a.rows*b.rows, a.cols*b.cols); err != nil {
+		return err
+	}
 	for i := 0; i < result.rows; i++ {
 		for j := 0; j < result.cols; j++ {
-			result.at(i, j).Mul(a.at(i/b.rows, j/b.cols), b.at(i%b.rows, j%b.cols))
+			if err := result.z.Mul(a.at(i/b.rows, j/b.cols), b.at(i%b.rows, j%b.cols), result.at(i, j)); err != nil {
+				return errors.Join(err, result.del())
+			}
 		}
 	}
-	*m = result
+	if m.z == nil {
+		m.z = a.z
+	}
+	return m.move(&result)
+}
+
+// signDetShape is the shape of imp::mk_sign_det_matrix's M_s: false when
+// q's sign cannot distinguish roots.
+func signDetShape(equal, positive, negative int) (rows, cols int, ok bool) {
+	switch {
+	case equal > 0 && positive > 0 && negative == 0,
+		equal > 0 && positive == 0 && negative > 0,
+		equal == 0 && positive > 0 && negative > 0:
+		return 2, 2, true
+	case equal > 0 && positive > 0 && negative > 0:
+		return 3, 3, true
+	}
+	return 0, 0, false
 }
 
 // signDetMatrix constructs the sign matrix for a derivative's observed zero,
 // positive, and negative root counts. A false result means that its sign
-// cannot distinguish roots, as in imp::mk_sign_det_matrix.
-func signDetMatrix(equal, positive, negative int) (signMatrix, bool) {
-	var m signMatrix
+// cannot distinguish roots, as in imp::mk_sign_det_matrix. The caller owns
+// (and deletes) the matrix.
+func signDetMatrix(z *numeral.IntegerManager, equal, positive, negative int) (m signMatrix, ok bool, err error) {
+	m.z = z
+	rows, cols, ok := signDetShape(equal, positive, negative)
+	if !ok {
+		return m, false, nil
+	}
+	if err = m.make(z, rows, cols); err != nil {
+		return m, false, err
+	}
 	switch {
 	case equal > 0 && positive > 0 && negative == 0:
-		m.make(2, 2)
-		m.setSmall(1, 1, 0, 1)
+		err = m.setSmall(1, 1, 0, 1)
 	case equal > 0 && positive == 0 && negative > 0:
-		m.make(2, 2)
-		m.setSmall(1, 1, 0, -1)
+		err = m.setSmall(1, 1, 0, -1)
 	case equal == 0 && positive > 0 && negative > 0:
-		m.make(2, 2)
-		m.setSmall(1, 1, 1, -1)
-	case equal > 0 && positive > 0 && negative > 0:
-		m.make(3, 3)
-		m.setSmall(1, 1, 1, 0, 1, -1, 0, 1, 1)
+		err = m.setSmall(1, 1, 1, -1)
 	default:
-		return m, false
+		err = m.setSmall(1, 1, 1, 0, 1, -1, 0, 1, 1)
 	}
-	return m, true
+	if err != nil {
+		return m, false, errors.Join(err, m.del())
+	}
+	return m, true, nil
 }
 
-func (m *signMatrix) setSmall(values ...int64) {
+func (m *signMatrix) setSmall(values ...int64) error {
 	for i, v := range values {
-		m.cells[i].SetInt64(v)
+		if err := m.z.SetInt64(&m.cells[i], v); err != nil {
+			return err
+		}
 	}
+	return nil
 }

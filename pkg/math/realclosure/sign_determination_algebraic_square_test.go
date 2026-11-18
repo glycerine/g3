@@ -4,7 +4,7 @@ import "testing"
 
 func TestSignDeterminationThreeWayExpansionBuildsReducedAlgebraicSquare(t *testing.T) {
 	f := newRealFunctionFixture(t)
-	state := newSignDetermination(3)
+	state := newTestSignDetermination(3)
 	mustRealFunction(t, state.attachInitialPolynomial(f.store, f.one))
 	t.Cleanup(func() { mustRealFunction(t, state.closePolynomials()) })
 	kept, allOne, err := state.advanceAlgebraicProducts(1, 1, 1, []*realValue{f.alpha}, []int{3, 0, 2})

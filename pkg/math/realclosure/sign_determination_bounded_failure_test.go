@@ -47,7 +47,7 @@ func TestBoundedRationalSignDeterminationAllocationPrefixes(t *testing.T) {
 				t.Fatal(setupErr)
 			}
 		}
-		state := newSignDetermination(3)
+		state := newTestSignDetermination(3)
 		if err := state.attachInitialPolynomial(store, one); err != nil {
 			t.Fatal(err)
 		}
