@@ -119,8 +119,11 @@ func (p *DatatypeSolverPlugin) Prepare(variable *ast.ContainsApp, formula ast.AS
 	if err = hold(formula); err != nil {
 		return false, err
 	}
+	// datatype_atoms::m_mark is one mark for both update_eqs passes: an atom
+	// of both polarities is recorded by the positive pass only (AUDIT.md
+	// qe_04-F3).
+	seen := make(map[ast.ASTHandle]bool)
 	for pass, list := range [][]ast.ASTHandle{positive, negative} {
-		seen := make(map[ast.ASTHandle]bool)
 		for _, atom := range list {
 			contains, e := variable.Check(atom)
 			if e != nil {
