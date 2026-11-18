@@ -3,7 +3,6 @@ package api
 // Source: src/api/api_quant.cpp:24-69,165-194,285-486.
 
 import (
-	"bytes"
 
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -235,23 +234,9 @@ func (c *SMTContext) PatternTerm(value ast.ASTHandle, index uint32) (ast.ASTHand
 	}
 	return m.GetArg(value, index)
 }
-func (c *SMTContext) PatternString(value ast.ASTHandle) (string, error) {
-	yes, err := c.IsPattern(value)
-	if err != nil {
-		return "", err
-	}
-	if !yes {
-		return "", ast.ErrASTDomain
-	}
-	m, err := c.quantifierManager()
-	if err != nil {
-		return "", err
-	}
-	printer, err := ast.NewSimpleASTPrinterContext(m, nil, nil)
-	if err != nil {
-		return "", err
-	}
-	var out bytes.Buffer
-	err = printer.DisplayExpr(&out, value, 0)
-	return out.String(), err
+// PatternString is Z3_pattern_to_string, which is Z3_ast_to_string of the
+// pattern: the context print mode applies (SMTLIB_FULL disables let
+// aliases), and the argument is not checked to be a pattern.
+func (c *SMTContext) PatternString(value ast.ASTHandle, mode APIASTPrintMode) (string, error) {
+	return c.ASTString(value, mode)
 }

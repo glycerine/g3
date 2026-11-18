@@ -41,7 +41,7 @@ func replayPrintCommand(r *Z3Replayer, id uint32) error {
 		return ast.ErrASTDomain
 	}
 	if id == 330 {
-		_, err = owner.context.PatternString(value.handle)
+		_, err = owner.context.PatternString(value.handle, APIASTPrintMode(owner.printMode))
 		return err
 	}
 	_, err = owner.context.ASTString(value.handle, APIASTPrintMode(owner.printMode))

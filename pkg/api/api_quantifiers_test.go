@@ -45,7 +45,7 @@ func TestSMTContextQuantifierAndPatternAPI(t *testing.T) {
 	if term := f.pin(f.c.PatternTerm(pattern, 0)); term != triggerTerm {
 		t.Fatal("term", term, triggerTerm)
 	}
-	if text, err := f.c.PatternString(pattern); err != nil || !strings.Contains(text, "quantifier-pattern-f") {
+	if text, err := f.c.PatternString(pattern, APIASTPrintSMTFull); err != nil || !strings.Contains(text, "quantifier-pattern-f") {
 		t.Fatal("pattern string", text, err)
 	}
 	if got, err := f.c.Forall(nil, nil, triggerTerm); err != nil || got != triggerTerm {
@@ -114,5 +114,24 @@ func TestSMTContextQuantifierAPIErrors(t *testing.T) {
 	text := f.pin(f.c.String("not-bool"))
 	if _, err := f.c.Forall(nil, nil, text); err != ast.ErrASTDomain {
 		t.Fatal("non-boolean body", err)
+	}
+}
+
+// AUDIT.md api_02-F8: Z3_pattern_to_string is Z3_ast_to_string; in
+// SMTLIB_FULL mode it prints without let aliases (4351 bytes for this
+// pattern from z3 4.7.1's C API).
+func TestAPIPatternStringHasNoAliases(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	integer := f.pin(f.c.IntegerSort())
+	fn := f.pin(f.c.Function("f", []ast.ASTHandle{integer, integer}, integer))
+	term := f.pin(f.c.BoundVariable(0, integer))
+	for i := 0; i < 8; i++ {
+		term = f.pin(f.c.Apply(fn, term, term))
+	}
+	pattern := f.pin(f.c.Pattern(term))
+	text, err := f.c.PatternString(pattern, APIASTPrintSMTFull)
+	astTestMust(t, err)
+	if strings.Contains(text, "(let") || len(text) != 4351 {
+		t.Fatalf("pattern string (%d bytes): %.120s", len(text), text)
 	}
 }
