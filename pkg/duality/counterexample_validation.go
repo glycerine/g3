@@ -384,7 +384,55 @@ func (c *Counterexample) Validate(factory solver.Factory, background ...*Expr) (
 		}
 	}
 	var facts, constraints []ast.ASTHandle
+	// expr_ref_vector facts(m), constraints(m): owned until the end and
+	// destroyed constraints first, each front to back.
+	var factRefs, constraintRefs []ast.ASTRef
+	keep := func(refs *[]ast.ASTRef, h ast.ASTHandle, err error) (ast.ASTHandle, error) {
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		ref, err := m.NewRef(h)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		*refs = append(*refs, ref)
+		return h, nil
+	}
+	defer func() {
+		for _, refs := range []*[]ast.ASTRef{&constraintRefs, &factRefs} {
+			for i := range *refs {
+				result = errors.Join(result, m.DelRef(&(*refs)[i]))
+			}
+		}
+	}()
+	// The loop body's locals (expr_ref inst, body, head, the skolem and
+	// args vectors) die with each iteration; facts and constraints, and
+	// what they reference, live to the end.
+	var iteration []ast.ASTRef
+	release := func(refs *[]ast.ASTRef) error {
+		var result error
+		for i := len(*refs) - 1; i >= 0; i-- {
+			result = errors.Join(result, m.DelRef(&(*refs)[i]))
+		}
+		*refs = nil
+		return result
+	}
+	defer func() { result = errors.Join(result, release(&iteration)) }()
+	local := func(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		ref, err := m.NewRef(h)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		iteration = append(iteration, ref)
+		return h, nil
+	}
 	for i, step := range steps {
+		if err := release(&iteration); err != nil {
+			return false, err
+		}
 		t, err := stepClause(step)
 		if err != nil {
 			return false, err
@@ -397,26 +445,41 @@ func (c *Counterexample) Validate(factory solver.Factory, background ...*Expr) (
 			if err != nil {
 				return false, err
 			}
+			// expr_ref inst is declared before the skolem vector, which
+			// dies at the end of this block.
+			out, err := m.NewRef(ast.ASTHandle{})
+			if err != nil {
+				return false, err
+			}
+			iteration = append(iteration, out)
+			var skolemRefs []ast.ASTRef
 			skolem := make([]ast.ASTHandle, n)
 			for j := uint32(0); j < n; j++ {
 				sort, err := m.GetDeclarationSort(t, j)
 				if err != nil {
-					return false, err
+					return false, errors.Join(err, release(&skolemRefs))
 				}
-				if skolem[n-1-j], err = v.pin(m.MkFreshConst("@cex", sort)); err != nil {
-					return false, err
+				h, err := m.MkFreshConst("@cex", sort)
+				if err == nil {
+					var ref ast.ASTRef
+					if ref, err = m.NewRef(h); err == nil {
+						skolemRefs = append(skolemRefs, ref)
+					}
 				}
+				if err != nil {
+					return false, errors.Join(err, release(&skolemRefs))
+				}
+				skolem[n-1-j] = h
 			}
 			substitution, err := rewriter.NewVarSubstitution(m, false)
 			if err != nil {
-				return false, err
+				return false, errors.Join(err, release(&skolemRefs))
 			}
-			out, err := m.NewRef(ast.ASTHandle{})
-			if err != nil {
-				return false, errors.Join(err, substitution.Close())
-			}
-			v.refs = append(v.refs, out)
 			err = errors.Join(substitution.Substitute(body, skolem, out), substitution.Close())
+			// ~var_subst, then ~expr_ref_vector skolem (forward)
+			for j := range skolemRefs {
+				err = errors.Join(err, m.DelRef(&skolemRefs[j]))
+			}
 			if err != nil {
 				return false, err
 			}
@@ -458,7 +521,7 @@ func (c *Counterexample) Validate(factory solver.Factory, background ...*Expr) (
 				return false, err
 			}
 		default:
-			if body, err = v.pin(m.MkNot(inst)); err != nil {
+			if body, err = local(m.MkNot(inst)); err != nil {
 				return false, err
 			}
 			if head, err = m.MkFalse(); err != nil {
@@ -469,7 +532,17 @@ func (c *Counterexample) Validate(factory solver.Factory, background ...*Expr) (
 		if m.IsFalse(head) != (i+1 == len(steps)) {
 			return false, nil
 		}
+		// cex_replace_atoms' own locals die when it returns; the condition
+		// is held by constraints.
+		mark := len(v.refs)
 		condition, ok, err := v.replaceAtoms(facts, body)
+		if err == nil && ok {
+			condition, err = keep(&constraintRefs, condition, nil)
+		}
+		for j := mark; j < len(v.refs); j++ {
+			err = errors.Join(err, m.DelRef(&v.refs[j]))
+		}
+		v.refs = v.refs[:mark]
 		if err != nil || !ok {
 			return false, err
 		}
@@ -489,25 +562,32 @@ func (c *Counterexample) Validate(factory solver.Factory, background ...*Expr) (
 				if err != nil {
 					return false, err
 				}
-				if args[j], err = v.pin(m.MkFreshConst("@cex", domain)); err != nil {
+				// expr_ref_vector args: a block local
+				if args[j], err = local(m.MkFreshConst("@cex", domain)); err != nil {
 					return false, err
 				}
 				arg, err := m.GetArg(head, j)
 				if err != nil {
 					return false, err
 				}
-				eq, err := v.pin(m.MkEq(arg, args[j]))
+				eq, err := m.MkEq(arg, args[j])
+				eq, err = keep(&constraintRefs, eq, err)
 				if err != nil {
 					return false, err
 				}
 				constraints = append(constraints, eq)
 			}
-			application, err := v.pin(m.MkApp(f, args))
+			application, err := m.MkApp(f, args)
+			application, err = keep(&factRefs, application, err)
 			if err != nil {
 				return false, err
 			}
 			facts = append(facts, application)
 		}
+	}
+	// the last iteration's locals die before the solver is made
+	if err := release(&iteration); err != nil {
+		return false, err
 	}
 	// query runs with proofs on; MBQI with proofs can loop on a valid
 	// forall-exists body, so check without them (scoped_no_proof).
