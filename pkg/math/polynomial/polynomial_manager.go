@@ -60,8 +60,6 @@ type MultivariatePolynomialCore struct {
 	pendingCaches                                                                              *PolynomialCache
 	cacheCaller                                                                                *PolynomialCache
 	toPolynomialCaller                                                                         *MultivariatePolynomialManager
-	quasiResultant                                                                             polynomialQuasiResultantScope
-	quasiHistory                                                                               []polynomialQuasiResultantHistory
 	variableNumeral                                                                            polynomialVariableNumeralScope
 	variableNumeralHistory                                                                     []polynomialVariableNumeralHistory
 	collectingVariables                                                                        bool
@@ -483,7 +481,7 @@ func (m *MultivariatePolynomialCore) CloseChecked() error {
 	if m != nil && m.self == m && m.integer != nil && (m.factorConstantExecuting() || m.toPolynomialCallerExecuting() || numericIntegerManager_factorNumeralVectorCallerExecuting(m.integer) || numericIntegerManager_factorUnivariateCallerExecuting(m.integer) || numericIntegerManager_factorCoreCallerExecuting(m.integer)) {
 		return ErrPolynomialPending
 	}
-	if m != nil && m.self == m && (m.quasiResultant.active || m.variableNumeral.active) {
+	if m != nil && m.self == m && m.variableNumeral.active {
 		return ErrPolynomialPending
 	}
 	if m != nil && m.self == m && (m.collectingVariables || m.algebraicTraceRunning || m.renameTraceRunning || m.gcdTraceRunning || m.dividesTrace.running || m.quadraticTraceCallback() || m.evaluationTraceCallback()) {
@@ -729,7 +727,6 @@ func (m *MultivariatePolynomialCore) CloseChecked() error {
 	}
 	m.linearGenerated = nil
 	m.locations = nil
-	m.quasiHistory = nil
 	m.variableNumeralHistory = nil
 	m.integer.Budget().Release(m.header)
 	m.header = 0

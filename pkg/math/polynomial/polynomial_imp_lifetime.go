@@ -216,7 +216,7 @@ func (m *MultivariatePolynomialManager) SourceFinalize() error {
 	if m != nil && m.self == m && (m.core.factorConstantExecuting() || m.core.toPolynomialCallerExecuting() || numericIntegerManager_factorNumeralVectorCallerExecuting(m.core.integer) || numericIntegerManager_factorUnivariateCallerExecuting(m.core.integer) || numericIntegerManager_factorCoreCallerExecuting(m.core.integer)) {
 		return ErrPolynomialPending
 	}
-	if m != nil && m.self == m && m.core != nil && m.core.self == m.core && (m.core.quasiResultant.active || m.core.variableNumeral.active) {
+	if m != nil && m.self == m && m.core != nil && m.core.self == m.core && m.core.variableNumeral.active {
 		return ErrPolynomialPending
 	}
 	if m != nil && m.self == m && m.core != nil && m.core.self == m.core && (m.core.collectingVariables || m.core.algebraicTraceRunning || m.core.renameTraceRunning || m.core.gcdTraceRunning || m.core.dividesTrace.running || m.core.quadraticTraceCallback() || m.core.evaluationTraceCallback()) {
@@ -228,7 +228,7 @@ func (m *MultivariatePolynomialManager) SourceFinalize() error {
 	if e := m.identity(); e != nil {
 		return e
 	}
-	if m.discriminant.active || m.subresultant.active || m.pscChain1.active || m.pscChain2.active || m.core.pscClassic.active || m.core.pscClassic.executing {
+	if m.subresultant.active || m.pscChain1.active || m.pscChain2.active || m.core.pscClassic.active || m.core.pscClassic.executing {
 		return ErrPolynomialPending
 	}
 	if m.closing || !m.completed || m.originalCause != nil {

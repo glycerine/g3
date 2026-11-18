@@ -1,13 +1,10 @@
 package polynomial
 
-// Source: src/test/polynomial.cpp:341-451;
-// src/math/polynomial/polynomial.cpp:5473-5500.
+// Expression fixture shared by the polynomial tests (kept from the deleted
+// Discriminant tests).
 
 import (
-	"encoding/json"
-	"fmt"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,7 +18,6 @@ func polynomialDiscriminantFixture(t *testing.T) *MultivariatePolynomialManager 
 	m, e := NewMultivariatePolynomialManager(MultivariatePolynomialManagerConfig{Core: MultivariatePolynomialConfig{Integer: q.Integers(), Rationals: q, Checkpoint: func() bool { return true }, Cooperation: func() error { return nil }}})
 	serviceMust(t, e)
 	t.Cleanup(func() {
-		serviceMust(t, m.CleanupDiscriminant())
 		serviceMust(t, m.CloseChecked())
 	})
 	return m
@@ -146,64 +142,6 @@ func (p *polynomialDiscriminantExpression) evaluate(s string) Polynomial {
 	return v
 }
 
-func TestPolynomialDiscriminantAllOriginalDormantAssertions(t *testing.T) {
-	var fixtures []struct {
-		Line     int    `json:"line"`
-		Input    string `json:"input"`
-		Variable string `json:"variable"`
-		Expected string `json:"expected"`
-	}
-	b, e := os.ReadFile("test_vectors/polynomial_discriminant_original.json")
-	serviceMust(t, e)
-	serviceMust(t, json.Unmarshal(b, &fixtures))
-	if len(fixtures) != 24 {
-		t.Fatal("literal original source fixture count", len(fixtures))
-	}
-	for _, f := range fixtures {
-		t.Run(fmt.Sprint(f.Line), func(t *testing.T) {
-			m := polynomialDiscriminantFixture(t)
-			c := m.core
-			parser := polynomialDiscriminantExpression{t: t, c: c}
-			for j := uint32(0); j < 5; j++ {
-				v, e := c.monomials.MkVar()
-				serviceMust(t, e)
-				if v != j {
-					t.Fatal("source variable construction order")
-				}
-				parser.variables[j] = polynomialQueryTerms(t, c, []int32{1}, [][]MonomialPower{{{j, 1}}})
-			}
-			p := parser.evaluate(f.Input)
-			want := parser.evaluate(f.Expected)
-			x, e := c.MaxVariable(p)
-			serviceMust(t, e)
-			switch f.Variable {
-			case "max_var(input)":
-			case "max_var(a)":
-				x = 0
-			case "max_var(b)":
-				x = 1
-			default:
-				t.Fatal("source variable override", f.Variable)
-			}
-			r, e := NewPolynomialRef(c)
-			serviceMust(t, e)
-			t.Cleanup(func() { serviceMust(t, r.Close()) })
-			serviceMust(t, m.Discriminant(p, x, r))
-			equal, e := c.Equal(r.root.value, want)
-			serviceMust(t, e)
-			if !equal {
-				t.Fatal("original source ENSURE at src/test/polynomial.cpp:347", f.Line)
-			}
-			serviceMust(t, m.LexSort(r.root.value))
-			equal, e = c.Equal(r.root.value, want)
-			serviceMust(t, e)
-			if !equal {
-				t.Fatal("source postassert lex_sort changed value")
-			}
-		})
-	}
-}
-
 // A bounded integer determinant is independent of the production resultant,
 // derivative and discriminant implementations; dimension is at most seven.
 func polynomialDiscriminantDeterminant(a [7][7]int64, n int) int64 {
@@ -231,72 +169,4 @@ func polynomialDiscriminantDeterminant(a [7][7]int64, n int) int64 {
 		return sum
 	}
 	return visit(0, 0, 1, false)
-}
-func TestPolynomialDiscriminantIndependentDegreeZeroThroughFour(t *testing.T) {
-	for _, as := range [][]int32{{7}, {2, 3}, {5, 3, 2}, {1, 2, 0, 1}, {-1, 0, 0, 0, 1}} {
-		t.Run(fmt.Sprint(len(as)-1), func(t *testing.T) {
-			m := polynomialDiscriminantFixture(t)
-			c := m.core
-			_, e := c.monomials.MkVar()
-			serviceMust(t, e)
-			powers := make([][]MonomialPower, len(as))
-			for j := 1; j < len(as); j++ {
-				powers[j] = []MonomialPower{{0, uint32(j)}}
-			}
-			// The independent coefficient vector includes zeros. Do not construct
-			// unowned monomial roots for terms that MkTerms will discard.
-			sparseAS := []int32{}
-			sparsePowers := [][]MonomialPower{}
-			for j, a := range as {
-				if a != 0 {
-					sparseAS = append(sparseAS, a)
-					sparsePowers = append(sparsePowers, powers[j])
-				}
-			}
-			p := polynomialQueryTerms(t, c, sparseAS, sparsePowers)
-			r, e := NewPolynomialRef(c)
-			serviceMust(t, e)
-			t.Cleanup(func() { serviceMust(t, r.Close()) })
-			serviceMust(t, m.Discriminant(p, 0, r))
-			degree := len(as) - 1
-			if degree == 0 {
-				if r.root.value != c.zero {
-					t.Fatal("source degree-zero branch")
-				}
-				return
-			}
-			q := make([]int64, degree)
-			for j := 1; j <= degree; j++ {
-				q[j-1] = int64(j) * int64(as[j])
-			}
-			n := degree - 1
-			var matrix [7][7]int64
-			for row := 0; row < n; row++ {
-				for j := 0; j <= degree; j++ {
-					matrix[row][row+j] = int64(as[degree-j])
-				}
-			}
-			for row := 0; row < degree; row++ {
-				for j := 0; j <= n; j++ {
-					matrix[n+row][row+j] = q[n-j]
-				}
-			}
-			resultant := polynomialDiscriminantDeterminant(matrix, degree+n)
-			if degree*(degree-1)%4 != 0 {
-				resultant = -resultant
-			}
-			constant, e := c.IsConstant(r.root.value)
-			serviceMust(t, e)
-			if !constant {
-				t.Fatal("bounded integer discriminant has spurious variable terms")
-			}
-			v, e := c.Coefficient(r.root.value, 0)
-			serviceMust(t, e)
-			disc, e := c.integer.Int64(&v)
-			serviceMust(t, e)
-			if int64(as[degree])*disc != resultant {
-				t.Fatal("independent derivative/Sylvester determinant identity", disc, resultant)
-			}
-		})
-	}
 }

@@ -42,7 +42,6 @@ type MultivariatePolynomialManager struct {
 	factorService                                              *UPolynomialFactorizationService
 	pscChain2                                                  polynomialPSCChain2Scope
 	pscChain1                                                  polynomialPSCChain1Scope
-	discriminant                                               polynomialDiscriminantScope
 	subresultant                                               polynomialSubresultantChainScope
 	conversion                                                 polynomialGlobalConversionScope
 	toPolynomial                                               polynomialToPolynomialScope

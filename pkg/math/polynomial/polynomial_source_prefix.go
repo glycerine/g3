@@ -33,7 +33,7 @@ func (m *MultivariatePolynomialCore) SourceFinalizePrefix() error {
 	if m != nil && m.self == m && m.integer != nil && (m.factorConstantExecuting() || m.toPolynomialCallerExecuting() || numericIntegerManager_factorNumeralVectorCallerExecuting(m.integer) || numericIntegerManager_factorUnivariateCallerExecuting(m.integer) || numericIntegerManager_factorCoreCallerExecuting(m.integer)) {
 		return ErrPolynomialPending
 	}
-	if m != nil && m.self == m && (m.quasiResultant.active || m.variableNumeral.active) {
+	if m != nil && m.self == m && m.variableNumeral.active {
 		return ErrPolynomialPending
 	}
 	if m != nil && m.self == m && (m.collectingVariables || m.algebraicTraceRunning || m.renameTraceRunning || m.gcdTraceRunning || m.dividesTrace.running || m.quadraticTraceCallback() || m.evaluationTraceCallback()) {

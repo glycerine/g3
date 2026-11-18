@@ -103,8 +103,6 @@ func (r *polynomialReference) close(m *MultivariatePolynomialCore) error {
 
 // PolynomialRef is one actual charged cold owning object. Shallow copies are invalid.
 type PolynomialRef struct {
-	quasiFrame      *polynomialQuasiResultantScope
-	quasiInvocation uint64
 	self            *PolynomialRef
 	owner           *MultivariatePolynomialCore
 	root            polynomialReference
@@ -152,9 +150,6 @@ func (r *PolynomialRef) Reset() error { return r.Assign(Polynomial{}) }
 // Close is the separate owning continuation for those accepted operations.
 // complete reports whether no unpublished assignment ownership remains.
 func (r *PolynomialRef) SourceFinalize() (complete bool, err error) {
-	if r.quasiResultantPending() {
-		return false, ErrPolynomialPending
-	}
 	if r == nil || r.self != r {
 		return false, ErrPolynomialOwner
 	}
@@ -175,9 +170,6 @@ func (r *PolynomialRef) SourceFinalize() (complete bool, err error) {
 }
 
 func (r *PolynomialRef) Close() error {
-	if r.quasiResultantPending() {
-		return ErrPolynomialPending
-	}
 	if r == nil || r.self != r {
 		return ErrPolynomialOwner
 	}
