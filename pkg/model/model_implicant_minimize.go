@@ -221,7 +221,11 @@ func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (
 			}
 			if family == i.manager.BasicFamilyID() && op == ast.ASTOpEq && len(args) == 2 && i.numbers[args[0]] != nil && i.numbers[args[1]] != nil {
 				left, right := args[0], args[1]
-				if i.numbers[left].Cmp(i.numbers[right]) >= 0 {
+				cmp, cmpErr := i.manager.NumeralService().Manager.Compare(i.numbers[left], i.numbers[right])
+				if cmpErr != nil {
+					return nil, cmpErr
+				}
+				if cmp >= 0 {
 					left, right = right, left
 				}
 				literal, x = i.manager.MkFamilyApp(arithmetic, 4, nil, []ast.ASTHandle{left, right})

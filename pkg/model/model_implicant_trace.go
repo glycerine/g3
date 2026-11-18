@@ -4,10 +4,10 @@ package model
 
 import (
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (i *ModelImplicant) traceArrayExtraction(line int, prefix string, terms ...ast.ASTHandle) error {
@@ -138,7 +138,7 @@ func (i *ModelImplicant) reportUntrackedValue(expression, value ast.ASTHandle) e
 }
 
 // Source: model_implicant::set_number, model_implicant.h:77.
-func (i *ModelImplicant) traceNumber(expression ast.ASTHandle, value *big.Rat) error {
+func (i *ModelImplicant) traceNumber(expression ast.ASTHandle, value *unumeral.Rational) error {
 	tags := i.services.Trace
 	if tags == nil {
 		tags = diagnostic.BorrowProcessTraceTags()
@@ -152,7 +152,12 @@ func (i *ModelImplicant) traceNumber(expression ast.ASTHandle, value *big.Rat) e
 		if operandErr != nil {
 			return operandErr
 		}
-		_, _ = io.WriteString(out, " "+value.RatString()+"\n")
+		text, err := i.q().String(value)
+		if err != nil {
+			operandErr = err
+			return err
+		}
+		_, _ = io.WriteString(out, " "+text+"\n")
 		return nil
 	})
 	return operandErr

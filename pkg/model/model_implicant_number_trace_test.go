@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -74,10 +73,11 @@ func TestModelImplicantNumberAssignmentSourceTrace(t *testing.T) {
 				if !satisfied {
 					t.Fatal("number tracing changed formula truth")
 				}
-				expected, _ := new(big.Rat).SetString(value)
 				for _, term := range []ast.ASTHandle{x, numeral, inherited} {
-					if actual := implicant.numbers[term]; actual == nil || actual.Cmp(expected) != 0 {
-						t.Fatal("numeric assignment changed value", actual, expected)
+					equal, err := implicantNumberIs(implicant, term, value)
+					arrayTableMust(t, err)
+					if !equal {
+						t.Fatal("numeric assignment changed value", value)
 					}
 				}
 				if mode == "enabled" && tags.ShouldTrace("pdr_verbose") {

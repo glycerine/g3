@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -94,10 +93,10 @@ func TestModelImplicantDivisionUsesSourceBinaryConstruction(t *testing.T) {
 							t.Fatal("inner zero divisor did not propagate unknown")
 						}
 					} else {
-						expected, _ := new(big.Rat).SetString(want)
-						got := implicant.numbers[expression]
-						if !satisfied || got == nil || got.Cmp(expected) != 0 {
-							t.Fatal("nested source division produced wrong value", satisfied, got, expected)
+						equal, err := implicantNumberIs(implicant, expression, want)
+						arrayTableMust(t, err)
+						if !satisfied || !equal {
+							t.Fatal("nested source division produced wrong value", satisfied, want)
 						}
 					}
 					arrayTableMust(t, implicant.reset())

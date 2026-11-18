@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -65,10 +64,10 @@ func TestModelImplicantEuclideanIntegerDivision(t *testing.T) {
 						t.Fatal("zero divisor did not propagate unknown")
 					}
 				} else {
-					want, _ := new(big.Rat).SetString(expected)
-					got := implicant.numbers[expression]
-					if got == nil || got.Cmp(want) != 0 || !satisfied || !implicant.isTrue(formula) {
-						t.Fatal("incorrect source integer arithmetic", got, expected, satisfied)
+					equal, err := implicantNumberIs(implicant, expression, expected)
+					arrayTableMust(t, err)
+					if !equal || !satisfied || !implicant.isTrue(formula) {
+						t.Fatal("incorrect source integer arithmetic", expected, satisfied)
 					}
 					// Exercise the same arithmetic through the public literal collector.
 					arrayTableMust(t, implicant.reset())

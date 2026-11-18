@@ -4,12 +4,12 @@ package model
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type implicantValue uint8
@@ -31,7 +31,7 @@ type ModelImplicant struct {
 	model             *Model
 	evaluator         *ModelEvaluator
 	states            map[ast.ASTHandle]implicantValue
-	numbers           map[ast.ASTHandle]*big.Rat
+	numbers           map[ast.ASTHandle]*unumeral.Rational // m_numbers: rationals of manager's NumeralService().Manager
 	values            map[ast.ASTHandle]ast.ASTHandle
 	visited           map[ast.ASTHandle]bool
 	refs              []ast.ASTRef
@@ -39,7 +39,11 @@ type ModelImplicant struct {
 	pendingEvaluators []*ModelEvaluator
 	pendingResults    [][]ast.ASTRef
 	drain             int
-	closed            bool
+	// resetPending records a reset that stopped on a release failure (a
+	// numeral destructor can fail under native accounting failure, unlike
+	// the source's); the next setup resumes it.
+	resetPending bool
+	closed       bool
 }
 
 func NewModelImplicant(m *ast.ASTManager, services ModelEvaluatorConfig) (*ModelImplicant, error) {
@@ -72,7 +76,8 @@ func (i *ModelImplicant) pin(h ast.ASTHandle) error {
 	return nil
 }
 
-func (i *ModelImplicant) reset() error {
+func (i *ModelImplicant) reset() (err error) {
+	defer func() { i.resetPending = err != nil }()
 	for len(i.pendingArrays) != 0 {
 		if err := i.pendingArrays[0].close(i.manager); err != nil {
 			return err
@@ -115,6 +120,9 @@ func (i *ModelImplicant) reset() error {
 		i.pendingResults = i.pendingResults[1:]
 	}
 	i.pendingResults = nil
+	if err := i.resetNumbers(); err != nil {
+		return err
+	}
 	i.model = nil
 	i.states = nil
 	i.numbers = nil
@@ -141,6 +149,11 @@ func (i *ModelImplicant) setupModel(md *Model) error {
 	if err := i.open(); err != nil {
 		return err
 	}
+	if i.resetPending {
+		if err := i.reset(); err != nil {
+			return err
+		}
+	}
 	if i.model != nil || i.evaluator != nil || len(i.refs) != 0 || len(i.pendingArrays) != 0 || len(i.pendingEvaluators) != 0 || len(i.pendingResults) != 0 {
 		return ast.ErrASTPending
 	}
@@ -157,7 +170,7 @@ func (i *ModelImplicant) setupModel(md *Model) error {
 		return err
 	}
 	i.states = make(map[ast.ASTHandle]implicantValue)
-	i.numbers = make(map[ast.ASTHandle]*big.Rat)
+	i.numbers = make(map[ast.ASTHandle]*unumeral.Rational)
 	i.values = make(map[ast.ASTHandle]ast.ASTHandle)
 	i.visited = make(map[ast.ASTHandle]bool)
 	count, err := md.Core().NumConstants()
@@ -216,15 +229,42 @@ func (i *ModelImplicant) setBool(h ast.ASTHandle, value bool) error {
 	return i.setState(h, implicantFalse)
 }
 
-func (i *ModelImplicant) setNumber(h ast.ASTHandle, value *big.Rat) error {
+func (i *ModelImplicant) q() *unumeral.RationalManager { return i.manager.NumeralService().Manager }
+
+// resetNumbers is m_numbers.reset(): it destroys the map's rationals.
+func (i *ModelImplicant) resetNumbers() error {
+	q := i.q()
+	for h, v := range i.numbers {
+		if err := q.Del(v); err != nil {
+			return err
+		}
+		delete(i.numbers, h)
+	}
+	return nil
+}
+
+// setNumber is set_number(x, v): m_numbers.insert(x, v) copies v.
+func (i *ModelImplicant) setNumber(h ast.ASTHandle, value *unumeral.Rational) error {
 	if err := i.setState(h, implicantConcrete); err != nil {
 		return err
 	}
 	if err := i.traceNumber(h, value); err != nil {
 		return err
 	}
-	i.numbers[h] = new(big.Rat).Set(value)
+	stored := new(unumeral.Rational)
+	*stored = unumeral.NewRational()
+	if err := i.q().Copy(stored, value); err != nil {
+		return errors.Join(err, i.q().Del(stored))
+	}
+	i.numbers[h] = stored
 	return nil
+}
+
+// setNumberOwned is set_number(x, v) for a local rational v, which is then
+// destroyed as the source's local goes out of scope.
+func (i *ModelImplicant) setNumberOwned(h ast.ASTHandle, value *unumeral.Rational) error {
+	err := i.setNumber(h, value)
+	return errors.Join(err, i.q().Del(value))
 }
 
 func (i *ModelImplicant) setValue(h, value ast.ASTHandle) error {
@@ -254,16 +294,16 @@ func (i *ModelImplicant) assignValue(h, value ast.ASTHandle) error {
 	if i.manager.IsFalse(value) {
 		return i.setState(h, implicantFalse)
 	}
-	text, _, matched, err := i.manager.ArithmeticNumeralText(value)
+	r := unumeral.NewRational()
+	_, matched, err := i.manager.ArithmeticNumeralRational(value, &r)
 	if err != nil {
-		return err
+		return errors.Join(err, i.q().Del(&r))
 	}
 	if matched {
-		r, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return ast.ErrASTDomain
-		}
-		return i.setNumber(h, r)
+		return i.setNumberOwned(h, &r)
+	}
+	if err = i.q().Del(&r); err != nil {
+		return err
 	}
 	isValue, err := i.manager.IsValue(value)
 	if err != nil {
@@ -416,7 +456,9 @@ func (i *ModelImplicant) evalBasic(h ast.ASTHandle, op int32, args []ast.ASTHand
 	case ast.ASTOpFalse:
 		return i.setState(h, implicantFalse)
 	case ast.ASTOpDistinct:
-		values := make([]*big.Rat, len(args))
+		// vector<rational> values holds copies; comparing the stored
+		// rationals in place observes the same values.
+		values := make([]*unumeral.Rational, len(args))
 		for n, arg := range args {
 			if i.isX(arg) {
 				return i.setState(h, implicantX)
@@ -426,9 +468,22 @@ func (i *ModelImplicant) evalBasic(h ast.ASTHandle, op int32, args []ast.ASTHand
 			}
 			values[n] = i.numbers[arg]
 		}
-		sort.Slice(values, func(a, b int) bool { return values[a].Cmp(values[b]) < 0 })
+		q := i.q()
+		var cmpErr error
+		sort.Slice(values, func(a, b int) bool {
+			c, e := q.Compare(values[a], values[b])
+			cmpErr = errors.Join(cmpErr, e)
+			return c < 0
+		})
+		if cmpErr != nil {
+			return cmpErr
+		}
 		for n := 0; n+1 < len(values); n++ {
-			if values[n].Cmp(values[n+1]) == 0 {
+			equal, err := q.Equal(values[n], values[n+1])
+			if err != nil {
+				return err
+			}
+			if equal {
 				return i.setState(h, implicantFalse)
 			}
 		}
@@ -493,7 +548,11 @@ func (i *ModelImplicant) evalEq(h, left, right ast.ASTHandle) (resultErr error) 
 		return i.setBool(h, i.isTrue(left) == i.isTrue(right))
 	}
 	if a, b := i.numbers[left], i.numbers[right]; a != nil && b != nil {
-		return i.setBool(h, a.Cmp(b) == 0)
+		equal, err := i.q().Equal(a, b)
+		if err != nil {
+			return err
+		}
+		return i.setBool(h, equal)
 	}
 	a, aok := i.values[left]
 	b, bok := i.values[right]
@@ -517,36 +576,27 @@ func (i *ModelImplicant) evalEq(h, left, right ast.ASTHandle) (resultErr error) 
 	return i.setState(h, implicantX)
 }
 
-func floorRat(value *big.Rat) *big.Int {
-	q, r := new(big.Int), new(big.Int)
-	q.QuoRem(value.Num(), value.Denom(), r)
-	if value.Sign() < 0 && r.Sign() != 0 {
-		q.Sub(q, big.NewInt(1))
-	}
-	return q
-}
-
-func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.ASTHandle) error {
+func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.ASTHandle) (resultErr error) {
 	for _, arg := range args {
 		if i.isX(arg) {
 			return i.setState(h, implicantX)
 		}
 	}
+	q := i.q()
+	// rational r, r2;
+	r, r2 := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&r), q.Del(&r2)) }()
 	if op == 0 {
-		text, _, matched, err := i.manager.ArithmeticNumeralText(h)
+		_, matched, err := i.manager.ArithmeticNumeralRational(h, &r)
 		if err != nil || !matched {
 			if err != nil {
 				return err
 			}
 			return ast.ErrASTDomain
 		}
-		value, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return ast.ErrASTDomain
-		}
-		return i.setNumber(h, value)
+		return i.setNumber(h, &r)
 	}
-	num := func(n int) (*big.Rat, error) {
+	num := func(n int) (*unumeral.Rational, error) {
 		if n >= len(args) || i.numbers[args[n]] == nil {
 			return nil, ast.ErrASTDomain
 		}
@@ -564,26 +614,34 @@ func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.AS
 		if err != nil {
 			return err
 		}
-		cmp := a.Cmp(b)
+		cmp, err := q.Compare(a, b)
+		if err != nil {
+			return err
+		}
 		return i.setBool(h, op == 2 && cmp <= 0 || op == 3 && cmp >= 0 || op == 4 && cmp < 0 || op == 5 && cmp > 0)
 	case 6, 7, 8, 9:
 		if len(args) == 0 {
 			return ast.ErrASTDomain
 		}
-		var value *big.Rat
-		if op == 6 {
-			value = new(big.Rat)
-		} else if op == 9 {
-			value = new(big.Rat).SetInt64(1)
-		} else {
-			value = new(big.Rat).Set(i.numbers[args[0]])
+		if op == 9 {
+			if err := q.SetInt32(&r, 1); err != nil {
+				return err
+			}
+		} else if op != 6 {
+			a, err := num(0)
+			if err != nil {
+				return err
+			}
+			if err = q.Copy(&r, a); err != nil {
+				return err
+			}
 		}
 		start := 0
 		if op == 7 {
 			start = 1
 		}
 		if op == 8 { // Preserve the literal source behavior: UMINUS copies ARG1.
-			return i.setNumber(h, value)
+			return i.setNumber(h, &r)
 		}
 		for n := start; n < len(args); n++ {
 			a, err := num(n)
@@ -591,14 +649,17 @@ func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.AS
 				return err
 			}
 			if op == 6 {
-				value.Add(value, a)
+				err = q.Add(&r, a, &r)
 			} else if op == 7 {
-				value.Sub(value, a)
+				err = q.Sub(&r, a, &r)
 			} else {
-				value.Mul(value, a)
+				err = q.Mul(&r, a, &r)
+			}
+			if err != nil {
+				return err
 			}
 		}
-		return i.setNumber(h, value)
+		return i.setNumber(h, &r)
 	case 10, 11, 12, 13:
 		a, err := num(0)
 		if err != nil {
@@ -608,28 +669,40 @@ func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.AS
 		if err != nil {
 			return err
 		}
-		if b.Sign() == 0 {
+		if err = q.Copy(&r, b); err != nil {
+			return err
+		}
+		zero, err := q.IsZero(&r)
+		if err != nil {
+			return err
+		}
+		if zero {
 			return i.setState(h, implicantX)
 		}
-		if op == 10 {
-			return i.setNumber(h, new(big.Rat).Quo(a, b))
+		switch op {
+		case 10: // get_number(ARG1) / r
+			err = q.Div(a, &r, &r2)
+		case 11: // div(get_number(ARG1), r)
+			err = q.IDiv(a, &r, &r2)
+		default: // mod(get_number(ARG1), r)
+			err = q.Mod(a, &r, &r2)
 		}
-		// Source rational::div uses Euclidean integer division: floor for a
-		// positive divisor and ceiling for a negative divisor. This keeps
-		// mod nonnegative; rem subsequently follows the divisor's sign.
-		ratio := new(big.Rat).Quo(a, b)
-		quotient := floorRat(ratio)
-		if b.Sign() < 0 && !ratio.IsInt() {
-			quotient.Add(quotient, big.NewInt(1))
+		if err != nil {
+			return err
 		}
-		if op == 11 {
-			return i.setNumber(h, new(big.Rat).SetInt(quotient))
+		if op == 12 {
+			// rem(v1,v2) = if v2 >= 0 then mod(v1,v2) else -mod(v1,v2)
+			neg, err := q.IsNeg(&r)
+			if err != nil {
+				return err
+			}
+			if neg {
+				if err = q.Neg(&r2); err != nil {
+					return err
+				}
+			}
 		}
-		mod := new(big.Rat).Sub(a, new(big.Rat).Mul(b, new(big.Rat).SetInt(quotient)))
-		if op == 12 && b.Sign() < 0 {
-			mod.Neg(mod)
-		}
-		return i.setNumber(h, mod)
+		return i.setNumber(h, &r2)
 	case 14:
 		a, err := num(0)
 		if err != nil {
@@ -641,13 +714,20 @@ func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.AS
 		if err != nil {
 			return err
 		}
-		return i.setNumber(h, new(big.Rat).SetInt(floorRat(a)))
+		if err = q.Floor(a, &r); err != nil {
+			return err
+		}
+		return i.setNumber(h, &r)
 	case 16:
 		a, err := num(0)
 		if err != nil {
 			return err
 		}
-		return i.setBool(h, a.IsInt())
+		isInt, err := q.IsInt(a)
+		if err != nil {
+			return err
+		}
+		return i.setBool(h, isInt)
 	case 18:
 		return i.setState(h, implicantX)
 	default:

@@ -77,7 +77,7 @@ func TestModelImplicantAssignmentClassificationAndSourceDiagnostics(t *testing.T
 				if got := implicant.state(variable); got != expected {
 					t.Fatal("wrong model value classification", got, expected)
 				}
-				if name == "numeral" && (implicant.numbers[variable] == nil || implicant.numbers[variable].RatString() != "7") {
+				if name == "numeral" && !arrayTableMustBool(t)(implicantNumberIs(implicant, variable, "7")) {
 					t.Fatal("numeral assignment was not tracked exactly")
 				}
 				if name == "model-value" && implicant.values[variable] != value {
