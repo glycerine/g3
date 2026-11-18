@@ -1159,6 +1159,28 @@ void cmd_context::erase_psort_decl(symbol const & s) {
     erase_psort_decl_core(s);
 }
 
+// FORK FIX #139 (g3 audit, see FORK_BUGFIXES.md): parse_declare_datatypes
+// inserts a psort_dt_decl per (name arity) header before it parses the
+// bodies. When the declaration then fails, the headers stayed declared as
+// datatype sorts without a definition, and any later use of them that
+// needs the definition crashed. Erase them again, newest first.
+void cmd_context::undo_psort_decls(svector<symbol> const & names) {
+    for (unsigned i = names.size(); i-- > 0; ) {
+        symbol const & s = names[i];
+        erase_psort_decl_core(s);
+        if (!m_global_decls) {
+            for (unsigned j = m_psort_decls_stack.size(); j-- > 0; ) {
+                if (m_psort_decls_stack[j] == s) {
+                    for (unsigned k = j + 1; k < m_psort_decls_stack.size(); ++k)
+                        m_psort_decls_stack[k - 1] = m_psort_decls_stack[k];
+                    m_psort_decls_stack.pop_back();
+                    break;
+                }
+            }
+        }
+    }
+}
+
 void cmd_context::erase_cmd(symbol const & s) {
     cmd * c;
     if (m_cmds.find(s, c)) {

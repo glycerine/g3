@@ -1,0 +1,6 @@
+(declare-sort A)
+(declare-datatypes ((C 0) (A 0)) (((c)) ((a)))))
+(declare-datatypes ((D 0) (D 0)) (((d)) ((e)))))
+(declare-datatypes ((Int 0)) (((i)))))
+(declare-datatypes ((Bool 0)) (((i)))))
+(echo "x")

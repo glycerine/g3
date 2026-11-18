@@ -57,6 +57,7 @@ namespace smt2 {
         dictionary<int>      m_dt_name2idx;
         dictionary<unsigned> m_dt_name2arity;
         svector<symbol>      m_dt_names;
+        svector<symbol>      m_dt_inserted; // FORK FIX #139: headers this declaration inserted
 
         scoped_ptr<psort_ref_vector>      m_psort_stack;
         scoped_ptr<sort_ref_vector>       m_sort_stack;
@@ -856,6 +857,15 @@ namespace smt2 {
             unsigned line = m_scanner.get_line();
             unsigned pos  = m_scanner.get_pos();
             m_dt_name2idx.reset();
+            // FORK FIX #139 (g3 audit, see FORK_BUGFIXES.md): a declaration
+            // that fails before its datatypes are committed erases the header
+            // sorts parse_sort_decl_or_params inserted; they used to stay
+            // declared without a definition and crashed later uses.
+            struct header_guard {
+                cmd_context & ctx; svector<symbol> & names; bool active;
+                header_guard(cmd_context & c, svector<symbol> & n): ctx(c), names(n), active(true) {}
+                ~header_guard() { if (active) ctx.undo_psort_decls(names); names.reset(); }
+            } guard(m_ctx, m_dt_inserted);
             bool is_smt2_6 = parse_sort_decl_or_params();
             unsigned i = 0;
             pdatatype_decl_ref_buffer new_dt_decls(pm());
@@ -895,6 +905,7 @@ namespace smt2 {
             }
             else if (sz == 1) {
                 check_missing(new_dt_decls[0], line, pos);
+                guard.active = false;
                 new_dt_decls[0]->commit(pm());
             }
             else {
@@ -908,6 +919,7 @@ namespace smt2 {
                     err_msg += "'";
                     throw parser_exception(err_msg, line, pos);
                 }
+                guard.active = false;
                 dts->commit(pm());
                 m_ctx.insert_aux_pdecl(dts.get());
             }
@@ -2121,6 +2133,7 @@ namespace smt2 {
         }
 
         bool parse_sort_decl_or_params() {
+            m_dt_inserted.reset(); // FORK FIX #139
             m_sort_id2param_idx.reset();
             m_dt_name2arity.reset();
             m_dt_name2idx.reset();
@@ -2145,6 +2158,7 @@ namespace smt2 {
                     m_dt_names.push_back(dt_name);
                     psort_decl * decl = pm().mk_psort_dt_decl(u, dt_name);
                     m_ctx.insert(decl);
+                    m_dt_inserted.push_back(dt_name); // FORK FIX #139
                     check_rparen("invalid sort declaration, ')' expected");
                 }
                 else {

@@ -125,6 +125,15 @@ func (p *commandParser) declareDatatypes(single bool) error {
 				if e != nil {
 					return e
 				}
+				// parse_sort_decl_or_params inserts the header's psort
+				// declaration here: cmd_context::insert refuses a name
+				// already declared, including an earlier header.
+				if _, _, found := p.context.FindPSortDecl(name); found {
+					return fmt.Errorf("sort already defined %s", name)
+				}
+				if _, found := p.datatypeHeaders[name]; found {
+					return fmt.Errorf("sort already defined %s", name)
+				}
 				headers = append(headers, name)
 				arities = append(arities, arity)
 				p.datatypeHeaders[name] = arity

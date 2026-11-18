@@ -4909,3 +4909,65 @@ void tst_z3_4_7_1_pdr_cache_mode_out_of_range() {
     std::cout << "pdr_cache_mode_out_of_range: " << out;
     ENSURE(out == "sat\nsat\n");
 }
+
+// FORK FIX #139: parse_declare_datatypes inserts a psort_dt_decl for each
+// (name arity) header before it parses the bodies, and a declaration that
+// failed (here: unknown sort B) left those headers declared as datatype
+// sorts without a definition. Declaring constants of the sort worked, but
+// any use that needs the definition crashed (SIGSEGV), and (declare-sort A)
+// reported "sort already defined". The fork erases the headers of a
+// declaration that fails before its datatypes are committed; here C, the
+// header inserted before A's refusal, is erased too.
+void tst_z3_4_7_1_datatype_failed_headers_erased() {
+#ifndef _WINDOWS
+    std::cout.flush();
+    std::cerr.flush();
+    int fds[2];
+    ENSURE(pipe(fds) == 0);
+    pid_t pid = fork();
+    ENSURE(pid >= 0);
+    if (pid == 0) {
+        close(fds[0]);
+        std::ostringstream out;
+        {
+            cmd_context ctx;
+            ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+            ctx.set_regular_stream(out);
+            ctx.set_diagnostic_stream(out);
+            std::istringstream in("(declare-datatypes ((A 0)) (((a (x B)))))(declare-fun p (A) Bool)(declare-const y A)(assert (p y))(check-sat)\n"
+            "(declare-sort A)\n"
+            "(declare-datatypes ((C 0) (A 0)) (((c)) ((a (x B)))))(declare-const w C)\n"
+            "(echo \"end\")\n"
+            "");
+            parse_smt2_commands(ctx, in);
+        }
+        std::string text = out.str();
+        ssize_t written = write(fds[1], text.c_str(), text.size());
+        (void)written;
+        close(fds[1]);
+        _exit(0);
+    }
+    close(fds[1]);
+    std::string text;
+    char buf[256];
+    ssize_t n;
+    while ((n = read(fds[0], buf, sizeof(buf))) > 0)
+        text.append(buf, static_cast<size_t>(n));
+    close(fds[0]);
+    int status = 0;
+    ENSURE(waitpid(pid, &status, 0) == pid);
+    std::cout << "datatype_failed_headers_erased: exited " << WIFEXITED(status)
+              << " signal " << (WIFSIGNALED(status) ? WTERMSIG(status) : 0) << " output:\n" << text;
+    ENSURE(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    ENSURE(text ==
+           "(error \"line 1 column 20: invalid datatype declaration, unknown sort 'B'\")\n"
+            "(error \"line 1 column 58: Parsing function declaration. Expecting sort list '(': unknown sort 'A'\")\n"
+            "(error \"line 1 column 83: Invalid constant declaration: unknown sort 'A'\")\n"
+            "(error \"line 1 column 96: unknown constant y\")\n"
+            "sat\n"
+            "(error \"line 3 column 30: sort already defined A\")\n"
+            "(error \"line 3 column 70: Invalid constant declaration: unknown sort 'C'\")\n"
+            "end\n"
+            "");
+#endif
+}

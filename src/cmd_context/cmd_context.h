@@ -397,6 +397,9 @@ public:
     void erase_func_decl(symbol const & s, func_decl * f);
     void erase_func_decl(func_decl * f) { erase_func_decl(f->get_name(), f); }
     void erase_psort_decl(symbol const & s);
+    // FORK FIX #139 (g3 audit, see FORK_BUGFIXES.md): drop the header sorts
+    // of a failed declare-datatypes, in global and scoped mode.
+    void undo_psort_decls(svector<symbol> const & names);
     void erase_object_ref(symbol const & s);
     void erase_user_tactic(symbol const & s);
     void reset_func_decls();
