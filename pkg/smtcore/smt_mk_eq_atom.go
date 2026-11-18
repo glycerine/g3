@@ -23,7 +23,7 @@ func (s *SMTInternalizerState) MkEqAtom(lhs, rhs ast.ASTHandle) (ast.ASTHandle, 
 		return ast.ASTHandle{}, err
 	}
 	switch s.theories[family].(type) {
-	case *SMTTheoryArith, *SMTRealDiffTheory, *SMTIntegerDiffTheory, *SMTDenseDiffTheory, *SMTUTVPITheory:
+	case *SMTTheoryArith, *SMTRealDiffTheory, *SMTDenseDiffTheory, *SMTUTVPITheory:
 		return smtArithUtilMkEq(m, lhs, rhs)
 	}
 	// theory::mk_eq_atom, and the context's own fallback, order by id.

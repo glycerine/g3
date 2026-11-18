@@ -299,60 +299,6 @@ func (g *SMTRationalDiffGraph) EnableEdge(id int32) (bool, error) {
 	return feasible, g.takeErr(nil)
 }
 
-func (g *SMTRationalDiffGraph) findRelaxedEdge(id int32, gamma *numeral.Rational) int32 {
-	edge := &g.edges[id]
-	weight, delta, adjusted := smtQZero(), smtQZero(), smtQZero()
-	defer g.del(&weight)
-	defer g.del(&delta)
-	defer g.del(&adjusted)
-	g.set(&weight, &edge.weight)
-	selected := id
-	for _, candidateID := range g.outEdges[edge.source] {
-		candidate := &g.edges[candidateID]
-		if candidate.target != edge.target || !candidate.enabled || g.cmp(&candidate.weight, &weight) <= 0 {
-			continue
-		}
-		g.sub(&candidate.weight, &weight, &delta)
-		g.add(gamma, &delta, &adjusted)
-		if adjusted.IsNeg() {
-			selected = candidateID
-			g.set(gamma, &adjusted)
-			g.set(&weight, &candidate.weight)
-			g.numRelax++
-		}
-	}
-	return selected
-}
-
-func (g *SMTRationalDiffGraph) NegativeCycleExplanations(tryRelax bool) ([]SMTLiteral, error) {
-	if !g.validEdge(g.lastEnabledEdge) || g.edgeFeasible(&g.edges[g.lastEnabledEdge]) {
-		return nil, errSMTDiffGraphDomain
-	}
-	last := g.lastEnabledEdge
-	edge := &g.edges[last]
-	gamma := smtQZero()
-	defer g.del(&gamma)
-	g.set(&gamma, &g.gamma[edge.source])
-	result := make([]SMTLiteral, 0, 4)
-	id := last
-	for steps := 0; ; steps++ {
-		if steps > len(g.edges) || !g.validEdge(id) {
-			return nil, errSMTDiffGraphDomain
-		}
-		selected := id
-		if tryRelax {
-			selected = g.findRelaxedEdge(id, &gamma)
-		}
-		g.activity[id]++
-		result = append(result, g.edges[selected].explanation)
-		id = g.parent[g.edges[id].source]
-		if id == last {
-			break
-		}
-	}
-	return result, g.takeErr(nil)
-}
-
 func (g *SMTRationalDiffGraph) Push() error {
 	if g == nil {
 		return errSMTDiffGraphDomain

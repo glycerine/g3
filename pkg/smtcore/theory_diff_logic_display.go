@@ -93,28 +93,6 @@ func displaySMTDiffAtom(out io.Writer, state *SMTInternalizerState, printer *ast
 	return smtWriteTheoryText(out, " ")
 }
 
-// Display retains theory_diff_logic::display for the concrete integer graph.
-func (t *SMTIntegerDiffTheory) Display(out io.Writer) error {
-	if t == nil || t.SMTTheoryBase == nil || t.graph == nil || out == nil {
-		return ast.ErrASTHandle
-	}
-	state, err := t.State()
-	if err != nil {
-		return err
-	}
-	out = smtContextDisplayWriter{out}
-	printer, err := ast.NewSimpleASTPrinterContext(state.manager, out, out)
-	if err != nil {
-		return err
-	}
-	for i := range t.atoms {
-		if err = displaySMTDiffAtom(out, state, printer, &t.atoms[i]); err != nil {
-			return err
-		}
-	}
-	return t.graph.display(out)
-}
-
 // Display retains theory_diff_logic::display for the concrete real/mixed graph.
 func (t *SMTRealDiffTheory) Display(out io.Writer) error {
 	if t == nil || t.SMTIntegerDiffTheory == nil || t.realGraph == nil || out == nil {

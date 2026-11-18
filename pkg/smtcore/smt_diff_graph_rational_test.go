@@ -64,14 +64,6 @@ func TestSMTRationalDiffGraphNegativeCycleExplanationAndRollback(t *testing.T) {
 	if g.IsFeasible() {
 		t.Fatal("negative cycle reported feasible")
 	}
-	got, err := g.NegativeCycleExplanations(false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []SMTLiteral{literals[2], literals[1], literals[0]}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatal("cycle order", got, want)
-	}
 	for variable := int32(0); variable < 3; variable++ {
 		value, err := g.testAssignment(variable)
 		if err != nil || value.Sign() != 0 {

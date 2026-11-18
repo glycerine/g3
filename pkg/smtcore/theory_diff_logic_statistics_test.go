@@ -50,12 +50,12 @@ func TestSMTDifferenceStatisticsActualAssertionsConflictsAndGuards(t *testing.T)
 		if err := f.theory.CollectStatistics(nil); err != ast.ErrASTHandle {
 			t.Fatal("nil target", err)
 		}
-		f.theory.statistics.assertions = math.MaxUint32
+		f.theory.realStatistics.assertions = math.MaxUint32
 		literal, err := f.state.Literal(bounds[0])
 		astTestMust(t, err)
 		astTestMust(t, f.theory.Assign(literal.Var(), true))
-		if f.theory.statistics.assertions != 0 {
-			t.Fatal("source uint32 assertion counter did not wrap", f.theory.statistics.assertions)
+		if f.theory.realStatistics.assertions != 0 {
+			t.Fatal("source uint32 assertion counter did not wrap", f.theory.realStatistics.assertions)
 		}
 	})
 

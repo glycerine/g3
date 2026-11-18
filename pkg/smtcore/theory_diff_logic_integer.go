@@ -40,11 +40,6 @@ type SMTIntegerDiffTheory struct {
 	q               *numeral.RationalManager
 	graph           *SMTRationalDiffGraph
 	zero            SMTTheoryVar
-	atoms           []smtIntegerDiffAtom
-	atomByBool      map[int32]int
-	assertions      []smtIntegerDiffAssertion
-	assertionHead   int
-	scopes          []smtIntegerDiffScope
 	nonDifference   bool
 	addBinaryBounds bool
 	eagerEqAxioms   bool
@@ -82,7 +77,6 @@ func NewSMTIntegerDiffTheory(family ast.FamilyID) (*SMTIntegerDiffTheory, error)
 		SMTTheoryBase: base,
 		graph:         NewSMTRationalDiffGraph(nil),
 		zero:          SMTNullTheoryVar,
-		atomByBool:    make(map[int32]int),
 	}
 	theory.equalityAdapter, err = newSMTArithmeticEqualityAdapter(base)
 	if err != nil {
@@ -221,62 +215,6 @@ func (t *SMTIntegerDiffTheory) offset(expression ast.ASTHandle, k *numeral.Ratio
 	return ast.ASTHandle{}, false, nil
 }
 
-func (t *SMTIntegerDiffTheory) addBoundAxioms(source, target SMTTheoryVar, weight *numeral.Rational, literal SMTLiteral) error {
-	state, err := t.State()
-	if err != nil {
-		return err
-	}
-	equal, lower, upper := SMTNullLiteral, SMTNullLiteral, SMTNullLiteral
-	var lowerWeight, upperWeight *numeral.Rational
-	for _, edgeID := range t.graph.outEdges[source] {
-		edge := &t.graph.edges[edgeID]
-		if edge.target != int32(target) || edge.explanation == SMTNullLiteral {
-			continue
-		}
-		c, err := t.q.Compare(&edge.weight, weight)
-		if err != nil {
-			return err
-		}
-		switch c {
-		case 0:
-			equal = edge.explanation
-		case -1:
-			if lower != SMTNullLiteral {
-				if c, err = t.q.Compare(&edge.weight, lowerWeight); err != nil {
-					return err
-				}
-			}
-			if lower == SMTNullLiteral || c > 0 {
-				lower, lowerWeight = edge.explanation, &edge.weight
-			}
-		case 1:
-			if upper != SMTNullLiteral {
-				if c, err = t.q.Compare(&edge.weight, upperWeight); err != nil {
-					return err
-				}
-			}
-			if upper == SMTNullLiteral || c < 0 {
-				upper, upperWeight = edge.explanation, &edge.weight
-			}
-		}
-	}
-	if equal != SMTNullLiteral {
-		if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{equal.Negated(), literal}); err != nil {
-			return err
-		}
-		return state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{literal.Negated(), equal})
-	}
-	if lower != SMTNullLiteral {
-		if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{lower.Negated(), literal}); err != nil {
-			return err
-		}
-	}
-	if upper != SMTNullLiteral {
-		return state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{literal.Negated(), upper})
-	}
-	return nil
-}
-
 func (t *SMTIntegerDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error) {
 	return t.internalizeDiffTerm(expression)
 }
@@ -391,154 +329,6 @@ func (t *SMTIntegerDiffTheory) decompose(expression ast.ASTHandle) ([]ast.ASTHan
 		}
 	}
 	return terms, signs, nil
-}
-
-// InternalizeAtom is theory_diff_logic<idl_ext>::internalize_atom.
-func (t *SMTIntegerDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool, error) {
-	atom, ok, err := t.internalizeDiffAtom(expression)
-	defer atom.del(t.q)
-	if err != nil || !ok {
-		return false, err
-	}
-	source, target, literal := atom.source, atom.target, atom.literal
-	// internalize_atom: "x - y <= 5 => x - y <= 7" axioms only under
-	// m_arith_add_binary_bounds.
-	if t.addBinaryBounds {
-		if err = t.addBoundAxioms(source, target, &atom.k, literal); err != nil {
-			return false, err
-		}
-	}
-	positive, err := t.graph.AddEdge(int32(source), int32(target), &atom.k, literal)
-	if err != nil {
-		return false, err
-	}
-	// k.neg(); k -= 1 for an Int lhs, else k -= m_epsilon, which is 1 for
-	// idl_ext.
-	if err = t.q.Neg(&atom.k); err != nil {
-		return false, err
-	}
-	if err = t.q.Sub(&atom.k, smtQIntPtr(1), &atom.k); err != nil {
-		return false, err
-	}
-	negative, err := t.graph.AddEdge(int32(target), int32(source), &atom.k, literal.Negated())
-	if err != nil {
-		return false, err
-	}
-	index := len(t.atoms)
-	t.atoms = append(t.atoms, smtIntegerDiffAtom{variable: atom.variable, positive: positive, negative: negative})
-	t.atomByBool[atom.variable] = index
-	return true, nil
-}
-
-func (t *SMTIntegerDiffTheory) Assign(variable int32, truth bool) error {
-	index, found := t.atomByBool[variable]
-	if !found {
-		return ast.ErrASTDomain
-	}
-	t.atoms[index].truth = truth
-	t.assertions = append(t.assertions, smtIntegerDiffAssertion{atom: index, truth: truth})
-	t.statistics.assertions++
-	return nil
-}
-
-func (t *SMTIntegerDiffTheory) CanPropagate() bool {
-	return t != nil && t.assertionHead < len(t.assertions)
-}
-
-func (t *SMTIntegerDiffTheory) Propagate() error {
-	state, err := t.State()
-	if err != nil {
-		return err
-	}
-	for !state.inconsistent && t.CanPropagate() {
-		assertion := t.assertions[t.assertionHead]
-		t.assertionHead++
-		atom := &t.atoms[assertion.atom]
-		edge := atom.negative
-		if assertion.truth {
-			edge = atom.positive
-		}
-		feasible, enableErr := t.graph.EnableEdge(edge)
-		if enableErr != nil {
-			return enableErr
-		}
-		if !feasible {
-			literals, explainErr := t.graph.NegativeCycleExplanations(true)
-			if explainErr != nil {
-				return explainErr
-			}
-			kept := literals[:0]
-			for _, literal := range literals {
-				if literal != SMTNullLiteral {
-					kept = append(kept, literal)
-				}
-			}
-			if err = state.SetTheoryConflict(t.FamilyID(), kept); err == nil {
-				t.statistics.conflicts++
-			}
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *SMTIntegerDiffTheory) PushScope() error {
-	if t == nil || t.SMTTheoryBase == nil || t.graph == nil {
-		return ast.ErrASTHandle
-	}
-	if err := t.SMTTheoryBase.PushScope(); err != nil {
-		return err
-	}
-	if err := t.graph.Push(); err != nil {
-		_ = t.SMTTheoryBase.PopScopes(1)
-		return err
-	}
-	if err := t.equalityAdapter.PushScope(); err != nil {
-		_ = t.graph.Pop(1)
-		_ = t.SMTTheoryBase.PopScopes(1)
-		return err
-	}
-	t.scopes = append(t.scopes, smtIntegerDiffScope{len(t.atoms), len(t.assertions), t.assertionHead, t.nonDifference})
-	return nil
-}
-
-func (t *SMTIntegerDiffTheory) PopScopes(count uint32) error {
-	if t == nil || count == 0 || int(count) > len(t.scopes) {
-		return ast.ErrASTDomain
-	}
-	level := len(t.scopes) - int(count)
-	scope := t.scopes[level]
-	for index := len(t.atoms); index > scope.atoms; index-- {
-		delete(t.atomByBool, t.atoms[index-1].variable)
-	}
-	t.atoms = t.atoms[:scope.atoms]
-	t.assertions = t.assertions[:scope.assertions]
-	t.assertionHead = scope.head
-	t.nonDifference = scope.nonDifference
-	t.scopes = t.scopes[:level]
-	if err := t.equalityAdapter.PopScopes(count); err != nil {
-		return err
-	}
-	if err := t.graph.Pop(count); err != nil {
-		return err
-	}
-	return t.SMTTheoryBase.PopScopes(count)
-}
-
-func (t *SMTIntegerDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
-	if t.CanPropagate() {
-		if err := t.Propagate(); err != nil {
-			return SMTFinalCheckGiveUp, err
-		}
-		return SMTFinalCheckContinue, nil
-	}
-	if err := t.graph.SetToZero(int32(t.zero)); err != nil {
-		return SMTFinalCheckGiveUp, err
-	}
-	if t.nonDifference {
-		return SMTFinalCheckGiveUp, nil
-	}
-	return SMTFinalCheckDone, nil
 }
 
 func (t *SMTIntegerDiffTheory) InitializeSearch() error {
@@ -696,37 +486,4 @@ func (t *SMTIntegerDiffTheory) InitializeModel(generator *SMTModelGenerator) err
 		return err
 	}
 	return generator.RegisterFactory(factory)
-}
-
-func (t *SMTIntegerDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator) (SMTModelValueProcedure, error) {
-	if t == nil || generator == nil || node == nil || !t.HasVariable(node.TheoryVar(t.FamilyID())) {
-		return nil, ast.ErrASTDomain
-	}
-	state, err := t.State()
-	if err != nil {
-		return nil, err
-	}
-	if generator.manager != state.manager {
-		return nil, ast.ErrASTDomain
-	}
-	variable := node.TheoryVar(t.FamilyID())
-	q := smtQZero()
-	defer smtQDel(t.q, &q)
-	if err := t.graph.Assignment(int32(variable), &q); err != nil {
-		return nil, err
-	}
-	// mk_num_value(num, m_util.is_int(n->get_owner())).
-	sort, err := state.manager.GetSort(node.owner)
-	if err != nil {
-		return nil, err
-	}
-	integer, err := t.integerSort(sort)
-	if err != nil {
-		return nil, err
-	}
-	numeral, err := state.manager.ArithmeticNumeralFromRational(&q, integer)
-	if err != nil {
-		return nil, err
-	}
-	return NewSMTExpressionValueProcedure(numeral)
 }

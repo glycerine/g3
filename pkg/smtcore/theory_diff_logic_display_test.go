@@ -6,40 +6,12 @@ package smtcore
 import (
 	"bytes"
 	"errors"
-	"io"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestSMTDifferenceDisplayAtomsGraphsAssignmentsAndGuards(t *testing.T) {
-	t.Run("integer", func(t *testing.T) {
-		f := newSMTIntegerDiffFixture(t)
-		bound := f.bound(t, smtArithOpLE, f.x, f.y, 5)
-		astTestMust(t, f.state.Internalize(bound, true))
-		literal, err := f.state.Literal(bound)
-		astTestMust(t, err)
-		astTestMust(t, f.state.AssignLiteral(literal, NewSMTBooleanAxiom()))
-		astTestMust(t, f.theory.Assign(literal.Var(), true))
-		astTestMust(t, f.theory.Propagate())
-
-		var output bytes.Buffer
-		astTestMust(t, f.theory.Display(&output))
-		const want = "(not p1) (<= (+ integer-diff-x (* (- 1) integer-diff-y)) 5) p1 (<= (- $1 $2) 5) 0\n$0 := 0\n$1 := 0\n$2 := 0\n"
-		if output.String() != want {
-			t.Fatalf("integer difference display\ngot:\n%s\nwant:\n%s", output.String(), want)
-		}
-		if err = f.theory.Display(nil); !errors.Is(err, ast.ErrASTHandle) {
-			t.Fatal("nil output", err)
-		}
-		if err = (*SMTIntegerDiffTheory)(nil).Display(&output); !errors.Is(err, ast.ErrASTHandle) {
-			t.Fatal("nil theory", err)
-		}
-		if err = f.theory.Display(smtLRAShortOutput{}); !errors.Is(err, io.ErrShortWrite) {
-			t.Fatal("short output", err)
-		}
-	})
-
 	t.Run("real", func(t *testing.T) {
 		f := newSMTRealDiffFixture(t)
 		bound := f.bound(t, smtArithOpLE, f.x, f.y, 1, 2)

@@ -19,21 +19,21 @@ func TestSMTArithmeticEqualityAdapterEventsAndScopes(t *testing.T) {
 	astTestMust(t, f.state.PushScope())
 	astTestMust(t, f.state.enqueueTheoryEquality(f.family, left, right))
 	astTestMust(t, f.state.PropagateTheoryEvents())
-	if f.theory.equalityAdapter.NumAxioms() != 1 || len(f.theory.atoms) != 2 || len(f.state.Clauses()) != 3 {
-		t.Fatal("integer equality event adapter", f.theory.equalityAdapter.NumAxioms(), len(f.theory.atoms), len(f.state.Clauses()))
+	if f.theory.equalityAdapter.NumAxioms() != 1 || len(f.theory.realAtoms) != 2 || len(f.state.Clauses()) != 3 {
+		t.Fatal("integer equality event adapter", f.theory.equalityAdapter.NumAxioms(), len(f.theory.realAtoms), len(f.state.Clauses()))
 	}
 	astTestMust(t, f.theory.NewDisequality(left, right))
 	if f.theory.equalityAdapter.NumAxioms() != 1 {
 		t.Fatal("duplicate pair was processed twice")
 	}
 	astTestMust(t, f.state.PopScopes(1))
-	if len(f.theory.atoms) != 0 || len(f.state.Clauses()) != 0 {
-		t.Fatal("adapter products survived scope rollback", len(f.theory.atoms), len(f.state.Clauses()))
+	if len(f.theory.realAtoms) != 0 || len(f.state.Clauses()) != 0 {
+		t.Fatal("adapter products survived scope rollback", len(f.theory.realAtoms), len(f.state.Clauses()))
 	}
 	astTestMust(t, f.state.PushScope())
 	astTestMust(t, f.theory.NewDisequality(left, right))
-	if f.theory.equalityAdapter.NumAxioms() != 2 || len(f.theory.atoms) != 2 {
-		t.Fatal("rolled-back pair was not recreated", f.theory.equalityAdapter.NumAxioms(), len(f.theory.atoms))
+	if f.theory.equalityAdapter.NumAxioms() != 2 || len(f.theory.realAtoms) != 2 {
+		t.Fatal("rolled-back pair was not recreated", f.theory.equalityAdapter.NumAxioms(), len(f.theory.realAtoms))
 	}
 }
 
@@ -164,7 +164,7 @@ func TestSMTKernelAppliesArithmeticConfigurationOnTheoryRegistration(t *testing.
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, kernel.Close()) })
 	kernel.arithState = SMTArithState{AddBinaryBounds: true, LazyAdapter: true}
-	theory, err := NewSMTIntegerDiffTheory(family)
+	theory, err := NewSMTRealDiffTheory(family)
 	astTestMust(t, err)
 	astTestMust(t, kernel.RegisterTheory(theory))
 	if !theory.addBinaryBounds || !theory.equalityAdapter.lazy {

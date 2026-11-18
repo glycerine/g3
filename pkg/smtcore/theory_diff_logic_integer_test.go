@@ -13,7 +13,7 @@ type smtIntegerDiffFixture struct {
 	manager *ast.ASTManager
 	family  ast.FamilyID
 	state   *SMTInternalizerState
-	theory  *SMTIntegerDiffTheory
+	theory  *SMTRealDiffTheory
 	sort    ast.ASTHandle
 	x, y    ast.ASTHandle
 }
@@ -38,7 +38,9 @@ func newSMTIntegerDiffFixture(t *testing.T) smtIntegerDiffFixture {
 		t.Fatal("y", err)
 	}
 	_, _, state := smtInternalizerFixture(t, manager, nil)
-	theory, err := NewSMTIntegerDiffTheory(family)
+	// theory_idl is unreachable in z3 4.7.1 (m_arith_int_only is never
+	// set), so the live difference-logic theory is the real/mixed one.
+	theory, err := NewSMTRealDiffTheory(family)
 	if err != nil {
 		t.Fatal("new theory", err)
 	}
@@ -78,30 +80,26 @@ func TestSMTIntegerDiffTheoryAtomEdgesAndIntegerNegation(t *testing.T) {
 	atomExpression := f.bound(t, smtArithOpLE, f.x, f.y, 5)
 	astTestMust(t, f.state.Internalize(atomExpression, true))
 	variable, found := f.state.BoolVar(atomExpression)
-	if !found || len(f.theory.atoms) != 1 || f.theory.atoms[0].variable != variable {
-		t.Fatal("difference atom registration", variable, found, f.theory.atoms)
+	if !found || len(f.theory.realAtoms) != 1 || f.theory.realAtoms[0].variable != variable {
+		t.Fatal("difference atom registration", variable, found, f.theory.realAtoms)
 	}
 	data, err := f.state.BooleanData(variable)
 	astTestMust(t, err)
 	if !data.IsTheoryAtom() || data.Theory() != f.family {
 		t.Fatal("difference atom theory notification", data)
 	}
-	atom := f.theory.atoms[0]
-	positiveWeight, err := f.theory.graph.testEdgeWeight(atom.positive)
+	atom := f.theory.realAtoms[0]
+	positiveWeight, err := testInfEdgeWeight(f.theory.realGraph, atom.positive)
 	astTestMust(t, err)
-	negativeWeight, err := f.theory.graph.testEdgeWeight(atom.negative)
+	negativeWeight, err := testInfEdgeWeight(f.theory.realGraph, atom.negative)
 	astTestMust(t, err)
 	if positiveWeight.Cmp(big.NewRat(5, 1)) != 0 || negativeWeight.Cmp(big.NewRat(-6, 1)) != 0 {
 		t.Fatal("integer bound polarity", positiveWeight, negativeWeight)
 	}
-	positiveSource, err := f.theory.graph.EdgeSource(atom.positive)
-	astTestMust(t, err)
-	positiveTarget, err := f.theory.graph.EdgeTarget(atom.positive)
-	astTestMust(t, err)
-	negativeSource, err := f.theory.graph.EdgeSource(atom.negative)
-	astTestMust(t, err)
-	negativeTarget, err := f.theory.graph.EdgeTarget(atom.negative)
-	astTestMust(t, err)
+	positiveSource := f.theory.realGraph.edges[atom.positive].source
+	positiveTarget := f.theory.realGraph.edges[atom.positive].target
+	negativeSource := f.theory.realGraph.edges[atom.negative].source
+	negativeTarget := f.theory.realGraph.edges[atom.negative].target
 	if positiveSource != negativeTarget || positiveTarget != negativeSource || positiveSource == positiveTarget {
 		t.Fatal("opposite edge endpoints", positiveSource, positiveTarget, negativeSource, negativeTarget)
 	}
@@ -129,10 +127,11 @@ func TestSMTIntegerDiffTheoryAssignmentsAndNegativeCycleConflict(t *testing.T) {
 		t.Fatal("negative cycle conflict", found, conflict.Kind())
 	}
 	justification, ok := conflict.Justification()
-	if !ok || justification.FromTheory() != f.family || justification.Name() != "theory-conflict" {
+	// set_neg_cycle_conflict raises an ext_theory_conflict_justification.
+	if !ok || justification.FromTheory() != f.family || justification.Name() != "ext-theory-conflict" {
 		t.Fatal("negative cycle justification", justification, ok)
 	}
-	simple := justification.(*SMTTheoryConflictJustification)
+	simple := justification.(*SMTExtTheoryConflictJustification)
 	if len(simple.Literals) != 2 {
 		t.Fatal("negative cycle antecedents", simple.Literals)
 	}
@@ -152,7 +151,7 @@ func TestSMTIntegerDiffTheoryUnsupportedTermsAndScopeRollback(t *testing.T) {
 	if status, err := f.theory.FinalCheck(); err != nil || status != SMTFinalCheckDone {
 		t.Fatal("supported final check", status, err)
 	}
-	baselineAtoms, baselineEdges := len(f.theory.atoms), f.theory.graph.NumEdges()
+	baselineAtoms, baselineEdges := len(f.theory.realAtoms), f.theory.realGraph.NumEdges()
 	astTestMust(t, f.state.PushScope())
 	sum, err := f.manager.MkFamilyApp(f.family, smtArithOpAdd, nil, []ast.ASTHandle{f.x, f.y})
 	astTestMust(t, err)
@@ -162,12 +161,12 @@ func TestSMTIntegerDiffTheoryUnsupportedTermsAndScopeRollback(t *testing.T) {
 	if status, finalErr := f.theory.FinalCheck(); finalErr != nil || status != SMTFinalCheckGiveUp {
 		t.Fatal("unsupported final check", status, finalErr)
 	}
-	if len(f.theory.atoms) != baselineAtoms+1 || f.theory.graph.NumEdges() <= baselineEdges {
-		t.Fatal("scoped atom and edges", len(f.theory.atoms), f.theory.graph.NumEdges())
+	if len(f.theory.realAtoms) != baselineAtoms+1 || f.theory.realGraph.NumEdges() <= baselineEdges {
+		t.Fatal("scoped atom and edges", len(f.theory.realAtoms), f.theory.realGraph.NumEdges())
 	}
 	astTestMust(t, f.state.PopScopes(1))
-	if len(f.theory.atoms) != baselineAtoms || f.theory.graph.NumEdges() != baselineEdges {
-		t.Fatal("scope rollback", len(f.theory.atoms), f.theory.graph.NumEdges())
+	if len(f.theory.realAtoms) != baselineAtoms || f.theory.realGraph.NumEdges() != baselineEdges {
+		t.Fatal("scope rollback", len(f.theory.realAtoms), f.theory.realGraph.NumEdges())
 	}
 	if status, finalErr := f.theory.FinalCheck(); finalErr != nil || status != SMTFinalCheckDone {
 		t.Fatal("rolled-back final check", status, finalErr)
@@ -186,12 +185,12 @@ func TestSMTIntegerDiffTheoryOffsetTerm(t *testing.T) {
 	}
 	source := sourceNode.TheoryVar(f.family)
 	target := targetNode.TheoryVar(f.family)
-	forward, _, found, err := f.theory.graph.testMinimumEnabledEdge(int32(source), int32(target))
+	forward, _, found, err := testInfMinimumEnabledEdge(f.theory.realGraph, int32(source), int32(target))
 	astTestMust(t, err)
 	if !found || forward.Cmp(big.NewRat(3, 1)) != 0 {
 		t.Fatal("offset forward edge", forward, found)
 	}
-	backward, _, found, err := f.theory.graph.testMinimumEnabledEdge(int32(target), int32(source))
+	backward, _, found, err := testInfMinimumEnabledEdge(f.theory.realGraph, int32(target), int32(source))
 	astTestMust(t, err)
 	if !found || backward.Cmp(big.NewRat(-3, 1)) != 0 {
 		t.Fatal("offset backward edge", backward, found)
@@ -255,7 +254,7 @@ func TestSMTIntegerDiffTheoryBuildsModelValues(t *testing.T) {
 	state, err := NewSMTInternalizerState(m, context, nil)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, state.Close()) })
-	theory, err := NewSMTIntegerDiffTheory(family)
+	theory, err := NewSMTRealDiffTheory(family)
 	astTestMust(t, err)
 	astTestMust(t, state.RegisterTheory(theory))
 	fixture := smtIntegerDiffFixture{manager: m, family: family, state: state, theory: theory, sort: integer, x: x, y: y}
@@ -295,4 +294,30 @@ func TestSMTIntegerDiffTheoryBuildsModelValues(t *testing.T) {
 	if interpreted, interpretationErr := finalModel.Core().ConstantInterpretation(xDeclaration); interpretationErr != nil || interpreted != xValue {
 		t.Fatal("published difference model constant", interpreted, interpretationErr)
 	}
+}
+
+// testInfEdgeWeight is the rational part of an edge weight of the live
+// (inf-rational) difference graph.
+func testInfEdgeWeight(g *SMTInfRationalDiffGraph, id int32) (*big.Rat, error) {
+	if id < 0 || int(id) >= len(g.edges) {
+		return nil, ast.ErrASTDomain
+	}
+	return testBig(&g.edges[id].weight.rational), nil
+}
+
+// testInfMinimumEnabledEdge is the least enabled source->target weight.
+func testInfMinimumEnabledEdge(g *SMTInfRationalDiffGraph, source, target int32) (*big.Rat, SMTLiteral, bool, error) {
+	var best *big.Rat
+	explanation := SMTNullLiteral
+	for _, id := range g.outEdges[source] {
+		edge := &g.edges[id]
+		if edge.target != target || !edge.enabled {
+			continue
+		}
+		w := testBig(&edge.weight.rational)
+		if best == nil || w.Cmp(best) < 0 {
+			best, explanation = w, edge.explanation
+		}
+	}
+	return best, explanation, best != nil, nil
 }
