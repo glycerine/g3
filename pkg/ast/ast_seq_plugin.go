@@ -447,7 +447,7 @@ func (m *ASTManager) initializeSequence(p *astSequencePluginOwner) error {
 		{21, 549, "re.complement", 1, 1, [3]astNodeRef{reA}, reA},
 		{22, 550, "re.empty", 1, 0, [3]astNodeRef{}, reA},
 		{23, 551, "re.all", 1, 0, [3]astNodeRef{}, reA},
-		{24, 570, "re.allchar", 1, 0, [3]astNodeRef{}, reA},
+		{24, 552, "re.allchar", 1, 0, [3]astNodeRef{}, reA},
 		{25, 553, "re.of.pred", 1, 1, [3]astNodeRef{predA}, reA},
 		{11, 554, "seq.to.re", 1, 1, [3]astNodeRef{seqA}, reA},
 		{12, 555, "seq.in.re", 1, 2, [3]astNodeRef{seqA, reA}, boolT},
