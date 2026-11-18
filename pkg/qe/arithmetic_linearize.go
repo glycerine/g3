@@ -494,7 +494,9 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 					if e != nil {
 						return false, e
 					}
-					return true, errors.Join(c.mbo.AddConstraint(coeffs, constant, simplex.Equal), simplex.DelTerms(q, coeffs))
+					// ty keeps its t_le default when no equal pair is found
+					// (AUDIT.md qe_01-F7).
+					return true, errors.Join(c.mbo.AddConstraint(coeffs, constant, simplex.LessEqual), simplex.DelTerms(q, coeffs))
 				}
 			}
 		}

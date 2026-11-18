@@ -409,15 +409,18 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 				return ast.ASTHandle{}, err
 			}
 		}
+		// a.mk_eq(a.mk_mod(t, a.mk_numeral(r.m_mod, true)), a.mk_int(0)):
+		// GCC evaluates the arguments right to left, so the 0 is created
+		// first, then the modulus, then the mod (AUDIT.md qe_01-F7).
+		zero, err := m.ArithmeticIntegerNumeralText("0")
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
 		modulus, err := m.ArithmeticNumeralFromRational(&row.Modulus, true)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		mod, err := m.MkFamilyApp(p.family, 13, nil, []ast.ASTHandle{lhs, modulus})
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		zero, err := m.ArithmeticIntegerNumeralText("0")
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
