@@ -336,6 +336,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F8: expression, attribute and missing-argument texts.
+	"parse_errors_expression_texts.smt2": "(error \"line 1 column 8: invalid expression, unexpected ')'\")\n(error \"line 2 column 22: invalid attribute value, symbol expected\")\n(error \"line 3 column 45: invalid weight attribute, integer expected\")\n(error \"line 4 column 20: invalid s-expression, unexpected ')'\")\n(error \"line 5 column 8: invalid command, argument(s) missing\")\n(error \"line 6 column 9: invalid command, argument(s) missing\")\n(error \"line 7 column 12: assert-soft requires a formulas as argument.\")\n(error \"line 8 column 9: invalid simplify command, argument expected\")\n(error \"line 9 column 16: invalid simplify command, argument expected\")\n(error \"line 10 column 6: invalid query command, argument expected\")\n(error \"line 11 column 5: invalid rule, expected formula\")\nok\n",
 	// AUDIT.md parsers_shell_01-F8: parse_next_cmd_arg and define-const texts.
 	"parse_errors_command_arguments.smt2": "(error \"line 1 column 25: invalid constant definition, sort mismatch\")\n(error \"line 2 column 26: invalid command argument, numeral expected\")\n(error \"line 3 column 25: invalid command argument, unsigned integer expected\")\n(error \"line 4 column 23: invalid command argument, true/false expected\")\n(error \"line 5 column 20: invalid command argument, true/false expected\")\n(error \"line 6 column 25: invalid command argument, unsigned integer expected\")\n(error \"line 7 column 20: invalid command argument, true/false expected\")\n(error \"line 8 column 25: invalid function/constant definition, sort mismatch\")\nok\n",
 	// AUDIT.md parsers_shell_01-F8: parse_ext_cmd arity and option-value texts.
@@ -2391,6 +2393,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"parse_errors_expression_texts.smt2":  true,
 	"parse_errors_command_arguments.smt2": true,
 	"parse_errors_ext_cmd_arity.smt2":     true,
 	"declare_map_errors.smt2":             true,

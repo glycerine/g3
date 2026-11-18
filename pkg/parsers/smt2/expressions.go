@@ -429,6 +429,8 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 		}
 		result, err = p.indexedApplication(name, indices, args, rangeSort)
 		return result, "", positionedError(err, closeLine, closePos)
+	case RightParenToken:
+		return ast.ASTHandle{}, "", fmt.Errorf("invalid expression, unexpected ')'")
 	default:
 		return ast.ASTHandle{}, "", fmt.Errorf("invalid expression, unexpected input")
 	}

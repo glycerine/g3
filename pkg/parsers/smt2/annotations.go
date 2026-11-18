@@ -54,7 +54,7 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 		}
 		switch key {
 		case ":named":
-			named, err = p.symbol()
+			named, err = p.attributeSymbol()
 			if err == nil {
 				var free bool
 				free, err = p.manager.HasFreeVars(body)
@@ -67,7 +67,7 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 			}
 		case ":lblpos", ":lblneg":
 			var name string
-			name, err = p.symbol()
+			name, err = p.attributeSymbol()
 			if err == nil {
 				var boolean ast.ASTHandle
 				boolean, err = p.manager.MkBoolSort()
@@ -88,11 +88,15 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 			}
 		case ":weight":
 			var weight uint32
-			weight, err = p.unsigned()
+			if p.token != IntegerToken {
+				err = fmt.Errorf("invalid weight attribute, integer expected")
+			} else {
+				weight, err = p.unsigned()
+			}
 			quantifier.Weight = int32(weight)
 		case ":qid", ":skolemid":
 			var name string
-			name, err = p.symbol()
+			name, err = p.attributeSymbol()
 			if err == nil {
 				if key == ":qid" {
 					quantifier.QID, err = p.manager.Symbols.Intern(name)
@@ -319,4 +323,13 @@ func (p *commandParser) unpinPattern(pattern ast.ASTHandle) error {
 		return p.manager.DelRef(&ref)
 	}
 	return nil
+}
+
+// attributeSymbol is check_identifier_next("invalid attribute value,
+// symbol expected").
+func (p *commandParser) attributeSymbol() (string, error) {
+	if p.token != SymbolToken {
+		return "", fmt.Errorf("invalid attribute value, symbol expected")
+	}
+	return p.symbol()
 }

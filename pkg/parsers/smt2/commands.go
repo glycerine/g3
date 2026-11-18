@@ -947,6 +947,9 @@ func (p *commandParser) command() (bool, error) {
 			return false, errors.New("invalid assert command, ')' expected")
 		}
 	case "rule":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid rule, expected formula")
+		}
 		expression, _, err := p.expression()
 		if err != nil {
 			return false, err
@@ -1021,6 +1024,9 @@ func (p *commandParser) command() (bool, error) {
 			}
 		}
 	case "assert-soft":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("assert-soft requires a formulas as argument.")
+		}
 		expression, _, err := p.expression()
 		if err != nil {
 			return false, err
@@ -1051,6 +1057,9 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 	case "maximize", "minimize":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid command, argument(s) missing")
+		}
 		expression, _, err := p.expression()
 		if err != nil {
 			return false, err
@@ -1152,6 +1161,9 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "query":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid query command, argument expected")
+		}
 		declaration, err := p.functionDeclarationReference()
 		if err != nil {
 			return false, err
@@ -1590,6 +1602,9 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "display":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid command, argument(s) missing")
+		}
 		expression, _, err := p.expression()
 		if err != nil {
 			return false, err
@@ -1609,6 +1624,9 @@ func (p *commandParser) command() (bool, error) {
 	// (subpaving_cmds.cpp:53, polynomial_cmds.cpp:239); g3 follows the
 	// release build, so they reach the unknown-command path.
 	case "simplify", "dbg-th-rewriter":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid simplify command, argument expected")
+		}
 		if err = p.simplifyCommand(); err != nil {
 			return false, err
 		}
@@ -1692,8 +1710,12 @@ func (p *commandParser) command() (bool, error) {
 }
 
 func (p *commandParser) skipSExpr() error {
-	if p.token == EOFToken || p.token == RightParenToken {
-		return fmt.Errorf("attribute value expected")
+	// consume_sexpr's texts.
+	if p.token == RightParenToken {
+		return fmt.Errorf("invalid s-expression, unexpected ')'")
+	}
+	if p.token == EOFToken {
+		return fmt.Errorf("invalid s-expression, unexpected end of file")
 	}
 	if p.token != LeftParenToken {
 		return p.advance()
