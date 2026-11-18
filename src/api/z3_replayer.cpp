@@ -226,19 +226,22 @@ struct z3_replayer::imp {
             if (!('0' <= curr() && curr() <= '9'))
                 throw z3_replayer_exception("invalid integer");
         }
-        m_int64 = 0;
+        // FORK FIX #135 (g3 audit, see FORK_BUGFIXES.md): accumulate in
+        // uint64_t. The int64_t accumulation overflowed (UB) on a value past
+        // INT64_MAX; unsigned arithmetic gives the wraparound the release
+        // build showed, with defined behavior.
+        uint64_t val = 0;
         while (true) {
             char c = curr();
             if ('0' <= c && c <= '9') {
-                m_int64 = 10*m_int64 + (c - '0');
+                val = 10*val + static_cast<uint64_t>(c - '0');
                 next();
             }
             else {
                 break;
             }
         }
-        if (sign)
-            m_int64 = -m_int64;
+        m_int64 = static_cast<int64_t>(sign ? 0 - val : val);
     }
 
     void read_uint64() {

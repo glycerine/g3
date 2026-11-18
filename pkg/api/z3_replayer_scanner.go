@@ -95,9 +95,9 @@ func (s *z3ReplayScanner) uint64() (uint64, error) {
 	return v, nil
 }
 
-// int64 is read_int64. The source accumulates in int64_t, so a value past
-// INT64_MAX is signed overflow (undefined behavior); the accumulation here
-// wraps modulo 2^64, which is what the release build computes.
+// int64 is read_int64. FORK FIX #135: the source accumulates in uint64_t
+// (4.7.1 used int64_t, undefined past INT64_MAX), so the value wraps modulo
+// 2^64 as it does here.
 func (s *z3ReplayScanner) int64() (int64, error) {
 	if s.eof || !(s.current == '-' || s.current >= '0' && s.current <= '9') {
 		return 0, fmt.Errorf("invalid integer")

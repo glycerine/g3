@@ -53,4 +53,10 @@ func TestZ3ReplayScannerNumbers(t *testing.T) {
 	if v, err := scan("-9223372036854775808 ").int64(); err != nil || v != -9223372036854775808 {
 		t.Fatal("int64 minimum", v, err)
 	}
+	// FORK FIX #135: read_int64 wraps modulo 2^64 (tst_z3_4_7_1_replayer_int64_wrap).
+	for text, want := range map[string]int64{"9223372036854775807 ": 9223372036854775807, "9223372036854775808 ": -9223372036854775808, "18446744073709551617 ": 1} {
+		if v, err := scan(text).int64(); err != nil || v != want {
+			t.Fatal("int64 wrap", text, v, err)
+		}
+	}
 }

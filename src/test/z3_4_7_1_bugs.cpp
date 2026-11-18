@@ -4756,3 +4756,31 @@ void tst_z3_4_7_1_opt_parse_int_wrap() {
     std::cout << "opt_parse_int_wrap: " << text << "\n";
     ENSURE(text == "wcnf: (or k!2 (not k!2)) (not k!-2147483648) opb: (>= (ite k!3 1 0) 1)");
 }
+
+// FORK FIX #135: z3_replayer::read_int64 (the log's "I" integer argument)
+// accumulated in int64_t, so a value past INT64_MAX overflowed (UB), and
+// negating INT64_MIN did too. The fork accumulates in uint64_t, which gives
+// the wraparound the release build showed with defined behavior. The values
+// are pinned here; the undefined arithmetic itself shows under
+// -fsanitize=signed-integer-overflow.
+namespace {
+    int64_t z3_4_7_1_replayer_int64s[4];
+    void z3_4_7_1_replayer_int64_probe(z3_replayer & in) {
+        for (unsigned i = 0; i < 4; ++i)
+            z3_4_7_1_replayer_int64s[i] = in.get_int64(i);
+    }
+}
+
+void tst_z3_4_7_1_replayer_int64_wrap() {
+    std::istringstream log("I 9223372036854775807\nI 9223372036854775808\nI -9223372036854775808\nI 18446744073709551617\nC 0\n");
+    z3_replayer r(log);
+    r.register_cmd(0, z3_4_7_1_replayer_int64_probe, "probe");
+    r.parse();
+    std::cout << "replayer_int64_wrap:";
+    for (int64_t v : z3_4_7_1_replayer_int64s) std::cout << " " << v;
+    std::cout << "\n";
+    ENSURE(z3_4_7_1_replayer_int64s[0] == INT64_MAX);
+    ENSURE(z3_4_7_1_replayer_int64s[1] == INT64_MIN);
+    ENSURE(z3_4_7_1_replayer_int64s[2] == INT64_MIN);
+    ENSURE(z3_4_7_1_replayer_int64s[3] == 1);
+}
