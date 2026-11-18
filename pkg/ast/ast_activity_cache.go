@@ -180,6 +180,11 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 			return e
 		}
 	}
+	// chashtable::insert_if_not_there grows a full table before it looks
+	// the key up, also when the key is already present.
+	if !c.table.hasFreeCells() {
+		c.table.expandTable()
+	}
 	entry := c.table.find(k, hash)
 	if entry == nil {
 		entry = c.table.insert(astActivityEntry{key: k, hash: hash, dummy: true})

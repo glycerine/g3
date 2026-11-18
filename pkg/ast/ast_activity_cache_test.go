@@ -240,3 +240,33 @@ func activityTestEntry(c *ActivityCache, k ASTHandle) *astActivityEntry {
 	}
 	return c.table.find(k, hash)
 }
+
+// chashtable::insert_if_not_there expands a table without free cells before
+// looking the key up, so re-inserting a cached key into a full table grows it
+// (AUDIT ast_01-F2).
+func TestASTActivityCacheDuplicateInsertExpandsFullTable(t *testing.T) {
+	m := astTestManager(t)
+	c, e := NewActivityCache(m, nil)
+	astTestMust(t, e)
+	defer func() { astTestMust(t, c.Close()) }()
+	value := activityCacheTestAtom(t, m, "full-cache-value")
+	var keys []ASTHandle
+	for i := 0; c.table.hasFreeCells(); i++ {
+		if i > 1000 {
+			t.Fatal("table never filled")
+		}
+		k := activityCacheTestAtom(t, m, fmt.Sprintf("full-cache-key-%d", i))
+		keys = append(keys, k)
+		astTestMust(t, c.Insert(k, value))
+	}
+	slots := c.table.slots
+	astTestMust(t, c.Insert(keys[0], value))
+	if c.table.slots != 2*slots {
+		t.Fatal("duplicate insert into a full table must expand it", slots, c.table.slots)
+	}
+	for _, k := range keys {
+		if entry := activityTestEntry(c, k); entry == nil || entry.value != value {
+			t.Fatal("expansion lost an entry", k)
+		}
+	}
+}
