@@ -4,11 +4,11 @@ package pdr
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // NormalizeArithmeticRef matches normalize_arithmetic(expr_ref&): publish the
@@ -159,7 +159,7 @@ func (n *arithmeticNormalization) tree(formula ast.ASTHandle, cache map[ast.ASTH
 	return result, nil
 }
 
-func (n *arithmeticNormalization) comparison(formula ast.ASTHandle) (ast.ASTHandle, error) {
+func (n *arithmeticNormalization) comparison(formula ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
 	manager := n.manager
 	kind, err := manager.GetKind(formula)
 	if err != nil || kind != ast.ASTApp {
@@ -220,30 +220,51 @@ func (n *arithmeticNormalization) comparison(formula ast.ASTHandle) (ast.ASTHand
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	var divisor *big.Rat
+	// numeral g(0); get_coeffs' rational r per monomial; update_coeff:
+	// g = abs(r) when g is zero or abs(r) < g.
+	q := manager.NumeralService().Manager
+	divisor, coefficient := numeral.NewRational(), numeral.NewRational()
+	defer func() {
+		for _, r := range []*numeral.Rational{&coefficient, &divisor} {
+			if e := q.Del(r); e != nil && resultErr == nil {
+				resultErr = e
+			}
+		}
+	}()
 	for _, terms := range [][]ast.ASTHandle{leftTerms, rightTerms} {
 		for _, term := range terms {
-			coefficient, _, err := n.coefficient(term)
-			if err != nil {
+			if _, err := n.coefficient(term, &coefficient); err != nil {
 				return ast.ASTHandle{}, err
 			}
-			coefficient.Abs(coefficient)
-			if divisor == nil || divisor.Sign() == 0 || coefficient.Cmp(divisor) < 0 {
-				divisor = coefficient
+			if err := q.Abs(&coefficient); err != nil {
+				return ast.ASTHandle{}, err
+			}
+			smaller := divisor.IsZero()
+			if !smaller {
+				c, err := q.Compare(&coefficient, &divisor)
+				if err != nil {
+					return ast.ASTHandle{}, err
+				}
+				smaller = c < 0
+			}
+			if smaller {
+				if err := q.Copy(&divisor, &coefficient); err != nil {
+					return ast.ASTHandle{}, err
+				}
 			}
 		}
 	}
-	if divisor == nil || divisor.Sign() == 0 || divisor.Cmp(big.NewRat(1, 1)) == 0 {
+	if divisor.IsZero() || divisor.IsOne() {
 		if !negateResult {
 			return formula, nil
 		}
 		return n.negatedRelation(family, op, left, right)
 	}
-	left, err = n.divide(leftSort, leftTerms, divisor)
+	left, err = n.divide(leftSort, leftTerms, &divisor)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	right, err = n.divide(rightSort, rightTerms, divisor)
+	right, err = n.divide(rightSort, rightTerms, &divisor)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -299,79 +320,97 @@ func (n *arithmeticNormalization) terms(expression ast.ASTHandle) ([]ast.ASTHand
 	return terms, nil
 }
 
-func (n *arithmeticNormalization) coefficient(term ast.ASTHandle) (*big.Rat, ast.ASTHandle, error) {
+// coefficient reads a monomial as the source's is_numeral(arg, r) /
+// get_power_product(arg, r): r receives the coefficient (1 for a bare power
+// product); the power product is null for a numeral.
+func (n *arithmeticNormalization) coefficient(term ast.ASTHandle, r *numeral.Rational) (ast.ASTHandle, error) {
 	manager := n.manager
+	q := manager.NumeralService().Manager
 	arithmetic, err := manager.ArithmeticFamilyID()
 	if err != nil {
-		return nil, ast.ASTHandle{}, err
+		return ast.ASTHandle{}, err
 	}
-	if text, _, numeral, err := manager.ArithmeticNumeralText(term); err != nil {
-		return nil, ast.ASTHandle{}, err
+	if _, numeral, err := manager.ArithmeticNumeralRational(term, r); err != nil {
+		return ast.ASTHandle{}, err
 	} else if numeral {
-		coefficient, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return nil, ast.ASTHandle{}, ast.ErrASTDomain
-		}
-		return coefficient, ast.ASTHandle{}, nil
+		return ast.ASTHandle{}, nil
 	}
+	one := func() (ast.ASTHandle, error) { return term, q.SetInt32(r, 1) }
 	kind, err := manager.GetKind(term)
-	if err != nil || kind != ast.ASTApp {
-		return big.NewRat(1, 1), term, err
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if kind != ast.ASTApp {
+		return one()
 	}
 	family, err := manager.GetFamilyID(term)
 	if err != nil {
-		return nil, ast.ASTHandle{}, err
+		return ast.ASTHandle{}, err
 	}
 	op, err := manager.GetDeclKind(term)
-	if err != nil || family != arithmetic || op != 9 {
-		return big.NewRat(1, 1), term, err
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if family != arithmetic || op != 9 {
+		return one()
 	}
 	count, err := manager.GetNumArgs(term)
-	if err != nil || count != 2 {
-		return big.NewRat(1, 1), term, err
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if count != 2 {
+		return one()
 	}
 	coefficientTerm, err := manager.GetArg(term, 0)
 	if err != nil {
-		return nil, ast.ASTHandle{}, err
+		return ast.ASTHandle{}, err
 	}
-	text, _, numeral, err := manager.ArithmeticNumeralText(coefficientTerm)
-	if err != nil || !numeral {
-		return big.NewRat(1, 1), term, err
+	_, numeral, err := manager.ArithmeticNumeralRational(coefficientTerm, r)
+	if err != nil {
+		return ast.ASTHandle{}, err
 	}
-	coefficient, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, ast.ASTHandle{}, ast.ErrASTDomain
+	if !numeral {
+		return one()
 	}
-	powerProduct, err := manager.GetArg(term, 1)
-	return coefficient, powerProduct, err
+	return manager.GetArg(term, 1)
 }
 
-func (n *arithmeticNormalization) divide(sort ast.ASTHandle, terms []ast.ASTHandle, divisor *big.Rat) (ast.ASTHandle, error) {
+// divide is rdiv_polynomial(e, g): rational r per monomial, r /= g,
+// mk_numeral(r, false).
+func (n *arithmeticNormalization) divide(sort ast.ASTHandle, terms []ast.ASTHandle, divisor *numeral.Rational) (_ ast.ASTHandle, resultErr error) {
 	manager := n.manager
+	q := manager.NumeralService().Manager
+	coefficient := numeral.NewRational()
+	defer func() {
+		if e := q.Del(&coefficient); e != nil && resultErr == nil {
+			resultErr = e
+		}
+	}()
 	args := make([]ast.ASTHandle, 0, len(terms))
 	for _, term := range terms {
-		coefficient, powerProduct, err := n.coefficient(term)
+		powerProduct, err := n.coefficient(term, &coefficient)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		coefficient.Quo(coefficient, divisor)
+		if err = q.Div(&coefficient, divisor, &coefficient); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		if powerProduct == (ast.ASTHandle{}) {
-			if coefficient.Sign() == 0 {
+			if coefficient.IsZero() {
 				continue
 			}
-			text := coefficient.RatString()
-			constant, err := n.keep(manager.ArithmeticRealNumeralText(text))
+			constant, err := n.keep(manager.ArithmeticNumeralFromRational(&coefficient, false))
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
 			args = append(args, constant)
 			continue
 		}
-		if coefficient.Cmp(big.NewRat(1, 1)) == 0 {
+		if coefficient.IsOne() {
 			args = append(args, powerProduct)
 			continue
 		}
-		coefficientHandle, err := n.keep(manager.ArithmeticRealNumeralText(coefficient.RatString()))
+		coefficientHandle, err := n.keep(manager.ArithmeticNumeralFromRational(&coefficient, false))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}

@@ -5,23 +5,27 @@ package pdr
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const arithmeticInductiveMod int32 = 13
 
+// arithmeticInductiveBound is a bounds_t entry: the map<rational, ...> key
+// is an owned rational (value), freed when the entry is overwritten or the
+// bounds die.
 type arithmeticInductiveBound struct {
 	term  ast.ASTHandle
-	value big.Rat
+	value numeral.Rational
 	index int
 }
 
+// arithmeticInductiveMatch borrows its lower bound's rational.
 type arithmeticInductiveMatch struct {
 	term         ast.ASTHandle
-	value        big.Rat
+	value        *numeral.Rational
 	lower, upper int
 }
 
@@ -56,12 +60,22 @@ func (b *arithmeticInductiveBounds) pin(handle ast.ASTHandle) error {
 	return nil
 }
 
+func (b *arithmeticInductiveBounds) q() *numeral.RationalManager {
+	return b.transformer.manager.NumeralService().Manager
+}
+
 func (b *arithmeticInductiveBounds) close() error {
 	if b == nil || b.transformer == nil {
 		return nil
 	}
 	result := closeASTRefs(b.transformer.manager, b.references)
 	b.references = nil
+	for _, bounds := range []map[string]arithmeticInductiveBound{b.lower, b.upper} {
+		for key, bound := range bounds {
+			result = errors.Join(result, b.q().Del(&bound.value))
+			delete(bounds, key)
+		}
+	}
 	return result
 }
 
@@ -97,16 +111,11 @@ func arithmeticInductiveRelation(manager *ast.ASTManager, expression ast.ASTHand
 	return operator, left, right, err == nil, err
 }
 
-func arithmeticInductiveNumeral(manager *ast.ASTManager, expression ast.ASTHandle) (big.Rat, bool, error) {
-	text, _, matched, err := manager.ArithmeticNumeralText(expression)
-	if err != nil || !matched {
-		return big.Rat{}, matched, err
-	}
-	value := new(big.Rat)
-	if _, ok := value.SetString(text); !ok {
-		return big.Rat{}, false, ast.ErrASTDomain
-	}
-	return *value, true, nil
+// arithmeticInductiveNumeral is a.is_numeral(e, r) into the caller's
+// rational.
+func arithmeticInductiveNumeral(manager *ast.ASTManager, expression ast.ASTHandle, value *numeral.Rational) (bool, error) {
+	_, matched, err := manager.ArithmeticNumeralRational(expression, value)
+	return matched && err == nil, err
 }
 
 func arithmeticInductiveInteger(manager *ast.ASTManager, expression ast.ASTHandle) (bool, error) {
@@ -126,10 +135,20 @@ func arithmeticInductiveInteger(manager *ast.ASTManager, expression ast.ASTHandl
 	return kind == 1, err
 }
 
-func (b *arithmeticInductiveBounds) insert(lower bool, term ast.ASTHandle, value *big.Rat, index int) error {
+func (b *arithmeticInductiveBounds) insert(lower bool, term ast.ASTHandle, value *numeral.Rational, index int) (resultErr error) {
 	manager := b.transformer.manager
-	normalized := new(big.Rat).Set(value)
-	if normalized.Sign() < 0 {
+	q := b.q()
+	normalized := numeral.NewRational()
+	stored := false
+	defer func() {
+		if !stored {
+			resultErr = errors.Join(resultErr, q.Del(&normalized))
+		}
+	}()
+	if err := q.Copy(&normalized, value); err != nil {
+		return err
+	}
+	if normalized.IsNeg() {
 		negated, err := manager.MkArithmeticNeg(term)
 		if err != nil {
 			return err
@@ -139,25 +158,39 @@ func (b *arithmeticInductiveBounds) insert(lower bool, term ast.ASTHandle, value
 		}
 		term = negated
 		lower = !lower
-		normalized.Neg(normalized)
+		if err = q.Neg(&normalized); err != nil {
+			return err
+		}
 	}
-	key := normalized.RatString()
-	bound := arithmeticInductiveBound{term: term, value: *normalized, index: index}
+	key, err := q.String(&normalized)
+	if err != nil {
+		return err
+	}
+	bound := arithmeticInductiveBound{term: term, value: normalized, index: index}
+	bounds := b.upper
 	if lower {
+		bounds = b.lower
 		if _, found := b.lower[key]; !found {
 			b.lowerOrder = append(b.lowerOrder, key)
 		}
-		// Source map::insert overwrites the vector at an existing magnitude.
-		b.lower[key] = bound
-	} else {
-		b.upper[key] = bound
 	}
+	// Source map::insert overwrites the vector at an existing magnitude.
+	if old, found := bounds[key]; found {
+		if err = q.Del(&old.value); err != nil {
+			return err
+		}
+	}
+	bounds[key] = bound
+	stored = true
 	return nil
 }
 
-func (b *arithmeticInductiveBounds) collect(core []ast.ASTHandle) error {
+func (b *arithmeticInductiveBounds) collect(core []ast.ASTHandle) (resultErr error) {
 	manager := b.transformer.manager
-	one := big.NewRat(1, 1)
+	q := b.q()
+	// rational r (each relation's numeral)
+	value := numeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&value)) }()
 	for index, expression := range core {
 		inner := expression
 		negated, child, err := manager.IsNot(expression)
@@ -174,7 +207,7 @@ func (b *arithmeticInductiveBounds) collect(core []ast.ASTHandle) error {
 		if !relation {
 			continue
 		}
-		value, found, err := arithmeticInductiveNumeral(manager, numeral)
+		found, err := arithmeticInductiveNumeral(manager, numeral, &value)
 		if err != nil {
 			return err
 		}
@@ -191,12 +224,16 @@ func (b *arithmeticInductiveBounds) collect(core []ast.ASTHandle) error {
 			}
 			switch operator {
 			case closureArithLE:
-				value.Add(&value, one)
+				if err = q.Inc(&value); err != nil {
+					return err
+				}
 				if err = b.insert(true, term, &value, index); err != nil {
 					return err
 				}
 			case closureArithGE:
-				value.Sub(&value, one)
+				if err = q.Dec(&value); err != nil {
+					return err
+				}
 				if err = b.insert(false, term, &value, index); err != nil {
 					return err
 				}
@@ -246,13 +283,18 @@ func (b *arithmeticInductiveBounds) equivalent(left, right ast.ASTHandle) (_ boo
 }
 
 func (b *arithmeticInductiveBounds) matches() ([]arithmeticInductiveMatch, error) {
-	two := big.NewRat(2, 1)
+	two := numeral.NewInt(2)
+	twoQ := numeral.Rational{Num: two, Den: numeral.NewInt(1)}
 	result := make([]arithmeticInductiveMatch, 0, len(b.lowerOrder))
 	// The source hash-table exposes no semantic ordering. Encounter order makes
 	// the Go result deterministic without porting its hashing implementation.
 	for _, key := range b.lowerOrder {
 		lower := b.lower[key]
-		if lower.value.Cmp(two) < 0 {
+		c, err := b.q().Compare(&lower.value, &twoQ)
+		if err != nil {
+			return nil, err
+		}
+		if c < 0 {
 			continue
 		}
 		upper, found := b.upper[key]
@@ -264,7 +306,8 @@ func (b *arithmeticInductiveBounds) matches() ([]arithmeticInductiveMatch, error
 			return nil, err
 		}
 		if equal {
-			result = append(result, arithmeticInductiveMatch{term: lower.term, value: lower.value, lower: lower.index, upper: upper.index})
+			entry := b.lower[key]
+			result = append(result, arithmeticInductiveMatch{term: lower.term, value: &entry.value, lower: lower.index, upper: upper.index})
 		}
 	}
 	return result, nil
@@ -284,10 +327,11 @@ func arithmeticInductiveOne(manager *ast.ASTManager, term ast.ASTHandle) (ast.AS
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return manager.ArithmeticNumeralRat(big.NewRat(1, 1), integer)
+	one := numeral.Rational{Num: numeral.NewInt(1), Den: numeral.NewInt(1)}
+	return manager.ArithmeticNumeralFromRational(&one, integer)
 }
 
-func substituteArithmeticInductiveAlias(manager *ast.ASTManager, matchedValue *big.Rat, matchedTerm, expression ast.ASTHandle, references *[]ast.ASTRef) (ast.ASTHandle, bool, error) {
+func substituteArithmeticInductiveAlias(manager *ast.ASTManager, matchedValue *numeral.Rational, matchedTerm, expression ast.ASTHandle, references *[]ast.ASTRef) (_ ast.ASTHandle, _ bool, resultErr error) {
 	negated, child, err := manager.IsNot(expression)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
@@ -310,14 +354,20 @@ func substituteArithmeticInductiveAlias(manager *ast.ASTManager, matchedValue *b
 	if err != nil || !relation {
 		return ast.ASTHandle{}, false, err
 	}
-	value, found, err := arithmeticInductiveNumeral(manager, numeral)
+	// rational r2, and r2 - r as a temporary
+	q := manager.NumeralService().Manager
+	value, difference := newArithmeticInductiveRational(), newArithmeticInductiveRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&value), q.Del(&difference)) }()
+	found, err := arithmeticInductiveNumeral(manager, numeral, &value)
 	if err != nil || !found {
 		return ast.ASTHandle{}, false, err
 	}
 	// substitute_alias rewrites only r2 == r, r2 == r - 1 and r2 == r + 1;
 	// comparison is r2 - r restricted to those cases.
-	difference := new(big.Rat).Sub(&value, matchedValue)
-	if !difference.IsInt() || difference.Num().CmpAbs(big.NewInt(1)) > 0 {
+	if err = q.Sub(&value, matchedValue, &difference); err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	if !difference.IsZero() && !difference.IsOne() && !difference.IsMinusOne() {
 		return ast.ASTHandle{}, false, nil
 	}
 	comparison := difference.Sign()
@@ -422,7 +472,7 @@ func arithmeticInductiveCandidate(transformer *PredicateTransformer, input []ast
 		result[match.upper] = truth
 		result[match.lower] = truth
 		for index, expression := range result {
-			rewritten, changed, x := substituteArithmeticInductiveAlias(manager, &match.value, match.term, expression, &resultReferences)
+			rewritten, changed, x := substituteArithmeticInductiveAlias(manager, match.value, match.term, expression, &resultReferences)
 			if x != nil {
 				return nil, nil, false, x
 			}
@@ -506,3 +556,6 @@ func generalizeArithmeticInductiveCore(transformer *PredicateTransformer, level 
 	}
 	return pinGeneralizedCore(transformer.manager, reduced, assumesLevel)
 }
+
+// newArithmeticInductiveRational is a rational(0) local.
+func newArithmeticInductiveRational() numeral.Rational { return numeral.NewRational() }
