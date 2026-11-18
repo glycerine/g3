@@ -311,17 +311,24 @@ func (b *inductionGeneralizerBuilder) transitionAxiom(transformer *PredicateTran
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	transitions := make([]ast.ASTHandle, 0, len(transformer.rules))
-	for _, rule := range transformer.rules {
+	// fml = (i == 0)? tr : m.mk_or(fml, tr), from fml = false: a
+	// left-nested binary or, built as each rule's transition is made.
+	body, err := b.manager.MkFalse()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	for i, rule := range transformer.rules {
 		transition, x := b.transitionRule(transformer, level, rule, representatives)
 		if x != nil {
 			return ast.ASTHandle{}, x
 		}
-		transitions = append(transitions, transition)
-	}
-	body, err := b.keep(b.manager.MkOrArray(transitions))
-	if err != nil {
-		return ast.ASTHandle{}, err
+		if i == 0 {
+			body = transition
+			continue
+		}
+		if body, err = b.keep(b.manager.MkOr(body, transition)); err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
 	predicate, err := b.predicate(level, transformer)
 	if err != nil {

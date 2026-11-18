@@ -14,6 +14,7 @@ const (
 	inductionTestEmpty = iota
 	inductionTestFact
 	inductionTestRecursive
+	inductionTestThreeRules
 )
 
 func inductionTestTransformer(t *testing.T, mode int) (*ast.ASTManager, *Manager, *PredicateTransformer, ast.ASTHandle, func()) {
@@ -36,10 +37,20 @@ func inductionTestTransformer(t *testing.T, mode int) (*ast.ASTManager, *Manager
 	if mode == inductionTestRecursive {
 		tail = []ast.ASTHandle{head}
 	}
-	rule, err := rules.NewRule(head, tail, nil, "induction_rule")
-	closureMust(t, err)
-	closureMust(t, transformer.InitializeRules(map[ast.ASTHandle]*PredicateTransformer{transformer.head: transformer}, []*base.Rule{rule}))
-	closureMust(t, rule.Close())
+	count := 1
+	if mode == inductionTestThreeRules {
+		count = 3
+	}
+	var made []*base.Rule
+	for i := 0; i < count; i++ {
+		rule, err := rules.NewRule(head, tail, nil, "induction_rule")
+		closureMust(t, err)
+		made = append(made, rule)
+	}
+	closureMust(t, transformer.InitializeRules(map[ast.ASTHandle]*PredicateTransformer{transformer.head: transformer}, made))
+	for _, rule := range made {
+		closureMust(t, rule.Close())
+	}
 	closureMust(t, rules.Close())
 	return manager, owner, transformer, term, closeBase
 }
@@ -191,5 +202,33 @@ func TestInductionGeneralizerRootFallsBackWithIndependentOwnership(t *testing.T)
 	}
 	closureMust(t, closeGeneralizedCores(manager, []generalizedCore{rootFallback}))
 	closureMust(t, parent.release())
+	inductionCloseFixture(t, owner, transformer, closeBase)
+}
+
+// mk_transition_axiom: fml = (i == 0)? tr : m.mk_or(fml, tr) nests binary
+// ors to the left (AUDIT muz_pdr_01-F7).
+func TestInductionGeneralizerTransitionAxiomNestsOr(t *testing.T) {
+	manager, owner, transformer, _, closeBase := inductionTestTransformer(t, inductionTestThreeRules)
+	if len(transformer.rules) != 3 {
+		t.Fatal("three-rule fixture", len(transformer.rules))
+	}
+	builder, err := newInductionGeneralizerBuilder(transformer)
+	closureMust(t, err)
+	axiom, err := builder.transitionAxiom(transformer, 1)
+	closureMust(t, err)
+	body, err := manager.GetQuantifierBody(axiom)
+	closureMust(t, err)
+	right, err := manager.GetArg(body, 1)
+	closureMust(t, err)
+	outer := inductionBasicOperation(t, manager, right, ast.ASTOpOr)
+	if outer.Count() != 2 {
+		t.Fatal("outer or arity", outer.Count())
+	}
+	left, err := outer.At(0)
+	closureMust(t, err)
+	if inner := inductionBasicOperation(t, manager, left, ast.ASTOpOr); inner.Count() != 2 {
+		t.Fatal("inner or arity", inner.Count())
+	}
+	closureMust(t, builder.Close())
 	inductionCloseFixture(t, owner, transformer, closeBase)
 }
