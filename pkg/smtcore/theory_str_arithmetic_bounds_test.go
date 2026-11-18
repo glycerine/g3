@@ -46,7 +46,7 @@ func stringAssertArithmeticBound(t *testing.T, m *ast.ASTManager, state *SMTInte
 
 func stringCheckArithmeticBound(t *testing.T, theory *SMTStringTheory, expression ast.ASTHandle, lower bool, want string) {
 	t.Helper()
-	value, known, err := theory.stringArithmeticBound(expression, lower)
+	value, known, err := theory.testArithmeticBound(expression, lower)
 	astTestMust(t, err)
 	if want == "" {
 		if known || value != nil {
@@ -59,7 +59,7 @@ func stringCheckArithmeticBound(t *testing.T, theory *SMTStringTheory, expressio
 	}
 	// Returned integers must not alias the live tableau's bound storage.
 	value.SetInt64(-999)
-	again, known, err := theory.stringArithmeticBound(expression, lower)
+	again, known, err := theory.testArithmeticBound(expression, lower)
 	astTestMust(t, err)
 	if !known || again.String() != want {
 		t.Fatal("caller mutated stored arithmetic bound", again, known)
@@ -97,7 +97,7 @@ func TestSMTStringArithmeticBoundsAssignmentAndScope(t *testing.T) {
 	stringCheckArithmeticBound(t, theory, length, true, "2")
 	stringCheckArithmeticBound(t, theory, length, false, "9")
 	// Neither bound makes an exact core-root value available.
-	if _, known, err := theory.arithmeticValue(length); err != nil || known {
+	if _, known, err := theory.testArithmeticValue(length); err != nil || known {
 		t.Fatal("bounds became an equality premise", known, err)
 	}
 }

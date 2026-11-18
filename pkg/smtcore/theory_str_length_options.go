@@ -84,12 +84,19 @@ func (t *SMTStringTheory) generateStringLengthOptions(variable, indicator ast.AS
 	if err != nil {
 		return output, err
 	}
-	value, known, err := t.lengthValue(variable)
+	// rational freeVarLen
+	value := smtQZero()
+	defer t.qdel(&value, &result)
+	known, err := t.lengthValue(variable, &value)
 	if err != nil {
 		return output, err
 	}
 	if known {
-		label, err := pin(t.stringLiteralChars(value.String()))
+		valueText, err := t.q().String(&value)
+		if err != nil {
+			return output, err
+		}
+		label, err := pin(t.stringLiteralChars(valueText))
 		if err != nil {
 			return output, err
 		}
@@ -97,7 +104,7 @@ func (t *SMTStringTheory) generateStringLengthOptions(variable, indicator ast.AS
 		if err != nil {
 			return output, err
 		}
-		number, err := pin(m.ArithmeticIntegerNumeralText(value.String()))
+		number, err := pin(m.ArithmeticNumeralFromRational(&value, true))
 		if err != nil {
 			return output, err
 		}

@@ -5,7 +5,7 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -25,7 +25,7 @@ type smtStringRegexStageState struct {
 	failures         map[ast.ASTHandle]uint32
 	lengthAttempts   map[ast.ASTHandle]uint32
 	intersectionFail map[ast.ASTHandle]uint32
-	lastUpper        map[ast.ASTHandle]*big.Int
+	lastUpper        map[ast.ASTHandle]*numeral.Rational
 	persisted        []ast.ASTRef
 	persistedTodo    []ast.ASTRef
 }
@@ -36,7 +36,7 @@ func newStringRegexStageState() smtStringRegexStageState {
 		lengthDone: make(map[ast.ASTHandle]uint32), pathDone: make(map[ast.ASTHandle]uint32),
 		lengthFormulas: make(map[ast.ASTHandle]ast.ASTHandle), lengthVariables: make(map[ast.ASTHandle][]ast.ASTHandle),
 		failures: make(map[ast.ASTHandle]uint32), lengthAttempts: make(map[ast.ASTHandle]uint32),
-		intersectionFail: make(map[ast.ASTHandle]uint32), lastUpper: make(map[ast.ASTHandle]*big.Int),
+		intersectionFail: make(map[ast.ASTHandle]uint32), lastUpper: make(map[ast.ASTHandle]*numeral.Rational),
 	}
 }
 

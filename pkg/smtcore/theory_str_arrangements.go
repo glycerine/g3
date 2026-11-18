@@ -5,11 +5,11 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTStringTheory) addStringBranchPriority(term ast.ASTHandle, priority float64) error {
@@ -336,19 +336,34 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 			return err
 		}
 	}
-	values := [4]*big.Int{}
+	// rational x_len, y_len, m_len, n_len (get_len_value's outputs)
+	qm := t.q()
+	values := [4]numeral.Rational{smtQZero(), smtQZero(), smtQZero(), smtQZero()}
+	defer func() {
+		for i := range values {
+			t.qdel(&values[i], &result)
+		}
+	}()
 	known := [4]bool{}
 	for i, expression := range []ast.ASTHandle{x, y, a, b} {
-		values[i], known[i], err = t.lengthValue(expression)
+		known[i], err = t.lengthValue(expression, &values[i])
 		if err != nil {
 			return err
 		}
 	}
 	split := -1
 	if known[0] && known[2] {
-		split = values[0].Cmp(values[2]) + 1
+		c, err := qm.Compare(&values[0], &values[2])
+		if err != nil {
+			return err
+		}
+		split = c + 1
 	} else if known[1] && known[3] {
-		split = 1 - values[1].Cmp(values[3])
+		c, err := qm.Compare(&values[1], &values[3])
+		if err != nil {
+			return err
+		}
+		split = 1 - c
 	}
 	variables, err := t.stringConcatWitnesses(left, right)
 	if err != nil {
@@ -455,17 +470,23 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 		if !known[0] || !known[2] {
 			p, q = 1, 3
 		}
-		if err := guards.length(terms[p], values[p]); err != nil {
+		if err := guards.length(terms[p], &values[p]); err != nil {
 			return err
 		}
-		if err := guards.length(terms[q], values[q]); err != nil {
+		if err := guards.length(terms[q], &values[q]); err != nil {
 			return err
 		}
-		difference := new(big.Int).Sub(values[q], values[p])
+		difference := smtQZero()
+		defer t.qdel(&difference, &result)
+		if err := qm.Sub(&values[q], &values[p], &difference); err != nil {
+			return err
+		}
 		if (split == 2) != (p == 1) {
-			difference.Neg(difference)
+			if err := qm.Neg(&difference); err != nil {
+				return err
+			}
 		}
-		if err := conclusions.length(witness, difference); err != nil {
+		if err := conclusions.length(witness, &difference); err != nil {
 			return err
 		}
 		premise, err := pin(m.MkAndArray(guards.values))

@@ -205,11 +205,14 @@ func (t *SMTStringTheory) handleConstantEqualityStages(left, right ast.ASTHandle
 
 func (t *SMTStringTheory) stringZeroLengthCoherence(left, right ast.ASTHandle) (result error) {
 	m := t.state.manager
-	lv, lk, err := t.lengthValue(left)
+	lv, rv := smtQZero(), smtQZero()
+	defer t.qdel(&rv, &result)
+	defer t.qdel(&lv, &result)
+	lk, err := t.lengthValue(left, &lv)
 	if err != nil {
 		return err
 	}
-	rv, rk, err := t.lengthValue(right)
+	rk, err := t.lengthValue(right, &rv)
 	if err != nil {
 		return err
 	}
@@ -223,9 +226,9 @@ func (t *SMTStringTheory) stringZeroLengthCoherence(left, right ast.ASTHandle) (
 		return err
 	}
 	for i, pair := range [][2]ast.ASTHandle{{left, right}, {right, left}} {
-		knownZero := lk && lv.Sign() == 0
+		knownZero := lk && lv.IsZero()
 		if i == 1 {
-			knownZero = rk && rv.Sign() == 0
+			knownZero = rk && rv.IsZero()
 		}
 		if !knownZero || pair[1] == empty {
 			continue

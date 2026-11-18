@@ -6,21 +6,45 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// All retained bounds start integral and remain integral. Each stored window
-// owns its integers and is immutable after publication.
-type smtStringBinaryBounds struct{ lower, midpoint, upper, window *big.Int }
+// smtStringBinaryBounds is binary_search_info: lowerBound, midPoint,
+// upperBound and windowSize are rationals of the AST manager's rational
+// manager. A stored window owns them; it is freed when its
+// binary_search_len_tester_info entry is erased.
+type smtStringBinaryBounds struct{ lower, midpoint, upper, window numeral.Rational }
+
+func newSMTStringBinaryBounds() *smtStringBinaryBounds {
+	return &smtStringBinaryBounds{lower: smtQZero(), midpoint: smtQZero(), upper: smtQZero(), window: smtQZero()}
+}
+
+func (b *smtStringBinaryBounds) del(q *numeral.RationalManager) error {
+	return smtErrJoin(smtQDel(q, &b.lower), smtQDel(q, &b.midpoint), smtQDel(q, &b.upper), smtQDel(q, &b.window))
+}
+
 type smtStringBinaryTrail struct {
 	level        uint32
 	word, tester ast.ASTHandle
 }
 
-func (b *smtStringBinaryBounds) calculateMidpoint() {
-	b.midpoint = new(big.Int).Div(new(big.Int).Add(b.lower, b.upper), big.NewInt(2))
+// calculateMidpoint is calculate_midpoint():
+// midPoint = floor(lowerBound + ((upperBound - lowerBound) / rational(2))).
+func (b *smtStringBinaryBounds) calculateMidpoint(q *numeral.RationalManager) error {
+	tmp, two := smtQZero(), smtQInt(2)
+	err := q.Sub(&b.upper, &b.lower, &tmp)
+	if err == nil {
+		err = q.Div(&tmp, &two, &tmp)
+	}
+	if err == nil {
+		err = q.Add(&b.lower, &tmp, &tmp)
+	}
+	if err == nil {
+		err = q.Floor(&tmp, &b.midpoint)
+	}
+	return smtErrJoin(err, smtQDel(q, &tmp))
 }
 
 func (t *SMTStringTheory) recordStringBinaryTest(word, tester ast.ASTHandle, bounds *smtStringBinaryBounds) {
@@ -37,6 +61,9 @@ func (t *SMTStringTheory) popStringBinaryTests() {
 			break
 		}
 		// insert_obj_map::undo erases; it does not restore an old value.
+		if bounds := t.testers.binaryBounds[entry.tester]; bounds != nil {
+			t.keepQ(bounds.del(t.q()))
+		}
 		delete(t.testers.binaryBounds, entry.tester)
 		stack := t.testers.binaryStacks[entry.word]
 		if len(stack) > 0 {
@@ -48,10 +75,35 @@ func (t *SMTStringTheory) popStringBinaryTests() {
 }
 
 func (t *SMTStringTheory) generateStringBinaryCaseSplit(word, tester ast.ASTHandle, bounds *smtStringBinaryBounds) (output ast.ASTRef, result error) {
-	if bounds == nil || bounds.midpoint == nil {
+	if bounds == nil {
 		return output, ast.ErrASTDomain
 	}
 	m := t.state.manager
+	q := t.q()
+	// rational N = midPoint, N_minus_one = N - 1, N_plus_one = N + 1
+	n, nMinusOne, nPlusOne := smtQZero(), smtQZero(), smtQZero()
+	defer t.qdel(&nPlusOne, &result)
+	defer t.qdel(&nMinusOne, &result)
+	defer t.qdel(&n, &result)
+	if err := q.Copy(&n, &bounds.midpoint); err != nil {
+		return output, err
+	}
+	if err := q.Copy(&nMinusOne, &n); err != nil {
+		return output, err
+	}
+	if err := q.Dec(&nMinusOne); err != nil {
+		return output, err
+	}
+	if err := q.Copy(&nPlusOne, &n); err != nil {
+		return output, err
+	}
+	if err := q.Inc(&nPlusOne); err != nil {
+		return output, err
+	}
+	midpointText, err := q.String(&n)
+	if err != nil {
+		return output, err
+	}
 	locals := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, locals.close()) }()
 	pin := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
@@ -65,7 +117,7 @@ func (t *SMTStringTheory) generateStringBinaryCaseSplit(word, tester ast.ASTHand
 		return output, err
 	}
 	var choices, conjuncts []ast.ASTHandle
-	for _, label := range []string{"less", "more", bounds.midpoint.String()} {
+	for _, label := range []string{"less", "more", midpointText} {
 		text, err := pin(t.stringLiteralChars(label))
 		if err != nil {
 			return output, err
@@ -75,13 +127,13 @@ func (t *SMTStringTheory) generateStringBinaryCaseSplit(word, tester ast.ASTHand
 			return output, err
 		}
 		choices = append(choices, choice)
-		value := new(big.Int).Set(bounds.midpoint)
+		value := &n
 		if label == "less" {
-			value.Sub(value, big.NewInt(1))
+			value = &nMinusOne
 		} else if label == "more" {
-			value.Add(value, big.NewInt(1))
+			value = &nPlusOne
 		}
-		number, err := pin(m.ArithmeticIntegerNumeralText(value.String()))
+		number, err := pin(m.ArithmeticNumeralFromRational(value, true))
 		if err != nil {
 			return output, err
 		}
@@ -155,7 +207,7 @@ func (t *SMTStringTheory) generateStringBinaryLengthOptions(word, callback ast.A
 			return output, ast.ErrASTDomain
 		}
 		if text != "more" && text != "less" {
-			if previous.midpoint.Sign() < 0 {
+			if previous.midpoint.IsNeg() {
 				locals := smtStringLengthPremises{theory: t}
 				defer func() { result = errors.Join(result, locals.close()) }()
 				length, err := m.MkSequenceLength(word)
@@ -177,27 +229,66 @@ func (t *SMTStringTheory) generateStringBinaryLengthOptions(word, callback ast.A
 			}
 			return t.generateStringFreeValueOptions(word, last, text, ast.ASTHandle{}, "")
 		}
-		bounds = &smtStringBinaryBounds{lower: new(big.Int).Set(previous.lower), upper: new(big.Int).Set(previous.upper), window: new(big.Int).Set(previous.window)}
+		// binary_search_info newBounds = lastBounds (copies), then updated.
+		q := t.q()
+		bounds = newSMTStringBinaryBounds()
+		recorded := false
+		defer func() {
+			if !recorded {
+				result = smtErrJoin(result, bounds.del(q))
+			}
+		}()
+		for _, pair := range [][2]*numeral.Rational{{&bounds.lower, &previous.lower}, {&bounds.midpoint, &previous.midpoint}, {&bounds.upper, &previous.upper}, {&bounds.window, &previous.window}} {
+			if err := q.Copy(pair[0], pair[1]); err != nil {
+				return output, err
+			}
+		}
+		one, two := smtQInt(1), smtQInt(2)
 		cache := t.testers.binaryLow
 		if text == "more" {
 			cache = t.testers.binaryHigh
-			if previous.midpoint.Cmp(previous.upper) == 0 && previous.upper.Cmp(previous.window) == 0 {
-				bounds.lower.Add(previous.window, big.NewInt(1))
-				bounds.window.Mul(previous.window, big.NewInt(2))
-				bounds.upper.Set(bounds.window)
-			} else {
-				bounds.lower.Add(previous.midpoint, big.NewInt(1))
+			atWindow, err := q.Equal(&previous.midpoint, &previous.upper)
+			if err != nil {
+				return output, err
 			}
-		} else {
-			bounds.upper.Sub(previous.midpoint, big.NewInt(1))
+			if atWindow {
+				if atWindow, err = q.Equal(&previous.upper, &previous.window); err != nil {
+					return output, err
+				}
+			}
+			if atWindow {
+				if err = q.Add(&previous.window, &one, &bounds.lower); err != nil {
+					return output, err
+				}
+				if err = q.Mul(&previous.window, &two, &bounds.window); err != nil {
+					return output, err
+				}
+				if err = q.Copy(&bounds.upper, &bounds.window); err != nil {
+					return output, err
+				}
+			} else if err = q.Add(&previous.midpoint, &one, &bounds.lower); err != nil {
+				return output, err
+			}
+		} else if err := q.Sub(&previous.midpoint, &one, &bounds.upper); err != nil {
+			return output, err
 		}
-		bounds.calculateMidpoint()
+		if err := bounds.calculateMidpoint(q); err != nil {
+			return output, err
+		}
 		tester = cache[last]
 		if tester.IsNull() {
-			if !bounds.midpoint.IsInt64() || bounds.midpoint.Int64() < -1<<31 || bounds.midpoint.Int64() > 1<<31-1 {
+			fits, err := q.IsInt32(&bounds.midpoint)
+			if err != nil {
+				return output, err
+			}
+			if !fits {
 				return output, ast.ErrASTDomain
 			}
-			tester, err = t.freshStringLengthTester(word, int32(bounds.midpoint.Int64()))
+			mid, err := q.Int32(&bounds.midpoint)
+			if err != nil {
+				return output, err
+			}
+			tester, err = t.freshStringLengthTester(word, mid)
 			if err != nil {
 				return output, err
 			}
@@ -206,6 +297,8 @@ func (t *SMTStringTheory) generateStringBinaryLengthOptions(word, callback ast.A
 		if err = t.refreshStringVariable(tester); err != nil {
 			return output, err
 		}
+		recorded = true
+		t.recordStringBinaryTest(word, tester, bounds)
 	} else {
 		t.testers.binaryStacks[word] = nil
 		upper := uint32(64)
@@ -216,13 +309,32 @@ func (t *SMTStringTheory) generateStringBinaryLengthOptions(word, callback ast.A
 			}
 			upper = options.BinarySearchInitialUpperBound
 		}
-		bounds = &smtStringBinaryBounds{lower: new(big.Int), upper: new(big.Int).SetUint64(uint64(upper)), window: new(big.Int).SetUint64(uint64(upper))}
-		bounds.calculateMidpoint()
+		// binary_search_info(0, 0, upper, upper)
+		q := t.q()
+		bounds = newSMTStringBinaryBounds()
+		recorded := false
+		defer func() {
+			if !recorded {
+				result = smtErrJoin(result, bounds.del(q))
+			}
+		}()
+		if err := q.SetUint64(&bounds.upper, uint64(upper)); err != nil {
+			return output, err
+		}
+		if err := q.SetUint64(&bounds.window, uint64(upper)); err != nil {
+			return output, err
+		}
+		if err := bounds.calculateMidpoint(q); err != nil {
+			return output, err
+		}
 		tester = t.testers.binaryStart[word]
 		if tester.IsNull() {
 			// A uint32 initial bound has an int32-representable midpoint.
-			var err error
-			tester, err = t.freshStringLengthTester(word, int32(bounds.midpoint.Int64()))
+			mid, err := q.Int64(&bounds.midpoint)
+			if err != nil {
+				return output, err
+			}
+			tester, err = t.freshStringLengthTester(word, int32(mid))
 			if err != nil {
 				return output, err
 			}
@@ -231,17 +343,28 @@ func (t *SMTStringTheory) generateStringBinaryLengthOptions(word, callback ast.A
 		if err := t.refreshStringVariable(tester); err != nil {
 			return output, err
 		}
-		known, ok, err := t.lengthValue(word)
+		// rational freeVarLen; if (get_len_value(freeVar, freeVarLen)) ...
+		known := smtQZero()
+		defer t.qdel(&known, &result)
+		ok, err := t.lengthValue(word, &known)
 		if err != nil {
 			return output, err
 		}
 		if ok {
-			bounds.midpoint = new(big.Int).Set(known)
-			bounds.upper = new(big.Int).Mul(known, big.NewInt(2))
-			bounds.window = new(big.Int).Set(bounds.upper)
+			two := smtQInt(2)
+			if err = q.Copy(&bounds.midpoint, &known); err != nil {
+				return output, err
+			}
+			if err = q.Mul(&known, &two, &bounds.upper); err != nil {
+				return output, err
+			}
+			if err = q.Copy(&bounds.window, &bounds.upper); err != nil {
+				return output, err
+			}
 		}
+		recorded = true
+		t.recordStringBinaryTest(word, tester, bounds)
 	}
-	t.recordStringBinaryTest(word, tester, bounds)
 	root, err := t.generateStringBinaryCaseSplit(word, tester, bounds)
 	if err != nil {
 		return output, err

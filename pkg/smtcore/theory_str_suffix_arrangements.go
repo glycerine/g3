@@ -5,9 +5,9 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTStringTheory) stringBoundaryWitness(left, right ast.ASTHandle) (ast.ASTHandle, error) {
@@ -66,24 +66,36 @@ func (t *SMTStringTheory) arrangeLiteralSuffixConcats(left, right ast.ASTHandle)
 			return err
 		}
 	}
-	values := [4]*big.Int{}
+	qm := t.q()
+	values := stringLengths4()
+	defer func() { t.delStringLengths(values[:], &result) }()
 	known := [4]bool{false, false, false, true}
 	for i, expression := range []ast.ASTHandle{x, y, a} {
-		values[i], known[i], err = t.lengthValue(expression)
+		known[i], err = t.lengthValue(expression, &values[i])
 		if err != nil {
 			return err
 		}
 	}
-	values[3] = new(big.Int).SetUint64(uint64(len(text)))
+	if err = qm.SetUint64(&values[3], uint64(len(text))); err != nil {
+		return err
+	}
 	witness, err := t.stringBoundaryWitness(left, right)
 	if err != nil {
 		return err
 	}
 	split := -1
 	if known[0] && known[2] {
-		split = values[0].Cmp(values[2]) + 1
+		c, err := qm.Compare(&values[0], &values[2])
+		if err != nil {
+			return err
+		}
+		split = c + 1
 	} else if known[1] {
-		split = 1 - values[1].Cmp(values[3])
+		c, err := qm.Compare(&values[1], &values[3])
+		if err != nil {
+			return err
+		}
+		split = 1 - c
 	}
 	locals := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, locals.close()) }()
@@ -174,23 +186,23 @@ func (t *SMTStringTheory) arrangeLiteralSuffixConcats(left, right ast.ASTHandle)
 			return err
 		}
 		if known[0] && known[2] {
-			if err := guards.length(x, values[0]); err != nil {
+			if err := guards.length(x, &values[0]); err != nil {
 				return err
 			}
-			if err := guards.length(a, values[2]); err != nil {
+			if err := guards.length(a, &values[2]); err != nil {
 				return err
 			}
-			if err := items.length(witness, new(big.Int).Sub(values[2], values[0])); err != nil {
+			if err := t.withStringDifference(&values[2], &values[0], func(d *numeral.Rational) error { return items.length(witness, d) }); err != nil {
 				return err
 			}
 		} else {
-			if err := guards.length(y, values[1]); err != nil {
+			if err := guards.length(y, &values[1]); err != nil {
 				return err
 			}
-			if err := guards.length(textTerm, values[3]); err != nil {
+			if err := guards.length(textTerm, &values[3]); err != nil {
 				return err
 			}
-			if err := items.length(witness, new(big.Int).Sub(values[1], values[3])); err != nil {
+			if err := t.withStringDifference(&values[1], &values[3], func(d *numeral.Rational) error { return items.length(witness, d) }); err != nil {
 				return err
 			}
 		}
@@ -231,27 +243,32 @@ func (t *SMTStringTheory) arrangeLiteralSuffixConcats(left, right ast.ASTHandle)
 		if err := guards.add(parentEq); err != nil {
 			return err
 		}
-		var difference *big.Int
+		difference := smtQZero()
+		defer t.qdel(&difference, &result)
 		if known[0] && known[2] {
-			if err := guards.length(x, values[0]); err != nil {
+			if err := guards.length(x, &values[0]); err != nil {
 				return err
 			}
-			if err := guards.length(a, values[2]); err != nil {
+			if err := guards.length(a, &values[2]); err != nil {
 				return err
 			}
-			difference = new(big.Int).Sub(values[0], values[2])
+			if err := qm.Sub(&values[0], &values[2], &difference); err != nil {
+				return err
+			}
 		} else {
-			if err := guards.length(y, values[1]); err != nil {
+			if err := guards.length(y, &values[1]); err != nil {
 				return err
 			}
-			difference = new(big.Int).Sub(values[3], values[1])
+			if err := qm.Sub(&values[3], &values[1], &difference); err != nil {
+				return err
+			}
 		}
 		// The retained new_eq_check predecessor rejects lengths that cannot
 		// fit the literal. Keep the native extraction precondition explicit.
-		if difference.Sign() < 0 || !difference.IsUint64() || difference.Uint64() > uint64(len(text)) {
-			return ast.ErrASTDomain
+		cut, err := t.stringTextCut(&difference, len(text))
+		if err != nil {
+			return err
 		}
-		cut := int(difference.Uint64())
 		prefixText, err := pin(t.stringLiteral(text[:cut]))
 		if err != nil {
 			return err
@@ -403,7 +420,7 @@ func (t *SMTStringTheory) arrangeLiteralSuffixConcats(left, right ast.ASTHandle)
 		if err := items.equate(y, remaining); err != nil {
 			return errors.Join(err, items.close())
 		}
-		if err := items.length(y, big.NewInt(int64(len(text)-cut))); err != nil {
+		if err := t.withStringRational(int64(len(text)-cut), func(r *numeral.Rational) error { return items.length(y, r) }); err != nil {
 			return errors.Join(err, items.close())
 		}
 		option, err := pin(m.MkAndArray(items.values))

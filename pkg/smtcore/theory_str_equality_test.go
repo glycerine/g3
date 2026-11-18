@@ -93,7 +93,7 @@ func stringSetLength(t *testing.T, m *ast.ASTManager, state *SMTInternalizerStat
 func TestSMTStringLengthReaderRequiresMixedAndCoreRoots(t *testing.T) {
 	m := astTestManager(t)
 	integerTheory, _ := stringTheoryFixture(t, m)
-	if _, known, err := integerTheory.lengthValue(astTestString(t, m, "ab")); err != nil || known {
+	if _, known, err := integerTheory.testLengthValue(astTestString(t, m, "ab")); err != nil || known {
 		t.Fatal("source mixed-arithmetic cast gate was bypassed", known, err)
 	}
 	// Use another manager/context so its arithmetic owner is truly mixed.
@@ -112,36 +112,36 @@ func TestSMTStringLengthReaderRequiresMixedAndCoreRoots(t *testing.T) {
 	}
 	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
 	arithmetic.value[variable].rational = smtQInt(7) // a candidate value, not a bound
-	if _, known, err := theory.lengthValue(x); err != nil || known {
+	if _, known, err := theory.testLengthValue(x); err != nil || known {
 		t.Fatal("candidate arithmetic value became a length premise", known, err)
 	}
 	astTestMust(t, state.PushScope())
 	stringSetLength(t, m, state, x, "7")
-	value, known, err := theory.lengthValue(x)
+	value, known, err := theory.testLengthValue(x)
 	astTestMust(t, err)
 	if !known || value.String() != "7" {
 		t.Fatal("actual core numeral root was not read", value, known)
 	}
 	word := stringEqualityConcat(t, m, astTestString(t, m, "ab"), x)
-	value, known, err = theory.lengthValue(word)
+	value, known, err = theory.testLengthValue(word)
 	astTestMust(t, err)
 	if !known || value.String() != "9" {
 		t.Fatal("concat length did not sum its known leaves", value, known)
 	}
 	astTestMust(t, state.PopScopes(1))
-	if _, known, err := theory.lengthValue(x); err != nil || known {
+	if _, known, err := theory.testLengthValue(x); err != nil || known {
 		t.Fatal("popped numeral root remained a length premise", known, err)
 	}
 	y, err := m.MkConst(astTestSymbol(t, m, "str-unknown-length-leaf"), sort)
 	astTestMust(t, err)
 	unknownWord := stringEqualityConcat(t, m, x, y)
 	wholeLength := stringSetLength(t, m, state, unknownWord, "11")
-	whole, known, err := theory.arithmeticValue(wholeLength)
+	whole, known, err := theory.testArithmeticValue(wholeLength)
 	astTestMust(t, err)
 	if !known || whole.String() != "11" {
 		t.Fatal("fixture did not establish the whole concat length root")
 	}
-	if _, known, err := theory.lengthValue(unknownWord); err != nil || known {
+	if _, known, err := theory.testLengthValue(unknownWord); err != nil || known {
 		t.Fatal("source concat-leaf traversal was replaced by a whole-word value", known, err)
 	}
 }

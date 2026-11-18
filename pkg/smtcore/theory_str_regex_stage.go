@@ -4,11 +4,11 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type smtStringRegexStage struct {
@@ -24,8 +24,14 @@ func (f *smtStringRegexStage) pin(value ast.ASTHandle, err error) (ast.ASTHandle
 	return value, f.locals.add(value)
 }
 
-func (f *smtStringRegexStage) number(value *big.Int) (ast.ASTHandle, error) {
-	return f.pin(f.theory.state.manager.ArithmeticIntegerNumeralText(value.String()))
+// number is m_autil.mk_numeral(value, true).
+func (f *smtStringRegexStage) number(value *numeral.Rational) (ast.ASTHandle, error) {
+	return f.pin(f.theory.state.manager.ArithmeticNumeralFromRational(value, true))
+}
+
+// numberInt is m_autil.mk_numeral(rational(value), true).
+func (f *smtStringRegexStage) numberInt(value int64) (ast.ASTHandle, error) {
+	return f.pin(smtMkArithNumeralInt(f.theory.state.manager, value, true))
 }
 
 func (f *smtStringRegexStage) publish(expression ast.ASTHandle) error {
@@ -53,11 +59,19 @@ func (f *smtStringRegexStage) assignment(member ast.ASTHandle) (lbool.LBool, err
 	return f.theory.state.Assignment(NewSMTLiteral(variable, false))
 }
 
-func stringRegexUnsignedLength(value *big.Int) (uint32, error) {
-	if value == nil || value.Sign() < 0 || !value.IsUint64() || value.Uint64() > uint64(^uint32(0)) {
+// stringRegexUnsignedLength is rational::get_unsigned for a length.
+func stringRegexUnsignedLength(q *numeral.RationalManager, value *numeral.Rational) (uint32, error) {
+	if value == nil || value.IsNeg() {
 		return 0, ast.ErrASTDomain
 	}
-	return uint32(value.Uint64()), nil
+	ok, err := q.IsUnsigned(value)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, ast.ErrASTDomain
+	}
+	return q.Unsigned(value)
 }
 
 func (f *smtStringRegexStage) registerLengths(member, word, regex ast.ASTHandle, assignment lbool.LBool) (result error) {
@@ -123,7 +137,7 @@ func (f *smtStringRegexStage) registerLengths(member, word, regex ast.ASTHandle,
 				return err
 			}
 		}
-		zero, err := f.number(new(big.Int))
+		zero, err := f.numberInt(0)
 		if err != nil {
 			return err
 		}
@@ -175,7 +189,7 @@ func (f *smtStringRegexStage) construct(member, regex ast.ASTHandle, options SMT
 	return t.findStringAutomatonInitialBounds(member, graph)
 }
 
-func (f *smtStringRegexStage) exactGuard(member, word ast.ASTHandle, assignment lbool.LBool, value *big.Int) (ast.ASTHandle, error) {
+func (f *smtStringRegexStage) exactGuard(member, word ast.ASTHandle, assignment lbool.LBool, value *numeral.Rational) (ast.ASTHandle, error) {
 	m := f.theory.state.manager
 	polarity := member
 	var err error
@@ -200,7 +214,7 @@ func (f *smtStringRegexStage) exactGuard(member, word ast.ASTHandle, assignment 
 	return f.pin(m.MkAndArray([]ast.ASTHandle{polarity, equal}))
 }
 
-func (f *smtStringRegexStage) exactPath(member, word ast.ASTHandle, assignment lbool.LBool, owner *rewriter.StringRegexAutomaton, value *big.Int) (result error) {
+func (f *smtStringRegexStage) exactPath(member, word ast.ASTHandle, assignment lbool.LBool, owner *rewriter.StringRegexAutomaton, value *numeral.Rational) (result error) {
 	t, m := f.theory, f.theory.state.manager
 	if value.Sign() == 0 {
 		graph, err := owner.Graph()
@@ -236,7 +250,7 @@ func (f *smtStringRegexStage) exactPath(member, word ast.ASTHandle, assignment l
 		t.regexStage.pathDone[member] = t.level
 		return nil
 	}
-	unsigned, err := stringRegexUnsignedLength(value)
+	unsigned, err := stringRegexUnsignedLength(f.theory.q(), value)
 	if err != nil {
 		return err
 	}
@@ -292,9 +306,9 @@ func (f *smtStringRegexStage) exactPath(member, word ast.ASTHandle, assignment l
 	return nil
 }
 
-func (f *smtStringRegexStage) refineBound(member, length ast.ASTHandle, owner *rewriter.StringRegexAutomaton, value *big.Int, upper bool) error {
+func (f *smtStringRegexStage) refineBound(member, length ast.ASTHandle, owner *rewriter.StringRegexAutomaton, value *numeral.Rational, upper bool) error {
 	m := f.theory.state.manager
-	unsigned, err := stringRegexUnsignedLength(value)
+	unsigned, err := stringRegexUnsignedLength(f.theory.q(), value)
 	if err != nil {
 		return err
 	}
@@ -335,7 +349,7 @@ func (f *smtStringRegexStage) refineBound(member, length ast.ASTHandle, owner *r
 			if !upper {
 				return nil
 			}
-			previous, createErr := f.number(big.NewInt(next))
+			previous, createErr := f.numberInt(next)
 			if createErr != nil {
 				return createErr
 			}
@@ -352,7 +366,7 @@ func (f *smtStringRegexStage) refineBound(member, length ast.ASTHandle, owner *r
 	} else if next == -1 {
 		rhs, err = f.pin(m.MkNot(bound))
 	} else {
-		refined, createErr := f.number(big.NewInt(next))
+		refined, createErr := f.numberInt(next)
 		if createErr != nil {
 			return createErr
 		}
@@ -393,6 +407,11 @@ func (t *SMTStringTheory) runStringRegexAutomataStage() (added bool, result erro
 		terms = append(terms, term)
 	}
 	stringSortHandles(t, terms)
+	q := t.q()
+	value, lower, upper := smtQZero(), smtQZero(), smtQZero()
+	defer t.qdel(&upper, &result)
+	defer t.qdel(&lower, &result)
+	defer t.qdel(&value, &result)
 	for _, member := range terms {
 		word, regex, matched, err := m.SequenceBinaryOperationArguments(member, 12)
 		if err != nil {
@@ -411,7 +430,10 @@ func (t *SMTStringTheory) runStringRegexAutomataStage() (added bool, result erro
 		if err = f.registerLengths(member, word, regex, assignment); err != nil {
 			return false, err
 		}
-		value, exact, err := t.lengthValue(word)
+		// rational exact_len_value, lower_bound_value, upper_bound_value
+		// (the source declares them per membership; these are reset by
+		// their readers each iteration).
+		exact, err := t.lengthValue(word, &value)
 		if err != nil {
 			return false, err
 		}
@@ -421,7 +443,7 @@ func (t *SMTStringTheory) runStringRegexAutomataStage() (added bool, result erro
 				continue
 			}
 			if owner != nil {
-				if err = f.exactPath(member, word, assignment, owner, value); err != nil {
+				if err = f.exactPath(member, word, assignment, owner, &value); err != nil {
 					return false, err
 				}
 				incrementStringRegexCounter(t.regexStage.lengthAttempts, regex)
@@ -434,29 +456,51 @@ func (t *SMTStringTheory) runStringRegexAutomataStage() (added bool, result erro
 		if err != nil {
 			return false, err
 		}
-		lower, hasLower, err := t.stringArithmeticBound(length, true)
+		hasLower, err := t.stringArithmeticBound(length, true, &lower)
 		if err != nil {
 			return false, err
 		}
-		upper, hasUpper, err := t.stringArithmeticBound(length, false)
+		hasUpper, err := t.stringArithmeticBound(length, false, &upper)
 		if err != nil {
 			return false, err
 		}
 		if !hasLower {
-			lower = new(big.Int)
+			if err = q.Reset(&lower); err != nil {
+				return false, err
+			}
 		}
 		if !hasUpper {
-			upper = new(big.Int)
+			if err = q.Reset(&upper); err != nil {
+				return false, err
+			}
 		} // Native unknown rationals still default to zero.
 		lastLower, seenLower := t.regexLastLower[word]
-		newLower := !seenLower || lastLower.Cmp(lower) != 0
+		newLower := !seenLower
+		if seenLower {
+			eq, err := q.Equal(lastLower, &lower)
+			if err != nil {
+				return false, err
+			}
+			newLower = !eq
+		}
 		lastUpper, seenUpper := t.regexStage.lastUpper[word]
-		newUpper := !seenUpper || lastUpper.Cmp(upper) != 0
+		newUpper := !seenUpper
+		if seenUpper {
+			eq, err := q.Equal(lastUpper, &upper)
+			if err != nil {
+				return false, err
+			}
+			newUpper = !eq
+		}
 		if newLower {
-			t.regexLastLower[word] = new(big.Int).Set(lower)
+			if err = t.setRegexBound(t.regexLastLower, word, &lower); err != nil {
+				return false, err
+			}
 		}
 		if newUpper {
-			t.regexStage.lastUpper[word] = new(big.Int).Set(upper)
+			if err = t.setRegexBound(t.regexStage.lastUpper, word, &upper); err != nil {
+				return false, err
+			}
 		}
 		if hasUpper && newUpper {
 			if owner == nil {
@@ -466,11 +510,11 @@ func (t *SMTStringTheory) runStringRegexAutomataStage() (added bool, result erro
 				continue
 			}
 			if assignment == lbool.True {
-				if err = f.refineBound(member, length, owner, upper, true); err != nil {
+				if err = f.refineBound(member, length, owner, &upper, true); err != nil {
 					return false, err
 				}
 			}
-		} else if hasLower && lower.Sign() != 0 && newLower {
+		} else if hasLower && !lower.IsZero() && newLower {
 			if owner == nil {
 				if err = f.construct(member, regex, options, true); err != nil {
 					return false, err
@@ -478,7 +522,7 @@ func (t *SMTStringTheory) runStringRegexAutomataStage() (added bool, result erro
 				continue
 			}
 			if assignment == lbool.True {
-				if err = f.refineBound(member, length, owner, lower, false); err != nil {
+				if err = f.refineBound(member, length, owner, &lower, false); err != nil {
 					return false, err
 				}
 			}
@@ -501,4 +545,16 @@ func (t *SMTStringTheory) runStringRegexAutomataStage() (added bool, result erro
 	// Native regex_axiom_add's FC_CONTINUE return is commented out. The
 	// enclosing final checker must continue into its remaining stages.
 	return f.added, nil
+}
+
+// setRegexBound is regex_last_lower_bound/upper_bound.insert(str, value):
+// the map's rational is a copy; an overwritten one is freed.
+func (t *SMTStringTheory) setRegexBound(bounds map[ast.ASTHandle]*numeral.Rational, word ast.ASTHandle, value *numeral.Rational) error {
+	r := bounds[word]
+	if r == nil {
+		fresh := smtQZero()
+		r = &fresh
+		bounds[word] = r
+	}
+	return t.q().Copy(r, value)
 }

@@ -203,7 +203,7 @@ func TestSMTStringConcatConstantRefusalAndLengthBounds(t *testing.T) {
 		equality, err := m.MkEq(concat, astTestString(t, m, "ab"))
 		astTestMust(t, err)
 		astTestPin(t, m, equality)
-		astTestMust(t, theory.solveConcatKnownLength(equality, x, y, "ab", big.NewInt(observed), true, nil, false))
+		astTestMust(t, theory.solveConcatKnownLength(equality, x, y, "ab", strTestQ(observed), true, nil, false))
 		axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 		astTestMust(t, err)
 		length, err := m.MkSequenceLength(x)

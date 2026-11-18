@@ -1,7 +1,6 @@
 package smtcore
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -164,15 +163,15 @@ func TestSMTStringPrefixConcatKnownLengthGuards(t *testing.T) {
 			astTestMust(t, guards.add(parent))
 			switch mode {
 			case 0:
-				astTestMust(t, guards.length(x, big.NewInt(1)))
+				astTestMust(t, guards.length(x, strTestQ(1)))
 			case 1:
-				astTestMust(t, guards.length(y, big.NewInt(3)))
-				astTestMust(t, guards.length(n, big.NewInt(2)))
+				astTestMust(t, guards.length(y, strTestQ(3)))
+				astTestMust(t, guards.length(n, strTestQ(2)))
 			case 2:
-				astTestMust(t, guards.length(x, big.NewInt(3)))
+				astTestMust(t, guards.length(x, strTestQ(3)))
 			case 3:
-				astTestMust(t, guards.length(y, big.NewInt(1)))
-				astTestMust(t, guards.length(n, big.NewInt(2)))
+				astTestMust(t, guards.length(y, strTestQ(1)))
+				astTestMust(t, guards.length(n, strTestQ(2)))
 			}
 			if mode < 2 {
 				astTestMust(t, items.equate(x, astTestString(t, m, "\x00")))
@@ -183,7 +182,7 @@ func TestSMTStringPrefixConcatKnownLengthGuards(t *testing.T) {
 				tail := stringEqualityConcat(t, m, variables[0], y)
 				astTestMust(t, items.equate(x, prefix))
 				astTestMust(t, items.equate(n, tail))
-				astTestMust(t, items.length(variables[0], big.NewInt(1)))
+				astTestMust(t, items.length(variables[0], strTestQ(1)))
 			}
 			premise, err := m.MkAndArray(guards.values)
 			astTestMust(t, err)
@@ -295,7 +294,7 @@ func TestSMTStringPrefixConcatOverlapKnownAndUnknown(t *testing.T) {
 				equality, err := stringEqAtom(m, left, right)
 				astTestMust(t, err)
 				astTestMust(t, guards.add(equality))
-				astTestMust(t, guards.length(x, big.NewInt(3)))
+				astTestMust(t, guards.length(x, strTestQ(3)))
 				premise, err := m.MkAndArray(guards.values)
 				astTestMust(t, err)
 				astTestPin(t, m, premise)

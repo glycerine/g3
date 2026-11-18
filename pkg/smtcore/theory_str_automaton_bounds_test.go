@@ -158,7 +158,7 @@ func TestSMTStringAutomatonInitialBoundsGuardsAndPersistentCache(t *testing.T) {
 		if allowsZero {
 			want = "0"
 		}
-		if value := theory.regexLastLower[word]; value == nil || value.String() != want {
+		if value := theory.regexLastLower[word]; value == nil || theory.testBig(value).String() != want {
 			t.Fatal("last lower bound did not retain native word-keyed lifetime", value, want)
 		}
 	}
@@ -178,7 +178,7 @@ func TestSMTStringAutomatonInitialBoundsNoNonzeroSolutionReleaseArm(t *testing.T
 	if err := theory.findStringAutomatonInitialBounds(membership, automata.Epsilon()); err != nil || len(theory.refs) == before {
 		t.Fatal("epsilon-only initial bound did not assert the release-build lemma", err)
 	}
-	if value := theory.regexLastLower[word]; value == nil || value.Sign() != 0 {
+	if value := theory.regexLastLower[word]; value == nil || !value.IsZero() {
 		t.Fatal("zero-bound publication was lost", value)
 	}
 	delete(theory.regexLastLower, word)
@@ -186,7 +186,7 @@ func TestSMTStringAutomatonInitialBoundsNoNonzeroSolutionReleaseArm(t *testing.T
 	if err := theory.findStringAutomatonInitialBounds(membership, automata.Empty()); err != nil || len(theory.refs) == before {
 		t.Fatal("empty language did not assert the release-build lemma", err)
 	}
-	if value := theory.regexLastLower[word]; value == nil || value.Int64() != -1 {
+	if value := theory.regexLastLower[word]; value == nil || !value.IsMinusOne() {
 		t.Fatal("empty language did not record the -1 sentinel bound", value)
 	}
 }

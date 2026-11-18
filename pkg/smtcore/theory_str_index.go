@@ -7,7 +7,6 @@ package smtcore
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -46,12 +45,12 @@ func (t *SMTStringTheory) instantiateIndex(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	text, _, numeral, err := m.ArithmeticNumeralText(start)
+	// m_autil.is_zero(ex->get_arg(2))
+	zero, err := m.ArithmeticNumeralIsZero(start)
 	if err != nil {
 		return err
 	}
-	value, parsed := new(big.Rat).SetString(text)
-	if !numeral || !parsed || value.Sign() != 0 {
+	if !zero {
 		return t.instantiateIndexExtended(node)
 	}
 	t.axiomatized[expression] = struct{}{}

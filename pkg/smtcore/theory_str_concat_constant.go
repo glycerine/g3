@@ -5,10 +5,11 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (result error) {
@@ -140,11 +141,15 @@ func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (r
 		return premises.imply(conclusion)
 	}
 	// eval_concat cannot succeed when neither operand has a class value.
-	al, alk, err := t.lengthValue(a)
+	// rational arg1Len, arg2Len
+	al, bl := smtQZero(), smtQZero()
+	defer t.qdel(&bl, &result)
+	defer t.qdel(&al, &result)
+	alk, err := t.lengthValue(a, &al)
 	if err != nil {
 		return err
 	}
-	bl, blk, err := t.lengthValue(b)
+	blk, err := t.lengthValue(b, &bl)
 	if err != nil {
 		return err
 	}
@@ -155,12 +160,12 @@ func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (r
 		if err != nil {
 			return err
 		}
-		return t.solveConcatKnownLength(equality, a, b, text, al, alk, bl, blk)
+		return t.solveConcatKnownLength(equality, a, b, text, &al, alk, &bl, blk)
 	}
 	return t.solveConcatArrangements(concat, constant, a, b, text)
 }
 
-func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, text string, al *big.Int, alk bool, bl *big.Int, blk bool) (result error) {
+func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, text string, al *numeral.Rational, alk bool, bl *numeral.Rational, blk bool) (result error) {
 	m := t.state.manager
 	variable, length := a, al
 	if !alk {
@@ -184,7 +189,8 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 		term, err = pin(m.MkSequenceLength(variable))
 		return
 	}
-	if length.Sign() < 0 {
+	q := t.q()
+	if length.IsNeg() {
 		term, numeral, err := bounded("0")
 		if err != nil {
 			return err
@@ -200,8 +206,16 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 	if err := guards.add(equality); err != nil {
 		return err
 	}
-	if length.Cmp(new(big.Int).SetUint64(uint64(len(text)))) > 0 {
-		term, numeral, err := bounded(new(big.Int).SetUint64(uint64(len(text))).String())
+	// rational concatStrLen((unsigned)const_str.length())
+	textLength := smtQZero()
+	defer t.qdel(&textLength, &result)
+	if err := q.SetUint64(&textLength, uint64(len(text))); err != nil {
+		return err
+	}
+	if c, err := q.Compare(length, &textLength); err != nil {
+		return err
+	} else if c > 0 {
+		term, numeral, err := bounded(strconv.Itoa(len(text)))
 		if err != nil {
 			return err
 		}
@@ -211,7 +225,11 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 		}
 		return guards.imply(conclusion)
 	}
-	split := int(length.Uint64())
+	splitLength, err := q.Uint64(length)
+	if err != nil {
+		return err
+	}
+	split := int(splitLength)
 	if !alk {
 		split = len(text) - split
 	}
@@ -271,7 +289,7 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 			piece, known = text[split:], blk
 		}
 		if !known {
-			if err := conclusions.length(expression, new(big.Int).SetUint64(uint64(len(piece)))); err != nil {
+			if err := t.withStringRational(int64(len(piece)), func(r *numeral.Rational) error { return conclusions.length(expression, r) }); err != nil {
 				return err
 			}
 		}

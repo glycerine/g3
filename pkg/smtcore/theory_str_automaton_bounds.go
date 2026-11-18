@@ -5,7 +5,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -123,13 +122,26 @@ func (t *SMTStringTheory) findStringAutomatonInitialBounds(membership ast.ASTHan
 		return err
 	}
 	if zeroAccepted {
-		t.regexLastLower[word] = new(big.Int)
+		zero := smtQZero()
+		if err = t.setRegexBound(t.regexLastLower, word, &zero); err != nil {
+			return err
+		}
 	}
 	// Both nonzero_lower_bound == -1 arms are UNREACHABLE(); in the release
 	// build (__builtin_unreachable) they take the ordinary arm, so the
 	// sentinel -1 becomes the bound: (>= (str.len x) (- 1)).
 	if !zeroAccepted {
-		t.regexLastLower[word] = big.NewInt(nonzero)
+		bound := smtQZero()
+		err = t.q().SetInt64(&bound, nonzero)
+		if err == nil {
+			err = t.setRegexBound(t.regexLastLower, word, &bound)
+		}
+		if e := smtQDel(t.q(), &bound); e != nil && err == nil {
+			err = e
+		}
+		if err != nil {
+			return err
+		}
 	}
 	bound, err := pin(m.ArithmeticIntegerNumeralText(strconv.FormatInt(nonzero, 10)))
 	if err != nil {

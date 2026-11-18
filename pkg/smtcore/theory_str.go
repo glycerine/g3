@@ -5,10 +5,10 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/backtrack"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // SMTStringTheory is the distinct theory_str owner selected by native QF_S
@@ -58,7 +58,8 @@ type SMTStringTheory struct {
 	regexTerms          map[ast.ASTHandle]struct{}
 	regexTermsByString  map[ast.ASTHandle][]ast.ASTHandle
 	regexNFACache       map[ast.ASTHandle]*smtStringNFA
-	regexLastLower      map[ast.ASTHandle]*big.Int
+	regexLastLower      map[ast.ASTHandle]*numeral.Rational
+	qErr                error // first numeral failure of a step that cannot return it
 	stringChars         map[ast.ASTHandle][]ast.ASTHandle
 	concatBreakFlags    map[[2]ast.ASTHandle]ast.ASTHandle
 	overlapAssumption   ast.ASTRef
@@ -106,7 +107,7 @@ func newSMTStringTheory(family ast.FamilyID, parameters *SMTStrParams, borrowed 
 	t.regexTerms = make(map[ast.ASTHandle]struct{})
 	t.regexTermsByString = make(map[ast.ASTHandle][]ast.ASTHandle)
 	t.regexNFACache = make(map[ast.ASTHandle]*smtStringNFA)
-	t.regexLastLower = make(map[ast.ASTHandle]*big.Int)
+	t.regexLastLower = make(map[ast.ASTHandle]*numeral.Rational)
 	t.regexStage = newStringRegexStageState()
 	t.testers = newStringTesterState()
 	t.stringChars = make(map[ast.ASTHandle][]ast.ASTHandle)
@@ -477,6 +478,22 @@ func (t *SMTStringTheory) Close() (result error) {
 	t.lengthTestVariables, t.valueTestVariables, t.unrollTestVariables = nil, nil, nil
 	t.variableScopes, t.axiomatized = nil, nil
 	t.containsByPair, t.containsIndex, t.containsOrder = nil, nil, nil
+	// The rationals in the theory's maps (binary_search_len_tester_info,
+	// the regex length bounds) die with the theory.
+	if t.state != nil && t.state.manager != nil && t.state.manager.NumeralService() != nil {
+		q := t.q()
+		for _, bounds := range t.testers.binaryBounds {
+			result = smtErrJoin(result, bounds.del(q))
+		}
+		for _, r := range t.regexLastLower {
+			result = smtErrJoin(result, smtQDel(q, r))
+		}
+		for _, r := range t.regexStage.lastUpper {
+			result = smtErrJoin(result, smtQDel(q, r))
+		}
+	}
+	result = smtErrJoin(result, t.qErr)
+	t.qErr = nil
 	t.regexVariables, t.regexTerms, t.regexNFACache = nil, nil, nil
 	t.regexLastLower = nil
 	t.stringChars = nil
@@ -487,6 +504,14 @@ func (t *SMTStringTheory) Close() (result error) {
 	t.cutHistory, t.arrangementVars = nil, nil
 	t.closed = true
 	return result
+}
+
+// keepQ records the first numeral failure of a step that cannot return it;
+// Close reports it.
+func (t *SMTStringTheory) keepQ(err error) {
+	if err != nil && t.qErr == nil {
+		t.qErr = err
+	}
 }
 
 func (t *SMTStringTheory) Fresh() (*SMTStringTheory, error) {

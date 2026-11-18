@@ -5,13 +5,13 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (t *SMTStringTheory) inferStringConcatArgument(concat ast.ASTHandle, total *big.Int) (result error) {
-	if total.Sign() < 0 {
+func (t *SMTStringTheory) inferStringConcatArgument(concat ast.ASTHandle, total *numeral.Rational) (result error) {
+	if total.IsNeg() {
 		return nil
 	}
 	m := t.state.manager
@@ -19,11 +19,16 @@ func (t *SMTStringTheory) inferStringConcatArgument(concat ast.ASTHandle, total 
 	if err != nil || !isConcat {
 		return err
 	}
-	left, lk, err := t.lengthValue(first)
+	// rational arg0_len, arg1_len and the difference
+	left, right, difference := smtQZero(), smtQZero(), smtQZero()
+	defer t.qdel(&difference, &result)
+	defer t.qdel(&right, &result)
+	defer t.qdel(&left, &result)
+	lk, err := t.lengthValue(first, &left)
 	if err != nil {
 		return err
 	}
-	right, rk, err := t.lengthValue(second)
+	rk, err := t.lengthValue(second, &right)
 	if err != nil {
 		return err
 	}
@@ -38,32 +43,38 @@ func (t *SMTStringTheory) inferStringConcatArgument(concat ast.ASTHandle, total 
 	if lk == rk {
 		return nil
 	}
-	missing, known, value := first, second, right
+	missing, known, value := first, second, &right
 	if lk {
-		missing, known, value = second, first, left
+		missing, known, value = second, first, &left
 	}
 	if err := premises.length(known, value); err != nil {
 		return err
 	}
-	difference := new(big.Int).Sub(total, value)
-	if difference.Sign() < 0 {
+	if err := t.q().Sub(total, value, &difference); err != nil {
+		return err
+	}
+	if difference.IsNeg() {
 		return nil
 	}
 	conclusion := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, conclusion.close()) }()
-	if err := conclusion.length(missing, difference); err != nil {
+	if err := conclusion.length(missing, &difference); err != nil {
 		return err
 	}
 	return premises.imply(conclusion.values[0])
 }
 
-func (t *SMTStringTheory) inferStringConcatEquality(left, right ast.ASTHandle) error {
-	total, known, err := t.lengthValue(left)
+func (t *SMTStringTheory) inferStringConcatEquality(left, right ast.ASTHandle) (result error) {
+	// rational nLen (and the readers' discarded values)
+	total, scratch := smtQZero(), smtQZero()
+	defer t.qdel(&scratch, &result)
+	defer t.qdel(&total, &result)
+	known, err := t.lengthValue(left, &total)
 	if err != nil {
 		return err
 	}
 	if !known {
-		total, known, err = t.lengthValue(right)
+		known, err = t.lengthValue(right, &total)
 		if err != nil {
 			return err
 		}
@@ -81,7 +92,7 @@ func (t *SMTStringTheory) inferStringConcatEquality(left, right ast.ASTHandle) e
 			continue
 		}
 		for _, term := range []ast.ASTHandle{first, second, side} {
-			if _, _, err := t.lengthValue(term); err != nil {
+			if _, err := t.lengthValue(term, &scratch); err != nil {
 				return err
 			}
 		}
@@ -89,10 +100,10 @@ func (t *SMTStringTheory) inferStringConcatEquality(left, right ast.ASTHandle) e
 	if !known {
 		return nil
 	}
-	if err := t.inferStringConcatArgument(left, total); err != nil {
+	if err := t.inferStringConcatArgument(left, &total); err != nil {
 		return err
 	}
-	return t.inferStringConcatArgument(right, total)
+	return t.inferStringConcatArgument(right, &total)
 }
 
 // Native shared-concat groups skip step 1 entirely. Otherwise select the
@@ -136,10 +147,15 @@ func (t *SMTStringTheory) simplifyStringConcatEquality(left, right ast.ASTHandle
 		return err
 	}
 	// Snapshot all four lengths before inference, as in the source.
-	lengths := [4]*big.Int{}
+	lengths := [4]numeral.Rational{smtQZero(), smtQZero(), smtQZero(), smtQZero()}
+	defer func() {
+		for i := range lengths {
+			t.qdel(&lengths[i], &result)
+		}
+	}()
 	known := [4]bool{}
 	for i, expression := range []ast.ASTHandle{x, y, a, b} {
-		lengths[i], known[i], err = t.lengthValue(expression)
+		known[i], err = t.lengthValue(expression, &lengths[i])
 		if err != nil {
 			return err
 		}
@@ -251,7 +267,13 @@ func (t *SMTStringTheory) simplifyStringConcatEquality(left, right ast.ASTHandle
 	}
 	// Quick paths 2-1 and 2-2 (opt_NoQuickReturn_IntegerTheory is false).
 	for i, pair := range [][2]ast.ASTHandle{{x, a}, {y, b}} {
-		if !known[i] || !known[i+2] || lengths[i].Cmp(lengths[i+2]) != 0 {
+		equal := false
+		if known[i] && known[i+2] {
+			if equal, err = t.q().Equal(&lengths[i], &lengths[i+2]); err != nil {
+				return err
+			}
+		}
+		if !equal {
 			continue
 		}
 		same, err := t.sameStringClass(pair[0], pair[1])
@@ -421,29 +443,38 @@ func (t *SMTStringTheory) inferLenConcat(concat ast.ASTHandle) (result error) {
 	if err != nil {
 		return err
 	}
-	firstLength, firstKnown, err := t.lengthValue(first)
+	// rational arg0_len, arg1_len, nnLen
+	firstLength, secondLength, concatLength := smtQZero(), smtQZero(), smtQZero()
+	defer t.qdel(&concatLength, &result)
+	defer t.qdel(&secondLength, &result)
+	defer t.qdel(&firstLength, &result)
+	firstKnown, err := t.lengthValue(first, &firstLength)
 	if err != nil {
 		return err
 	}
-	secondLength, secondKnown, err := t.lengthValue(second)
+	secondKnown, err := t.lengthValue(second, &secondLength)
 	if err != nil {
 		return err
 	}
-	_, concatKnown, err := t.lengthValue(concat)
+	concatKnown, err := t.lengthValue(concat, &concatLength)
 	if err != nil || !firstKnown || !secondKnown || concatKnown {
 		return err
 	}
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
-	if err := premises.length(first, firstLength); err != nil {
+	if err := premises.length(first, &firstLength); err != nil {
 		return err
 	}
-	if err := premises.length(second, secondLength); err != nil {
+	if err := premises.length(second, &secondLength); err != nil {
 		return err
 	}
 	conclusion := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, conclusion.close()) }()
-	if err := conclusion.length(concat, new(big.Int).Add(firstLength, secondLength)); err != nil {
+	// mk_int(arg0_len + arg1_len): the sum is a rational temporary.
+	if err := t.q().Add(&firstLength, &secondLength, &concatLength); err != nil {
+		return err
+	}
+	if err := conclusion.length(concat, &concatLength); err != nil {
 		return err
 	}
 	return premises.imply(conclusion.values[0])

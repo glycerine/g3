@@ -18,7 +18,7 @@ func TestSMTStringBinaryCaseSplitTruthAndLiteralSideEffects(t *testing.T) {
 		if !ok {
 			t.Fatal(text)
 		}
-		root, err := theory.generateStringBinaryCaseSplit(word, tester, &smtStringBinaryBounds{midpoint: mid})
+		root, err := theory.generateStringBinaryCaseSplit(word, tester, &smtStringBinaryBounds{lower: smtQZero(), upper: smtQZero(), window: smtQZero(), midpoint: *theory.testRational(mid)})
 		astTestMust(t, err)
 		formula, err := m.RefGet(root)
 		astTestMust(t, err)
@@ -85,14 +85,14 @@ func TestSMTStringBinaryWindowsExpansionAndImmutableBounds(t *testing.T) {
 		astTestMust(t, m.DelRef(&root))
 		stack = theory.testers.binaryStacks[word]
 		bounds := theory.testers.binaryBounds[stack[len(stack)-1]]
-		if bounds.midpoint.String() != want {
+		if theory.testBig(&bounds.midpoint).String() != want {
 			t.Fatal("binary midpoint", bounds.midpoint, want)
 		}
-		if want == "96" && (bounds.lower.String() != "65" || bounds.upper.String() != "128" || bounds.window.String() != "128") {
+		if want == "96" && (theory.testBig(&bounds.lower).String() != "65" || theory.testBig(&bounds.upper).String() != "128" || theory.testBig(&bounds.window).String() != "128") {
 			t.Fatal("upper-window expansion changed", bounds)
 		}
 	}
-	if initial.lower.Sign() != 0 || initial.midpoint.String() != "32" || initial.upper.String() != "64" || initial.window.String() != "64" {
+	if initial.lower.Sign() != 0 || theory.testBig(&initial.midpoint).String() != "32" || theory.testBig(&initial.upper).String() != "64" || theory.testBig(&initial.window).String() != "64" {
 		t.Fatal("child update mutated prior bounds")
 	}
 	if len(theory.testers.lengthIndicators[word]) != 0 || len(theory.testers.lengthSubjects) != 0 {
@@ -140,7 +140,7 @@ func TestSMTStringBinaryScopeRollbackAndPersistentTesterReuse(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, m.DelRef(&root))
 	low := theory.testers.binaryLow[first]
-	if theory.testers.binaryBounds[low].midpoint.String() != "15" {
+	if theory.testBig(&theory.testers.binaryBounds[low].midpoint).String() != "15" {
 		t.Fatal("lower branch midpoint changed")
 	}
 	astTestMust(t, state.PopScopes(2))
@@ -169,7 +169,7 @@ func TestSMTStringBinaryNegativeMidpointAndConcreteValue(t *testing.T) {
 		astTestMust(t, err)
 		astTestMust(t, m.DelRef(&root))
 		stack = theory.testers.binaryStacks[word]
-		if got := theory.testers.binaryBounds[stack[len(stack)-1]].midpoint.String(); got != want {
+		if got := theory.testBig(&theory.testers.binaryBounds[stack[len(stack)-1]].midpoint).String(); got != want {
 			t.Fatal("negative floor midpoint", got, want)
 		}
 	}
@@ -235,7 +235,7 @@ func TestSMTStringBinaryKnownBigLengthAndDispatchGuards(t *testing.T) {
 	astTestMust(t, m.DelRef(&root))
 	first := theory.testers.binaryStacks[word][0]
 	bounds := theory.testers.binaryBounds[first]
-	if bounds.midpoint.String() != "18446744073709551617" || bounds.upper.String() != "36893488147419103234" {
+	if theory.testBig(&bounds.midpoint).String() != "18446744073709551617" || theory.testBig(&bounds.upper).String() != "36893488147419103234" {
 		t.Fatal("known arbitrary-precision initial length lost")
 	}
 	decl, err := m.GetDecl(first)
@@ -300,7 +300,7 @@ func TestSMTStringBinaryCachedSuccessorAllowsBigUpdatedWindow(t *testing.T) {
 	root, err = theory.generateStringBinaryLengthOptions(word, first, "more")
 	astTestMust(t, err)
 	astTestMust(t, m.DelRef(&root))
-	if theory.freshID != fresh || theory.testers.binaryStacks[word][1] != high || theory.testers.binaryBounds[high].midpoint.String() != "27670116110564327426" {
+	if theory.freshID != fresh || theory.testers.binaryStacks[word][1] != high || theory.testBig(&theory.testers.binaryBounds[high].midpoint).String() != "27670116110564327426" {
 		t.Fatal("cached tester incorrectly subjected to fresh int32 name conversion")
 	}
 	astTestMust(t, state.PopScopes(1))

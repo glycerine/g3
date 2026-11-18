@@ -3,7 +3,7 @@ package smtcore
 // Source: src/smt/theory_str.cpp final_check_eh per-String regex intersection.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -32,17 +32,17 @@ func (f *smtStringRegexStage) intersections(options SMTStrState) error {
 			// Native executes these readers before inspecting assumptions.
 			// Their returned values are unused for the retained unbounded
 			// specialization, but their real preconditions/errors still apply.
-			if _, _, err = t.lengthValue(word); err != nil {
+			if err = t.discardStringRational(func(r *numeral.Rational) error { _, err := t.lengthValue(word, r); return err }); err != nil {
 				return err
 			}
 			length, err := f.pin(m.MkSequenceLength(word))
 			if err != nil {
 				return err
 			}
-			if _, _, err = t.stringArithmeticBound(length, true); err != nil {
+			if err = t.discardStringRational(func(r *numeral.Rational) error { _, err := t.stringArithmeticBound(length, true, r); return err }); err != nil {
 				return err
 			}
-			if _, _, err = t.stringArithmeticBound(length, false); err != nil {
+			if err = t.discardStringRational(func(r *numeral.Rational) error { _, err := t.stringArithmeticBound(length, false, r); return err }); err != nil {
 				return err
 			}
 			// Fork fix: a membership popped out of the context has no
@@ -171,7 +171,7 @@ func (f *smtStringRegexStage) intersections(options SMTStrState) error {
 			if err != nil {
 				return err
 			}
-			zero, err := f.number(new(big.Int))
+			zero, err := f.numberInt(0)
 			if err != nil {
 				return err
 			}

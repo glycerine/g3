@@ -146,12 +146,16 @@ func (t *SMTStringTheory) uniqueStringConcatLeaves(expression ast.ASTHandle) ([]
 }
 
 func (t *SMTStringTheory) propagateStringLengthWithinClass(variable ast.ASTHandle) (added bool, result error) {
-	if _, known, err := t.lengthValue(variable); err != nil || known {
+	// rational varLen, nodeLen
+	varLen, value := smtQZero(), smtQZero()
+	defer t.qdel(&value, &result)
+	defer t.qdel(&varLen, &result)
+	if known, err := t.lengthValue(variable, &varLen); err != nil || known {
 		return false, err
 	}
 	m := t.state.manager
 	for _, member := range t.stringClass(variable) {
-		value, known, err := t.lengthValue(member)
+		known, err := t.lengthValue(member, &value)
 		if err != nil {
 			return false, err
 		}
@@ -165,7 +169,7 @@ func (t *SMTStringTheory) propagateStringLengthWithinClass(variable ast.ASTHandl
 		if err := premises.equate(variable, member); err != nil {
 			return false, err
 		}
-		if err := premises.lengthLenFirst(member, value); err != nil {
+		if err := premises.lengthLenFirst(member, &value); err != nil {
 			return false, err
 		}
 		// expr_ref axl(m.mk_and(l_items...)) comes before mk_strlen(var).
@@ -244,13 +248,18 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 			if err := locals.add(length); err != nil {
 				return err
 			}
-			if _, known, err := t.arithmeticValue(length); err != nil || known {
+			// rational lenValue (get_arith_value, then get_len_value)
+			value := smtQZero()
+			defer t.qdel(&value, &result)
+			if known, err := t.arithmeticValue(length, &value); err != nil || known {
 				return err
 			}
-			value, known, err := t.lengthValue(concat)
+			known, err := t.lengthValue(concat, &value)
 			if err != nil || !known {
 				return err
 			}
+			leafValue := smtQZero()
+			defer t.qdel(&leafValue, &result)
 			leaves, err := t.uniqueStringConcatLeaves(concat)
 			if err != nil {
 				return err
@@ -258,11 +267,11 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 			premises := smtStringLengthPremises{theory: t}
 			defer func() { result = errors.Join(result, premises.close()) }()
 			for _, leaf := range leaves {
-				leafValue, known, err := t.lengthValue(leaf)
+				known, err := t.lengthValue(leaf, &leafValue)
 				if err != nil || !known {
 					return err
 				}
-				if err := premises.lengthLenFirst(leaf, leafValue); err != nil {
+				if err := premises.lengthLenFirst(leaf, &leafValue); err != nil {
 					return err
 				}
 			}
@@ -274,7 +283,7 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 			if err := locals.add(guard); err != nil {
 				return err
 			}
-			numeral, err := m.ArithmeticIntegerNumeralText(value.String())
+			numeral, err := m.ArithmeticNumeralFromRational(&value, true)
 			if err != nil {
 				return err
 			}
@@ -306,7 +315,10 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 			if err != nil {
 				return added, err
 			}
-			_, known, err := t.arithmeticValue(length)
+			// rational lenValue; get_arith_value(lenAst, lenValue)
+			lenValue := smtQZero()
+			known, err := t.arithmeticValue(length, &lenValue)
+			err = smtErrJoin(err, smtQDel(t.q(), &lenValue))
 			if err == nil && !known {
 				var changed bool
 				changed, err = t.propagateStringLengthWithinClass(variable)

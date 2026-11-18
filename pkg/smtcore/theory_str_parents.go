@@ -5,9 +5,9 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTStringTheory) evalStringConcat(left, right ast.ASTHandle) (ast.ASTHandle, error) {
@@ -129,7 +129,9 @@ func (t *SMTStringTheory) simplifyStringParent(member, constant ast.ASTHandle, p
 		return expression, locals.add(expression)
 	}
 	// bool parentLen_exists = get_len_value(a_parent, parentLen)
-	parentLength, parentKnown, err := t.lengthValue(parent.Owner())
+	parentLength := smtQZero()
+	defer t.qdel(&parentLength, &result)
+	parentKnown, err := t.lengthValue(parent.Owner(), &parentLength)
 	if err != nil {
 		return err
 	}
@@ -143,7 +145,7 @@ func (t *SMTStringTheory) simplifyStringParent(member, constant ast.ASTHandle, p
 		if i == 1 {
 			other, left, right = first, first, constant
 		}
-		if err := t.makeUpParentArgumentLength(parent.Owner(), member, constant, other, i == 0, parentLength, parentKnown); err != nil {
+		if err := t.makeUpParentArgumentLength(parent.Owner(), member, constant, other, i == 0, &parentLength, parentKnown); err != nil {
 			return err
 		}
 		evaluated, err := pin(t.evalStringConcat(left, right))
@@ -350,37 +352,37 @@ func (t *SMTStringTheory) parentSimplificationConclusion(premises *smtStringLeng
 // |parent| = p && |member| = c  ->  |other| = p - c   (or its premise's
 // negation when p - c < 0). m.mk_and(eq1, eq2) evaluates eq2 first and each
 // ctx.mk_eq_atom(mk_strlen(e), mk_int(v)) builds the numeral first.
-func (t *SMTStringTheory) makeUpParentArgumentLength(parent, member, constant, other ast.ASTHandle, memberFirst bool, parentLength *big.Int, parentKnown bool) (result error) {
-	var memberLength, otherLength *big.Int
+func (t *SMTStringTheory) makeUpParentArgumentLength(parent, member, constant, other ast.ASTHandle, memberFirst bool, parentLength *numeral.Rational, parentKnown bool) (result error) {
+	// rational arg0Len/arg1Len, and the difference
+	memberLength, otherLength, difference := smtQZero(), smtQZero(), smtQZero()
+	defer t.qdel(&difference, &result)
+	defer t.qdel(&otherLength, &result)
+	defer t.qdel(&memberLength, &result)
 	var otherKnown bool
 	var err error
 	if memberFirst {
-		if memberLength, _, err = t.lengthValue(constant); err != nil {
+		if _, err = t.lengthValue(constant, &memberLength); err != nil {
 			return err
 		}
-		if otherLength, otherKnown, err = t.lengthValue(other); err != nil {
+		if otherKnown, err = t.lengthValue(other, &otherLength); err != nil {
 			return err
 		}
 	} else {
-		if otherLength, otherKnown, err = t.lengthValue(other); err != nil {
+		if otherKnown, err = t.lengthValue(other, &otherLength); err != nil {
 			return err
 		}
-		if memberLength, _, err = t.lengthValue(constant); err != nil {
+		if _, err = t.lengthValue(constant, &memberLength); err != nil {
 			return err
 		}
 	}
-	_ = otherLength
 	if !parentKnown || otherKnown {
 		return nil
-	}
-	if memberLength == nil {
-		memberLength = new(big.Int)
 	}
 	m := t.state.manager
 	locals := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, locals.close()) }()
-	lengthEquality := func(expression ast.ASTHandle, value *big.Int) (ast.ASTHandle, error) {
-		numeral, err := m.ArithmeticIntegerNumeralText(value.String())
+	lengthEquality := func(expression ast.ASTHandle, value *numeral.Rational) (ast.ASTHandle, error) {
+		numeral, err := m.ArithmeticNumeralFromRational(value, true)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -400,7 +402,7 @@ func (t *SMTStringTheory) makeUpParentArgumentLength(parent, member, constant, o
 		}
 		return equality, locals.hold(equality)
 	}
-	memberEquality, err := lengthEquality(member, memberLength)
+	memberEquality, err := lengthEquality(member, &memberLength)
 	if err != nil {
 		return err
 	}
@@ -423,11 +425,13 @@ func (t *SMTStringTheory) makeUpParentArgumentLength(parent, member, constant, o
 	if err := locals.hold(guard); err != nil {
 		return err
 	}
-	difference := new(big.Int).Sub(parentLength, memberLength)
-	if difference.Sign() < 0 {
+	if err := t.q().Sub(parentLength, &memberLength, &difference); err != nil {
+		return err
+	}
+	if difference.IsNeg() {
 		return premises.assertNegation()
 	}
-	conclusion, err := lengthEquality(other, difference)
+	conclusion, err := lengthEquality(other, &difference)
 	if err != nil {
 		return err
 	}

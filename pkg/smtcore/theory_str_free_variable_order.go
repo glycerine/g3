@@ -75,7 +75,10 @@ func (t *SMTStringTheory) stringFreeVariableOrder(candidates map[ast.ASTHandle]i
 			}
 		}
 		if standalone {
-			_, known, err := t.lengthValue(variable)
+			// rational len_value
+			lenValue := smtQZero()
+			known, err := t.lengthValue(variable, &lenValue)
+			err = smtErrJoin(err, smtQDel(t.q(), &lenValue))
 			if err != nil {
 				return nil, err
 			}

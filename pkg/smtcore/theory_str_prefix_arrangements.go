@@ -5,7 +5,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -39,25 +38,37 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 			return err
 		}
 	}
-	values := [4]*big.Int{}
+	qm := t.q()
+	values := stringLengths4()
+	defer func() { t.delStringLengths(values[:], &result) }()
 	known := [4]bool{false, false, true, false}
 	terms := [4]ast.ASTHandle{x, y, textTerm, n}
 	for _, i := range []int{0, 1, 3} {
-		values[i], known[i], err = t.lengthValue(terms[i])
+		known[i], err = t.lengthValue(terms[i], &values[i])
 		if err != nil {
 			return err
 		}
 	}
-	values[2] = new(big.Int).SetUint64(uint64(len(text)))
+	if err = qm.SetUint64(&values[2], uint64(len(text))); err != nil {
+		return err
+	}
 	witness, err := t.stringBoundaryWitness(left, right)
 	if err != nil {
 		return err
 	}
 	split := -1
 	if known[0] {
-		split = values[0].Cmp(values[2]) + 1
+		c, err := qm.Compare(&values[0], &values[2])
+		if err != nil {
+			return err
+		}
+		split = c + 1
 	} else if known[1] && known[3] {
-		split = 1 - values[1].Cmp(values[3])
+		c, err := qm.Compare(&values[1], &values[3])
+		if err != nil {
+			return err
+		}
+		split = 1 - c
 	}
 	locals := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, locals.close()) }()
@@ -85,24 +96,48 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 		if err := guards.add(parentEq); err != nil {
 			return err
 		}
-		prefixLength := values[0]
+		prefixLength := smtQZero()
+		defer t.qdel(&prefixLength, &result)
+		if err := qm.Copy(&prefixLength, &values[0]); err != nil {
+			return err
+		}
 		if !known[0] {
-			prefixLength = new(big.Int).Sub(values[2], new(big.Int).Sub(values[1], values[3]))
-			if err := guards.length(y, values[1]); err != nil {
+			// prefixLength = values[2] - (values[1] - values[3])
+			if err := qm.Sub(&values[1], &values[3], &prefixLength); err != nil {
 				return err
 			}
-			if err := guards.length(n, values[3]); err != nil {
+			if err := qm.Sub(&values[2], &prefixLength, &prefixLength); err != nil {
 				return err
 			}
-		} else if err := guards.length(x, values[0]); err != nil {
+			if err := guards.length(y, &values[1]); err != nil {
+				return err
+			}
+			if err := guards.length(n, &values[3]); err != nil {
+				return err
+			}
+		} else if err := guards.length(x, &values[0]); err != nil {
 			return err
 		}
 		// Native extraction requires a nonnegative prefix fitting this
 		// literal. Retained equality consistency precedes this algorithm.
-		if prefixLength.Sign() < 0 || !prefixLength.IsUint64() || prefixLength.Uint64() > uint64(len(text)) {
+		if prefixLength.IsNeg() {
 			return ast.ErrASTDomain
 		}
-		cut := int(prefixLength.Uint64())
+		fits, err := qm.IsUint64(&prefixLength)
+		if err != nil {
+			return err
+		}
+		if !fits {
+			return ast.ErrASTDomain
+		}
+		cutLength, err := qm.Uint64(&prefixLength)
+		if err != nil {
+			return err
+		}
+		if cutLength > uint64(len(text)) {
+			return ast.ErrASTDomain
+		}
+		cut := int(cutLength)
 		prefix, err := pin(t.stringLiteral(text[:cut]))
 		if err != nil {
 			return err
@@ -204,18 +239,23 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 		if err := guards.add(parentEq); err != nil {
 			return err
 		}
-		var residualLength *big.Int
+		residualLength := smtQZero()
+		defer t.qdel(&residualLength, &result)
 		if !known[0] {
-			residualLength = new(big.Int).Sub(values[3], values[1])
-			if err := guards.length(y, values[1]); err != nil {
+			if err := qm.Sub(&values[3], &values[1], &residualLength); err != nil {
 				return err
 			}
-			if err := guards.length(n, values[3]); err != nil {
+			if err := guards.length(y, &values[1]); err != nil {
+				return err
+			}
+			if err := guards.length(n, &values[3]); err != nil {
 				return err
 			}
 		} else {
-			residualLength = new(big.Int).Sub(values[0], values[2])
-			if err := guards.length(x, values[0]); err != nil {
+			if err := qm.Sub(&values[0], &values[2], &residualLength); err != nil {
+				return err
+			}
+			if err := guards.length(x, &values[0]); err != nil {
 				return err
 			}
 		}
@@ -256,7 +296,7 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 		if err := items.equate(n, tail); err != nil {
 			return err
 		}
-		if err := items.length(witness, residualLength); err != nil {
+		if err := items.length(witness, &residualLength); err != nil {
 			return err
 		}
 		conclusion, err := pin(m.MkAndArray(items.values))

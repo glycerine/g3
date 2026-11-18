@@ -135,8 +135,8 @@ func TestSMTStringVariableConcatKnownLengthOrientations(t *testing.T) {
 			astTestMust(t, err)
 			guards := smtStringLengthPremises{theory: theory}
 			astTestMust(t, guards.add(parentEq))
-			astTestMust(t, guards.length(first, big.NewInt(lv)))
-			astTestMust(t, guards.length(second, big.NewInt(rv)))
+			astTestMust(t, guards.length(first, strTestQ(lv)))
+			astTestMust(t, guards.length(second, strTestQ(rv)))
 			conclusions := smtStringLengthPremises{theory: theory}
 			one := stringEqualityConcat(t, m, prefix, witness)
 			two := stringEqualityConcat(t, m, witness, tail)
@@ -146,7 +146,7 @@ func TestSMTStringVariableConcatKnownLengthOrientations(t *testing.T) {
 			} else {
 				astTestMust(t, conclusions.equate(cut, two))
 			}
-			astTestMust(t, conclusions.length(witness, big.NewInt(1)))
+			astTestMust(t, conclusions.length(witness, strTestQ(1)))
 			premise, err := m.MkAndArray(guards.values)
 			astTestMust(t, err)
 			astTestPin(t, m, premise)
@@ -379,8 +379,8 @@ func TestSMTStringKnownConcatOverlapRetainsLengthPremise(t *testing.T) {
 		equality, err := stringEqAtom(m, left, right)
 		astTestMust(t, err)
 		astTestMust(t, guard.add(equality))
-		astTestMust(t, guard.length(x, big.NewInt(lx)))
-		astTestMust(t, guard.length(a, big.NewInt(la)))
+		astTestMust(t, guard.length(x, strTestQ(lx)))
+		astTestMust(t, guard.length(a, strTestQ(la)))
 		premise, err := m.MkAndArray(guard.values)
 		astTestMust(t, err)
 		astTestPin(t, m, premise)

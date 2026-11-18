@@ -1,7 +1,6 @@
 package smtcore
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -156,25 +155,25 @@ func TestSMTStringSuffixConcatKnownLengthGuards(t *testing.T) {
 			astTestMust(t, guards.add(parent))
 			switch mode {
 			case 0:
-				astTestMust(t, guards.length(x, big.NewInt(1)))
-				astTestMust(t, guards.length(a, big.NewInt(2)))
+				astTestMust(t, guards.length(x, strTestQ(1)))
+				astTestMust(t, guards.length(a, strTestQ(2)))
 			case 1:
-				astTestMust(t, guards.length(y, big.NewInt(3)))
-				astTestMust(t, guards.length(text, big.NewInt(2)))
+				astTestMust(t, guards.length(y, strTestQ(3)))
+				astTestMust(t, guards.length(text, strTestQ(2)))
 			case 2:
-				astTestMust(t, guards.length(x, big.NewInt(2)))
-				astTestMust(t, guards.length(a, big.NewInt(1)))
+				astTestMust(t, guards.length(x, strTestQ(2)))
+				astTestMust(t, guards.length(a, strTestQ(1)))
 			case 3:
 				// Native fixed cropping uses only the observed y length;
 				// the literal length is syntactically fixed, not a guard.
-				astTestMust(t, guards.length(y, big.NewInt(1)))
+				astTestMust(t, guards.length(y, strTestQ(1)))
 			}
 			if mode < 2 {
 				prefix := stringEqualityConcat(t, m, x, variables[0])
 				tail := stringEqualityConcat(t, m, variables[0], text)
 				astTestMust(t, items.equate(a, prefix))
 				astTestMust(t, items.equate(y, tail))
-				astTestMust(t, items.length(variables[0], big.NewInt(1)))
+				astTestMust(t, items.length(variables[0], strTestQ(1)))
 			} else {
 				prefix := stringEqualityConcat(t, m, a, astTestString(t, m, "\x00"))
 				astTestMust(t, items.equate(x, prefix))
@@ -291,8 +290,8 @@ func TestSMTStringSuffixConcatOverlapKnownAndUnknown(t *testing.T) {
 				equality, err := stringEqAtom(m, left, right)
 				astTestMust(t, err)
 				astTestMust(t, guards.add(equality))
-				astTestMust(t, guards.length(x, big.NewInt(1)))
-				astTestMust(t, guards.length(a, big.NewInt(2)))
+				astTestMust(t, guards.length(x, strTestQ(1)))
+				astTestMust(t, guards.length(a, strTestQ(2)))
 				premise, err := m.MkAndArray(guards.values)
 				astTestMust(t, err)
 				astTestPin(t, m, premise)

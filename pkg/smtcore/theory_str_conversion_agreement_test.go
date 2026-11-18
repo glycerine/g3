@@ -57,7 +57,7 @@ func TestSMTStringToIntAgreementUsesActualNumeralRoot(t *testing.T) {
 			numeral, err := m.ArithmeticIntegerNumeralText(number)
 			astTestMust(t, err)
 			stringConversionCoreEquality(t, state, expression, numeral)
-			value, known, err := theory.arithmeticValue(expression)
+			value, known, err := theory.testArithmeticValue(expression)
 			astTestMust(t, err)
 			if !known || value.String() != number {
 				t.Fatal("fixture did not establish an actual numeral root")

@@ -5,6 +5,7 @@ package smtcore
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTStringTheory) assignStringRegexUnrolls(unrolls []ast.ASTHandle) error {
@@ -40,12 +41,15 @@ func (t *SMTStringTheory) assignStringRegexUnroll(unroll ast.ASTHandle) (result 
 	if err != nil {
 		return err
 	}
-	low, known, err := t.stringArithmeticBound(count, true)
+	// rational low, high
+	low := smtQZero()
+	defer t.qdel(&low, &result)
+	known, err := t.stringArithmeticBound(count, true, &low)
 	if err != nil {
 		return err
 	}
 	// The unused high endpoint still has an actual native reader call.
-	if _, _, err = t.stringArithmeticBound(count, false); err != nil {
+	if err = t.discardStringRational(func(r *numeral.Rational) error { _, err := t.stringArithmeticBound(count, false, r); return err }); err != nil {
 		return err
 	}
 	locals := smtStringLengthPremises{theory: t}
@@ -66,7 +70,7 @@ func (t *SMTStringTheory) assignStringRegexUnroll(unroll ast.ASTHandle) (result 
 		return items.add(equal)
 	}
 	var formula ast.ASTHandle
-	if known && low.Sign() < 0 {
+	if known && low.IsNeg() {
 		zero, err := pin(m.ArithmeticIntegerNumeralText("0"))
 		if err != nil {
 			return err

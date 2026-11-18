@@ -5,50 +5,66 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (t *SMTStringTheory) arithmeticValue(expression ast.ASTHandle) (*big.Int, bool, error) {
-	node := t.state.context.enodes.get(expression)
-	if node == nil {
-		return nil, false, nil
-	}
-	text, _, numeral, err := t.state.manager.ArithmeticNumeralText(node.Root().Owner())
-	if err != nil || !numeral {
-		return nil, false, err
-	}
-	value, parsed := new(big.Rat).SetString(text)
-	if !parsed {
-		return nil, false, ast.ErrASTDomain
-	}
-	if !value.IsInt() {
-		return nil, false, nil
-	}
-	return new(big.Int).Set(value.Num()), true, nil
+// q is the AST manager's rational manager (rational's manager): theory_str's
+// lengths and bounds are rationals of it.
+func (t *SMTStringTheory) q() *numeral.RationalManager {
+	return t.state.manager.NumeralService().Manager
 }
 
-func (t *SMTStringTheory) lengthValue(expression ast.ASTHandle) (value *big.Int, known bool, result error) {
+// qdel frees a rational local of q, keeping the first failure in *err.
+func (t *SMTStringTheory) qdel(r *numeral.Rational, err *error) {
+	if e := smtQDel(t.q(), r); e != nil && *err == nil {
+		*err = e
+	}
+}
+
+// arithmeticValue is get_arith_value(e, val): val is the caller's rational
+// (is_numeral writes it even when it is not an integer).
+func (t *SMTStringTheory) arithmeticValue(expression ast.ASTHandle, value *numeral.Rational) (bool, error) {
+	node := t.state.context.enodes.get(expression)
+	if node == nil {
+		return false, nil
+	}
+	_, matched, err := t.state.manager.ArithmeticNumeralRational(node.Root().Owner(), value)
+	if err != nil || !matched {
+		return false, err
+	}
+	return value.IsInt(), nil
+}
+
+// lengthValue is get_len_value(e, val): val is reset, then accumulates the
+// string literals' lengths and the arithmetic values of the other leaves'
+// lengths (through the local rational val1).
+func (t *SMTStringTheory) lengthValue(expression ast.ASTHandle, value *numeral.Rational) (known bool, result error) {
 	m := t.state.manager
 	family, err := m.ArithmeticFamilyID()
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 	switch arithmetic := t.state.Theory(family).(type) {
 	case *SMTTheoryArith: // theory_mi_arith only
 		if arithmetic.integerExt {
-			return nil, false, nil
+			return false, nil
 		}
 	default:
-		return nil, false, nil
+		return false, nil
 	}
+	q := t.q()
+	val1 := smtQZero()
+	defer t.qdel(&val1, &result)
 	ref, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
-	defer func() { result = errors.Join(result, m.DelRef(&ref)) }()
-	value = new(big.Int)
+	defer func() { result = smtErrJoin(result, m.DelRef(&ref)) }()
+	if err = q.Reset(value); err != nil {
+		return false, err
+	}
 	work := []ast.ASTHandle{expression}
 	for len(work) != 0 {
 		last := len(work) - 1
@@ -56,7 +72,7 @@ func (t *SMTStringTheory) lengthValue(expression ast.ASTHandle) (value *big.Int,
 		work = work[:last]
 		left, right, concat, err := m.SequenceConcatParts(current)
 		if err != nil {
-			return value, false, err
+			return false, err
 		}
 		if concat {
 			// Source get_len_value visits the right child first.
@@ -65,26 +81,36 @@ func (t *SMTStringTheory) lengthValue(expression ast.ASTHandle) (value *big.Int,
 		}
 		text, literal, err := m.SequenceStringValue(current)
 		if err != nil {
-			return value, false, err
+			return false, err
 		}
 		if literal {
-			value.Add(value, new(big.Int).SetUint64(uint64(len(text))))
+			// val += rational(sl)
+			sl := smtQZero()
+			if err = q.SetUint64(&sl, uint64(len(text))); err == nil {
+				err = q.Add(value, &sl, value)
+			}
+			t.qdel(&sl, &err)
+			if err != nil {
+				return false, err
+			}
 			continue
 		}
 		length, err := m.MkSequenceLength(current)
 		if err != nil {
-			return value, false, err
+			return false, err
 		}
 		if err = m.SetRef(ref, length); err != nil {
-			return value, false, err
+			return false, err
 		}
-		part, exists, err := t.arithmeticValue(length)
+		exists, err := t.arithmeticValue(length, &val1)
 		if err != nil || !exists {
-			return value, false, err
+			return false, err
 		}
-		value.Add(value, part)
+		if err = q.Add(value, &val1, value); err != nil {
+			return false, err
+		}
 	}
-	return value, true, nil
+	return true, nil
 }
 
 type smtStringLengthPremises struct {
@@ -121,11 +147,11 @@ func (p *smtStringLengthPremises) hold(expression ast.ASTHandle) error {
 	return nil
 }
 
-func (p *smtStringLengthPremises) length(expression ast.ASTHandle, value *big.Int) error {
+func (p *smtStringLengthPremises) length(expression ast.ASTHandle, value *numeral.Rational) error {
 	m := p.theory.state.manager
 	// ctx.mk_eq_atom(mk_strlen(e), mk_int(v)): the release build (GCC)
 	// evaluates the call arguments right to left, so mk_int comes first.
-	numeral, err := m.ArithmeticIntegerNumeralText(value.String())
+	numeral, err := m.ArithmeticNumeralFromRational(value, true)
 	if err != nil {
 		return err
 	}
@@ -143,13 +169,13 @@ func (p *smtStringLengthPremises) length(expression ast.ASTHandle, value *big.In
 // lengthLenFirst is the statement-by-statement form
 // expr_ref l(mk_strlen(e)); expr_ref v(mk_int(value)); ctx.mk_eq_atom(l, v),
 // which builds the length before the numeral.
-func (p *smtStringLengthPremises) lengthLenFirst(expression ast.ASTHandle, value *big.Int) error {
+func (p *smtStringLengthPremises) lengthLenFirst(expression ast.ASTHandle, value *numeral.Rational) error {
 	m := p.theory.state.manager
 	length, err := m.MkSequenceLength(expression)
 	if err != nil {
 		return err
 	}
-	numeral, err := m.ArithmeticIntegerNumeralText(value.String())
+	numeral, err := m.ArithmeticNumeralFromRational(value, true)
 	if err != nil {
 		return err
 	}
@@ -194,17 +220,27 @@ func (t *SMTStringTheory) checkLengthConstant(expression, constant ast.ASTHandle
 		}
 		return false, err
 	}
-	target := new(big.Int).SetUint64(uint64(len(text)))
+	q := t.q()
+	// rational const_str_len, the sum, and each leaf's length.
+	target, sum, value := smtQZero(), smtQZero(), smtQZero()
+	defer t.qdel(&value, &result)
+	defer t.qdel(&sum, &result)
+	defer t.qdel(&target, &result)
+	if err = q.SetUint64(&target, uint64(len(text))); err != nil {
+		return false, err
+	}
 	concat, err := m.IsSequenceConcat(expression)
 	if err != nil {
 		return false, err
 	}
 	if !concat {
-		value, known, err := t.lengthValue(expression)
+		known, err := t.lengthValue(expression, &value)
 		if err != nil {
 			return false, err
 		}
-		if known && value.Cmp(target) != 0 {
+		if c, err := q.Compare(&value, &target); err != nil {
+			return false, err
+		} else if known && c != 0 {
 			return false, t.assertStringLengthEqualityOrder(expression, constant, true)
 		}
 		return t.checkLengthConstantTail(expression, constant)
@@ -215,9 +251,8 @@ func (t *SMTStringTheory) checkLengthConstant(expression, constant ast.ASTHandle
 	}
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
-	sum := new(big.Int)
 	for _, leaf := range leaves {
-		value, known, err := t.lengthValue(leaf)
+		known, err := t.lengthValue(leaf, &value)
 		if err != nil {
 			return false, err
 		}
@@ -227,12 +262,16 @@ func (t *SMTStringTheory) checkLengthConstant(expression, constant ast.ASTHandle
 		if _, literal, err := m.SequenceStringValue(leaf); err != nil {
 			return false, err
 		} else if !literal {
-			if err = premises.length(leaf, value); err != nil {
+			if err = premises.length(leaf, &value); err != nil {
 				return false, err
 			}
 		}
-		sum.Add(sum, value)
-		if sum.Cmp(target) > 0 {
+		if err = q.Add(&sum, &value, &sum); err != nil {
+			return false, err
+		}
+		if c, err := q.Compare(&sum, &target); err != nil {
+			return false, err
+		} else if c > 0 {
 			return false, premises.refuse(expression, constant)
 		}
 	}
@@ -242,8 +281,10 @@ func (t *SMTStringTheory) checkLengthConstant(expression, constant ast.ASTHandle
 // checkLengthConstantTail is check_length_const_string's final step for both
 // branches: a second get_len_value(n1), and n1 = c => len(n1) = len(c) when
 // the length is still unknown.
-func (t *SMTStringTheory) checkLengthConstantTail(expression, constant ast.ASTHandle) (bool, error) {
-	_, known, err := t.lengthValue(expression)
+func (t *SMTStringTheory) checkLengthConstantTail(expression, constant ast.ASTHandle) (_ bool, err error) {
+	value := smtQZero()
+	defer t.qdel(&value, &err)
+	known, err := t.lengthValue(expression, &value)
 	if err != nil {
 		return false, err
 	}
@@ -256,7 +297,12 @@ func (t *SMTStringTheory) checkLengthConstantTail(expression, constant ast.ASTHa
 func (t *SMTStringTheory) checkLengthConcats(left, right ast.ASTHandle) (consistent bool, result error) {
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
-	sums := [2]*big.Int{new(big.Int), new(big.Int)}
+	q := t.q()
+	sums := [2]numeral.Rational{smtQZero(), smtQZero()}
+	value := smtQZero()
+	defer t.qdel(&value, &result)
+	defer t.qdel(&sums[1], &result)
+	defer t.qdel(&sums[0], &result)
 	fixed := [2]bool{true, true}
 	for side, expression := range []ast.ASTHandle{left, right} {
 		leaves, err := t.concatLeaves(expression)
@@ -264,7 +310,7 @@ func (t *SMTStringTheory) checkLengthConcats(left, right ast.ASTHandle) (consist
 			return false, err
 		}
 		for _, leaf := range leaves {
-			value, known, err := t.lengthValue(leaf)
+			known, err := t.lengthValue(leaf, &value)
 			if err != nil {
 				return false, err
 			}
@@ -272,11 +318,13 @@ func (t *SMTStringTheory) checkLengthConcats(left, right ast.ASTHandle) (consist
 				fixed[side] = false
 				continue
 			}
-			sums[side].Add(sums[side], value)
+			if err = q.Add(&sums[side], &value, &sums[side]); err != nil {
+				return false, err
+			}
 			if _, literal, err := t.state.manager.SequenceStringValue(leaf); err != nil {
 				return false, err
 			} else if !literal {
-				if err = premises.length(leaf, value); err != nil {
+				if err = premises.length(leaf, &value); err != nil {
 					return false, err
 				}
 			}
@@ -290,7 +338,10 @@ func (t *SMTStringTheory) checkLengthConcats(left, right ast.ASTHandle) (consist
 	if err = premises.add(equality); err != nil {
 		return false, err
 	}
-	comparison := sums[0].Cmp(sums[1])
+	comparison, err := q.Compare(&sums[0], &sums[1])
+	if err != nil {
+		return false, err
+	}
 	conflict := fixed[0] && fixed[1] && comparison != 0 || !fixed[0] && fixed[1] && comparison > 0 || fixed[0] && !fixed[1] && comparison < 0
 	if conflict {
 		return false, premises.assertNegation()
@@ -299,7 +350,12 @@ func (t *SMTStringTheory) checkLengthConcats(left, right ast.ASTHandle) (consist
 }
 
 func (t *SMTStringTheory) checkLengthConcatVariable(concat, variable ast.ASTHandle) (consistent bool, result error) {
-	target, known, err := t.lengthValue(variable)
+	q := t.q()
+	target, sum, value := smtQZero(), smtQZero(), smtQZero()
+	defer t.qdel(&value, &result)
+	defer t.qdel(&sum, &result)
+	defer t.qdel(&target, &result)
+	known, err := t.lengthValue(variable, &target)
 	if err != nil || !known {
 		return true, err
 	}
@@ -309,9 +365,8 @@ func (t *SMTStringTheory) checkLengthConcatVariable(concat, variable ast.ASTHand
 	}
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
-	sum := new(big.Int)
 	for _, leaf := range leaves {
-		value, known, err := t.lengthValue(leaf)
+		known, err := t.lengthValue(leaf, &value)
 		if err != nil {
 			return false, err
 		}
@@ -321,13 +376,17 @@ func (t *SMTStringTheory) checkLengthConcatVariable(concat, variable ast.ASTHand
 		if _, literal, err := t.state.manager.SequenceStringValue(leaf); err != nil {
 			return false, err
 		} else if !literal && value.Sign() != 0 {
-			if err = premises.length(leaf, value); err != nil {
+			if err = premises.length(leaf, &value); err != nil {
 				return false, err
 			}
 		}
-		sum.Add(sum, value)
-		if sum.Cmp(target) > 0 {
-			if err = premises.length(variable, target); err != nil {
+		if err = q.Add(&sum, &value, &sum); err != nil {
+			return false, err
+		}
+		if c, err := q.Compare(&sum, &target); err != nil {
+			return false, err
+		} else if c > 0 {
+			if err = premises.length(variable, &target); err != nil {
 				return false, err
 			}
 			return false, premises.refuse(concat, variable)
@@ -337,23 +396,29 @@ func (t *SMTStringTheory) checkLengthConcatVariable(concat, variable ast.ASTHand
 }
 
 func (t *SMTStringTheory) checkLengthVariables(left, right ast.ASTHandle) (consistent bool, result error) {
-	l, lk, err := t.lengthValue(left)
+	l, r := smtQZero(), smtQZero()
+	defer t.qdel(&r, &result)
+	defer t.qdel(&l, &result)
+	lk, err := t.lengthValue(left, &l)
 	if err != nil {
 		return false, err
 	}
-	r, rk, err := t.lengthValue(right)
+	rk, err := t.lengthValue(right, &r)
 	if err != nil {
 		return false, err
 	}
-	if !lk || !rk || l.Cmp(r) == 0 {
+	if !lk || !rk {
 		return true, nil
+	}
+	if eq, err := t.q().Equal(&l, &r); err != nil || eq {
+		return err == nil, err
 	}
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
-	if err = premises.length(left, l); err != nil {
+	if err = premises.length(left, &l); err != nil {
 		return false, err
 	}
-	if err = premises.length(right, r); err != nil {
+	if err = premises.length(right, &r); err != nil {
 		return false, err
 	}
 	return false, premises.refuse(left, right)

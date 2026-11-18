@@ -211,7 +211,7 @@ func TestSMTStringRegexStageBoundConsequencesAndDisabledLowerCase(t *testing.T) 
 			astTestMust(t, err)
 			astTestPin(t, m, length)
 			frame := smtStringRegexStage{theory: theory, locals: smtStringLengthPremises{theory: theory}}
-			astTestMust(t, frame.refineBound(member, length, owner, big.NewInt(tc.bound), tc.upper))
+			astTestMust(t, frame.refineBound(member, length, owner, strTestQ(tc.bound), tc.upper))
 			astTestMust(t, frame.locals.close())
 			axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 			astTestMust(t, err)
@@ -247,7 +247,7 @@ func TestSMTStringRegexStageBoundConsequencesAndDisabledLowerCase(t *testing.T) 
 			}
 			before := len(theory.refs)
 			frame = smtStringRegexStage{theory: theory, locals: smtStringLengthPremises{theory: theory}}
-			astTestMust(t, frame.refineBound(member, length, owner, big.NewInt(1), false))
+			astTestMust(t, frame.refineBound(member, length, owner, strTestQ(1), false))
 			astTestMust(t, frame.locals.close())
 			if frame.added || len(theory.refs) != before {
 				t.Fatal("disabled lower equality-or-next axiom became active")
@@ -382,7 +382,7 @@ func TestSMTStringRegexStageDisabledAndInitialBoundFailureOwnership(t *testing.T
 	if err != nil || !added || len(theory.regexStage.owned) != 1 || theory.regexStage.automata[regex] == nil {
 		t.Fatal("epsilon-only initial bound lost its owned cache publication", added, err)
 	}
-	if theory.regexLastLower[word] == nil || theory.regexLastLower[word].Sign() != 0 {
+	if theory.regexLastLower[word] == nil || !theory.regexLastLower[word].IsZero() {
 		t.Fatal("epsilon-only bound lost the native zero-cache write")
 	}
 	owner := theory.regexStage.automata[regex]
@@ -408,11 +408,11 @@ func TestSMTStringRegexStageReadsLiveBoundsAndSkipsRepeatedRefinement(t *testing
 			operation = smtArithOpLE
 		}
 		stringAssertArithmeticBound(t, m, state, wordLengthForRegexStage(t, m, word), operation, "3", false)
-		if _, exact, err := theory.lengthValue(word); err != nil || exact {
+		if _, exact, err := theory.testLengthValue(word); err != nil || exact {
 			t.Fatal("live-bound fixture unexpectedly has an exact core value", exact, err)
 		}
 		length := wordLengthForRegexStage(t, m, word)
-		bound, known, err := theory.stringArithmeticBound(length, !upper)
+		bound, known, err := theory.testArithmeticBound(length, !upper)
 		astTestMust(t, err)
 		if !known {
 			t.Fatal("actual arithmetic endpoint was unavailable", upper)
@@ -422,9 +422,9 @@ func TestSMTStringRegexStageReadsLiveBoundsAndSkipsRepeatedRefinement(t *testing
 		astTestMust(t, err)
 		var recorded *big.Int
 		if upper {
-			recorded = theory.regexStage.lastUpper[word]
+			recorded = theory.testBig(theory.regexStage.lastUpper[word])
 		} else {
-			recorded = theory.regexLastLower[word]
+			recorded = theory.testBig(theory.regexLastLower[word])
 		}
 		if recorded == nil || recorded.Cmp(bound) != 0 {
 			t.Fatal("stage did not record the word-keyed live endpoint", recorded, bound)

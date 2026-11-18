@@ -1,7 +1,6 @@
 package smtcore
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -204,17 +203,17 @@ func TestSMTStringConcatArgumentInferenceGuardsAndRefusals(t *testing.T) {
 		stringSetLength(t, m, state, known, "2")
 		start := len(theory.refs)
 		for _, number := range []int64{-1, 1} {
-			astTestMust(t, theory.inferStringConcatArgument(concat, big.NewInt(number)))
+			astTestMust(t, theory.inferStringConcatArgument(concat, strTestQ(number)))
 		}
 		if len(theory.refs) != start {
 			t.Fatal("negative total/remainder emitted a length assertion", suffix)
 		}
-		astTestMust(t, theory.inferStringConcatArgument(concat, big.NewInt(5)))
+		astTestMust(t, theory.inferStringConcatArgument(concat, strTestQ(5)))
 		premises := smtStringLengthPremises{theory: theory}
-		astTestMust(t, premises.length(concat, big.NewInt(5)))
-		astTestMust(t, premises.length(known, big.NewInt(2)))
+		astTestMust(t, premises.length(concat, strTestQ(5)))
+		astTestMust(t, premises.length(known, strTestQ(2)))
 		conclusion := smtStringLengthPremises{theory: theory}
-		astTestMust(t, conclusion.length(missing, big.NewInt(3)))
+		astTestMust(t, conclusion.length(missing, strTestQ(3)))
 		guard, err := m.MkAndArray(premises.values)
 		astTestMust(t, err)
 		astTestPin(t, m, guard)

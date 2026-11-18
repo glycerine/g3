@@ -7,25 +7,36 @@ package smtcore
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func stringDecimalValue(text string) (*big.Int, bool) {
-	value := new(big.Int)
-	if len(text) == 0 {
-		return value, false
+// stringDecimalValue is finalcheck_str2int/int2str's decimal reading:
+// convertedRepresentation = (ten * convertedRepresentation) + rational(val)
+// over rationals; value is the caller's rational, valid reports a nonempty
+// all-digit text.
+func stringDecimalValue(q *numeral.RationalManager, text string, value *numeral.Rational) (bool, error) {
+	if err := q.Reset(value); err != nil {
+		return false, err
 	}
-	ten := big.NewInt(10)
+	if len(text) == 0 {
+		return false, nil
+	}
+	ten := smtQInt(10)
 	for i := 0; i < len(text); i++ {
 		if text[i] < '0' || text[i] > '9' {
-			return value, false
+			return false, nil
 		}
-		value.Mul(value, ten)
-		value.Add(value, new(big.Int).SetUint64(uint64(text[i]-'0')))
+		digit := smtQInt(int32(text[i] - '0'))
+		if err := q.Mul(&ten, value, value); err != nil {
+			return false, err
+		}
+		if err := q.Add(value, &digit, value); err != nil {
+			return false, err
+		}
 	}
-	return value, true
+	return true, nil
 }
 
 func (t *SMTStringTheory) assertConversionAgreement(axiom ast.ASTHandle) (bool, error) {
@@ -65,13 +76,17 @@ func (t *SMTStringTheory) finalCheckStringToInt(expression ast.ASTHandle) (added
 		added = added || changed
 		return err
 	}
-	integer, known, err := t.arithmeticValue(expression)
+	// rational Ival
+	q := t.q()
+	integer := smtQZero()
+	defer t.qdel(&integer, &result)
+	known, err := t.arithmeticValue(expression, &integer)
 	if err != nil {
 		return added, err
 	}
 	if known {
-		if integer.Cmp(big.NewInt(-1)) != 0 {
-			value, err := pin(m.ArithmeticIntegerNumeralText(integer.String()))
+		if !integer.IsMinusOne() {
+			value, err := pin(m.ArithmeticNumeralFromRational(&integer, true))
 			if err != nil {
 				return added, err
 			}
@@ -79,7 +94,12 @@ func (t *SMTStringTheory) finalCheckStringToInt(expression ast.ASTHandle) (added
 			if err != nil {
 				return added, err
 			}
-			text, err := pin(t.stringLiteral(integer.String()))
+			// zstring Ival_str(Ival.to_string().c_str())
+			ivalText, err := q.String(&integer)
+			if err != nil {
+				return added, err
+			}
+			text, err := pin(t.stringLiteral(ivalText))
 			if err != nil {
 				return added, err
 			}
@@ -118,15 +138,23 @@ func (t *SMTStringTheory) finalCheckStringToInt(expression ast.ASTHandle) (added
 	if err != nil {
 		return added, err
 	}
-	converted, valid := stringDecimalValue(text)
+	// rational convertedRepresentation(0); rational::minus_one() when invalid.
+	converted := smtQZero()
+	defer t.qdel(&converted, &result)
+	valid, err := stringDecimalValue(q, text, &converted)
+	if err != nil {
+		return added, err
+	}
 	if !valid {
-		converted.SetInt64(-1)
+		if err = q.SetInt64(&converted, -1); err != nil {
+			return added, err
+		}
 	}
 	premise, err := pin(t.state.MkEqAtom(word, constant))
 	if err != nil {
 		return added, err
 	}
-	value, err := pin(m.ArithmeticIntegerNumeralText(converted.String()))
+	value, err := pin(m.ArithmeticNumeralFromRational(&converted, true))
 	if err != nil {
 		return added, err
 	}
@@ -169,7 +197,12 @@ func (t *SMTStringTheory) finalCheckIntToString(expression ast.ASTHandle) (added
 	if err != nil {
 		return false, err
 	}
-	converted, valid := stringDecimalValue(text)
+	converted := smtQZero()
+	defer t.qdel(&converted, &result)
+	valid, err := stringDecimalValue(t.q(), text, &converted)
+	if err != nil {
+		return false, err
+	}
 	if !valid {
 		// Native deliberately does not memoize this conflict clause.
 		axiom, err := pin(m.MkNot(premise))
@@ -178,7 +211,7 @@ func (t *SMTStringTheory) finalCheckIntToString(expression ast.ASTHandle) (added
 		}
 		return true, t.assertAxiom(axiom)
 	}
-	value, err := pin(m.ArithmeticIntegerNumeralText(converted.String()))
+	value, err := pin(m.ArithmeticNumeralFromRational(&converted, true))
 	if err != nil {
 		return false, err
 	}
