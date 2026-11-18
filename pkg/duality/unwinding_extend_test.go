@@ -103,6 +103,9 @@ func TestDualityExtendNativeEagerLazyCoveringAndCounterexample(t *testing.T) {
 			checker, err := NewLocalEdgeChecker(source, factory, nil)
 			must(err)
 			defer checker.Close()
+			eager, err := NewLocalEdgeChecker(source, factory, nil)
+			must(err)
+			defer eager.Close()
 			makeSearch := func() (*DerivationSearch, *RPFP) {
 				working, err := NewRPFPWithVocabulary(source.vocabulary)
 				must(err)
@@ -124,7 +127,7 @@ func TestDualityExtendNativeEagerLazyCoveringAndCounterexample(t *testing.T) {
 			priorRoot, err := prior.CreateNode(parentTerm)
 			must(err)
 			must(cex.Set(prior, priorRoot))
-			services := &ExtensionSearch{Bounds: bounds, Completion: completion, Counterexample: cex, UseUnderapprox: under}
+			services := &ExtensionSearch{Bounds: bounds, Completion: completion, Eager: eager, Counterexample: cex, UseUnderapprox: under}
 			if mode == "completion-error" {
 				services.Completion = nil
 			}
@@ -204,8 +207,13 @@ func TestDualityExtendNativeEagerLazyCoveringAndCounterexample(t *testing.T) {
 				defer fact.Close()
 				learned, err := node.Annotation.SubsetEq(fact, aux)
 				must(err)
-				if !learned || checker.pool.states[sourceEdge] == nil {
+				if !learned || eager.pool.states[sourceEdge] == nil {
 					t.Fatal("eager history deduction was not connected")
+				}
+				// DoEagerDeduction's CheckEdgeCaching uses gen_cands_rpfp,
+				// not the derivation's clone_rpfp.
+				if checker.pool.states[sourceEdge] != nil {
+					t.Fatal("eager deduction used the derivation checker")
 				}
 			}
 			depth, err := native.ScopeLevel()

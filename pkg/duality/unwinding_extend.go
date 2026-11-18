@@ -9,9 +9,13 @@ import "errors"
 // actually run, according to SatisfyUpperBound/BuildFullCex ownership rules.
 type ExtensionSearch struct {
 	Bounds, Completion *DerivationSearch
-	Counterexample     *Counterexample
-	Proposers          []*HistoryProposer
-	UseUnderapprox     bool
+	// Eager is gen_cands_rpfp, the caching checker of CheckEdgeCaching in
+	// DoEagerDeduction (duality_solver.cpp:1700), shared with
+	// GenCandidatesFromInductionFailure; the derivation uses clone_rpfp.
+	Eager          *LocalEdgeChecker
+	Counterexample *Counterexample
+	Proposers      []*HistoryProposer
+	UseUnderapprox bool
 }
 
 // Extend creates an unwinding instance and keeps it solved through eager
@@ -26,7 +30,7 @@ func (u *Unwinding) Extend(candidate ExpansionCandidate, services *ExtensionSear
 	if err := services.Counterexample.open(); err != nil {
 		return nil, false, err
 	}
-	if services.Bounds.Checker == nil || services.Bounds.Auxiliary == nil {
+	if services.Bounds.Checker == nil || services.Bounds.Auxiliary == nil || services.Eager == nil {
 		return nil, false, ErrWrapperOwner
 	}
 	u.progress++
@@ -53,7 +57,7 @@ func (u *Unwinding) Extend(candidate ExpansionCandidate, services *ExtensionSear
 	if result = u.UpdateBackEdges(node, u.topological); result != nil {
 		return node, false, result
 	}
-	if result = u.DoEagerDeduction(node, services.Proposers, services.Bounds.Checker, services.Bounds.Auxiliary); result != nil {
+	if result = u.DoEagerDeduction(node, services.Proposers, services.Eager, services.Bounds.Auxiliary); result != nil {
 		return node, false, result
 	}
 	satisfied, result = u.SatisfyUpperBound(node, services.Bounds, services.Counterexample, services.UseUnderapprox)

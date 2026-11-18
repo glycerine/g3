@@ -30,7 +30,7 @@ func (s *UnwindingSearch) Extend(candidate ExpansionCandidate) (node *Node, sati
 			}
 		}()
 	}
-	services := &ExtensionSearch{Bounds: bounds, Completion: completion, Counterexample: s.Counterexample, Proposers: s.Proposers, UseUnderapprox: s.UseUnderapprox}
+	services := &ExtensionSearch{Bounds: bounds, Completion: completion, Eager: s.Global, Counterexample: s.Counterexample, Proposers: s.Proposers, UseUnderapprox: s.UseUnderapprox}
 	return s.Unwinding.Extend(candidate, services)
 }
 

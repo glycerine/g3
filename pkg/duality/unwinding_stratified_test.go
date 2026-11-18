@@ -109,11 +109,14 @@ func TestDualityStratifiedInliningNativeForwardCycleAndCounterexample(t *testing
 			local, err := NewLocalEdgeChecker(source, factory, nil)
 			must(err)
 			defer local.Close()
+			global, err := NewLocalEdgeChecker(source, factory, nil)
+			must(err)
+			defer global.Close()
 			cex := NewCounterexample()
 			defer cex.Close()
 			cases := &CaseInterpolator{Graph: source}
 			observed := &stratifiedCaseBindingSolver{Solver: native, cases: cases, original: source, graphs: make(map[*RPFP]int)}
-			s := &UnwindingSearch{Unwinding: u, Native: observed, Evaluator: derivationEvaluatorFixture(t, ctx, globals), Local: local, Auxiliary: aux, Simplifier: manager, Cases: cases, Counterexample: cex, UseUnderapprox: mode == "underapprox"}
+			s := &UnwindingSearch{Unwinding: u, Native: observed, Evaluator: derivationEvaluatorFixture(t, ctx, globals), Local: local, Global: global, Auxiliary: aux, Simplifier: manager, Cases: cases, Counterexample: cex, UseUnderapprox: mode == "underapprox"}
 			must(native.Push())
 			caller, err := ctx.BoolConst("stratified-caller")
 			must(err)
