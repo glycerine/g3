@@ -4,7 +4,6 @@ package bmc
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -48,7 +47,7 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 	if err != nil {
 		return nil, err
 	}
-	index, err := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(level)), width))
+	index, err := q.hold(quantifiedLinearNumeral(m, uint64(level), width))
 	if err != nil {
 		return nil, err
 	}

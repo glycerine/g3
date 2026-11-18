@@ -4,9 +4,8 @@ package pdr
 // src/muz/pdr/pdr_util.cpp.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type arithmeticFragmentClassifier struct {
@@ -68,16 +67,21 @@ func (c *arithmeticFragmentClassifier) numeral(expression ast.ASTHandle) (bool, 
 	return matched, err
 }
 
-func (c *arithmeticFragmentClassifier) minusOne(expression ast.ASTHandle) (bool, error) {
-	text, _, matched, err := c.manager.ArithmeticNumeralText(expression)
+// minusOne is is_minus_one(e): rational r; a.is_numeral(e, r) &&
+// r.is_minus_one().
+func (c *arithmeticFragmentClassifier) minusOne(expression ast.ASTHandle) (result bool, err error) {
+	q := c.manager.NumeralService().Manager
+	r := numeral.NewRational()
+	defer func() {
+		if e := q.Del(&r); e != nil && err == nil {
+			err = e
+		}
+	}()
+	_, matched, err := c.manager.ArithmeticNumeralRational(expression, &r)
 	if err != nil || !matched {
 		return false, err
 	}
-	var value big.Rat
-	if _, ok := value.SetString(text); !ok {
-		return false, ast.ErrASTDomain
-	}
-	return value.Num().Cmp(big.NewInt(-1)) == 0 && value.Denom().Cmp(big.NewInt(1)) == 0, nil
+	return r.IsMinusOne(), nil
 }
 
 func (c *arithmeticFragmentClassifier) arithmeticExpression(expression ast.ASTHandle) (bool, error) {

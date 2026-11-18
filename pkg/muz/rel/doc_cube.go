@@ -5,11 +5,12 @@ package rel
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/arena"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 var ErrDOC = errors.New("muz/rel: invalid difference-of-cubes operation")
@@ -227,8 +228,9 @@ func (m *DocManager) AllocateUint64(value uint64) (*Doc, error) {
 	return m.adopt(vector)
 }
 
-func (m *DocManager) AllocateBigInt(value *big.Int) (*Doc, error) {
-	vector, err := m.vectors.AllocateBigInt(value)
+// AllocateRational is doc_manager::allocate(rational const&).
+func (m *DocManager) AllocateRational(s *numeral.RationalService, value *numeral.Rational) (*Doc, error) {
+	vector, err := m.vectors.AllocateRational(s, value)
 	if err != nil {
 		return nil, err
 	}

@@ -7,11 +7,11 @@ package spacer
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 var ErrLemmaSanity = errors.New("muz/spacer: generalized lemma is not inductive")
@@ -284,24 +284,30 @@ func (p *PredicateTransformer) expandInductiveDatatypeEquality(owner *literalExp
 }
 
 // expandInductiveBitVectorEquality treats value as the numeral side.
-func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalExpansion, equality, term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
-	text, matched, err := p.manager.BitVectorNumeralText(value)
+// The bits come from bv.is_numeral(val, r, bv_size): bit j is
+// !(r % two).is_zero(), then r = div(r, two).
+func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalExpansion, equality, term, value ast.ASTHandle) (_ []ast.ASTHandle, _ bool, resultErr error) {
+	q := p.manager.NumeralService().Manager
+	r, two, rem := numeral.NewRational(), numeral.NewRational(), numeral.NewRational()
+	defer func() {
+		for _, x := range []*numeral.Rational{&rem, &two, &r} {
+			if e := q.Del(x); e != nil && resultErr == nil {
+				resultErr = e
+			}
+		}
+	}()
+	width, matched, err := p.manager.BitVectorNumeralRational(value, &r)
 	if err != nil {
-		return nil, false, fmt.Errorf("read bit-vector numeral text: %w", err)
+		return nil, false, fmt.Errorf("read bit-vector numeral: %w", err)
 	}
 	if !matched {
 		return nil, false, nil
 	}
-	width, err := p.manager.BitVectorSize(value)
-	if err != nil {
-		return nil, false, fmt.Errorf("read bit-vector numeral width: %w", err)
-	}
 	if width == 0 {
 		return nil, false, ast.ErrASTDomain
 	}
-	integer := new(big.Int)
-	if _, ok := integer.SetString(text, 10); !ok {
-		return nil, false, ast.ErrASTDomain
+	if err = q.SetInt32(&two, 2); err != nil {
+		return nil, false, err
 	}
 	bvFamily, err := p.manager.BitVectorUtilityFamilyID()
 	if err != nil {
@@ -324,7 +330,13 @@ func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalEx
 		if err != nil {
 			return nil, false, err
 		}
-		if integer.Bit(int(bit)) == 0 {
+		if err = q.Mod(&r, &two, &rem); err != nil {
+			return nil, false, err
+		}
+		if err = q.IDiv(&r, &two, &r); err != nil {
+			return nil, false, err
+		}
+		if rem.IsZero() {
 			literal, err = owner.keep(p.manager.MkNot(literal))
 			if err != nil {
 				return nil, false, err

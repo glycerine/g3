@@ -2,7 +2,6 @@ package rel
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -149,12 +148,20 @@ func TestTBVSourceParsingPermutationComplementAndProjection(t *testing.T) {
 		t.Fatal("cross-manager column containment", matched, err)
 	}
 
-	negative, err := sourceManager.AllocateBigInt(big.NewInt(-2))
+	// A value beyond uint64 takes allocate(rational)'s bitwise_and path
+	// (the source asserts a nonnegative argument there): 2^64 + 30 has low
+	// bits 11110.
+	svc := tbvTestService(t)
+	wide := unumeral.NewRational()
+	if err := svc.Manager.SetString(&wide, "18446744073709551646"); err != nil {
+		t.Fatal(err)
+	}
+	beyond, err := sourceManager.AllocateRational(svc, &wide)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := tbvString(t, sourceManager, negative); got != "11110" {
-		t.Fatal("two's-complement rational bit extraction", got)
+	if got := tbvString(t, sourceManager, beyond); got != "11110" {
+		t.Fatal("wide rational bit extraction", got)
 	}
 }
 

@@ -3,9 +3,8 @@ package rel
 // Source: src/muz/rel/dl_bound_relation.cpp filter_interpreted_fn.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // FilterIdentical merges the source's requested column equivalence classes.
@@ -120,18 +119,12 @@ func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHa
 			return false, nil
 		}
 		for _, pair := range [][2]ast.ASTHandle{{a, b}, {b, a}} {
-			text, _, numeral, e := m.ArithmeticNumeralText(pair[0])
+			// rational r; a.is_numeral(e, r) && r.is_pos()
+			positive, e := intervalNumeralPositive(m, pair[0])
 			if e != nil {
 				return false, e
 			}
-			if !numeral {
-				continue
-			}
-			constant, ok := new(big.Rat).SetString(text)
-			if !ok {
-				return false, ast.ErrASTDomain
-			}
-			if constant.Sign() <= 0 {
+			if !positive {
 				continue
 			}
 			kind, e := m.GetKind(pair[1])
@@ -188,4 +181,17 @@ func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHa
 		err = r.AddLessEqual(i, j)
 	}
 	return true, err
+}
+
+// intervalNumeralPositive is a.is_numeral(e, r) && r.is_pos() with a rational
+// temporary.
+func intervalNumeralPositive(m *ast.ASTManager, e ast.ASTHandle) (bool, error) {
+	q := m.NumeralService().Manager
+	r := numeral.NewRational()
+	_, matched, err := m.ArithmeticNumeralRational(e, &r)
+	positive := err == nil && matched && r.IsPos()
+	if e := q.Del(&r); e != nil && err == nil {
+		err = e
+	}
+	return positive, err
 }

@@ -5,7 +5,6 @@ package bmc
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -13,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
@@ -137,7 +137,15 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 	if err != nil {
 		return nil, disposeASTRefs(m, []ast.ASTRef{indexRef}, err)
 	}
-	num, _, matched, err := m.BitVectorNumeralBigInt(value)
+	// rational num; m_bv.is_numeral(vl, num, bv_size)
+	qm := m.NumeralService().Manager
+	num := numeral.NewRational()
+	defer func() {
+		if e := qm.Del(&num); e != nil && resultErr == nil {
+			resultErr = e
+		}
+	}()
+	_, matched, err := m.BitVectorNumeralRational(value, &num)
 	err = disposeASTRefs(m, []ast.ASTRef{indexRef}, err)
 	if err != nil {
 		return nil, err
@@ -150,7 +158,10 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 	if err != nil {
 		return nil, err
 	}
-	unsigned := num.IsUint64() && num.Uint64() <= uint64(^uint32(0))
+	unsigned, err := qm.IsUnsigned(&num)
+	if err != nil {
+		return nil, err
+	}
 	if !unsigned {
 		if enabled {
 			if err = diagnostic.DebugAssertionFailure(debug, "src/muz/bmc/dl_bmc_engine.cpp", 263, "num.is_unsigned()"); err != nil {
@@ -160,10 +171,13 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 		// Continuing would invoke C++ get_unsigned outside its source domain.
 		return nil, ast.ErrASTDomain
 	}
-	level := uint32(num.Uint64())
+	level, err := qm.Unsigned(&num)
+	if err != nil {
+		return nil, err
+	}
 	// Source qlinear::get_model checks q(T) only in an enabled SASSERT.
 	if enabled {
-		levelExpr, e := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(level)), width))
+		levelExpr, e := q.hold(quantifiedLinearNumeral(m, uint64(level), width))
 		if e != nil {
 			return nil, e
 		}
@@ -202,7 +216,7 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 		if canceled {
 			return result, z3exception.NewDefaultException(m.ResourceLimit().CancelMessage())
 		}
-		levelExpr, e := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(level)), width))
+		levelExpr, e := q.hold(quantifiedLinearNumeral(m, uint64(level), width))
 		if e != nil {
 			return result, e
 		}

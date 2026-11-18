@@ -8,13 +8,14 @@ package rel
 import (
 	"errors"
 	"io"
-	"math/big"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/backtrack"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // UDocPlugin is udoc_plugin.
@@ -162,39 +163,54 @@ func (p *UDocPlugin) isBV(e ast.ASTHandle) (bool, error) {
 	return p.m.IsBitVectorSort(sort)
 }
 
-// isNumeral is udoc_plugin::is_numeral.
-func (p *UDocPlugin) isNumeral(e ast.ASTHandle) (*big.Int, uint32, bool, error) {
-	if value, width, ok, err := p.m.BitVectorNumeralBigInt(e); err != nil || ok {
-		return value, width, ok, err
+// q is the AST manager's rational manager (rational's manager).
+func (p *UDocPlugin) q() *numeral.RationalManager { return p.m.NumeralService().Manager }
+
+// withRational runs f on a rational local and frees it.
+func (p *UDocPlugin) withRational(f func(r *numeral.Rational) error) error {
+	r := numeral.NewRational()
+	err := f(&r)
+	if e := p.q().Del(&r); e != nil && err == nil {
+		err = e
+	}
+	return err
+}
+
+// isNumeral is udoc_plugin::is_numeral(e, r, num_bits): r is the caller's
+// rational.
+func (p *UDocPlugin) isNumeral(e ast.ASTHandle, r *numeral.Rational) (uint32, bool, error) {
+	if width, ok, err := p.m.BitVectorNumeralRational(e, r); err != nil || ok {
+		return width, ok, err
 	}
 	if p.m.IsTrue(e) {
-		return big.NewInt(1), 1, true, nil
+		return 1, true, p.q().SetInt32(r, 1)
 	}
 	if p.m.IsFalse(e) {
-		return big.NewInt(0), 1, true, nil
+		return 1, true, p.q().SetInt32(r, 0)
 	}
 	n, ok, err := p.m.DatalogNumeralValue(e)
 	if err != nil || !ok {
-		return nil, 0, false, err
+		return 0, false, err
 	}
 	sort, err := p.m.GetSort(e)
 	if err != nil {
-		return nil, 0, false, err
+		return 0, false, err
 	}
 	sz, ok, err := p.m.DatalogFiniteSortSize(sort)
 	if err != nil || !ok {
-		return nil, 0, false, err
+		return 0, false, err
 	}
 	var numBits uint32
 	for sz > 0 {
 		numBits++
 		sz /= 2
 	}
-	return new(big.Int).SetUint64(n), numBits, true, nil
+	// r = rational(n, rational::ui64())
+	return numBits, true, p.q().SetUint64(r, n)
 }
 
 // mkNumeral is udoc_plugin::mk_numeral.
-func (p *UDocPlugin) mkNumeral(r *big.Int, sort ast.ASTHandle) (ast.ASTHandle, error) {
+func (p *UDocPlugin) mkNumeral(r *numeral.Rational, sort ast.ASTHandle) (ast.ASTHandle, error) {
 	isBV, err := p.m.IsBitVectorSort(sort)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -204,19 +220,24 @@ func (p *UDocPlugin) mkNumeral(r *big.Int, sort ast.ASTHandle) (ast.ASTHandle, e
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		return p.m.BitVectorNumeralRat(new(big.Rat).SetInt(r), width)
+		return p.m.BitVectorNumeralFromRational(r, width)
 	}
 	boolean, err := p.m.MkBoolSort()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if sort == boolean {
-		if r.Sign() == 0 {
+		if r.IsZero() {
 			return p.m.MkFalse()
 		}
 		return p.m.MkTrue()
 	}
-	return p.m.MkDatalogNumeral(r.Uint64(), sort)
+	// dl.mk_numeral(r.get_uint64(), s)
+	n, err := p.q().Uint64(r)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return p.m.MkDatalogNumeral(n, sort)
 }
 
 // MkEmpty is udoc_plugin::mk_empty.
@@ -333,7 +354,7 @@ func (r *UDocPluginRelation) factToDoc(f Fact) (*Doc, error) {
 	for i, value := range f {
 		lo := r.columnIdx(uint32(i))
 		hi := r.columnIdx(uint32(i) + 1)
-		if err = r.dm.vectors.SetBigInt(d.positive, new(big.Int).SetUint64(uint64(value)), hi-1, lo); err != nil {
+		if err = r.dm.vectors.SetUint64(d.positive, uint64(value), hi-1, lo); err != nil {
 			return nil, errors.Join(err, r.dm.Deallocate(d))
 		}
 	}
@@ -355,15 +376,19 @@ func (r *UDocPluginRelation) AddFactAST(values []ast.ASTHandle) error {
 		return err
 	}
 	for i, value := range values {
-		number, _, ok, err := r.plugin.isNumeral(value)
-		if err == nil && !ok {
-			err = ErrDOC
-		}
-		if err == nil {
-			lo := r.columnIdx(uint32(i))
-			hi := r.columnIdx(uint32(i) + 1)
-			err = r.dm.vectors.SetBigInt(d.positive, number, hi-1, lo)
-		}
+		// rational val; VERIFY(is_numeral(f[i], val, num_bits))
+		err := r.plugin.withRational(func(number *numeral.Rational) error {
+			_, ok, err := r.plugin.isNumeral(value, number)
+			if err == nil && !ok {
+				err = ErrDOC
+			}
+			if err == nil {
+				lo := r.columnIdx(uint32(i))
+				hi := r.columnIdx(uint32(i) + 1)
+				err = r.dm.vectors.SetRational(d.positive, r.plugin.m.NumeralService(), number, hi-1, lo)
+			}
+			return err
+		})
 		if err != nil {
 			return errors.Join(err, r.dm.Deallocate(d))
 		}
@@ -562,9 +587,10 @@ func (r *UDocPluginRelation) docFormula(d *Doc) (ast.ASTHandle, error) {
 }
 
 // tbvFormula is udoc_relation::to_formula(tbv const&).
-func (r *UDocPluginRelation) tbvFormula(t *TBV) (ast.ASTHandle, error) {
+func (r *UDocPluginRelation) tbvFormula(t *TBV) (_ ast.ASTHandle, resultErr error) {
 	p := r.plugin
 	m := p.m
+	q := p.q()
 	conjs := make([]ast.ASTHandle, 0)
 	for i := uint32(0); i < r.numCols(); i++ {
 		v, err := m.MkVar(i, r.sorts[i])
@@ -573,7 +599,13 @@ func (r *UDocPluginRelation) tbvFormula(t *TBV) (ast.ASTHandle, error) {
 		}
 		lo := r.columnIdx(i)
 		hi := r.columnIdx(i + 1)
-		value := new(big.Int)
+		// rational r(0), dying with the column's iteration.
+		value := numeral.NewRational()
+		defer func() {
+			if e := q.Del(&value); e != nil && resultErr == nil {
+				resultErr = e
+			}
+		}()
 		lo1 := lo
 		isX := true
 		for j := lo; j < hi; j++ {
@@ -585,21 +617,36 @@ func (r *UDocPluginRelation) tbvFormula(t *TBV) (ast.ASTHandle, error) {
 			case TBit0:
 				if isX {
 					isX, lo1 = false, j
-					value.SetInt64(0)
+					if err = q.Reset(&value); err != nil {
+						return ast.ASTHandle{}, err
+					}
 				}
 			case TBit1:
 				if isX {
 					isX, lo1 = false, j
-					value.SetInt64(0)
+					if err = q.Reset(&value); err != nil {
+						return ast.ASTHandle{}, err
+					}
 				}
-				value.SetBit(value, int(j-lo1), 1)
+				// r += rational::power_of_two(j - lo1)
+				power, err := m.NumeralService().PowerOfTwo(j - lo1)
+				if err != nil {
+					return ast.ASTHandle{}, err
+				}
+				err = q.Add(&value, &power.Raw, &value)
+				if e := m.NumeralService().Del(&power); e != nil && err == nil {
+					err = e
+				}
+				if err != nil {
+					return ast.ASTHandle{}, err
+				}
 			case TBitX:
 				if !isX {
 					ext, err := m.MkBitVectorExtract(j-1-lo, lo1-lo, v)
 					if err != nil {
 						return ast.ASTHandle{}, err
 					}
-					num, err := m.BitVectorNumeralRat(new(big.Rat).SetInt(value), j-lo1)
+					num, err := m.BitVectorNumeralFromRational(&value, j-lo1)
 					if err != nil {
 						return ast.ASTHandle{}, err
 					}
@@ -617,7 +664,7 @@ func (r *UDocPluginRelation) tbvFormula(t *TBV) (ast.ASTHandle, error) {
 		if !isX {
 			var eq ast.ASTHandle
 			if lo1 == lo {
-				num, err := p.mkNumeral(value, r.sorts[i])
+				num, err := p.mkNumeral(&value, r.sorts[i])
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
@@ -625,7 +672,7 @@ func (r *UDocPluginRelation) tbvFormula(t *TBV) (ast.ASTHandle, error) {
 					return ast.ASTHandle{}, err
 				}
 			} else {
-				num, err := m.BitVectorNumeralRat(new(big.Rat).SetInt(value), hi-lo1)
+				num, err := m.BitVectorNumeralFromRational(&value, hi-lo1)
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
@@ -989,7 +1036,10 @@ func (p *UDocPlugin) MkFilterEqualFn(t RelationBase, value ast.ASTHandle, col in
 	if err != nil {
 		return nil, err
 	}
-	r, _, ok, err := p.isNumeral(value)
+	// rational r; VERIFY(is_numeral(val, r, num_bits))
+	r := numeral.NewRational()
+	defer func() { _ = p.q().Del(&r) }()
+	_, ok, err := p.isNumeral(value, &r)
 	if err != nil {
 		return nil, err
 	}
@@ -1002,7 +1052,7 @@ func (p *UDocPlugin) MkFilterEqualFn(t RelationBase, value ast.ASTHandle, col in
 	}
 	lo := u.columnIdx(uint32(col))
 	hi := u.columnIdx(uint32(col) + 1)
-	if err = dm.vectors.SetBigInt(filter.positive, r, hi-1, lo); err != nil {
+	if err = dm.vectors.SetRational(filter.positive, p.m.NumeralService(), &r, hi-1, lo); err != nil {
 		return nil, errors.Join(err, dm.Deallocate(filter))
 	}
 	// ~filter_equal_fn deallocates m_filter: the functor is destroyed with
@@ -1165,7 +1215,7 @@ func udocResultSizeText(size uint32, i, j, n int) string {
 }
 
 func utoa(v uint64) string {
-	return new(big.Int).SetUint64(v).String()
+	return strconv.FormatUint(v, 10)
 }
 
 // MkFilterByNegationFn is udoc_plugin::mk_filter_by_negation_fn /
@@ -1591,11 +1641,18 @@ func (r *UDocPluginRelation) compileGuard(g ast.ASTHandle, result *DocUnion, dis
 
 // applyGroundEq is udoc_relation::apply_ground_eq: the cube fixing bits
 // [lo, hi] of column v to c, or nil when c is not a numeral.
-func (r *UDocPluginRelation) applyGroundEq(v, hi, lo uint32, c ast.ASTHandle) (*Doc, error) {
+func (r *UDocPluginRelation) applyGroundEq(v, hi, lo uint32, c ast.ASTHandle) (_ *Doc, resultErr error) {
 	col := r.columnIdx(v)
 	lo += col
 	hi += col
-	value, _, ok, err := r.plugin.isNumeral(c)
+	// rational r
+	value := numeral.NewRational()
+	defer func() {
+		if e := r.plugin.q().Del(&value); e != nil && resultErr == nil {
+			resultErr = e
+		}
+	}()
+	_, ok, err := r.plugin.isNumeral(c, &value)
 	if err != nil || !ok {
 		return nil, err
 	}
@@ -1603,7 +1660,7 @@ func (r *UDocPluginRelation) applyGroundEq(v, hi, lo uint32, c ast.ASTHandle) (*
 	if err != nil {
 		return nil, err
 	}
-	if err = r.dm.vectors.SetBigInt(d.positive, value, hi, lo); err != nil {
+	if err = r.dm.vectors.SetRational(d.positive, r.plugin.m.NumeralService(), &value, hi, lo); err != nil {
 		return nil, errors.Join(err, r.dm.Deallocate(d))
 	}
 	return d, nil

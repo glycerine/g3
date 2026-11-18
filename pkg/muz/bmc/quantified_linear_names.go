@@ -5,11 +5,11 @@ package bmc
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // quantifiedLinear owns the temporary expressions of one compilation.
@@ -95,8 +95,24 @@ func newQuantifiedLinear(m *ast.ASTManager, width uint32) (q *quantifiedLinear, 
 	if err != nil {
 		return q, err
 	}
-	q.one, err = q.hold(m.BitVectorNumeralRat(big.NewRat(1, 1), width))
+	q.one, err = q.hold(quantifiedLinearNumeral(m, 1, width))
 	return q, err
+}
+
+// quantifiedLinearNumeral is mk_q_num(i): m_bv.mk_numeral(i, m_bit_width),
+// through a rational(i) temporary.
+func quantifiedLinearNumeral(m *ast.ASTManager, i uint64, width uint32) (ast.ASTHandle, error) {
+	q := m.NumeralService().Manager
+	r := numeral.NewRational()
+	err := q.SetUint64(&r, i)
+	var h ast.ASTHandle
+	if err == nil {
+		h, err = m.BitVectorNumeralFromRational(&r, width)
+	}
+	if e := q.Del(&r); e != nil && err == nil {
+		err = e
+	}
+	return h, err
 }
 
 func (q *quantifiedLinear) close() (err error) {

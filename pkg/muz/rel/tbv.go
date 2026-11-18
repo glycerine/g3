@@ -4,13 +4,14 @@ package rel
 
 import (
 	"errors"
-	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/bitset"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 var ErrTBV = errors.New("muz/rel: invalid ternary bit vector operation")
@@ -161,20 +162,40 @@ func (m *TBVManager) AllocateUint64Range(value uint64, high, low uint32) (*TBV, 
 	return result, nil
 }
 
-func (m *TBVManager) AllocateBigInt(value *big.Int) (*TBV, error) {
-	if value == nil {
+// AllocateRational is tbv_manager::allocate(rational const& r): a uint64
+// value takes allocate(uint64); otherwise bit i (from the top) is
+// bitwise_and(r, rational::power_of_two(i)) != 0. r is a rational of the
+// service's manager.
+func (m *TBVManager) AllocateRational(s *numeral.RationalService, value *numeral.Rational) (*TBV, error) {
+	if value == nil || s == nil {
 		return nil, ErrTBV
+	}
+	if small, err := s.Manager.IsUint64(value); err != nil {
+		return nil, err
+	} else if small {
+		v, err := s.Manager.Uint64(value)
+		if err != nil {
+			return nil, err
+		}
+		return m.AllocateUint64(v)
 	}
 	result, err := m.Allocate0()
 	if err != nil {
 		return nil, err
 	}
-	for bit := uint32(0); bit < m.NumTBits(); bit++ {
-		if bigIntBit(value, bit) {
-			if err = m.Set(result, bit, TBit1); err != nil {
-				_ = m.Deallocate(result)
-				return nil, err
+	for bit := m.NumTBits(); bit > 0; {
+		bit--
+		one, e := tbvRationalBit(s, value, bit)
+		if e == nil {
+			b := TBit0
+			if one {
+				b = TBit1
 			}
+			e = m.Set(result, bit, b)
+		}
+		if e != nil {
+			_ = m.Deallocate(result)
+			return nil, e
 		}
 	}
 	return result, nil
@@ -483,13 +504,15 @@ func (m *TBVManager) WellFormed(vector *TBV) (bool, error) {
 	return true, nil
 }
 
+// SetUint64 is tbv_manager::set(dst, uint64_t val, hi, lo); bits at or
+// above 64 are 0 (the fork's fix #113 for the source's 1ULL << i shift).
 func (m *TBVManager) SetUint64(destination *TBV, value uint64, high, low uint32) error {
-	if low > high || high >= m.NumTBits() || high-low >= 64 {
+	if low > high || high >= m.NumTBits() {
 		return arena.ErrBounds
 	}
 	for i := uint32(0); i <= high-low; i++ {
 		bit := TBit0
-		if value&(uint64(1)<<i) != 0 {
+		if i < 64 && value&(uint64(1)<<i) != 0 {
 			bit = TBit1
 		}
 		if err := m.Set(destination, low+i, bit); err != nil {
@@ -499,18 +522,47 @@ func (m *TBVManager) SetUint64(destination *TBV, value uint64, high, low uint32)
 	return nil
 }
 
-func bigIntBit(value *big.Int, index uint32) bool {
-	mask := new(big.Int).Lsh(big.NewInt(1), uint(index))
-	return new(big.Int).And(new(big.Int).Set(value), mask).Sign() != 0
+// tbvRationalBit is !bitwise_and(r, rational::power_of_two(i)).is_zero();
+// the power and the conjunction are rational temporaries.
+func tbvRationalBit(s *numeral.RationalService, value *numeral.Rational, index uint32) (bool, error) {
+	power, err := s.PowerOfTwo(index)
+	if err != nil {
+		return false, err
+	}
+	and := numeral.NewRational()
+	err = s.Manager.BitwiseAnd(value, &power.Raw, &and)
+	one := err == nil && !and.IsZero()
+	if e := s.Manager.Del(&and); e != nil && err == nil {
+		err = e
+	}
+	if e := s.Del(&power); e != nil && err == nil {
+		err = e
+	}
+	return one, err
 }
 
-func (m *TBVManager) SetBigInt(destination *TBV, value *big.Int, high, low uint32) error {
-	if value == nil || low > high || high >= m.NumTBits() {
+// SetRational is tbv_manager::set(dst, rational const& r, hi, lo): a uint64
+// value takes set(dst, uint64, hi, lo); otherwise bit lo+i is bit i of r.
+func (m *TBVManager) SetRational(destination *TBV, s *numeral.RationalService, value *numeral.Rational, high, low uint32) error {
+	if value == nil || s == nil || low > high || high >= m.NumTBits() {
 		return arena.ErrBounds
 	}
+	if small, err := s.Manager.IsUint64(value); err != nil {
+		return err
+	} else if small {
+		v, err := s.Manager.Uint64(value)
+		if err != nil {
+			return err
+		}
+		return m.SetUint64(destination, v, high, low)
+	}
 	for i := uint32(0); i <= high-low; i++ {
+		one, err := tbvRationalBit(s, value, i)
+		if err != nil {
+			return err
+		}
 		bit := TBit0
-		if bigIntBit(value, i) {
+		if one {
 			bit = TBit1
 		}
 		if err := m.Set(destination, low+i, bit); err != nil {

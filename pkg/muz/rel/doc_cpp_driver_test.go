@@ -3,7 +3,6 @@ package rel
 // Source: src/test/doc.cpp tst_doc1.
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/backtrack"
@@ -35,7 +34,8 @@ func TestDOCSourceDriverCubeOperations(t *testing.T) {
 			dx := alloc(m.AllocateX())
 			dxc := alloc(m.AllocateCopy(dx))
 			d10 := alloc(m.AllocateUint64(10))
-			_ = alloc(m.AllocateBigInt(big.NewInt(20)))
+			svc := tbvTestService(t)
+			_ = alloc(m.AllocateRational(svc, tbvTestRational(t, svc, 20)))
 			if width < 64 {
 				_ = alloc(m.AllocateUint64Range(0xff, 3, 1))
 			}
