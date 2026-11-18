@@ -59,12 +59,13 @@ func hwfErrorSign(op byte, a, b, nearest float64) int {
 		if nearest == 0 {
 			return sign
 		}
-		// |a*b| - |nearest| on normalized significands: the fused residual
-		// is nonzero exactly when the exact one is, and keeps its sign.
+		// |a*b| - |nearest| on normalized significands, where the product
+		// is exact as a Dekker pair and the difference an exact expansion.
 		fa, ea := hwfFrexp(a)
 		fb, eb := hwfFrexp(b)
 		fp, ep := hwfFrexp(nearest)
-		return sign * hwfSign(math.FMA(fa, fb, -math.Ldexp(fp, ep-ea-eb)))
+		hi, lo := hwfTwoProduct(fa, fb)
+		return sign * hwfExpansionSign(lo, hi, -math.Ldexp(fp, ep-ea-eb))
 	case '/':
 		sign := 1
 		if math.Signbit(a) != math.Signbit(b) {
@@ -77,9 +78,50 @@ func hwfErrorSign(op byte, a, b, nearest float64) int {
 		fa, ea := hwfFrexp(a)
 		fb, eb := hwfFrexp(b)
 		fq, eq := hwfFrexp(nearest)
-		return sign * hwfSign(math.FMA(-math.Ldexp(fq, eq+eb-ea), fb, fa))
+		hi, lo := hwfTwoProduct(math.Ldexp(fq, eq+eb-ea), fb)
+		return sign * hwfExpansionSign(-lo, -hi, fa)
 	}
 	return 0
+}
+
+// hwfTwoProduct is Dekker's exact product x*y = hi + lo with Veltkamp
+// splitting, valid without overflow or underflow; every product is rounded
+// explicitly so that no compiler fuses it (z3's x86-64 build has no FMA).
+func hwfTwoProduct(x, y float64) (hi, lo float64) {
+	hi = float64(x * y)
+	xh, xl := hwfSplit(x)
+	yh, yl := hwfSplit(y)
+	lo = float64(float64(float64(float64(float64(xh*yh)-hi)+float64(xh*yl))+float64(xl*yh)) + float64(xl*yl))
+	return hi, lo
+}
+
+func hwfSplit(x float64) (hi, lo float64) {
+	c := float64(134217729 * x) // 2^27 + 1
+	hi = float64(c - float64(c-x))
+	return hi, float64(x - hi)
+}
+
+// hwfTwoSum is Knuth's exact sum a + b = s + e.
+func hwfTwoSum(a, b float64) (s, e float64) {
+	s = float64(a + b)
+	bb := float64(s - a)
+	return s, float64(float64(a-float64(s-bb)) + float64(b-bb))
+}
+
+// hwfExpansionSign is the exact sign of lo + hi + x, where lo and hi are a
+// nonoverlapping pair with |lo| <= |hi|: Shewchuk's grow-expansion gives a
+// nonoverlapping expansion of increasing magnitude whose largest nonzero
+// component carries the sign of the sum.
+func hwfExpansionSign(lo, hi, x float64) int {
+	q, h0 := hwfTwoSum(x, lo)
+	q, h1 := hwfTwoSum(q, hi)
+	if q != 0 {
+		return hwfSign(q)
+	}
+	if h1 != 0 {
+		return hwfSign(h1)
+	}
+	return hwfSign(h0)
 }
 
 func hwfSign(x float64) int {

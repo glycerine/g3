@@ -124,6 +124,9 @@ func TestHardwareFloatDirectedRoundingMatchesExactOracle(t *testing.T) {
 	if testing.Short() {
 		n = 300000
 	}
+	// uf rounds the inlined random product explicitly, so the compiler
+	// cannot fuse it with the following add.
+	uf := func() float64 { return float64(r.Float64()) }
 	for i := 0; i < n; i++ {
 		var a, b float64
 		switch i % 4 {
@@ -131,13 +134,13 @@ func TestHardwareFloatDirectedRoundingMatchesExactOracle(t *testing.T) {
 			a = math.Float64frombits(r.Uint64()&^(0x7ff<<52) | uint64(r.Intn(0x7ff))<<52)
 			b = math.Float64frombits(r.Uint64()&^(0x7ff<<52) | uint64(r.Intn(0x7ff))<<52)
 		case 1: // ordinary magnitudes
-			a = (r.Float64() - 0.5) * math.Ldexp(1, r.Intn(64)-32)
-			b = (r.Float64() - 0.5) * math.Ldexp(1, r.Intn(64)-32)
+			a = float64(uf()-0.5) * math.Ldexp(1, r.Intn(64)-32)
+			b = float64(uf()-0.5) * math.Ldexp(1, r.Intn(64)-32)
 		case 2: // products and quotients near the subnormal range
-			a = (r.Float64() + 0.5) * math.Ldexp(1, -r.Intn(560))
-			b = (r.Float64() - 0.5) * math.Ldexp(1, -r.Intn(560))
+			a = float64(uf()+0.5) * math.Ldexp(1, -r.Intn(560))
+			b = float64(uf()-0.5) * math.Ldexp(1, -r.Intn(560))
 		case 3: // near cancellation
-			a = (r.Float64() + 0.5) * math.Ldexp(1, r.Intn(200)-100)
+			a = float64(uf()+0.5) * math.Ldexp(1, r.Intn(200)-100)
 			b = -math.Nextafter(a, math.Inf(int(r.Intn(2)*2-1)))
 			if r.Intn(2) == 0 {
 				b = math.Ldexp(b, -r.Intn(60))
