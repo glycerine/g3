@@ -200,7 +200,33 @@ func (c *Context) validateModel() (resultErr error) {
 		return nil
 	}
 	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()
-	evaluator, err := model.NewModelEvaluator(md, c.config.ModelEvaluator)
+	// validate_model: p.set_uint("max_degree", UINT_MAX);
+	// p.set_uint("sort_store", true) (a uint, so get_bool("sort_store")
+	// does not see it); p.set_bool("completion", true).
+	config := c.config.ModelEvaluator
+	if config.Context != nil {
+		pc := config.Context
+		params, e := pc.NewValue()
+		if e != nil {
+			return e
+		}
+		defer func() { resultErr = errors.Join(resultErr, pc.Del(&params)) }()
+		for _, key := range []string{"max_degree", "sort_store"} {
+			value := uint32(0xFFFFFFFF)
+			if key == "sort_store" {
+				value = 1
+			}
+			if e = pc.SetUIntName(&params, &key, value); e != nil {
+				return e
+			}
+		}
+		completion := "completion"
+		if e = pc.SetBoolName(&params, &completion, true); e != nil {
+			return e
+		}
+		config.Params = &params
+	}
+	evaluator, err := model.NewModelEvaluator(md, config)
 	if evaluator != nil {
 		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
 	}
@@ -301,6 +327,38 @@ func (c *Context) hasUnderSpecifiedModelOps(root ast.ASTHandle) (bool, error) {
 		kind, err := c.manager.GetKind(n)
 		if err != nil {
 			return false, err
+		}
+		if kind == ast.ASTQuantifier {
+			// for_each_expr visits a quantifier's body, patterns and
+			// no-patterns.
+			body, e := c.manager.GetQuantifierBody(n)
+			if e != nil {
+				return false, e
+			}
+			stack = append(stack, body)
+			patterns, e := c.manager.GetNumPatterns(n)
+			if e != nil {
+				return false, e
+			}
+			for i := uint32(0); i < patterns; i++ {
+				pattern, e := c.manager.GetPattern(n, i)
+				if e != nil {
+					return false, e
+				}
+				stack = append(stack, pattern)
+			}
+			noPatterns, e := c.manager.GetNumNoPatterns(n)
+			if e != nil {
+				return false, e
+			}
+			for i := uint32(0); i < noPatterns; i++ {
+				pattern, e := c.manager.GetNoPattern(n, i)
+				if e != nil {
+					return false, e
+				}
+				stack = append(stack, pattern)
+			}
+			continue
 		}
 		if kind != ast.ASTApp {
 			continue

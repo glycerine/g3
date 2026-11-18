@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestCommandContextModelCompletionOptionCompletesUserDeclarations(t *testing.T) {
@@ -112,5 +113,37 @@ func TestCommandContextModelValidationRejectsFalseGroundAssertion(t *testing.T) 
 	c.status, c.checked = lbool.True, true
 	if err = c.validateModel(); err == nil || err.Error() != "an invalid model was generated" {
 		t.Fatal("invalid ground assertion validation", err)
+	}
+}
+
+// AUDIT.md cmd_context_01-F15: contains_underspecified_op_proc runs over
+// for_each_expr, which visits a quantifier's body (and patterns), so a
+// store inside a ground quantified assertion exempts it from validation.
+func TestValidateModelScansQuantifierBodies(t *testing.T) {
+	c := contextFixture(t)
+	m, err := c.Manager()
+	contextMust(t, err)
+	boolean, err := m.MkBoolSort()
+	contextMust(t, err)
+	arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+	contextMust(t, err)
+	_, err = c.DeclareFunction("scan-array", nil, arraySort)
+	contextMust(t, err)
+	a, err := c.MakeApp("scan-array", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	v, err := m.MkVar(0, boolean)
+	contextMust(t, err)
+	store, err := c.MakeApp("store", []ast.ASTHandle{a, v, v}, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	read, err := c.MakeApp("select", []ast.ASTHandle{store, v}, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	name, err := m.Symbols.Intern("scan-x")
+	contextMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []usymbol.Symbol{name}, Body: read, Weight: 1})
+	contextMust(t, err)
+	found, err := c.hasUnderSpecifiedModelOps(q)
+	contextMust(t, err)
+	if !found {
+		t.Fatal("the store in the quantifier body was not found")
 	}
 }
