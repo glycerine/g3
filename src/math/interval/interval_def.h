@@ -366,6 +366,9 @@ void interval_manager<C>::nth_root_pos(numeral const & A, unsigned n, numeral co
                 // Be supper conservative
                 // This should not really happen very often.
                 _scoped_numeral<numeral_manager> one(m());
+                // FORK FIX #132 (g3 audit, see FORK_BUGFIXES.md): one was left
+                // 0, so 0 < A < 1 gave the reversed [1, A] (AUDIT math_misc_01-F6).
+                m().set(one, 1);
                 if (m().lt(A, one)) {
                     m().set(lo, 0);
                     m().set(hi, 1);
