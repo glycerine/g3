@@ -467,17 +467,33 @@ func (r *SequenceRewriter) makeSequencePartsRef(parts []ast.ASTHandle, like ast.
 	return ref, result, err
 }
 
-func (r *SequenceRewriter) assignSequenceRelation(leftParts, rightParts []ast.ASTHandle, leftLike, rightLike ast.ASTHandle, prefix bool, resultStatus RewriteStatus, out ast.ASTRef) (status RewriteStatus, err error) {
+// assignSequenceRelation builds the two concatenations left first, as the
+// C++ does where they are separate statements. With rightFirst it is
+// mk_prefix/mk_suffix(mk_concat(as), mk_concat(bs)) as one call, whose
+// arguments the reference GCC build evaluates right to left.
+func (r *SequenceRewriter) assignSequenceRelation(leftParts, rightParts []ast.ASTHandle, leftLike, rightLike ast.ASTHandle, prefix, rightFirst bool, resultStatus RewriteStatus, out ast.ASTRef) (status RewriteStatus, err error) {
+	var left, right ast.ASTHandle
+	if rightFirst {
+		rightRef, h, e := r.makeSequencePartsRef(rightParts, rightLike)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		defer func() { err = errors.Join(err, r.manager.DelRef(&rightRef)) }()
+		right = h
+	}
 	leftRef, left, err := r.makeSequencePartsRef(leftParts, leftLike)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	defer func() { err = errors.Join(err, r.manager.DelRef(&leftRef)) }()
-	rightRef, right, err := r.makeSequencePartsRef(rightParts, rightLike)
-	if err != nil {
-		return RewriteFailed, err
+	if !rightFirst {
+		rightRef, h, e := r.makeSequencePartsRef(rightParts, rightLike)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		defer func() { err = errors.Join(err, r.manager.DelRef(&rightRef)) }()
+		right = h
 	}
-	defer func() { err = errors.Join(err, r.manager.DelRef(&rightRef)) }()
 	var result ast.ASTHandle
 	if prefix {
 		result, err = r.manager.MkSequencePrefix(left, right)
@@ -774,21 +790,14 @@ func (r *SequenceRewriter) RewriteStringToInt(a ast.ASTHandle, out ast.ASTRef) (
 	if err != nil || !matched {
 		return RewriteFailed, err
 	}
-	zero, err := r.makeSmallInteger(0)
-	if err != nil {
-		return RewriteFailed, err
-	}
 	refs := make([]ast.ASTRef, 0, 3)
 	defer func() {
 		for i := len(refs) - 1; i >= 0; i-- {
 			err = errors.Join(err, r.manager.DelRef(&refs[i]))
 		}
 	}()
-	zeroRef, err := r.manager.NewRef(zero)
-	if err != nil {
-		return RewriteFailed, err
-	}
-	refs = append(refs, zeroRef)
+	// mk_ite(mk_ge(b, mk_int(0)), b, mk_int(-1)): GCC evaluates the
+	// arguments right to left, so -1 is created before 0.
 	minusOne, err := r.makeSmallInteger(-1)
 	if err != nil {
 		return RewriteFailed, err
@@ -798,6 +807,15 @@ func (r *SequenceRewriter) RewriteStringToInt(a ast.ASTHandle, out ast.ASTRef) (
 		return RewriteFailed, err
 	}
 	refs = append(refs, minusOneRef)
+	zero, err := r.makeSmallInteger(0)
+	if err != nil {
+		return RewriteFailed, err
+	}
+	zeroRef, err := r.manager.NewRef(zero)
+	if err != nil {
+		return RewriteFailed, err
+	}
+	refs = append(refs, zeroRef)
 	family, err := r.manager.ArithmeticFamilyID()
 	if err != nil {
 		return RewriteFailed, err
@@ -1039,15 +1057,8 @@ func (r *SequenceRewriter) RewriteRegexComplement(a ast.ASTHandle, out ast.ASTRe
 		if !matched {
 			continue
 		}
-		leftComplement, e := r.manager.MkRegexComplement(left)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		leftRef, e := r.manager.NewRef(leftComplement)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		defer func() { err = errors.Join(err, r.manager.DelRef(&leftRef)) }()
+		// mk_union/mk_inter(mk_complement(e1), mk_complement(e2)): GCC
+		// evaluates the arguments right to left.
 		rightComplement, e := r.manager.MkRegexComplement(right)
 		if e != nil {
 			return RewriteFailed, e
@@ -1057,6 +1068,15 @@ func (r *SequenceRewriter) RewriteRegexComplement(a ast.ASTHandle, out ast.ASTRe
 			return RewriteFailed, e
 		}
 		defer func() { err = errors.Join(err, r.manager.DelRef(&rightRef)) }()
+		leftComplement, e := r.manager.MkRegexComplement(left)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		leftRef, e := r.manager.NewRef(leftComplement)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		defer func() { err = errors.Join(err, r.manager.DelRef(&leftRef)) }()
 		var result ast.ASTHandle
 		if row.to == 18 {
 			result, e = r.manager.MkRegexUnion(leftComplement, rightComplement)
@@ -1654,7 +1674,7 @@ func (r *SequenceRewriter) RewritePrefix(a, b ast.ASTHandle, out ast.ASTRef) (st
 			}
 			defer func() { err = errors.Join(err, r.manager.DelRef(&strippedRef)) }()
 			bs[0] = stripped
-			return r.assignSequenceRelation(as[1:], bs, a, b, true, RewriteFull, out)
+			return r.assignSequenceRelation(as[1:], bs, a, b, true, true, RewriteFull, out)
 		}
 		if !strings.HasPrefix(left, right) {
 			return r.assignBoolean(false, out)
@@ -1680,7 +1700,7 @@ func (r *SequenceRewriter) RewritePrefix(a, b ast.ASTHandle, out ast.ASTRef) (st
 		}
 		defer func() { err = errors.Join(err, r.manager.DelRef(&strippedRef)) }()
 		as[0] = stripped
-		return r.assignSequenceRelation(as, bs[1:], a, b, true, RewriteFull, out)
+		return r.assignSequenceRelation(as, bs[1:], a, b, true, true, RewriteFull, out)
 	}
 	as, err := r.manager.SequenceFlattenConcat(a)
 	if err != nil {
@@ -1790,7 +1810,7 @@ func (r *SequenceRewriter) RewritePrefix(a, b ast.ASTHandle, out ast.ASTRef) (st
 		return Rewrite3, nil
 	}
 	if i > 0 {
-		return r.assignSequenceRelation(as[i:], bs[i:], a, b, true, RewriteDone, out)
+		return r.assignSequenceRelation(as[i:], bs[i:], a, b, true, false, RewriteDone, out)
 	}
 	return RewriteFailed, nil
 }
@@ -1896,7 +1916,7 @@ func (r *SequenceRewriter) RewriteSuffix(a, b ast.ASTHandle, out ast.ASTRef) (st
 			if rightConcat {
 				rightParts = []ast.ASTHandle{rightPrefix, stripped}
 			}
-			return r.assignSequenceRelation([]ast.ASTHandle{leftPrefix}, rightParts, a, b, false, RewriteDone, out)
+			return r.assignSequenceRelation([]ast.ASTHandle{leftPrefix}, rightParts, a, b, false, false, RewriteDone, out)
 		}
 		if !rightConcat {
 			return r.assignBoolean(false, out)
@@ -1917,7 +1937,7 @@ func (r *SequenceRewriter) RewriteSuffix(a, b ast.ASTHandle, out ast.ASTRef) (st
 		if leftConcat {
 			leftParts = []ast.ASTHandle{leftPrefix, stripped}
 		}
-		return r.assignSequenceRelation(leftParts, []ast.ASTHandle{rightPrefix}, a, b, false, RewriteDone, out)
+		return r.assignSequenceRelation(leftParts, []ast.ASTHandle{rightPrefix}, a, b, false, false, RewriteDone, out)
 	}
 	as, err := r.manager.SequenceFlattenConcat(a)
 	if err != nil {
@@ -1994,7 +2014,7 @@ func (r *SequenceRewriter) RewriteSuffix(a, b ast.ASTHandle, out ast.ASTRef) (st
 		}
 		return Rewrite3, nil
 	}
-	return r.assignSequenceRelation(as, bs, a, b, false, RewriteDone, out)
+	return r.assignSequenceRelation(as, bs, a, b, false, true, RewriteDone, out)
 }
 
 func (r *SequenceRewriter) RewriteReplace(a, b, replacement ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {

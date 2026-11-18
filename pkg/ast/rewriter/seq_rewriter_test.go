@@ -935,3 +935,63 @@ func TestSequenceRewriterDeclarationDispatch(t *testing.T) {
 		t.Fatalf("foreign declaration status: %d", status)
 	}
 }
+
+// GCC evaluates nested call arguments right to left: str.to_int(int.to.str
+// x) creates -1 before 0, and complement(inter(r1, r2)) creates
+// complement(r2) before complement(r1).
+func TestSequenceRewriterConstructionOrder(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	rw, err := NewSequenceRewriter(m)
+	astTestMust(t, err)
+	out, err := m.NewRef(ast.ASTHandle{})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelRef(&out)) }()
+	id := func(h ast.ASTHandle, path ...uint32) uint32 {
+		t.Helper()
+		for _, i := range path {
+			var e error
+			h, e = m.GetArg(h, i)
+			astTestMust(t, e)
+		}
+		v, e := m.GetASTID(h)
+		astTestMust(t, e)
+		return v
+	}
+	intSort, err := m.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	x, err := m.MkConst(astTestSymbol(t, m, "order-stoi-x"), intSort)
+	astTestMust(t, err)
+	astTestPin(t, m, x)
+	itos, err := m.MkIntToString(x)
+	astTestMust(t, err)
+	astTestPin(t, m, itos)
+	_, err = rw.RewriteStringToInt(itos, out)
+	astTestMust(t, err)
+	result, err := m.RefGet(out)
+	astTestMust(t, err)
+	astTestPin(t, m, result)
+	if minusOne, zero := id(result, 2), id(result, 0, 1); minusOne >= zero {
+		t.Fatal("stoi: -1 must be created before 0", minusOne, zero)
+	}
+
+	c, err := m.MkString("order-c")
+	astTestMust(t, err)
+	d, err := m.MkString("order-d")
+	astTestMust(t, err)
+	rc, err := m.MkSequenceToRegex(c)
+	astTestMust(t, err)
+	rd, err := m.MkSequenceToRegex(d)
+	astTestMust(t, err)
+	intersection, err := m.MkRegexIntersect(rc, rd)
+	astTestMust(t, err)
+	astTestPin(t, m, intersection)
+	_, err = rw.RewriteRegexComplement(intersection, out)
+	astTestMust(t, err)
+	result, err = m.RefGet(out)
+	astTestMust(t, err)
+	if left, right := id(result, 0), id(result, 1); right >= left {
+		t.Fatal("complement: right complement must be created first", left, right)
+	}
+}
