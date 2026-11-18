@@ -92,11 +92,11 @@ func (m *RationalManager) SetString(out *Rational, text string) (err error) {
 	if m == nil {
 		return umemory.ErrRuntimeOwner
 	}
-	if m.parseOuterPending || m.parseSuffixPending || m.parseB.pending || m.parseExp.pending || m.parseTen.pending {
-		return ErrRationalLexicalPending
-	}
 	if m.closed {
 		return arena.ErrClosed
+	}
+	if m.parserPending() && !m.resumeParserTemporaries() {
+		return ErrRationalLexicalPending
 	}
 	if out == nil {
 		return arena.ErrInvalidSlot

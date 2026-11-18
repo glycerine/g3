@@ -102,7 +102,10 @@ func (m *RationalManager) checkOwnerReady() error {
 	if m.closed || m.Closing || m.SourceFinalizing || m.SourceFinalized || m.Z.closed || m.Z.SourceFinalizing || m.Z.constructionFailed {
 		return arena.ErrClosed
 	}
-	if m.parseOuterPending || m.parseSuffixPending || m.parseB.pending || m.parseExp.pending || m.parseTen.pending || m.prevPowerPending || m.addIntPending || (m.fusedPending && !m.fusedExecuting) {
+	if m.parserPending() && !m.resumeParserTemporaries() {
+		return ErrRationalLexicalPending
+	}
+	if m.prevPowerPending || m.addIntPending || (m.fusedPending && !m.fusedExecuting) {
 		return ErrRationalLexicalPending
 	}
 	if m.hwfPending && !m.hwfExecuting {
@@ -110,6 +113,21 @@ func (m *RationalManager) checkOwnerReady() error {
 	}
 	return nil
 }
+
+// parserPending reports parser temporaries whose destructors stopped.
+func (m *RationalManager) parserPending() bool {
+	return m.parseOuterPending || m.parseSuffixPending || m.parseB.pending || m.parseExp.pending || m.parseTen.pending
+}
+
+// resumeParserTemporaries finishes the stopped parser destructors before the
+// next operation, reporting whether none remains pending. A parse stopped by
+// a failed allocation or release (rational(char const*) throws in z3, whose
+// destructors cannot fail) must not disable the manager once memory is
+// available again; a destructor that fails again keeps its root pending.
+func (m *RationalManager) resumeParserTemporaries() bool {
+	return m.CleanupParserTemporaries() == nil && !m.parserPending()
+}
+
 func (m *RationalManager) check(a *Rational) error {
 	if e := m.checkOwnerReady(); e != nil {
 		return e
