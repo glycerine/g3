@@ -1,7 +1,6 @@
 package cmd_context
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -56,8 +55,11 @@ func TestFixedpointExpressionQueryPreservesPrequeryPDRCover(t *testing.T) {
 	if handle != property {
 		t.Fatal("query preparation lost the pre-query cover", handle, property)
 	}
+	// A parameter update rebuilds the PDR context (updt_params), which has
+	// no frames for the predicate: z3 reports 0 levels after
+	// Z3_fixedpoint_set_params, even for an out-of-range cache mode.
 	contextMust(t, c.SetUIntOption("fixedpoint.pdr.cache_mode", 99))
-	if _, err := c.FixedpointNumLevels(declaration); err == nil || !strings.Contains(err.Error(), "invalid pdr.cache_mode 99") {
-		t.Fatal("module update did not apply the new constructor parameters", err)
+	if levels, err := c.FixedpointNumLevels(declaration); err != nil || levels != 0 {
+		t.Fatal("module update did not rebuild the PDR context", levels, err)
 	}
 }

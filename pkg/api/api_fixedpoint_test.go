@@ -195,7 +195,9 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	if status != lbool.Undef {
 		t.Fatal("multi-relation PDR query status", status)
 	}
-	if reason, x := context.FixedpointReasonUnknown(); x != nil || reason != "approximated" {
+	// context::rel_query leaves m_last_status alone (engine_base::query
+	// returns l_undef for other than one relation): z3 reports "ok" here.
+	if reason, x := context.FixedpointReasonUnknown(); x != nil || reason != "ok" {
 		t.Fatal("undecided fixedpoint status", reason, x)
 	}
 
@@ -331,21 +333,43 @@ func TestSMTContextFixedpointParameterUpdateRebuildsPDR(t *testing.T) {
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, context.Close()) })
 	astTestMust(t, context.SetFixedpointEngine("pdr"))
-	predicate, err := context.DeclareRelation("api-fp-parameter-P", nil)
-	astTestMust(t, err)
+	// Keep the predicate's transformer: covers need slicing and inlining off.
+	for _, option := range []string{"fixedpoint.xform.slice", "fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear"} {
+		astTestMust(t, context.SetBoolOption(option, false))
+	}
 	manager, err := context.Manager()
 	astTestMust(t, err)
-	fact, err := manager.MkApp(predicate, nil)
+	arithmetic, err := manager.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := manager.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+	predicate, err := context.DeclareRelation("api-fp-parameter-P", []ast.ASTHandle{integer})
+	astTestMust(t, err)
+	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	astTestMust(t, err)
+	fact, err := manager.MkApp(predicate, []ast.ASTHandle{zero})
 	astTestMust(t, err)
 	astTestMust(t, context.AddFixedpointRule(fact, "api-fp-parameter-fact"))
-	status, err := context.QueryFixedpoint(predicate)
+	variable, err := manager.MkVar(0, integer)
 	astTestMust(t, err)
-	if status != lbool.True {
-		t.Fatal("initial fixedpoint parameter query", status)
+	property, err := manager.MkEq(variable, zero)
+	astTestMust(t, err)
+	astTestMust(t, context.AddFixedpointCover(2, predicate, property))
+	// z3 (Z3_fixedpoint_add_cover, get_num_levels) reports 3 levels here,
+	// and 0 after Z3_fixedpoint_set_params: pdr::dl_interface::updt_params
+	// replaces m_context. An out-of-range cache mode is accepted unchecked.
+	levels, err := context.FixedpointNumLevels(predicate)
+	astTestMust(t, err)
+	if levels != 3 {
+		t.Fatal("covered PDR context levels", levels)
 	}
 	astTestMust(t, context.SetUIntOption("fixedpoint.pdr.cache_mode", 3))
-	if _, err = context.QueryFixedpoint(predicate); err == nil || !strings.Contains(err.Error(), "invalid pdr.cache_mode 3") {
-		t.Fatal("fixedpoint parameter update reused stale PDR context", err)
+	if levels, err = context.FixedpointNumLevels(predicate); err != nil || levels != 0 {
+		t.Fatal("fixedpoint parameter update reused stale PDR context", levels, err)
+	}
+	status, err := context.QueryFixedpoint(predicate)
+	if err != nil || status != lbool.True {
+		t.Fatal("rebuilt fixedpoint parameter query", status, err)
 	}
 }
 
