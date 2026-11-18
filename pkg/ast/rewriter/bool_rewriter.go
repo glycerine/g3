@@ -27,6 +27,15 @@ type boolRewriter struct {
 	localActive                         bool
 	andArgs                             [][]ast.ASTHandle
 	andDepth                            uint32
+	// nflatNeg/nflatPos are mk_nflat_*_core's expr_fast_mark1/2 (neg_lits,
+	// pos_lits), keyed by node; nflatBuffer backs its ptr_buffer, used as
+	// a stack because local-context simplification can re-enter.
+	nflatNeg, nflatPos map[uint64]bool
+	nflatBuffer        []ast.ASTHandle
+}
+
+func boolRewriterMarkKey(h ast.ASTHandle) uint64 {
+	return uint64(h.Slot())<<32 | uint64(h.Generation())
 }
 
 func (rw *boolRewriter) isOperator(h ast.ASTHandle, op int32) (bool, error) {
@@ -48,9 +57,20 @@ func (rw *boolRewriter) mkNFlatOrCore(args []ast.ASTHandle, out ast.ASTRef) (brS
 // Keep that source branch after mark reset and before the changed-result test.
 func (rw *boolRewriter) mkNFlatCore(args ast.AppArguments, out ast.ASTRef, disjunction bool) (status brStatus, err error) {
 	m := rw.manager
-	var buffer []ast.ASTHandle
-	neg := make(map[ast.ASTHandle]bool)
-	pos := make(map[ast.ASTHandle]bool)
+	if rw.nflatNeg == nil {
+		rw.nflatNeg, rw.nflatPos = make(map[uint64]bool), make(map[uint64]bool)
+	}
+	neg, pos := rw.nflatNeg, rw.nflatPos
+	// The marks are reset on every exit, as the source's fast marks are.
+	defer func() {
+		clear(neg)
+		clear(pos)
+	}()
+	base := len(rw.nflatBuffer)
+	defer func() {
+		clear(rw.nflatBuffer[base:])
+		rw.nflatBuffer = rw.nflatBuffer[:base]
+	}()
 	unit, e := m.MkBoolVal(!disjunction)
 	if e != nil {
 		return brFailed, e
@@ -77,31 +97,29 @@ func (rw *boolRewriter) mkNFlatCore(args ast.AppArguments, out ast.ASTRef, disju
 			return brFailed, e
 		}
 		if negative {
-			marked := neg[atom]
-			if marked {
+			key := boolRewriterMarkKey(atom)
+			if neg[key] {
 				changed = true
 				continue
 			}
-			marked = pos[atom]
-			if marked {
+			if pos[key] {
 				return brDone, m.SetRef(out, absorb)
 			}
-			neg[atom] = true
+			neg[key] = true
 		} else {
-			marked := pos[arg]
-			if marked {
+			key := boolRewriterMarkKey(arg)
+			if pos[key] {
 				changed = true
 				continue
 			}
-			marked = neg[arg]
-			if marked {
+			if neg[key] {
 				return brDone, m.SetRef(out, absorb)
 			}
-			pos[arg] = true
+			pos[key] = true
 		}
-		buffer = append(buffer, arg)
+		rw.nflatBuffer = append(rw.nflatBuffer, arg)
 	}
-	remaining := buffer
+	remaining := rw.nflatBuffer[base:len(rw.nflatBuffer):len(rw.nflatBuffer)]
 	switch len(remaining) {
 	case 0:
 		return brDone, m.SetRef(out, unit)
