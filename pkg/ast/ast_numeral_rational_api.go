@@ -97,3 +97,18 @@ func (m *ASTManager) NewParameterFromRational(r *unumeral.Rational) (result ASTP
 	}
 	return m.NewParameterRational(&value)
 }
+
+// ArithmeticNumeralInt64 is arith_util::mk_numeral(rational(v), integer).
+func (m *ASTManager) ArithmeticNumeralInt64(v int64, integer bool) (result ASTHandle, resultErr error) {
+	if v >= -(1<<31) && v < 1<<31 {
+		small := unumeral.Rational{Num: unumeral.NewInt(int32(v)), Den: unumeral.NewInt(1)}
+		return m.ArithmeticNumeralFromRational(&small, integer)
+	}
+	q := m.NumeralService().Manager
+	r := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&r)) }()
+	if err := q.SetInt64(&r, v); err != nil {
+		return ASTHandle{}, err
+	}
+	return m.ArithmeticNumeralFromRational(&r, integer)
+}

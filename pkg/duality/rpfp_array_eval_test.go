@@ -4,7 +4,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"math/big"
 	"testing"
 )
 
@@ -33,9 +32,9 @@ func TestRPFPArrayEqualityFunctionTablesAndStores(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal(status)
 	}
-	zero := pin(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-	one := pin(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
-	two := pin(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
+	zero := pin(m.ArithmeticNumeralInt64(int64(0), true))
+	one := pin(m.ArithmeticNumeralInt64(int64(1), true))
+	two := pin(m.ArithmeticNumeralInt64(int64(2), true))
 	integer := pin(m.GetSort(zero))
 	boolean := pin(m.MkTrue())
 	numeral, err := g.arrayStoreNumeral(boolean)

@@ -4,7 +4,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"math/big"
 	"testing"
 )
 
@@ -135,8 +134,8 @@ func TestDualityImplicantSolverReassertsStoreNamesAfterPop(t *testing.T) {
 		return v
 	}
 	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
-	zero := wrap(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	zero := wrap(m.ArithmeticNumeralInt64(int64(0), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
 	integer, err := m.GetSort(raw(zero))
 	must(err)
 	arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), integer)

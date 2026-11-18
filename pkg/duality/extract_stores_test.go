@@ -4,7 +4,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"math/big"
 	"testing"
 )
 
@@ -25,9 +24,9 @@ func TestDualityExtractStoresPersistentNamesAndOnePassUndo(t *testing.T) {
 		return v
 	}
 	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
-	zero := wrap(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
-	two := wrap(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
+	zero := wrap(m.ArithmeticNumeralInt64(int64(0), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
+	two := wrap(m.ArithmeticNumeralInt64(int64(2), true))
 	integer, err := m.GetSort(raw(zero))
 	must(err)
 	arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), integer)
@@ -155,9 +154,9 @@ func TestDualityExtractStoresAllocationFailureRetry(t *testing.T) {
 		return v
 	}
 	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
-	zero := wrap(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
-	two := wrap(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
+	zero := wrap(m.ArithmeticNumeralInt64(int64(0), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
+	two := wrap(m.ArithmeticNumeralInt64(int64(2), true))
 	integer, err := m.GetSort(raw(zero))
 	must(err)
 	arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), integer)

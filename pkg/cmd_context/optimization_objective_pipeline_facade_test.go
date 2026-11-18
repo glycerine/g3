@@ -1,7 +1,6 @@
 package cmd_context
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -69,7 +68,7 @@ func TestCommandContextPurifiedPipelineFacade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := m.ArithmeticNumeralInt64(int64(0), true)
 	if err != nil {
 		t.Fatal(err)
 	}

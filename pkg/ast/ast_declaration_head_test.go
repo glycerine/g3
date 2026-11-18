@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"io"
 	"math/big"
 
@@ -35,7 +36,10 @@ func astDeclarationHeadFixture(t *testing.T, m *ASTManager, wide bool) (ASTHandl
 	if wide {
 		r.SetFrac(new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 8192), big.NewInt(7)), big.NewInt(17))
 	}
-	ps[3], err = m.NewParameterRat(r)
+	pr := unumeral.NewRational()
+	astTestMust(t, m.NumeralService().Manager.SetString(&pr, r.RatString()))
+	ps[3], err = m.NewParameterFromRational(&pr)
+	astTestMust(t, errors.Join(err, m.NumeralService().Manager.Del(&pr)))
 	astTestMust(t, err)
 	ps[4], err = m.NewParameterDouble(123456.789)
 	astTestMust(t, err)

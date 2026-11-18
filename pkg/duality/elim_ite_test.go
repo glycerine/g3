@@ -1,7 +1,6 @@
 package duality
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -29,8 +28,8 @@ func TestDualityElimIteGuardedEqualitySharedNamesAndNativeSemantics(t *testing.T
 	p, err := ctx.BoolConst("ite-condition")
 	must(err)
 	closeExpr(t, p)
-	zero := wrap(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	zero := wrap(m.ArithmeticNumeralInt64(int64(0), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
 	conditional := wrap(m.MkIte(raw(p), raw(one), raw(zero)))
 	direct := wrap(m.MkEq(raw(zero), raw(conditional)))
 	yes := wrap(m.MkAnd(raw(p), raw(wrap(m.MkEq(raw(zero), raw(one))))))

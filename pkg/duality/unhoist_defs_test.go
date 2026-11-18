@@ -1,7 +1,6 @@
 package duality
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -25,8 +24,8 @@ func TestDualityGetDefsOrientationOverwriteAndOpaqueContexts(t *testing.T) {
 		return e
 	}
 	raw := func(e *Expr) ast.ASTHandle { t.Helper(); h, err := e.Raw(); must(err); return h }
-	zero := wrap(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	zero := wrap(m.ArithmeticNumeralInt64(int64(0), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
 	sort, err := m.GetSort(raw(zero))
 	must(err)
 	constant := func(text string) *Expr {

@@ -3,7 +3,6 @@ package duality
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"math/big"
 	"testing"
 	"time"
 )
@@ -91,8 +90,8 @@ func TestRPFPImplicantSourceOrderPolarityAndITE(t *testing.T) {
 	same(extract(negAnd, nil), ph)
 	// Source emits no literal when no disjunct matches the current model.
 	same(extract(pin(m.MkOr(np, nq)), nil), yes)
-	one := pin(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
-	two := pin(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
+	one := pin(m.ArithmeticNumeralInt64(int64(1), true))
+	two := pin(m.ArithmeticNumeralInt64(int64(2), true))
 	ite := pin(m.MkIte(ph, one, two))
 	atom := pin(m.MkEq(ite, one))
 	profile = NewProfiler(nil)

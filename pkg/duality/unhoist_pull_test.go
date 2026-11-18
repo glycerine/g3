@@ -2,7 +2,6 @@ package duality
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -25,7 +24,7 @@ func TestDualityUnhoistPullTransitiveDefinitionsAndSharedParameters(t *testing.T
 		return e
 	}
 	raw := func(e *Expr) ast.ASTHandle { t.Helper(); h, err := e.Raw(); must(err); return h }
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
 	sort, err := m.GetSort(raw(one))
 	must(err)
 	constant := func(text string) *Expr {

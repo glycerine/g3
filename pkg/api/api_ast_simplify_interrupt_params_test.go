@@ -1,8 +1,6 @@
 package api
 
 import (
-	"math/big"
-
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/control"
@@ -47,7 +45,7 @@ func TestSimplifyIgnoresRLimitParam(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sum, err := manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	sum, err := manager.ArithmeticNumeralInt64(int64(0), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +55,7 @@ func TestSimplifyIgnoresRLimitParam(t *testing.T) {
 	}
 	defer manager.DelRef(&root)
 	for i := int64(1); i <= 50; i++ {
-		n, err := manager.ArithmeticNumeralRat(big.NewRat(i, 1), true)
+		n, err := manager.ArithmeticNumeralInt64(int64(i), true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,7 +83,7 @@ func TestSimplifyIgnoresRLimitParam(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := manager.ArithmeticNumeralRat(big.NewRat(1275, 1), true)
+	want, err := manager.ArithmeticNumeralInt64(int64(1275), true)
 	if err != nil {
 		t.Fatal(err)
 	}

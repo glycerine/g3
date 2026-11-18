@@ -2,7 +2,6 @@ package solver
 
 import (
 	"io"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -34,7 +33,7 @@ func TestSolverDefaultConsequenceForNonBooleanValue(t *testing.T) {
 	var names ast.ASTBuiltinNames
 	defer names.Close()
 	solverMust(t, m.GetArithmeticSortNames(&names, logic))
-	value, err := m.ArithmeticNumeralRat(big.NewRat(7, 1), true)
+	value, err := m.ArithmeticNumeralInt64(int64(7), true)
 	solverMust(t, err)
 	integer, err := m.GetSort(value)
 	solverMust(t, err)

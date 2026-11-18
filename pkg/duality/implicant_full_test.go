@@ -3,7 +3,6 @@ package duality
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"math/big"
 	"testing"
 )
 
@@ -85,7 +84,7 @@ func TestDualityFullImplicantAllBranchesAndSourceAtomOrder(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal("full cube failed to constrain false atom", status)
 	}
-	numeral := wrap(m.ArithmeticNumeralRat(big.NewRat(7, 1), true))
+	numeral := wrap(m.ArithmeticNumeralInt64(int64(7), true))
 	unknown, err := g.UnderapproxFullFormula(numeral, true)
 	must(err)
 	defer unknown.Close()
@@ -114,8 +113,8 @@ func TestDualityFullImplicantArrayEqualityFiltering(t *testing.T) {
 		return v
 	}
 	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
-	zero := wrap(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	zero := wrap(m.ArithmeticNumeralInt64(int64(0), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
 	integer, err := m.GetSort(raw(zero))
 	must(err)
 	arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), integer)

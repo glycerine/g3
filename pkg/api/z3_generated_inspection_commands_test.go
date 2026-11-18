@@ -1,8 +1,8 @@
 package api
 
 import (
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"io"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -276,7 +276,7 @@ func TestGeneratedDeclarationParameterInspection(t *testing.T) {
 		}
 		add(m.NewParameterInt(-19))
 		add(m.NewParameterDouble(1.25))
-		add(m.NewParameterRat(big.NewRat(-7, 3)))
+		add(m.NewParameterFromRational(&unumeral.Rational{Num: unumeral.NewInt(-7), Den: unumeral.NewInt(3)}))
 		add(m.NewParameterString("s"))
 		add(m.NewParameterAST(sort.handle))
 		add(m.NewParameterAST(expression.handle))

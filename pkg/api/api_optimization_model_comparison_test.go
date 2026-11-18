@@ -1,7 +1,6 @@
 package api
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -27,9 +26,9 @@ func apiComparisonBounds(t *testing.T, c *SMTContext, x ast.ASTHandle) ast.ASTHa
 	t.Helper()
 	manager, err := c.Manager()
 	astTestMust(t, err)
-	zero, err := manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := manager.ArithmeticNumeralInt64(int64(0), true)
 	astTestMust(t, err)
-	five, err := manager.ArithmeticNumeralRat(big.NewRat(5, 1), true)
+	five, err := manager.ArithmeticNumeralInt64(int64(5), true)
 	astTestMust(t, err)
 	lower, err := manager.MkArithmeticGE(x, zero)
 	astTestMust(t, err)

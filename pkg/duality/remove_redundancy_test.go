@@ -4,7 +4,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"math/big"
 	"testing"
 )
 
@@ -100,7 +99,7 @@ func TestDualityRemoveRedundancyNumeralEqualityAndQuantifiedFact(t *testing.T) {
 		return v
 	}
 	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
 	integer, err := m.GetSort(raw(one))
 	must(err)
 	name, err := m.Symbols.Intern("redundancy-x")
@@ -202,7 +201,7 @@ func TestDualityRemoveRedundancyAllocationFailureRetry(t *testing.T) {
 		return v
 	}
 	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
-	one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
 	integer, err := m.GetSort(raw(one))
 	must(err)
 	name, err := m.Symbols.Intern("redundancy-retry-x")

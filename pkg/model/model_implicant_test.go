@@ -3,7 +3,6 @@ package model_test
 // Source: src/model/model_implicant.cpp:46-466,617-917.
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -208,7 +207,7 @@ func TestModelImplicantNestedArrayTrueIsNotSticky(t *testing.T) {
 	arrayFamily, err := m.RegisterArrayPlugin()
 	astTestMust(t, err)
 	num := func(k int64) ast.ASTHandle {
-		h, err := m.ArithmeticNumeralRat(big.NewRat(k, 1), true)
+		h, err := m.ArithmeticNumeralInt64(int64(k), true)
 		astTestMust(t, err)
 		astTestPin(t, m, h)
 		return h

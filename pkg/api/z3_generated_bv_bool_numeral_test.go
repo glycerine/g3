@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/binary"
+	"errors"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"io"
 	"strings"
 	"testing"
@@ -34,8 +36,18 @@ func TestGeneratedBitVectorBoolArrayReplay(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		n, width, matched, e := owner.results.manager.BitVectorNumeralBigInt(value.handle)
-		if e != nil {
+		bm := owner.results.manager
+		q := bm.NumeralService().Manager
+		rv := unumeral.NewRational()
+		width, matched, e := bm.BitVectorNumeralRational(value.handle, &rv)
+		var n uint64
+		small := false
+		if e == nil && matched {
+			if small, e = q.IsUint64(&rv); e == nil && small {
+				n, e = q.Uint64(&rv)
+			}
+		}
+		if e = errors.Join(e, q.Del(&rv)); e != nil {
 			return e
 		}
 		var bytes [4]byte
@@ -46,7 +58,7 @@ func TestGeneratedBitVectorBoolArrayReplay(t *testing.T) {
 				want |= 1 << i
 			}
 		}
-		if !matched || width != 5 || !n.IsUint64() || n.Uint64() != want {
+		if !matched || width != 5 || !small || n != want {
 			t.Fatal("bitvector bool array", n, width, matched, want)
 		}
 		checked = true

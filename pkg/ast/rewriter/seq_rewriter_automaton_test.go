@@ -1,6 +1,8 @@
 package rewriter
 
 import (
+	"errors"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -259,11 +261,15 @@ func (s *sequenceAutomatonByteSolver) eval(h, x ast.ASTHandle, v uint64) (uint64
 	case m.IsFalse(h):
 		return 0, nil
 	}
-	if value, _, matched, err := m.BitVectorNumeralBigInt(h); err != nil || matched {
-		if err != nil {
-			return 0, err
-		}
-		return value.Uint64(), nil
+	q := m.NumeralService().Manager
+	r := unumeral.NewRational()
+	_, matched, err := m.BitVectorNumeralRational(h, &r)
+	var value uint64
+	if err == nil && matched {
+		value, err = q.Uint64(&r)
+	}
+	if err = errors.Join(err, q.Del(&r)); err != nil || matched {
+		return value, err
 	}
 	n, err := m.GetNumArgs(h)
 	if err != nil {

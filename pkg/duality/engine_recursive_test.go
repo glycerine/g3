@@ -5,7 +5,6 @@ import (
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"math/big"
 	"testing"
 )
 
@@ -56,9 +55,9 @@ func TestDualityEngineNativeRecursiveIntegerReachability(t *testing.T) {
 				manager, err := interp.NewManagerWithParams(m, ctx.config.params, globals)
 				must(err)
 				defer manager.Close()
-				zero := wrap(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-				one := wrap(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
-				two := wrap(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
+				zero := wrap(m.ArithmeticNumeralInt64(int64(0), true))
+				one := wrap(m.ArithmeticNumeralInt64(int64(1), true))
+				two := wrap(m.ArithmeticNumeralInt64(int64(2), true))
 				integer, err := zero.Sort()
 				must(err)
 				defer integer.Close()

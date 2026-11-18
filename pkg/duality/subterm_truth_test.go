@@ -4,7 +4,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"math/big"
 	"testing"
 	"time"
 )
@@ -70,7 +69,7 @@ func TestRPFPSubtermTruthNativeBooleanConnectives(t *testing.T) {
 	h, err = m.MkIff(ph, qh)
 	check(h, err, 0)
 	// Non-Boolean model results retain the source unresolved value.
-	h, err = m.ArithmeticNumeralRat(big.NewRat(3, 1), true)
+	h, err = m.ArithmeticNumeralInt64(int64(3), true)
 	check(h, err, 2)
 	labelName, err := m.Symbols.Intern("subterm-label")
 	must(err)

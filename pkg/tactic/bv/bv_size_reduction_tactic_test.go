@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"strings"
 	"testing"
 
@@ -54,7 +54,7 @@ func bvSizeNativeGoal(t *testing.T, r *BVSizeReductionTactic, lower, upper bool,
 		if lo {
 			v = -2
 		}
-		num, err := m.BitVectorNumeralRat(new(big.Rat).SetInt64(v), 8)
+		num, err := m.BitVectorNumeralFromRational(&unumeral.Rational{Num: unumeral.NewInt(int32(v)), Den: unumeral.NewInt(1)}, 8)
 		sharingMust(t, err)
 		args := []ast.ASTHandle{x, num}
 		if lo {

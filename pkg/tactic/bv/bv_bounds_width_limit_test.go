@@ -1,7 +1,6 @@
 package bv
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -14,7 +13,7 @@ func TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64(t *testing.T) {
 	x, err := f.m.MkConst(name, sort)
 	sharingMust(t, err)
 	f.pin(t, x)
-	value, err := f.m.BitVectorNumeralRat(big.NewRat(9, 1), 80)
+	value, err := f.m.BitVectorNumeralUint64(9, 80)
 	sharingMust(t, err)
 	f.pin(t, value)
 	bound, err := f.m.MkBitVectorULE(x, value)

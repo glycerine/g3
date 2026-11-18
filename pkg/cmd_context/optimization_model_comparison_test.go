@@ -2,7 +2,6 @@ package cmd_context
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -66,9 +65,9 @@ func optimizationComparisonInteger(t *testing.T, c *Context, name string) ast.AS
 func TestOptimizationArithmeticModelComparisons(t *testing.T) {
 	c := contextFixture(t)
 	x := optimizationComparisonInteger(t, c, "comparison-x")
-	zero, err := c.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := c.manager.ArithmeticNumeralInt64(int64(0), true)
 	contextMust(t, err)
-	five, err := c.manager.ArithmeticNumeralRat(big.NewRat(5, 1), true)
+	five, err := c.manager.ArithmeticNumeralInt64(int64(5), true)
 	contextMust(t, err)
 	lower, err := c.manager.MkArithmeticGE(x, zero)
 	contextMust(t, err)

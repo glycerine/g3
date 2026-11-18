@@ -2,7 +2,7 @@ package api
 
 import (
 	"errors"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -17,7 +17,7 @@ func TestSMTContextASTDeclarationParameterKindsAndValues(t *testing.T) {
 	astTestMust(t, err)
 	double, err := f.m.NewParameterDouble(1.25)
 	astTestMust(t, err)
-	rational, err := f.m.NewParameterRat(big.NewRat(-7, 3))
+	rational, err := f.m.NewParameterFromRational(&unumeral.Rational{Num: unumeral.NewInt(-7), Den: unumeral.NewInt(3)})
 	astTestMust(t, err)
 	symbol, err := f.m.NewParameterString("parameter-symbol")
 	astTestMust(t, err)

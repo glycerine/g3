@@ -6,7 +6,6 @@ import (
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"math/big"
 	"testing"
 )
 
@@ -137,7 +136,7 @@ func TestDualityAdjustQuantifiersNativeQELite(t *testing.T) {
 		return v
 	}
 	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
-	three := wrap(m.ArithmeticNumeralRat(big.NewRat(3, 1), true))
+	three := wrap(m.ArithmeticNumeralInt64(int64(3), true))
 	integer, err := m.GetSort(raw(three))
 	must(err)
 	variable := wrap(m.MkVar(0, integer))

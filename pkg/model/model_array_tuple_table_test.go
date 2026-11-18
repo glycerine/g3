@@ -6,7 +6,6 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/hash"
-	"math/big"
 
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -117,7 +116,7 @@ func TestArrayTupleTableHashtableOrder(t *testing.T) {
 	var slots [8]ast.ASTHandle
 	var used [8]bool
 	for _, k := range []int64{9, 42, 300, 5, 17} {
-		h, e := m.ArithmeticNumeralRat(big.NewRat(k, 1), true)
+		h, e := m.ArithmeticNumeralInt64(int64(k), true)
 		arrayTableMust(t, e)
 		arrayTableMust(t, appendArrayRoot(m, &keep, h))
 		arrayTableMust(t, table.insert([]ast.ASTHandle{h, h}))

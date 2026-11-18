@@ -1,7 +1,6 @@
 package duality
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -87,7 +86,7 @@ func TestDualityUnhoistParameterExtensionOwnershipAndSignatures(t *testing.T) {
 		}
 	}
 	// Extend an existing non-nullary application with a different sort.
-	hzero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	hzero, err := m.ArithmeticNumeralInt64(int64(0), true)
 	must(err)
 	zero, err := NewExpr(ctx, hzero)
 	must(err)
