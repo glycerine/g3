@@ -61,7 +61,12 @@ func finishNonlinearSelector(m *ast.ASTManager, refs []ast.ASTRef, matched bool,
 	return matched, nil
 }
 
-func (c *Compiler) nonlinearRuleSelected(evaluator *model.ModelEvaluator, predicate ast.ASTHandle, args []ast.ASTHandle, index, level uint32) (matched bool, resultErr error) {
+// nonlinearRuleSelected is one iteration of get_proof's rule search:
+// func_decl_ref rule_i (dead at the iteration's end), prop_r =
+// m.mk_app(rule_i, prop's args) and md->eval(prop_r, prop_v). prop_r and
+// prop_v are get_proof's: each assignment releases the previous iteration's
+// value.
+func (c *Compiler) nonlinearRuleSelected(evaluator *model.ModelEvaluator, predicate ast.ASTHandle, args []ast.ASTHandle, index, level uint32, propR, propV ast.ASTRef) (matched bool, resultErr error) {
 	m := c.manager
 	var refs []ast.ASTRef
 	defer func() { matched, resultErr = finishNonlinearSelector(m, refs, matched, resultErr) }()
@@ -75,20 +80,21 @@ func (c *Compiler) nonlinearRuleSelected(evaluator *model.ModelEvaluator, predic
 		return false, err
 	}
 	probe, err := m.MkApp(decl, args)
+	if err == nil {
+		err = m.SetRef(propR, probe)
+	}
 	if err != nil {
 		return false, err
 	}
-	probeRef, err := m.NewRef(probe)
-	if err != nil {
-		return false, err
-	}
-	refs = append(refs, probeRef)
 	valueRef, err := evaluator.EvaluateValue(probe)
 	if err != nil {
 		return false, err
 	}
-	refs = append(refs, valueRef)
 	value, err := m.RefGet(valueRef)
+	if err == nil {
+		err = m.SetRef(propV, value)
+	}
+	err = errors.Join(err, m.DelRef(&valueRef))
 	return err == nil && m.IsTrue(value), err
 }
 
@@ -134,9 +140,20 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 			return err
 		}
 	}
+	// expr_ref prop_r, prop_v are get_proof's first locals: they die last,
+	// when it returns.
+	propR, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	propV, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return errors.Join(err, m.DelRef(&propR))
+	}
+	defer func() { resultErr = disposeASTRefs(m, []ast.ASTRef{propR, propV}, resultErr) }()
 	var selected *base.Rule
 	for i, rule := range group {
-		matched, err := c.nonlinearRuleSelected(evaluator, predicate, args, uint32(i), level)
+		matched, err := c.nonlinearRuleSelected(evaluator, predicate, args, uint32(i), level, propR, propV)
 		if err != nil {
 			return err
 		}
