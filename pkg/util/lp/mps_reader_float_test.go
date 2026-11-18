@@ -663,3 +663,18 @@ func TestLPFloatMPSBoundsAtEOF(t *testing.T) {
 		t.Fatalf("messages %q", out.String())
 	}
 }
+
+// AUDIT.md util_lp_04-F3: after an unterminated last line the stream's
+// eofbit is set, so the next getline fails without erasing m_line.
+func TestLPFloatMPSUnterminatedLastLine(t *testing.T) {
+	last := strings.TrimSuffix(lpMPSPair("X", "R", 1), "\n")
+	m := NewFloatMPSReader(strings.NewReader("NAME T\nROWS\n N COST\n L R\nCOLUMNS\n" + last))
+	var out bytes.Buffer
+	m.Messages = &out
+	if err := m.Read(); err != nil || m.IsOK() {
+		t.Fatal(err, m.IsOK())
+	}
+	if out.String() != "setting m_is_OK to false\ncannot read from file\n" || m.line != last {
+		t.Fatalf("%q %q", out.String(), m.line)
+	}
+}

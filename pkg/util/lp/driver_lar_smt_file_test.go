@@ -26,7 +26,7 @@ func TestLPLARSMTFileSourceSecondMPSRead(t *testing.T) {
 			}
 		} else {
 			h.must(err)
-			if out.String() != "setting m_is_OK to false\ncannot read from file\nline is too short for a column\n\nline number is 3\nsetting m_is_OK to false\nline is too short\n\nline number is 3\nsetting m_is_OK to false\n" || !d.closed || d.Status != StatusUnknown || d.Runner != nil {
+			if out.String() != lpLARSMTFileSecondMPSReadText(world) || !d.closed || d.Status != StatusUnknown || d.Runner != nil {
 				t.Fatal(world, out.String(), d.Status)
 			}
 		}
@@ -163,7 +163,9 @@ func TestLPLARSMTFileReportFailures(t *testing.T) {
 		if profile == "missing" {
 			name += ".missing"
 		}
-		want := "setting m_is_OK to false\ncannot read from file\nline is too short for a column\n\nline number is 3\nsetting m_is_OK to false\nline is too short\n\nline number is 3\nsetting m_is_OK to false\n"
+		// The failed getline after the unterminated line keeps it, as
+		// build/test-z3 shows (AUDIT.md util_lp_04-F3).
+		want := "setting m_is_OK to false\ncannot read from file\nline is too short for a column\nformula (and)\nline number is 3\nsetting m_is_OK to false\nline is too short\nformula (and)\nline number is 3\nsetting m_is_OK to false\n"
 		flushes := 0
 		if profile == "polyglot" {
 			want = "status is OPTIMAL, processed for 2 seconds, and 1 iterations\nchecking randomize\n"
@@ -328,4 +330,13 @@ func TestLPLARSMTInputFailedSecondCreatorClose(t *testing.T) {
 		t.Fatal("partial child retained after retry")
 	}
 	lpExactVectorNamedCensus(t, h, nil)
+}
+
+// lpLARSMTFileSecondMPSReadText is build/test-z3's text for the MPS read of
+// the unterminated one-line SMT file: the stale last line is re-read after
+// the failed getline (AUDIT.md util_lp_04-F3).
+func lpLARSMTFileSecondMPSReadText(world int) string {
+	line := fmt.Sprintf("line = formula (and (<= (+ (* %d x) (* (~ %d) y) %d) 999)), line number is 3\n", world+1, world+2, world+10)
+	block := "cannot find <= (+ (*\nsetting m_is_OK to false\ncannot understand this line\n" + line
+	return "setting m_is_OK to false\ncannot read from file\n" + block + block
 }

@@ -49,11 +49,13 @@ type floatMPSRow struct {
 // numeric_traits<double>::from_string, libc atof (mpsNumber, AUDIT.md
 // util_lp_04-F1).
 type FloatMPSReader struct {
-	input                 *bufio.Reader
-	file                  *os.File
-	rows                  *floatMPSRowMap
-	columns               *floatMPSColumnMap
-	line, Name, costName  string
+	input                *bufio.Reader
+	file                 *os.File
+	rows                 *floatMPSRowMap
+	columns              *floatMPSColumnMap
+	line, Name, costName string
+	// streamEOF is the input stream's eofbit.
+	streamEOF             bool
 	LineNumber, costLines uint32
 	ok                    bool
 	Messages              io.Writer
@@ -246,8 +248,20 @@ func (m *FloatMPSReader) readLine() error {
 		if m.input == nil {
 			return ErrBounds
 		}
-		line, err := m.input.ReadString('\n')
-		m.line = strings.TrimSuffix(line, "\n")
+		// getline on a stream whose eofbit is set (an unterminated last
+		// line was read) fails in its sentry and keeps m_line; on a good
+		// stream it erases m_line first (AUDIT.md util_lp_04-F3).
+		var line string
+		var err error
+		if m.streamEOF {
+			err = io.EOF
+		} else {
+			line, err = m.input.ReadString('\n')
+			if err == io.EOF {
+				m.streamEOF = true
+			}
+			m.line = strings.TrimSuffix(line, "\n")
+		}
 		if err != nil && !(err == io.EOF && len(line) > 0) {
 			m.LineNumber++
 			if e := m.fail(); e != nil {

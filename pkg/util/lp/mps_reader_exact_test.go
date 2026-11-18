@@ -804,3 +804,16 @@ func TestLPRationalMPSBoundsAtEOF(t *testing.T) {
 		t.Fatalf("messages %q", out.String())
 	}
 }
+
+// AUDIT.md util_lp_04-F3, the exact reader.
+func TestLPExactMPSUnterminatedLastLine(t *testing.T) {
+	h := newLPPairHarness(t)
+	last := strings.TrimSuffix(lpExactMPSPair("X", "R", "1"), "\n")
+	r := NewRationalMPSReader(h.m, strings.NewReader("NAME T\nROWS\n N COST\n L R\nCOLUMNS\n"+last))
+	var out bytes.Buffer
+	r.Messages = &out
+	h.must(r.Read())
+	if r.IsOK() || out.String() != "setting m_is_OK to false\ncannot read from file\n" || r.line != last {
+		t.Fatalf("%v %q %q", r.IsOK(), out.String(), r.line)
+	}
+}
