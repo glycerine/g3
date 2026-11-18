@@ -100,9 +100,8 @@ func (m *BinaryRationalManager) prepareBinarySMT2(a *BinaryRational, decimal boo
 	if e != nil {
 		return 0, e
 	}
-	// The source inserts a separator and then an exponent term whose own
-	// opening text starts with a space.
-	n, e = w.appendDisplay(n, "  (^ 2")
+	// out << " "; out << "(^ 2"; (AUDIT.md util_numeral_02-F2).
+	n, e = w.appendDisplay(n, " (^ 2")
 	if e != nil {
 		return 0, e
 	}

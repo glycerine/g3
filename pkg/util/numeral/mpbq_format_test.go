@@ -13,7 +13,7 @@ func TestBinaryFormattingExact(t *testing.T) {
 	cases := []struct {
 		kind int
 		want string
-	}{{0, "-3/2^3"}, {1, "-3/2<sup>3</sup>"}, {2, "(/ (- 3)  (^ 2 3))"}, {3, "(/ (- 3.0)  (^ 2.0 3.0))"}, {4, "-0.375"}, {5, "-0.3?"}}
+	}{{0, "-3/2^3"}, {1, "-3/2<sup>3</sup>"}, {2, "(/ (- 3) (^ 2 3))"}, {3, "(/ (- 3.0) (^ 2.0 3.0))"}, {4, "-0.375"}, {5, "-0.3?"}}
 	for _, c := range cases {
 		var got string
 		var e error
