@@ -53,7 +53,6 @@ type Solver struct {
 	projection     *projectionWorklist
 	resolution     *searchResolution
 	patches        []inlineVariablePatch
-	fmBounds       []*fourierMotzkinBound
 	literalVectors uint32
 	randomSeed     uint32
 	closed         bool
@@ -374,9 +373,6 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 			cuts = append(cuts, cut)
 		}
 		if len(cuts) == 0 {
-			if err = s.fixFourierMotzkinBounds(); err != nil {
-				return lbool.Undef, err
-			}
 			if err = s.fixInlineVariablePatches(); err != nil {
 				return lbool.Undef, err
 			}
@@ -409,7 +405,6 @@ func (s *Solver) Statistics() (map[string]float64, error) {
 		"nlsat decisions":              float64(s.search.decisions),
 		"nlsat stages":                 float64(s.search.stages),
 		"nlsat irrational assignments": float64(s.search.irrationalAssignments),
-		"nlsat simplifications":        float64(s.search.simplifications),
 	}, nil
 }
 
@@ -441,7 +436,6 @@ func (s *Solver) ResetStatistics() error {
 	s.search.decisions = 0
 	s.search.stages = 0
 	s.search.irrationalAssignments = 0
-	s.search.simplifications = 0
 	return nil
 }
 
@@ -686,9 +680,6 @@ func (s *Solver) Close() (err error) {
 		if err == nil {
 			s.atoms = nil
 		}
-	}
-	if err == nil {
-		err = s.closeFourierMotzkinBounds()
 	}
 	if err == nil {
 		err = s.closeInlineVariablePatches()

@@ -10,9 +10,6 @@ func (s *Solver) Reset() error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if err := s.closeFourierMotzkinBounds(); err != nil {
-		return err
-	}
 	if err := s.explanation.reset(); err != nil {
 		return err
 	}
