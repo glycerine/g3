@@ -84,3 +84,27 @@ func TestParseWCNFMissingTop(t *testing.T) {
 		t.Fatal(d.TopWeight, d.Clauses[0].Weight)
 	}
 }
+
+// FORK FIX #134: parse_int accumulates in unsigned, so a literal past
+// INT_MAX wraps modulo 2^32 with defined behavior, and the magnitude of
+// INT_MIN is 2147483648 (tst_z3_4_7_1_opt_parse_int_wrap).
+func TestParseWCNFLiteralWrap(t *testing.T) {
+	d, err := ParseWCNF(strings.NewReader("p wcnf 3 2 9\n9 4294967298 -4294967298 0\n9 -2147483648 0\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := [][]WCNFLiteral{{{Variable: 2}, {Variable: 2, Negative: true}}, {{Variable: 2147483648, Negative: true}}}
+	if len(d.Clauses) != len(want) {
+		t.Fatal(d.Clauses)
+	}
+	for i, c := range d.Clauses {
+		if len(c.Literals) != len(want[i]) {
+			t.Fatal(i, c.Literals)
+		}
+		for j, l := range c.Literals {
+			if l != want[i][j] {
+				t.Fatal(i, j, l)
+			}
+		}
+	}
+}

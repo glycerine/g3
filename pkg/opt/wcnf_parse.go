@@ -53,7 +53,7 @@ func ParseWCNF(input io.Reader) (WCNFDocument, error) {
 				negative := lit < 0
 				variable := uint32(lit)
 				if negative {
-					variable = uint32(-lit) // abs(parsed_lit)
+					variable = uint32(-lit) // FORK FIX #134: the magnitude in unsigned
 				}
 				clause.Literals = append(clause.Literals, WCNFLiteral{Variable: variable, Negative: negative})
 			}

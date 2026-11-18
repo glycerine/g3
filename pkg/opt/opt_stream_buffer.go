@@ -115,9 +115,9 @@ func (b *optStreamBuffer) parseInt() (int32, error) {
 	if b.ch() < '0' || b.ch() > '9' {
 		return 0, &InputParseExit{Message: fmt.Sprintf("(error line %d \"unexpected char: %s\" )", b.line, string([]byte{byte(b.ch())})), Status: 3}
 	}
-	// The source accumulates in a signed int, so a value past INT_MAX is
-	// signed overflow (undefined behavior); Go's int32 arithmetic wraps
-	// modulo 2^32, which is what the release build computes.
+	// FORK FIX #134: the source accumulates in unsigned (4.7.1 used a
+	// signed int, undefined past INT_MAX), so the value wraps modulo 2^32
+	// like Go's int32 arithmetic.
 	for b.ch() >= '0' && b.ch() <= '9' {
 		val = val*10 + int32(b.ch()-'0')
 		b.next()

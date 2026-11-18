@@ -95,7 +95,11 @@ unsigned opt_stream_buffer::parse_unsigned() {
 }
 
 int opt_stream_buffer::parse_int() {
-    int     val = 0;
+    // FORK FIX #134 (g3 audit, see FORK_BUGFIXES.md): accumulate in
+    // unsigned. The signed int accumulation overflowed (UB) on a WCNF
+    // literal or OPB variable index past INT_MAX; unsigned arithmetic gives
+    // the wraparound the release build showed, with defined behavior.
+    unsigned val = 0;
     bool    neg = false;
     skip_whitespace();
     
@@ -111,10 +115,10 @@ int opt_stream_buffer::parse_int() {
         exit(3);
     }        
     while (ch() >= '0' && ch() <= '9') {
-        val = val*10 + (ch() - '0');
+        val = val*10 + static_cast<unsigned>(ch() - '0');
         next();
     }
-    return neg ? -val : val; 
+    return static_cast<int>(neg ? 0u - val : val);
 }
 
 
@@ -125,8 +129,8 @@ class wcnf {
     unsigned_vector& m_handles;
 
     app_ref read_clause(unsigned& weight) {
-        int     parsed_lit;
-        int     var;    
+        int      parsed_lit;
+        unsigned var;
         weight = in.parse_unsigned();
         app_ref result(m), p(m);
         expr_ref_vector ors(m);
@@ -134,7 +138,8 @@ class wcnf {
             parsed_lit = in.parse_int();
             if (parsed_lit == 0)
                 break;
-            var = abs(parsed_lit);
+            // FORK FIX #134: abs(INT_MIN) is UB; take the magnitude unsigned.
+            var = parsed_lit < 0 ? 0u - static_cast<unsigned>(parsed_lit) : static_cast<unsigned>(parsed_lit);
             p = m.mk_const(symbol(var), m.mk_bool_sort());
             if (parsed_lit < 0) p = m.mk_not(p);
             ors.push_back(p);

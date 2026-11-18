@@ -4719,3 +4719,40 @@ void tst_z3_4_7_1_sls_restart_shift() {
     ENSURE(shift31 == UINT_MAX);
     ENSURE(shift40 == UINT_MAX);
 }
+
+// FORK FIX #134: opt_stream_buffer::parse_int (the WCNF and OPB readers)
+// accumulated in a signed int, so a WCNF literal or OPB variable index past
+// INT_MAX overflowed (UB), and the WCNF reader took abs() of INT_MIN. The
+// fork accumulates and takes the magnitude in unsigned arithmetic, which
+// gives the wraparound the release build showed with defined behavior:
+// 4294967298 wraps to 2, -4294967298 to -2 and -2147483648 stays INT_MIN
+// (variable 2147483648, printed k!-2147483648). The values are pinned here; the undefined
+// arithmetic itself shows under -fsanitize=signed-integer-overflow.
+void tst_z3_4_7_1_opt_parse_int_wrap() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    std::ostringstream out;
+    {
+        opt::context opt(m);
+        unsigned_vector handles;
+        std::istringstream in("p wcnf 3 2 9\n9 4294967298 -4294967298 0\n9 -2147483648 0\n");
+        parse_wcnf(opt, in, handles);
+        expr_ref_vector hard(m);
+        opt.get_hard_constraints(hard);
+        out << "wcnf:";
+        for (expr* e : hard) out << " " << mk_pp(e, m);
+    }
+    {
+        opt::context opt(m);
+        unsigned_vector handles;
+        std::istringstream in("1 x4294967299 >= 1 ;\n");
+        parse_opb(opt, in, handles);
+        expr_ref_vector hard(m);
+        opt.get_hard_constraints(hard);
+        out << " opb:";
+        for (expr* e : hard) out << " " << mk_pp(e, m);
+    }
+    std::string text = out.str();
+    std::cout << "opt_parse_int_wrap: " << text << "\n";
+    ENSURE(text == "wcnf: (or k!2 (not k!2)) (not k!-2147483648) opb: (>= (ite k!3 1 0) 1)");
+}
