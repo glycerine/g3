@@ -34,6 +34,26 @@ func processRootObjectConstraints(m *ast.ASTManager, arithmetic ast.FamilyID, va
 		if text == "0" {
 			continue
 		}
+		// process_irrat: m (k or mk_power(k, i)) is an earlier statement, so
+		// the exponent numeral and the power come before the coefficient
+		// numeral of mk_mul(mk_numeral(coeff), m).
+		power := k
+		if degree > 1 {
+			exponent, e := m.ArithmeticRealNumeralText(fmt.Sprint(degree))
+			if e != nil {
+				return e
+			}
+			if _, e = t.hold(exponent); e != nil {
+				return e
+			}
+			power, e = m.MkArithmeticPower(k, exponent)
+			if e != nil {
+				return e
+			}
+			if _, e = t.hold(power); e != nil {
+				return e
+			}
+		}
 		coefficient, e := m.ArithmeticRealNumeralText(text)
 		if e != nil {
 			return e
@@ -43,23 +63,6 @@ func processRootObjectConstraints(m *ast.ASTManager, arithmetic ast.FamilyID, va
 		}
 		term := coefficient
 		if degree > 0 {
-			power := k
-			if degree > 1 {
-				exponent, e := m.ArithmeticRealNumeralText(fmt.Sprint(degree))
-				if e != nil {
-					return e
-				}
-				if _, e = t.hold(exponent); e != nil {
-					return e
-				}
-				power, e = m.MkArithmeticPower(k, exponent)
-				if e != nil {
-					return e
-				}
-				if _, e = t.hold(power); e != nil {
-					return e
-				}
-			}
 			term, e = m.MkArithmeticMul(coefficient, power)
 			if e != nil {
 				return e
@@ -73,18 +76,19 @@ func processRootObjectConstraints(m *ast.ASTManager, arithmetic ast.FamilyID, va
 	if len(terms) < 2 {
 		return ast.ErrASTDomain
 	}
-	sum, e := m.MkFamilyApp(arithmetic, 6, nil, terms)
-	if e != nil {
-		return e
-	}
-	if _, e = t.hold(sum); e != nil {
-		return e
-	}
+	// EQ(mk_add(...), mk_real_zero()): GCC builds zero before the sum.
 	zero, e := m.ArithmeticRealNumeralText("0")
 	if e != nil {
 		return e
 	}
 	if _, e = t.hold(zero); e != nil {
+		return e
+	}
+	sum, e := m.MkFamilyApp(arithmetic, 6, nil, terms)
+	if e != nil {
+		return e
+	}
+	if _, e = t.hold(sum); e != nil {
 		return e
 	}
 	eq, e := m.MkEq(sum, zero)

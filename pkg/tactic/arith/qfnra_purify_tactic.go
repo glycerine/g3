@@ -473,13 +473,8 @@ func (i *qfnraPurifyInvocation) processPower(x, exponent, fresh ast.ASTHandle, e
 			return e
 		}
 		stage = "zero exponent second constraint"
-		notXZero, e := m.MkNot(xZero)
-		if e != nil {
-			return e
-		}
-		if _, e = temps.hold(notXZero); e != nil {
-			return e
-		}
+		// OR(NOT(EQ(x, zero)), EQ(k, mk_power(zero, zero))): GCC builds the
+		// right disjunct (0^0, then k = 0^0) before the negation.
 		zeroPowerZero, e := m.MkArithmeticPower(zero, zero)
 		if e != nil {
 			return e
@@ -492,6 +487,13 @@ func (i *qfnraPurifyInvocation) processPower(x, exponent, fresh ast.ASTHandle, e
 			return e
 		}
 		if _, e = temps.hold(undefined); e != nil {
+			return e
+		}
+		notXZero, e := m.MkNot(xZero)
+		if e != nil {
+			return e
+		}
+		if _, e = temps.hold(notXZero); e != nil {
 			return e
 		}
 		second, e := m.MkOr(notXZero, undefined)
@@ -512,6 +514,25 @@ func (i *qfnraPurifyInvocation) processPower(x, exponent, fresh ast.ASTHandle, e
 	if err != nil {
 		return err
 	}
+	even, err := service.Manager.Z.IsEven(value.Raw.BorrowDenominator())
+	if err != nil {
+		return err
+	}
+	// Even roots: OR(NOT(mk_ge(x, zero)), AND(EQ(x, mk_power(k, n)),
+	// mk_ge(k, zero))). GCC evaluates arguments right to left: k >= 0, n,
+	// k^n, x = k^n, and, then x >= 0, not, or. Odd roots build n, k^n,
+	// x = k^n.
+	var freshNonnegative ast.ASTHandle
+	if even {
+		stage = "even root positive constraint"
+		freshNonnegative, err = m.MkArithmeticGE(fresh, zero)
+		if err != nil {
+			return err
+		}
+		if _, err = temps.hold(freshNonnegative); err != nil {
+			return err
+		}
+	}
 	denominator, err := m.ArithmeticRealNumeralText(denominatorText)
 	if err != nil {
 		return err
@@ -531,15 +552,18 @@ func (i *qfnraPurifyInvocation) processPower(x, exponent, fresh ast.ASTHandle, e
 	if _, err = temps.hold(rootEquality); err != nil {
 		return err
 	}
-	even, err := service.Manager.Z.IsEven(value.Raw.BorrowDenominator())
-	if err != nil {
-		return err
-	}
 	if !even {
 		stage = "odd root constraint"
 		return i.addConstraint(rootEquality, entry)
 	}
 	stage = "even root positive constraint"
+	rootAndSign, err := m.MkAnd(rootEquality, freshNonnegative)
+	if err != nil {
+		return err
+	}
+	if _, err = temps.hold(rootAndSign); err != nil {
+		return err
+	}
 	xNonnegative, err := m.MkArithmeticGE(x, zero)
 	if err != nil {
 		return err
@@ -552,20 +576,6 @@ func (i *qfnraPurifyInvocation) processPower(x, exponent, fresh ast.ASTHandle, e
 		return err
 	}
 	if _, err = temps.hold(notXNonnegative); err != nil {
-		return err
-	}
-	freshNonnegative, err := m.MkArithmeticGE(fresh, zero)
-	if err != nil {
-		return err
-	}
-	if _, err = temps.hold(freshNonnegative); err != nil {
-		return err
-	}
-	rootAndSign, err := m.MkAnd(rootEquality, freshNonnegative)
-	if err != nil {
-		return err
-	}
-	if _, err = temps.hold(rootAndSign); err != nil {
 		return err
 	}
 	positiveCase, err := m.MkOr(notXNonnegative, rootAndSign)

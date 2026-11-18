@@ -1,0 +1,5 @@
+(set-option :produce-proofs true)
+(declare-const x Real)
+(declare-const y Real)
+(assert (> (asin x) (acos y)))
+(apply (using-params purify-arith :complete true))

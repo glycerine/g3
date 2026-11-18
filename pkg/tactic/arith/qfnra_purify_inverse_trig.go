@@ -105,17 +105,21 @@ func (i *qfnraPurifyInvocation) processInverseTrig(op int32, x, fresh ast.ASTHan
 		return nil
 	}
 	// OR(mk_ge(x, mone), EQ(k, mk_u_asin(x))), then OR(mk_le(x, one), ...).
+	// push_cnstr(lower) and its proof come before the upper guard is built.
 	undefined := app(undefinedKind, x)
 	undefinedEq := eq(fresh, undefined)
 	lowerGuard := or(ge(x, minusOne), undefinedEq)
-	undefined = app(undefinedKind, x)
-	undefinedEq = eq(fresh, undefined)
-	upperGuard := or(le(x, one), undefinedEq)
 	if b.err != nil {
 		return b.err
 	}
 	if err = i.addConstraint(lowerGuard, entry); err != nil {
 		return err
+	}
+	undefined = app(undefinedKind, x)
+	undefinedEq = eq(fresh, undefined)
+	upperGuard := or(le(x, one), undefinedEq)
+	if b.err != nil {
+		return b.err
 	}
 	return i.addConstraint(upperGuard, entry)
 }

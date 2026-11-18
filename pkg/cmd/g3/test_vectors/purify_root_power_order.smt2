@@ -1,0 +1,7 @@
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+(assert (> (^ x 0.5) (^ y (/ 1.0 3.0))))
+(assert (> (^ z 0.0) (^ x 0.25)))
+(assert (> (asin x) (acos y)))
+(apply purify-arith :print-model-converter true)

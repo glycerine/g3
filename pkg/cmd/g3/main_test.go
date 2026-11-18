@@ -2652,6 +2652,9 @@ func TestTraceLogCPPReference(t *testing.T) {
 		"qe2_apply_div_by_zero.smt2",             // FUZZ_C-F4
 		"cofactor_term_ite_trace_ids.smt2",       // FUZZ_H-F6
 		"arith_mod_self_build_order.smt2",        // FUZZ_D-F6
+		"purify_root_power_order.smt2",           // tactic_arith_03-F10
+		"purify_asin_proof_order.smt2",           // tactic_arith_03-F10
+		"purify_root_object_order.smt2",          // tactic_arith_03-F10
 	} {
 		t.Run(name, func(t *testing.T) {
 			input, err := filepath.Abs(filepath.Join("test_vectors", name))
