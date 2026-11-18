@@ -26,6 +26,9 @@ type smtRelevancyHandler struct {
 	elseEquality          ast.ASTHandle
 	// targets is the target list of one arith_eq_relevancy_eh.
 	targets []ast.ASTHandle
+	// pooled is 1 + the handler's position in the propagator's ehs once a
+	// table holds it (the relevancy_eh object a watch list points to).
+	pooled uint32
 }
 
 type smtRelevancyTrailKind uint8
@@ -44,6 +47,7 @@ type smtRelevancyTrail struct {
 type smtRelevancyScope struct {
 	relevantLimit int
 	trailLimit    int
+	ehLimit       int
 }
 
 type SMTRelevancyPropagator struct {
@@ -56,6 +60,10 @@ type SMTRelevancyPropagator struct {
 	positiveWatch smtRelevancyTable
 	negativeWatch smtRelevancyTable
 	trail         []smtRelevancyTrail
+	// ehs holds the handlers the tables refer to, as z3 allocates each
+	// relevancy_eh once in the context region and its watch lists hold
+	// pointers; a scope's handlers die with it (region pop).
+	ehs           []smtRelevancyHandler
 	scopes        []smtRelevancyScope
 	newlyRelevant []ast.ASTHandle
 	propagating   bool
@@ -116,7 +124,7 @@ func (p *SMTRelevancyPropagator) literalWatch(expression ast.ASTHandle, value bo
 	}
 }
 
-func (p *SMTRelevancyPropagator) addLiteralWatch(expression ast.ASTHandle, value bool, handler smtRelevancyHandler) error {
+func (p *SMTRelevancyPropagator) addLiteralWatch(expression ast.ASTHandle, value bool, handler *smtRelevancyHandler) error {
 	expression, value, err := p.literalWatch(expression, value)
 	if err != nil {
 		return err
@@ -181,7 +189,24 @@ func (p *SMTRelevancyPropagator) DrainNewlyRelevant() []ast.ASTHandle {
 	return result
 }
 
-func (p *SMTRelevancyPropagator) invoke(handler smtRelevancyHandler) error {
+// pool returns handler's ehs reference, storing it on first use.
+func (p *SMTRelevancyPropagator) pool(handler *smtRelevancyHandler) uint32 {
+	if handler.pooled == 0 {
+		p.ehs = append(p.ehs, *handler)
+		handler.pooled = uint32(len(p.ehs))
+		p.ehs[len(p.ehs)-1].pooled = handler.pooled
+	}
+	return handler.pooled
+}
+
+// invokeRef runs a stored handler. The handler is copied first: running
+// it can store new handlers and move ehs.
+func (p *SMTRelevancyPropagator) invokeRef(ref uint32) error {
+	handler := p.ehs[ref-1]
+	return p.invoke(&handler)
+}
+
+func (p *SMTRelevancyPropagator) invoke(handler *smtRelevancyHandler) error {
 	switch handler.kind {
 	case smtRelevancySimple:
 		return p.MarkRelevant(handler.target)
@@ -237,7 +262,7 @@ func (p *SMTRelevancyPropagator) invoke(handler smtRelevancyHandler) error {
 	}
 }
 
-func (p *SMTRelevancyPropagator) addHandler(source ast.ASTHandle, handler smtRelevancyHandler) error {
+func (p *SMTRelevancyPropagator) addHandler(source ast.ASTHandle, handler *smtRelevancyHandler) error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
@@ -247,7 +272,7 @@ func (p *SMTRelevancyPropagator) addHandler(source ast.ASTHandle, handler smtRel
 	if p.context.relevant.get(source) {
 		return p.invoke(handler)
 	}
-	p.handlers.push(source, handler)
+	p.handlers.push(source, p.pool(handler))
 	if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyHandlerTrail, expression: source}); err != nil {
 		return err
 	}
@@ -258,7 +283,7 @@ func (p *SMTRelevancyPropagator) AddDependency(source, target ast.ASTHandle) err
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
-	return p.addHandler(source, smtRelevancyHandler{kind: smtRelevancySimple, target: target})
+	return p.addHandler(source, &smtRelevancyHandler{kind: smtRelevancySimple, target: target})
 }
 
 func (p *SMTRelevancyPropagator) AddPairDependency(first, second, target ast.ASTHandle) error {
@@ -266,10 +291,10 @@ func (p *SMTRelevancyPropagator) AddPairDependency(first, second, target ast.AST
 		return ast.ErrASTHandle
 	}
 	handler := smtRelevancyHandler{kind: smtRelevancyPair, first: first, second: second, target: target}
-	if err := p.addHandler(first, handler); err != nil {
+	if err := p.addHandler(first, &handler); err != nil {
 		return err
 	}
-	return p.addHandler(second, handler)
+	return p.addHandler(second, &handler)
 }
 
 // AddPairTargetsDependency installs one handler, as arith_eq_relevancy_eh
@@ -280,26 +305,26 @@ func (p *SMTRelevancyPropagator) AddPairTargetsDependency(first, second ast.ASTH
 		return ast.ErrASTHandle
 	}
 	handler := smtRelevancyHandler{kind: smtRelevancyPairTargets, first: first, second: second, targets: append([]ast.ASTHandle(nil), targets...)}
-	if err := p.addHandler(first, handler); err != nil {
+	if err := p.addHandler(first, &handler); err != nil {
 		return err
 	}
-	return p.addHandler(second, handler)
+	return p.addHandler(second, &handler)
 }
 
 func (p *SMTRelevancyPropagator) AddAndHandler(parent ast.ASTHandle) error {
-	return p.addHandler(parent, smtRelevancyHandler{kind: smtRelevancyAnd, target: parent})
+	return p.addHandler(parent, &smtRelevancyHandler{kind: smtRelevancyAnd, target: parent})
 }
 func (p *SMTRelevancyPropagator) AddOrHandler(parent ast.ASTHandle) error {
-	return p.addHandler(parent, smtRelevancyHandler{kind: smtRelevancyOr, target: parent})
+	return p.addHandler(parent, &smtRelevancyHandler{kind: smtRelevancyOr, target: parent})
 }
 func (p *SMTRelevancyPropagator) AddITEHandler(parent ast.ASTHandle) error {
-	return p.addHandler(parent, smtRelevancyHandler{kind: smtRelevancyITE, target: parent})
+	return p.addHandler(parent, &smtRelevancyHandler{kind: smtRelevancyITE, target: parent})
 }
 func (p *SMTRelevancyPropagator) AddTermITEHandler(parent, thenEquality, elseEquality ast.ASTHandle) error {
-	return p.addHandler(parent, smtRelevancyHandler{kind: smtRelevancyTermITE, target: parent, thenEquality: thenEquality, elseEquality: elseEquality})
+	return p.addHandler(parent, &smtRelevancyHandler{kind: smtRelevancyTermITE, target: parent, thenEquality: thenEquality, elseEquality: elseEquality})
 }
 
-func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, handler smtRelevancyHandler) error {
+func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, handler *smtRelevancyHandler) error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
@@ -317,12 +342,12 @@ func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, 
 		return p.invoke(handler)
 	case lbool.Undef:
 		if value {
-			p.positiveWatch.push(expression, handler)
+			p.positiveWatch.push(expression, p.pool(handler))
 			if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyPositiveWatchTrail, expression: expression}); err != nil {
 				return err
 			}
 		} else {
-			p.negativeWatch.push(expression, handler)
+			p.negativeWatch.push(expression, p.pool(handler))
 			if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyNegativeWatchTrail, expression: expression}); err != nil {
 				return err
 			}
@@ -350,7 +375,7 @@ func (p *SMTRelevancyPropagator) AddWatchTarget(expression ast.ASTHandle, value 
 		}
 		return p.Propagate()
 	}
-	return p.addWatch(expression, value, smtRelevancyHandler{kind: smtRelevancySimple, target: target})
+	return p.addWatch(expression, value, &smtRelevancyHandler{kind: smtRelevancySimple, target: target})
 }
 
 // AddAndWatches installs the shared handler used by the internalizer for a
@@ -370,7 +395,7 @@ func (p *SMTRelevancyPropagator) AddAndWatches(parent ast.ASTHandle) error {
 		if err != nil {
 			return err
 		}
-		if err = p.addWatch(child, value, handler); err != nil {
+		if err = p.addWatch(child, value, &handler); err != nil {
 			return err
 		}
 	}
@@ -394,7 +419,7 @@ func (p *SMTRelevancyPropagator) AddOrWatches(parent ast.ASTHandle) error {
 		if err != nil {
 			return err
 		}
-		if err = p.addWatch(child, value, handler); err != nil {
+		if err = p.addWatch(child, value, &handler); err != nil {
 			return err
 		}
 	}
@@ -411,10 +436,10 @@ func (p *SMTRelevancyPropagator) AddITEWatches(parent ast.ASTHandle) error {
 		return err
 	}
 	handler := smtRelevancyHandler{kind: smtRelevancyITE, target: parent}
-	if err = p.addLiteralWatch(condition, true, handler); err != nil {
+	if err = p.addLiteralWatch(condition, true, &handler); err != nil {
 		return err
 	}
-	return p.addLiteralWatch(condition, false, handler)
+	return p.addLiteralWatch(condition, false, &handler)
 }
 
 // AddTermITEWatches installs the parent handler and both condition watches
@@ -428,13 +453,13 @@ func (p *SMTRelevancyPropagator) AddTermITEWatches(parent, thenEquality, elseEqu
 		return err
 	}
 	handler := smtRelevancyHandler{kind: smtRelevancyTermITE, target: parent, thenEquality: thenEquality, elseEquality: elseEquality}
-	if err = p.addLiteralWatch(condition, true, handler); err != nil {
+	if err = p.addLiteralWatch(condition, true, &handler); err != nil {
 		return err
 	}
-	if err = p.addLiteralWatch(condition, false, handler); err != nil {
+	if err = p.addLiteralWatch(condition, false, &handler); err != nil {
 		return err
 	}
-	return p.addHandler(parent, handler)
+	return p.addHandler(parent, &handler)
 }
 
 func (p *SMTRelevancyPropagator) validateBasicApplication(expression ast.ASTHandle, operation int32) (uint32, error) {
@@ -467,34 +492,31 @@ func (p *SMTRelevancyPropagator) propagateAll(expression ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	for index := len(arguments); index > 0; index-- {
-		if err = p.MarkRelevant(arguments[index-1]); err != nil {
+	for index := arguments.Count(); index > 0; index-- {
+		argument, err := arguments.At(index - 1)
+		if err != nil {
+			return err
+		}
+		if err = p.MarkRelevant(argument); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *SMTRelevancyPropagator) gateArguments(expression ast.ASTHandle) ([]ast.ASTHandle, []SMTLiteral, error) {
+// gateArguments is the application's argument array (to_app(n)->get_args()):
+// the internalizer's recorded gate arguments, or a view of the
+// application's own; nothing is copied.
+func (p *SMTRelevancyPropagator) gateArguments(expression ast.ASTHandle) (ast.AppArguments, []SMTLiteral, error) {
 	if s := p.internalizer; s != nil {
 		if variable, found := s.boolVar.lookup(expression); found {
 			if args := s.booleanData[variable].gateArgs; args != nil {
-				return args, s.booleanData[variable].gateLiterals, nil
+				return ast.SliceArguments(args), s.booleanData[variable].gateLiterals, nil
 			}
 		}
 	}
-	count, err := p.context.manager.GetNumArgs(expression)
-	if err != nil {
-		return nil, nil, err
-	}
-	args := make([]ast.ASTHandle, count)
-	for i := range args {
-		args[i], err = p.context.manager.GetArg(expression, uint32(i))
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	return args, nil, nil
+	view, err := p.context.manager.AppArgumentView(expression)
+	return view, nil, err
 }
 
 func (p *SMTRelevancyPropagator) propagateOr(expression ast.ASTHandle) error {
@@ -513,7 +535,11 @@ func (p *SMTRelevancyPropagator) propagateOr(expression ast.ASTHandle) error {
 		return err
 	}
 	var selected ast.ASTHandle
-	for index, argument := range arguments {
+	for index := uint32(0); index < arguments.Count(); index++ {
+		argument, err := arguments.At(index)
+		if err != nil {
+			return err
+		}
 		var value lbool.LBool
 		if literals != nil {
 			value = p.internalizer.assignment[literals[index].Index()]
@@ -548,7 +574,11 @@ func (p *SMTRelevancyPropagator) propagateAnd(expression ast.ASTHandle) error {
 		return err
 	}
 	var selected ast.ASTHandle
-	for index, argument := range arguments {
+	for index := uint32(0); index < arguments.Count(); index++ {
+		argument, err := arguments.At(index)
+		if err != nil {
+			return err
+		}
 		var value lbool.LBool
 		if literals != nil {
 			value = p.internalizer.assignment[literals[index].Index()]
@@ -640,7 +670,7 @@ func (p *SMTRelevancyPropagator) Propagate() error {
 		}
 		handlers := p.handlers.get(expression)
 		for index := len(handlers); index > 0; index-- {
-			if err := p.invoke(handlers[index-1]); err != nil {
+			if err := p.invokeRef(handlers[index-1]); err != nil {
 				return err
 			}
 		}
@@ -879,14 +909,14 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 			}
 		}
 	}
-	var watches []smtRelevancyHandler
+	var watches []uint32
 	if value {
 		watches = p.positiveWatch.get(expression)
 	} else {
 		watches = p.negativeWatch.get(expression)
 	}
 	for index := len(watches); index > 0; index-- {
-		if err := p.invoke(watches[index-1]); err != nil {
+		if err := p.invokeRef(watches[index-1]); err != nil {
 			return err
 		}
 	}
@@ -897,7 +927,7 @@ func (p *SMTRelevancyPropagator) PushScope() error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
-	p.scopes = append(p.scopes, smtRelevancyScope{relevantLimit: len(p.relevant), trailLimit: len(p.trail)})
+	p.scopes = append(p.scopes, smtRelevancyScope{relevantLimit: len(p.relevant), trailLimit: len(p.trail), ehLimit: len(p.ehs)})
 	return nil
 }
 
@@ -944,6 +974,8 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 		}
 	}
 	p.trail = p.trail[:scope.trailLimit]
+	clear(p.ehs[scope.ehLimit:])
+	p.ehs = p.ehs[:scope.ehLimit]
 	p.scopes = p.scopes[:newLevel]
 	return nil
 }
@@ -991,6 +1023,7 @@ func (p *SMTRelevancyPropagator) release() error {
 	p.relevant = nil
 	p.newlyRelevant = nil
 	p.scopes = nil
+	p.ehs = nil
 	p.qhead = 0
 	return nil
 }
