@@ -4616,8 +4616,9 @@ void tst_z3_4_7_1_opb_constraint_without_relation() {
 }
 
 // FORK FIX #129: proof_checker reached UNREACHABLE() (__builtin_unreachable()
-// in the release build) on every rejection, e.g. for a PR_TRUE proof and for
-// a non-rational farkas coefficient. They now return false.
+// in the release build) on every rejection, e.g. for a non-rational farkas
+// coefficient, which now returns false, and for the true-axiom, which has
+// no case in check1_basic and is now accepted as an axiom.
 void tst_z3_4_7_1_proof_checker_rejects() {
     ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
@@ -4637,5 +4638,5 @@ void tst_z3_4_7_1_proof_checker_rejects() {
         farkas_ok = pc.check(pr, side);
     }
     std::cout << "proof_checker_rejects: true-axiom " << true_ok << " farkas symbol " << farkas_ok << "\n";
-    ENSURE(!true_ok && !farkas_ok);
+    ENSURE(true_ok && !farkas_ok);
 }

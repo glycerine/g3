@@ -227,6 +227,11 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return true;
     case PR_GOAL:
         return true;
+    // FORK FIX #129 (g3 audit, see FORK_BUGFIXES.md): the true-axiom had
+    // no case and reached UNREACHABLE() in the default branch; it is an
+    // axiom of true, as PR_ASSERTED is of its fact.
+    case PR_TRUE:
+        return true;
     case PR_MODUS_PONENS: {
         if (match_fact(p, fact) &&
             match_proof(p, p0, p1) &&

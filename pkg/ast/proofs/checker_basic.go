@@ -25,10 +25,12 @@ func (c *Checker) checkBasic(p ast.ASTHandle, ps []ast.ASTHandle) (bool, []ast.A
 		return c.fact(ps[i])
 	}
 	switch k {
-	// PR_TRUE has no case in check1_basic: it reaches the default
-	// (UNREACHABLE(); return false;), which the release build compiles to
-	// __builtin_unreachable(). g3 rejects it (fork fix candidate).
-	case ast.ASTPrUndef, ast.ASTPrAsserted, ast.ASTPrGoal:
+	// PR_TRUE has no case in z3 4.7.1's check1_basic: it reaches the
+	// default, UNREACHABLE() (__builtin_unreachable() in the release build).
+	// The true-axiom is a sound axiom of true, which smt_context,
+	// solve_eqs and g3's coalesce proofs use, so g3 accepts it like the
+	// other axioms; the fork fix adds the same case to the C++.
+	case ast.ASTPrUndef, ast.ASTPrAsserted, ast.ASTPrGoal, ast.ASTPrTrue:
 		return true, nil, nil
 	case ast.ASTPrModusPonens, ast.ASTPrModusPonensOEq:
 		if !hasFact || len(ps) != 2 {

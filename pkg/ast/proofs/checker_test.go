@@ -249,8 +249,9 @@ func TestCheckerArithmeticFarkasLemma(t *testing.T) {
 	check(t, c, lemma, true)
 }
 
-// check1_basic has no PR_TRUE case and check_arith_proof refuses a farkas
-// parameter that is not rational: both reach UNREACHABLE(); return false.
+// check_arith_proof refuses a farkas parameter that is not rational
+// (UNREACHABLE(); return false;). PR_TRUE is accepted as an axiom (fork fix:
+// z3 4.7.1 reached UNREACHABLE() for it).
 func TestCheckerRejectsTrueProofAndNonRationalFarkas(t *testing.T) {
 	m := fixture(t)
 	c, err := proofs.NewChecker(m)
@@ -258,7 +259,7 @@ func TestCheckerRejectsTrueProofAndNonRationalFarkas(t *testing.T) {
 	must(t, m.RegisterDeclarationPlugins())
 	truth, err := m.MkProofTrue()
 	must(t, err)
-	check(t, c, truth, false)
+	check(t, c, truth, true)
 
 	arithName, err := m.Symbols.Intern("arith")
 	must(t, err)
