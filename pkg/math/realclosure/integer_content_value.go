@@ -24,6 +24,11 @@ func (s *realValueStore) accumulateIntegerContent(value *realValue, gcd *numeral
 		err = s.numbers.Integers().GCD(gcd, &numerator, gcd)
 		return err == nil, errors.Join(err, s.releaseSturmInteger(&numerator))
 	}
+	// if (!is_denominator_one(rf_a)) return false; an algebraic extension
+	// keeps no denominator (AUDIT.md math_realclosure_01b-F2).
+	if value.root != nil && value.root.kind != realExtensionAlgebraic && !s.rankedDenominatorIsOne(value.functionDenominator.coefficients) {
+		return false, nil
+	}
 	for _, coefficient := range value.functionNumerator.coefficients {
 		if coefficient == nil {
 			continue
