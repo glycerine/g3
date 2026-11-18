@@ -189,6 +189,14 @@ func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[astInlineA
 	if e != nil {
 		return p, e
 	}
+	// The fresh block is n bytes; write the references in place with one
+	// lookup (debug builds keep writeInternal's per-element checks).
+	var data []byte
+	if !ASTSourceDebug {
+		if b, be := m.allocator.Borrow(p); be == nil && uint64(len(b)) == uint64(n) {
+			data = b
+		}
+	}
 	for i := uint32(0); i < hs.count; i++ {
 		h, e := hs.at(i)
 		var r astNodeRef
@@ -196,7 +204,13 @@ func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[astInlineA
 			r, e = m.internal(h)
 		}
 		if e == nil {
-			e = m.writeInternal(p, uint32(i), r)
+			if data != nil {
+				o := i * astRefBytes
+				binary.LittleEndian.PutUint32(data[o:], r.slot)
+				binary.LittleEndian.PutUint32(data[o+4:], r.generation)
+			} else {
+				e = m.writeInternal(p, uint32(i), r)
+			}
 		}
 		if e == nil && i < astInlineArgs && inline != nil {
 			inline[i] = r
