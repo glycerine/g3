@@ -13,7 +13,9 @@ func (i *ModelImplicant) evaluationTruth(expression ast.ASTHandle) string {
 	if i.isTrue(expression) {
 		return "true"
 	}
-	if i.isFalse(expression) {
+	// set_v marks only m1, so a concrete (number or value) term is
+	// is_false in the source's two-mark encoding.
+	if i.isFalse(expression) || i.state(expression) == implicantConcrete {
 		return "false"
 	}
 	return "unknown"
