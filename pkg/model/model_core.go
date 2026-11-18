@@ -196,6 +196,30 @@ func (md *ModelCore) NumDeclarations() (uint32, error) {
 	}
 	return uint32(len(md.declarations)), nil
 }
+
+// RetainDeclarations filters m_decls in place, keeping the order of the
+// declarations keep accepts (proto_model::remove_aux_decls_not_in_set). It
+// changes no reference: unregister_decl releases them.
+func (md *ModelCore) RetainDeclarations(keep func(ast.ASTHandle) (bool, error)) error {
+	if e := md.open(); e != nil {
+		return e
+	}
+	j := 0
+	for _, d := range md.declarations {
+		ok, e := keep(d)
+		if e != nil {
+			return e
+		}
+		if ok {
+			md.declarations[j] = d
+			j++
+		}
+	}
+	clear(md.declarations[j:])
+	md.declarations = md.declarations[:j]
+	return nil
+}
+
 func (md *ModelCore) NumConstants() (uint32, error) {
 	if e := md.open(); e != nil {
 		return 0, e

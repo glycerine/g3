@@ -47,3 +47,40 @@ func TestProtoModelCleanupOwnsRewrittenFallbackUntilInstalled(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md smtcore_14-F4: cleanup removes unused auxiliary declarations from
+// m_decls (remove_aux_decls_not_in_set), not only from the tables.
+func TestProtoModelCleanupDropsUnusedAuxiliaryDeclarations(t *testing.T) {
+	m, p := protoFixture(t)
+	b, err := m.MkBoolSort()
+	protoMust(t, err)
+	yes, err := m.MkTrue()
+	protoMust(t, err)
+	d, err := m.MkFuncDecl(protoSymbol(t, m, "cleanup-kept"), []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+	protoMust(t, err)
+	protoPin(t, m, d)
+	aux, err := m.MkFuncDecl(protoSymbol(t, m, "cleanup-aux"), []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+	protoMust(t, err)
+	protoPin(t, m, aux)
+	fi, err := model.NewFunctionInterpretation(m, 1)
+	protoMust(t, err)
+	protoMust(t, fi.SetElse(yes))
+	protoMust(t, p.Core().RegisterFunction(d, fi))
+	auxFI, err := model.NewFunctionInterpretation(m, 1)
+	protoMust(t, err)
+	protoMust(t, auxFI.SetElse(yes))
+	protoMust(t, p.RegisterAuxFunction(aux, auxFI))
+	protoMust(t, p.Cleanup())
+	n, err := p.Core().NumDeclarations()
+	protoMust(t, err)
+	for i := uint32(0); i < n; i++ {
+		decl, err := p.Core().Declaration(i)
+		protoMust(t, err)
+		if decl == aux {
+			t.Fatal("unused auxiliary declaration kept in m_decls")
+		}
+	}
+	if n != 1 {
+		t.Fatal("declarations after cleanup", n)
+	}
+}

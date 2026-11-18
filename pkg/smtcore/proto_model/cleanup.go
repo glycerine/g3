@@ -163,6 +163,17 @@ func (p *ProtoModel) Cleanup() error {
 	// Unused auxiliary declarations, in m_aux_decls order; then
 	// m_aux_decls.swap(found_aux_fs).
 	if found.Len() != p.aux.Len() {
+		// remove_aux_decls_not_in_set(m_decls, found_aux_fs); the
+		// m_func_decls copy is kept in step by the unregister loop below.
+		if err = p.core.Core().RetainDeclarations(func(d ast.ASTHandle) (bool, error) {
+			aux, err := p.aux.Contains(d)
+			if err != nil || !aux {
+				return true, err
+			}
+			return found.Contains(d)
+		}); err != nil {
+			return err
+		}
 		for _, entry := range p.aux.Entries() {
 			used, err := found.Contains(entry.Key)
 			if err != nil {
