@@ -80,6 +80,8 @@ type smtPendingLiteralResults struct {
 	// the eagerly built result expressions did; callers rely on it.
 	held  []ast.ASTHandle
 	built bool
+	// relevantTrue reports get_relevant_literals' bool_var 0 entry.
+	relevantTrue bool
 	// unheld marks a capture after an unsatisfiable or unknown check: the
 	// source keeps no reference, and a query after the variables were
 	// reused skips them.
@@ -149,12 +151,6 @@ func (k *SMTKernel) captureLiteralResultsHeld(baseLevel uint32, held bool) error
 			return err
 		}
 		pending.assignments = append(pending.assignments, item)
-		if k.relevancy.IsRelevant(k.internalizer.boolExpr[literal.Var()]) {
-			if item, err = k.pendingLiteral(pending, literal); err != nil {
-				return err
-			}
-			pending.relevant = append(pending.relevant, item)
-		}
 	}
 	for level := int(baseLevel); level < len(k.internalizer.scopes); level++ {
 		index := k.internalizer.scopes[level].assignedLimit
@@ -171,6 +167,13 @@ func (k *SMTKernel) captureLiteralResultsHeld(baseLevel uint32, held bool) error
 		}
 		pending.guessed = append(pending.guessed, item)
 	}
+	// get_relevant_literals walks m_b_internalized_stack in variable order,
+	// starting with true (bool_var 0, implicit in Go).
+	trueExpr, err := k.manager.MkTrue()
+	if err != nil {
+		return err
+	}
+	pending.relevantTrue = k.relevancy.IsRelevant(trueExpr)
 	for variable := int32(SMTFirstBoolVar); int(variable) < len(k.internalizer.boolExpr); variable++ {
 		expression := k.internalizer.boolExpr[variable]
 		if !k.relevancy.IsRelevant(expression) {
@@ -179,6 +182,13 @@ func (k *SMTKernel) captureLiteralResultsHeld(baseLevel uint32, held bool) error
 		value, err := k.internalizer.Assignment(NewSMTLiteral(variable, false))
 		if err != nil {
 			return err
+		}
+		if value != lbool.Undef {
+			item, err := k.pendingLiteral(pending, NewSMTLiteral(variable, value == lbool.False))
+			if err != nil {
+				return err
+			}
+			pending.relevant = append(pending.relevant, item)
 		}
 		if value != lbool.True {
 			continue
@@ -226,6 +236,16 @@ func (k *SMTKernel) materializeLiteralResults() error {
 	}
 	if err := build(pending.assignments, &k.assignments); err != nil {
 		return fail(err)
+	}
+	if pending.relevantTrue {
+		trueExpr, err := k.manager.MkTrue()
+		if err == nil {
+			err = k.manager.IncRef(trueExpr)
+		}
+		if err != nil {
+			return fail(err)
+		}
+		k.relevantLiterals = append(k.relevantLiterals, trueExpr)
 	}
 	if err := build(pending.relevant, &k.relevantLiterals); err != nil {
 		return fail(err)

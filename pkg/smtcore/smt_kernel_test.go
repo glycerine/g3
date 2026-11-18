@@ -495,3 +495,58 @@ func TestSMTKernelAssertCountsCancelCheck(t *testing.T) {
 		t.Fatal("canceled assert_expr_core must not assert", count, len(kernel.Assertions()))
 	}
 }
+
+// AUDIT.md smtcore_04-F8: get_relevant_literals walks m_b_internalized_stack
+// (variable order), not the assignment trail.
+func TestSMTKernelRelevantLiteralsFollowVariableOrder(t *testing.T) {
+	m := astTestManager(t)
+	kernel, err := NewSMTKernel(m, nil)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, kernel.Close()) })
+	a := smtRelevancyBool(t, m, "kernel-order-a")
+	b := smtRelevancyBool(t, m, "kernel-order-b")
+	// a is internalized before b; b is asserted after, so the trail holds
+	// b and then the propagated a.
+	astTestMust(t, kernel.internalizer.Internalize(a, true))
+	astTestMust(t, kernel.internalizer.Internalize(b, true))
+	notB, err := m.MkNot(b)
+	astTestMust(t, err)
+	clause, err := m.MkOr(notB, a)
+	astTestMust(t, err)
+	astTestMust(t, kernel.Assert(b, ast.ASTHandle{}))
+	astTestMust(t, kernel.Assert(clause, ast.ASTHandle{}))
+	status, err := kernel.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal(status)
+	}
+	trail := kernel.internalizer.assignedLiterals
+	va, _ := kernel.internalizer.BoolVar(a)
+	vb, _ := kernel.internalizer.BoolVar(b)
+	posA, posB := -1, -1
+	for i, l := range trail {
+		if l.Var() == va {
+			posA = i
+		}
+		if l.Var() == vb {
+			posB = i
+		}
+	}
+	if !(va < vb && posB < posA) {
+		t.Fatal("fixture must assign the later variable first", va, vb, posA, posB)
+	}
+	relevant, err := kernel.RelevantLiterals()
+	astTestMust(t, err)
+	ia, ib := -1, -1
+	for i, e := range relevant {
+		if e == a {
+			ia = i
+		}
+		if e == b {
+			ib = i
+		}
+	}
+	if ia < 0 || ib < 0 || ia > ib {
+		t.Fatal("relevant literals not in variable order", relevant, a, b)
+	}
+}
