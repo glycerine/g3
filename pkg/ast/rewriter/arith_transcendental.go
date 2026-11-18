@@ -97,13 +97,14 @@ func arithPiPeriod(q *unumeral.RationalManager, k, out *unumeral.Rational) (err 
 	return q.Add(&floor, out, out)
 }
 
-// sqrt is mk_sqrt(rational(n, d)): (^ n/d 1/2).
+// sqrt is mk_sqrt(rational(n, d)): (^ n/d 1/2). The reference GCC build
+// evaluates mk_power's arguments right to left, so 1/2 is created first.
 func (r *ArithRewriter) sqrt(n, d int32) (ast.ASTHandle, error) {
-	base, err := r.makeNumeralFrac(n, d, false)
+	half, err := r.makeNumeralFrac(1, 2, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	half, err := r.makeNumeralFrac(1, 2, false)
+	base, err := r.makeNumeralFrac(n, d, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -163,11 +164,12 @@ func (r *ArithRewriter) sinValue(k *unumeral.Rational) (_ ast.ASTHandle, _ bool,
 		return h, err == nil, err
 	}
 	if is(1, 3) || is(2, 3) {
-		root, err := r.sqrt(3, 1)
+		// mk_div(mk_sqrt(3), 2): GCC creates 2 before the root.
+		two, err := r.makeNumeralInt(2, false)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		two, err := r.makeNumeralInt(2, false)
+		root, err := r.sqrt(3, 1)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
@@ -179,11 +181,17 @@ func (r *ArithRewriter) sinValue(k *unumeral.Rational) (_ ast.ASTHandle, _ bool,
 		return h, err == nil, err
 	}
 	if is(1, 12) || is(11, 12) || is(5, 12) || is(7, 12) {
-		six, err := r.sqrt(6, 1)
+		// mk_div(mk_sub/mk_add(mk_sqrt(6), mk_sqrt(2)), 4): GCC creates 4,
+		// then sqrt(2), then sqrt(6).
+		four, err := r.makeNumeralInt(4, false)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
 		twoRoot, err := r.sqrt(2, 1)
+		if err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+		six, err := r.sqrt(6, 1)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
@@ -192,10 +200,6 @@ func (r *ArithRewriter) sinValue(k *unumeral.Rational) (_ ast.ASTHandle, _ bool,
 			operator = arithOpAdd
 		}
 		numerator, err := r.app(operator, six, twoRoot)
-		if err != nil {
-			return ast.ASTHandle{}, false, err
-		}
-		four, err := r.makeNumeralInt(4, false)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
@@ -300,7 +304,9 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (_ Rewrite
 	if yes, child, err := r.unary(arg, arithOpACos); err != nil {
 		return RewriteFailed, err
 	} else if yes {
-		one, e := r.makeNumeralInt(1, false)
+		// mk_power(mk_sub(mk_real(1), mk_mul(x, x)), mk_numeral(1/2)):
+		// GCC creates 1/2, then (* x x), then 1.0.
+		half, e := r.makeNumeralFrac(1, 2, false)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -308,15 +314,11 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (_ Rewrite
 		if e != nil {
 			return RewriteFailed, e
 		}
+		one, e := r.makeNumeralInt(1, false)
+		if e != nil {
+			return RewriteFailed, e
+		}
 		difference, e := r.app(arithOpSub, one, square)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		root, e := r.sqrt(1, 1)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		half, e := r.manager.GetArg(root, 1)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -583,12 +585,13 @@ func (r *ArithRewriter) rewriteTan(arg ast.ASTHandle, out ast.ASTRef) (_ Rewrite
 }
 
 // piFraction is (* rational(n, d) pi).
+// GCC evaluates mk_mul's arguments right to left, so pi is created first.
 func (r *ArithRewriter) piFraction(n, d int32) (ast.ASTHandle, error) {
-	coefficient, err := r.makeNumeralFrac(n, d, false)
+	pi, err := r.pi()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	pi, err := r.pi()
+	coefficient, err := r.makeNumeralFrac(n, d, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
