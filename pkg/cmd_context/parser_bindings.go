@@ -3,7 +3,6 @@ package cmd_context
 // Source: src/api/api_parsers.cpp:51-63 supplied declaration installation.
 
 import (
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -39,8 +38,10 @@ func (c *Context) InsertSort(name string, sort ast.ASTHandle) (err error) {
 	if kind != ast.ASTSort {
 		return ast.ErrASTDomain
 	}
+	// parse_smtlib2_stream: if (!ctx->find_psort_decl(name)) insert it; a
+	// repeated binding or a builtin sort name is skipped silently.
 	if c.sortNameAvailable(name) {
-		return fmt.Errorf("sort already defined %s", name)
+		return nil
 	}
 	ref, err := manager.NewRef(sort)
 	if err != nil {

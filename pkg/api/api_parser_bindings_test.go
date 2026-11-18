@@ -45,3 +45,17 @@ func TestAPIParserSuppliedSortIsUsedByNewDeclaration(t *testing.T) {
 		t.Fatal("supplied sort identity", actual, sort)
 	}
 }
+
+// AUDIT.md cmd_context_02-F12: parse_smtlib2_stream inserts a sort binding
+// only when find_psort_decl(name) fails; a repeated or builtin name is
+// skipped.
+func TestParseSMTLIB2DuplicateSortBindingIgnored(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	sort := f.pin(f.c.UninterpretedSort("S"))
+	other := f.pin(f.c.UninterpretedSort("T"))
+	boolean := f.pin(f.c.BoolSort())
+	bindings := SMT2Bindings{Sorts: []SMT2SortBinding{{Name: "S", Sort: sort}, {Name: "S", Sort: other}, {Name: "Int", Sort: boolean}}}
+	parsed, err := f.c.ParseSMT2String("(declare-const a S)(declare-const i Int)(assert (= a a))", bindings)
+	astTestMust(t, err)
+	astTestMust(t, f.m.DelRef(&parsed))
+}
