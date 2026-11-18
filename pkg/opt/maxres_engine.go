@@ -51,6 +51,15 @@ type maxResEngine struct {
 	// l_true; init_local returns it from operator().
 	mutexStatus  lbool.LBool
 	mutexStopped bool
+	// softsAdded records that init_local's find_mutexes/add_soft ran.
+	softsAdded bool
+	// initCost, initSatisfied and initAssignment are
+	// maxsmt_solver_base::init's evaluation of the soft constraints in the
+	// initial model, made before init_local adds the softs; the initial
+	// candidate consumes them.
+	initCost, initSatisfied numeral.Rational
+	initAssignment          []bool
+	initEvaluated           bool
 }
 
 func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (result *maxResEngine, resultErr error) {
@@ -70,21 +79,42 @@ func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index 
 			result = nil
 		}
 	}()
-	terms, status, err := e.preprocessMutexes(objective)
+	return e, nil
+}
+
+// initLocal is the find_mutexes/add_soft part of maxres::init_local, which
+// mus_solver and primal_dual_solver run after maxsmt_solver_base::init.
+func (e *maxResEngine) initLocal() (resultErr error) {
+	if e.softsAdded {
+		return nil
+	}
+	e.softsAdded = true
+	terms, status, err := e.preprocessMutexes(e.objective)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if status != lbool.True {
 		e.mutexStatus, e.mutexStopped = status, true
-		return e, nil
+		return nil
 	}
 	defer func() { resultErr = errors.Join(resultErr, releaseWeightedTerms(e.q(), terms)) }()
 	for i := range terms {
 		if err = e.addSoft(terms[i].expression, &terms[i].weight); err != nil {
-			return nil, fmt.Errorf("maxres mutex term %d: %w", i, err)
+			return fmt.Errorf("maxres mutex term %d: %w", i, err)
 		}
 	}
-	return e, nil
+	return nil
+}
+
+// initEvaluate is maxsmt_solver_base::init's m_model->eval of each soft
+// constraint (no model completion).
+func (e *maxResEngine) initEvaluate(md *model.ModelCore) error {
+	cost, satisfied, assignment, err := e.solver.evaluateSoftAssignment(e.objective, md, false)
+	if err != nil {
+		return errors.Join(err, e.q().Del(&cost), e.q().Del(&satisfied))
+	}
+	e.initCost, e.initSatisfied, e.initAssignment, e.initEvaluated = cost, satisfied, assignment, true
+	return nil
 }
 
 func (e *maxResEngine) close() error {
@@ -116,6 +146,10 @@ func (e *maxResEngine) close() error {
 		for i := range refs {
 			result = errors.Join(result, m.DelRef(&refs[i]))
 		}
+	}
+	if e.initEvaluated {
+		result = errors.Join(result, e.q().Del(&e.initCost), e.q().Del(&e.initSatisfied))
+		e.initEvaluated = false
 	}
 	asms := pin(e.active)
 	core := pin(e.lastCore)

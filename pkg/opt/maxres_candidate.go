@@ -53,7 +53,15 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	}
 	// maxsmt_solver_base::init evaluates the initial model without
 	// completion; update_assignment's is_true completes it.
-	cost, satisfied, assignment, err := e.solver.evaluateSoftAssignment(e.objective, md, !e.initialCandidate)
+	var cost, satisfied numeral.Rational
+	var assignment []bool
+	var err error
+	if e.initialCandidate && e.initEvaluated {
+		cost, satisfied, assignment = e.initCost, e.initSatisfied, e.initAssignment
+		e.initCost, e.initSatisfied, e.initAssignment, e.initEvaluated = numeral.Rational{}, numeral.Rational{}, nil, false
+	} else {
+		cost, satisfied, assignment, err = e.solver.evaluateSoftAssignment(e.objective, md, !e.initialCandidate)
+	}
 	defer func() { e.noteRat(errors.Join(e.q().Del(&cost), e.q().Del(&satisfied))) }()
 	if err != nil {
 		return errors.Join(fmt.Errorf("maxres candidate objective: %w", err), md.DecRef())

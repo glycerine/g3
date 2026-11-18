@@ -36,6 +36,14 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 	if result.Model == nil {
 		return lbool.Undef, false, fmt.Errorf("maxres source initial model missing: %w", errMaxResState)
 	}
+	// mus_solver: init() evaluates the softs in the model, then
+	// init_local() finds the mutexes and adds the softs.
+	if err = e.initEvaluate(result.Model); err != nil {
+		return lbool.Undef, false, fmt.Errorf("maxres initial candidate: %w", err)
+	}
+	if err = e.initLocal(); err != nil {
+		return lbool.Undef, false, err
+	}
 	if err = result.Model.IncRef(); err != nil {
 		return lbool.Undef, false, err
 	}
