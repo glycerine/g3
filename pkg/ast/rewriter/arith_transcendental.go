@@ -3,9 +3,10 @@ package rewriter
 // Source: src/ast/rewriter/arith_rewriter.cpp:1154-1655.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const (
@@ -26,51 +27,83 @@ const (
 
 func (r *ArithRewriter) pi() (ast.ASTHandle, error) { return r.app(arithOpPi) }
 
-func (r *ArithRewriter) negativeTerm(h ast.ASTHandle) (ast.ASTHandle, bool, error) {
+func (r *ArithRewriter) negativeTerm(h ast.ASTHandle) (_ ast.ASTHandle, _ bool, err error) {
 	_, args, mul, err := r.operation(h, arithOpMul)
 	if err != nil || !mul || len(args) != 2 {
 		return ast.ASTHandle{}, false, err
 	}
-	coefficient, _, numeral, err := r.numeral(args[0])
-	if err != nil || !numeral || coefficient.Cmp(big.NewRat(-1, 1)) != 0 {
+	// rational r
+	coefficient := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &coefficient)) }()
+	_, numeral, err := r.numeral(args[0], &coefficient)
+	if err != nil || !numeral || !coefficient.IsMinusOne() {
 		return ast.ASTHandle{}, false, err
 	}
 	return args[1], true, nil
 }
 
-func (r *ArithRewriter) piMultiple(h ast.ASTHandle) (*big.Rat, bool, error) {
+// arithQFrac is rational(n, d) for a constant fraction in lowest terms.
+func arithQFrac(n, d int32) unumeral.Rational {
+	return unumeral.Rational{Num: unumeral.NewInt(n), Den: unumeral.NewInt(d)}
+}
+
+// arithQIs is k == rational(n, d) for a fraction in lowest terms: a
+// normalized rational equal to it has the same inline numerator and
+// denominator.
+func arithQIs(k *unumeral.Rational, n, d int32) bool {
+	return k.Num.IsSmall() && k.Den.IsSmall() && k.Num.Val == n && k.Den.Val == d
+}
+
+// makeNumeralFrac is m_util.mk_numeral(rational(n, d), is_int).
+func (r *ArithRewriter) makeNumeralFrac(n, d int32, integer bool) (ast.ASTHandle, error) {
+	value := arithQFrac(n, d)
+	return r.makeNumeral(&value, integer)
+}
+
+// piMultiple is is_pi_multiple(t, k): k receives the coefficient.
+func (r *ArithRewriter) piMultiple(h ast.ASTHandle, k *unumeral.Rational) (bool, error) {
 	_, args, pi, err := r.operation(h, arithOpPi)
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 	if pi && len(args) == 0 {
-		return big.NewRat(1, 1), true, nil
+		return true, r.q().SetInt32(k, 1)
 	}
 	_, args, mul, err := r.operation(h, arithOpMul)
 	if err != nil || !mul || len(args) != 2 {
-		return nil, false, err
+		return false, err
 	}
 	_, piArgs, pi, err := r.operation(args[1], arithOpPi)
 	if err != nil || !pi || len(piArgs) != 0 {
-		return nil, false, err
+		return false, err
 	}
-	coefficient, _, numeral, err := r.numeral(args[0])
-	return coefficient, numeral, err
+	_, numeral, err := r.numeral(args[0], k)
+	return numeral, err
 }
 
-func arithPiPeriod(k *big.Rat) *big.Rat {
-	floor := arithFloor(k)
-	whole := new(big.Int).Mod(new(big.Int).Set(floor), big.NewInt(2))
-	fraction := new(big.Rat).Sub(k, new(big.Rat).SetInt(floor))
-	return fraction.Add(fraction, new(big.Rat).SetInt(whole))
+// arithPiPeriod sets out = mod(floor(k), rational(2)) + k - floor(k).
+func arithPiPeriod(q *unumeral.RationalManager, k, out *unumeral.Rational) (err error) {
+	floor, two := unumeral.NewRational(), arithQFrac(2, 1)
+	defer func() { err = errors.Join(err, arithQDel(q, &floor)) }()
+	if err = q.Floor(k, &floor); err != nil {
+		return err
+	}
+	if err = q.Sub(k, &floor, out); err != nil {
+		return err
+	}
+	if err = q.Mod(&floor, &two, &floor); err != nil {
+		return err
+	}
+	return q.Add(&floor, out, out)
 }
 
-func (r *ArithRewriter) sqrt(value *big.Rat) (ast.ASTHandle, error) {
-	base, err := r.makeNumeral(value, false)
+// sqrt is mk_sqrt(rational(n, d)): (^ n/d 1/2).
+func (r *ArithRewriter) sqrt(n, d int32) (ast.ASTHandle, error) {
+	base, err := r.makeNumeralFrac(n, d, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	half, err := r.makeNumeral(big.NewRat(1, 2), false)
+	half, err := r.makeNumeralFrac(1, 2, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -84,42 +117,57 @@ func (r *ArithRewriter) signed(h ast.ASTHandle, negative bool) (ast.ASTHandle, e
 	return r.app(arithOpUMinus, h)
 }
 
-func (r *ArithRewriter) sinValue(k *big.Rat) (ast.ASTHandle, bool, error) {
-	k = arithPiPeriod(k)
-	negative := k.Cmp(big.NewRat(1, 1)) >= 0
-	if negative {
-		k.Sub(k, big.NewRat(1, 1))
+// sinValue is mk_sin_value(k).
+func (r *ArithRewriter) sinValue(k *unumeral.Rational) (_ ast.ASTHandle, _ bool, err error) {
+	q := r.q()
+	// rational k_prime
+	kPrime := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(q, &kPrime)) }()
+	if err = arithPiPeriod(q, k, &kPrime); err != nil {
+		return ast.ASTHandle{}, false, err
 	}
-	makeRat := func(v *big.Rat) (ast.ASTHandle, bool, error) {
-		if negative {
-			v.Neg(v)
+	cmp, err := q.Compare(&kPrime, arithQOne())
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	negative := cmp >= 0
+	if negative {
+		if err = q.Dec(&kPrime); err != nil {
+			return ast.ASTHandle{}, false, err
 		}
-		h, err := r.makeNumeral(v, false)
+	}
+	makeRat := func(n, d int32) (ast.ASTHandle, bool, error) {
+		if negative {
+			n = -n
+		}
+		h, err := r.makeNumeralFrac(n, d, false)
 		return h, err == nil, err
 	}
-	if k.Sign() == 0 || k.Cmp(big.NewRat(1, 1)) == 0 {
-		return makeRat(new(big.Rat))
+	is := func(n, d int32) bool { return arithQIs(&kPrime, n, d) }
+	if kPrime.IsZero() || kPrime.IsOne() {
+		h, err := r.makeNumeralInt(0, false)
+		return h, err == nil, err
 	}
-	if k.Cmp(big.NewRat(1, 2)) == 0 {
-		return makeRat(big.NewRat(1, 1))
+	if is(1, 2) {
+		return makeRat(1, 1)
 	}
-	if k.Cmp(big.NewRat(1, 6)) == 0 || k.Cmp(big.NewRat(5, 6)) == 0 {
-		return makeRat(big.NewRat(1, 2))
+	if is(1, 6) || is(5, 6) {
+		return makeRat(1, 2)
 	}
-	if k.Cmp(big.NewRat(1, 4)) == 0 || k.Cmp(big.NewRat(3, 4)) == 0 {
-		h, err := r.sqrt(big.NewRat(1, 2))
+	if is(1, 4) || is(3, 4) {
+		h, err := r.sqrt(1, 2)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
 		h, err = r.signed(h, negative)
 		return h, err == nil, err
 	}
-	if k.Cmp(big.NewRat(1, 3)) == 0 || k.Cmp(big.NewRat(2, 3)) == 0 {
-		root, err := r.sqrt(big.NewRat(3, 1))
+	if is(1, 3) || is(2, 3) {
+		root, err := r.sqrt(3, 1)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		two, err := r.makeNumeral(big.NewRat(2, 1), false)
+		two, err := r.makeNumeralInt(2, false)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
@@ -130,24 +178,24 @@ func (r *ArithRewriter) sinValue(k *big.Rat) (ast.ASTHandle, bool, error) {
 		h, err = r.signed(h, negative)
 		return h, err == nil, err
 	}
-	if k.Cmp(big.NewRat(1, 12)) == 0 || k.Cmp(big.NewRat(11, 12)) == 0 || k.Cmp(big.NewRat(5, 12)) == 0 || k.Cmp(big.NewRat(7, 12)) == 0 {
-		six, err := r.sqrt(big.NewRat(6, 1))
+	if is(1, 12) || is(11, 12) || is(5, 12) || is(7, 12) {
+		six, err := r.sqrt(6, 1)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		twoRoot, err := r.sqrt(big.NewRat(2, 1))
+		twoRoot, err := r.sqrt(2, 1)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
 		operator := arithOpSub
-		if k.Cmp(big.NewRat(5, 12)) == 0 || k.Cmp(big.NewRat(7, 12)) == 0 {
+		if is(5, 12) || is(7, 12) {
 			operator = arithOpAdd
 		}
 		numerator, err := r.app(operator, six, twoRoot)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		four, err := r.makeNumeral(big.NewRat(4, 1), false)
+		four, err := r.makeNumeralInt(4, false)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
@@ -161,24 +209,25 @@ func (r *ArithRewriter) sinValue(k *big.Rat) (ast.ASTHandle, bool, error) {
 	return ast.ASTHandle{}, false, nil
 }
 
-func (r *ArithRewriter) piOffset(h ast.ASTHandle) (*big.Rat, ast.ASTHandle, bool, error) {
+// piOffset is is_pi_offset(t, k, m): k receives m's coefficient.
+func (r *ArithRewriter) piOffset(h ast.ASTHandle, k *unumeral.Rational) (ast.ASTHandle, bool, error) {
 	_, args, add, err := r.operation(h, arithOpAdd)
 	if err != nil || !add {
-		return nil, ast.ASTHandle{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	for _, arg := range args {
-		coefficient, yes, e := r.piMultiple(arg)
+		yes, e := r.piMultiple(arg, k)
 		if e != nil {
-			return nil, ast.ASTHandle{}, false, e
+			return ast.ASTHandle{}, false, e
 		}
 		if yes {
-			return coefficient, arg, true, nil
+			return arg, true, nil
 		}
 	}
-	return nil, ast.ASTHandle{}, false, nil
+	return ast.ASTHandle{}, false, nil
 }
 
-func (r *ArithRewriter) integerPiMultiple(h ast.ASTHandle, even bool) (bool, error) {
+func (r *ArithRewriter) integerPiMultiple(h ast.ASTHandle, even bool) (_ bool, err error) {
 	_, args, mul, err := r.operation(h, arithOpMul)
 	if err != nil || !mul || len(args) != 2 {
 		return false, err
@@ -191,22 +240,26 @@ func (r *ArithRewriter) integerPiMultiple(h ast.ASTHandle, even bool) (bool, err
 		toReal, _, e := r.unary(right, arithOpToReal)
 		return pi && len(piArgs) == 0 && toReal, e
 	}
-	coefficient := big.NewRat(1, 1)
+	q := r.q()
+	// rational k(1)
+	coefficient := arithQFrac(1, 1)
+	defer func() { err = errors.Join(err, arithQDel(q, &coefficient)) }()
 	pair := args
-	if value, _, numeral, e := r.numeral(args[0]); e != nil {
+	if _, numeral, e := r.numeral(args[0], &coefficient); e != nil {
 		return false, e
 	} else if numeral {
-		if !value.IsInt() {
+		if !coefficient.IsInt() {
 			return false, nil
 		}
-		coefficient = value
 		_, pair, mul, err = r.operation(args[1], arithOpMul)
 		if err != nil || !mul || len(pair) != 2 {
 			return false, err
 		}
 	}
-	if even && new(big.Int).Mod(coefficient.Num(), big.NewInt(2)).Sign() != 0 {
-		return false, nil
+	if even {
+		if isEven, e := q.IsEven(&coefficient); e != nil || !isEven {
+			return false, e
+		}
 	}
 	if yes, e := isPair(pair[0], pair[1]); e != nil || yes {
 		return yes, e
@@ -235,7 +288,10 @@ func (r *ArithRewriter) subtractOffset(arg, offset ast.ASTHandle) (ast.ASTHandle
 	return r.app(arithOpSub, arg, offset)
 }
 
-func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	// rational k, k_prime
+	coefficient, period := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(r.q(), &period, &coefficient)) }()
 	if yes, child, err := r.unary(arg, arithOpASin); err != nil {
 		return RewriteFailed, err
 	} else if yes {
@@ -244,7 +300,7 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 	if yes, child, err := r.unary(arg, arithOpACos); err != nil {
 		return RewriteFailed, err
 	} else if yes {
-		one, e := r.makeNumeral(big.NewRat(1, 1), false)
+		one, e := r.makeNumeralInt(1, false)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -256,7 +312,7 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 		if e != nil {
 			return RewriteFailed, e
 		}
-		root, e := r.sqrt(big.NewRat(1, 1))
+		root, e := r.sqrt(1, 1)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -270,15 +326,15 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 		}
 		return RewriteFull, r.manager.SetRef(out, result)
 	}
-	if value, _, numeral, err := r.numeral(arg); err != nil {
+	if zero, err := r.zero(arg); err != nil {
 		return RewriteFailed, err
-	} else if numeral && value.Sign() == 0 {
+	} else if zero {
 		return RewriteDone, r.manager.SetRef(out, arg)
 	}
-	if coefficient, yes, err := r.piMultiple(arg); err != nil {
+	if yes, err := r.piMultiple(arg, &coefficient); err != nil {
 		return RewriteFailed, err
 	} else if yes {
-		result, matched, e := r.sinValue(coefficient)
+		result, matched, e := r.sinValue(&coefficient)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -286,13 +342,15 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 			return RewriteFull, r.manager.SetRef(out, result)
 		}
 	}
-	if coefficient, offset, yes, err := r.piOffset(arg); err != nil {
+	if offset, yes, err := r.piOffset(arg, &coefficient); err != nil {
 		return RewriteFailed, err
 	} else if yes {
-		period := arithPiPeriod(coefficient)
+		if e := arithPiPeriod(r.q(), &coefficient, &period); e != nil {
+			return RewriteFailed, e
+		}
 		// k_prime outside {0, 1/2, 1, 3/2} falls through to
 		// is_2_pi_integer_offset.
-		if period.Sign() == 0 || period.Cmp(big.NewRat(1, 2)) == 0 || period.Cmp(big.NewRat(1, 1)) == 0 || period.Cmp(big.NewRat(3, 2)) == 0 {
+		if period.IsZero() || arithQIs(&period, 1, 2) || period.IsOne() || arithQIs(&period, 3, 2) {
 			base, e := r.subtractOffset(arg, offset)
 			if e != nil {
 				return RewriteFailed, e
@@ -300,17 +358,17 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 			var result ast.ASTHandle
 			status := Rewrite2
 			switch {
-			case period.Sign() == 0:
+			case period.IsZero():
 				result, e = r.app(arithOpSin, base)
-			case period.Cmp(big.NewRat(1, 2)) == 0:
+			case arithQIs(&period, 1, 2):
 				result, e = r.app(arithOpCos, base)
-			case period.Cmp(big.NewRat(1, 1)) == 0:
+			case period.IsOne():
 				result, e = r.app(arithOpSin, base)
 				if e == nil {
 					result, e = r.app(arithOpUMinus, result)
 				}
 				status = Rewrite3
-			case period.Cmp(big.NewRat(3, 2)) == 0:
+			case arithQIs(&period, 3, 2):
 				result, e = r.app(arithOpCos, base)
 				if e == nil {
 					result, e = r.app(arithOpUMinus, result)
@@ -339,26 +397,33 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 	return RewriteFailed, nil
 }
 
-func (r *ArithRewriter) rewriteCos(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) rewriteCos(arg ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	// rational k, k_prime
+	coefficient, period := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(r.q(), &period, &coefficient)) }()
 	if yes, child, err := r.unary(arg, arithOpACos); err != nil {
 		return RewriteFailed, err
 	} else if yes {
 		return RewriteDone, r.manager.SetRef(out, child)
 	}
-	if value, _, numeral, err := r.numeral(arg); err != nil {
+	if zero, err := r.zero(arg); err != nil {
 		return RewriteFailed, err
-	} else if numeral && value.Sign() == 0 {
-		one, e := r.makeNumeral(big.NewRat(1, 1), false)
+	} else if zero {
+		one, e := r.makeNumeralInt(1, false)
 		if e != nil {
 			return RewriteFailed, e
 		}
 		return RewriteDone, r.manager.SetRef(out, one)
 	}
-	if coefficient, yes, err := r.piMultiple(arg); err != nil {
+	if yes, err := r.piMultiple(arg, &coefficient); err != nil {
 		return RewriteFailed, err
 	} else if yes {
-		coefficient.Add(coefficient, big.NewRat(1, 2))
-		result, matched, e := r.sinValue(coefficient)
+		// k + rational(1, 2)
+		half := arithQFrac(1, 2)
+		if e := r.q().Add(&coefficient, &half, &coefficient); e != nil {
+			return RewriteFailed, e
+		}
+		result, matched, e := r.sinValue(&coefficient)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -366,13 +431,15 @@ func (r *ArithRewriter) rewriteCos(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 			return RewriteFull, r.manager.SetRef(out, result)
 		}
 	}
-	if coefficient, offset, yes, err := r.piOffset(arg); err != nil {
+	if offset, yes, err := r.piOffset(arg, &coefficient); err != nil {
 		return RewriteFailed, err
 	} else if yes {
-		period := arithPiPeriod(coefficient)
+		if e := arithPiPeriod(r.q(), &coefficient, &period); e != nil {
+			return RewriteFailed, e
+		}
 		// k_prime outside {0, 1/2, 1, 3/2} falls through to
 		// is_2_pi_integer_offset.
-		if period.Sign() == 0 || period.Cmp(big.NewRat(1, 2)) == 0 || period.Cmp(big.NewRat(1, 1)) == 0 || period.Cmp(big.NewRat(3, 2)) == 0 {
+		if period.IsZero() || arithQIs(&period, 1, 2) || period.IsOne() || arithQIs(&period, 3, 2) {
 			base, e := r.subtractOffset(arg, offset)
 			if e != nil {
 				return RewriteFailed, e
@@ -380,21 +447,21 @@ func (r *ArithRewriter) rewriteCos(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 			var result ast.ASTHandle
 			status := Rewrite2
 			switch {
-			case period.Sign() == 0:
+			case period.IsZero():
 				result, e = r.app(arithOpCos, base)
-			case period.Cmp(big.NewRat(1, 2)) == 0:
+			case arithQIs(&period, 1, 2):
 				result, e = r.app(arithOpSin, base)
 				if e == nil {
 					result, e = r.app(arithOpUMinus, result)
 				}
 				status = Rewrite3
-			case period.Cmp(big.NewRat(1, 1)) == 0:
+			case period.IsOne():
 				result, e = r.app(arithOpCos, base)
 				if e == nil {
 					result, e = r.app(arithOpUMinus, result)
 				}
 				status = Rewrite3
-			case period.Cmp(big.NewRat(3, 2)) == 0:
+			case arithQIs(&period, 3, 2):
 				result, e = r.app(arithOpSin, base)
 			}
 			if e != nil {
@@ -419,21 +486,24 @@ func (r *ArithRewriter) rewriteCos(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 	return RewriteFailed, nil
 }
 
-func (r *ArithRewriter) rewriteTan(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) rewriteTan(arg ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	// rational k, k_prime
+	coefficient, period := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(r.q(), &period, &coefficient)) }()
 	if yes, child, err := r.unary(arg, arithOpATan); err != nil {
 		return RewriteFailed, err
 	} else if yes {
 		return RewriteDone, r.manager.SetRef(out, child)
 	}
-	if value, _, numeral, err := r.numeral(arg); err != nil {
+	if zero, err := r.zero(arg); err != nil {
 		return RewriteFailed, err
-	} else if numeral && value.Sign() == 0 {
+	} else if zero {
 		return RewriteDone, r.manager.SetRef(out, arg)
 	}
-	if coefficient, yes, err := r.piMultiple(arg); err != nil {
+	if yes, err := r.piMultiple(arg, &coefficient); err != nil {
 		return RewriteFailed, err
 	} else if yes {
-		numerator, matched, e := r.sinValue(coefficient)
+		numerator, matched, e := r.sinValue(&coefficient)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -443,7 +513,12 @@ func (r *ArithRewriter) rewriteTan(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 			} else if zero {
 				return RewriteDone, r.manager.SetRef(out, numerator)
 			}
-			denominator, denominatorMatched, e := r.sinValue(new(big.Rat).Add(coefficient, big.NewRat(1, 2)))
+			// mk_sin_value(k + rational(1, 2)); period is free here
+			half := arithQFrac(1, 2)
+			if e = r.q().Add(&coefficient, &half, &period); e != nil {
+				return RewriteFailed, e
+			}
+			denominator, denominatorMatched, e := r.sinValue(&period)
 			if e != nil {
 				return RewriteFailed, e
 			}
@@ -460,11 +535,11 @@ func (r *ArithRewriter) rewriteTan(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 			}
 		}
 	}
-	if coefficient, offset, yes, err := r.piOffset(arg); err != nil {
+	if offset, yes, err := r.piOffset(arg, &coefficient); err != nil {
 		return RewriteFailed, err
 	} else if yes {
-		fraction := new(big.Rat).Sub(coefficient, new(big.Rat).SetInt(arithFloor(coefficient)))
-		if fraction.Sign() == 0 {
+		// k - floor(k) == 0
+		if coefficient.IsInt() {
 			base, e := r.subtractOffset(arg, offset)
 			if e != nil {
 				return RewriteFailed, e
@@ -507,8 +582,9 @@ func (r *ArithRewriter) rewriteTan(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 	return RewriteFailed, nil
 }
 
-func (r *ArithRewriter) piFraction(value *big.Rat) (ast.ASTHandle, error) {
-	coefficient, err := r.makeNumeral(value, false)
+// piFraction is (* rational(n, d) pi).
+func (r *ArithRewriter) piFraction(n, d int32) (ast.ASTHandle, error) {
+	coefficient, err := r.makeNumeralFrac(n, d, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -519,15 +595,18 @@ func (r *ArithRewriter) piFraction(value *big.Rat) (ast.ASTHandle, error) {
 	return r.app(arithOpMul, coefficient, pi)
 }
 
-func (r *ArithRewriter) rewriteInverseTrig(kind int32, arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	value, _, numeral, err := r.numeral(arg)
+func (r *ArithRewriter) rewriteInverseTrig(kind int32, arg ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	// rational k
+	value := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &value)) }()
+	_, numeral, err := r.numeral(arg, &value)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	if numeral {
-		if value.Sign() == 0 {
+		if value.IsZero() {
 			if kind == arithOpACos {
-				h, e := r.piFraction(big.NewRat(1, 2))
+				h, e := r.piFraction(1, 2)
 				if e != nil {
 					return RewriteFailed, e
 				}
@@ -535,8 +614,20 @@ func (r *ArithRewriter) rewriteInverseTrig(kind int32, arg ast.ASTHandle, out as
 			}
 			return RewriteDone, r.manager.SetRef(out, arg)
 		}
-		if (kind == arithOpASin || kind == arithOpATan) && value.Cmp(big.NewRat(-1, 1)) < 0 {
-			positive, e := r.makeNumeral(new(big.Rat).Neg(value), false)
+		less := false
+		if kind == arithOpASin || kind == arithOpATan {
+			minusOne := arithQFrac(-1, 1)
+			cmp, e := r.q().Compare(&value, &minusOne)
+			if e != nil {
+				return RewriteFailed, e
+			}
+			less = cmp < 0
+		}
+		if less {
+			if e := r.q().Neg(&value); e != nil {
+				return RewriteFailed, e
+			}
+			positive, e := r.makeNumeral(&value, false)
 			if e != nil {
 				return RewriteFailed, e
 			}
@@ -550,45 +641,47 @@ func (r *ArithRewriter) rewriteInverseTrig(kind int32, arg ast.ASTHandle, out as
 			}
 			return Rewrite2, r.manager.SetRef(out, result)
 		}
-		var coefficient *big.Rat
+		// the coefficient n/d of pi, when d != 0
+		n, d := int32(0), int32(0)
+		is := func(n, d int32) bool { return arithQIs(&value, n, d) }
 		switch kind {
 		case arithOpASin:
-			if value.Cmp(big.NewRat(1, 1)) == 0 {
-				coefficient = big.NewRat(1, 2)
-			} else if value.Cmp(big.NewRat(-1, 1)) == 0 {
-				coefficient = big.NewRat(-1, 2)
-			} else if value.Cmp(big.NewRat(1, 2)) == 0 {
-				coefficient = big.NewRat(1, 6)
-			} else if value.Cmp(big.NewRat(-1, 2)) == 0 {
-				coefficient = big.NewRat(-1, 6)
+			if is(1, 1) {
+				n, d = 1, 2
+			} else if is(-1, 1) {
+				n, d = -1, 2
+			} else if is(1, 2) {
+				n, d = 1, 6
+			} else if is(-1, 2) {
+				n, d = -1, 6
 			}
 		case arithOpACos:
-			if value.Cmp(big.NewRat(1, 1)) == 0 {
-				zero, e := r.makeNumeral(new(big.Rat), false)
+			if is(1, 1) {
+				zero, e := r.makeNumeralInt(0, false)
 				if e != nil {
 					return RewriteFailed, e
 				}
 				return RewriteDone, r.manager.SetRef(out, zero)
-			} else if value.Cmp(big.NewRat(-1, 1)) == 0 {
+			} else if is(-1, 1) {
 				pi, e := r.pi()
 				if e != nil {
 					return RewriteFailed, e
 				}
 				return RewriteDone, r.manager.SetRef(out, pi)
-			} else if value.Cmp(big.NewRat(1, 2)) == 0 {
-				coefficient = big.NewRat(1, 3)
-			} else if value.Cmp(big.NewRat(-1, 2)) == 0 {
-				coefficient = big.NewRat(2, 3)
+			} else if is(1, 2) {
+				n, d = 1, 3
+			} else if is(-1, 2) {
+				n, d = 2, 3
 			}
 		case arithOpATan:
-			if value.Cmp(big.NewRat(1, 1)) == 0 {
-				coefficient = big.NewRat(1, 4)
-			} else if value.Cmp(big.NewRat(-1, 1)) == 0 {
-				coefficient = big.NewRat(-1, 4)
+			if is(1, 1) {
+				n, d = 1, 4
+			} else if is(-1, 1) {
+				n, d = -1, 4
 			}
 		}
-		if coefficient != nil {
-			h, e := r.piFraction(coefficient)
+		if d != 0 {
+			h, e := r.piFraction(n, d)
 			if e != nil {
 				return RewriteFailed, e
 			}

@@ -1471,17 +1471,19 @@ func TestArithRewriterRemainingStructuralNormalization(t *testing.T) {
 		if !matched || len(terms) == 0 {
 			t.Fatal("negative polynomial positive left side", matched, len(terms))
 		}
-		coefficient, _, numeral, err := r.numeral(func() ast.ASTHandle {
+		coefficient := unumeral.NewRational()
+		_, numeral, err := r.numeral(func() ast.ASTHandle {
 			_, factors, product, e := r.operation(terms[0], arithOpMul)
 			astTestMust(t, e)
 			if !product || len(factors) == 0 {
 				t.Fatal("negative polynomial first monomial", product, len(factors))
 			}
 			return factors[0]
-		}())
+		}(), &coefficient)
 		astTestMust(t, err)
-		if !numeral || coefficient.Sign() <= 0 {
+		if !numeral || !coefficient.IsPos() {
 			t.Fatal("negative polynomial coefficient", coefficient, numeral)
 		}
+		astTestMust(t, arithQDel(r.q(), &coefficient))
 	})
 }

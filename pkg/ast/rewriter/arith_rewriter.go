@@ -5,10 +5,10 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -159,39 +159,51 @@ func (r *ArithRewriter) Close() error {
 	return nil
 }
 
-func (r *ArithRewriter) numeral(h ast.ASTHandle) (*big.Rat, bool, bool, error) {
-	kind, err := r.manager.GetKind(h)
-	if err != nil {
-		return nil, false, false, err
+// q is rational's g_mpq_manager: the AST manager's rational manager, on
+// which every rational of the rewriter lives.
+func (r *ArithRewriter) q() *unumeral.RationalManager { return r.manager.NumeralService().Manager }
+
+// arithQDel is rational's destructor: an inline value owns no cell.
+func arithQDel(q *unumeral.RationalManager, v *unumeral.Rational) error {
+	if v.IsSmall() {
+		return nil
 	}
-	if kind != ast.ASTApp {
-		return nil, false, false, nil
-	}
-	value, integer, matched, err := r.manager.ArithmeticNumeralBigRat(h)
-	if err != nil || !matched {
-		return nil, integer, matched, err
-	}
-	return value, integer, true, nil
+	return q.Del(v)
 }
 
-func (r *ArithRewriter) makeNumeral(value *big.Rat, integer bool) (result ast.ASTHandle, err error) {
-	service := r.manager.NumeralService()
-	if service == nil || value == nil {
-		return result, ast.ErrASTHandle
+// arithQDel2 frees two rational locals, the second declared first.
+func arithQDel2(q *unumeral.RationalManager, a, b *unumeral.Rational) error {
+	return errors.Join(arithQDel(q, a), arithQDel(q, b))
+}
+
+// numeral is m_util.is_numeral(h, v, is_int): a matched numeral's value is
+// copied into v (rational's copy assignment).
+func (r *ArithRewriter) numeral(h ast.ASTHandle, v *unumeral.Rational) (integer, matched bool, err error) {
+	kind, err := r.manager.GetKind(h)
+	if err != nil || kind != ast.ASTApp {
+		return false, false, err
 	}
-	n, err := service.NewValue()
-	if err != nil {
-		return result, err
+	return r.manager.ArithmeticNumeralRational(h, v)
+}
+
+// isNumeral is m_util.is_numeral(h): the value is not read.
+func (r *ArithRewriter) isNumeral(h ast.ASTHandle) (bool, error) {
+	kind, err := r.manager.GetKind(h)
+	if err != nil || kind != ast.ASTApp {
+		return false, err
 	}
-	defer func() { err = errors.Join(err, service.Del(&n)) }()
-	if done, e := service.SetSmallRat(&n, value); e != nil {
-		return result, e
-	} else if !done {
-		if err = service.SetString(&n, value.RatString()); err != nil {
-			return result, err
-		}
-	}
-	return r.manager.ArithmeticNumeral(&n, integer)
+	return r.manager.IsArithmeticNumeral(h)
+}
+
+// makeNumeral is m_util.mk_numeral(value, is_int).
+func (r *ArithRewriter) makeNumeral(value *unumeral.Rational, integer bool) (ast.ASTHandle, error) {
+	return r.manager.ArithmeticNumeralFromRational(value, integer)
+}
+
+// makeNumeralInt is m_util.mk_numeral(rational(v), is_int).
+func (r *ArithRewriter) makeNumeralInt(v int32, integer bool) (ast.ASTHandle, error) {
+	value := unumeral.Rational{Num: unumeral.NewInt(v), Den: unumeral.NewInt(1)}
+	return r.makeNumeral(&value, integer)
 }
 
 func (r *ArithRewriter) app(kind int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
@@ -257,76 +269,6 @@ func (r *ArithRewriter) isITE(h ast.ASTHandle) (bool, error) {
 	return err == nil && kind == ast.ASTOpIte, err
 }
 
-func arithFloor(value *big.Rat) *big.Int {
-	q, rem := new(big.Int).QuoRem(value.Num(), value.Denom(), new(big.Int))
-	if value.Sign() < 0 && rem.Sign() != 0 {
-		q.Sub(q, big.NewInt(1))
-	}
-	return q
-}
-
-func arithIntegerDiv(left, right *big.Rat) *big.Int {
-	return new(big.Int).Div(left.Num(), right.Num())
-}
-
-func arithIntegerMod(left, right *big.Rat) *big.Int {
-	return new(big.Int).Mod(left.Num(), right.Num())
-}
-
-func arithExactIntegerRoot(value *big.Int, degree uint32) (*big.Int, bool) {
-	if value == nil || degree == 0 {
-		return nil, false
-	}
-	negative := value.Sign() < 0
-	if negative && degree%2 == 0 {
-		return nil, false
-	}
-	absolute := new(big.Int).Abs(value)
-	if absolute.Sign() == 0 || absolute.Cmp(big.NewInt(1)) == 0 || degree == 1 {
-		root := new(big.Int).Set(absolute)
-		if negative {
-			root.Neg(root)
-		}
-		return root, true
-	}
-	one := big.NewInt(1)
-	low := new(big.Int).Set(one)
-	bits := (uint64(absolute.BitLen()) + uint64(degree) - 1) / uint64(degree)
-	high := new(big.Int).Lsh(new(big.Int).Set(one), uint(bits+1))
-	exponent := new(big.Int).SetUint64(uint64(degree))
-	for low.Cmp(high) <= 0 {
-		middle := new(big.Int).Rsh(new(big.Int).Add(low, high), 1)
-		powered := new(big.Int).Exp(middle, exponent, nil)
-		switch powered.Cmp(absolute) {
-		case 0:
-			if negative {
-				middle.Neg(middle)
-			}
-			return middle, true
-		case -1:
-			low = new(big.Int).Add(middle, one)
-		default:
-			high = new(big.Int).Sub(middle, one)
-		}
-	}
-	return nil, false
-}
-
-func arithExactRationalRoot(value *big.Rat, degree uint32) (*big.Rat, bool) {
-	if value == nil {
-		return nil, false
-	}
-	numerator, exact := arithExactIntegerRoot(value.Num(), degree)
-	if !exact {
-		return nil, false
-	}
-	denominator, exact := arithExactIntegerRoot(value.Denom(), degree)
-	if !exact {
-		return nil, false
-	}
-	return new(big.Rat).SetFrac(numerator, denominator), true
-}
-
 func (r *ArithRewriter) setBool(out ast.ASTRef, value bool) error {
 	h, err := r.manager.MkBoolVal(value)
 	if err != nil {
@@ -361,11 +303,14 @@ func (l *arithComparisonLocals) release() (err error) {
 	return err
 }
 
-func (r *ArithRewriter) rewriteNegativePolynomialComparison(kind int32, left, right ast.ASTHandle, out ast.ASTRef, locals *arithComparisonLocals) (bool, error) {
+func (r *ArithRewriter) rewriteNegativePolynomialComparison(kind int32, left, right ast.ASTHandle, out ast.ASTRef, locals *arithComparisonLocals) (_ bool, err error) {
 	if !r.arithLHS && !r.arithIneqLHS {
 		return false, nil
 	}
-	rightValue, _, numeral, err := r.numeral(right)
+	// numeral a2: is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1).
+	rightValue := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &rightValue)) }()
+	_, numeral, err := r.numeral(right, &rightValue)
 	if err != nil || !numeral {
 		return false, err
 	}
@@ -377,7 +322,10 @@ func (r *ArithRewriter) rewriteNegativePolynomialComparison(kind int32, left, ri
 	if err = locals.set(0, positive); err != nil {
 		return false, err
 	}
-	negatedRight, err := r.numeralForTerm(new(big.Rat).Neg(rightValue), positive)
+	if err = r.q().Neg(&rightValue); err != nil {
+		return false, err
+	}
+	negatedRight, err := r.numeralForTerm(&rightValue, positive)
 	if err != nil {
 		return false, err
 	}
@@ -460,11 +408,17 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 			}
 		}
 	}
-	lv, _, ln, err := r.numeral(left)
+	// numeral a1, a2: they live to the end of the function.
+	lv, rv := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(r.q(), &rv, &lv)) }()
+	_, ln, err := r.numeral(left, &lv)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	rv, _, rn, err := r.numeral(right)
+	rn := false
+	if ln {
+		_, rn, err = r.numeral(right, &rv)
+	}
 	if err != nil || !ln || !rn {
 		if err == nil {
 			if decided, e := r.rewriteAlgebraicComparison(left, right, kind, out); e != nil || decided {
@@ -514,24 +468,32 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 		}
 		return RewriteFailed, err
 	}
-	cmp := lv.Cmp(rv)
+	cmp, err := r.q().Compare(&lv, &rv)
+	if err != nil {
+		return RewriteFailed, err
+	}
 	return RewriteDone, r.setBool(out, kind == arithOpLE && cmp <= 0 || kind == arithOpGE && cmp >= 0)
 }
 
-func (r *ArithRewriter) rewriteUnaryMinus(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	v, integer, matched, err := r.numeral(arg)
+func (r *ArithRewriter) rewriteUnaryMinus(arg ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	// numeral a
+	v := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &v)) }()
+	integer, matched, err := r.numeral(arg, &v)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	if matched {
-		v.Neg(v)
-		h, e := r.makeNumeral(v, integer)
+		if err = r.q().Neg(&v); err != nil {
+			return RewriteFailed, err
+		}
+		h, e := r.makeNumeral(&v, integer)
 		if e != nil {
 			return RewriteFailed, e
 		}
 		return RewriteDone, r.manager.SetRef(out, h)
 	}
-	minusOne, err := r.numeralForTerm(big.NewRat(-1, 1), arg)
+	minusOne, err := r.numeralForTermInt(-1, arg)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -542,35 +504,46 @@ func (r *ArithRewriter) rewriteUnaryMinus(arg ast.ASTHandle, out ast.ASTRef) (Re
 	return Rewrite1, r.manager.SetRef(out, h)
 }
 
-func (r *ArithRewriter) rewriteDivision(kind int32, left, right ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) rewriteDivision(kind int32, left, right ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
 	if kind == arithOpDiv {
 		status, dispatched, err := r.rewriteAlgebraicDivision(left, right, out)
 		if err != nil || dispatched {
 			return status, err
 		}
 	}
-	lv, li, ln, err := r.numeral(left)
+	q := r.q()
+	// numeral v1, v2
+	lv, rv := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(q, &rv, &lv)) }()
+	li, ln, err := r.numeral(left, &lv)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	rv, ri, rn, err := r.numeral(right)
+	ri, rn, err := r.numeral(right, &rv)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	if kind == arithOpDiv {
 		if rn {
-			if rv.Sign() == 0 {
+			if rv.IsZero() {
 				return RewriteFailed, nil
 			}
 			if ln {
-				h, e := r.makeNumeral(new(big.Rat).Quo(lv, rv), false)
+				// v1/v2
+				if err = q.Div(&lv, &rv, &lv); err != nil {
+					return RewriteFailed, err
+				}
+				h, e := r.makeNumeral(&lv, false)
 				if e != nil {
 					return RewriteFailed, e
 				}
 				return RewriteDone, r.manager.SetRef(out, h)
 			}
-			coefficient := new(big.Rat).Inv(rv)
-			c, e := r.makeNumeral(coefficient, false)
+			// rational k(1); k /= v2
+			if err = q.Inv(&rv, &rv); err != nil {
+				return RewriteFailed, err
+			}
+			c, e := r.makeNumeral(&rv, false)
 			if e != nil {
 				return RewriteFailed, e
 			}
@@ -584,32 +557,37 @@ func (r *ArithRewriter) rewriteDivision(kind int32, left, right ast.ASTHandle, o
 		if e != nil || integer {
 			return RewriteFailed, e
 		}
-		extract := func(h ast.ASTHandle) (*big.Rat, ast.ASTHandle, error) {
+		// (/ (* v1 b) (* v2 d)) --> (* v1/v2 (/ b d)): v1 and v2 are
+		// reused, set to one when there is no coefficient.
+		extract := func(h ast.ASTHandle, coefficient *unumeral.Rational) (ast.ASTHandle, error) {
 			_, factors, product, e := r.operation(h, arithOpMul)
 			if e != nil {
-				return nil, ast.ASTHandle{}, e
+				return ast.ASTHandle{}, e
 			}
 			if product && len(factors) == 2 {
-				coefficient, _, numeral, e := r.numeral(factors[0])
+				_, numeral, e := r.numeral(factors[0], coefficient)
 				if e != nil {
-					return nil, ast.ASTHandle{}, e
+					return ast.ASTHandle{}, e
 				}
 				if numeral {
-					return coefficient, factors[1], nil
+					return factors[1], nil
 				}
 			}
-			return big.NewRat(1, 1), h, nil
+			return h, q.SetInt32(coefficient, 1)
 		}
-		leftCoefficient, numerator, e := extract(left)
+		numerator, e := extract(left, &lv)
 		if e != nil {
 			return RewriteFailed, e
 		}
-		rightCoefficient, denominator, e := extract(right)
+		denominator, e := extract(right, &rv)
 		if e != nil {
 			return RewriteFailed, e
 		}
-		if leftCoefficient.Cmp(big.NewRat(1, 1)) != 0 || rightCoefficient.Cmp(big.NewRat(1, 1)) != 0 {
-			coefficient, e := r.makeNumeral(new(big.Rat).Quo(leftCoefficient, rightCoefficient), false)
+		if !lv.IsOne() || !rv.IsOne() {
+			if e = q.Div(&lv, &rv, &lv); e != nil {
+				return RewriteFailed, e
+			}
+			coefficient, e := r.makeNumeral(&lv, false)
 			if e != nil {
 				return RewriteFailed, e
 			}
@@ -625,53 +603,65 @@ func (r *ArithRewriter) rewriteDivision(kind int32, left, right ast.ASTHandle, o
 		}
 		return RewriteFailed, nil
 	}
-	if !rn || rv.Sign() == 0 || !ln || !li || !ri {
+	if !rn || rv.IsZero() || !ln || !li || !ri {
 		return RewriteFailed, nil
 	}
-	var result *big.Int
 	switch kind {
 	case arithOpIDiv:
-		result = arithIntegerDiv(lv, rv)
+		// div(v1, v2)
+		err = q.IDiv(&lv, &rv, &lv)
 	case arithOpMod, arithOpRem:
-		result = arithIntegerMod(lv, rv)
-		if kind == arithOpRem && rv.Sign() < 0 {
-			result.Neg(result)
+		// mod(v1, v2)
+		err = q.Mod(&lv, &rv, &lv)
+		if err == nil && kind == arithOpRem && rv.IsNeg() {
+			err = q.Neg(&lv)
 		}
 	default:
 		return RewriteFailed, nil
 	}
-	h, err := r.makeNumeral(new(big.Rat).SetInt(result), true)
+	if err != nil {
+		return RewriteFailed, err
+	}
+	h, err := r.makeNumeral(&lv, true)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	return RewriteDone, r.manager.SetRef(out, h)
 }
 
-func (r *ArithRewriter) rewriteMod(left, right ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	lv, li, ln, err := r.numeral(left)
+func (r *ArithRewriter) rewriteMod(left, right ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	q := r.q()
+	// numeral v1, v2
+	lv, rv := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(q, &rv, &lv)) }()
+	li, ln, err := r.numeral(left, &lv)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	rv, ri, rn, err := r.numeral(right)
+	ri, rn, err := r.numeral(right, &rv)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if ln && rn && rv.Sign() != 0 && li && ri {
-		h, e := r.makeNumeral(new(big.Rat).SetInt(arithIntegerMod(lv, rv)), true)
+	if ln && rn && !rv.IsZero() && li && ri {
+		// mod(v1, v2)
+		if err = q.Mod(&lv, &rv, &lv); err != nil {
+			return RewriteFailed, err
+		}
+		h, e := r.makeNumeral(&lv, true)
 		if e != nil {
 			return RewriteFailed, e
 		}
 		return RewriteDone, r.manager.SetRef(out, h)
 	}
-	if rn && ri && rv.Cmp(big.NewRat(1, 1)) == 0 {
-		h, e := r.makeNumeral(new(big.Rat), true)
+	if rn && ri && rv.IsOne() {
+		h, e := r.makeNumeralInt(0, true)
 		if e != nil {
 			return RewriteFailed, e
 		}
 		return RewriteDone, r.manager.SetRef(out, h)
 	}
 	if left == right && !rn {
-		zero, e := r.makeNumeral(new(big.Rat), true)
+		zero, e := r.makeNumeralInt(0, true)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -703,10 +693,10 @@ func (r *ArithRewriter) rewriteMod(left, right ast.ASTHandle, out ast.ASTRef) (R
 	}
 	if _, inner, yes, e := r.operation(left, arithOpMod); e != nil {
 		return RewriteFailed, e
-	} else if yes && len(inner) == 2 && inner[1] == right && rn && ri && rv.Sign() != 0 {
+	} else if yes && len(inner) == 2 && inner[1] == right && rn && ri && !rv.IsZero() {
 		return RewriteDone, r.manager.SetRef(out, left)
 	}
-	if !rn || !ri || rv.Sign() <= 0 {
+	if !rn || !ri || !rv.IsPos() {
 		return RewriteFailed, nil
 	}
 	kind, children, composite, err := r.operation(left, arithOpAdd, arithOpMul)
@@ -714,16 +704,29 @@ func (r *ArithRewriter) rewriteMod(left, right ast.ASTHandle, out ast.ASTRef) (R
 		return RewriteFailed, err
 	}
 	target := false
+	// rational arg_v (v1 is free here: the numeral case returned above)
 	for _, child := range children {
 		if _, _, isMod, e := r.operation(child, arithOpMod); e != nil {
 			return RewriteFailed, e
 		} else if isMod {
 			continue
 		}
-		if value, _, numeral, e := r.numeral(child); e != nil {
+		if _, numeral, e := r.numeral(child, &lv); e != nil {
 			return RewriteFailed, e
-		} else if numeral && new(big.Int).Mod(value.Num(), rv.Num()).Cmp(value.Num()) == 0 {
-			continue
+		} else if numeral {
+			// mod(arg_v, v2) == arg_v
+			m := unumeral.NewRational()
+			e = q.Mod(&lv, &rv, &m)
+			same := false
+			if e == nil {
+				same, e = q.Equal(&m, &lv)
+			}
+			if e = errors.Join(e, arithQDel(q, &m)); e != nil {
+				return RewriteFailed, e
+			}
+			if same {
+				continue
+			}
 		}
 		if ite, e := r.isITE(child); e != nil {
 			return RewriteFailed, e
@@ -754,34 +757,42 @@ func (r *ArithRewriter) rewriteMod(left, right ast.ASTHandle, out ast.ASTRef) (R
 	return Rewrite3, r.manager.SetRef(out, result)
 }
 
-func (r *ArithRewriter) rewriteRem(left, right ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	lv, li, ln, err := r.numeral(left)
+func (r *ArithRewriter) rewriteRem(left, right ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	q := r.q()
+	// numeral v1, v2
+	lv, rv := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(q, &rv, &lv)) }()
+	li, ln, err := r.numeral(left, &lv)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	rv, ri, rn, err := r.numeral(right)
+	ri, rn, err := r.numeral(right, &rv)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if ln && rn && rv.Sign() != 0 && li && ri {
-		value := arithIntegerMod(lv, rv)
-		if rv.Sign() < 0 {
-			value.Neg(value)
+	if ln && rn && !rv.IsZero() && li && ri {
+		// numeral m = mod(v1, v2); if (v2.is_neg()) m.neg();
+		err = q.Mod(&lv, &rv, &lv)
+		if err == nil && rv.IsNeg() {
+			err = q.Neg(&lv)
 		}
-		h, e := r.makeNumeral(new(big.Rat).SetInt(value), true)
+		if err != nil {
+			return RewriteFailed, err
+		}
+		h, e := r.makeNumeral(&lv, true)
 		if e != nil {
 			return RewriteFailed, e
 		}
 		return RewriteDone, r.manager.SetRef(out, h)
 	}
-	if rn && ri && rv.Cmp(big.NewRat(1, 1)) == 0 {
-		h, e := r.makeNumeral(new(big.Rat), true)
+	if rn && ri && rv.IsOne() {
+		h, e := r.makeNumeralInt(0, true)
 		if e != nil {
 			return RewriteFailed, e
 		}
 		return RewriteDone, r.manager.SetRef(out, h)
 	}
-	if rn && ri && rv.Sign() != 0 {
+	if rn && ri && !rv.IsZero() {
 		if _, _, composite, e := r.operation(left, arithOpAdd, arithOpMul); e != nil {
 			return RewriteFailed, e
 		} else if composite {
@@ -791,7 +802,7 @@ func (r *ArithRewriter) rewriteRem(left, right ast.ASTHandle, out ast.ASTRef) (R
 		if e != nil {
 			return RewriteFailed, e
 		}
-		if rv.Sign() > 0 {
+		if rv.IsPos() {
 			return Rewrite1, r.manager.SetRef(out, mod)
 		}
 		negative, e := r.app(arithOpUMinus, mod)
@@ -811,7 +822,7 @@ func (r *ArithRewriter) rewriteRem(left, right ast.ASTHandle, out ast.ASTRef) (R
 	if err != nil {
 		return RewriteFailed, err
 	}
-	zero, err := r.makeNumeral(new(big.Rat), true)
+	zero, err := r.makeNumeralInt(0, true)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -826,31 +837,27 @@ func (r *ArithRewriter) rewriteRem(left, right ast.ASTHandle, out ast.ASTRef) (R
 	return Rewrite3, r.manager.SetRef(out, result)
 }
 
-// arithRationalUnsigned is rational::is_unsigned()/get_unsigned(): an
-// integer in [0, 2^32).
-func arithRationalUnsigned(v *big.Rat) (uint32, bool) {
-	if v == nil || !v.IsInt() || v.Sign() < 0 || !v.Num().IsUint64() || v.Num().Uint64() > uint64(^uint32(0)) {
-		return 0, false
+// arithQUnsigned is rational::is_unsigned() && get_unsigned().
+func arithQUnsigned(q *unumeral.RationalManager, v *unumeral.Rational) (uint32, bool, error) {
+	ok, err := q.IsUnsigned(v)
+	if err != nil || !ok {
+		return 0, false, err
 	}
-	return uint32(v.Num().Uint64()), true
-}
-
-// arithRationalPower is power(rational x, unsigned k).
-func arithRationalPower(x *big.Rat, k uint32) *big.Rat {
-	result := new(big.Rat).SetInt64(1)
-	for i := uint32(0); i < k; i++ {
-		result.Mul(result, x)
-	}
-	return result
+	u, err := q.Unsigned(v)
+	return u, err == nil, err
 }
 
 // rewritePower is arith_rewriter::mk_power_core.
-func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	x, _, xn, err := r.numeral(base)
+func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	q := r.q()
+	// numeral x, y
+	x, y := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(q, &y, &x)) }()
+	_, xn, err := r.numeral(base, &x)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	y, _, yn, err := r.numeral(exponent)
+	_, yn, err := r.numeral(exponent, &y)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -858,62 +865,92 @@ func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRe
 	if err != nil {
 		return RewriteFailed, err
 	}
-	one := big.NewRat(1, 1)
-	if xn && x.Cmp(one) == 0 || yn && y.Cmp(one) == 0 {
+	if xn && x.IsOne() || yn && y.IsOne() {
 		return RewriteDone, r.manager.SetRef(out, base)
 	}
 	if xn && yn {
-		if x.Sign() == 0 && y.Sign() == 0 {
+		if x.IsZero() && y.IsZero() {
 			return RewriteFailed, nil
 		}
-		if y.Sign() == 0 {
-			h, e := r.makeNumeral(big.NewRat(1, 1), integer)
+		if y.IsZero() {
+			h, e := r.makeNumeralInt(1, integer)
 			if e != nil {
 				return RewriteFailed, e
 			}
 			return RewriteDone, r.manager.SetRef(out, h)
 		}
-		if x.Sign() == 0 {
+		if x.IsZero() {
 			return RewriteDone, r.manager.SetRef(out, base)
 		}
-		if k, ok := arithRationalUnsigned(y); ok && k <= r.maxDegree {
-			h, e := r.makeNumeral(arithRationalPower(x, k), integer)
+		k, ok, e := arithQUnsigned(q, &y)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		if ok && k <= r.maxDegree {
+			// x = power(x, y.get_unsigned())
+			if e = q.Power(&x, k, &x); e != nil {
+				return RewriteFailed, e
+			}
+			h, e := r.makeNumeral(&x, integer)
 			if e != nil {
 				return RewriteFailed, e
 			}
 			return RewriteDone, r.manager.SetRef(out, h)
 		}
-		if k, ok := arithRationalUnsigned(new(big.Rat).Neg(y)); !integer && ok && k <= r.maxDegree {
-			h, e := r.makeNumeral(arithRationalPower(new(big.Rat).Inv(x), k), integer)
+		if !integer {
+			// (-y).is_unsigned() && (-y).get_unsigned() <= m_max_degree
+			negY, e := arithQNegated(q, &y)
 			if e != nil {
 				return RewriteFailed, e
 			}
-			return RewriteDone, r.manager.SetRef(out, h)
+			k, ok, e = arithQUnsigned(q, &negY)
+			if e = errors.Join(e, arithQDel(q, &negY)); e != nil {
+				return RewriteFailed, e
+			}
+			if ok && k <= r.maxDegree {
+				// x = power(rational(1)/x, (-y).get_unsigned())
+				if e = q.Inv(&x, &x); e == nil {
+					e = q.Power(&x, k, &x)
+				}
+				if e != nil {
+					return RewriteFailed, e
+				}
+				h, e := r.makeNumeral(&x, integer)
+				if e != nil {
+					return RewriteFailed, e
+				}
+				return RewriteDone, r.manager.SetRef(out, h)
+			}
 		}
 	}
 	if _, inner, nested, e := r.operation(base, arithOpPower); e != nil {
 		return RewriteFailed, e
-	} else if nested && len(inner) == 2 && yn && y.IsInt() && y.Sign() != 0 {
+	} else if nested && len(inner) == 2 && yn && y.IsInt() && !y.IsZero() {
 		// (^ (^ t y2) y) --> (^ t (* y2 y))  If y2 > 0 && y != 0 && y and y2 are integers
-		innerExponent, _, numeral, e := r.numeral(inner[1])
-		if e != nil {
-			return RewriteFailed, e
-		}
-		if numeral && innerExponent.IsInt() && innerExponent.Sign() > 0 {
-			combinedExponent, e := r.makeNumeral(new(big.Rat).Mul(y, innerExponent), integer)
-			if e != nil {
-				return RewriteFailed, e
+		// rational y2
+		y2 := unumeral.NewRational()
+		_, numeral, e := r.numeral(inner[1], &y2)
+		if e == nil && numeral && y2.IsInt() && y2.IsPos() {
+			var combinedExponent ast.ASTHandle
+			if e = q.Mul(&y, &y2, &y2); e == nil {
+				combinedExponent, e = r.makeNumeral(&y2, integer)
 			}
-			result, e := r.app(arithOpPower, inner[0], combinedExponent)
-			if e != nil {
+			var result ast.ASTHandle
+			if e == nil {
+				result, e = r.app(arithOpPower, inner[0], combinedExponent)
+			}
+			if e = errors.Join(e, arithQDel(q, &y2)); e != nil {
 				return RewriteFailed, e
 			}
 			return Rewrite1, r.manager.SetRef(out, result)
 		}
+		if e = errors.Join(e, arithQDel(q, &y2)); e != nil {
+			return RewriteFailed, e
+		}
 	}
-	if !integer && yn && y.Sign() < 0 {
+	if !integer && yn && y.IsNeg() {
 		// (^ t -k) --> (^ (/ 1 t) k)
-		one, e := r.makeNumeral(big.NewRat(1, 1), false)
+		one, e := r.makeNumeralInt(1, false)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -921,8 +958,12 @@ func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRe
 		if e != nil {
 			return RewriteFailed, e
 		}
-		positive, e := r.makeNumeral(new(big.Rat).Neg(y), false)
+		negY, e := arithQNegated(q, &y)
 		if e != nil {
+			return RewriteFailed, e
+		}
+		positive, e := r.makeNumeral(&negY, false)
+		if e = errors.Join(e, arithQDel(q, &negY)); e != nil {
 			return RewriteFailed, e
 		}
 		result, e := r.app(arithOpPower, inverse, positive)
@@ -931,18 +972,29 @@ func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRe
 		}
 		return Rewrite2, r.manager.SetRef(out, result)
 	}
-	if !integer && yn && !y.IsInt() && y.Num().Cmp(big.NewInt(1)) != 0 {
+	if !integer && yn && !y.IsInt() && !(y.Num.IsSmall() && y.Num.Val == 1) {
 		// (^ t (/ p q)) --> (^ (^ t (/ 1 q)) p)
-		rootExponent, e := r.makeNumeral(new(big.Rat).SetFrac(big.NewInt(1), y.Denom()), false)
-		if e != nil {
-			return RewriteFailed, e
+		part := unumeral.NewRational()
+		// rational(1)/denominator(y)
+		e := q.DenominatorRational(&y, &part)
+		if e == nil {
+			e = q.Inv(&part, &part)
 		}
-		root, e := r.app(arithOpPower, base, rootExponent)
-		if e != nil {
-			return RewriteFailed, e
+		var rootExponent, root, numerator ast.ASTHandle
+		if e == nil {
+			rootExponent, e = r.makeNumeral(&part, false)
 		}
-		numerator, e := r.makeNumeral(new(big.Rat).SetInt(y.Num()), false)
-		if e != nil {
+		if e == nil {
+			root, e = r.app(arithOpPower, base, rootExponent)
+		}
+		// numerator(y)
+		if e == nil {
+			e = q.NumeratorRational(&y, &part)
+		}
+		if e == nil {
+			numerator, e = r.makeNumeral(&part, false)
+		}
+		if e = errors.Join(e, arithQDel(q, &part)); e != nil {
 			return RewriteFailed, e
 		}
 		result, e := r.app(arithOpPower, root, numerator)
@@ -955,16 +1007,24 @@ func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRe
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if k, ok := arithRationalUnsigned(y); (r.expandPower || r.sumOfMonomials && arithmeticBase) && yn && ok && 1 < k && k <= r.maxDegree {
-		factors := make([]ast.ASTHandle, k)
-		for i := range factors {
-			factors[i] = base
+	if r.expandPower || r.sumOfMonomials && arithmeticBase {
+		k, ok := uint32(0), false
+		if yn {
+			if k, ok, err = arithQUnsigned(q, &y); err != nil {
+				return RewriteFailed, err
+			}
 		}
-		result, e := r.app(arithOpMul, factors...)
-		if e != nil {
-			return RewriteFailed, e
+		if ok && 1 < k && k <= r.maxDegree {
+			factors := make([]ast.ASTHandle, k)
+			for i := range factors {
+				factors[i] = base
+			}
+			result, e := r.app(arithOpMul, factors...)
+			if e != nil {
+				return RewriteFailed, e
+			}
+			return Rewrite1, r.manager.SetRef(out, result)
 		}
-		return Rewrite1, r.manager.SetRef(out, result)
 	}
 	if !yn {
 		return RewriteFailed, nil
@@ -973,17 +1033,35 @@ func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRe
 	if err != nil || !xn && !irrational {
 		return RewriteFailed, err
 	}
-	numY := new(big.Int).Set(y.Num())
+	// rational num_y = numerator(y); rational den_y = denominator(y);
+	numY, denY := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(q, &denY, &numY)) }()
+	if err = q.NumeratorRational(&y, &numY); err == nil {
+		err = q.DenominatorRational(&y, &denY)
+	}
+	if err != nil {
+		return RewriteFailed, err
+	}
 	negativeY := false
-	if numY.Sign() < 0 {
-		numY.Neg(numY)
+	if numY.IsNeg() {
+		if err = q.Neg(&numY); err != nil {
+			return RewriteFailed, err
+		}
 		negativeY = true
 	}
 	if negativeY && integer {
 		return RewriteFailed, nil
 	}
-	uNumY, numOK := arithRationalUnsigned(new(big.Rat).SetInt(numY))
-	uDenY, denOK := arithRationalUnsigned(new(big.Rat).SetInt(y.Denom()))
+	uNumY, numOK, err := arithQUnsigned(q, &numY)
+	if err != nil {
+		return RewriteFailed, err
+	}
+	uDenY, denOK := uint32(0), false
+	if numOK {
+		if uDenY, denOK, err = arithQUnsigned(q, &denY); err != nil {
+			return RewriteFailed, err
+		}
+	}
 	if !numOK || !denOK {
 		return RewriteFailed, nil
 	}
@@ -991,22 +1069,33 @@ func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRe
 		return RewriteFailed, nil
 	}
 	if xn {
-		xk := arithRationalPower(x, uNumY)
-		if xk.Sign() < 0 && uDenY%2 == 0 {
+		// rational xk, r
+		xk, root := unumeral.NewRational(), unumeral.NewRational()
+		defer func() { err = errors.Join(err, arithQDel2(q, &root, &xk)) }()
+		if err = q.Power(&x, uNumY, &xk); err != nil {
+			return RewriteFailed, err
+		}
+		if xk.IsNeg() && uDenY%2 == 0 {
 			return RewriteFailed, nil
 		}
-		if root, exact := arithExactRationalRoot(xk, uDenY); exact {
+		exact, e := q.Root(&xk, uDenY, &root)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		if exact {
 			if negativeY {
-				root.Inv(root)
+				if e = q.Inv(&root, &root); e != nil {
+					return RewriteFailed, e
+				}
 			}
-			h, e := r.makeNumeral(root, integer)
+			h, e := r.makeNumeral(&root, integer)
 			if e != nil {
 				return RewriteFailed, e
 			}
 			return RewriteDone, r.manager.SetRef(out, h)
 		}
 		if r.algebraicSimplify {
-			return r.rewriteAlgebraicRationalRoot(xk, uDenY, negativeY, out)
+			return r.rewriteAlgebraicRationalRoot(&xk, uDenY, negativeY, out)
 		}
 		return RewriteFailed, nil
 	}
@@ -1016,13 +1105,31 @@ func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRe
 	return r.rewriteAlgebraicPower(base, uNumY, uDenY, negativeY, out)
 }
 
-func (r *ArithRewriter) rewriteToInt(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	v, _, matched, err := r.numeral(arg)
+// arithQNegated is a fresh -v (rational's unary minus).
+func arithQNegated(q *unumeral.RationalManager, v *unumeral.Rational) (unumeral.Rational, error) {
+	out := unumeral.NewRational()
+	err := q.Copy(&out, v)
+	if err == nil {
+		err = q.Neg(&out)
+	}
+	return out, err
+}
+
+func (r *ArithRewriter) rewriteToInt(arg ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	q := r.q()
+	// numeral a
+	v := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(q, &v)) }()
+	_, matched, err := r.numeral(arg, &v)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	if matched {
-		h, e := r.makeNumeral(new(big.Rat).SetInt(arithFloor(v)), true)
+		// floor(a)
+		if err = q.Floor(&v, &v); err != nil {
+			return RewriteFailed, err
+		}
+		h, e := r.makeNumeral(&v, true)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -1039,12 +1146,12 @@ func (r *ArithRewriter) rewriteToInt(arg ast.ASTHandle, out ast.ASTRef) (Rewrite
 	}
 	converted := make([]ast.ASTHandle, len(children))
 	for i, child := range children {
-		value, _, numeral, e := r.numeral(child)
+		_, numeral, e := r.numeral(child, &v)
 		if e != nil {
 			return RewriteFailed, e
 		}
-		if numeral && value.IsInt() {
-			converted[i], e = r.makeNumeral(value, true)
+		if numeral && v.IsInt() {
+			converted[i], e = r.makeNumeral(&v, true)
 			if e != nil {
 				return RewriteFailed, e
 			}
@@ -1065,13 +1172,16 @@ func (r *ArithRewriter) rewriteToInt(arg ast.ASTHandle, out ast.ASTRef) (Rewrite
 	return Rewrite1, r.manager.SetRef(out, result)
 }
 
-func (r *ArithRewriter) rewriteToReal(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	v, _, matched, err := r.numeral(arg)
+func (r *ArithRewriter) rewriteToReal(arg ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	// numeral a
+	v := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &v)) }()
+	_, matched, err := r.numeral(arg, &v)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	if matched {
-		h, e := r.makeNumeral(v, false)
+		h, e := r.makeNumeral(&v, false)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -1121,8 +1231,11 @@ func (r *ArithRewriter) unary(h ast.ASTHandle, kind int32) (bool, ast.ASTHandle,
 	return err == nil, arg, err
 }
 
-func (r *ArithRewriter) rewriteIsInt(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	v, _, matched, err := r.numeral(arg)
+func (r *ArithRewriter) rewriteIsInt(arg ast.ASTHandle, out ast.ASTRef) (_ RewriteStatus, err error) {
+	// numeral a
+	v := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &v)) }()
+	_, matched, err := r.numeral(arg, &v)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -1150,20 +1263,10 @@ func (r *ArithRewriter) rewriteIsInt(arg ast.ASTHandle, out ast.ASTRef) (Rewrite
 }
 
 func (r *ArithRewriter) rewriteAbs(arg ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
-	_, integer, matched, err := r.numeral(arg)
+	// m_util.is_int(arg)
+	integer, err := r.integerTerm(arg)
 	if err != nil {
 		return RewriteFailed, err
-	}
-	if !matched {
-		sort, e := r.manager.GetSort(arg)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		sortKind, e := r.manager.GetDeclKind(sort)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		integer = sortKind == 1
 	}
 	// mk_ite(mk_ge(arg, mk_numeral(0)), arg, mk_uminus(arg)): z3 4.7.1's
 	// g++ build evaluates the call arguments right to left, so the
@@ -1172,7 +1275,7 @@ func (r *ArithRewriter) rewriteAbs(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 	if err != nil {
 		return RewriteFailed, err
 	}
-	zero, err := r.makeNumeral(new(big.Rat), integer)
+	zero, err := r.makeNumeralInt(0, integer)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -1271,11 +1374,17 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (sta
 			}
 		}
 	}
-	lv, _, ln, err := r.numeral(left)
+	// numeral a1, a2 of mk_le_ge_eq_core
+	lv, rv := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(r.q(), &rv, &lv)) }()
+	_, ln, err := r.numeral(left, &lv)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	rv, _, rn, err := r.numeral(right)
+	rn := false
+	if ln {
+		_, rn, err = r.numeral(right, &rv)
+	}
 	if err != nil || !ln || !rn {
 		if err == nil {
 			if decided, e := r.rewriteAlgebraicComparison(left, right, arithRelationEq, out); e != nil || decided {
@@ -1325,7 +1434,11 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (sta
 		}
 		return RewriteFailed, err
 	}
-	return RewriteDone, r.setBool(out, lv.Cmp(rv) == 0)
+	equal, err := r.q().Equal(&lv, &rv)
+	if err != nil {
+		return RewriteFailed, err
+	}
+	return RewriteDone, r.setBool(out, equal)
 }
 
 // MkAppCore applies one arithmetic declaration to already rewritten arguments.

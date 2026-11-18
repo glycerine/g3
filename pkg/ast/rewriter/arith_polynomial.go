@@ -5,10 +5,10 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const arithRelationEq int32 = -1
@@ -36,7 +36,8 @@ func (r *ArithRewriter) integerTerm(h ast.ASTHandle) (bool, error) {
 	return err == nil && kind == 1, err
 }
 
-func (r *ArithRewriter) numeralForTerm(value *big.Rat, term ast.ASTHandle) (ast.ASTHandle, error) {
+// numeralForTerm is mk_numeral(value) under set_curr_sort(term's sort).
+func (r *ArithRewriter) numeralForTerm(value *unumeral.Rational, term ast.ASTHandle) (ast.ASTHandle, error) {
 	integer, err := r.integerTerm(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -44,10 +45,19 @@ func (r *ArithRewriter) numeralForTerm(value *big.Rat, term ast.ASTHandle) (ast.
 	return r.makeNumeral(value, integer)
 }
 
+// numeralForTermInt is mk_numeral(numeral(v)) under set_curr_sort.
+func (r *ArithRewriter) numeralForTermInt(v int32, term ast.ASTHandle) (ast.ASTHandle, error) {
+	integer, err := r.integerTerm(term)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return r.makeNumeralInt(v, integer)
+}
+
 func (r *ArithRewriter) makeAdd(args []ast.ASTHandle, term ast.ASTHandle) (ast.ASTHandle, error) {
 	switch len(args) {
 	case 0:
-		return r.numeralForTerm(new(big.Rat), term)
+		return r.numeralForTermInt(0, term)
 	case 1:
 		return args[0], nil
 	default:
@@ -58,7 +68,7 @@ func (r *ArithRewriter) makeAdd(args []ast.ASTHandle, term ast.ASTHandle) (ast.A
 func (r *ArithRewriter) makeMul(args []ast.ASTHandle, term ast.ASTHandle) (ast.ASTHandle, error) {
 	switch len(args) {
 	case 0:
-		return r.numeralForTerm(big.NewRat(1, 1), term)
+		return r.numeralForTermInt(1, term)
 	case 1:
 		return args[0], nil
 	default:
@@ -68,28 +78,33 @@ func (r *ArithRewriter) makeMul(args []ast.ASTHandle, term ast.ASTHandle) (ast.A
 
 // powerBody is the arithmetic specialization of get_power_body. Only an
 // integer exponent greater than one participates in adjacent-factor folding.
-func (r *ArithRewriter) powerBody(h ast.ASTHandle) (ast.ASTHandle, *big.Rat, error) {
+func (r *ArithRewriter) powerBody(h ast.ASTHandle, exponent *unumeral.Rational) (ast.ASTHandle, error) {
 	kind, err := r.manager.GetKind(h)
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, err
 	}
-	if kind != ast.ASTApp {
-		return h, big.NewRat(1, 1), nil
-	}
-	_, args, power, err := r.operation(h, arithOpPower)
-	if err != nil {
-		return ast.ASTHandle{}, nil, err
-	}
-	if power && len(args) == 2 {
-		exponent, _, numeral, e := r.numeral(args[1])
-		if e != nil {
-			return ast.ASTHandle{}, nil, e
+	if kind == ast.ASTApp {
+		_, args, power, err := r.operation(h, arithOpPower)
+		if err != nil {
+			return ast.ASTHandle{}, err
 		}
-		if numeral && exponent.IsInt() && exponent.Cmp(big.NewRat(1, 1)) > 0 {
-			return args[0], exponent, nil
+		if power && len(args) == 2 {
+			_, numeral, e := r.numeral(args[1], exponent)
+			if e != nil {
+				return ast.ASTHandle{}, e
+			}
+			if numeral && exponent.IsInt() {
+				greater, e := r.q().Compare(exponent, arithQOne())
+				if e != nil {
+					return ast.ASTHandle{}, e
+				}
+				if greater > 0 {
+					return args[0], nil
+				}
+			}
 		}
 	}
-	return h, big.NewRat(1, 1), nil
+	return h, r.q().SetInt32(exponent, 1)
 }
 
 func (r *ArithRewriter) sameArguments(args ast.AppArguments, values []ast.ASTHandle) (bool, error) {
@@ -129,7 +144,7 @@ func (r *ArithRewriter) monomialOrdinal(h ast.ASTHandle) (int64, error) {
 		return 0, err
 	} else if product {
 		if len(factors) != 0 {
-			if _, _, numeral, err := r.numeral(factors[0]); err != nil {
+			if numeral, err := r.isNumeral(factors[0]); err != nil {
 				return 0, err
 			} else if numeral && len(factors) > 1 {
 				id, err := r.manager.GetASTID(factors[1])
@@ -139,7 +154,7 @@ func (r *ArithRewriter) monomialOrdinal(h ast.ASTHandle) (int64, error) {
 		id, err := r.manager.GetASTID(h)
 		return int64(id), err
 	}
-	if _, _, numeral, err := r.numeral(h); err != nil {
+	if numeral, err := r.isNumeral(h); err != nil {
 		return 0, err
 	} else if numeral {
 		return -1, nil
@@ -148,11 +163,17 @@ func (r *ArithRewriter) monomialOrdinal(h ast.ASTHandle) (int64, error) {
 		if _, args, power, err := r.operation(h, arithOpPower); err != nil {
 			return 0, err
 		} else if power && len(args) == 2 {
-			exponent, _, numeral, err := r.numeral(args[1])
-			if err != nil {
+			// is_numeral(arg, k) && k > 1
+			exponent := unumeral.NewRational()
+			_, numeral, err := r.numeral(args[1], &exponent)
+			greater := 0
+			if err == nil && numeral {
+				greater, err = r.q().Compare(&exponent, arithQOne())
+			}
+			if err = errors.Join(err, arithQDel(r.q(), &exponent)); err != nil {
 				return 0, err
 			}
-			if numeral && exponent.Cmp(big.NewRat(1, 1)) > 0 {
+			if greater > 0 {
 				id, err := r.manager.GetASTID(args[0])
 				return int64(id), err
 			}
@@ -174,24 +195,36 @@ func (r *ArithRewriter) monomialLess(left, right ast.ASTHandle) (bool, error) {
 	return leftOrdinal < rightOrdinal, err
 }
 
-func (r *ArithRewriter) hoistEqualCoefficients(terms []ast.ASTHandle, term ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
+func (r *ArithRewriter) hoistEqualCoefficients(terms []ast.ASTHandle, term ast.ASTHandle) (_ []ast.ASTHandle, _ bool, err error) {
 	if !r.hoistCoeff {
 		return terms, false, nil
 	}
-	terms = append([]ast.ASTHandle(nil), terms...)
+	q := r.q()
+	// Each term's coefficient and power product, read once.
+	n := len(terms)
+	coefficients := make([]unumeral.Rational, n)
+	products := make([]ast.ASTHandle, n)
+	for i := range coefficients {
+		coefficients[i] = unumeral.NewRational()
+	}
+	defer func() {
+		for i := range coefficients {
+			err = errors.Join(err, arithQDel(q, &coefficients[i]))
+		}
+	}()
+	for i, item := range terms {
+		if products[i], err = r.monomial(item, &coefficients[i]); err != nil {
+			return nil, false, err
+		}
+	}
+	order := make([]int, n)
+	for i := range order {
+		order[i] = i
+	}
 	var sortErr error
-	sort.SliceStable(terms, func(i, j int) bool {
-		leftCoefficient, leftProduct, err := r.monomial(terms[i])
-		if err != nil {
-			sortErr = err
-			return false
-		}
-		rightCoefficient, rightProduct, err := r.monomial(terms[j])
-		if err != nil {
-			sortErr = err
-			return false
-		}
-		leftMul, rightMul := leftProduct != terms[i], rightProduct != terms[j]
+	sort.SliceStable(order, func(a, b int) bool {
+		i, j := order[a], order[b]
+		leftMul, rightMul := products[i] != terms[i], products[j] != terms[j]
 		if leftMul != rightMul {
 			return !leftMul
 		}
@@ -208,15 +241,20 @@ func (r *ArithRewriter) hoistEqualCoefficients(terms []ast.ASTHandle, term ast.A
 			}
 			return leftID < rightID
 		}
-		if comparison := leftCoefficient.Cmp(rightCoefficient); comparison != 0 {
-			return comparison < 0
-		}
-		leftID, err := r.manager.GetASTID(leftProduct)
+		comparison, err := q.Compare(&coefficients[i], &coefficients[j])
 		if err != nil {
 			sortErr = err
 			return false
 		}
-		rightID, err := r.manager.GetASTID(rightProduct)
+		if comparison != 0 {
+			return comparison < 0
+		}
+		leftID, err := r.manager.GetASTID(products[i])
+		if err != nil {
+			sortErr = err
+			return false
+		}
+		rightID, err := r.manager.GetASTID(products[j])
 		if err != nil {
 			sortErr = err
 			return false
@@ -226,49 +264,48 @@ func (r *ArithRewriter) hoistEqualCoefficients(terms []ast.ASTHandle, term ast.A
 	if sortErr != nil {
 		return nil, false, sortErr
 	}
-	groups := make(map[string][]int)
-	coefficients := make(map[string]*big.Rat)
-	products := make([]ast.ASTHandle, len(terms))
-	for i, item := range terms {
-		coefficient, product, err := r.monomial(item)
-		if err != nil {
-			return nil, false, err
-		}
-		if product == item || coefficient.Cmp(big.NewRat(1, 1)) == 0 {
-			continue
-		}
-		key := coefficient.RatString()
-		groups[key] = append(groups[key], i)
-		coefficients[key] = coefficient
-		products[i] = product
-	}
-	consumed := make(map[int]bool)
-	result := make([]ast.ASTHandle, 0, len(terms))
+	// grouped: a monomial c*p with c != 1; a group is every grouped term
+	// whose coefficient equals the first one's.
+	grouped := func(i int) bool { return products[i] != terms[i] && !coefficients[i].IsOne() }
+	consumed := make([]bool, n)
+	result := make([]ast.ASTHandle, 0, n)
 	changed := false
-	for i, item := range terms {
-		if consumed[i] {
+	for at, i := range order {
+		if consumed[at] {
 			continue
 		}
-		coefficient, product, err := r.monomial(item)
-		if err != nil {
-			return nil, false, err
-		}
-		key := coefficient.RatString()
-		indices := groups[key]
-		if product == item || len(indices) < 2 || indices[0] != i {
-			result = append(result, item)
+		if !grouped(i) {
+			result = append(result, terms[i])
 			continue
 		}
-		parts := make([]ast.ASTHandle, len(indices))
-		for j, index := range indices {
-			consumed[index] = true
-			parts[j] = products[index]
+		members := []int{at}
+		for later := at + 1; later < n; later++ {
+			j := order[later]
+			if consumed[later] || !grouped(j) {
+				continue
+			}
+			same, e := q.Equal(&coefficients[i], &coefficients[j])
+			if e != nil {
+				return nil, false, e
+			}
+			if same {
+				members = append(members, later)
+			}
+		}
+		if len(members) < 2 {
+			result = append(result, terms[i])
+			continue
+		}
+		parts := make([]ast.ASTHandle, len(members))
+		for k, member := range members {
+			consumed[member] = true
+			parts[k] = products[order[member]]
 		}
 		sum, err := r.makeAdd(parts, term)
 		if err != nil {
 			return nil, false, err
 		}
-		hoisted, err := r.coefficientProduct(coefficients[key], sum, term)
+		hoisted, err := r.coefficientProduct(&coefficients[i], sum, term)
 		if err != nil {
 			return nil, false, err
 		}
@@ -364,7 +401,7 @@ func (r *ArithRewriter) hoistCommonMultiplication(som ast.ASTHandle) (ast.ASTHan
 			return ast.ASTHandle{}, false, err
 		}
 		for _, e := range muls {
-			if _, _, numeral, err := r.numeral(e); err != nil {
+			if numeral, err := r.isNumeral(e); err != nil {
 				return ast.ASTHandle{}, false, err
 			} else if numeral {
 				continue
@@ -375,7 +412,7 @@ func (r *ArithRewriter) hoistCommonMultiplication(som ast.ASTHandle) (ast.ASTHan
 				if err != nil {
 					return ast.ASTHandle{}, false, err
 				}
-				adds[k], err = r.numeralForTerm(new(big.Rat), term)
+				adds[k], err = r.numeralForTermInt(0, term)
 				if err != nil {
 					return ast.ASTHandle{}, false, err
 				}
@@ -433,25 +470,50 @@ func (r *ArithRewriter) flattenArguments(args ast.AppArguments, kind int32, recu
 	return values, changed, nil
 }
 
-func (r *ArithRewriter) monomial(h ast.ASTHandle) (*big.Rat, ast.ASTHandle, error) {
+// monomial is get_power_product(t, a): coefficient receives a (one when t
+// is not (* a p) with a numeral a) and the power product is returned.
+func (r *ArithRewriter) monomial(h ast.ASTHandle, coefficient *unumeral.Rational) (ast.ASTHandle, error) {
 	_, args, matched, err := r.operation(h, arithOpMul)
 	if err != nil {
-		return nil, ast.ASTHandle{}, err
+		return ast.ASTHandle{}, err
 	}
 	if matched && len(args) == 2 {
-		coefficient, _, numeral, e := r.numeral(args[0])
+		_, numeral, e := r.numeral(args[0], coefficient)
 		if e != nil {
-			return nil, ast.ASTHandle{}, e
+			return ast.ASTHandle{}, e
 		}
 		if numeral {
-			return coefficient, args[1], nil
+			return args[1], nil
 		}
 	}
-	return big.NewRat(1, 1), h, nil
+	return h, r.q().SetInt32(coefficient, 1)
 }
 
-func (r *ArithRewriter) coefficientProduct(coefficient *big.Rat, powerProduct, term ast.ASTHandle) (ast.ASTHandle, error) {
-	if coefficient.Cmp(big.NewRat(1, 1)) == 0 {
+// powerProduct is get_power_product(t): the coefficient is not read.
+func (r *ArithRewriter) powerProduct(h ast.ASTHandle) (ast.ASTHandle, error) {
+	_, args, matched, err := r.operation(h, arithOpMul)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if matched && len(args) == 2 {
+		numeral, e := r.isNumeral(args[0])
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if numeral {
+			return args[1], nil
+		}
+	}
+	return h, nil
+}
+
+// arithQOne is a fresh rational(1), for a constant argument.
+func arithQOne() *unumeral.Rational {
+	return &unumeral.Rational{Num: unumeral.NewInt(1), Den: unumeral.NewInt(1)}
+}
+
+func (r *ArithRewriter) coefficientProduct(coefficient *unumeral.Rational, powerProduct, term ast.ASTHandle) (ast.ASTHandle, error) {
+	if coefficient.IsOne() {
 		return powerProduct, nil
 	}
 	numeral, err := r.numeralForTerm(coefficient, term)
@@ -461,20 +523,26 @@ func (r *ArithRewriter) coefficientProduct(coefficient *big.Rat, powerProduct, t
 	return r.app(arithOpMul, numeral, powerProduct)
 }
 
-func (r *ArithRewriter) negateMonomial(h ast.ASTHandle) (ast.ASTHandle, error) {
+func (r *ArithRewriter) negateMonomial(h ast.ASTHandle) (_ ast.ASTHandle, err error) {
 	_, factors, product, err := r.operation(h, arithOpMul)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if product && len(factors) != 0 {
-		coefficient, _, numeral, err := r.numeral(factors[0])
+		// numeral a
+		coefficient := unumeral.NewRational()
+		defer func() { err = errors.Join(err, arithQDel(r.q(), &coefficient)) }()
+		_, numeral, err := r.numeral(factors[0], &coefficient)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		if numeral {
 			result := make([]ast.ASTHandle, 0, len(factors))
-			if coefficient.Cmp(big.NewRat(-1, 1)) != 0 {
-				negative, err := r.numeralForTerm(new(big.Rat).Neg(coefficient), h)
+			if !coefficient.IsMinusOne() {
+				if err = r.q().Neg(&coefficient); err != nil {
+					return ast.ASTHandle{}, err
+				}
+				negative, err := r.numeralForTerm(&coefficient, h)
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
@@ -484,24 +552,27 @@ func (r *ArithRewriter) negateMonomial(h ast.ASTHandle) (ast.ASTHandle, error) {
 			return r.makeMul(result, h)
 		}
 	}
-	minusOne, err := r.numeralForTerm(big.NewRat(-1, 1), h)
+	minusOne, err := r.numeralForTermInt(-1, h)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return r.makeMul([]ast.ASTHandle{minusOne, h}, h)
 }
 
-func (r *ArithRewriter) negativePolynomial(h ast.ASTHandle) (ast.ASTHandle, bool, error) {
+func (r *ArithRewriter) negativePolynomial(h ast.ASTHandle) (_ ast.ASTHandle, _ bool, err error) {
+	// numeral a
+	coefficient := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &coefficient)) }()
 	_, factors, product, err := r.operation(h, arithOpMul)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
 	if product && len(factors) != 0 {
-		coefficient, _, numeral, err := r.numeral(factors[0])
+		_, numeral, err := r.numeral(factors[0], &coefficient)
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		if numeral && coefficient.Sign() < 0 {
+		if numeral && coefficient.IsNeg() {
 			result, err := r.negateMonomial(h)
 			return result, err == nil, err
 		}
@@ -514,8 +585,8 @@ func (r *ArithRewriter) negativePolynomial(h ast.ASTHandle) (ast.ASTHandle, bool
 	if err != nil || !firstProduct || len(firstFactors) == 0 {
 		return ast.ASTHandle{}, false, err
 	}
-	coefficient, _, numeral, err := r.numeral(firstFactors[0])
-	if err != nil || !numeral || coefficient.Sign() >= 0 {
+	_, numeral, err := r.numeral(firstFactors[0], &coefficient)
+	if err != nil || !numeral || !coefficient.IsNeg() {
 		return ast.ASTHandle{}, false, err
 	}
 	negated := make([]ast.ASTHandle, len(terms))
@@ -529,7 +600,7 @@ func (r *ArithRewriter) negativePolynomial(h ast.ASTHandle) (ast.ASTHandle, bool
 	return result, err == nil, err
 }
 
-func (r *ArithRewriter) rewriteAdd(args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) rewriteAdd(args ast.AppArguments, out ast.ASTRef) (_ RewriteStatus, err error) {
 	if args.Count() == 0 {
 		return RewriteFailed, ast.ErrASTDomain
 	}
@@ -567,46 +638,62 @@ func (r *ArithRewriter) rewriteAdd(args ast.AppArguments, out ast.ASTRef) (Rewri
 			return RewriteDone, r.manager.SetRef(out, h)
 		}
 	}
-	constant := new(big.Rat)
+	q := r.q()
+	// numeral c(0); coeffs[pos] for each power product; a: the scratch.
+	constant, a := unumeral.NewRational(), unumeral.NewRational()
 	order := make([]ast.ASTHandle, 0, len(values))
-	coefficients := make(map[ast.ASTHandle]*big.Rat)
-	counts := make(map[ast.ASTHandle]int)
+	var coefficients []unumeral.Rational
+	defer func() {
+		for i := range coefficients {
+			err = errors.Join(err, arithQDel(q, &coefficients[i]))
+		}
+		err = errors.Join(err, arithQDel2(q, &a, &constant))
+	}()
+	position := make(map[ast.ASTHandle]int)
+	counts := make([]int, 0, len(values))
 	for _, value := range values {
-		v, _, numeral, e := r.numeral(value)
+		_, numeral, e := r.numeral(value, &a)
 		if e != nil {
 			return RewriteFailed, e
 		}
 		if numeral {
-			constant.Add(constant, v)
+			if e = q.Add(&constant, &a, &constant); e != nil {
+				return RewriteFailed, e
+			}
 			continue
 		}
-		coefficient, product, e := r.monomial(value)
+		product, e := r.monomial(value, &a)
 		if e != nil {
 			return RewriteFailed, e
 		}
-		if counts[product] == 0 {
+		pos, seen := position[product]
+		if !seen {
+			pos = len(order)
+			position[product] = pos
 			order = append(order, product)
-			coefficients[product] = new(big.Rat)
+			coefficients = append(coefficients, unumeral.NewRational())
+			counts = append(counts, 0)
 		}
-		counts[product]++
-		coefficients[product].Add(coefficients[product], coefficient)
+		counts[pos]++
+		if e = q.Add(&coefficients[pos], &a, &coefficients[pos]); e != nil {
+			return RewriteFailed, e
+		}
 	}
 	resultArgs := make([]ast.ASTHandle, 0, len(order)+1)
-	if constant.Sign() != 0 {
-		h, e := r.numeralForTerm(constant, first)
+	if !constant.IsZero() {
+		h, e := r.numeralForTerm(&constant, first)
 		if e != nil {
 			return RewriteFailed, e
 		}
 		resultArgs = append(resultArgs, h)
 	}
 	duplicate := false
-	for _, product := range order {
-		duplicate = duplicate || counts[product] > 1
-		coefficient := coefficients[product]
-		if coefficient.Sign() == 0 {
+	for pos, product := range order {
+		duplicate = duplicate || counts[pos] > 1
+		if coefficients[pos].IsZero() {
 			continue
 		}
-		h, e := r.coefficientProduct(coefficient, product, first)
+		h, e := r.coefficientProduct(&coefficients[pos], product, first)
 		if e != nil {
 			return RewriteFailed, e
 		}
@@ -614,7 +701,7 @@ func (r *ArithRewriter) rewriteAdd(args ast.AppArguments, out ast.ASTRef) (Rewri
 	}
 	if r.sortSums && len(resultArgs) > 1 {
 		start := 0
-		if constant.Sign() != 0 {
+		if !constant.IsZero() {
 			start = 1
 		}
 		var cause error
@@ -666,7 +753,7 @@ func (r *ArithRewriter) rewriteSub(args ast.AppArguments, out ast.ASTRef) (statu
 	}
 	// expr_ref minus_one: held while the result is built, released on
 	// return.
-	minusOne, err := r.numeralForTerm(big.NewRat(-1, 1), first)
+	minusOne, err := r.numeralForTermInt(-1, first)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -680,11 +767,10 @@ func (r *ArithRewriter) rewriteSub(args ast.AppArguments, out ast.ASTRef) (statu
 		if e != nil {
 			return RewriteFailed, e
 		}
-		v, _, numeral, e := r.numeral(h)
-		if e != nil {
+		// is_zero(args[i])
+		if zero, e := r.zero(h); e != nil {
 			return RewriteFailed, e
-		}
-		if numeral && v.Sign() == 0 {
+		} else if zero {
 			continue
 		}
 		negative, e := r.app(arithOpMul, minusOne, h)
@@ -711,9 +797,8 @@ func (r *ArithRewriter) monomials(h ast.ASTHandle) ([]ast.ASTHandle, error) {
 	return []ast.ASTHandle{h}, nil
 }
 
-func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (ast.ASTHandle, ast.ASTHandle, bool, error) {
+func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (_, _ ast.ASTHandle, _ bool, err error) {
 	sides := [2][]ast.ASTHandle{}
-	var err error
 	sides[0], err = r.monomials(left)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
@@ -722,44 +807,57 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 	}
-	constant := new(big.Rat)
+	q := r.q()
+	// numeral c(0); a: the scratch; coeffs of the shared power products.
+	constant, a := unumeral.NewRational(), unumeral.NewRational()
+	var sharedValues []unumeral.Rational
+	defer func() {
+		for i := range sharedValues {
+			err = errors.Join(err, arithQDel(q, &sharedValues[i]))
+		}
+		err = errors.Join(err, arithQDel2(q, &a, &constant))
+	}()
 	constantCount := 0
 	leftProducts := make(map[ast.ASTHandle]bool)
 	shared := make(map[ast.ASTHandle]bool)
 	for _, term := range sides[0] {
-		value, _, numeral, e := r.numeral(term)
+		_, numeral, e := r.numeral(term, &a)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
 		if numeral {
-			constant.Add(constant, value)
+			if e = q.Add(&constant, &a, &constant); e != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, false, e
+			}
 			constantCount++
 			continue
 		}
-		_, product, e := r.monomial(term)
+		product, e := r.powerProduct(term)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
 		leftProducts[product] = true
 	}
 	if move && constantCount == 0 {
-		if _, _, numeral, e := r.numeral(right); e != nil {
+		if numeral, e := r.isNumeral(right); e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		} else if numeral {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, nil
 		}
 	}
 	for _, term := range sides[1] {
-		value, _, numeral, e := r.numeral(term)
+		_, numeral, e := r.numeral(term, &a)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
 		if numeral {
-			constant.Sub(constant, value)
+			if e = q.Sub(&constant, &a, &constant); e != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, false, e
+			}
 			constantCount++
 			continue
 		}
-		_, product, e := r.monomial(term)
+		product, e := r.powerProduct(term)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
@@ -768,7 +866,7 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 		}
 	}
 	if len(shared) == 0 && constantCount <= 1 {
-		_, _, rightNumeral, e := r.numeral(right)
+		rightNumeral, e := r.isNumeral(right)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
@@ -776,28 +874,34 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, nil
 		}
 	}
-	sharedCoefficients := make(map[ast.ASTHandle]*big.Rat)
+	sharedCoefficients := make(map[ast.ASTHandle]int)
 	for side := range sides {
 		for _, term := range sides[side] {
-			if _, _, numeral, e := r.numeral(term); e != nil {
+			if numeral, e := r.isNumeral(term); e != nil {
 				return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 			} else if numeral {
 				continue
 			}
-			coefficient, product, e := r.monomial(term)
+			product, e := r.monomial(term, &a)
 			if e != nil {
 				return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 			}
 			if !shared[product] {
 				continue
 			}
-			if sharedCoefficients[product] == nil {
-				sharedCoefficients[product] = new(big.Rat)
+			pos, seen := sharedCoefficients[product]
+			if !seen {
+				pos = len(sharedValues)
+				sharedCoefficients[product] = pos
+				sharedValues = append(sharedValues, unumeral.NewRational())
 			}
 			if side == 0 {
-				sharedCoefficients[product].Add(sharedCoefficients[product], coefficient)
+				e = q.Add(&sharedValues[pos], &a, &sharedValues[pos])
 			} else {
-				sharedCoefficients[product].Sub(sharedCoefficients[product], coefficient)
+				e = q.Sub(&sharedValues[pos], &a, &sharedValues[pos])
+			}
+			if e != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 			}
 		}
 	}
@@ -805,12 +909,12 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 	rhs := make([]ast.ASTHandle, 0, len(sides[1]))
 	seen := make(map[ast.ASTHandle]bool)
 	for _, term := range sides[0] {
-		if _, _, numeral, e := r.numeral(term); e != nil {
+		if numeral, e := r.isNumeral(term); e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		} else if numeral {
 			continue
 		}
-		_, product, e := r.monomial(term)
+		product, e := r.powerProduct(term)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
@@ -822,8 +926,8 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 			continue
 		}
 		seen[product] = true
-		coefficient := sharedCoefficients[product]
-		if coefficient.Sign() != 0 {
+		coefficient := &sharedValues[sharedCoefficients[product]]
+		if !coefficient.IsZero() {
 			h, e := r.coefficientProduct(coefficient, product, left)
 			if e != nil {
 				return ast.ASTHandle{}, ast.ASTHandle{}, false, e
@@ -832,12 +936,12 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 		}
 	}
 	for _, term := range sides[1] {
-		if _, _, numeral, e := r.numeral(term); e != nil {
+		if numeral, e := r.isNumeral(term); e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		} else if numeral {
 			continue
 		}
-		coefficient, product, e := r.monomial(term)
+		product, e := r.monomial(term, &a)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
@@ -848,8 +952,10 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 			rhs = append(rhs, term)
 			continue
 		}
-		coefficient.Neg(coefficient)
-		h, e := r.coefficientProduct(coefficient, product, left)
+		if e = q.Neg(&a); e != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
+		}
+		h, e := r.coefficientProduct(&a, product, left)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
@@ -872,10 +978,12 @@ func (r *ArithRewriter) cancelMonomials(left, right ast.ASTHandle, move bool) (a
 	}
 	constantAtRight := move || len(rhs) == 0 || len(lhs) != 0
 	if constantAtRight {
-		constant.Neg(constant)
+		if err = q.Neg(&constant); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, false, err
+		}
 	}
-	if constant.Sign() != 0 || constantAtRight && len(rhs) == 0 || !constantAtRight && len(lhs) == 0 {
-		h, e := r.numeralForTerm(constant, left)
+	if !constant.IsZero() || constantAtRight && len(rhs) == 0 || !constantAtRight && len(lhs) == 0 {
+		h, e := r.numeralForTerm(&constant, left)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
@@ -906,7 +1014,7 @@ func invertArithmeticRelation(kind int32) int32 {
 	return kind
 }
 
-func (r *ArithRewriter) rewriteBound(left, right ast.ASTHandle, kind int32, out ast.ASTRef) (bool, error) {
+func (r *ArithRewriter) rewriteBound(left, right ast.ASTHandle, kind int32, out ast.ASTRef) (_ bool, err error) {
 	_, _, add, err := r.operation(left, arithOpAdd)
 	if err != nil {
 		return false, err
@@ -915,25 +1023,35 @@ func (r *ArithRewriter) rewriteBound(left, right ast.ASTHandle, kind int32, out 
 	if err != nil {
 		return false, err
 	}
-	bound, _, rightNumeral, err := r.numeral(right)
+	q := r.q()
+	// numeral b, c
+	bound, coefficient := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(q, &coefficient, &bound)) }()
+	_, rightNumeral, err := r.numeral(right, &bound)
 	if err != nil {
 		return false, err
 	}
 	if !add && !mod && rightNumeral {
-		coefficient, product, e := r.monomial(left)
+		product, e := r.monomial(left, &coefficient)
 		if e != nil {
 			return false, e
 		}
 		relation := kind
 		changed := false
-		if coefficient.Sign() < 0 {
-			coefficient.Neg(coefficient)
-			bound.Neg(bound)
+		if coefficient.IsNeg() {
+			if e = q.Neg(&coefficient); e == nil {
+				e = q.Neg(&bound)
+			}
+			if e != nil {
+				return false, e
+			}
 			relation = invertArithmeticRelation(relation)
 			changed = true
 		}
-		if coefficient.Cmp(big.NewRat(1, 1)) != 0 {
-			bound.Quo(bound, coefficient)
+		if !coefficient.IsOne() {
+			if e = q.Div(&bound, &coefficient, &bound); e != nil {
+				return false, e
+			}
 			changed = true
 		}
 		if changed {
@@ -944,16 +1062,17 @@ func (r *ArithRewriter) rewriteBound(left, right ast.ASTHandle, kind int32, out 
 			if integer && !bound.IsInt() {
 				switch relation {
 				case arithOpLE:
-					bound.SetInt(arithFloor(bound))
+					e = q.Floor(&bound, &bound)
 				case arithOpGE:
-					floor := arithFloor(bound)
-					floor.Add(floor, big.NewInt(1))
-					bound.SetInt(floor)
+					e = q.Ceil(&bound, &bound)
 				default:
 					return true, r.setBool(out, false)
 				}
+				if e != nil {
+					return false, e
+				}
 			}
-			value, e := r.makeNumeral(bound, integer)
+			value, e := r.makeNumeral(&bound, integer)
 			if e != nil {
 				return false, e
 			}
@@ -976,23 +1095,38 @@ func (r *ArithRewriter) rewriteBound(left, right ast.ASTHandle, kind int32, out 
 	if err != nil || !mod || len(modArgs) != 2 {
 		return false, err
 	}
-	modulus, integer, numeral, err := r.numeral(modArgs[1])
-	if err != nil || !numeral || !integer || modulus.Sign() == 0 {
+	// coefficient now holds the modulus
+	integer, numeral, err := r.numeral(modArgs[1], &coefficient)
+	if err != nil || !numeral || !integer || coefficient.IsZero() {
 		return false, err
 	}
 	truth, decided := false, false
-	if bound.Sign() < 0 {
+	if bound.IsNeg() {
 		decided = true
 		truth = kind == arithOpGE
-	} else if bound.Sign() == 0 && kind == arithOpGE {
+	} else if bound.IsZero() && kind == arithOpGE {
 		decided, truth = true, true
 	} else {
-		absolute := new(big.Rat).Abs(modulus)
-		if bound.Sign() > 0 && bound.Cmp(absolute) >= 0 {
+		if err = q.Abs(&coefficient); err != nil {
+			return false, err
+		}
+		cmp, e := q.Compare(&bound, &coefficient)
+		if e != nil {
+			return false, e
+		}
+		if bound.IsPos() && cmp >= 0 {
 			decided = true
 			truth = kind == arithOpLE
-		} else if kind == arithOpLE && new(big.Rat).Add(bound, big.NewRat(1, 1)).Cmp(absolute) == 0 {
-			decided, truth = true, true
+		} else if kind == arithOpLE {
+			// b + 1 == abs(n)
+			if e = q.Inc(&bound); e != nil {
+				return false, e
+			}
+			if same, e := q.Equal(&bound, &coefficient); e != nil {
+				return false, e
+			} else if same {
+				decided, truth = true, true
+			}
 		}
 	}
 	if !decided {
@@ -1009,7 +1143,7 @@ func (r *ArithRewriter) zero(h ast.ASTHandle) (bool, error) {
 	return r.manager.ArithmeticNumeralIsZero(h)
 }
 
-func (r *ArithRewriter) reducePowerFactors(h ast.ASTHandle, equality bool) (ast.ASTHandle, bool, error) {
+func (r *ArithRewriter) reducePowerFactors(h ast.ASTHandle, equality bool) (_ ast.ASTHandle, _ bool, err error) {
 	_, factors, product, err := r.operation(h, arithOpMul)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
@@ -1017,6 +1151,10 @@ func (r *ArithRewriter) reducePowerFactors(h ast.ASTHandle, equality bool) (ast.
 	if !product {
 		factors = []ast.ASTHandle{h}
 	}
+	q := r.q()
+	// rational k
+	exponent := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(q, &exponent)) }()
 	changed := false
 	result := make([]ast.ASTHandle, len(factors))
 	for i, factor := range factors {
@@ -1028,7 +1166,7 @@ func (r *ArithRewriter) reducePowerFactors(h ast.ASTHandle, equality bool) (ast.
 		if !power || len(powerArgs) != 2 {
 			continue
 		}
-		exponent, _, numeral, e := r.numeral(powerArgs[1])
+		_, numeral, e := r.numeral(powerArgs[1], &exponent)
 		if e != nil {
 			return ast.ASTHandle{}, false, e
 		}
@@ -1036,15 +1174,29 @@ func (r *ArithRewriter) reducePowerFactors(h ast.ASTHandle, equality bool) (ast.
 		if equality {
 			threshold = 1
 		}
-		if !numeral || !exponent.IsInt() || !exponent.Num().IsInt64() || exponent.Num().Int64() <= threshold {
+		if !numeral || !exponent.IsInt() {
+			continue
+		}
+		small, e := q.IsInt64(&exponent)
+		if e != nil {
+			return ast.ASTHandle{}, false, e
+		}
+		if !small {
+			continue
+		}
+		k, e := q.Int64(&exponent)
+		if e != nil {
+			return ast.ASTHandle{}, false, e
+		}
+		if k <= threshold {
 			continue
 		}
 		changed = true
-		if equality || exponent.Num().Bit(0) == 1 {
+		if equality || k%2 != 0 {
 			result[i] = powerArgs[0]
 			continue
 		}
-		two, e := r.numeralForTerm(big.NewRat(2, 1), factor)
+		two, e := r.numeralForTermInt(2, factor)
 		if e != nil {
 			return ast.ASTHandle{}, false, e
 		}
@@ -1083,8 +1235,11 @@ func (r *ArithRewriter) reduceComparisonPowers(left, right ast.ASTHandle, equali
 	return newLeft, newRight, leftChanged || rightChanged, nil
 }
 
-func (r *ArithRewriter) eliminateToRealVariable(h ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	value, _, numeral, err := r.numeral(h)
+func (r *ArithRewriter) eliminateToRealVariable(h ast.ASTHandle) (_ ast.ASTHandle, _ bool, err error) {
+	// rational r
+	value := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &value)) }()
+	_, numeral, err := r.numeral(h, &value)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
@@ -1092,7 +1247,7 @@ func (r *ArithRewriter) eliminateToRealVariable(h ast.ASTHandle) (ast.ASTHandle,
 		if !value.IsInt() {
 			return ast.ASTHandle{}, false, nil
 		}
-		result, e := r.makeNumeral(value, true)
+		result, e := r.makeNumeral(&value, true)
 		return result, e == nil, e
 	}
 	if yes, inner, e := r.unary(h, arithOpToReal); e != nil {
@@ -1183,74 +1338,87 @@ func (r *ArithRewriter) eliminateToRealComparison(left, right ast.ASTHandle) (as
 	return newLeft, newRight, true, nil
 }
 
-func arithCeil(value *big.Rat) *big.Int {
-	negative := new(big.Rat).Neg(value)
-	return new(big.Int).Neg(arithFloor(negative))
-}
-
-func (r *ArithRewriter) polynomialCoefficientGCD(h ast.ASTHandle, gcd *big.Int, first *bool, constants *int) error {
+// polynomialCoefficientGCD is get_gcd's accumulation over h's monomials:
+// gcd holds the gcd of the absolute integer coefficients seen so far.
+func (r *ArithRewriter) polynomialCoefficientGCD(h ast.ASTHandle, gcd *unumeral.Rational, first *bool, constants *int) (err error) {
 	terms, err := r.monomials(h)
 	if err != nil {
 		return err
 	}
+	q := r.q()
+	// numeral a
+	value := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(q, &value)) }()
 	for _, term := range terms {
-		value, _, numeral, e := r.numeral(term)
+		_, numeral, e := r.numeral(term, &value)
 		if e != nil {
 			return e
 		}
 		if numeral {
-			if value.Sign() != 0 {
+			if !value.IsZero() {
 				*constants++
 			}
 			continue
 		}
-		coefficient, _, e := r.monomial(term)
+		if _, e = r.monomial(term, &value); e != nil {
+			return e
+		}
+		if !value.IsInt() {
+			return ast.ErrASTDomain
+		}
+		if e = q.Abs(&value); e != nil {
+			return e
+		}
+		if *first {
+			e = q.Copy(gcd, &value)
+			*first = false
+		} else {
+			e = q.GCD(gcd, &value, gcd)
+		}
 		if e != nil {
 			return e
 		}
-		if !coefficient.IsInt() {
-			return ast.ErrASTDomain
-		}
-		absolute := new(big.Int).Abs(coefficient.Num())
-		if *first {
-			gcd.Set(absolute)
-			*first = false
-		} else {
-			gcd.GCD(nil, nil, gcd, absolute)
-		}
-		if gcd.Cmp(big.NewInt(1)) == 0 {
+		if gcd.IsOne() {
 			return nil
 		}
 	}
 	return nil
 }
 
-func (r *ArithRewriter) dividePolynomial(h ast.ASTHandle, divisor *big.Int, treatment int) (ast.ASTHandle, bool, error) {
+func (r *ArithRewriter) dividePolynomial(h ast.ASTHandle, divisor *unumeral.Rational, treatment int) (_ ast.ASTHandle, _ bool, err error) {
 	terms, err := r.monomials(h)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
+	q := r.q()
+	// numeral a
+	value := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(q, &value)) }()
 	result := make([]ast.ASTHandle, 0, len(terms))
-	denominator := new(big.Rat).SetInt(divisor)
 	for _, term := range terms {
-		value, _, numeral, e := r.numeral(term)
+		_, numeral, e := r.numeral(term, &value)
 		if e != nil {
 			return ast.ASTHandle{}, false, e
 		}
 		if numeral {
-			value.Quo(value, denominator)
+			if e = q.Div(&value, divisor, &value); e != nil {
+				return ast.ASTHandle{}, false, e
+			}
 			if !value.IsInt() {
 				switch treatment {
 				case arithDivideFloor:
-					value.SetInt(arithFloor(value))
+					e = q.Floor(&value, &value)
 				case arithDivideCeil:
-					value.SetInt(arithCeil(value))
+					e = q.Ceil(&value, &value)
 				default:
 					return ast.ASTHandle{}, false, nil
 				}
+				if e != nil {
+					return ast.ASTHandle{}, false, e
+				}
 			}
-			if value.Sign() != 0 {
-				n, e := r.numeralForTerm(value, h)
+			if !value.IsZero() {
+				n, e := r.numeralForTerm(&value, h)
 				if e != nil {
 					return ast.ASTHandle{}, false, e
 				}
@@ -1258,16 +1426,18 @@ func (r *ArithRewriter) dividePolynomial(h ast.ASTHandle, divisor *big.Int, trea
 			}
 			continue
 		}
-		coefficient, product, e := r.monomial(term)
+		product, e := r.monomial(term, &value)
 		if e != nil {
 			return ast.ASTHandle{}, false, e
 		}
-		coefficient.Quo(coefficient, denominator)
-		if !coefficient.IsInt() {
+		if e = q.Div(&value, divisor, &value); e != nil {
+			return ast.ASTHandle{}, false, e
+		}
+		if !value.IsInt() {
 			return ast.ASTHandle{}, false, ast.ErrASTDomain
 		}
-		if coefficient.Sign() != 0 {
-			monomial, e := r.coefficientProduct(coefficient, product, h)
+		if !value.IsZero() {
+			monomial, e := r.coefficientProduct(&value, product, h)
 			if e != nil {
 				return ast.ASTHandle{}, false, e
 			}
@@ -1280,22 +1450,24 @@ func (r *ArithRewriter) dividePolynomial(h ast.ASTHandle, divisor *big.Int, trea
 
 // setLeft is the caller's new_arg1 assignment: div_polynomial(arg1, ...)
 // writes new_arg1, releasing its previous value, before arg2 is divided.
-func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation int32, setLeft func(ast.ASTHandle) error) (ast.ASTHandle, ast.ASTHandle, bool, bool, error) {
+func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation int32, setLeft func(ast.ASTHandle) error) (_, _ ast.ASTHandle, _, _ bool, err error) {
 	integer, err := r.integerTerm(left)
 	if err != nil || !integer {
 		return left, right, false, false, err
 	}
-	gcd := new(big.Int)
+	// rational g
+	gcd := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &gcd)) }()
 	first, constants := true, 0
-	if err = r.polynomialCoefficientGCD(left, gcd, &first, &constants); err != nil {
+	if err = r.polynomialCoefficientGCD(left, &gcd, &first, &constants); err != nil {
 		return left, right, false, false, err
 	}
-	if (first || gcd.Cmp(big.NewInt(1)) != 0) && constants <= 1 {
-		if err = r.polynomialCoefficientGCD(right, gcd, &first, &constants); err != nil {
+	if (first || !gcd.IsOne()) && constants <= 1 {
+		if err = r.polynomialCoefficientGCD(right, &gcd, &first, &constants); err != nil {
 			return left, right, false, false, err
 		}
 	}
-	if first || gcd.Cmp(big.NewInt(1)) == 0 || constants > 1 {
+	if first || gcd.IsOne() || constants > 1 {
 		return left, right, false, false, nil
 	}
 	leftTreatment, rightTreatment := arithDivideExact, arithDivideExact
@@ -1304,7 +1476,7 @@ func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation 
 	} else if relation == arithOpGE {
 		leftTreatment, rightTreatment = arithDivideFloor, arithDivideCeil
 	}
-	newLeft, possible, err := r.dividePolynomial(left, gcd, leftTreatment)
+	newLeft, possible, err := r.dividePolynomial(left, &gcd, leftTreatment)
 	if err != nil || !possible {
 		return left, right, false, !possible, err
 	}
@@ -1313,7 +1485,7 @@ func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation 
 	if err = setLeft(newLeft); err != nil {
 		return left, right, false, false, err
 	}
-	newRight, possible, err := r.dividePolynomial(right, gcd, rightTreatment)
+	newRight, possible, err := r.dividePolynomial(right, &gcd, rightTreatment)
 	if err != nil || !possible {
 		return left, right, false, !possible, err
 	}
@@ -1329,7 +1501,7 @@ func (r *ArithRewriter) addAlreadyNormal(values []ast.ASTHandle) (bool, error) {
 	var prev ast.ASTHandle
 	seen := make(map[ast.ASTHandle]bool, len(values))
 	for i, value := range values {
-		v, _, numeral, err := r.numeral(value)
+		numeral, err := r.isNumeral(value)
 		if err != nil {
 			return false, err
 		}
@@ -1337,8 +1509,13 @@ func (r *ArithRewriter) addAlreadyNormal(values []ast.ASTHandle) (bool, error) {
 		if numeral {
 			numCoeffs++
 			ordered = !r.sortSums || i == 0
-			if i == 0 && v.Sign() != 0 {
-				firstNonzeroNumeral = true
+			if i == 0 {
+				// is_numeral(arg, a) && !a.is_zero()
+				zero, err := r.zero(value)
+				if err != nil {
+					return false, err
+				}
+				firstNonzeroNumeral = !zero
 			}
 		} else {
 			if r.sortSums && ordered {
@@ -1353,7 +1530,7 @@ func (r *ArithRewriter) addAlreadyNormal(values []ast.ASTHandle) (bool, error) {
 				}
 				prev = value
 			}
-			_, pp, err := r.monomial(value)
+			pp, err := r.powerProduct(value)
 			if err != nil {
 				return false, err
 			}

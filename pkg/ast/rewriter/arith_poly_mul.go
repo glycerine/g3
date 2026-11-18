@@ -6,10 +6,11 @@ package rewriter
 // arith_rewriter_core.
 
 import (
-	"math/big"
+	"errors"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/productiter"
 )
 
@@ -62,33 +63,37 @@ func (r *ArithRewriter) isAdd(h ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
 	return children, matched, err
 }
 
-func (r *ArithRewriter) isNumeralArg(h ast.ASTHandle) (*big.Rat, bool, error) {
-	v, _, numeral, err := r.numeral(h)
-	return v, numeral, err
+// isNumeralArg is is_numeral(h): the value is not read.
+func (r *ArithRewriter) isNumeralArg(h ast.ASTHandle) (bool, error) {
+	return r.isNumeral(h)
 }
 
 // mkMulApp is the n-ary poly_rewriter::mk_mul_app.
-func (r *ArithRewriter) mkMulApp(args []ast.ASTHandle, sortTerm ast.ASTHandle) (ast.ASTHandle, error) {
+func (r *ArithRewriter) mkMulApp(args []ast.ASTHandle, sortTerm ast.ASTHandle) (_ ast.ASTHandle, err error) {
 	switch len(args) {
 	case 0:
-		return r.numeralForTerm(big.NewRat(1, 1), sortTerm)
+		return r.numeralForTermInt(1, sortTerm)
 	case 1:
 		return args[0], nil
 	}
 	if !(r.mulToPower && !r.expandPower) { // use_power()
 		return r.app(arithOpMul, args...)
 	}
-	prev, kPrev, err := r.powerBody(args[0])
+	q := r.q()
+	// rational k_prev, k
+	kPrev, k := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(q, &k, &kPrev)) }()
+	prev, err := r.powerBody(args[0], &kPrev)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	var newArgs []ast.ASTHandle
 	pushPower := func() error {
-		if kPrev.Cmp(big.NewRat(1, 1)) == 0 {
+		if kPrev.IsOne() {
 			newArgs = append(newArgs, prev)
 			return nil
 		}
-		k, err := r.numeralForTerm(kPrev, sortTerm)
+		k, err := r.numeralForTerm(&kPrev, sortTerm)
 		if err != nil {
 			return err
 		}
@@ -100,18 +105,21 @@ func (r *ArithRewriter) mkMulApp(args []ast.ASTHandle, sortTerm ast.ASTHandle) (
 		return nil
 	}
 	for i := 1; i < len(args); i++ {
-		arg, k, err := r.powerBody(args[i])
+		arg, err := r.powerBody(args[i], &k)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		if arg == prev {
-			kPrev = new(big.Rat).Add(kPrev, k)
+			err = q.Add(&kPrev, &k, &kPrev)
 		} else {
 			if err = pushPower(); err != nil {
 				return ast.ASTHandle{}, err
 			}
 			prev = arg
-			kPrev = k
+			err = q.Copy(&kPrev, &k)
+		}
+		if err != nil {
+			return ast.ASTHandle{}, err
 		}
 	}
 	if err = pushPower(); err != nil {
@@ -124,13 +132,13 @@ func (r *ArithRewriter) mkMulApp(args []ast.ASTHandle, sortTerm ast.ASTHandle) (
 }
 
 // mkMulAppCoeff is poly_rewriter::mk_mul_app(numeral const & c, expr * arg).
-func (r *ArithRewriter) mkMulAppCoeff(c *big.Rat, arg, sortTerm ast.ASTHandle) (ast.ASTHandle, error) {
-	if c.Cmp(big.NewRat(1, 1)) == 0 {
+func (r *ArithRewriter) mkMulAppCoeff(c *unumeral.Rational, arg, sortTerm ast.ASTHandle) (ast.ASTHandle, error) {
+	if c.IsOne() {
 		return arg, nil
 	}
-	if v, numeral, err := r.isNumeralArg(arg); err != nil {
+	if zero, err := r.zero(arg); err != nil {
 		return ast.ASTHandle{}, err
-	} else if numeral && v.Sign() == 0 { // is_zero(arg)
+	} else if zero { // is_zero(arg)
 		return arg, nil
 	}
 	n, err := r.numeralForTerm(c, sortTerm)
@@ -147,7 +155,7 @@ func (r *ArithRewriter) mkFlatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHand
 	// monomial forms
 	// - (* c x)
 	// - (* c (* x_1 ... x_n))
-	_, firstNumeral, err := r.isNumeralArg(args[0])
+	firstNumeral, err := r.isNumeralArg(args[0])
 	if err != nil {
 		return RewriteFailed, ast.ASTHandle{}, err
 	}
@@ -158,7 +166,7 @@ func (r *ArithRewriter) mkFlatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHand
 			return RewriteFailed, ast.ASTHandle{}, err
 		}
 		if mul {
-			_, nestedCoeff, err = r.isNumeralArg(children[0])
+			nestedCoeff, err = r.isNumeralArg(children[0])
 			if err != nil {
 				return RewriteFailed, ast.ASTHandle{}, err
 			}
@@ -223,16 +231,20 @@ func (r *ArithRewriter) mkFlatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHand
 }
 
 // mkNflatMulCore is poly_rewriter::mk_nflat_mul_core.
-func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHandle) (RewriteStatus, ast.ASTHandle, error) {
+func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHandle) (_ RewriteStatus, _ ast.ASTHandle, err error) {
 	fail := func(err error) (RewriteStatus, ast.ASTHandle, error) { return RewriteFailed, ast.ASTHandle{}, err }
 	numArgs := len(args)
+	q := r.q()
+	// numeral c(1), a
+	c, a := unumeral.Rational{Num: unumeral.NewInt(1), Den: unumeral.NewInt(1)}, unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel2(q, &a, &c)) }()
 	// cheap case
 	if numArgs == 2 {
-		a, numeral, err := r.isNumeralArg(args[0])
+		_, numeral, err := r.numeral(args[0], &a)
 		if err != nil {
 			return fail(err)
 		}
-		if numeral && a.Cmp(big.NewRat(1, 1)) != 0 && a.Sign() != 0 {
+		if numeral && !a.IsOne() && !a.IsZero() {
 			kind, err := r.manager.GetKind(args[1])
 			if err != nil {
 				return fail(err)
@@ -249,18 +261,19 @@ func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHan
 			}
 		}
 	}
-	c := big.NewRat(1, 1)
 	numCoeffs := 0
 	numAdd := 0
 	var variable ast.ASTHandle
 	for _, arg := range args {
-		a, numeral, err := r.isNumeralArg(arg)
+		_, numeral, err := r.numeral(arg, &a)
 		if err != nil {
 			return fail(err)
 		}
 		if numeral {
 			numCoeffs++
-			c.Mul(c, a)
+			if err = q.Mul(&c, &a, &c); err != nil {
+				return fail(err)
+			}
 			continue
 		}
 		variable = arg
@@ -273,13 +286,13 @@ func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHan
 	// normalize(c) is the identity for arithmetic.
 	// (* c_1 ... c_n) --> c_1*...*c_n
 	// (* s ... 0 ... r) --> 0
-	if numCoeffs == numArgs || c.Sign() == 0 {
-		result, err := r.numeralForTerm(c, sortTerm)
+	if numCoeffs == numArgs || c.IsZero() {
+		result, err := r.numeralForTerm(&c, sortTerm)
 		return RewriteDone, result, err
 	}
 	if numCoeffs == numArgs-1 {
 		// (* c_1 ... c_n x) --> x  if c_1*...*c_n == 1
-		if c.Cmp(big.NewRat(1, 1)) == 0 {
+		if c.IsOne() {
 			return RewriteDone, variable, nil
 		}
 		children, mul, err := r.isMul(variable)
@@ -290,13 +303,16 @@ func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHan
 			// apply basic simplification even when flattening is not enabled.
 			// (* c1 (* c2 x)) --> (* c1*c2 x)
 			if len(children) == 2 {
-				cPrime, numeral, err := r.isNumeralArg(children[0])
+				// numeral c_prime (a is free here)
+				_, numeral, err := r.numeral(children[0], &a)
 				if err != nil {
 					return fail(err)
 				}
 				if numeral {
-					c.Mul(c, cPrime)
-					result, err := r.mkMulAppCoeff(c, children[1], sortTerm)
+					if err = q.Mul(&c, &a, &c); err != nil {
+						return fail(err)
+					}
+					result, err := r.mkMulAppCoeff(&c, children[1], sortTerm)
 					return Rewrite1, result, err
 				}
 			}
@@ -309,7 +325,7 @@ func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHan
 				return fail(nil)
 			}
 			// (* c_1 ... c_n x) --> (* c_1*...*c_n x)
-			result, err := r.mkMulAppCoeff(c, variable, sortTerm)
+			result, err := r.mkMulAppCoeff(&c, variable, sortTerm)
 			return RewriteDone, result, err
 		}
 		// (* c_1 ... c_n (+ t_1 ... t_m)) --> (+ (* c_1*...*c_n t_1) ... (* c_1*...*c_n t_m))
@@ -319,7 +335,7 @@ func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHan
 		}
 		newAddArgs := make([]ast.ASTHandle, len(terms))
 		for i, t := range terms {
-			if newAddArgs[i], err = r.mkMulAppCoeff(c, t, sortTerm); err != nil {
+			if newAddArgs[i], err = r.mkMulAppCoeff(&c, t, sortTerm); err != nil {
 				return fail(err)
 			}
 		}
@@ -333,7 +349,7 @@ func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHan
 		havePrev := false
 		ordered := true
 		for _, curr := range args {
-			if _, numeral, err := r.isNumeralArg(curr); err != nil {
+			if numeral, err := r.isNumeralArg(curr); err != nil {
 				return fail(err)
 			} else if numeral {
 				continue
@@ -362,7 +378,7 @@ func (r *ArithRewriter) mkNflatMulCore(args []ast.ASTHandle, sortTerm ast.ASTHan
 		if err != nil {
 			return fail(err)
 		}
-		result, err = r.mkMulAppCoeff(c, result, sortTerm)
+		result, err = r.mkMulAppCoeff(&c, result, sortTerm)
 		return RewriteDone, result, err
 	}
 

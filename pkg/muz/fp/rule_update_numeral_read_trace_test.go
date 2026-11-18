@@ -70,7 +70,11 @@ type ruleUpdateNumeralParserWriter struct {
 	runtime           *memory.Runtime
 	coefficient       string
 	seen, interrupted bool
-	lane              memory.Block
+	// slack lowers the lane boundary further, so allocations that stay
+	// live between the boundary and the expected deletion still leave
+	// that deletion past it.
+	slack int64
+	lane  memory.Block
 }
 
 func (w *ruleUpdateNumeralParserWriter) Write(p []byte) (int, error) {
@@ -101,7 +105,7 @@ func (w *ruleUpdateNumeralParserWriter) Write(p []byte) (int, error) {
 	fragmentMust(w.t, w.runtime.Deallocate(&second))
 	w.lane, err = w.runtime.Allocate(8)
 	fragmentMust(w.t, err)
-	delta = int64(-100001) - w.runtime.State().LocalSize
+	delta = int64(-100001) - w.slack - w.runtime.State().LocalSize
 	if err = w.runtime.Reallocate(&w.lane, uint64(16)+uint64(delta)-8); !errors.Is(err, arena.ErrBounds) {
 		w.t.Fatal("parser destructor accounting boundary", err)
 	}

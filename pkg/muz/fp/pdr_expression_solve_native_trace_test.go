@@ -65,7 +65,12 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeSolveFailure(t *testing.T) {
 	persistent, revision := f.e.set, f.e.revision
 	proofMode, err := f.m.ProofMode()
 	fragmentMust(t, err)
-	writer := &pdrSolveNativeFailureWriter{engine: f.e, cleanup: ruleUpdateDERCleanupWriter{boundary: ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime}}}
+	// The boundary sits 64 KiB below the lane threshold: the rewriter's
+	// rationals of the wide numeral (scratch kept by the mpz manager, as
+	// z3's are) stay allocated past pdr_context.cpp:1888, and the first
+	// deallocation after them, inside the native solve's static features,
+	// must still cross it.
+	writer := &pdrSolveNativeFailureWriter{engine: f.e, cleanup: ruleUpdateDERCleanupWriter{boundary: ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime, slack: 1 << 16}}}
 	tags := diagnostic.NewTraceTagsWithWriter(writer)
 	tags.Enable("pdr")
 	t.Cleanup(tags.Finalize)

@@ -4,10 +4,10 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/polynomial"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (r *ArithRewriter) algebraicNumeralSyntax(h ast.ASTHandle) (bool, error) {
@@ -32,20 +32,14 @@ func (r *ArithRewriter) algebraicOperand(h ast.ASTHandle, manager *polynomial.Al
 		irrational = matched
 		return
 	}
-	rational, _, numeral, e := r.numeral(h)
+	// rational q
+	rational := unumeral.NewRational()
+	defer func() { err = errors.Join(err, arithQDel(r.q(), &rational)) }()
+	_, numeral, e := r.numeral(h, &rational)
 	if e != nil || !numeral {
 		return value, false, false, e
 	}
-	service := r.manager.NumeralService()
-	owned, e := service.NewValue()
-	if e != nil {
-		return value, false, false, e
-	}
-	defer func() { err = errors.Join(err, service.Del(&owned)) }()
-	if e = service.SetString(&owned, rational.RatString()); e != nil {
-		return value, false, false, e
-	}
-	if e = manager.SetRational(&value, &owned.Raw); e != nil {
+	if e = manager.SetRational(&value, &rational); e != nil {
 		return value, false, false, e
 	}
 	return value, false, true, nil
@@ -125,7 +119,7 @@ func (r *ArithRewriter) isAnumSimpTarget(manager *polynomial.AlgebraicManager, a
 		if err != nil {
 			return false, err
 		}
-		_, _, numeral, err := r.numeral(h)
+		numeral, err := r.isNumeral(h)
 		if err != nil {
 			return false, err
 		}
@@ -192,12 +186,12 @@ func (r *ArithRewriter) rewriteAlgebraicFold(kind int32, args ast.AppArguments, 
 			result = errors.Join(result, r.manager.DelRef(&held[i]))
 		}
 	}()
-	unit := big.NewRat(0, 1)
+	unit := unumeral.NewRational()
 	if kind == arithOpMul {
-		unit = big.NewRat(1, 1)
+		unit = unumeral.Rational{Num: unumeral.NewInt(1), Den: unumeral.NewInt(1)}
 	}
 	var acc polynomial.Algebraic
-	if err = r.algebraicFromRational(manager, unit, &acc); err != nil {
+	if err = r.algebraicFromRational(manager, &unit, &acc); err != nil {
 		return RewriteFailed, err
 	}
 	defer func() { result = errors.Join(result, manager.Del(&acc)) }()
@@ -243,7 +237,7 @@ func (r *ArithRewriter) rewriteAlgebraicFold(kind int32, args ast.AppArguments, 
 			if e = manager.Del(&acc); e != nil {
 				return RewriteFailed, e
 			}
-			if e = r.algebraicFromRational(manager, unit, &acc); e != nil {
+			if e = r.algebraicFromRational(manager, &unit, &acc); e != nil {
 				return RewriteFailed, e
 			}
 		}
@@ -251,13 +245,16 @@ func (r *ArithRewriter) rewriteAlgebraicFold(kind int32, args ast.AppArguments, 
 		if e != nil {
 			return RewriteFailed, e
 		}
-		rational, _, numeral, e := r.numeral(h)
+		// rational r
+		rational := unumeral.NewRational()
+		_, numeral, e := r.numeral(h, &rational)
 		if e != nil {
-			return RewriteFailed, e
+			return RewriteFailed, errors.Join(e, arithQDel(r.q(), &rational))
 		}
 		if numeral {
 			var arg polynomial.Algebraic
-			if e = r.algebraicFromRational(manager, rational, &arg); e != nil {
+			e = r.algebraicFromRational(manager, &rational, &arg)
+			if e = errors.Join(e, arithQDel(r.q(), &rational)); e != nil {
 				return RewriteFailed, e
 			}
 			e = combine(&arg)
@@ -327,11 +324,11 @@ func (r *ArithRewriter) rewriteAlgebraicDivision(left, right ast.ASTHandle, out 
 	if err != nil || !leftIrrational && !rightIrrational {
 		return RewriteFailed, false, err
 	}
-	_, _, leftRational, err := r.numeral(left)
+	leftRational, err := r.isNumeral(left)
 	if err != nil {
 		return RewriteFailed, false, err
 	}
-	_, _, rightRational, err := r.numeral(right)
+	rightRational, err := r.isNumeral(right)
 	if err != nil {
 		return RewriteFailed, false, err
 	}
@@ -380,23 +377,14 @@ func (r *ArithRewriter) rewriteAlgebraicDivision(left, right ast.ASTHandle, out 
 }
 
 // algebraicFromRational is am.set(r, q.to_mpq()).
-func (r *ArithRewriter) algebraicFromRational(manager *polynomial.AlgebraicManager, rational *big.Rat, value *polynomial.Algebraic) (err error) {
-	service := r.manager.NumeralService()
-	owned, err := service.NewValue()
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Join(err, service.Del(&owned)) }()
-	if err = service.SetString(&owned, rational.RatString()); err != nil {
-		return err
-	}
-	return manager.SetRational(value, &owned.Raw)
+func (r *ArithRewriter) algebraicFromRational(manager *polynomial.AlgebraicManager, rational *unumeral.Rational, value *polynomial.Algebraic) error {
+	return manager.SetRational(value, rational)
 }
 
 // rewriteAlgebraicRationalRoot is mk_power_core's m_anum_simp branch for a
 // rational base: am.set(r, xk); am.root(r, u_den_y, r); if (is_neg_y)
 // am.inv(r); result = mk_numeral(r, false).
-func (r *ArithRewriter) rewriteAlgebraicRationalRoot(xk *big.Rat, den uint32, negative bool, out ast.ASTRef) (RewriteStatus, error) {
+func (r *ArithRewriter) rewriteAlgebraicRationalRoot(xk *unumeral.Rational, den uint32, negative bool, out ast.ASTRef) (RewriteStatus, error) {
 	manager, err := r.manager.ArithmeticAlgebraicManager()
 	if err != nil {
 		return RewriteFailed, err

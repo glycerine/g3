@@ -4,9 +4,10 @@ package rewriter
 // src/ast/rewriter/poly_rewriter_def.h:980-1032.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // IsTimesMinusOne recognizes the arithmetic polynomial shape (* -1 term).
@@ -22,8 +23,10 @@ func (r *ArithRewriter) IsTimesMinusOne(n ast.ASTHandle) (term ast.ASTHandle, ma
 	if err != nil || !product || len(args) != 2 {
 		return term, false, err
 	}
-	coefficient, _, numeral, err := r.numeral(args[0])
-	if err != nil || !numeral || coefficient.Cmp(big.NewRat(-1, 1)) != 0 {
+	// numeral c: is_numeral(t->get_arg(0), c) && c.is_minus_one()
+	coefficient := unumeral.NewRational()
+	_, numeral, err := r.numeral(args[0], &coefficient)
+	if err = errors.Join(err, arithQDel(r.q(), &coefficient)); err != nil || !numeral || !coefficient.IsMinusOne() {
 		return term, false, err
 	}
 	return args[1], true, nil

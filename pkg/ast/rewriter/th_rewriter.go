@@ -5,7 +5,6 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -797,7 +796,7 @@ func (c *theoryRewriterConfiguration) neutralElement(term ast.ASTHandle) (ast.AS
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	result, err := c.arithmetic.makeNumeral(big.NewRat(value, 1), sortKind == 1)
+	result, err := c.arithmetic.makeNumeralInt(int32(value), sortKind == 1)
 	return result, err == nil, err
 }
 
