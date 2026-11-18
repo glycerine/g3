@@ -165,7 +165,13 @@ func (t *DomSimplifyTactic) domGoalStep(g *tactic.Goal, i, sz uint32, forward, p
 		}
 	}
 	if next != old {
-		t.traceRewrite(old, next)
+		// CTRACE("simplify", r != g.form(i), ...) at dom_simplify_tactic.cpp
+		// 389 (forward pass) and 410 (backward pass).
+		line := 389
+		if !forward {
+			line = 410
+		}
+		t.traceRewrite(old, next, line)
 		*change = true
 	}
 	pr, err := g.Proof(i)

@@ -29,9 +29,9 @@ func (t *DomSimplifyTactic) formatDom(h ast.ASTHandle) (text string, result erro
 	}
 	return out.String()
 }
-func (t *DomSimplifyTactic) traceRewrite(old, next ast.ASTHandle) {
+func (t *DomSimplifyTactic) traceRewrite(old, next ast.ASTHandle, line int) {
 	tags := t.tags()
-	_ = tags.EmitConditional("simplify", "simplify_goal", "src/tactic/core/dom_simplify_tactic.cpp", 316, func() bool { return true }, func(w io.Writer) error {
+	_ = tags.EmitConditional("simplify", "simplify_goal", "src/tactic/core/dom_simplify_tactic.cpp", line, func() bool { return true }, func(w io.Writer) error {
 		a, e := t.formatDom(next)
 		if e != nil {
 			return e
@@ -46,7 +46,7 @@ func (t *DomSimplifyTactic) traceRewrite(old, next ast.ASTHandle) {
 }
 func (t *DomSimplifyTactic) traceDominatorTree() {
 	tags := t.tags()
-	_ = tags.EmitConditional("simplify", "compile", "src/tactic/core/dom_simplify_tactic.cpp", 132, func() bool { return true }, func(w io.Writer) error {
+	_ = tags.EmitConditional("simplify", "compile", "src/tactic/core/dom_simplify_tactic.cpp", 139, func() bool { return true }, func(w io.Writer) error {
 		var walk func(ast.ASTHandle, int) error
 		walk = func(h ast.ASTHandle, n int) error {
 			for i := 0; i < n; i++ {
@@ -58,7 +58,9 @@ func (t *DomSimplifyTactic) traceDominatorTree() {
 			if e != nil {
 				return e
 			}
-			if _, e = io.WriteString(w, s+"\n"); e != nil {
+			// expr_dominators::display: the node, its children (each on
+			// the parent's line), and only then the newline.
+			if _, e = io.WriteString(w, s); e != nil {
 				return e
 			}
 			for _, child := range t.dominators.tree[h] {
@@ -68,7 +70,8 @@ func (t *DomSimplifyTactic) traceDominatorTree() {
 					}
 				}
 			}
-			return nil
+			_, e = io.WriteString(w, "\n")
+			return e
 		}
 		return walk(t.dominators.root, 0)
 	})
