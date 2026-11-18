@@ -189,9 +189,10 @@ func (p *commandParser) declareDatatypes(single bool) error {
 		// mk_pdatatype_decl(m_dt_name2arity.find(dt_name), ...) gives the
 		// datatype the header's parameter count, and a binder shorter than
 		// it leaves the trailing parameters unused. Those get formals whose
-		// names no SMT-LIB symbol can spell. A longer binder indexes past
-		// the parameters and crashes z3 4.7.1, so g3 keeps an error there
-		// (AUDIT.md parsers_shell_01-F11).
+		// names no SMT-LIB symbol can spell. A longer binder indexed past
+		// the parameters and crashed z3 4.7.1; FORK FIX #136 reports it
+		// with this text when parse_datatype_dec has read the binder and the
+		// constructor list's '(' (AUDIT.md parsers_shell_01-F11).
 		if expectedArity >= 0 && uint32(expectedArity) < uint32(len(parameterNames)) {
 			return fmt.Errorf("datatype sort %s declares arity %d but defines %d parameters", name, expectedArity, len(parameterNames))
 		}

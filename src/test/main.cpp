@@ -338,6 +338,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_sls_restart_shift);
     TST(z3_4_7_1_opt_parse_int_wrap);
     TST(z3_4_7_1_replayer_int64_wrap);
+    TST(z3_4_7_1_datatype_par_beyond_header);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

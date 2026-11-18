@@ -4784,3 +4784,56 @@ void tst_z3_4_7_1_replayer_int64_wrap() {
     ENSURE(z3_4_7_1_replayer_int64s[2] == INT64_MIN);
     ENSURE(z3_4_7_1_replayer_int64s[3] == 1);
 }
+
+// FORK FIX #136: parse_declare_datatypes made each datatype of its
+// (name arity) header's arity whatever the par binder said, so a binder
+// longer than the header left psort variables indexing past the
+// datatype's parameters, and z3 crashed (SIGSEGV) instantiating the sort.
+// The fork reports the mismatch:
+// (error "line 1 column 39: datatype sort D declares arity 0 but defines 1 parameters")
+// The crash kills the process, so the script runs in a forked child.
+void tst_z3_4_7_1_datatype_par_beyond_header() {
+#ifndef _WINDOWS
+    std::cout.flush();
+    std::cerr.flush();
+    int fds[2];
+    ENSURE(pipe(fds) == 0);
+    pid_t pid = fork();
+    ENSURE(pid >= 0);
+    if (pid == 0) {
+        close(fds[0]);
+        std::ostringstream out;
+        {
+            cmd_context ctx;
+            ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+            ctx.set_regular_stream(out);
+            ctx.set_diagnostic_stream(out);
+            std::istringstream in("(declare-datatypes ((D 0)) ((par (T) ((mk (f T))))))\n"
+                                  "(declare-datatypes ((E 1)) ((par (T U) ((mk2 (g U))))))\n"
+                                  "(echo \"after\")\n");
+            parse_smt2_commands(ctx, in);
+        }
+        std::string text = out.str();
+        ssize_t written = write(fds[1], text.c_str(), text.size());
+        (void)written;
+        close(fds[1]);
+        _exit(0);
+    }
+    close(fds[1]);
+    std::string text;
+    char buf[256];
+    ssize_t n;
+    while ((n = read(fds[0], buf, sizeof(buf))) > 0)
+        text.append(buf, static_cast<size_t>(n));
+    close(fds[0]);
+    int status = 0;
+    ENSURE(waitpid(pid, &status, 0) == pid);
+    std::cout << "datatype_par_beyond_header: exited " << WIFEXITED(status)
+              << " signal " << (WIFSIGNALED(status) ? WTERMSIG(status) : 0) << " output:\n" << text;
+    ENSURE(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    ENSURE(text ==
+           "(error \"line 1 column 39: datatype sort D declares arity 0 but defines 1 parameters\")\n"
+           "(error \"line 2 column 40: datatype sort E declares arity 1 but defines 2 parameters\")\n"
+           "after\n");
+#endif
+}

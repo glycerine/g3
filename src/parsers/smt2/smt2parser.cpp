@@ -868,7 +868,7 @@ namespace smt2 {
                         throw parser_exception("invalid datatype declaration, too many data-type bodies defined");
                     }
                     symbol dt_name = m_dt_names[i];
-                    parse_datatype_dec(nullptr, new_ct_decls);
+                    parse_datatype_dec(nullptr, new_ct_decls, &dt_name);
                     d = pm().mk_pdatatype_decl(m_dt_name2arity.find(dt_name), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
                 }
                 else {
@@ -958,13 +958,24 @@ namespace smt2 {
 
         // datatype_dec ::= ( constructor_dec+ ) | ( par ( symbol+ ) ( constructor_dec+ ) )
 
-        void parse_datatype_dec(symbol* dt_name, pconstructor_decl_ref_buffer & ct_decls) {
+        void parse_datatype_dec(symbol* dt_name, pconstructor_decl_ref_buffer & ct_decls, symbol const* header_name = nullptr) {
             check_lparen_next("invalid datatype declaration, '(' expected");
             if (curr_id() == m_par) {
                 next();
                 parse_sort_decl_params();
                 check_lparen_next("invalid constructor declaration after par, '(' expected");
                 unsigned sz = m_sort_id2param_idx.size();
+                // FORK FIX #136 (g3 audit, see FORK_BUGFIXES.md): a par
+                // binder longer than the (name arity) header made a datatype
+                // of the header's arity whose psort variables index past its
+                // parameters, and z3 crashed (SIGSEGV) instantiating it.
+                // Report the mismatch instead.
+                if (header_name && sz > m_dt_name2arity.find(*header_name)) {
+                    std::ostringstream msg;
+                    msg << "datatype sort " << *header_name << " declares arity " << m_dt_name2arity.find(*header_name)
+                        << " but defines " << sz << " parameters";
+                    throw parser_exception(msg.str());
+                }
                 if (sz > 0 && dt_name) {
                     m_ctx.insert(pm().mk_psort_dt_decl(sz, *dt_name));
                 }

@@ -50,7 +50,8 @@ func TestSMT2DatatypeRefusalsBeforeDeclarationPublication(t *testing.T) {
 		"(declare-datatypes ((D 0) (E 0)) (((make))))",
 		"(declare-datatypes ((D 0)) (((make)) ((other))))",
 		// A header arity above the par binder's count is accepted
-		// (AUDIT.md parsers_shell_01-F11); one below it crashes z3 4.7.1.
+		// (AUDIT.md parsers_shell_01-F11); one below it crashed z3 4.7.1
+		// and is an error since FORK FIX #136.
 		"(declare-datatypes ((D 0)) ((par (T) ((make (field T))))))",
 	} {
 		t.Run(declaration, func(t *testing.T) {
