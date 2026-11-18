@@ -147,8 +147,27 @@ func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
 // weight is a rational of the AST manager's NumeralService().Manager,
 // borrowed; the soft term keeps its own copy.
 func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *numeral.Rational, id string) error {
+	return c.addSoftConstraint(expression, weight, softObjectiveKey{text: id})
+}
+
+// softObjectiveKey is the symbol a soft group is keyed by in
+// scoped_state::m_indices. text "" is symbol::null unless emptySymbol
+// marks the distinct, non-null symbol("") (a $ || replay symbol).
+type softObjectiveKey struct {
+	text        string
+	emptySymbol bool
+}
+
+// AddSoftConstraintEmptySymbol is AddSoftConstraint with the non-null
+// symbol("") as id: its group is distinct from the null id's, though both
+// display as nothing.
+func (c *Context) AddSoftConstraintEmptySymbol(expression ast.ASTHandle, weight *numeral.Rational) error {
+	return c.addSoftConstraint(expression, weight, softObjectiveKey{emptySymbol: true})
+}
+
+func (c *Context) addSoftConstraint(expression ast.ASTHandle, weight *numeral.Rational, key softObjectiveKey) error {
 	if c.optimizationTarget != nil {
-		return c.optimizationTarget.AddSoftConstraint(expression, weight, id)
+		return c.optimizationTarget.addSoftConstraint(expression, weight, key)
 	}
 	if weight == nil {
 		return ast.ErrASTHandle
@@ -174,13 +193,13 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *numeral.Ra
 	if err = c.invalidateOptimizationState(); err != nil {
 		return err
 	}
-	index, found := c.softObjectiveIndex[id]
+	index, found := c.softObjectiveIndex[key]
 	if !found {
 		index = len(c.objectives)
 		objective := newOptimizationObjective()
-		objective.soft, objective.id = true, id
+		objective.soft, objective.id, objective.softKey = true, key.text, key
 		c.objectives = append(c.objectives, objective)
-		c.softObjectiveIndex[id] = index
+		c.softObjectiveIndex[key] = index
 	}
 	if weight.IsZero() {
 		return nil
@@ -234,7 +253,7 @@ func (c *Context) restoreObjectives(size, softTerms int) error {
 		last := len(c.objectives) - 1
 		objective := &c.objectives[last]
 		if objective.soft {
-			delete(c.softObjectiveIndex, objective.id)
+			delete(c.softObjectiveIndex, objective.softKey)
 			if len(objective.softTerms) != 0 {
 				return ast.ErrASTDomain
 			}
@@ -1491,7 +1510,7 @@ func (c *Context) releaseOptScopedState() error {
 	}
 	for i := range c.objectives {
 		if c.objectives[i].soft {
-			delete(c.softObjectiveIndex, c.objectives[i].id)
+			delete(c.softObjectiveIndex, c.objectives[i].softKey)
 		}
 	}
 	if err := c.releaseObjectives(c.objectives); err != nil {

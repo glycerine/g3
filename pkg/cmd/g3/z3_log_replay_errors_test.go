@@ -66,3 +66,12 @@ func TestZ3LogFrontendOptimizeNumericSoftID(t *testing.T) {
 		t.Fatalf("numeric soft id: %q %q", out, diagnostics)
 	}
 }
+
+// AUDIT.md api_03-F6: a serialized $ || soft id is the non-null empty
+// symbol, which Z3_optimize_assert_soft accepts like any other id.
+func TestZ3LogFrontendOptimizeEmptySymbolSoftID(t *testing.T) {
+	out, diagnostics := replayLog(t, `R/P 0/C 6/= 10/R/P 10/C 32/= 11/R/P 10/$ |a|/P 11/C 51/= 12/R/P 10/C 538/= 13/R/P 10/P 13/P 12/S "2"/$ ||/C 542/R/P 10/P 13/C 547/M "after"/R/P 10/C 8`)
+	if !strings.HasPrefix(out, "after\nmax. heap size:") || diagnostics != "" {
+		t.Fatalf("empty-symbol soft id: %q %q", out, diagnostics)
+	}
+}

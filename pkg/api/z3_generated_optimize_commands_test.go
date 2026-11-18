@@ -274,14 +274,13 @@ func TestGeneratedOptimizeReplaySoftGroups(t *testing.T) {
 }
 
 // AUDIT.md api_03-F6: a numeric soft id is accepted (named by
-// symbol::str(), "k!7"); a non-null empty id remains a Go-only replay
-// limitation because the command context keys null soft groups by "".
+// symbol::str(), "k!7"), and so is a non-null empty id, its own group.
 // (This test used to expect both to be rejected.)
 func TestGeneratedOptimizeReplaySoftGroupSymbols(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		reject bool
-	}{{"# 7", false}, {"$ ||", true}} {
+	}{{"# 7", false}, {"$ ||", false}} {
 		log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 538\n= 0x43\nR\nP 0x41\nP 0x43\nC 539\n" +
 			"R\nP 0x41\nP 0x43\nP 0x42\nS \"1\"\n" + tc.name + "\nC 542\n"
 		r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)

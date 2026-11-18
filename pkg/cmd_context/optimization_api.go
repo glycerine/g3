@@ -106,7 +106,20 @@ func (c *Context) AddSoftConstraintIndexed(expression ast.ASTHandle, weight *num
 	if err := c.AddSoftConstraint(expression, weight, id); err != nil {
 		return 0, err
 	}
-	index, found := c.softObjectiveIndex[id]
+	return c.softObjectiveIndexOf(softObjectiveKey{text: id})
+}
+
+// AddSoftConstraintEmptySymbolIndexed is AddSoftConstraintIndexed with the
+// non-null symbol("") as id.
+func (c *Context) AddSoftConstraintEmptySymbolIndexed(expression ast.ASTHandle, weight *numeral.Rational) (uint32, error) {
+	if err := c.AddSoftConstraintEmptySymbol(expression, weight); err != nil {
+		return 0, err
+	}
+	return c.softObjectiveIndexOf(softObjectiveKey{emptySymbol: true})
+}
+
+func (c *Context) softObjectiveIndexOf(key softObjectiveKey) (uint32, error) {
+	index, found := c.softObjectiveIndex[key]
 	if !found {
 		return 0, ast.ErrASTDomain
 	}

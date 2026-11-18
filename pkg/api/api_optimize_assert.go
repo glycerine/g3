@@ -25,6 +25,16 @@ func (o *APIOptimize) AssertSoft(formula ast.ASTHandle, weight *numeral.Rational
 	return o.command.AddSoftConstraintIndexed(formula, weight, id)
 }
 
+// AssertSoftEmptySymbol is Z3_optimize_assert_soft with the non-null empty
+// symbol as id (a $ || replay symbol; Z3_mk_string_symbol("") is null): its
+// group is distinct from the null id's group "".
+func (o *APIOptimize) AssertSoftEmptySymbol(formula ast.ASTHandle, weight *numeral.Rational) (uint32, error) {
+	if err := o.open(); err != nil {
+		return 0, err
+	}
+	return o.command.AddSoftConstraintEmptySymbolIndexed(formula, weight)
+}
+
 func (o *APIOptimize) Maximize(expression ast.ASTHandle) (uint32, error) {
 	return o.addObjective(expression, true)
 }

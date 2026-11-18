@@ -63,6 +63,7 @@ type optimizationObjective struct {
 	boundLower                 numeral.Rational
 	boundUpper                 numeral.Rational
 	id                         string
+	softKey                    softObjectiveKey
 	maximize                   bool
 	soft                       bool
 	bitVector                  bool
@@ -231,7 +232,7 @@ type Context struct {
 	optimizationModelConverter tactic.ModelConverter
 	// preparedOptimizer is the backend init_solver creates before normalize.
 	preparedOptimizer     *opt.ArithmeticSolver
-	softObjectiveIndex    map[string]int
+	softObjectiveIndex    map[softObjectiveKey]int
 	softObjectiveTrail    []int
 	optimizationBoxNext   int
 	optimizationBoxActive bool
@@ -316,7 +317,7 @@ func NewContext(config smtcore.SMTSolverConfig) (*Context, error) {
 	if config.Params == nil || config.Globals == nil {
 		return nil, uparams.ErrParamsOwner
 	}
-	c := &Context{config: config, mainContext: true, functions: make(map[string][]ast.ASTHandle), sorts: make(map[string]ast.ASTHandle), sortArities: make(map[string]uint32), sortConstructors: make(map[string]sortConstructorDeclaration), builtins: make(map[string][]builtin), macros: make(map[string][]macroDeclaration), userTactics: insdict.NewDict[string, string](), softObjectiveIndex: make(map[string]int), status: lbool.Undef}
+	c := &Context{config: config, mainContext: true, functions: make(map[string][]ast.ASTHandle), sorts: make(map[string]ast.ASTHandle), sortArities: make(map[string]uint32), sortConstructors: make(map[string]sortConstructorDeclaration), builtins: make(map[string][]builtin), macros: make(map[string][]macroDeclaration), userTactics: insdict.NewDict[string, string](), softObjectiveIndex: make(map[softObjectiveKey]int), status: lbool.Undef}
 	var err error
 	c.params, err = config.Params.NewValue()
 	if err != nil {

@@ -143,13 +143,12 @@ func replayOptimizeCommand(r *Z3Replayer, id uint32) (err error) {
 		}
 		// The command context keys soft groups by name text, with "" for
 		// symbol::null. A numeric id goes by symbol::str() ("k!<n>"); a
-		// non-null empty id cannot be told apart from null there.
+		// non-null empty id ($ ||) is its own group.
 		softID := name.s
 		if name.numericSymbol {
 			softID = replayNumericSymbolText(name)
-		} else if !name.nullSymbol && name.s == "" {
-			return z3ReplayUnsupported("optimizer replay: empty-string soft group names are not supported")
 		}
+		emptySymbol := !name.nullSymbol && !name.numericSymbol && name.s == ""
 		service := owner.results.manager.NumeralService()
 		weight, e := service.NewValue()
 		if e != nil {
@@ -159,7 +158,11 @@ func replayOptimizeCommand(r *Z3Replayer, id uint32) (err error) {
 		if e = service.SetString(&weight, weightText); e != nil {
 			return e
 		}
-		_, err = o.value.AssertSoft(value.handle, &weight.Raw, softID)
+		if emptySymbol {
+			_, err = o.value.AssertSoftEmptySymbol(value.handle, &weight.Raw)
+		} else {
+			_, err = o.value.AssertSoft(value.handle, &weight.Raw, softID)
+		}
 	case 545:
 		err = o.value.Push()
 	case 546:
