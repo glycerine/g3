@@ -86,9 +86,6 @@ func (a *Automaton) MoveCount() int {
 func (a *Automaton) FinalStates() []uint32     { return append([]uint32(nil), a.final...) }
 func (a *Automaton) IsFinal(state uint32) bool { return a.finals[state] }
 func (a *Automaton) IsEmpty() bool             { return len(a.final) == 0 }
-func (a *Automaton) IsEpsilon() bool {
-	return len(a.final) == 1 && a.final[0] == a.initial && a.MoveCount() == 0
-}
 func (a *Automaton) HasSingleFinalSink() bool {
 	return len(a.final) == 1 && len(a.out[a.final[0]]) == 0
 }
@@ -155,20 +152,6 @@ func (a *Automaton) RemoveFinal(state uint32) {
 	}
 }
 func (a *Automaton) AddInitialToFinal() { a.AddFinal(a.initial) }
-func (a *Automaton) AddFinalToInitialMoves() {
-	for _, state := range append([]uint32(nil), a.final...) {
-		if state == a.initial {
-			continue
-		}
-		found := false
-		for _, move := range a.out[state] {
-			found = found || move.Epsilon && move.Destination == a.initial
-		}
-		if !found {
-			a.add(EpsilonMove(state, a.initial))
-		}
-	}
-}
 
 func (a *Automaton) ensure(state uint32) {
 	for uint32(len(a.out)) <= state {
@@ -206,88 +189,8 @@ func appendAutomaton(offset uint32, source *Automaton, moves *[]Move, final *[]u
 	}
 }
 
-func Union(left, right *Automaton) *Automaton {
-	if left.IsEmpty() {
-		return right.Clone()
-	}
-	if right.IsEmpty() {
-		return left.Clone()
-	}
-	offsetLeft, offsetRight := uint32(1), left.NumStates()+1
-	moves := []Move{EpsilonMove(0, left.initial+offsetLeft), EpsilonMove(0, right.initial+offsetRight)}
-	var final []uint32
-	appendAutomaton(offsetLeft, left, &moves, &final)
-	appendAutomaton(offsetRight, right, &moves, &final)
-	return New(0, final, moves)
-}
-
-func Optional(source *Automaton) *Automaton {
-	if source.IsEmpty() {
-		return source.Clone()
-	}
-	offset, initial := uint32(0), source.initial
-	var moves []Move
-	if len(source.in[source.initial]) != 0 {
-		offset, initial = 1, 0
-		moves = append(moves, EpsilonMove(0, source.initial+offset))
-	}
-	moves = append(moves, EpsilonMove(initial, source.final[0]+offset))
-	var final []uint32
-	appendAutomaton(offset, source, &moves, &final)
-	return New(initial, final, moves)
-}
-
-func Concat(left, right *Automaton) *Automaton {
-	if left.IsEmpty() {
-		return left.Clone()
-	}
-	if right.IsEmpty() {
-		return right.Clone()
-	}
-	if left.IsEpsilon() {
-		return right.Clone()
-	}
-	if right.IsEpsilon() {
-		return left.Clone()
-	}
-	offsetLeft, offsetRight := uint32(1), left.NumStates()+1
-	moves := []Move{EpsilonMove(0, left.initial+offsetLeft)}
-	var ignored []uint32
-	appendAutomaton(offsetLeft, left, &moves, &ignored)
-	for _, state := range left.final {
-		moves = append(moves, EpsilonMove(state+offsetLeft, right.initial+offsetRight))
-	}
-	var final []uint32
-	appendAutomaton(offsetRight, right, &moves, &final)
-	return New(0, final, moves)
-}
-
-func Reverse(source *Automaton) *Automaton {
-	if source.IsEmpty() {
-		return Empty()
-	}
-	moves := make([]Move, 0, source.MoveCount()+len(source.final))
-	for _, move := range source.Moves() {
-		move.Source, move.Destination = move.Destination, move.Source
-		moves = append(moves, move)
-	}
-	initial := uint32(0)
-	if len(source.final) == 1 {
-		initial = source.final[0]
-	} else {
-		initial = source.NumStates()
-		for _, state := range source.final {
-			moves = append(moves, EpsilonMove(initial, state))
-		}
-	}
-	return New(initial, []uint32{source.initial}, moves)
-}
-
 func (a *Automaton) EpsilonClosure(state uint32) []uint32 {
 	return epsilonClosure(state, a.out, false)
-}
-func (a *Automaton) InverseEpsilonClosure(state uint32) []uint32 {
-	return epsilonClosure(state, a.in, true)
 }
 func epsilonClosure(state uint32, edges [][]Move, inverse bool) []uint32 {
 	seen := map[uint32]bool{state: true}
@@ -314,40 +217,18 @@ func epsilonClosure(state uint32, edges [][]Move, inverse bool) []uint32 {
 }
 
 func (a *Automaton) ExpandedMovesFrom(state uint32, closeDestination bool) []Move {
-	return a.expandedMoves(state, a.out, false, closeDestination)
-}
-func (a *Automaton) ExpandedMovesTo(state uint32, closeDestination bool) []Move {
-	return a.expandedMoves(state, a.in, true, closeDestination)
-}
-func (a *Automaton) expandedMoves(state uint32, edges [][]Move, inverse, closeDestination bool) []Move {
-	closure := a.EpsilonClosure(state)
-	if inverse {
-		closure = a.InverseEpsilonClosure(state)
-	}
 	var result []Move
-	for _, current := range closure {
-		for _, move := range edges[current] {
+	for _, current := range a.EpsilonClosure(state) {
+		for _, move := range a.out[current] {
 			if move.Epsilon {
 				continue
 			}
-			target := move.Destination
-			if inverse {
-				target = move.Source
-			}
-			targets := []uint32{target}
+			targets := []uint32{move.Destination}
 			if closeDestination {
-				if inverse {
-					targets = a.InverseEpsilonClosure(target)
-				} else {
-					targets = a.EpsilonClosure(target)
-				}
+				targets = a.EpsilonClosure(move.Destination)
 			}
 			for _, next := range targets {
-				if inverse {
-					result = append(result, ConditionMove(next, state, move.Condition))
-				} else {
-					result = append(result, ConditionMove(current, next, move.Condition))
-				}
+				result = append(result, ConditionMove(current, next, move.Condition))
 			}
 		}
 	}

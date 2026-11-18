@@ -740,21 +740,6 @@ func (s *Solver) AssertEquality(eq ast.ASTHandle, dep *Dependency) (err error) {
 	return s.AssertExpressionsZero(terms, dep)
 }
 
-func (s *Solver) AssertMonomialTautology(h ast.ASTHandle) error {
-	one := numeral.Rational{Num: numeral.NewInt(1), Den: numeral.NewInt(1)}
-	minus := numeral.Rational{Num: numeral.NewInt(-1), Den: numeral.NewInt(1)}
-	a, err := s.monomialFromExpr(&one, h)
-	if err != nil {
-		return err
-	}
-	b, err := s.NewMonomial(&minus, []ast.ASTHandle{h})
-	if err != nil {
-		_ = s.delMonomial(a)
-		return err
-	}
-	return s.AssertMonomialsZero([]*Monomial{a, b}, nil)
-}
-
 func (s *Solver) deleteEquation(e *Equation) error {
 	if e == nil || !e.live {
 		return nil
