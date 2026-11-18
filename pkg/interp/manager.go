@@ -210,6 +210,11 @@ func (m *Manager) Operator(h ast.ASTHandle) (Operator, error) {
 			if op, found := arithmeticOperators[declKind]; found {
 				return op, nil
 			}
+			// default: m().is_unique_value(e), which is OP_NUM, OP_PI (31)
+			// or OP_E (32) for arithmetic.
+			if declKind == 31 || declKind == 32 {
+				return OperatorNumeral, nil
+			}
 			if _, _, numeral, e := m.ast.ArithmeticNumeralText(h); e != nil {
 				return OperatorOther, e
 			} else if numeral {

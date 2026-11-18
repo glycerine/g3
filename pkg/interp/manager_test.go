@@ -355,3 +355,19 @@ func TestInterpolationManagerDisplayAndPrettyFormatting(t *testing.T) {
 		t.Fatal(out.String())
 	}
 }
+
+// AUDIT.md interp_01-F16: iz3mgr::op's default case is
+// m().is_unique_value(e), true for pi and e as for numerals.
+func TestManagerOperatorPiIsNumeral(t *testing.T) {
+	m, w := interpManagerFixture(t)
+	family, err := m.RegisterArithmeticPlugin()
+	interpMust(t, err)
+	for _, kind := range []int32{31, 32} {
+		constant, err := m.MkFamilyApp(family, kind, nil, nil)
+		interpMust(t, err)
+		constant = interpPin(t, m, constant)
+		if op, e := w.Operator(constant); e != nil || op != OperatorNumeral {
+			t.Fatal(kind, op, e)
+		}
+	}
+}
