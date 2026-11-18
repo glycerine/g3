@@ -35,6 +35,16 @@ func NewConfig(m *ast.ASTManager, family ast.FamilyID, params SMTBitBlasterParam
 	return &Config{manager: m, family: family, params: params, boolRewriter: rw}, nil
 }
 
+// NewConfigSharing is NewConfig for an owner whose persistent
+// bool_rewriter rw (theory_bv's m_bb.m_rw) the gates use from the start,
+// so no blaster-local rewriter is built only to be replaced.
+func NewConfigSharing(m *ast.ASTManager, family ast.FamilyID, params SMTBitBlasterParams, rw *rewriter.BoolGateRewriter) (*Config, error) {
+	if m == nil || rw == nil {
+		return nil, ast.ErrASTHandle
+	}
+	return &Config{manager: m, family: family, params: params, boolRewriter: rw}, nil
+}
+
 // SetBoolRewriter makes the gates use rw, the owner's persistent
 // bool_rewriter m_rw, so its configuration and m_local_ctx_cost carry over
 // between blasters built on it.

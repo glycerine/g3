@@ -172,10 +172,6 @@ func (t *SMTBitVectorTheory) nativeBitBlaster() (*bit_blaster.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	config, err := bit_blaster.NewConfig(state.manager, t.FamilyID(), t.bitBlasterParams)
-	if err != nil {
-		return nil, err
-	}
 	// theory_bv's m_bb owns one bool_rewriter m_rw(m): updt_params reads
 	// the whole rewriter module when it is built, and the instance (with
 	// its m_local_ctx_cost) persists across blasting calls.
@@ -189,7 +185,8 @@ func (t *SMTBitVectorTheory) nativeBitBlaster() (*bit_blaster.Engine, error) {
 		}
 		t.bitBlasterBoolRewriter = rw
 	}
-	if err = config.SetBoolRewriter(t.bitBlasterBoolRewriter); err != nil {
+	config, err := bit_blaster.NewConfigSharing(state.manager, t.FamilyID(), t.bitBlasterParams, t.bitBlasterBoolRewriter)
+	if err != nil {
 		return nil, err
 	}
 	return bit_blaster.NewEngine(config)
