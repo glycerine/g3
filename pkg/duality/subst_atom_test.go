@@ -164,3 +164,72 @@ func TestDualitySubstAtomQuantifiedAtomTraversal(t *testing.T) {
 	}
 
 }
+
+// AUDIT.md duality_03-F3: arithmetic OP_GT (5) and OP_MUL (9) are not the
+// basic And/Not; SubstAtom keeps (> x 0) as an atom.
+func TestSubstAtomIgnoresArithmeticOpsWithBasicKindNumbers(t *testing.T) {
+	ctx, m, _ := dualityNativeSolverFixture(t)
+	p, err := ctx.BoolConst("subst-atom-family-p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeExpr(t, p)
+	ph, err := p.Raw()
+	if err != nil {
+		t.Fatal(err)
+	}
+	integer, err := m.MkFamilySort(ctx.families.Arithmetic, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, err := m.Symbols.Intern("subst-atom-family-x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := m.MkConst(name, integer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gt, err := m.MkArithmeticGT(x, zero)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conj, err := m.MkAnd(gt, ph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	formula, err := NewExpr(ctx, conj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeExpr(t, formula)
+	truth, err := m.MkTrue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	yes, err := NewExpr(ctx, truth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeExpr(t, yes)
+	out, err := ctx.SubstAtom(formula, p, yes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	h, err := out.Raw()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h != gt {
+		t.Fatal("(> x 0) was not kept as an atom")
+	}
+}

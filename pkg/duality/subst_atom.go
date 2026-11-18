@@ -43,6 +43,12 @@ func (c *Context) SubstAtom(formula, atom, value *Expr) (out *Expr, result error
 		if err != nil || kind != ast.ASTApp {
 			return false, ast.ASTHandle{}, err
 		}
+		// The wrapper's get_decl_kind maps kinds by family: Not is a basic
+		// declaration only (AUDIT.md duality_03-F3).
+		family, err := m.GetFamilyID(h)
+		if err != nil || family != m.BasicFamilyID() {
+			return false, ast.ASTHandle{}, err
+		}
 		op, err := m.GetDeclKind(h)
 		if err != nil || op != ast.ASTOpNot {
 			return false, ast.ASTHandle{}, err
@@ -83,11 +89,15 @@ func (c *Context) SubstAtom(formula, atom, value *Expr) (out *Expr, result error
 		}
 		var next *Expr
 		if kind == ast.ASTApp {
+			family, err := m.GetFamilyID(h)
+			if err != nil {
+				return nil, err
+			}
 			op, err := m.GetDeclKind(h)
 			if err != nil {
 				return nil, err
 			}
-			if op == ast.ASTOpAnd || op == ast.ASTOpOr {
+			if family == m.BasicFamilyID() && (op == ast.ASTOpAnd || op == ast.ASTOpOr) {
 				n, err := m.GetNumArgs(h)
 				if err != nil {
 					return nil, err
