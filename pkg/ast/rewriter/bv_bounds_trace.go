@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 func (b *BVBounds) traceText(function string, line int, text string) error {
@@ -28,15 +29,16 @@ func (b *BVBounds) traceValue(function string, line int, prefix string, value as
 	if !tags.ShouldTrace("bv_bounds") {
 		return nil
 	}
-	printer, err := ast.NewLegacySMTPrinter(b.manager)
-	if err != nil {
-		return err
+	// C++ prints every term with mk_ismt2_pp, the SMT2 format printer.
+	globals := uparams.BorrowProcessGlobalParamsService()
+	if globals == nil || globals.Context == nil {
+		return nil
 	}
 	return tags.EmitConditional("bv_bounds", function, "src/ast/rewriter/bv_bounds.cpp", line, func() bool { return true }, func(w io.Writer) error {
 		if _, err := io.WriteString(w, prefix); err != nil {
 			return err
 		}
-		if err := printer.DisplayExpr(w, value, nil); err != nil {
+		if err := writeBVTraceSMT2(b.manager, w, value, globals); err != nil {
 			return err
 		}
 		_, err := io.WriteString(w, suffix+"\n")

@@ -87,6 +87,7 @@ func TestBVBoundsSourceTraceRecords(t *testing.T) {
 		"[bv_bounds] is_sat_core src/ast/rewriter/bv_bounds.cpp:623",
 		"res: 1",
 		"[bv_bounds] rewrite src/ast/rewriter/bv_bounds.cpp:284",
+		"check red: (bvule bv-bounds-trace-x #x07)",
 		"[bv_bounds] rewrite src/ast/rewriter/bv_bounds.cpp:286",
 		"[bv_bounds] rewrite src/ast/rewriter/bv_bounds.cpp:302",
 	} {
