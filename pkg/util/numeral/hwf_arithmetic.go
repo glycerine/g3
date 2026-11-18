@@ -4,7 +4,6 @@ package numeral
 
 import (
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
@@ -28,31 +27,87 @@ func hwfSourceRoundingMode(mode ArbitraryFloatRoundingMode) (ArbitraryFloatRound
 	}
 }
 
-// roundHardwareFloat rounds an exact finite result to binary64. Rat.Float64
-// supplies nearest-even; one adjacent value gives each directed result.
-func roundHardwareFloat(exact *big.Rat, mode ArbitraryFloatRoundingMode, negativeZero bool) float64 {
-	if exact.Sign() == 0 {
+// The source sets the process rounding mode and lets the FPU round. Go
+// arithmetic always rounds to nearest-even, so each operation computes the
+// nearest result natively and then the sign of the exact rounding error from
+// error-free double transformations; a directed mode moves the nearest
+// result one step when the error points the other way. This replaces the
+// host FPU setting without any arbitrary-precision arithmetic.
+
+// hwfFrexp splits a finite nonzero x into f in [0.5,1) and an exponent.
+func hwfFrexp(x float64) (float64, int) { return math.Frexp(math.Abs(x)) }
+
+// hwfErrorSign is the sign of exact - nearest for one finite operation on
+// finite operands whose exact result is nonzero and nearest is finite.
+func hwfErrorSign(op byte, a, b, nearest float64) int {
+	switch op {
+	case '+', '-':
+		if op == '-' {
+			b = -b
+		}
+		// Fast2Sum with |a| >= |b|: nearest - a is exact and so is the
+		// error b - (nearest - a), and neither step can overflow.
+		if math.Abs(a) < math.Abs(b) {
+			a, b = b, a
+		}
+		return hwfSign(float64(b - float64(nearest-a)))
+	case '*':
+		sign := 1
+		if math.Signbit(a) != math.Signbit(b) {
+			sign = -1
+		}
+		if nearest == 0 {
+			return sign
+		}
+		// |a*b| - |nearest| on normalized significands: the fused residual
+		// is nonzero exactly when the exact one is, and keeps its sign.
+		fa, ea := hwfFrexp(a)
+		fb, eb := hwfFrexp(b)
+		fp, ep := hwfFrexp(nearest)
+		return sign * hwfSign(math.FMA(fa, fb, -math.Ldexp(fp, ep-ea-eb)))
+	case '/':
+		sign := 1
+		if math.Signbit(a) != math.Signbit(b) {
+			sign = -1
+		}
+		if nearest == 0 {
+			return sign
+		}
+		// |a| - |nearest|*|b| has the sign of |a/b| - |nearest|.
+		fa, ea := hwfFrexp(a)
+		fb, eb := hwfFrexp(b)
+		fq, eq := hwfFrexp(nearest)
+		return sign * hwfSign(math.FMA(-math.Ldexp(fq, eq+eb-ea), fb, fa))
+	}
+	return 0
+}
+
+func hwfSign(x float64) int {
+	if x > 0 {
+		return 1
+	}
+	if x < 0 {
+		return -1
+	}
+	return 0
+}
+
+// hwfRound gives the directed result from the nearest one and the sign of
+// exact - nearest, with the source's signed zero for exact zero results.
+func hwfRound(nearest float64, errorSign, exactSign int, mode ArbitraryFloatRoundingMode, negativeZero bool) float64 {
+	if exactSign == 0 {
 		if negativeZero {
 			return math.Copysign(0, -1)
 		}
 		return 0
 	}
-	nearest, precise := exact.Float64()
-	if precise || mode == ArbitraryFloatNearestEven {
+	if errorSign == 0 || mode == ArbitraryFloatNearestEven {
 		return nearest
 	}
-	var relation int
-	if math.IsInf(nearest, 1) {
-		relation = 1
-	} else if math.IsInf(nearest, -1) {
-		relation = -1
-	} else {
-		relation = new(big.Rat).SetFloat64(nearest).Cmp(exact)
-	}
-	if (mode == ArbitraryFloatTowardPositive || mode == ArbitraryFloatTowardZero && exact.Sign() < 0) && relation < 0 {
+	if (mode == ArbitraryFloatTowardPositive || mode == ArbitraryFloatTowardZero && exactSign < 0) && errorSign > 0 {
 		return math.Nextafter(nearest, math.Inf(1))
 	}
-	if (mode == ArbitraryFloatTowardNegative || mode == ArbitraryFloatTowardZero && exact.Sign() > 0) && relation > 0 {
+	if (mode == ArbitraryFloatTowardNegative || mode == ArbitraryFloatTowardZero && exactSign > 0) && errorSign < 0 {
 		return math.Nextafter(nearest, math.Inf(-1))
 	}
 	return nearest
@@ -67,37 +122,56 @@ func (m *HardwareFloatManager) arithmetic(mode ArbitraryFloatRoundingMode, x, y,
 		return e
 	}
 	a, b := x.value, y.value
-	if math.IsNaN(a) || math.IsNaN(b) || math.IsInf(a, 0) || math.IsInf(b, 0) || op == '/' && b == 0 {
-		switch op {
-		case '+':
-			out.value = a + b
-		case '-':
-			out.value = a - b
-		case '*':
-			out.value = a * b
-		case '/':
-			out.value = a / b
-		}
-		return nil
-	}
-	ra, rb := new(big.Rat).SetFloat64(a), new(big.Rat).SetFloat64(b)
-	exact := new(big.Rat)
-	negativeZero := false
+	var nearest float64
 	switch op {
 	case '+':
-		exact.Add(ra, rb)
-		negativeZero = (a == 0 && b == 0 && math.Signbit(a) && math.Signbit(b)) || (mode == ArbitraryFloatTowardNegative && (a != 0 || b != 0 || math.Signbit(a) != math.Signbit(b)))
+		nearest = float64(a + b)
 	case '-':
-		exact.Sub(ra, rb)
-		negativeZero = (a == 0 && b == 0 && math.Signbit(a) && !math.Signbit(b)) || (mode == ArbitraryFloatTowardNegative && (a != 0 || b != 0 || math.Signbit(a) == math.Signbit(b)))
+		nearest = float64(a - b)
 	case '*':
-		exact.Mul(ra, rb)
-		negativeZero = math.Signbit(a) != math.Signbit(b)
+		nearest = float64(a * b)
 	case '/':
-		exact.Quo(ra, rb)
+		nearest = float64(a / b)
+	}
+	if math.IsNaN(a) || math.IsNaN(b) || math.IsInf(a, 0) || math.IsInf(b, 0) || op == '/' && b == 0 {
+		out.value = nearest
+		return nil
+	}
+	exactSign := 0
+	negativeZero := false
+	switch op {
+	case '+', '-':
+		// A finite sum rounds to zero only when it is exactly zero.
+		if nearest != 0 {
+			exactSign = hwfSign(nearest)
+		} else if op == '+' {
+			negativeZero = (a == 0 && b == 0 && math.Signbit(a) && math.Signbit(b)) || (mode == ArbitraryFloatTowardNegative && (a != 0 || b != 0 || math.Signbit(a) != math.Signbit(b)))
+		} else {
+			negativeZero = (a == 0 && b == 0 && math.Signbit(a) && !math.Signbit(b)) || (mode == ArbitraryFloatTowardNegative && (a != 0 || b != 0 || math.Signbit(a) == math.Signbit(b)))
+		}
+	case '*', '/':
+		if a != 0 && b != 0 {
+			exactSign = 1
+			if math.Signbit(a) != math.Signbit(b) {
+				exactSign = -1
+			}
+		}
 		negativeZero = math.Signbit(a) != math.Signbit(b)
 	}
-	out.value = roundHardwareFloat(exact, mode, negativeZero)
+	if exactSign == 0 {
+		out.value = hwfRound(nearest, 0, 0, mode, negativeZero)
+		return nil
+	}
+	var errorSign int
+	switch {
+	case math.IsInf(nearest, 1):
+		errorSign = -1
+	case math.IsInf(nearest, -1):
+		errorSign = 1
+	default:
+		errorSign = hwfErrorSign(op, a, b, nearest)
+	}
+	out.value = hwfRound(nearest, errorSign, exactSign, mode, negativeZero)
 	return nil
 }
 
