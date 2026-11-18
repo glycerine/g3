@@ -2,7 +2,6 @@ package smtcore
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -27,7 +26,7 @@ func smtWMaxFixture(t *testing.T, weights ...int64) (*ast.ASTManager, *SMTIntern
 		formula, err := m.MkConst(astTestSymbol(t, m, fmt.Sprint("wmax-soft-", i)), boolean)
 		astTestMust(t, err)
 		astTestPin(t, m, formula)
-		slack, assertion, err := theory.AddWeighted(formula, big.NewRat(weight, 1))
+		slack, assertion, err := theory.AddWeighted(formula, smtQIntPtr(int32(weight)))
 		astTestMust(t, err)
 		astTestPin(t, m, slack)
 		astTestPin(t, m, assertion)
@@ -48,7 +47,7 @@ func smtWMaxAssignTrue(t *testing.T, state *SMTInternalizerState, theory *SMTWei
 // decreasing weight, so block() and mk_block() take the heaviest first.
 func TestSMTWeightedMaxBlocksHeaviestCostsFirst(t *testing.T) {
 	_, state, theory := smtWMaxFixture(t, 1, 5, 2)
-	astTestMust(t, theory.InitMinCost(big.NewRat(5, 1)))
+	astTestMust(t, theory.InitMinCost(smtQIntPtr(int32(5))))
 	astTestMust(t, state.PushScope())
 	smtWMaxAssignTrue(t, state, theory, 0)
 	if state.Inconsistent() {
@@ -67,7 +66,7 @@ func TestSMTWeightedMaxBlocksHeaviestCostsFirst(t *testing.T) {
 	astTestMust(t, state.PopScopes(1))
 
 	// mk_block over all three asserted slack variables.
-	astTestMust(t, theory.InitMinCost(big.NewRat(100, 1)))
+	astTestMust(t, theory.InitMinCost(smtQIntPtr(int32(100))))
 	astTestMust(t, state.PushScope())
 	for i := range theory.variables {
 		smtWMaxAssignTrue(t, state, theory, i)
@@ -75,7 +74,7 @@ func TestSMTWeightedMaxBlocksHeaviestCostsFirst(t *testing.T) {
 	if state.Inconsistent() || len(theory.costs) != 3 {
 		t.Fatal("assignments below the minimum cost", len(theory.costs))
 	}
-	astTestMust(t, theory.InitMinCost(big.NewRat(5, 1)))
+	astTestMust(t, theory.InitMinCost(smtQIntPtr(int32(5))))
 	block, err := theory.MakeBlock()
 	astTestMust(t, err)
 	want, err := state.manager.MkNot(theory.variables[1].expr)
@@ -95,7 +94,7 @@ func TestSMTWeightedMaxBlocksHeaviestCostsFirst(t *testing.T) {
 // by the trail.
 func TestSMTWeightedMaxFinalCheckDoesNotBlock(t *testing.T) {
 	_, state, theory := smtWMaxFixture(t, 5)
-	astTestMust(t, theory.InitMinCost(big.NewRat(5, 1)))
+	astTestMust(t, theory.InitMinCost(smtQIntPtr(int32(5))))
 	astTestMust(t, theory.DisableVariable(theory.variables[0].expr))
 	astTestMust(t, state.PushScope())
 	smtWMaxAssignTrue(t, state, theory, 0)
@@ -104,7 +103,7 @@ func TestSMTWeightedMaxFinalCheckDoesNotBlock(t *testing.T) {
 	if status != SMTFinalCheckDone || state.Inconsistent() {
 		t.Fatal("disabled slack variable raised a conflict", status)
 	}
-	if cost, _ := theory.Cost(); cost.Sign() != 0 {
+	if cost := theory.testCost(); cost != "0" {
 		t.Fatal("disabled slack variable was counted", cost)
 	}
 	astTestMust(t, state.PopScopes(1))
@@ -112,14 +111,14 @@ func TestSMTWeightedMaxFinalCheckDoesNotBlock(t *testing.T) {
 
 func TestSMTWeightedMaxCostTrailRestore(t *testing.T) {
 	_, state, theory := smtWMaxFixture(t, 2, 3)
-	astTestMust(t, theory.InitMinCost(big.NewRat(10, 1)))
+	astTestMust(t, theory.InitMinCost(smtQIntPtr(int32(10))))
 	astTestMust(t, state.PushScope())
 	smtWMaxAssignTrue(t, state, theory, 0)
 	astTestMust(t, state.PushScope())
 	smtWMaxAssignTrue(t, state, theory, 1)
 	// A repeated assign_eh is ignored once m_assigned[tv] is set.
 	astTestMust(t, theory.Assign(theory.variables[1].boolean, true))
-	if cost, _ := theory.Cost(); cost.Cmp(big.NewRat(5, 1)) != 0 || len(theory.costs) != 2 {
+	if cost := theory.testCost(); cost != "5" || len(theory.costs) != 2 {
 		t.Fatal("cost after two assignments", cost, theory.costs)
 	}
 	status, err := theory.FinalCheck()
@@ -128,11 +127,26 @@ func TestSMTWeightedMaxCostTrailRestore(t *testing.T) {
 		t.Fatal("final check below the minimum cost")
 	}
 	astTestMust(t, state.PopScopes(1))
-	if cost, _ := theory.Cost(); cost.Cmp(big.NewRat(2, 1)) != 0 || len(theory.costs) != 1 || theory.variables[1].assigned {
+	if cost := theory.testCost(); cost != "2" || len(theory.costs) != 1 || theory.variables[1].assigned {
 		t.Fatal("pop did not restore the cost trail", cost, theory.costs)
 	}
 	astTestMust(t, state.PopScopes(1))
-	if cost, _ := theory.Cost(); cost.Sign() != 0 || len(theory.costs) != 0 || theory.variables[0].assigned {
+	if cost := theory.testCost(); cost != "0" || len(theory.costs) != 0 || theory.variables[0].assigned {
 		t.Fatal("pop did not restore the cost trail", cost, theory.costs)
 	}
+}
+
+// testCost is get_cost() as text.
+func (t *SMTWeightedMaxTheory) testCost() string {
+	q := t.q()
+	r := smtQZero()
+	defer smtQDel(q, &r)
+	if err := t.Cost(&r); err != nil {
+		panic(err)
+	}
+	text, err := q.String(&r)
+	if err != nil {
+		panic(err)
+	}
+	return text
 }

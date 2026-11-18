@@ -11,7 +11,38 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
+
+// TODO(bigB): opt still holds its weights and bounds as math/big values;
+// these bridges convert them at theory_wmaxsat's rational boundary until
+// opt holds rationals of the AST manager's rational manager.
+func wmaxWithRational(m *ast.ASTManager, x *big.Rat, f func(*numeral.Rational) error) error {
+	q := m.NumeralService().Manager
+	r := numeral.NewRational()
+	err := q.SetBigRat(&r, x)
+	if err == nil {
+		err = f(&r)
+	}
+	if e := q.Del(&r); e != nil && err == nil {
+		err = e
+	}
+	return err
+}
+
+func wmaxCost(m *ast.ASTManager, theory *smtcore.SMTWeightedMaxTheory) (*big.Rat, error) {
+	q := m.NumeralService().Manager
+	r := numeral.NewRational()
+	out := new(big.Rat)
+	err := theory.Cost(&r)
+	if err == nil {
+		err = q.BigRatOf(&r, out)
+	}
+	if e := q.Del(&r); e != nil && err == nil {
+		err = e
+	}
+	return out, err
+}
 
 type wmaxEngine struct {
 	solver       *ArithmeticSolver
@@ -77,7 +108,11 @@ func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index in
 		if cause != nil {
 			return nil, errors.Join(cause, e.close())
 		}
-		slack, assertion, cause := e.theory.AddWeighted(formula, e.prepared.softWeights[i])
+		var slack, assertion ast.ASTHandle
+		cause = wmaxWithRational(s.manager, e.prepared.softWeights[i], func(w *numeral.Rational) (err error) {
+			slack, assertion, err = e.theory.AddWeighted(formula, w)
+			return err
+		})
 		if cause == nil {
 			slack, cause = e.owner.hold(slack, nil)
 		}
@@ -173,7 +208,7 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 		return lbool.Undef, false, err
 	}
 	e.upper.Add(&e.lower, &penalty)
-	if err = e.theory.InitMinCost(&penalty); err != nil {
+	if err = wmaxWithRational(e.solver.manager, &penalty, e.theory.InitMinCost); err != nil {
 		return lbool.Undef, false, err
 	}
 	// trace_bounds("wmax") (AUDIT.md FUZZ-F5; g3trace builds only).
@@ -212,7 +247,7 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 			return lbool.Undef, false, cause
 		}
 		if isOptimal {
-			cost, cause := e.theory.Cost()
+			cost, cause := wmaxCost(e.solver.manager, e.theory)
 			if cause != nil {
 				return lbool.Undef, false, cause
 			}
@@ -233,7 +268,7 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 		}
 		var limit big.Rat
 		limit.Sub(&e.upper, &e.lower)
-		if err = e.theory.InitMinCost(&limit); err != nil {
+		if err = wmaxWithRational(e.solver.manager, &limit, e.theory.InitMinCost); err != nil {
 			return lbool.Undef, false, err
 		}
 		if diagnostic.VerboseProgress {
