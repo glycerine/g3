@@ -36,9 +36,6 @@ func TestModelEvaluatorValueOverloadOwnsResultAndTracesBothEntries(t *testing.T)
 			"------------------------------------------------\n" +
 			"-------- [model_evaluator] operator() src/model/model_evaluator.cpp:566 ---------\n" +
 			"(and true false)\n" +
-			"------------------------------------------------\n" +
-			"-------- [model_evaluator] reduce_app src/model/model_evaluator.cpp:200 ---------\n" +
-			"false\n" +
 			"------------------------------------------------\n"
 		if output.String() != want {
 			t.Fatalf("value overload source trace: got %q, want %q", output.String(), want)

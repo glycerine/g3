@@ -236,7 +236,8 @@ func (c *Context) EvaluateWithOptions(expression ast.ASTHandle, options Evaluati
 		resultErr = errors.Join(resultErr, timer.Close())
 		handler.close()
 	}()
-	return evaluator.EvaluateValue(expression)
+	// eval_cmd: ev(m_target, r).
+	return evaluator.EvaluateInto(expression)
 }
 
 // WriteEvaluation evaluates one expression and prints its value using the
@@ -696,5 +697,6 @@ func (c *Context) evaluateWithFreshEvaluator(md *model.ModelCore, expression ast
 	if err = evaluator.SetModelCompletion(true); err != nil {
 		return ast.ASTRef{}, err
 	}
-	return evaluator.EvaluateValue(expression)
+	// model::eval: ev(e, result).
+	return evaluator.EvaluateInto(expression)
 }

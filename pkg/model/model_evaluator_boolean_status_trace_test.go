@@ -9,8 +9,9 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-// Source: src/model/model_evaluator.cpp:149-202,566. Successful Boolean
-// reduction reaches the conditional result record after the evaluator entry.
+// Source: src/model/model_evaluator.cpp:149-166,566. The basic family
+// returns m_b_rw.mk_app_core's status directly: no line-200 result record
+// (AUDIT.md model_01-F6; build_trace/z3 writes none for (eval (and ...))).
 func TestModelEvaluatorBooleanReductionSourceStatusTrace(t *testing.T) {
 	m, _, ev, _, _, _ := evaluatorFixture(t)
 	yes, e := m.MkTrue()
@@ -39,9 +40,6 @@ func TestModelEvaluatorBooleanReductionSourceStatusTrace(t *testing.T) {
 	}
 	want := "-------- [model_evaluator] operator() src/model/model_evaluator.cpp:566 ---------\n" +
 		"(and true false)\n" +
-		"------------------------------------------------\n" +
-		"-------- [model_evaluator] reduce_app src/model/model_evaluator.cpp:200 ---------\n" +
-		"false\n" +
 		"------------------------------------------------\n"
 	if got := output.String(); got != want {
 		t.Fatalf("source Boolean status trace: got %q, want %q", got, want)

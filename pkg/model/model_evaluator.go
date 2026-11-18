@@ -275,6 +275,23 @@ func (ev *ModelEvaluator) Evaluate(t ast.ASTHandle, out ast.ASTRef) error {
 	return ev.cfg.expandValue(out)
 }
 
+// EvaluateInto is the output-reference overload operator()(t, result) with
+// a fresh result reference the caller owns: one entry record, as
+// eval_cmd's ev(m_target, r) and model::eval's ev(e, result) write.
+func (ev *ModelEvaluator) EvaluateInto(t ast.ASTHandle) (ast.ASTRef, error) {
+	if e := ev.open(); e != nil {
+		return ast.ASTRef{}, e
+	}
+	result, e := ev.model.manager.NewRef(ast.ASTHandle{})
+	if e != nil {
+		return ast.ASTRef{}, e
+	}
+	if e = ev.Evaluate(t, result); e != nil {
+		return ast.ASTRef{}, finishModelEvaluationFailure(ev.model.manager, ev.services.Memory, result, e)
+	}
+	return result, nil
+}
+
 // EvaluateValue is the source value-returning overload. Its entry TRACE runs
 // before constructing the local result reference; Evaluate then emits the
 // output-reference overload's second entry record.
@@ -683,21 +700,9 @@ func (c *evaluatorConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgument
 				}
 			}
 		}
-		status, e := c.boolean.MkAppCore(d, args, out)
-		if e != nil {
-			return rewriter.RewriteFailed, e
-		}
-		final, e := c.evaluateReducedApp(status, out)
-		if e != nil {
-			return rewriter.RewriteFailed, e
-		}
-		if status == rewriter.RewriteDone && final == rewriter.Rewrite1 {
-			return final, nil
-		}
-		if e = c.traceReduceStatus(final, out); e != nil {
-			return rewriter.RewriteFailed, e
-		}
-		return final, nil
+		// return m_b_rw.mk_app_core(f, num, args, result): no BR_DONE
+		// re-evaluation and no line-200 trace for the basic family.
+		return c.boolean.MkAppCore(d, args, out)
 	}
 	if fid == c.arithmeticFamily {
 		status, e := c.arithmetic.MkAppCore(d, args, out)
