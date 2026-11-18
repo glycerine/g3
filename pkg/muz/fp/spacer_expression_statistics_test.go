@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
-func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
+func TestSpacerExpressionStatisticsAccumulateInContext(t *testing.T) {
 	f := newPDRLifecycleFixture(t)
 	e := f.engine
 	fragmentMust(t, e.SelectEngine("spacer"))
@@ -88,9 +88,11 @@ func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 	}
 	var solveSeconds, initSeconds float64
 	checks := func(engine *PropositionalEngine) uint32 { return value(engine, "num checks") }
+	// dl_interface keeps one spacer::context: its counters persist across the
+	// queries; context::reset releases only the transformers.
 	var total, virtualChecks, queries, depth uint32
+	context := e.spacer
 	for round := 0; round < 3; round++ {
-		prior := e.queryClone
 		currentQuery := query
 		if round == 1 {
 			currentQuery = fact
@@ -100,61 +102,54 @@ func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 		if status != lbool.True {
 			t.Fatal("query result", round, status)
 		}
-		if prior != nil {
-			if _, err := prior.LastResult(); err == nil {
-				t.Fatal("previous query clone remained open")
-			}
+		if round > 0 && e.spacer != context {
+			t.Fatal("expression query replaced the interface's context", round)
 		}
-		current := checks(e.queryClone)
-		if current == 0 {
-			t.Fatal("query clone reported no solver checks")
+		context = e.spacer
+		current := checks(e)
+		if current <= total {
+			t.Fatal("query reported no new solver checks", round, current, total)
 		}
-		solveSeconds += seconds(e.queryClone, "time.spacer.solve")
-		initSeconds += seconds(e.queryClone, "time.spacer.init_rules")
-		if got := seconds(e, "time.spacer.solve"); got != solveSeconds {
-			t.Fatal("solve timer history lost or duplicated", got, solveSeconds)
+		total = current
+		if got := seconds(e, "time.spacer.solve"); got < solveSeconds {
+			t.Fatal("solve timer history lost", got, solveSeconds)
+		} else {
+			solveSeconds = got
 		}
-		if got := seconds(e, "time.spacer.init_rules"); got != initSeconds {
-			t.Fatal("initialization timer history lost or duplicated", got, initSeconds)
+		if got := seconds(e, "time.spacer.init_rules"); got < initSeconds {
+			t.Fatal("initialization timer history lost", got, initSeconds)
+		} else {
+			initSeconds = got
 		}
-		total += current
-		virtualChecks += value(e.queryClone, "virtual_solver.checks")
-		if got := value(e, "virtual_solver.checks"); got != virtualChecks {
-			t.Fatal("virtual check history was lost or duplicated", got, virtualChecks)
+		if got := value(e, "virtual_solver.checks"); got < virtualChecks {
+			t.Fatal("virtual check history was lost", got, virtualChecks)
+		} else {
+			virtualChecks = got
 		}
-		queries += value(e.queryClone, "SPACER num queries")
-		currentDepth := value(e.queryClone, "SPACER max depth")
+		if got := value(e, "SPACER num queries"); got < queries {
+			t.Fatal("query history was lost", got, queries)
+		} else {
+			queries = got
+		}
+		currentDepth := value(e, "SPACER max depth")
 		if round == 0 && currentDepth == 0 {
 			t.Fatal("fixture did not create a nontrivial search depth")
 		}
-		if currentDepth > depth {
-			depth = currentDepth
+		if currentDepth < depth {
+			t.Fatal("maximum depth decreased across queries", currentDepth, depth)
 		}
-		for _, key := range []statistics.Key{"SPACER max query lvl", "SPACER cex depth"} {
-			if got := value(e, key); got != value(e.queryClone, key) {
-				t.Fatal("latest query statistic was accumulated", key, got, value(e.queryClone, key))
-			}
-		}
-		if got := value(e, "SPACER max depth"); got != depth {
-			t.Fatal("maximum depth was added across queries", got, depth)
-		}
-		if got := value(e, "SPACER num queries"); got != queries {
-			t.Fatal("query history was lost", got, queries)
-		}
-		if got := value(e, "SPACER num properties"); got != value(e.queryClone, "SPACER num properties") {
-			t.Fatal("disposed transformer properties escaped into current statistics", round, got)
-		}
+		depth = currentDepth
 		truth, err := f.manager.MkTrue()
 		must(err)
 		must(e.AddCover(2, declaration, truth))
 		if got := checks(e); got != total {
-			t.Fatal("parent lost or duplicated query statistics", round, got, total)
+			t.Fatal("cover lost or duplicated query statistics", round, got, total)
 		}
 		if got := checks(e); got != total {
 			t.Fatal("repeated collection mutated query statistics", got, total)
 		}
 	}
-	properties := value(e.queryClone, "SPACER num properties")
+	properties := value(e, "SPACER num properties")
 	if properties == 0 || queries == 0 {
 		t.Fatal("fixture did not create Spacer counters/properties")
 	}
@@ -176,24 +171,6 @@ func TestSpacerExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 	}
 	if got := value(e, "SPACER num properties"); got != properties {
 		t.Fatal("statistics reset changed live property count", got, properties)
-	}
-	prior := e.queryClone
-	must(e.clearQueryResources())
-	if e.queryClone != nil {
-		t.Fatal("query disposal left its clone active")
-	}
-	if _, err := prior.LastResult(); err == nil {
-		t.Fatal("query disposal left the old clone open")
-	}
-	if got := checks(e); got != total {
-		t.Fatal("clone disposal lost or duplicated cumulative checks", got, total)
-	}
-	if value(e, "SPACER num properties") != 0 {
-		t.Fatal("disposed query left live property statistics")
-	}
-	must(e.clearQueryResources())
-	if got := checks(e); got != total {
-		t.Fatal("repeated cleanup duplicated archived statistics", got, total)
 	}
 	must(e.SetQueryParameters(nil))
 	if got := checks(e); got != 0 {

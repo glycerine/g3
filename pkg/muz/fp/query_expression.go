@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -39,6 +40,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	// previous query's model converters (its query clone's conversions)
 	// before the queued rules are flushed.
 	e.contextModelConverter = true
+	if err := e.releaseContextConversions(); err != nil {
+		return lbool.Undef, err
+	}
 	converted := []*PropositionalEngine{e.queryClone}
 	if e.backend == "datalog" {
 		// The datalog expression queries' conversions are the context's.
@@ -179,8 +183,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	e.queried = true
 	// rel_context is the context's m_rel: a datalog expression query runs
 	// on the context itself, its relation manager, compiled code and rule
-	// set, which persist across the queries.
-	self := e.backend == "datalog"
+	// set, which persist across the queries. The PDR and Spacer
+	// dl_interfaces likewise query the context's rules with their one
+	// m_context, which keeps its rules, model and proof converters until
+	// the next query replaces them.
+	interfaceQuery := e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer"
+	self := e.backend == "datalog" || interfaceQuery
 	var clone *PropositionalEngine
 	if self {
 		clone = e
@@ -299,7 +307,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		// only the original program belongs in the search rule index.
 		return clone.queryTabExpression(query)
 	}
-	if self {
+	if self && !interfaceQuery {
 		// rel_context::query's scoped_query, ended when the query returns
 		// or throws.
 		scoped, cause := e.beginDatalogScopedQuery()
@@ -307,6 +315,35 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			return lbool.Undef, cause
 		}
 		defer func() { resultErr = errors.Join(resultErr, e.endDatalogScopedQuery(scoped)) }()
+	}
+	var restoreRevision func()
+	if interfaceQuery {
+		// dl_interface::query: datalog::rule_set old_rules(rules0) before
+		// mk_query; m_ctx.replace_rules(old_rules) restores the rules.
+		old, cause := base.NewRuleSet(e.rules)
+		if cause == nil {
+			cause = old.AddRules(e.set)
+		}
+		if cause != nil {
+			if old != nil {
+				cause = errors.Join(cause, old.Close())
+			}
+			return lbool.Undef, cause
+		}
+		defer func() { resultErr = errors.Join(resultErr, e.restoreInterfaceRules(old)) }()
+		// The query predicate and rule are not persistent program changes:
+		// keep the revisions the interface's check_reset and the cover
+		// accessors compare.
+		revision, ruleRevision := e.revision, e.pdrRuleRevision
+		restoreRevision = func() {
+			e.revision, e.pdrRuleRevision = revision, ruleRevision
+			restoreRevision = nil
+		}
+		defer func() {
+			if restoreRevision != nil {
+				restoreRevision()
+			}
+		}()
 	}
 	declaration, headRef, err := clone.makeQueryHead(query)
 	if err != nil {
@@ -380,6 +417,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		if err = clone.mkQueryRule(rule); err != nil {
 			return lbool.Undef, err
 		}
+		if restoreRevision != nil {
+			restoreRevision()
+		}
 		// mk_query's rule_expr, impl, qhead and q die on return.
 		for i := len(queryRoots) - 1; i >= 0; i-- {
 			if err = e.manager.DelRef(&queryRoots[i]); err != nil {
@@ -443,7 +483,8 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	}
 	// The source PDR context already exists when covers are supplied before
 	// the first query. Move that owner after query preparation succeeds.
-	if (e.backend == "pdr" || e.backend == "qpdr") && e.pdr != nil && e.pdrRules == nil {
+	if self {
+	} else if (e.backend == "pdr" || e.backend == "qpdr") && e.pdr != nil && e.pdrRules == nil {
 		prequeryPDR = e.pdr
 		clone.pdr = e.pdr
 		clone.pdrRevision = clone.revision
@@ -456,7 +497,8 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	}
 	// Spacer properties likewise belong to the context that installs the
 	// expression query's transformed rules.
-	if e.backend == "spacer" && e.spacer != nil && e.spacerRules == nil {
+	if self {
+	} else if e.backend == "spacer" && e.spacer != nil && e.spacerRules == nil {
 		prequerySpacer = e.spacer
 		clone.spacer = e.spacer
 		clone.spacerRevision = clone.revision
@@ -474,7 +516,19 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		}
 		defer func() { clone.pdrTraceQuery = ast.ASTHandle{} }()
 	}
-	if level != nil {
+	if interfaceQuery {
+		e.compiled = false
+		switch {
+		case level != nil:
+			result, err = e.querySpacerFromLevel(declaration, *level)
+		case e.backend == "spacer":
+			e.spacerNullModelConverter = false
+			result, err = e.querySpacer(declaration)
+		default:
+			e.pdrNullModelConverter = false
+			result, err = e.queryPDR(declaration)
+		}
+	} else if level != nil {
 		result, err = clone.QueryPredicateFromLevel(declaration, *level)
 	} else if clone.backend == "ddnf" {
 		// DDNF calls mk_query before compiling; its output marker lets the
@@ -495,13 +549,23 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			result, err = clone.QueryPredicate(declaration)
 		}
 	}
-	if err == nil && self && e.datalogQueryObserver != nil {
+	if err == nil && self && !interfaceQuery && e.datalogQueryObserver != nil {
 		e.datalogQueryObserver(e, declaration)
 	}
 	if err == nil {
 		e.queryClonePredicate = declaration
 	}
 	return result, err
+}
+
+// restoreInterfaceRules is dl_interface::query's m_ctx.reopen();
+// m_ctx.replace_rules(old_rules), and old_rules' end.
+func (e *PropositionalEngine) restoreInterfaceRules(old *base.RuleSet) error {
+	err := e.set.Reopen()
+	if err == nil {
+		err = e.set.ReplaceRules(old)
+	}
+	return errors.Join(err, old.Close())
 }
 
 // clearQueryResources releases the backend state used to answer the previous

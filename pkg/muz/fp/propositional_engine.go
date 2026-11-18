@@ -198,12 +198,17 @@ type PropositionalEngine struct {
 	engineSelectionSet  bool
 	datalogDefaultTable string
 	datalogConversions  []hornModelConversion
-	engineInstantiated  bool
-	duality             *muzduality.Backend
-	dualityCooperation  *cooperate.Cooperation
-	dualityMBQI         bool
-	pdr                 *muzpdr.Context
-	pdrRules            *base.RuleSet
+	// contextConversions are PDR or Spacer conversions only the context's
+	// m_mc still holds once updt_params dropped the interface's context:
+	// the next context::query's m_mc = mk_skip_model_converter() (or
+	// ~context) releases them.
+	contextConversions []hornModelConversion
+	engineInstantiated bool
+	duality            *muzduality.Backend
+	dualityCooperation *cooperate.Cooperation
+	dualityMBQI        bool
+	pdr                *muzpdr.Context
+	pdrRules           *base.RuleSet
 	// pdrRetiredRules is m_pdr_rules after a parameter update rebuilt the
 	// context: it is released when the next query replaces it.
 	pdrRetiredRules   *base.RuleSet
@@ -3716,6 +3721,7 @@ func (e *PropositionalEngine) Close() (result error) {
 	result = errors.Join(result, e.releaseLastAnswer())
 	result = errors.Join(result, closeHornModelConversions(e.spacerConversions))
 	e.spacerConversions = nil
+	result = errors.Join(result, e.releaseContextConversions())
 	if e.datalogTransformedRules != nil {
 		result = errors.Join(result, e.datalogTransformedRules.Close())
 		e.datalogTransformedRules = nil

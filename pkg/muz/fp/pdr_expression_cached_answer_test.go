@@ -109,11 +109,11 @@ func testPDRExpressionCachedAnswer(t *testing.T, cache int, trace, alternatives 
 	phase = "first query"
 	status, err := e.QueryExpression(query)
 	must(err)
-	if status != lbool.True || e.pdr != nil || e.queryClone == nil || e.queryClone.pdr != prequery {
+	if status != lbool.True || e.pdr != prequery {
 		t.Fatal("expression query did not transfer the prequery owner", status)
 	}
 	if alternatives {
-		rules, err := e.queryClone.pdrRules.PredicateRules(predicate)
+		rules, err := e.pdrRules.PredicateRules(predicate)
 		must(err)
 		count := len(rules)
 		for _, rule := range rules {
@@ -225,11 +225,9 @@ func testPDRExpressionCachedAnswer(t *testing.T, cache int, trace, alternatives 
 	phase = "replacement query"
 	status, err = e.QueryExpression(replacement)
 	must(err)
-	if status != lbool.True || e.queryClone == nil || e.queryClone.pdr == prequery {
-		t.Fatal("replacement query did not replace the old context", status)
-	}
-	if _, err = prequery.Initialized(); err == nil {
-		t.Fatal("replacement left the prior context open")
+	// dl_interface keeps m_context: check_reset resets it.
+	if status != lbool.True || e.pdr != prequery {
+		t.Fatal("replacement query did not keep the interface's context", status)
 	}
 	held, err := m.RefGet(answer)
 	must(err)

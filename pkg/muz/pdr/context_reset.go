@@ -23,9 +23,8 @@ func (c *Context) Reset() error {
 	if err := closeTransformers(c.order, c.transformers); err != nil {
 		return err
 	}
-	if err := c.owner.contexts.resetSolvers(true); err != nil {
-		return err
-	}
+	// The pdr::manager's smt_context_manager, its kernels and #context
+	// guards, outlives context::reset.
 	c.transformers = nil
 	c.order = nil
 	c.auxiliary = make(map[ast.ASTHandle]bool)

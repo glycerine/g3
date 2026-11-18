@@ -68,7 +68,7 @@ func TestPDRInputTracePreservesOriginalExpressionAndBackground(t *testing.T) {
 	if strings.Contains(text, "query: query!") {
 		t.Fatal("original expression replaced by synthetic query in input trace", text)
 	}
-	if e.queryClone == nil || !e.queryClone.pdrTraceQuery.IsNull() {
+	if !e.pdrTraceQuery.IsNull() {
 		t.Fatal("borrowed input query escaped its call scope")
 	}
 	after, err := e.set.Len()
@@ -125,6 +125,13 @@ func TestPDRInputTraceOriginalOwnerSurvivesDumpFailure(t *testing.T) {
 	// until its next rule, and pins the fresh query!N predicate
 	// (context::register_predicate); release the former and count the latter.
 	fragmentMust(t, e.rules.ReleaseHornTemporaries())
+	// check_reset ran before the trace: m_old_rules holds the rules, the
+	// query rule included, until the next query replaces them.
+	if e.pdrSourceRules == nil {
+		t.Fatal("check_reset did not replace m_old_rules")
+	}
+	fragmentMust(t, e.pdrSourceRules.Close())
+	e.pdrSourceRules = nil
 	const pinnedQueryPredicate = 1
 	if e.pdr == nil || m.Stats().LiveReferences != before+contextReferences+pinnedQueryPredicate {
 		t.Fatal("failed expression trace lost temporary owners or its PDR context", before, contextReferences, m.Stats().LiveReferences)
@@ -149,7 +156,7 @@ func TestPDRInputTraceOriginalOwnerSurvivesDumpFailure(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("expression query retry", status)
 	}
-	if e.queryClone == nil || e.queryClone.pdr != prequery {
+	if e.pdr != prequery {
 		t.Fatal("expression query retry lost its pre-query context")
 	}
 }

@@ -18,7 +18,17 @@ type spacerContextDisposal struct {
 // Source dl_interface::updt_params constructs a new context, including all
 // statistics owners. This differs from replacing a Go expression-query clone.
 func (e *PropositionalEngine) resetSpacerForParameterUpdate() error {
-	if err := e.closeSpacerForReplacement(); err != nil {
+	// The context's m_mc keeps the conversions m_context held; m_old_rules
+	// belongs to dl_interface, which survives.
+	if !e.spacerNullModelConverter {
+		e.contextConversions = append(e.contextConversions, e.spacerConversions...)
+		e.spacerConversions = nil
+	}
+	oldRules := e.spacerRules
+	e.spacerRules = nil
+	err := e.closeSpacerForReplacement()
+	e.spacerRules = oldRules
+	if err != nil {
 		return err
 	}
 	e.spacerStatistics = spacer.StatisticsSnapshot{}

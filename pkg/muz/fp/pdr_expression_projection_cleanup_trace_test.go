@@ -47,9 +47,9 @@ func (w *pdrProjectionNativeFailureWriter) Write(p []byte) (int, error) {
 	if matched && !w.cleanup.boundary.interrupted {
 		// The copied rule has its predecessor variable positively bound and
 		// unbound-variable reduction disabled. Only the installed PDR context
-		// projects this head variable after the public ownership transfer.
+		// projects this head variable.
 		initialized, err := w.context.Initialized()
-		if err == nil && initialized && w.engine.pdr == nil {
+		if err == nil && initialized && w.engine.pdr == w.context {
 			w.transferred, w.initialized = true, true
 			w.cleanup.boundary.seen = true
 			return w.cleanup.boundary.Write(p)
@@ -148,9 +148,8 @@ func TestPDRExpressionProjectionPreservesNativeCleanupReceipt(t *testing.T) {
 			if receipt.RuntimeOwner() != f.runtime {
 				t.Fatal("projection receipt lost its native runtime")
 			}
-			clone := f.e.queryClone
-			if clone == nil || clone.pdr != prequery || clone.pdrRules == nil || f.e.pdr != nil {
-				t.Fatal("projection failure lost the transferred initialized context")
+			if f.e.pdr != prequery || f.e.pdrRules == nil {
+				t.Fatal("projection failure lost the initialized context")
 			}
 			initialized, err := prequery.Initialized()
 			fragmentMust(t, err)
@@ -180,24 +179,15 @@ func TestPDRExpressionProjectionPreservesNativeCleanupReceipt(t *testing.T) {
 			} else {
 				status, err = f.e.QueryExpression(query)
 				fragmentMust(t, err)
-				if status != lbool.True || f.e.queryClone == nil || f.e.queryClone == clone || f.e.queryClone.pdr == prequery {
+				if status != lbool.True || f.e.pdr != prequery {
 					t.Fatal("query retry did not derive Q(0) from P(1) and its affine rule", status)
-				}
-				if !clone.closed {
-					t.Fatal("query retry left its predecessor clone open")
-				}
-				if _, err = prequery.Initialized(); err == nil {
-					t.Fatal("query retry left the transferred context open")
 				}
 				checkProgram()
 				fragmentMust(t, f.e.Close())
 				fragmentMust(t, f.e.Close())
 			}
-			if !clone.closed {
-				t.Fatal("public recovery left the failed query clone open")
-			}
 			if _, err = prequery.Initialized(); err == nil {
-				t.Fatal("public recovery left the transferred context open")
+				t.Fatal("public recovery left the context open")
 			}
 			counts, budget := contextDisplayLiveCounts(f.m.Stats()), f.m.Budget().Used()
 			fragmentMust(t, receipt.Cleanup())

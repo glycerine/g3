@@ -269,13 +269,20 @@ func (c *Context) SetFixedpointParameters(params *uparams.ParamsRef) error {
 	return engine.SetQueryParameters(params)
 }
 
-func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef, includeCurrentAssertions bool) (*muzfp.PropositionalEngine, error) {
+// prepareFixedpointQuery readies the engine for a query. updateParams is
+// context::updt_params of the query's parameters, which dl_query_cmd::execute
+// runs before each query; Z3_fixedpoint_query and its siblings do not: they
+// only read the timeout from the fixedpoint's m_params, which reached the
+// context at Z3_fixedpoint_set_params.
+func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef, includeCurrentAssertions, updateParams bool) (*muzfp.PropositionalEngine, error) {
 	engine, err := c.fixedpointContext()
 	if err != nil {
 		return nil, err
 	}
-	if err = engine.PrepareQueryParameters(params); err != nil {
-		return nil, err
+	if updateParams {
+		if err = engine.PrepareQueryParameters(params); err != nil {
+			return nil, err
+		}
 	}
 	var assertions []ast.ASTHandle
 	if includeCurrentAssertions {
@@ -378,7 +385,13 @@ func (c *Context) FixedpointPredicates() ([]ast.ASTHandle, error) {
 // QueryFixedpointWithParams applies query-local fixedpoint settings before
 // module settings and bounds the query with the effective fixedpoint timeout.
 func (c *Context) QueryFixedpointWithParams(declaration ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {
-	return c.queryFixedpoint(declaration, params, false, nil, true, false)
+	return c.queryFixedpoint(declaration, params, false, nil, true, false, true)
+}
+
+// QueryFixedpointTimed is Z3_fixedpoint_query of a relation: params (the
+// fixedpoint's m_params with the effective timeout) only bound the query.
+func (c *Context) QueryFixedpointTimed(declaration ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
+	return c.queryFixedpoint(declaration, params, false, nil, true, false, false)
 }
 
 // QueryFixedpointCommandWithParams executes dl_query_cmd: each current SMT
@@ -393,23 +406,29 @@ func (c *Context) QueryFixedpointCommandWithParams(declaration ast.ASTHandle, pa
 			return lbool.Undef, err
 		}
 	}
-	return c.queryFixedpoint(declaration, params, false, nil, false, true)
+	return c.queryFixedpoint(declaration, params, false, nil, false, true, true)
 }
 
 // QueryFixedpointExpression evaluates a Boolean query with the configured timeout.
 func (c *Context) QueryFixedpointExpression(query ast.ASTHandle) (lbool.LBool, error) {
-	return c.queryFixedpoint(query, nil, true, nil, true, false)
+	return c.queryFixedpoint(query, nil, true, nil, true, false, true)
 }
 
 // QueryFixedpointExpressionWithParams applies fixedpoint-local settings to a Boolean query.
 func (c *Context) QueryFixedpointExpressionWithParams(query ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
-	return c.queryFixedpoint(query, params, true, nil, true, false)
+	return c.queryFixedpoint(query, params, true, nil, true, false, true)
+}
+
+// QueryFixedpointExpressionTimed is Z3_fixedpoint_query: params only bound
+// the query (see prepareFixedpointQuery).
+func (c *Context) QueryFixedpointExpressionTimed(query ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
+	return c.queryFixedpoint(query, params, true, nil, true, false, false)
 }
 
 // command is dl_query_cmd::execute, whose cmd_context::scoped_watch times
 // the rel_query call for the statistics' :time.
-func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef, expression bool, level *uint32, includeCurrentAssertions, command bool) (result lbool.LBool, resultErr error) {
-	engine, err := c.prepareFixedpointQuery(params, includeCurrentAssertions)
+func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef, expression bool, level *uint32, includeCurrentAssertions, command, updateParams bool) (result lbool.LBool, resultErr error) {
+	engine, err := c.prepareFixedpointQuery(params, includeCurrentAssertions, updateParams)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -454,7 +473,17 @@ func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.
 
 // QueryFixedpointRelationsWithParams applies fixedpoint-local relation-query settings.
 func (c *Context) QueryFixedpointRelationsWithParams(declarations []ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {
-	engine, err := c.prepareFixedpointQuery(params, true)
+	return c.queryFixedpointRelations(declarations, params, true)
+}
+
+// QueryFixedpointRelationsTimed is Z3_fixedpoint_query_relations: params
+// only bound the query (see prepareFixedpointQuery).
+func (c *Context) QueryFixedpointRelationsTimed(declarations []ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
+	return c.queryFixedpointRelations(declarations, params, false)
+}
+
+func (c *Context) queryFixedpointRelations(declarations []ast.ASTHandle, params *uparams.ParamsRef, updateParams bool) (result lbool.LBool, resultErr error) {
+	engine, err := c.prepareFixedpointQuery(params, true, updateParams)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -487,13 +516,19 @@ func (c *Context) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint
 
 // QueryFixedpointFromLevelWithParams runs a bounded Spacer query with local settings.
 func (c *Context) QueryFixedpointFromLevelWithParams(declaration ast.ASTHandle, level uint32, params *uparams.ParamsRef) (lbool.LBool, error) {
-	return c.queryFixedpoint(declaration, params, false, &level, true, false)
+	return c.queryFixedpoint(declaration, params, false, &level, true, false, true)
 }
 
 // QueryFixedpointExpressionFromLevelWithParams runs a general Spacer query
 // beginning at the requested proof level with fixedpoint-local settings.
 func (c *Context) QueryFixedpointExpressionFromLevelWithParams(query ast.ASTHandle, level uint32, params *uparams.ParamsRef) (lbool.LBool, error) {
-	return c.queryFixedpoint(query, params, true, &level, true, false)
+	return c.queryFixedpoint(query, params, true, &level, true, false, true)
+}
+
+// QueryFixedpointExpressionFromLevelTimed is Z3_fixedpoint_query_from_lvl:
+// params only bound the query (see prepareFixedpointQuery).
+func (c *Context) QueryFixedpointExpressionFromLevelTimed(query ast.ASTHandle, level uint32, params *uparams.ParamsRef) (lbool.LBool, error) {
+	return c.queryFixedpoint(query, params, true, &level, true, false, false)
 }
 
 // FixedpointReasonUnknown returns the execution status of the latest

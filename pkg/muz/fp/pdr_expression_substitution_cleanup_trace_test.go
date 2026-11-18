@@ -48,7 +48,7 @@ func (w *pdrSubstitutionNativeFailureWriter) Write(p []byte) (int, error) {
 	w.operator, w.site, w.operand = false, false, false
 	if matched && !w.cleanup.boundary.interrupted {
 		initialized, err := w.context.Initialized()
-		if err == nil && initialized && w.engine.pdr == nil {
+		if err == nil && initialized && w.engine.pdr == w.context {
 			w.transferred, w.initialized = true, true
 			if w.warm != nil {
 				w.warm()
@@ -160,9 +160,8 @@ func TestPDRExpressionSubstitutionRecoversAfterNativeFailure(t *testing.T) {
 			if !writer.cleanup.boundary.interrupted || !writer.transferred || !writer.initialized || status != lbool.Undef || !errors.Is(cause, arena.ErrBounds) || !strings.Contains(cause.Error(), "projected child construction: muz/pdr: coupled-state model substitution") {
 				t.Fatal("query missed the native coupled-state substitution failure", status, cause)
 			}
-			clone := f.e.queryClone
-			if clone == nil || clone.pdr != prequery || clone.pdrRules == nil || f.e.pdr != nil {
-				t.Fatal("substitution failure lost the initialized transferred context")
+			if f.e.pdr != prequery || f.e.pdrRules == nil {
+				t.Fatal("substitution failure lost the initialized context")
 			}
 			initialized, err := prequery.Initialized()
 			fragmentMust(t, err)
@@ -185,19 +184,13 @@ func TestPDRExpressionSubstitutionRecoversAfterNativeFailure(t *testing.T) {
 			if resume == "query" {
 				status, err = f.e.QueryExpression(head)
 				fragmentMust(t, err)
-				if status != lbool.True || f.e.queryClone == nil || f.e.queryClone == clone || f.e.queryClone.pdr == prequery || !clone.closed {
-					t.Fatal("public retry did not retire the failed context and derive R", status)
-				}
-				if _, err = prequery.Initialized(); err == nil {
-					t.Fatal("public retry left the old context open")
+				if status != lbool.True || f.e.pdr != prequery {
+					t.Fatal("public retry did not derive R on the interface's context", status)
 				}
 				checkProgram()
 			}
 			fragmentMust(t, f.e.Close())
 			fragmentMust(t, f.e.Close())
-			if !clone.closed {
-				t.Fatal("public close left the failed query clone open")
-			}
 			if _, err = prequery.Initialized(); err == nil {
 				t.Fatal("public close left the transferred context open")
 			}

@@ -115,8 +115,9 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 	name := "spacer.native_mbp"
 	must(e.params.SetBoolName(&parameters, &name, true))
 	must(e.SetQueryParameters(&parameters))
-	if e.spacer != nil || e.spacerRules != nil {
-		t.Fatal("parameter update kept the previous Spacer context or rule snapshot")
+	// m_old_rules belongs to dl_interface, which survives updt_params.
+	if e.spacer != nil || e.spacerRules == nil {
+		t.Fatal("parameter update kept the previous Spacer context or lost m_old_rules")
 	}
 	status, err = e.QueryPredicate(query)
 	must(err)

@@ -106,9 +106,8 @@ func TestSpacerExpressionValidationNativeFailurePreservesTransferredOwner(t *tes
 		t.Fatal("query missed the native post-solve validation failure", status, cause, writer.hit)
 	}
 	message := cause.Error()
-	failedClone := f.e.queryClone
-	if failedClone == nil || failedClone.spacer != prequery || failedClone.closed || f.e.spacer != nil {
-		t.Fatal("validation failure lost the transferred context")
+	if f.e.spacer != prequery {
+		t.Fatal("validation failure lost the interface's context")
 	}
 	if _, err = f.e.LastResult(); !errors.Is(err, ErrPropositionalEngine) {
 		t.Fatal("validation failure published a successful result", err)
@@ -122,11 +121,8 @@ func TestSpacerExpressionValidationNativeFailurePreservesTransferredOwner(t *tes
 	}
 	status, err = f.e.QueryExpression(query)
 	fragmentMust(t, err)
-	if status != lbool.False || f.e.queryClone == nil || f.e.queryClone == failedClone || !failedClone.closed {
-		t.Fatal("query retry failed to replace the prior owner", status)
-	}
-	if _, err = prequery.Initialized(); err == nil {
-		t.Fatal("query retry left the transferred predecessor open")
+	if status != lbool.False || f.e.spacer != prequery {
+		t.Fatal("query retry left the interface's context", status)
 	}
 	last, err := f.e.LastResult()
 	fragmentMust(t, err)

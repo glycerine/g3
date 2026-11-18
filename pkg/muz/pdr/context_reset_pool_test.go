@@ -9,7 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
-func TestContextResetReleasesSolverPoolsAndPreservesStatistics(t *testing.T) {
+func TestContextResetKeepsSolverPoolsAndStatistics(t *testing.T) {
 	m, owner, old, _, closeBase := closureFixture(t)
 	defer func() { closureMust(t, old.Close()); closureMust(t, owner.Close()); closeBase() }()
 	must := func(err error) { t.Helper(); closureMust(t, err) }
@@ -63,11 +63,13 @@ func TestContextResetReleasesSolverPoolsAndPreservesStatistics(t *testing.T) {
 			t.Fatal("new solve did not advance cumulative checks", round, before, previous)
 		}
 		must(context.Reset())
-		if pool.active != 0 || len(pool.solvers) != 0 || len(pool.predicates) != 0 {
-			t.Fatal("reset left solver-pool resources alive", round, pool.active, len(pool.solvers), len(pool.predicates))
+		// context::reset keeps the pdr::manager's smt_context_manager: its
+		// kernels and #context guards serve the next program.
+		if pool.active != 0 || len(pool.solvers) == 0 || pool.solvers[0] != solver {
+			t.Fatal("reset released the solver pool", round, pool.active, len(pool.solvers))
 		}
-		if _, err := solver.ArithmeticState(); err == nil {
-			t.Fatal("reset left a retired solver open")
+		if _, err := solver.ArithmeticState(); err != nil {
+			t.Fatal("reset closed a pooled solver", err)
 		}
 		if got := checks(); got != before {
 			t.Fatal("reset lost or duplicated solver statistics", round, got, before)

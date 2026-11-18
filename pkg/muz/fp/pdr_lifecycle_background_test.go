@@ -32,8 +32,9 @@ func TestPDRRuleUpdateDoesNotHideBackgroundRevision(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal("rule update hid the false background", status)
 	}
-	if f.engine.pdr == prior {
-		t.Fatal("rule update reused a context with the old background")
+	// dl_interface keeps m_context; set_axioms installs the new background.
+	if f.engine.pdr != prior {
+		t.Fatal("rule update replaced the interface's context")
 	}
 	prior = f.engine.pdr
 	truth, err := f.manager.MkTrue()
@@ -45,8 +46,8 @@ func TestPDRRuleUpdateDoesNotHideBackgroundRevision(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("rule update hid the restored true background", status)
 	}
-	if f.engine.pdr == prior {
-		t.Fatal("rule update reused the context with a false background")
+	if f.engine.pdr != prior {
+		t.Fatal("rule update replaced the interface's context")
 	}
 }
 
@@ -87,7 +88,7 @@ func TestPDRRuleUpdateDoesNotHideParameterRevision(t *testing.T) {
 	}
 }
 
-func TestPDREngineRebuildsContextForBackgroundChange(t *testing.T) {
+func TestPDREngineKeepsContextForBackgroundChange(t *testing.T) {
 	fixture := newPDRLifecycleFixture(t)
 	status, err := fixture.engine.QueryPredicate(fixture.declarations["q"])
 	if err != nil || status != lbool.True {
@@ -109,7 +110,8 @@ func TestPDREngineRebuildsContextForBackgroundChange(t *testing.T) {
 	if err != nil || status != lbool.True {
 		t.Fatal(status, err)
 	}
-	if fixture.engine.pdr == first {
-		t.Fatal("background change reused a PDR context")
+	// The background reaches the same m_context through set_axioms.
+	if fixture.engine.pdr != first {
+		t.Fatal("background change replaced the interface's PDR context")
 	}
 }

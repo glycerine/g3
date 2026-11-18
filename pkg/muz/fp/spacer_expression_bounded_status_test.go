@@ -10,7 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func TestSpacerExpressionQueryReportsCloneBoundedStatus(t *testing.T) {
+func TestSpacerExpressionQueryReportsBoundedStatus(t *testing.T) {
 	manager, globals := newPDRLifecycleServices(t)
 	fragmentMust(t, globals.SourceSetName("fixedpoint.spacer.max_level", "0"))
 	engine, err := NewPropositionalEngineWithServices(manager, globals.Context, globals)
@@ -44,8 +44,8 @@ func TestSpacerExpressionQueryReportsCloneBoundedStatus(t *testing.T) {
 	if status != lbool.Undef {
 		t.Fatal("zero-level expression query", status)
 	}
-	if engine.spacer != nil || engine.queryClone == nil || engine.queryClone.spacer == nil {
-		t.Fatal("expression query did not preserve the clone Spacer owner")
+	if engine.spacer == nil {
+		t.Fatal("expression query did not keep the interface's Spacer context")
 	}
 	reason, err := engine.ReasonUnknown()
 	fragmentMust(t, err)

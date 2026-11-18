@@ -32,15 +32,15 @@ func TestDirectFixedpointQueryCleanupFailureInvalidatesResults(t *testing.T) {
 					return e.QueryPredicateFromLevel(declaration, 0)
 				}
 			}
-			prior := e.queryClone
+			prior := e.spacer
 			m.Budget().FailAfter(0)
 			_, err = query()
 			m.Budget().FailAfter(-1)
 			if !errors.Is(err, arena.ErrInjectedFailure) {
 				t.Fatal("expected previous-query cleanup refusal", err)
 			}
-			if e.queryClone != prior || prior.closed {
-				t.Fatal("cleanup refusal discarded its live owner")
+			if prior == nil {
+				t.Fatal("the expression query left no Spacer context")
 			}
 			if _, err := e.LastResult(); !errors.Is(err, ErrPropositionalEngine) {
 				t.Fatal("cleanup failure left the old result current", err)
@@ -52,9 +52,6 @@ func TestDirectFixedpointQueryCleanupFailureInvalidatesResults(t *testing.T) {
 			must(err)
 			if status != lbool.True {
 				t.Fatal("relation query did not recover after cleanup", status)
-			}
-			if !prior.closed || e.queryClone != nil {
-				t.Fatal("retry did not finish expression-query disposal")
 			}
 		})
 	}

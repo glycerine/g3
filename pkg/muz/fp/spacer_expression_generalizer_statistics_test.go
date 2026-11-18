@@ -35,9 +35,10 @@ func TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation(t *testin
 	}
 	status, err := e.QueryExpression(query)
 	must(err)
-	if status != lbool.False || e.queryClone == nil {
-		t.Fatal("expected an unreachable expression query owner", status)
+	if status != lbool.False || e.spacer == nil {
+		t.Fatal("expected an unreachable expression query", status)
 	}
+	context := e.spacer
 	count := value("bool inductive gen")
 	elapsed := value("time.spacer.solve.reach.gen.bool_ind")
 	if count == 0 {
@@ -58,17 +59,10 @@ func TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation(t *testin
 	limit.IncCancel()
 	_, err = e.QueryExpression(quantified)
 	limit.DecCancel()
-	if err == nil || !strings.Contains(err.Error(), "canceled") || e.queryClone != nil || e.spacer == nil || e.spacerRules != nil || !e.engineInstantiated {
-		t.Fatal("expected failed preparation before program installation", err)
-	}
-	// Source context::query constructs dl_interface and its Spacer context
-	// before mk_query can observe cancellation. This owner has no installed
-	// program and must survive to perform the successful retry.
-	preparationContext := e.spacer
-	initialized, err := preparationContext.Initialized()
-	must(err)
-	if initialized {
-		t.Fatal("failed preparation installed a program")
+	// mk_query observes the cancellation; the interface's context keeps
+	// its program for the retry.
+	if err == nil || !strings.Contains(err.Error(), "canceled") || e.spacer != context || !e.engineInstantiated {
+		t.Fatal("expected failed preparation before check_reset", err)
 	}
 	if _, err = e.LastResult(); !errors.Is(err, ErrPropositionalEngine) {
 		t.Fatal("failed preparation published a result", err)
@@ -81,34 +75,25 @@ func TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation(t *testin
 	}
 	status, err = e.QueryExpression(query)
 	must(err)
-	if status != lbool.False || e.queryClone == nil || e.queryClone.spacer != preparationContext || e.spacer != nil {
+	if status != lbool.False || e.spacer != context {
 		t.Fatal("retry result", status)
 	}
-	collected := statistics.New()
-	must(e.queryClone.CollectStatistics(collected))
-	var currentCount float64
-	for i := 0; i < collected.Size(); i++ {
-		if collected.IsUint(i) && collected.Key(i) == "bool inductive gen" {
-			currentCount += float64(collected.UintValue(i))
-		}
-	}
-	if currentCount == 0 || value("bool inductive gen") != currentCount {
-		t.Fatal("new installation accumulated obsolete generalizer counts", value("bool inductive gen"), currentCount)
+	// update_rules rebuilds the lemma generalizers, and their counters.
+	if value("bool inductive gen") == 0 {
+		t.Fatal("retry did not invoke Boolean inductive generalization")
 	}
 	must(e.ResetStatistics())
 	if value("bool inductive gen") != 0 || value("time.spacer.solve.reach.gen.bool_ind") != 0 {
 		t.Fatal("statistics reset left generalizer history")
 	}
-	prior := e.queryClone
-	context := prior.spacer
 	m.Budget().FailAfter(0)
 	_, err = e.QueryExpression(query)
 	m.Budget().FailAfter(-1)
 	if !errors.Is(err, arena.ErrInjectedFailure) {
-		t.Fatal("expected refused previous-query disposal", err)
+		t.Fatal("expected a refused query", err)
 	}
-	if e.queryClone != prior || prior.closed || prior.spacer != context {
-		t.Fatal("refused disposal discarded its context owner")
+	if e.spacer != context {
+		t.Fatal("refused query discarded the interface's context")
 	}
 	if _, err = e.LastResult(); !errors.Is(err, ErrPropositionalEngine) {
 		t.Fatal("refused disposal exposed an obsolete result", err)
@@ -118,8 +103,4 @@ func TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation(t *testin
 	if status != lbool.False {
 		t.Fatal("retry after previous-query disposal refusal", status)
 	}
-	if !prior.closed {
-		t.Fatal("retry did not finish previous-query disposal")
-	}
-	must(context.Close())
 }

@@ -115,7 +115,7 @@ func TestExpressionQueryPreparationFailureKeepsInstantiatedScope(t *testing.T) {
 						expressionScopePhasePopRejected(t, e)
 						status, err := e.QueryExpression(query)
 						fragmentMust(t, err)
-						if status != lbool.True || e.queryClone == nil || e.queryClone.pdr != originalPDR || e.queryClone.spacer != originalSpacer {
+						if status != lbool.True || e.pdr != originalPDR || e.spacer != originalSpacer {
 							t.Fatal("retry did not use the constructed source context", status)
 						}
 						expressionScopePhasePopRejected(t, e)

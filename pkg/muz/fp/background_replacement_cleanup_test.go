@@ -117,10 +117,12 @@ func testSpacerBackgroundReplacementCleanup(t *testing.T, completion string) {
 	must(scoped.Close())
 	status, err := engine.QueryExpression(fact)
 	must(err)
-	if status != lbool.True || engine.queryClone == nil || engine.queryClone.spacer == nil {
-		t.Fatal("missing completed query clone", status)
+	if status != lbool.True || engine.spacer == nil {
+		t.Fatal("missing completed Spacer query", status)
 	}
-	must(engine.clearQueryResources())
+	// updt_params drops the interface's context (and its set_axioms copy
+	// of the background).
+	must(engine.SetQueryParameters(nil))
 	replacement, err := manager.MkFalse()
 	must(err)
 	replacementRoot, err := manager.NewRef(replacement)

@@ -40,26 +40,16 @@ func TestPDRExpressionPrequeryOwnerFailureAndRetry(t *testing.T) {
 				if _, err := e.ExpressionAnswer(); !errors.Is(err, ErrPropositionalEngine) {
 					t.Fatal("failed query published an answer", err)
 				}
-				if e.queryClone != nil {
+				if e.pdr != owner {
+					t.Fatal("failed query replaced the interface's context")
+				}
+				// A failure after update_rules leaves the installed program.
+				installed, err := owner.Initialized()
+				must(err)
+				if installed {
 					solveFailures++
-					if e.queryClone.pdr != owner {
-						t.Fatal("failed solve lost its original context owner")
-					}
-					initialized, err := owner.Initialized()
-					must(err)
-					if !initialized {
-						t.Fatal("failed-solve fixture did not install rules")
-					}
 				} else {
 					preparationFailures++
-					if e.pdr != owner {
-						t.Fatal("failed preparation replaced its original owner")
-					}
-					initialized, err := owner.Initialized()
-					must(err)
-					if initialized {
-						t.Fatal("failed preparation published a program")
-					}
 				}
 				cover, err := e.CoverDelta(2, declaration)
 				must(err)
@@ -69,7 +59,7 @@ func TestPDRExpressionPrequeryOwnerFailureAndRetry(t *testing.T) {
 				if handle != property {
 					t.Fatal("failed query lost the pre-query cover", handle, property)
 				}
-				if e.queryClone != nil {
+				if installed {
 					must(e.addRuleEager(fact, "duplicate-after-failed-query"))
 					if _, err := e.CoverDelta(2, declaration); !errors.Is(err, ErrPropositionalEngine) {
 						t.Fatal("rule mutation exposed stale failed-query frames", err)

@@ -62,10 +62,10 @@ func TestSpacerExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("zero relation is unreachable", status)
 			}
-			if e.spacer != nil || e.queryClone == nil || e.queryClone.spacer != context {
+			if e.spacer != context {
 				t.Fatal("expression query did not transfer the pre-query context owner")
 			}
-			cover, err := context.CoverDelta(2, e.queryClone.spacerPredicate(declaration))
+			cover, err := context.CoverDelta(2, e.spacerPredicate(declaration))
 			must(err)
 			handle, err := m.RefGet(cover)
 			must(err)
@@ -88,7 +88,7 @@ func TestSpacerExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			must(e.AddCover(3, declaration, property))
 			levels, err := e.NumLevels(declaration)
 			must(err)
-			if levels != 4 || e.spacer != nil {
+			if levels != 4 || e.spacer != context {
 				t.Fatal("property access created a disconnected context", levels)
 			}
 			answer, err := e.ExpressionAnswer()
@@ -99,8 +99,8 @@ func TestSpacerExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("repeated zero query", status)
 			}
-			if _, err := context.NumLevels(declaration); err == nil {
-				t.Fatal("superseded expression context stayed open")
+			if e.spacer != context {
+				t.Fatal("repeated query replaced the interface's context")
 			}
 			if _, err := m.RefGet(answer); err != nil {
 				t.Fatal("query replacement invalidated the caller's owning answer", err)
@@ -108,7 +108,7 @@ func TestSpacerExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			if _, err := m.RefGet(cover); err != nil {
 				t.Fatal("query replacement invalidated the caller's owning cover", err)
 			}
-			raw, err := e.queryClone.spacer.CoverDelta(3, e.queryClone.spacerPredicate(declaration))
+			raw, err := e.spacer.CoverDelta(3, e.spacerPredicate(declaration))
 			must(err)
 			handle, err = m.RefGet(raw)
 			must(err)

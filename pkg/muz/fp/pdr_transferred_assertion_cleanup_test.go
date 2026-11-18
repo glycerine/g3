@@ -15,7 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-// A public prequery context moves into the expression-query clone. Its live
+// A public prequery context serves the expression query. Its live
 // constraint cache simplifies an unsatisfiable temporary assertion; the
 // _smt_context fml owner must transport and finish a native metadata
 // destructor failure.
@@ -99,10 +99,10 @@ func TestPDRTransferredContextAssertionCleanupFailureAndRetry(t *testing.T) {
 	}
 	status, err := engine.QueryExpression(fact)
 	must(err)
-	if status != lbool.True || engine.queryClone == nil || engine.queryClone.pdr != prequery || engine.pdr != nil {
-		t.Fatal("prequery context was not transferred to the expression clone", status)
+	if status != lbool.True || engine.pdr != prequery {
+		t.Fatal("expression query did not use the prequery context", status)
 	}
-	context := engine.queryClone.pdr
+	context := engine.pdr
 	transformer, found, err := context.Transformer(predicate)
 	must(err)
 	if !found {
@@ -194,8 +194,8 @@ func TestPDRTransferredContextAssertionCleanupFailureAndRetry(t *testing.T) {
 	if receipt.Error() != shown || receipt.Unwrap() != exposed || receipt.CleanupCause() != nil {
 		t.Fatal("assertion cleanup receipt changed after completion")
 	}
-	if engine.queryClone == nil || engine.queryClone.pdr != context {
-		t.Fatal("cleanup discarded the live transferred context")
+	if engine.pdr != context {
+		t.Fatal("cleanup discarded the live context")
 	}
 	must(engine.CollectStatistics(statistics.New()))
 	cached, err = transformer.IsCachedReachable(truth)
@@ -205,11 +205,8 @@ func TestPDRTransferredContextAssertionCleanupFailureAndRetry(t *testing.T) {
 	}
 	status, err = engine.QueryExpression(fact)
 	must(err)
-	if status != lbool.True || engine.queryClone == nil || engine.queryClone.pdr == context {
-		t.Fatal("fresh expression query did not replace the prior owner", status)
-	}
-	if _, err = context.Initialized(); err == nil {
-		t.Fatal("fresh query left its predecessor open")
+	if status != lbool.True || engine.pdr != context {
+		t.Fatal("fresh expression query replaced the interface's context", status)
 	}
 	must(engine.CollectStatistics(statistics.New()))
 	must(engine.Close())

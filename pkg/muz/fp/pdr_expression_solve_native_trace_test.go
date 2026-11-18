@@ -12,6 +12,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
@@ -20,6 +21,7 @@ import (
 
 type pdrSolveNativeFailureWriter struct {
 	engine      *PropositionalEngine
+	context     *pdr.Context
 	cleanup     ruleUpdateDERCleanupWriter
 	transferred bool
 }
@@ -29,7 +31,7 @@ func (w *pdrSolveNativeFailureWriter) Write(p []byte) (int, error) {
 		w.cleanup.matched = true
 	}
 	if w.cleanup.matched && !w.cleanup.boundary.interrupted && string(p) == "------------------------------------------------\n" {
-		w.transferred = w.engine.pdr == nil
+		w.transferred = w.engine.pdr == w.context
 		w.cleanup.boundary.seen = true
 		return w.cleanup.boundary.Write(p)
 	}
@@ -70,7 +72,7 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeSolveFailure(t *testing.T) {
 	// z3's are) stay allocated past pdr_context.cpp:1888, and the first
 	// deallocation after them, inside the native solve's static features,
 	// must still cross it.
-	writer := &pdrSolveNativeFailureWriter{engine: f.e, cleanup: ruleUpdateDERCleanupWriter{boundary: ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime, slack: 1 << 16}}}
+	writer := &pdrSolveNativeFailureWriter{engine: f.e, context: prequery, cleanup: ruleUpdateDERCleanupWriter{boundary: ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime, slack: 1 << 16}}}
 	tags := diagnostic.NewTraceTagsWithWriter(writer)
 	tags.Enable("pdr")
 	t.Cleanup(tags.Finalize)
@@ -89,9 +91,8 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeSolveFailure(t *testing.T) {
 	if !writer.cleanup.matched || !writer.cleanup.boundary.interrupted || !writer.transferred || status != lbool.Undef || !errors.Is(cause, arena.ErrBounds) || !strings.Contains(cause.Error(), "smt kernel configure asserted bounds") {
 		t.Fatal("query missed the native solve failure after owner transfer", status, cause)
 	}
-	clone := f.e.queryClone
-	if clone == nil || clone.pdr != prequery || clone.pdrRules == nil || f.e.pdr != nil {
-		t.Fatal("native failure lost the initialized transferred context")
+	if f.e.pdr != prequery || f.e.pdrRules == nil {
+		t.Fatal("native failure lost the initialized context")
 	}
 	initialized, err := prequery.Initialized()
 	fragmentMust(t, err)
@@ -112,11 +113,8 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeSolveFailure(t *testing.T) {
 	message := cause.Error()
 	status, err = f.e.QueryExpression(query)
 	fragmentMust(t, err)
-	if status != lbool.True || f.e.queryClone == nil || f.e.queryClone == clone || f.e.queryClone.pdr == prequery || !clone.closed {
-		t.Fatal("public retry did not retire the failed owner and solve its rule", status)
-	}
-	if _, err = prequery.Initialized(); err == nil {
-		t.Fatal("query retry left the prior context open")
+	if status != lbool.True || f.e.pdr != prequery {
+		t.Fatal("public retry did not solve its rule on the interface's context", status)
 	}
 	count, err := persistent.Len()
 	fragmentMust(t, err)

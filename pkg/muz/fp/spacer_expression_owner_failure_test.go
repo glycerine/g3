@@ -19,7 +19,7 @@ func TestSpacerExpressionPrequeryOwnerFailureAndRetry(t *testing.T) {
 			budget := m.Budget()
 			defer budget.FailAfter(-1)
 			must := func(err error) { t.Helper(); fragmentMust(t, err) }
-			declaration, property, query, fact := f.declaration, f.property, f.query, f.fact
+			declaration, property, query := f.declaration, f.property, f.query
 			owner := e.spacer
 			budget.FailAfter(stop)
 			status, err := e.QueryExpression(query)
@@ -40,26 +40,16 @@ func TestSpacerExpressionPrequeryOwnerFailureAndRetry(t *testing.T) {
 				if _, err := e.ExpressionAnswer(); !errors.Is(err, ErrPropositionalEngine) {
 					t.Fatal("failed query published an answer", err)
 				}
-				if e.queryClone != nil {
+				if e.spacer != owner {
+					t.Fatal("failed query replaced the interface's context")
+				}
+				// A failure after update_rules leaves the installed program.
+				installed, err := owner.Initialized()
+				must(err)
+				if installed {
 					solveFailures++
-					if e.queryClone.spacer != owner {
-						t.Fatal("failed solve lost its original context owner")
-					}
-					initialized, err := owner.Initialized()
-					must(err)
-					if !initialized {
-						t.Fatal("failed-solve fixture did not install rules")
-					}
 				} else {
 					preparationFailures++
-					if e.spacer != owner {
-						t.Fatal("failed preparation replaced its original owner")
-					}
-					initialized, err := owner.Initialized()
-					must(err)
-					if initialized {
-						t.Fatal("failed preparation published a program")
-					}
 				}
 				cover, err := e.CoverDelta(2, declaration)
 				must(err)
@@ -68,12 +58,6 @@ func TestSpacerExpressionPrequeryOwnerFailureAndRetry(t *testing.T) {
 				must(err)
 				if handle != property {
 					t.Fatal("failed query lost the pre-query cover", handle, property)
-				}
-				if e.queryClone != nil {
-					must(e.addRuleEager(fact, "duplicate-after-failed-query"))
-					if _, err := e.CoverDelta(2, declaration); !errors.Is(err, ErrPropositionalEngine) {
-						t.Fatal("rule mutation exposed stale failed-query frames", err)
-					}
 				}
 				status, err = e.QueryExpression(query)
 				must(err)

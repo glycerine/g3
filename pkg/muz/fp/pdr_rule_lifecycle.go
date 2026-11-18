@@ -42,6 +42,10 @@ func (e *PropositionalEngine) checkPDRSourceRules() (resultErr error) {
 	if e.pdrSourceRules == nil {
 		return nil
 	}
+	oldCount, err := e.pdrSourceRules.Len()
+	if err != nil || oldCount == 0 {
+		return err
+	}
 	// Source check_reset compares persistent rules before reaching the fresh
 	// synthetic query rule. Report an earlier uncovered persistent rule in the
 	// same order; the fresh query rule itself guarantees the later reset.
@@ -49,14 +53,19 @@ func (e *PropositionalEngine) checkPDRSourceRules() (resultErr error) {
 	if err != nil {
 		return err
 	}
-	if missing >= 0 {
-		oldCount, err := e.pdrSourceRules.Len()
-		if err == nil && oldCount > 0 {
-			err = e.tracePDRFreshRule(missing)
-		}
+	if missing < 0 {
+		return nil
+	}
+	if err = e.tracePDRFreshRule(missing); err != nil {
 		return err
 	}
-	return nil
+	// The first rule no old rule subsumes: m_context->reset(), before
+	// m_old_rules.replace_rules releases the previous query's rules. A
+	// context updt_params just rebuilt is still to be made, and empty.
+	if e.pdr == nil {
+		return nil
+	}
+	return e.pdr.Reset()
 }
 
 // replacePDRRuleSnapshots publishes the new query snapshots only after every

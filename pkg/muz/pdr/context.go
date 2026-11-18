@@ -222,12 +222,11 @@ func (c *Context) Initialized() (bool, error) {
 	return c.initialized, nil
 }
 
+// SetBackground is set_axioms: the transformers update_rules makes next
+// assert it.
 func (c *Context) SetBackground(background ast.ASTHandle) error {
 	if err := c.open(); err != nil {
 		return err
-	}
-	if c.initialized {
-		return ast.ErrASTDomain
 	}
 	return c.owner.SetBackground(background)
 }
@@ -405,14 +404,13 @@ func (c *Context) SetGenerateProofTrace(enabled bool) error {
 // SetAuxiliaryPredicates records declarations introduced by retained rule
 // transformations. Their transformer state participates in solving but is
 // omitted from externally visible inductive certificates, as in the source
-// model-converter path. It must be called before Initialize.
+// model-converter path. They describe the program the next Initialize
+// installs.
 func (c *Context) SetAuxiliaryPredicates(declarations []ast.ASTHandle) error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	if c.initialized {
-		return ast.ErrASTDomain
-	}
+	c.auxiliary = make(map[ast.ASTHandle]bool, len(declarations))
 	for _, declaration := range declarations {
 		kind, err := c.manager.GetKind(declaration)
 		if err != nil {
@@ -558,7 +556,7 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	if err := c.open(); err != nil {
 		return err
 	}
-	if c.initialized || set == nil {
+	if set == nil {
 		return ast.ErrASTDomain
 	}
 	plan, err := c.planRules(set)
@@ -568,17 +566,24 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	defer func() { resultErr = errors.Join(resultErr, plan.close()) }()
 	order, buckets := plan.order, plan.buckets
 	transformers := make(map[ast.ASTHandle]*PredicateTransformer, len(order))
-	// A pre-query cover may have allocated solvers in the old proof mode.
-	// Build rule transformers from a fresh pool; the manager continues to own
-	// the old solvers until Close, while their frame properties are inherited.
-	c.owner.contexts.solverStart = len(c.owner.contexts.solvers)
-	c.owner.contexts.arithmetic.enabled = false
-	c.owner.contexts.arithmetic.effective = smtcore.SMTArithmeticNoSolver
 	nonBoolean := plan.nonBoolean
 	c.farkasActive = c.useFarkas && nonBoolean
 	c.proofActive = nonBoolean || c.useConvexClosure || c.useConvexInterior
 	arithmetic := plan.arithmetic
-	if arithmetic.enabled {
+	pool := c.owner.contexts
+	if pool.keepsPool(c.proofActive, arithmetic.enabled, arithmetic.selectMode, arithmetic.mode, arithmetic.eq2ineq) {
+		// The kernels outlive context::reset and serve the new program.
+	} else {
+		// A kernel made in another proof mode or arithmetic configuration
+		// (a pre-query cover's, say) cannot serve this program: build the
+		// rule transformers from a fresh pool. The manager continues to own
+		// the old solvers until Close, while their frame properties are
+		// inherited.
+		pool.solverStart = len(pool.solvers)
+		pool.arithmetic.enabled = false
+		pool.arithmetic.effective = smtcore.SMTArithmeticNoSolver
+	}
+	if arithmetic.enabled && len(pool.solvers) == pool.solverStart {
 		if err = c.owner.contexts.configureArithmetic(arithmetic.selectMode, arithmetic.mode, arithmetic.eq2ineq); err != nil {
 			return err
 		}
@@ -634,9 +639,19 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 			}
 		}
 	}
+	// update_rules' reset(false): m_search.reset(), reset(m_rels), and the
+	// query, its result and inductive level.
+	if err = c.search.Reset(); err != nil {
+		return err
+	}
 	if err = closeTransformers(c.order, c.transformers); err != nil {
 		return err
 	}
+	c.unknownResult = false
+	c.query = nil
+	c.queryDecl = ast.ASTHandle{}
+	c.lastResult = lbool.Undef
+	c.inductive = 0
 	c.transformers = transformers
 	c.order = order
 	c.initialized = true

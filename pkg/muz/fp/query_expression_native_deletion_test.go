@@ -40,7 +40,7 @@ func (w *expressionQueryNativeDeletionWriter) Write(p []byte) (int, error) {
 		w.seen = true
 		// The writer runs inside AST deletion. Read only engine fields here;
 		// another AST operation would reenter the manager's locked scope.
-		w.completed = w.engine.queryClone != nil && w.engine.queryReady && w.engine.lastResult == lbool.True
+		w.completed = w.engine.pdr != nil && w.engine.pdrRules != nil
 		if w.fail {
 			w.cleanup.boundary.seen = true
 			// This writer succeeds. The following numeric destructor reaches
@@ -149,7 +149,7 @@ func checkExpressionQueryNativeDeletion(t *testing.T, completion string, fail bo
 	if !writer.seen || !writer.completed || status != lbool.True {
 		t.Fatal("fixture missed the final original-query deletion after solving", status, cause, writer.seen, writer.completed)
 	}
-	previous := f.e.queryClone
+	previous := f.e.pdr
 	message := ""
 	if fail {
 		if !writer.cleanup.boundary.interrupted || !errors.Is(cause, arena.ErrBounds) {
@@ -182,8 +182,8 @@ func checkExpressionQueryNativeDeletion(t *testing.T, completion string, fail bo
 	if completion == "query-retry" {
 		status, err = f.e.QueryExpression(atom)
 		fragmentMust(t, err)
-		if status != lbool.True || f.e.queryClone == nil || f.e.queryClone == previous || !previous.closed {
-			t.Fatal("public retry did not replace the completed query owner", status)
+		if status != lbool.True || f.e.pdr != previous {
+			t.Fatal("public retry did not keep the interface's context", status)
 		}
 		last, err := f.e.LastResult()
 		fragmentMust(t, err)
@@ -192,8 +192,8 @@ func checkExpressionQueryNativeDeletion(t *testing.T, completion string, fail bo
 		}
 	} else {
 		fragmentMust(t, f.e.Close())
-		if !previous.closed {
-			t.Fatal("engine close left the completed query owner open")
+		if _, err := previous.Initialized(); err == nil {
+			t.Fatal("engine close left the PDR context open")
 		}
 	}
 	counts.resumed = contextDisplayLiveCounts(f.m.Stats())

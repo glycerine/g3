@@ -72,10 +72,10 @@ func TestPDRExpressionAnswersPreserveInitialModelAfterPrequeryTransfer(t *testin
 			}
 			status, err := e.QueryExpression(query)
 			must(err)
-			if status != lbool.True || e.pdr != nil || e.queryClone == nil || e.queryClone.pdr != prequery {
+			if status != lbool.True || e.pdr != prequery {
 				t.Fatal("expression query did not transfer the prequery context", status)
 			}
-			rules, err := e.queryClone.pdrRules.PredicateRules(predicate)
+			rules, err := e.pdrRules.PredicateRules(predicate)
 			must(err)
 			count := len(rules)
 			for _, rule := range rules {
@@ -86,7 +86,7 @@ func TestPDRExpressionAnswersPreserveInitialModelAfterPrequeryTransfer(t *testin
 			}
 			checks := func() uint32 {
 				t.Helper()
-				snapshot, err := e.queryClone.pdr.SnapshotStatistics()
+				snapshot, err := e.pdr.SnapshotStatistics()
 				must(err)
 				var count uint32
 				for i := 0; i < snapshot.Solvers.Size(); i++ {

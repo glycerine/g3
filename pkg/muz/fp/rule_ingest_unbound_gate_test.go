@@ -137,6 +137,11 @@ func TestRuleIngestionUnboundGateUsesCurrentPhaseParameters(t *testing.T) {
 							t.Fatal("enumeration prematurely normalized closed input")
 						}
 					}
+					// The query's transformations use rule_manager's m_qe
+					// (fix_unbound_vars(r, true)) whatever the gate says.
+					if !current && e.unboundLite != liteBefore {
+						t.Fatal("disabled pending normalization created QE-lite services")
+					}
 					query := f.own(m.MkApp(predicate, []ast.ASTHandle{seven}))
 					status, err := e.QueryExpression(query)
 					fragmentMust(t, err)
@@ -146,9 +151,6 @@ func TestRuleIngestionUnboundGateUsesCurrentPhaseParameters(t *testing.T) {
 					afterQuery := checkNormalized()
 					if !beforeQuery.IsNull() && afterQuery != beforeQuery {
 						t.Fatal("query changed an already normalized persistent clause")
-					}
-					if !current && e.unboundLite != liteBefore {
-						t.Fatal("disabled pending normalization created QE-lite services")
 					}
 					setCurrent(!current)
 					if checkNormalized() != afterQuery {

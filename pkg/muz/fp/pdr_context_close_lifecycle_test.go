@@ -29,15 +29,17 @@ func TestPDRTransferredContextCloseRemainsIdempotentAfterRetirement(t *testing.T
 	}
 	status, err := e.QueryExpression(query)
 	must(err)
-	if status != lbool.True || e.queryClone == nil || e.queryClone.pdr != first || e.pdr != nil {
+	if status != lbool.True || e.pdr != first {
 		t.Fatal("expression query did not transfer its prequery context", status)
 	}
+	// updt_params retires the interface's context.
+	must(e.SetQueryParameters(nil))
 	status, err = e.QueryExpression(query)
 	must(err)
-	if status != lbool.True || e.queryClone == nil || e.queryClone.pdr == first {
+	if status != lbool.True || e.pdr == first {
 		t.Fatal("replacement query did not retire the previous context", status)
 	}
-	second := e.queryClone.pdr
+	second := e.pdr
 	if _, err = first.Initialized(); !errors.Is(err, pdr.ErrContextOwner) {
 		t.Fatal("superseded context still accepts live operations", err)
 	}

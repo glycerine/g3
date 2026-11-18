@@ -19,6 +19,12 @@ import (
 
 var ErrSMTContextOwner = errors.New("muz/pdr: invalid or closed SMT context owner")
 
+type smtArithmeticConfig struct {
+	enabled, selectMode, eq2ineq bool
+	mode                         uint32
+	effective                    uint32
+}
+
 type SMTContextManager struct {
 	manager     *ast.ASTManager
 	params      *uparams.ParamsRef
@@ -32,12 +38,12 @@ type SMTContextManager struct {
 	active      uint32
 	retired     statistics.Statistics
 	retiring    map[*smtcore.SMTSolver]statistics.Statistics
-	arithmetic  struct {
-		enabled, selectMode, eq2ineq bool
-		mode                         uint32
-		effective                    uint32
-	}
-	closed bool
+	arithmetic  smtArithmeticConfig
+	// poolProof and poolArithmetic are the proof mode and arithmetic
+	// settings the current pool's kernels were made with.
+	poolProof      bool
+	poolArithmetic smtArithmeticConfig
+	closed         bool
 }
 
 func NewSMTContextManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximum uint32, config smtcore.SMTSolverConfig) (*SMTContextManager, error) {
@@ -55,6 +61,13 @@ func (m *SMTContextManager) open() error {
 }
 
 func (m *SMTContextManager) newSolver() (*smtcore.SMTSolver, error) {
+	if len(m.solvers) == m.solverStart {
+		proofs, err := m.manager.ProofsEnabled()
+		if err != nil {
+			return nil, err
+		}
+		m.poolProof, m.poolArithmetic = proofs, m.arithmetic
+	}
 	solver, err := smtcore.NewSMTSolver(m.manager, m.params, "", m.config)
 	if err != nil {
 		return nil, err
@@ -96,6 +109,17 @@ func (m *SMTContextManager) configureArithmetic(selectMode bool, mode uint32, eq
 	m.arithmetic.mode = mode
 	m.arithmetic.eq2ineq = eq2ineq
 	return nil
+}
+
+// keepsPool reports whether the current pool's kernels were made with the
+// given proof mode and arithmetic settings: the source's kernels share
+// m_fparams and outlive context::reset, so a program installed with the
+// settings they were made with keeps using them.
+func (m *SMTContextManager) keepsPool(proofs, enabled, selectMode bool, mode uint32, eq2ineq bool) bool {
+	if len(m.solvers) == m.solverStart || m.poolProof != proofs || m.poolArithmetic.enabled != enabled {
+		return false
+	}
+	return !enabled || m.poolArithmetic.selectMode == selectMode && m.poolArithmetic.mode == mode && m.poolArithmetic.eq2ineq == eq2ineq
 }
 
 func (m *SMTContextManager) arithmeticMode() uint32 {

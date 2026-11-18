@@ -1,6 +1,6 @@
 package fp
 
-// Source: expression-query PDR owner transfer around pdr_dl_interface::query.
+// Source: the PDR interface context across pdr_dl_interface::query.
 
 import (
 	"errors"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -15,7 +16,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func TestPDRExpressionTransferredOwnerSurvivesNativeCleanupRefusal(t *testing.T) {
+func TestPDRExpressionContextSurvivesNativeCleanupRefusal(t *testing.T) {
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -23,7 +24,8 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeCleanupRefusal(t *testing.T)
 		}
 	}
 	budget := arena.NewBudget(1 << 28)
-	var engine, clone *PropositionalEngine
+	var engine *PropositionalEngine
+	var prequery *pdr.Context
 	var query ast.ASTHandle
 	active, callback := false, false
 	var cleanupErr error
@@ -32,11 +34,8 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeCleanupRefusal(t *testing.T)
 			callback = true
 			status, queryErr := engine.QueryExpression(query)
 			cleanupErr = queryErr
-			if status != lbool.Undef || !errors.Is(cleanupErr, ast.ErrASTPending) || engine.queryClone != clone || clone.closed {
-				t.Fatalf("native refusal lost transferred query owner: %v", cleanupErr)
-			}
-			if clone.pdr == nil {
-				t.Fatal("native refusal detached the transferred PDR context")
+			if status != lbool.Undef || !errors.Is(cleanupErr, ast.ErrASTPending) || engine.pdr != prequery {
+				t.Fatalf("native refusal lost the interface's PDR context: %v", cleanupErr)
 			}
 		}
 		return f
@@ -112,13 +111,12 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeCleanupRefusal(t *testing.T)
 	must(err)
 	defer func() { must(manager.DelRef(&queryRef)) }()
 	must(engine.AddCover(2, predicate, property))
-	prequery := engine.pdr
+	prequery = engine.pdr
 	status, err := engine.QueryExpression(query)
 	must(err)
-	if status != lbool.True || engine.queryClone == nil || engine.queryClone.pdr != prequery || engine.pdr != nil {
-		t.Fatal("fixture did not transfer pre-query PDR owner", status)
+	if status != lbool.True || engine.pdr != prequery {
+		t.Fatal("expression query did not use the pre-query PDR context", status)
 	}
-	clone = engine.queryClone
 
 	value, err := numbers.NewValue()
 	must(err)
@@ -153,10 +151,7 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeCleanupRefusal(t *testing.T)
 	if status != lbool.True {
 		t.Fatal("query did not recover after cleanup continuation", status)
 	}
-	if !clone.closed {
-		t.Fatal("public query retry did not retire transferred clone")
-	}
-	if _, err = prequery.Initialized(); err == nil {
-		t.Fatal("public query retry left transferred PDR context open")
+	if engine.pdr != prequery {
+		t.Fatal("public query retry replaced the interface's PDR context")
 	}
 }

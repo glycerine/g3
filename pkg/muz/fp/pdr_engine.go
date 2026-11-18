@@ -94,11 +94,24 @@ func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Stati
 // deallocates m_context and allocates a fresh pdr::context: every counter of
 // the old context (and its pdr::manager) is discarded with it.
 func (e *PropositionalEngine) resetPDRForParameterUpdate() error {
+	// The context's m_mc keeps the conversions m_context held.
+	if !e.pdrNullModelConverter {
+		e.contextConversions = append(e.contextConversions, e.pdrConversions...)
+		e.pdrConversions = nil
+	}
 	if err := e.closePDRForReplacement(); err != nil {
 		return err
 	}
 	e.pdrStatistics = pdr.StatisticsSnapshot{}
 	return nil
+}
+
+// releaseContextConversions is the context's m_mc = mk_skip_model_converter()
+// for the conversions only m_mc held.
+func (e *PropositionalEngine) releaseContextConversions() error {
+	err := closeHornModelConversions(e.contextConversions)
+	e.contextConversions = nil
+	return err
 }
 
 func (e *PropositionalEngine) closePDRForReplacement() error {
@@ -253,33 +266,23 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	if err = e.tracePDRInput(declaration); err != nil {
 		return lbool.Undef, err
 	}
-	parameters, err := e.fixedpointParamView()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
-	context, err := e.newConfiguredPDRContext(parameters)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	closeContext := func() error {
-		if context == e.pdr {
-			if e.pdrRules == nil {
-				initialized, err := context.Initialized()
-				if err == nil && !initialized {
-					return nil
-				}
-				if err != nil {
-					return errors.Join(err, e.closePDRForReplacement())
-				}
-			}
-			return e.closePDRForReplacement()
+	// m_context: the interface's context, which updt_params rebuilds.
+	context := e.pdr
+	if context == nil {
+		parameters, err := e.fixedpointParamView()
+		if err != nil {
+			return lbool.Undef, err
 		}
-		return context.Close()
+		context, err = e.newConfiguredPDRContext(parameters)
+		if err = errors.Join(err, parameters.Close()); err != nil {
+			return lbool.Undef, err
+		}
+		e.pdr = context
+		e.pdrRevision = e.revision
 	}
 	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, true)
 	if err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
+		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
 	prepared := preprocessed.rules
@@ -287,113 +290,61 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	// check_rules on the transformed set: rule_properties::collect gives
 	// every rule still without a proof its asserted proof.
 	if err = e.assertTransformedRuleProofs(prepared); err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
+		return lbool.Undef, err
 	}
 	if err = e.tracePDRTransformedRules(prepared); err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
+		return lbool.Undef, err
 	}
 	if err = e.writePDRQueryRules(prepared); err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
+		return lbool.Undef, err
 	}
-	snapshot, err := snapshotHornRules(prepared)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
-	}
-	// m_old_rules was already replaced by check_reset.
-	sourceSnapshot := e.pdrSourceRules
-	keepSnapshot := false
-	defer func() {
-		if !keepSnapshot {
-			resultErr = errors.Join(resultErr, snapshot.Close())
-		}
-	}()
-	installed := false
-	defer func() {
-		if !installed {
-			resultErr = errors.Join(resultErr, closeHornModelConversions(preprocessed.modelConversions))
-			preprocessed.modelConversions = nil
-		}
-	}()
 	derivedPredicates := make(map[ast.ASTHandle]ast.ASTHandle, len(e.predicateOrder)+len(e.auxiliary)+1)
 	for _, original := range e.predicateOrder {
 		derived, deriveErr := prepared.DerivedPredicate(original)
 		if deriveErr != nil {
-			return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: resolve preprocessed PDR predicate: %w", deriveErr), context.Close())
+			return lbool.Undef, fmt.Errorf("muz/fp: resolve preprocessed PDR predicate: %w", deriveErr)
 		}
 		derivedPredicates[original] = derived
 	}
 	queryDeclaration, err := prepared.DerivedPredicate(declaration)
 	if err != nil {
-		return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: resolve preprocessed PDR query: %w", err), context.Close())
+		return lbool.Undef, fmt.Errorf("muz/fp: resolve preprocessed PDR query: %w", err)
 	}
 	auxiliary := make([]ast.ASTHandle, 0, len(e.auxiliary))
 	for declaration := range e.auxiliary {
 		derived := hornDerivedPredicate(declaration, preprocessed.quantifiedPredicates, preprocessed.scaledPredicates, preprocessed.magicPredicates, preprocessed.bitBlastedPredicates, preprocessed.instantiatedPredicates, preprocessed.slicedPredicates)
 		auxiliary = append(auxiliary, derived)
 	}
-	reset := e.pdr != nil && e.pdrRules != nil && e.pdrRuleRevision == e.revision
-	if e.pdr != nil && e.pdrRules == nil {
-		// Source check_reset preserves covers supplied before any old rules.
-		if err = context.Close(); err != nil {
-			return lbool.Undef, err
-		}
-		context = e.pdr
-	} else if reset {
-		if err = context.Close(); err != nil {
-			return lbool.Undef, err
-		}
-		context = e.pdr
-		if err = context.Reset(); err != nil {
-			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
-		}
-		if err = e.clearPDRPreprocessing(); err != nil {
-			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
-		}
-	} else {
-		// m_old_rules belongs to dl_interface and survives the context
-		// rebuild; check_reset already replaced it for this query.
-		source := e.pdrSourceRules
-		e.pdrSourceRules = nil
-		err = e.closePDRForReplacement()
-		e.pdrSourceRules = source
-		if err != nil {
-			return lbool.Undef, errors.Join(err, closeContext())
-		}
+	// m_pdr_rules.replace_rules(rules), then record_transformed_rules: the
+	// previous query's transformed rules go (an updt_params-retired
+	// m_pdr_rules included).
+	snapshot, err := snapshotHornRules(prepared)
+	if err != nil {
+		return lbool.Undef, err
 	}
-	if err = context.SetAuxiliaryPredicates(auxiliary); err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
-	}
-	background, backgroundErr := e.manager.RefGet(e.background)
-	if backgroundErr != nil {
-		return lbool.Undef, errors.Join(backgroundErr, closeContext())
-	}
-	if err = context.SetBackground(background); err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
-	}
-	// m_pdr_rules.replace_rules(rules) precedes update_rules.
 	if e.pdrRetiredRules != nil {
 		if err = e.pdrRetiredRules.Close(); err != nil {
-			return lbool.Undef, errors.Join(err, closeContext())
+			return lbool.Undef, errors.Join(err, snapshot.Close())
 		}
 		e.pdrRetiredRules = nil
 	}
-	if err = context.Initialize(prepared); err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
+	if e.pdrRules != nil {
+		if err = e.pdrRules.Close(); err != nil {
+			return lbool.Undef, errors.Join(err, snapshot.Close())
+		}
+		e.pdrRules = nil
 	}
-	if reset {
-		if err = e.replacePDRRuleSnapshots(snapshot, sourceSnapshot); err != nil {
-			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
+	// The cover accessors read an installed program (update_rules) only.
+	installed := false
+	defer func() {
+		if !installed {
+			resultErr = errors.Join(resultErr, snapshot.Close())
 		}
-	} else {
-		// m_old_rules.replace_rules(new_rules): a snapshot kept across a
-		// context rebuild is replaced here.
-		if e.pdrSourceRules != nil && e.pdrSourceRules != sourceSnapshot {
-			if err = e.pdrSourceRules.Close(); err != nil {
-				return lbool.Undef, errors.Join(err, closeContext())
-			}
-		}
-		e.pdrRules = snapshot
-		e.pdrSourceRules = sourceSnapshot
+	}()
+	// set_proof_converter and set_model_converter release the previous
+	// query's converters.
+	if err = e.clearPDRPreprocessing(); err != nil {
+		return lbool.Undef, err
 	}
 	e.installPDRPreprocessing(preprocessed)
 	// m_context->set_proof_converter(m_ctx.get_proof_converter()): the
@@ -416,12 +367,25 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 		return lbool.Undef, err
 	}
 	e.pdrDerived = derivedPredicates
-	e.pdr = context
 	e.pdrRevision = e.revision
 	e.pdrRuleRevision = e.revision
 	e.pdrQuery = declaration
-	keepSnapshot = true
-	installed = true
+	if err = context.SetAuxiliaryPredicates(auxiliary); err != nil {
+		return lbool.Undef, err
+	}
+	// set_axioms(bg_assertion)
+	background, err := e.manager.RefGet(e.background)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = context.SetBackground(background); err != nil {
+		return lbool.Undef, err
+	}
+	// update_rules(m_pdr_rules)
+	if err = context.Initialize(prepared); err != nil {
+		return lbool.Undef, err
+	}
+	e.pdrRules, installed = snapshot, true
 	status, err := solvePDRProgram(context, e.pdrRules, queryDeclaration)
 	if err == nil && status == lbool.False {
 		err = e.writePDREmptyProgramModel(declaration)

@@ -45,11 +45,11 @@ func newHornInlineArrayModelFixture(t *testing.T) (*fpRuleNameFixture, ast.ASTHa
 	fragmentMust(t, f.e.addRuleEager(step, "bad"))
 	status, err := f.e.QueryExpression(goal)
 	fragmentMust(t, err)
-	if status != lbool.False || f.e.queryClone == nil || !f.e.queryReady {
+	if status != lbool.False || !f.e.expressionQuerySelf || !f.e.queryReady {
 		t.Fatal("array contradiction did not publish an unreachable query", status)
 	}
 	inline, quantified := 0, 0
-	for _, conversion := range f.e.queryClone.spacerConversions {
+	for _, conversion := range f.e.spacerConversions {
 		if conversion.kind == hornConvertInline {
 			inline += len(conversion.inline)
 		}
@@ -57,7 +57,7 @@ func newHornInlineArrayModelFixture(t *testing.T) (*fpRuleNameFixture, ast.ASTHa
 			quantified += len(conversion.predicates)
 		}
 	}
-	if inline == 0 || quantified == 0 || len(f.e.queryClone.spacerQuantified) == 0 {
+	if inline == 0 || quantified == 0 || len(f.e.spacerQuantified) == 0 {
 		t.Fatal("public query did not install both model conversion stages", inline, quantified)
 	}
 	return f, predicate
@@ -92,13 +92,13 @@ func TestHornInlineModelAllocationFailureAndRetry(t *testing.T) {
 			hornInlineArrayModelBody(t, f, warm, predicate)
 			fragmentMust(t, warm.Close())
 			before := contextDisplayLiveCounts(f.m.Stats())
-			clone, head, revision := f.e.queryClone, f.e.queryClonePredicate, f.e.queryCloneRevision
+			head, revision := f.e.queryClonePredicate, f.e.queryRevision
 			checkUnchanged := func() {
 				t.Helper()
 				if after := contextDisplayLiveCounts(f.m.Stats()); after != before {
 					t.Fatal("inline model export leaked AST ownership", before, after)
 				}
-				if f.e.queryClone != clone || f.e.queryClonePredicate != head || f.e.queryCloneRevision != revision || !f.e.queryReady || f.e.lastResult != lbool.False {
+				if !f.e.expressionQuerySelf || f.e.queryClonePredicate != head || f.e.queryRevision != revision || !f.e.queryReady || f.e.lastResult != lbool.False {
 					t.Fatal("model export changed the published query")
 				}
 			}

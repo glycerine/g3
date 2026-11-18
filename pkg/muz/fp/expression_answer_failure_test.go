@@ -34,9 +34,9 @@ func TestExpressionAnswerAllocationFailurePublicationAndRetry(t *testing.T) {
 					if status != lbool.False {
 						t.Fatal("query", status)
 					}
-					conversions := e.queryClone.pdrConversions
+					conversions := e.pdrConversions
 					if backend == "spacer" {
-						conversions = e.queryClone.spacerConversions
+						conversions = e.spacerConversions
 					}
 					cone := false
 					for _, conversion := range conversions {

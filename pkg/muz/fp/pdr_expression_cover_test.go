@@ -62,10 +62,10 @@ func TestPDRExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("zero relation is unreachable", status)
 			}
-			if e.pdr != nil || e.queryClone == nil || e.queryClone.pdr != context {
+			if e.pdr != context {
 				t.Fatal("expression query did not transfer the pre-query context owner")
 			}
-			cover, err := context.CoverDelta(2, e.queryClone.pdrPredicate(declaration))
+			cover, err := context.CoverDelta(2, e.pdrPredicate(declaration))
 			must(err)
 			handle, err := m.RefGet(cover)
 			must(err)
@@ -88,7 +88,7 @@ func TestPDRExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			must(e.AddCover(3, declaration, property))
 			levels, err := e.NumLevels(declaration)
 			must(err)
-			if levels != 4 || e.pdr != nil {
+			if levels != 4 || e.pdr != context {
 				t.Fatal("property access created a disconnected context", levels)
 			}
 			answer, err := e.ExpressionAnswer()
@@ -99,8 +99,8 @@ func TestPDRExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("repeated zero query", status)
 			}
-			if _, err := context.NumLevels(declaration); err == nil {
-				t.Fatal("superseded expression context stayed open")
+			if e.pdr != context {
+				t.Fatal("repeated query replaced the interface's context")
 			}
 			if _, err := m.RefGet(answer); err != nil {
 				t.Fatal("query replacement invalidated the caller's owning answer", err)
@@ -108,7 +108,7 @@ func TestPDRExpressionQueryUsesPrequeryCoverOwner(t *testing.T) {
 			if _, err := m.RefGet(cover); err != nil {
 				t.Fatal("query replacement invalidated the caller's owning cover", err)
 			}
-			raw, err := e.queryClone.pdr.CoverDelta(3, e.queryClone.pdrPredicate(declaration))
+			raw, err := e.pdr.CoverDelta(3, e.pdrPredicate(declaration))
 			must(err)
 			handle, err = m.RefGet(raw)
 			must(err)

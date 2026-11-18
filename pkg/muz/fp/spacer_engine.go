@@ -702,6 +702,12 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 	if queryRule != nil && e.spacerRules != nil && e.spacerQuery != queryDeclaration {
 		resetRules = true
 	}
+	// check_reset's m_context->reset() precedes m_old_rules.replace_rules.
+	if resetRules && e.spacer != nil {
+		if err = e.spacer.Reset(); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	// check_reset ends with m_old_rules.replace_rules(new_rules): the
 	// previous query's rules (its query rule included) are released here,
 	// before the transformations.
@@ -777,11 +783,6 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 			}
 		}
 		return e.closeSpacerForReplacement()
-	}
-	if resetRules {
-		if err = context.Reset(); err != nil {
-			return lbool.Undef, errors.Join(err, closeContext())
-		}
 	}
 
 	background, err := e.manager.RefGet(e.background)

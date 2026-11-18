@@ -35,9 +35,9 @@ func TestExpressionBitBlastModelPreservesOriginalPredicates(t *testing.T) {
 			if status != lbool.False {
 				t.Fatal("bit-blasted query was not unreachable", status)
 			}
-			conversions := e.queryClone.pdrConversions
+			conversions := e.pdrConversions
 			if backend == "spacer" {
-				conversions = e.queryClone.spacerConversions
+				conversions = e.spacerConversions
 			}
 			var derived ast.ASTHandle
 			for _, conversion := range conversions {

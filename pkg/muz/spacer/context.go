@@ -1045,17 +1045,8 @@ func (c *Context) Reset() (result error) {
 	c.inductive = 0
 	c.solved = false
 	c.bounded = false
-	// Keep every old predicate's cover until all allocation-capable solver
-	// retirements finish. update_rules can then expose or inherit those covers
-	// again when a virtual solver's disabled-guard assertion refuses allocation.
-	// context::reset deallocates the transformers in m_rels table order.
-	for _, declaration := range c.order {
-		if transformer := c.transformers[declaration]; transformer != nil {
-			if err := transformer.closeSolvers(); err != nil {
-				return err
-			}
-		}
-	}
+	// context::reset deallocates the transformers in m_rels table order,
+	// each whole (~pred_transformer) before the next.
 	for _, declaration := range c.order {
 		if transformer := c.transformers[declaration]; transformer != nil {
 			if err := transformer.Close(); err != nil {

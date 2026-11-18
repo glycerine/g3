@@ -172,7 +172,7 @@ func TestPDRCoveredAdditionDoesNotHideBackgroundRevision(t *testing.T) {
 	must(e.addRuleEager(edge, "covered-addition-after-background"))
 	status, err = e.QueryPredicate(query)
 	must(err)
-	if status != lbool.False || e.pdr == prior {
+	if status != lbool.False || e.pdr != prior {
 		t.Fatal("covered addition hid a background revision", status)
 	}
 }

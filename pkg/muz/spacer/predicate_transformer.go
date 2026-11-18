@@ -675,18 +675,6 @@ func (p *PredicateTransformer) ResetStatistics() error {
 	return nil
 }
 
-// Closing the prop_solver releases its itp_solvers. The virtual solvers
-// themselves (both prop_solver contexts and m_reach_ctx) belong to their
-// virtual_solver_factory, which destroys them with the smt_context_manager.
-func (p *PredicateTransformer) closeSolvers() error {
-	if p.solver != nil {
-		if err := p.solver.Close(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (p *PredicateTransformer) Close() (result error) {
 	if p == nil {
 		return ErrManagerOwner

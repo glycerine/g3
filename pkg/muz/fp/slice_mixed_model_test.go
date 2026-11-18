@@ -91,12 +91,9 @@ func TestSliceMixedSortModelSatisfiesOriginalClauses(t *testing.T) {
 				if status != lbool.False {
 					t.Fatal("negative integer should be unreachable", status)
 				}
-				if e.queryClone == nil {
-					t.Fatal("expression query did not create child engine")
-				}
-				columns := e.queryClone.spacerSlices
+				columns := e.spacerSlices
 				if backend == "pdr" {
-					columns = e.queryClone.pdrSlices
+					columns = e.pdrSlices
 				}
 				removed := columns[predicate]
 				if len(removed) != 4 || !removed[0] || removed[1] || !removed[2] || removed[3] {

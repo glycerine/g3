@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
-func TestPDRExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
+func TestPDRExpressionStatisticsAccumulateInContext(t *testing.T) {
 	f := newPDRLifecycleFixture(t)
 	e := f.engine
 	must := func(err error) {
@@ -74,52 +74,49 @@ func TestPDRExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 		return count
 	}
 	checks := func(engine *PropositionalEngine) uint32 { return value(engine, "num checks") }
+	// dl_interface keeps one pdr::context: its counters and kernels persist
+	// across the queries (context::reset keeps both).
 	var total, unfoldings, depth uint32
+	context := e.pdr
 	for round := 0; round < 3; round++ {
-		prior := e.queryClone
 		status, err := e.QueryExpression(query)
 		must(err)
 		if status != lbool.True {
 			t.Fatal("query result", round, status)
 		}
-		if prior != nil {
-			if _, err := prior.LastResult(); err == nil {
-				t.Fatal("previous query clone remained open")
-			}
+		if round > 0 && e.pdr != context {
+			t.Fatal("expression query replaced the interface's context", round)
 		}
-		current := checks(e.queryClone)
-		if current == 0 {
-			t.Fatal("query clone reported no solver checks")
+		context = e.pdr
+		current := checks(e)
+		if current <= total {
+			t.Fatal("query reported no new solver checks", round, current, total)
 		}
-		total += current
-		unfoldings += value(e.queryClone, "PDR num unfoldings")
-		currentDepth := value(e.queryClone, "PDR max depth")
+		total = current
+		currentUnfoldings := value(e, "PDR num unfoldings")
+		if currentUnfoldings < unfoldings {
+			t.Fatal("unfolding history was lost", currentUnfoldings, unfoldings)
+		}
+		unfoldings = currentUnfoldings
+		currentDepth := value(e, "PDR max depth")
 		if currentDepth == 0 {
 			t.Fatal("fixture did not create a nontrivial search depth")
 		}
-		if currentDepth > depth {
-			depth = currentDepth
+		if currentDepth < depth {
+			t.Fatal("maximum depth decreased across queries", currentDepth, depth)
 		}
-		if got := value(e, "PDR max depth"); got != depth {
-			t.Fatal("maximum depth was added across queries", got, depth)
-		}
-		if got := value(e, "PDR num unfoldings"); got != unfoldings {
-			t.Fatal("unfolding history was lost", got, unfoldings)
-		}
-		if got := value(e, "PDR num properties"); got != value(e.queryClone, "PDR num properties") {
-			t.Fatal("disposed transformer properties escaped into current statistics", round, got)
-		}
+		depth = currentDepth
 		truth, err := f.manager.MkTrue()
 		must(err)
 		must(e.AddCover(2, declaration, truth))
 		if got := checks(e); got != total {
-			t.Fatal("parent lost or duplicated query statistics", round, got, total)
+			t.Fatal("cover lost or duplicated query statistics", round, got, total)
 		}
 		if got := checks(e); got != total {
 			t.Fatal("repeated collection mutated query statistics", got, total)
 		}
 	}
-	properties := value(e.queryClone, "PDR num properties")
+	properties := value(e, "PDR num properties")
 	if properties == 0 || unfoldings == 0 {
 		t.Fatal("fixture did not create PDR counters/properties")
 	}
@@ -133,13 +130,10 @@ func TestPDRExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 	if got := value(e, "PDR num properties"); got != properties {
 		t.Fatal("statistics reset changed live property count", got, properties)
 	}
-	prior := e.queryClone
+	prior := e.pdr
 	must(e.SetQueryParameters(nil))
-	if e.queryClone != nil {
-		t.Fatal("parameter update left its query clone active")
-	}
 	if _, err := prior.LastResult(); err == nil {
-		t.Fatal("parameter update left the old clone open")
+		t.Fatal("parameter update left the old context open")
 	}
 	// pdr::dl_interface::updt_params deallocates the pdr::context, and with
 	// it every counter of its pdr::manager (AUDIT.md muz_fp_04-F1).
