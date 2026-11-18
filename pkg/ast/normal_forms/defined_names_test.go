@@ -196,3 +196,36 @@ func TestDefinedNamesPositiveScopesOrderingAndTermITE(t *testing.T) {
 		t.Fatal("closed owner accepted")
 	}
 }
+
+// mk_definition quantifies the first conjunct (bound_vars) before the second
+// disjunction is built, so the first quantifier's id is below the second
+// conjunct's body.
+func TestDefinedNamesQuantifiesFirstConjunctFirst(t *testing.T) {
+	m := definedNamesManager(t, false)
+	b, e := m.MkBoolSort()
+	definedNamesMust(t, e)
+	v0, e := m.MkVar(0, b)
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, v0)
+	d, e := NewDefinedNames(m)
+	definedNamesMust(t, e)
+	t.Cleanup(func() { definedNamesMust(t, d.Close()) })
+	out := definedNamesOutputs(t, m)
+	_, e = d.MkName(v0, out[0], out[1], out[2], out[3])
+	definedNamesMust(t, e)
+	definition, e := m.RefGet(out[0])
+	definedNamesMust(t, e)
+	first, e := m.GetArg(definition, 0)
+	definedNamesMust(t, e)
+	second, e := m.GetArg(definition, 1)
+	definedNamesMust(t, e)
+	body, e := m.GetQuantifierBody(second)
+	definedNamesMust(t, e)
+	firstID, e := m.GetASTID(first)
+	definedNamesMust(t, e)
+	bodyID, e := m.GetASTID(body)
+	definedNamesMust(t, e)
+	if firstID >= bodyID {
+		t.Fatal("first conjunct must be quantified before the second is built", firstID, bodyID)
+	}
+}

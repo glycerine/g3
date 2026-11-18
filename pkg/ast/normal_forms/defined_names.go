@@ -307,6 +307,20 @@ func (t *definedNameTable) mkDefinition(e, name ast.ASTHandle, sorts []ast.ASTHa
 		return ast.ASTHandle{}, x
 	}
 	var conjuncts [2]ast.ASTHandle
+	// Each conjunct is one bound_vars(..., MK_OR(...), n, defs) statement:
+	// the first is quantified before the second disjunction is built.
+	quantify := func(i int) error {
+		if _, e := hold(conjuncts[i]); e != nil {
+			return e
+		}
+		q, e := t.boundVars(conjuncts[i], name, sorts, names, hold)
+		if e != nil {
+			return e
+		}
+		conjuncts[i] = q
+		_, e = hold(conjuncts[i])
+		return e
+	}
 	if sort == boolSort {
 		notName, x := m.MkNot(name)
 		if x != nil {
@@ -323,6 +337,9 @@ func (t *definedNameTable) mkDefinition(e, name ast.ASTHandle, sorts []ast.ASTHa
 			return ast.ASTHandle{}, x
 		}
 		conjuncts[0] = first
+		if x = quantify(0); x != nil {
+			return ast.ASTHandle{}, x
+		}
 		notE, x := m.MkNot(e)
 		if x != nil {
 			return ast.ASTHandle{}, x
@@ -332,6 +349,9 @@ func (t *definedNameTable) mkDefinition(e, name ast.ASTHandle, sorts []ast.ASTHa
 		}
 		conjuncts[1], x = m.MkOr(name, notE)
 		if x != nil {
+			return ast.ASTHandle{}, x
+		}
+		if x = quantify(1); x != nil {
 			return ast.ASTHandle{}, x
 		}
 	} else {
@@ -393,6 +413,9 @@ func (t *definedNameTable) mkDefinition(e, name ast.ASTHandle, sorts []ast.ASTHa
 		if y != nil {
 			return ast.ASTHandle{}, y
 		}
+		if y = quantify(0); y != nil {
+			return ast.ASTHandle{}, y
+		}
 		eqElse, y := m.MkEq(name, elsePart)
 		if y != nil {
 			return ast.ASTHandle{}, y
@@ -404,17 +427,8 @@ func (t *definedNameTable) mkDefinition(e, name ast.ASTHandle, sorts []ast.ASTHa
 		if y != nil {
 			return ast.ASTHandle{}, y
 		}
-	}
-	for i := range conjuncts {
-		if _, x = hold(conjuncts[i]); x != nil {
-			return ast.ASTHandle{}, x
-		}
-		conjuncts[i], x = t.boundVars(conjuncts[i], name, sorts, names, hold)
-		if x != nil {
-			return ast.ASTHandle{}, x
-		}
-		if _, x = hold(conjuncts[i]); x != nil {
-			return ast.ASTHandle{}, x
+		if y = quantify(1); y != nil {
+			return ast.ASTHandle{}, y
 		}
 	}
 	definition, x := m.MkAnd(conjuncts[0], conjuncts[1])
