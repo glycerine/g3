@@ -5,10 +5,12 @@ package smt2
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/escaped"
 )
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
@@ -606,32 +608,31 @@ func (p *commandParser) debugSExpr() (string, error) {
 		}
 		return "(" + strings.Join(elements, " ") + ")", nil
 	}
+	// sexpr::display_atom.
 	var text string
 	switch p.token {
 	case StringToken:
-		text = `"` + strings.ReplaceAll(p.scanner.String(), `"`, `""`) + `"`
+		value := p.scanner.String()
+		escapedText, err := escaped.String(&value, false, 0)
+		if err != nil {
+			return "", err
+		}
+		text = `"` + escapedText + `"`
 	case KeywordToken, SymbolToken:
 		text = p.scanner.ID()
-	case IntegerToken, BitVectorToken:
+	case IntegerToken, DecimalToken:
+		// out << rational: a decimal prints as its fraction (0.25 is 1/4).
 		value, err := p.scanner.Numbers().String(p.scanner.Number())
 		if err != nil {
 			return "", err
 		}
 		text = value
-		if p.token == BitVectorToken {
-			text = fmt.Sprintf("(_ bv%s %d)", value, p.scanner.BitVectorSize())
-		}
-	case DecimalToken:
-		// A decimal token's denominator is 2^a*5^b, so its exact expansion
-		// has max(a, b) <= bitsize digits and display_decimal stops there.
-		q, value := p.scanner.Numbers(), p.scanner.Number()
-		bits, err := q.Bitsize(value)
+	case BitVectorToken:
+		value, err := p.scanner.Numbers().String(p.scanner.Number())
 		if err != nil {
 			return "", err
 		}
-		if text, err = q.DecimalString(value, bits+1, true); err != nil {
-			return "", err
-		}
+		text = debugSExprBitVector(value, p.scanner.BitVectorSize())
 	default:
 		return "", fmt.Errorf("s-expression atom expected")
 	}
@@ -639,4 +640,25 @@ func (p *commandParser) debugSExpr() (string, error) {
 		return "", err
 	}
 	return text, nil
+}
+
+// debugSExprBitVector is display_atom's BV_NUMERAL case: #x digits when the
+// size is a multiple of 4, else #b, zero-padded to the size.
+func debugSExprBitVector(decimal string, size uint32) string {
+	v, ok := new(big.Int).SetString(decimal, 10)
+	if !ok {
+		v = new(big.Int)
+	}
+	base, width, prefix := 2, uint32(1), "#b"
+	if size%4 == 0 {
+		base, width, prefix = 16, 4, "#x"
+	}
+	digits := ""
+	if v.Sign() > 0 {
+		digits = v.Text(base)
+	}
+	for uint32(len(digits))*width < size {
+		digits = "0" + digits
+	}
+	return prefix + digits
 }

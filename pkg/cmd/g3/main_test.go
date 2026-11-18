@@ -336,6 +336,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F15: dbg-sexpr prints atoms as sexpr::display_atom.
+	"dbg_sexpr_atoms.smt2": "(\"a\\\"b\\n\" #x0f #b1 -3 1/4 (dbg-sexpr) a b :kw #x0 #x0 12 3/2)\n",
 	// AUDIT.md cmd_context_01-F11: declare_map_cmd's own checks and texts.
 	"declare_map_errors.smt2": "(error \"line 2 column 43: Array sort is not available\")\n(error \"line 3 column 18: invalid map declaration, empty sort list\")\ndone\n",
 	// AUDIT.md cmd_context_01-F10: a popped macro name keeps its m_macros entry.
