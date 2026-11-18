@@ -779,6 +779,7 @@ func (r *smtMAMImpl) PopScope(numScopes uint32) {
 		for _, t := range r.toMatch {
 			t.resetCandidates()
 		}
+		clear(r.toMatch)
 		r.toMatch = r.toMatch[:0]
 	}
 	r.newPatterns = r.newPatterns[:0]
@@ -788,6 +789,7 @@ func (r *smtMAMImpl) PopScope(numScopes uint32) {
 func (r *smtMAMImpl) Reset() {
 	r.trail.reset()
 	r.trees = nil
+	clear(r.toMatch)
 	r.toMatch = r.toMatch[:0]
 	r.newPatterns = r.newPatterns[:0]
 	r.isPlbl = nil
@@ -801,6 +803,7 @@ func (r *smtMAMImpl) Match() error {
 		r.fail(r.interp.execute(t))
 		t.resetCandidates()
 	}
+	clear(r.toMatch)
 	r.toMatch = r.toMatch[:0]
 	if len(r.newPatterns) != 0 {
 		r.matchNewPatterns()

@@ -248,6 +248,20 @@ func (it *smtMAMInterpreter) recycleBacktrackVector(bp *smtMAMBacktrackPoint) {
 	bp.candidates = nil
 }
 
+// releaseFrames recycles the pooled vectors of the live backtrack frames
+// when execution stops early (an on_match error or cancellation), so they
+// return to m_pool instead of staying referenced by stale frames.
+func (it *smtMAMInterpreter) releaseFrames() {
+	for i := 0; i < it.top && i < len(it.backtrack); i++ {
+		if bp := &it.backtrack[i]; bp.toRecycle != nil {
+			it.recycleBacktrackVector(bp)
+		} else {
+			bp.candidates = nil
+		}
+	}
+	it.top = 0
+}
+
 func (it *smtMAMInterpreter) init(t *smtMAMCodeTree) {
 	for uint32(len(it.registers)) < t.numRegs {
 		it.registers = append(it.registers, nil)
@@ -351,6 +365,7 @@ func (it *smtMAMInterpreter) executeCore(t *smtMAMCodeTree, n *SMTEnode) {
 		// main_loop: run until an instruction asks to backtrack.
 		ok := it.step()
 		if it.err != nil {
+			it.releaseFrames()
 			return
 		}
 		if ok {
@@ -509,7 +524,7 @@ func (it *smtMAMInterpreter) step() bool {
 			it.maxGeneration = g
 		}
 		if it.cancelled != nil && it.cancelled() {
-			it.top = 0
+			it.releaseFrames() // m_top = 0
 			return false
 		}
 		// on_match receives m_bindings itself; add_instance copies what it

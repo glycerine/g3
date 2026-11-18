@@ -166,10 +166,13 @@ func (s *SMTFingerprintSet) PopScopes(count uint32) error {
 		bucket := s.byHash[fingerprint.hash]
 		for j := len(bucket) - 1; j >= 0; j-- {
 			if bucket[j] == fingerprint {
-				bucket = append(bucket[:j], bucket[j+1:]...)
+				copy(bucket[j:], bucket[j+1:])
+				bucket[len(bucket)-1] = nil // the backing array keeps no stale pointer
+				bucket = bucket[:len(bucket)-1]
 				break
 			}
 		}
+		s.fingerprints[i] = nil
 		if len(bucket) == 0 {
 			delete(s.byHash, fingerprint.hash)
 		} else {
