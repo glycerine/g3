@@ -410,12 +410,22 @@ func (m *ASTManager) closeCore(source bool) error {
 		if len(roots) == 0 {
 			return ErrASTDomain
 		}
+		before := m.table.size
 		for _, r := range roots {
 			m.nodeAt(r.slot).rc = 0
 			note(m.deleteNode(r))
 			if source && failure != nil {
 				return failure
 			}
+		}
+		// A pass that erased no root cannot make progress: every deletion
+		// was refused (for example by a numeral manager left pending).
+		// Report the refusal instead of retrying it forever.
+		if m.table.size == before {
+			if failure != nil {
+				return failure
+			}
+			return ErrASTDomain
 		}
 
 	}
