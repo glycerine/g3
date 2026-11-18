@@ -1,0 +1,7 @@
+(declare-sort U 2)
+(declare-const x (U Int))
+(declare-sort V 1)
+(declare-const y V)
+(define-sort S (X) X)
+(declare-const z (S Int Int))
+(echo "done")

@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_02-F8: smt2parser's own arity texts, reported
+	// at the closing paren.
+	"sort_constructor_arity_error.smt2": "(error \"line 2 column 23: invalid number of parameters to sort constructor\")\n(error \"line 4 column 17: sort constructor expects parameters\")\n(error \"line 6 column 27: invalid number of parameters to sort constructor\")\ndone\n",
 	// AUDIT.md parsers_shell_01-F11: the header arity is not checked
 	// against the par binder.
 	"datatype_header_arity_unchecked.smt2": "sat\n(model \n  (define-fun l () (L Int Real)\n    (cons 0 nil))\n  (define-fun x () (A Int)\n    a)\n)\n",
@@ -2371,6 +2374,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"sort_constructor_arity_error.smt2": true,
 	"plugins6_declare_rel_arguments.smt2": true,
 	// AUDIT.md FUZZ-F5: get_ordinary_relation_plugin's missing plugin.
 	"plugins6_external_relation_missing.smt2": true,

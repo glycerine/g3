@@ -1199,12 +1199,12 @@ func (c *Context) lookupSort(name string) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if declaration, found := c.sortConstructors[name]; found {
-		return ast.ASTHandle{}, fmt.Errorf("sort constructor expects %d parameters", declaration.arity)
+	if _, found := c.sortConstructors[name]; found {
+		return ast.ASTHandle{}, errors.New("sort constructor expects parameters")
 	}
 	if s, found := c.sorts[name]; found {
 		if arity := c.sortArities[name]; arity != 0 {
-			return ast.ASTHandle{}, fmt.Errorf("sort constructor expects %d parameters", arity)
+			return ast.ASTHandle{}, errors.New("sort constructor expects parameters")
 		}
 		return s, nil
 	}

@@ -119,7 +119,7 @@ func (c *Context) DefineSort(name string, formals []ast.ASTHandle, body ast.ASTH
 
 func (c *Context) instantiateSortConstructor(declaration sortConstructorDeclaration, arguments []ast.ASTHandle) (result ast.ASTHandle, err error) {
 	if uint32(len(arguments)) != declaration.arity {
-		return ast.ASTHandle{}, fmt.Errorf("invalid number of parameters to sort constructor %s: got %d, want %d", declaration.name, len(arguments), declaration.arity)
+		return ast.ASTHandle{}, errors.New("invalid number of parameters to sort constructor")
 	}
 	if declaration.definition {
 		result, err = c.manager.SubstituteSort(declaration.body, declaration.formals, arguments)

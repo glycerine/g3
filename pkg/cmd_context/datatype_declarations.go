@@ -81,7 +81,7 @@ func (c *Context) InstantiateSort(name string, arguments []ast.ASTHandle) (resul
 	}
 	arity := c.sortArities[name]
 	if uint32(len(arguments)) != arity {
-		return ast.ASTHandle{}, fmt.Errorf("invalid number of parameters to sort constructor %s: got %d, want %d", name, len(arguments), arity)
+		return ast.ASTHandle{}, errors.New("invalid number of parameters to sort constructor")
 	}
 	if arity == 0 {
 		if _, alias := c.sortDefinitionInfos[name]; alias {

@@ -1869,7 +1869,7 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		}
 		if arity, found := p.datatypeHeaders[name]; found {
 			if arity != 0 {
-				return ast.ASTHandle{}, fmt.Errorf("sort constructor expects %d parameters", arity)
+				return ast.ASTHandle{}, errors.New("sort constructor expects parameters")
 			}
 			if err := p.advance(); err != nil {
 				return ast.ASTHandle{}, err
@@ -2024,16 +2024,21 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		}
 		arguments = append(arguments, value)
 	}
-	if err = p.expect(RightParenToken); err != nil {
-		return ast.ASTHandle{}, err
-	}
+	// pop_sort_app_frame checks the arity and instantiates at the closing
+	// paren, before next() consumes it.
+	var result ast.ASTHandle
 	if arity, found := p.datatypeHeaders[name]; found {
 		if uint32(len(arguments)) != arity {
-			return ast.ASTHandle{}, fmt.Errorf("invalid number of parameters to sort constructor %s: got %d, want %d", name, len(arguments), arity)
+			return ast.ASTHandle{}, errors.New("invalid number of parameters to sort constructor")
 		}
-		return p.currentDatatypeSort(name, arguments)
+		result, err = p.currentDatatypeSort(name, arguments)
+	} else {
+		result, err = p.pin(p.context.InstantiateSort(name, arguments))
 	}
-	return p.pin(p.context.InstantiateSort(name, arguments))
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return result, p.expect(RightParenToken)
 }
 
 func (p *commandParser) indexedApplication(name string, indices []identifierIndex, args []ast.ASTHandle, rangeSort ast.ASTHandle) (ast.ASTHandle, error) {
