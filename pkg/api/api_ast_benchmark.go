@@ -10,8 +10,14 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// APIBenchmarkConfig's empty Name and Status stand for a NULL C string,
+// which leaves ast_smt_pp's default (no name line, status unknown).
+// EmptyName / EmptyStatus pass a non-NULL "" instead: set_benchmark_name("")
+// and set_status("") store symbol(""), which prints "; " and
+// "(set-info :status )" (AUDIT.md api_01-F6).
 type APIBenchmarkConfig struct {
 	Name, Logic, Status, Source, Category string
+	EmptyName, EmptyStatus                bool
 	Attributes                            string
 	Assumptions                           []ast.ASTHandle
 }
@@ -23,12 +29,21 @@ func apiBenchmarkSymbol(m *ast.ASTManager, text string) (usymbol.Symbol, error) 
 	return m.Symbols.Intern(text)
 }
 
+// apiBenchmarkText is set_benchmark_name / set_status: a non-NULL string,
+// "" included, becomes its symbol.
+func apiBenchmarkText(m *ast.ASTManager, text string, empty bool) (usymbol.Symbol, error) {
+	if text == "" && !empty {
+		return usymbol.Symbol{}, nil
+	}
+	return m.Symbols.Intern(text)
+}
+
 func (c *SMTContext) BenchmarkSMT2(formula ast.ASTHandle, config APIBenchmarkConfig) (result string, resultErr error) {
 	m, err := c.Manager()
 	if err != nil {
 		return "", err
 	}
-	name, err := apiBenchmarkSymbol(m, config.Name)
+	name, err := apiBenchmarkText(m, config.Name, config.EmptyName)
 	if err != nil {
 		return "", err
 	}
@@ -36,7 +51,7 @@ func (c *SMTContext) BenchmarkSMT2(formula ast.ASTHandle, config APIBenchmarkCon
 	if err != nil {
 		return "", err
 	}
-	status, err := apiBenchmarkSymbol(m, config.Status)
+	status, err := apiBenchmarkText(m, config.Status, config.EmptyStatus)
 	if err != nil {
 		return "", err
 	}

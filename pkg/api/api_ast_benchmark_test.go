@@ -70,3 +70,21 @@ func TestAPIBenchmarkSortOrderMatchesObjMap(t *testing.T) {
 		t.Fatalf("benchmark sort order:\n%s\nwant suffix:\n%s", text, want)
 	}
 }
+
+// AUDIT.md api_01-F6: set_benchmark_name("") and set_status("") store
+// symbol(""), which is not null.
+func TestBenchmarkSMT2EmptyNameAndStatus(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	yes, err := f.c.Bool(true)
+	astTestMust(t, err)
+	text, err := f.c.BenchmarkSMT2(yes, APIBenchmarkConfig{EmptyName: true, EmptyStatus: true})
+	astTestMust(t, err)
+	if !strings.HasPrefix(text, "; \n(set-info :status )\n") {
+		t.Fatalf("empty name and status: %q", text)
+	}
+	text, err = f.c.BenchmarkSMT2(yes, APIBenchmarkConfig{})
+	astTestMust(t, err)
+	if !strings.HasPrefix(text, "(set-info :status unknown)\n") {
+		t.Fatalf("NULL name and status: %q", text)
+	}
+}

@@ -31,6 +31,8 @@ func replayBenchmarkString(r *Z3Replayer) error {
 	}
 	_, err = owner.context.BenchmarkSMT2(formula.handle, APIBenchmarkConfig{
 		Name: fields[0], Logic: fields[1], Status: fields[2], Attributes: fields[3], Assumptions: assumptions,
+		// The replayer passes every S argument as a non-NULL C string.
+		EmptyName: fields[0] == "", EmptyStatus: fields[2] == "",
 	})
 	return err
 }
