@@ -11,13 +11,17 @@ import (
 // The complete SMT context can own this component and update it as terms are
 // internalized, assigned, and merged.
 type SMTCheckerContext struct {
-	manager          *ast.ASTManager
-	relevancy        *SMTRelevancyPropagator
-	exprs            *smtExprTable
-	relevant         smtRelevantTable
-	assignments      smtAssignmentTable
-	enodes           smtEnodeTable
-	byDeclaration    map[ast.ASTHandle][]*SMTEnode
+	manager       *ast.ASTManager
+	relevancy     *SMTRelevancyPropagator
+	exprs         *smtExprTable
+	relevant      smtRelevantTable
+	assignments   smtAssignmentTable
+	enodes        smtEnodeTable
+	byDeclaration map[ast.ASTHandle][]*SMTEnode
+	// decl2enodes is context::m_decl2enodes: per declaration, the enodes
+	// with arguments that are not equalities, in creation order.
+	// enodes_of(lbl) reads it directly.
+	decl2enodes      map[ast.ASTHandle][]*SMTEnode
 	disequalityTrail []smtDisequalityUndo
 	// diseqTmp is the owner of context::m_is_diseq_tmp: is_diseq builds
 	// (= n1 n2) once per argument sort and holds it until the sort changes
@@ -47,6 +51,7 @@ func NewSMTCheckerContext(manager *ast.ASTManager) (*SMTCheckerContext, error) {
 		manager: manager, exprs: exprs, relevant: smtRelevantTable{exprs},
 		assignments: smtAssignmentTable{t: exprs}, enodes: smtEnodeTable{exprs},
 		byDeclaration: make(map[ast.ASTHandle][]*SMTEnode),
+		decl2enodes:   make(map[ast.ASTHandle][]*SMTEnode),
 	}, nil
 }
 
@@ -130,6 +135,9 @@ func (c *SMTCheckerContext) RegisterEnode(node *SMTEnode, relevant bool) error {
 	if c.enodes.get(node.owner) == nil {
 		c.enodes.set(node.owner, node)
 		c.byDeclaration[node.declaration] = append(c.byDeclaration[node.declaration], node)
+		if len(node.arguments) != 0 && !node.IsEquality() {
+			c.decl2enodes[node.declaration] = append(c.decl2enodes[node.declaration], node)
+		}
 	}
 	c.relevant.set(node.owner, relevant)
 	return nil

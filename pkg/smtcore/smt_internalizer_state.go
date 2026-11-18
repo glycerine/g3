@@ -1027,6 +1027,13 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	}
 	s.context.enodes.del(node.owner)
 	s.context.byDeclaration[node.declaration] = bucket[:len(bucket)-1]
+	if len(node.arguments) != 0 && !node.IsEquality() {
+		apps := s.context.decl2enodes[node.declaration]
+		if len(apps) == 0 || apps[len(apps)-1] != node {
+			return fmt.Errorf("enode declaration %d is not decl2enodes tail: %w", node.declaration.Slot(), ast.ErrASTDomain)
+		}
+		s.context.decl2enodes[node.declaration] = apps[:len(apps)-1]
+	}
 	// Source relevancy marks belong to the expression's relevancy scope.
 	// A base mark can precede an enode created only in this retiring scope.
 	if s.relevancy == nil {
