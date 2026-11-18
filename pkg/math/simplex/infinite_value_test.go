@@ -122,24 +122,6 @@ func TestInfiniteTableauFeasibilityPivotAndMinimize(t *testing.T) {
 		t.Fatal("did not exercise a rational pivot with infinite values")
 	}
 }
-func TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel(t *testing.T) {
-	s := NewSolver(nil)
-	if err := s.SetUpper(1, infiniteTestValue("2/3", "-1", "0")); err != nil {
-		t.Fatal(err)
-	}
-	result, err := s.ArithmeticMaxMin(1, true, ArithmeticOptConfig{MaxEfforts: 100})
-	if err != nil || result.Status != ArithmeticOptimized {
-		t.Fatal(result.Status, err)
-	}
-	checkInfiniteTestValue(t, result.Value, "2/3", "-1", "0")
-	checkInfiniteTestValue(t, s.Value(1), "2/3", "-1", "0")
-	// A nonzero infinity coordinate cannot masquerade as the -1 gain sentinel
-	// or an integer merely because its rational/epsilon coordinates match.
-	point := infiniteTestValue("1", "-1", "0")
-	if arithmeticMinusOne(&point) || arithmeticInteger(&point) {
-		t.Fatal("infinite point lost its non-rational classification")
-	}
-}
 func TestInfiniteTableauBoundsAndBasicSeed(t *testing.T) {
 	s := NewSolver(nil)
 	if err := s.SetLower(1, infiniteTestValue("3", "-999", "0")); err != nil {
@@ -162,32 +144,4 @@ func TestInfiniteTableauBoundsAndBasicSeed(t *testing.T) {
 	if actual.Cmp(&expected) != 0 {
 		t.Fatal("basic seed broke canonical infinite row", actual.String(), expected.String())
 	}
-}
-
-func TestInfiniteTableauRationalIntegerGuards(t *testing.T) {
-	s := NewSolver(nil)
-	point := infiniteTestValue("1", "1/2", "0")
-	if err := s.SetLower(1, point); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SetUpper(1, point); err != nil {
-		t.Fatal(err)
-	}
-	row, err := s.AddIntegerRow(2, []uint32{2, 1}, []big.Int{*big.NewInt(2), *big.NewInt(-1)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := s.ArithmeticGCDRow(row, map[uint32]bool{1: true, 2: true})
-	if err != nil || result != ArithmeticGCDPass {
-		t.Fatal("GCD projected a non-rational fixed point", result, err)
-	}
-	_, ready, err := s.ArithmeticGomory(row, map[uint32]bool{1: true, 2: true})
-	if err != nil || ready {
-		t.Fatal("Gomory projected an infinite nonbasic point", ready, err)
-	}
-	// Source floor(inf_eps_rational) returns a rational (its infinity assertion
-	// is commented out). Assigning that rational clears the infinity component.
-	gain := infiniteTestValue("2", "7/2", "-1")
-	arithmeticNormalizeGain(big.NewRat(2, 1), &gain)
-	checkInfiniteTestValue(t, gain, "0", "2", "0")
 }

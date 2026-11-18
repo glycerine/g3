@@ -170,12 +170,10 @@ func (a *Infinitesimal) String() string {
 }
 
 type variableInfo struct {
-	row                                  uint32
-	base, lowerValid, upperValid         bool
-	value, lower, upper                  Infinitesimal
-	baseCoeff                            big.Rat
-	lowerDependencies, upperDependencies []BoundDependency
-	lowerExplained, upperExplained       bool
+	row                          uint32
+	base, lowerValid, upperValid bool
+	value, lower, upper          Infinitesimal
+	baseCoeff                    big.Rat
 }
 
 type Stats struct{ NumPivots, NumInfeasible, NumChecks uint32 }
@@ -183,22 +181,16 @@ type Stats struct{ NumPivots, NumInfeasible, NumChecks uint32 }
 // Solver is the concrete exact tableau used by both retained mpz and mpq
 // consumers. Integer rows are accepted through AddIntegerRow.
 type Solver struct {
-	arithmeticBoundAtoms     map[arithmeticBoundKey][]arithmeticBoundAtom
-	boundConflict            []BoundDependency
-	boundConflictKnown       bool
-	limit                    *control.Reslimit
-	matrix                   Matrix
-	vars                     []variableInfo
-	rowBase                  []uint32
-	patch                    simplexVariableHeap
-	maxIterations            uint32
-	arithmeticPolicy         bool
-	arithmeticPivotStrategy  uint32
-	arithmeticBlandThreshold uint32
-	arithmeticBland          bool
-	random                   z3rand.Generator // m_random, seed 0
-	infeasible               uint32
-	Stats                    Stats
+	limit           *control.Reslimit
+	matrix          Matrix
+	vars            []variableInfo
+	rowBase         []uint32
+	patch           simplexVariableHeap
+	maxIterations   uint32
+	arithmeticBland bool
+	random          z3rand.Generator // m_random, seed 0
+	infeasible      uint32
+	Stats           Stats
 }
 
 func NewSolver(limit *control.Reslimit) *Solver {
@@ -339,7 +331,6 @@ func (s *Solver) updateValue(v uint32, delta *Infinitesimal) {
 }
 
 func (s *Solver) SetLower(v uint32, bound Infinitesimal) error {
-	s.boundConflict, s.boundConflictKnown = nil, false
 	s.EnsureVariable(v)
 	x := &s.vars[v]
 	if x.upperValid && bound.Cmp(&x.upper) > 0 {
@@ -347,7 +338,6 @@ func (s *Solver) SetLower(v uint32, bound Infinitesimal) error {
 	}
 	x.lower.Set(&bound)
 	x.lowerValid = true
-	x.lowerDependencies, x.lowerExplained = nil, false
 	if !x.base && x.value.Cmp(&bound) < 0 {
 		d := bound.Clone()
 		d.Sub(&x.value)
@@ -358,7 +348,6 @@ func (s *Solver) SetLower(v uint32, bound Infinitesimal) error {
 	return nil
 }
 func (s *Solver) SetUpper(v uint32, bound Infinitesimal) error {
-	s.boundConflict, s.boundConflictKnown = nil, false
 	s.EnsureVariable(v)
 	x := &s.vars[v]
 	if x.lowerValid && x.lower.Cmp(&bound) > 0 {
@@ -366,7 +355,6 @@ func (s *Solver) SetUpper(v uint32, bound Infinitesimal) error {
 	}
 	x.upper.Set(&bound)
 	x.upperValid = true
-	x.upperDependencies, x.upperExplained = nil, false
 	if !x.base && x.value.Cmp(&bound) > 0 {
 		d := bound.Clone()
 		d.Sub(&x.value)
@@ -377,25 +365,15 @@ func (s *Solver) SetUpper(v uint32, bound Infinitesimal) error {
 	return nil
 }
 func (s *Solver) UnsetLower(v uint32) {
-	delete(s.arithmeticBoundAtoms, arithmeticBoundKey{v, true})
-	s.boundConflict, s.boundConflictKnown = nil, false
 	if int(v) < len(s.vars) {
 		s.vars[v].lowerValid = false
-		s.vars[v].lowerDependencies, s.vars[v].lowerExplained = nil, false
 	}
 }
 func (s *Solver) UnsetUpper(v uint32) {
-	delete(s.arithmeticBoundAtoms, arithmeticBoundKey{v, false})
-	s.boundConflict, s.boundConflictKnown = nil, false
 	if int(v) < len(s.vars) {
 		s.vars[v].upperValid = false
-		s.vars[v].upperDependencies, s.vars[v].upperExplained = nil, false
 	}
 }
-
-// HasLower and HasUpper test for a bound without copying it.
-func (s *Solver) HasLower(v uint32) bool { return int(v) < len(s.vars) && s.vars[v].lowerValid }
-func (s *Solver) HasUpper(v uint32) bool { return int(v) < len(s.vars) && s.vars[v].upperValid }
 
 func (s *Solver) Lower(v uint32) (Infinitesimal, bool) {
 	if int(v) >= len(s.vars) {
@@ -582,23 +560,14 @@ func (s *Solver) makeVariableFeasible(v uint32) (bool, error) {
 }
 
 func (s *Solver) MakeFeasible() (lbool.LBool, error) {
-	s.boundConflict, s.boundConflictKnown = nil, false
 	s.Stats.NumChecks++
 	s.infeasible = NullVariable
 	s.arithmeticBland = false
 	left := make(map[uint32]bool)
 	threshold := uint32(blandsRuleThreshold)
-	if s.arithmeticPolicy {
-		threshold = s.arithmeticBlandThreshold
-	}
 	var repeated uint32
 	for iteration := uint32(0); ; iteration++ {
-		var v uint32
-		if s.arithmeticPolicy {
-			v = s.selectArithmeticPatch()
-		} else {
-			v = s.selectSmallestVar()
-		}
+		v := s.selectSmallestVar()
 		if v == NullVariable {
 			return lbool.True, nil
 		}
@@ -844,25 +813,7 @@ func (s *Solver) Minimize(objective uint32) (lbool.LBool, error) {
 	}
 }
 
-// ClearBounds removes every bound and its explanation, keeping rows and values,
-// so a caller can re-assert a smaller bound set on the same tableau. Values stay
-// a valid starting point: relaxing bounds cannot make a nonbasic value illegal.
-func (s *Solver) ClearBounds() {
-	s.arithmeticBoundAtoms = nil
-	s.boundConflict, s.boundConflictKnown = nil, false
-	s.infeasible = NullVariable
-	for i := range s.vars {
-		x := &s.vars[i]
-		x.lowerValid, x.upperValid = false, false
-		x.lowerDependencies, x.upperDependencies = nil, nil
-		x.lowerExplained, x.upperExplained = false, false
-	}
-	s.patch.clear()
-}
-
 func (s *Solver) Reset() {
-	s.arithmeticBoundAtoms = nil
-	s.boundConflict, s.boundConflictKnown = nil, false
 	s.matrix.Reset()
 	s.vars = nil
 	s.rowBase = nil
@@ -895,4 +846,19 @@ func (s *Solver) Display(w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+// checkBlandsRule is simplex::check_blands_rule; arithmeticBland is m_bland.
+func (s *Solver) checkBlandsRule(v uint32, left map[uint32]bool, repeated *uint32, threshold uint32) {
+	if s.arithmeticBland {
+		return
+	}
+	if left[v] {
+		(*repeated)++
+		if *repeated > threshold {
+			s.arithmeticBland = true
+		}
+	} else {
+		left[v] = true
+	}
 }
