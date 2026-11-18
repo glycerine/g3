@@ -467,21 +467,6 @@ func (m *ModelBasedOpt) findBound(x uint32, positive bool) (uint32, *big.Rat, []
 	}
 	return selected, selectedCoeff, above, below, selected != NullVariable
 }
-func (m *ModelBasedOpt) updateValue(x uint32, value *big.Rat) {
-	old := new(big.Rat).Set(&m.values[x])
-	m.values[x].Set(value)
-	seen := make(map[uint32]bool)
-	for _, id := range m.incidence[x] {
-		if seen[id] {
-			continue
-		}
-		seen[id] = true
-		a := m.coefficient(id, x)
-		delta := new(big.Rat).Mul(a, new(big.Rat).Sub(value, old))
-		m.rows[id].Value.Add(&m.rows[id].Value, delta)
-	}
-}
-
 func (m *ModelBasedOpt) Maximize() (Optimum, error) {
 	var trail, variables []uint32
 	for len(m.rows[0].Terms) > 0 {
