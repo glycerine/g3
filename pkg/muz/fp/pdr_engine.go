@@ -773,10 +773,9 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 	if err != nil {
 		return nil, err
 	}
+	// (datalog::PDR_CACHE_MODE)ctx.get_params().pdr_cache_mode(): the value
+	// is cast unchecked; an unknown mode caches nothing (see ReachableCache).
 	cacheMode := pdr.ReachableCacheMode(cacheValue)
-	if cacheMode > pdr.ReachableConstraintCache {
-		return nil, fmt.Errorf("muz/fp: invalid pdr.cache_mode %d", cacheValue)
-	}
 	theory := e.pdrTheory
 	if theory == nil {
 		theory = e.guard

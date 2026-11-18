@@ -152,7 +152,7 @@ func NewContextWithTheory(manager *ast.ASTManager, params *uparams.ParamsRef, ma
 }
 
 func newContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, cacheMode ReachableCacheMode, config smtcore.SMTSolverConfig, theory *rewriter.TheoryRewriter) (*Context, error) {
-	if manager == nil || cacheMode > ReachableConstraintCache {
+	if manager == nil {
 		return nil, ErrContextOwner
 	}
 	owner, err := NewManager(manager, params, maximumContexts, config)

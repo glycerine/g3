@@ -1,7 +1,6 @@
 package fp
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -24,12 +23,13 @@ func TestPDRPrequeryContextRebuildsForParameterUpdates(t *testing.T) {
 	name := "pdr.cache_mode"
 	must(e.params.SetUIntName(&parameters, &name, 99))
 	must(e.SetQueryParameters(&parameters))
+	// An out-of-range cache mode is accepted unchecked, as z3 casts it
+	// (AUDIT muz_fp_04-F4); the update still rebuilds the context.
 	_, err = e.NumLevels(query)
-	if err == nil || !strings.Contains(err.Error(), "invalid pdr.cache_mode 99") {
-		t.Fatal("pre-query context hid changed constructor parameters", err)
-	}
-	if e.pdr != nil {
-		t.Fatal("failed parameterized construction published a context")
+	must(err)
+	unchecked := e.pdr
+	if unchecked == nil || unchecked == prior {
+		t.Fatal("parameter update did not rebuild the pre-query context")
 	}
 	if _, err := prior.NumLevels(query); err == nil {
 		t.Fatal("parameter update left the old pre-query context open")
@@ -38,7 +38,7 @@ func TestPDRPrequeryContextRebuildsForParameterUpdates(t *testing.T) {
 	must(e.SetQueryParameters(&parameters))
 	levels, err := e.NumLevels(query)
 	must(err)
-	if levels != 0 || e.pdr == prior {
-		t.Fatal("valid parameter retry did not rebuild a fresh context", levels)
+	if levels != 0 || e.pdr == prior || e.pdr == unchecked {
+		t.Fatal("second parameter update did not rebuild a fresh context", levels)
 	}
 }

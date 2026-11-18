@@ -5,7 +5,6 @@ package pdr
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -39,7 +38,7 @@ type ReachableCache struct {
 }
 
 func NewReachableCache(manager *ast.ASTManager, contexts *SMTContextManager, background ast.ASTHandle, mode ReachableCacheMode) (*ReachableCache, error) {
-	if manager == nil || contexts == nil || mode > ReachableConstraintCache {
+	if manager == nil || contexts == nil {
 		return nil, ErrSMTContextOwner
 	}
 	c := &ReachableCache{manager: manager, mode: mode, cache: make(map[ast.ASTHandle]ast.ASTRef)}
@@ -171,7 +170,10 @@ func (c *ReachableCache) AddReachable(cube ast.ASTHandle) error {
 		c.stats.Inserts++
 		return c.addDisjunctedFormula(cube)
 	default:
-		return fmt.Errorf("muz/pdr: unknown reachable-cache mode %d", c.mode)
+		// The source's default: UNREACHABLE() is undefined behavior in the
+		// release build for an out-of-range pdr.cache_mode; an unknown mode
+		// caches nothing, as NO_CACHE (FORK FIX, AUDIT muz_fp_04-F4).
+		return nil
 	}
 }
 
@@ -207,7 +209,8 @@ func (c *ReachableCache) IsReachable(cube ast.ASTHandle) (found bool, resultErr 
 		}
 		found = status == lbool.True
 	default:
-		return false, fmt.Errorf("muz/pdr: unknown reachable-cache mode %d", c.mode)
+		// An unknown mode is NO_CACHE (see AddReachable).
+		return false, nil
 	}
 	if found {
 		c.stats.Hits++

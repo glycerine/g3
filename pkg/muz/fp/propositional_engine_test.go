@@ -872,8 +872,10 @@ func TestPDREngineReadsContextAndCacheParameters(t *testing.T) {
 	fact, err := manager.MkApp(declaration, nil)
 	fpMust(t, err)
 	fpMust(t, engine.AddRule(fact, "invalid-cache-fact"))
-	if _, err = engine.QueryPredicate(declaration); err == nil || !strings.Contains(err.Error(), "invalid pdr.cache_mode 3") {
-		t.Fatal("PDR cache parameter was not validated", err)
+	// z3 casts pdr.cache_mode unchecked; an unknown mode caches nothing
+	// (AUDIT muz_fp_04-F4).
+	if status, err := engine.QueryPredicate(declaration); err != nil || status != lbool.True {
+		t.Fatal("out-of-range PDR cache mode was not accepted", status, err)
 	}
 }
 

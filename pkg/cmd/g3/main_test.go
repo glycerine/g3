@@ -1701,6 +1701,7 @@ var scriptResults = map[string]string{
 	"fixedpoint_pdr_integer.smt2":                  "sat\nunsat\n",
 	"fixedpoint_pdr_background.smt2":               "sat\nunsat\n",
 	"fixedpoint_pdr_untransformed_nonlinear_recursive_trace.smt2": "sat\n(and Goal\n     (not (<= (:var 5) 5))\n     (P (:var 5))\n     (= (:var 5) (+ 4 (:var 14)))\n     (not (<= 3 (:var 14)))\n     (P 3)\n     (P 1)\n     (P 0)\n     (P (:var 14))\n     (= (:var 14) 2))\n",
+	"pdr_cache_mode_out_of_range.smt2": "sat\nsat\n",
 	"fixedpoint_pdr_recursive_trace.smt2":          "sat\n(and (P 2) (P 1) (P 0))\nunsat\n",
 	"fixedpoint_pdr_nonlinear_trace.smt2":          "sat\ntrue\n",
 	"fixedpoint_pdr_initial_trace.smt2":            "sat\n(and (P 2) (P 1))\n",
