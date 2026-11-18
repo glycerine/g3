@@ -48,8 +48,8 @@ func TestLPProcessFileActualGLPKIndependentMinMax(t *testing.T) {
 				args := lpMPSDriverArguments(t, exact, false, minimum, true)
 				args.usedFlags["--compare_with_glpk"] = true
 				// process_test_file forwards explicit limits; it does not reparse these.
-				args.usedValues.Set("--max_iters", "invalid ignored")
-				args.usedValues.Set("--time_limit", "invalid ignored")
+				args.setValue("--max_iters", "invalid ignored")
+				args.setValue("--time_limit", "invalid ignored")
 				var output bytes.Buffer
 				counts := DriverComparisonCounts{Successes: 5, Failures: 7, Inconclusives: 11}
 				clock := &lpMPSDriverClock{}

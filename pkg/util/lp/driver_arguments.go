@@ -8,8 +8,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/glycerine/insdict"
 )
 
 type driverOption struct {
@@ -19,17 +17,26 @@ type driverOption struct {
 
 // DriverArguments retains the source parser's accumulated state across Parse
 // calls. Args includes argv[0] when supplied; it is a free argument in source.
-// Go strings/maps replace the source STL containers. Do not copy after use.
+// m_used_options_with_after_string is a std::unordered_map whose libstdc++
+// node order is printed; it uses the approved StdUnorderedStringMap, whose
+// values index valueText (AUDIT.md util_lp_01-F1). Do not copy after use.
 type DriverArguments struct {
 	args         []string
 	usedFlags    map[string]bool
-	usedValues   *insdict.Dict[string, string]
+	usedValues   *StdUnorderedStringMap
+	valueText    []string
 	freeArgs     []string
 	ErrorMessage string
 }
 
 func NewDriverArguments(args []string) *DriverArguments {
-	return &DriverArguments{args: append([]string(nil), args...), usedFlags: make(map[string]bool), usedValues: insdict.NewDict[string, string]()}
+	return &DriverArguments{args: append([]string(nil), args...), usedFlags: make(map[string]bool), usedValues: NewStdUnorderedStringMap()}
+}
+
+// setValue is m_used_options_with_after_string[option] = value.
+func (a *DriverArguments) setValue(option, value string) {
+	a.valueText = append(a.valueText, value)
+	a.usedValues.Put(option, uint32(len(a.valueText)-1))
 }
 
 func (a *DriverArguments) Parse() bool {
@@ -51,7 +58,7 @@ func (a *DriverArguments) Parse() bool {
 				return false
 			}
 			i++
-			a.usedValues.Set(arg, a.args[i])
+			a.setValue(arg, a.args[i])
 		} else {
 			if strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "//") {
 				ok = false
@@ -71,8 +78,11 @@ func (a *DriverArguments) OptionIsUsed(option string) bool {
 }
 
 func (a *DriverArguments) OptionValue(option string) string {
-	value, _ := a.usedValues.Get2(option)
-	return value
+	index, ok := a.usedValues.Get2(option)
+	if !ok {
+		return ""
+	}
+	return a.valueText[index]
 }
 
 func (a *DriverArguments) UsageString() string {
@@ -91,17 +101,26 @@ func (a *DriverArguments) UsageString() string {
 		text.WriteString(arg + ",")
 	}
 	text.WriteString("\nUsage:\n")
-	// Registration order replaces unspecified unordered-map traversal; source
-	// always prints the flag catalogue before options taking a value.
+	// m_options, then m_options_with_after_string, each walked in libstdc++
+	// unordered_map node order (AUDIT.md util_lp_01-F1).
 	for _, value := range []bool{false, true} {
-		for _, option := range lpDriverOptions {
-			if option.value != value {
-				continue
+		table := NewStdUnorderedStringMap()
+		for i, option := range lpDriverOptions {
+			if option.value == value {
+				table.Put(option.name, uint32(i))
 			}
-			if value {
-				text.WriteString(option.name + " \"" + option.help + "\"\n")
-			} else {
-				text.WriteString(option.name + " /" + option.help + "\n")
+		}
+		for name, i := range table.All() {
+			help := lpDriverOptions[i].help
+			switch {
+			case value && help == "":
+				text.WriteString(name + "  \"option value\"\n")
+			case value:
+				text.WriteString(name + " \"" + help + "\"\n")
+			case help == "":
+				text.WriteString(name + " \n")
+			default:
+				text.WriteString(name + " /" + help + "\n")
 			}
 		}
 	}
@@ -135,8 +154,8 @@ func (a *DriverArguments) Print(out io.Writer) error {
 			return err
 		}
 	}
-	for option, value := range a.usedValues.All() {
-		if err := writeDriverLine(out, option+" "+value); err != nil {
+	for option, index := range a.usedValues.All() {
+		if err := writeDriverLine(out, option+" "+a.valueText[index]); err != nil {
 			return err
 		}
 	}

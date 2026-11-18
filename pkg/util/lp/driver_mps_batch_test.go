@@ -207,7 +207,7 @@ func TestLPMPSBatchActualGLPKCatalogue(t *testing.T) {
 		args := lpMPSDriverArguments(t, exact, false, exact, true)
 		args.usedFlags["--compare_with_glpk"] = true
 		directory := filepath.Join(t.TempDir(), "new output")
-		args.usedValues.Set("--out_dir", directory)
+		args.setValue("--out_dir", directory)
 		var output bytes.Buffer
 		clock := &lpMPSDriverClock{}
 		d := NewMPSBatchDriver(args, h.m, MPSDriverConfig{Output: &output, Clock: clock.read})

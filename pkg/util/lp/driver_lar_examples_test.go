@@ -35,13 +35,13 @@ func TestLPLARExamplesActualSourceProfiles(t *testing.T) {
 			h.must(err)
 			want := "OPTIMAL\n"
 			if term {
-				want += "v0 = 0,v1 = 0,v1000000 = 0,\n"
+				want += "v1000000 = 0,v1 = 0,v0 = 0,\n"
 			}
 			if w.String() != want || !d.closed || d.Status != StatusOptimal || d.Solver != nil || d.Model != nil {
 				t.Fatal(term, w.String(), d.Status, d.closed)
 			}
 			if term {
-				if d.Terms != 1 || d.Columns != 3 || d.Constraints != 0 || !reflect.DeepEqual(d.Solution, []DriverLARModelValue{{0, "v0", 0}, {1, "v1", 0}, {2, "v1000000", 0}}) {
+				if d.Terms != 1 || d.Columns != 3 || d.Constraints != 0 || !reflect.DeepEqual(d.Solution, []DriverLARModelValue{{2, "v1000000", 0}, {1, "v1", 0}, {0, "v0", 0}}) {
 					t.Fatal(d.Terms, d.Columns, d.Constraints, d.Solution)
 				}
 			} else if d.Terms != 0 || d.Columns != 2 || d.Constraints != 2 || len(d.Solution) != 0 {
@@ -76,7 +76,7 @@ func TestLPLARExamplesReportFailurePrefixes(t *testing.T) {
 	for _, term := range []bool{false, true} {
 		message := "OPTIMAL\n"
 		if term {
-			message += "v0 = 0,v1 = 0,v1000000 = 0,\n"
+			message += "v1000000 = 0,v1 = 0,v0 = 0,\n"
 		}
 		for at := 0; at < len(message); at++ {
 			h := newLPPairHarness(t)

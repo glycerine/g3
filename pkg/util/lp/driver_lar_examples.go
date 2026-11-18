@@ -116,13 +116,19 @@ func (d *LARExampleDriver) RunTerm() error {
 	if err = d.Solver.GetModel(d.Model); err != nil {
 		return err
 	}
-	// Source unordered-map bucket order is replaced by ascending column IDs.
-	indices := make([]uint32, 0, len(d.Model.Values))
+	// test_term walks std::unordered_map<var_index, mpq>, which get_model
+	// fills in ascending index order: its libstdc++ node order, through the
+	// approved StdUnorderedRationalMap (AUDIT.md util_lp_01-F1).
+	ascending := make([]uint32, 0, len(d.Model.Values))
 	for j := range d.Model.Values {
-		indices = append(indices, j)
+		ascending = append(ascending, j)
 	}
-	sort.Slice(indices, func(i, j int) bool { return indices[i] < indices[j] })
-	for _, j := range indices {
+	sort.Slice(ascending, func(a, b int) bool { return ascending[a] < ascending[b] })
+	order := NewStdUnorderedRationalMap()
+	for _, j := range ascending {
+		order.Put(j, d.Model.Values[j])
+	}
+	for _, j := range order.Keys() {
 		name := d.Solver.ColumnName(j)
 		if _, err = io.WriteString(d.out, name+" = "); err != nil {
 			return err

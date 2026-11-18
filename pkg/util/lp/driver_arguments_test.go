@@ -39,7 +39,7 @@ func TestLPDriverArgumentCatalogue(t *testing.T) {
 		t.Fatal("unknown option present")
 	}
 	usage := lpDriverArgs(t).UsageString()
-	if !strings.HasPrefix(usage, "\nUsage:\n-xyz_sample /run a small interactive scenario\n") || !strings.Contains(usage, "--density \"the percentage of non-zeroes in the matrix below which it is not dense\"\n") || strings.Count(usage, "\n") != 47 {
+	if !strings.HasPrefix(usage, "\nUsage:\n--test_mpq_np_plus /test rationals using plus instead of +=\n") || !strings.Contains(usage, "--density \"the percentage of non-zeroes in the matrix below which it is not dense\"\n") || strings.Count(usage, "\n") != 47 {
 		t.Fatal(usage)
 	}
 }
@@ -82,7 +82,8 @@ func (w *lpDriverFlushWriter) Flush() error {
 
 func TestLPDriverArgumentPrintAndOutputFailures(t *testing.T) {
 	a := lpDriverArgs(t, "program", "--mpq", "--min", "--density", "25", "--file", "input.mps", "free")
-	want := "options are: \n--min\n--mpq\n--density 25\n--file input.mps\nfree arguments are: \nprogram \nfree \n"
+	// libstdc++ node order, as build/test-z3 prints it (AUDIT.md util_lp_01-F1).
+	want := "options are: \n--min\n--mpq\n--file input.mps\n--density 25\nfree arguments are: \nprogram \nfree \n"
 	var out bytes.Buffer
 	if err := a.Print(&out); err != nil || out.String() != want {
 		t.Fatal(err, out.String())
@@ -143,5 +144,26 @@ func TestLPDriverArgumentNumericDomains(t *testing.T) {
 	}
 	if _, _, err := lpDriverArgs(t, "--harris_toler", "1.2suffix").doubleValue("--harris_toler"); err == nil {
 		t.Fatal("malformed libc numeric prefix was emulated")
+	}
+}
+
+// AUDIT.md util_lp_01-F1: argument_parser::print walks the valued options in
+// libstdc++ unordered_map order, as build/test-z3 prints them.
+func TestLPDriverArgumentPrintValuedOrder(t *testing.T) {
+	a := NewDriverArguments([]string{"--term", "--min", "--dual", "--file", "x", "--max_iters", "3"})
+	if !a.Parse() {
+		t.Fatal(a.ErrorMessage)
+	}
+	var out bytes.Buffer
+	if err := a.Print(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "options are: \n--dual\n--min\n--term\n--max_iters 3\n--file x\n" {
+		t.Fatalf("%q", out.String())
+	}
+	usage := NewDriverArguments([]string{"--bogus"})
+	usage.Parse()
+	if !strings.HasPrefix(usage.UsageString(), "Unknown options:--bogus,\nUsage:\n--test_mpq_np_plus /test rationals using plus instead of +=\n--test_swaps /") {
+		t.Fatalf("%q", usage.UsageString())
 	}
 }

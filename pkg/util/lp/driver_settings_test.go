@@ -115,7 +115,7 @@ func TestLPDriverSettingsDiagnosticPublication(t *testing.T) {
 	for _, option := range []string{"--rep_frq", "--percent_for_enter", "--partial_pivot", "--density", "--maxng", "--harris_toler", "--random_seed", "--simplex_strategy"} {
 		s := lpDriverSettings(t)
 		a := lpDriverAllSettings(t)
-		a.usedValues.Set(option, "12suffix")
+		a.setValue(option, "12suffix")
 		if err := ApplyDriverSettings(a, s, nil); err == nil || s.SimplexStrategy != StrategyLU || option == "--rep_frq" && (s.ReportFrequency != 17 || s.PrintStatistics) || option != "--rep_frq" && (s.ReportFrequency != 5 || !s.PrintStatistics) {
 			t.Fatal("numeric parser boundary", option, err)
 		}

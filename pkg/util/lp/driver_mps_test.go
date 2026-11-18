@@ -182,11 +182,11 @@ func TestLPMPSDriverEntryAndSourceLimits(t *testing.T) {
 		if profile == "nil-args" {
 			a = nil
 		} else if profile == "bad-limit" {
-			a.usedValues.Set("--max_iters", "bad")
+			a.setValue("--max_iters", "bad")
 		} else if profile == "iteration-limit" {
-			a.usedValues.Set("--max_iters", "1")
+			a.setValue("--max_iters", "1")
 		} else if profile == "fresh-tableau" {
-			a.usedValues.Set("--simplex_strategy", "0")
+			a.setValue("--simplex_strategy", "0")
 		}
 		file := name
 		if strings.HasPrefix(profile, "missing-") {
@@ -492,7 +492,7 @@ func TestLPMPSDriverNamedAndComparisonGuards(t *testing.T) {
 				t.Fatal(profile, err)
 			}
 		case "setup":
-			d.Arguments.usedValues.Set("--density", "bad")
+			d.Arguments.setValue("--density", "bad")
 			if err := d.compareWithPrimal(); err == nil || d.floatComparison == nil || d.floatComparison.CoreSolver != nil {
 				t.Fatal(profile, err)
 			}

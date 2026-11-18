@@ -148,9 +148,9 @@ func TestLPLARDriverClockAndOptionPrefixes(t *testing.T) {
 		if strings.HasPrefix(profile, "clock") {
 			clock.failAt = int(profile[len(profile)-1] - '0')
 		} else if profile == "bad-maxng" {
-			args.usedValues.Set("--maxng", "bad")
+			args.setValue("--maxng", "bad")
 		} else if profile == "bad-maxiters" {
-			args.usedValues.Set("--max_iters", "bad")
+			args.setValue("--max_iters", "bad")
 		} else if profile == "nil-args" {
 			d.Arguments = nil
 		} else if profile == "nil-solver" {
