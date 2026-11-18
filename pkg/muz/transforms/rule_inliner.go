@@ -802,9 +802,19 @@ func (p *RuleInlinerPlugin) plan(source *base.RuleSet) (map[ast.ASTHandle]bool, 
 			edges[head][declaration] = true
 		}
 	}
+	// inlining_allowed: a predicate is a candidate unless it is protected
+	// (output or with facts) or occurs negated, and m_head_pred_ctr <= 1 or
+	// (m_tail_pred_ctr <= 1 and m_head_pred_ctr <= 4). A tail predicate
+	// without rules (m_head_pred_ctr 0) is allowed: a rule using it inlines
+	// to nothing.
 	candidate := make(map[ast.ASTHandle]bool)
 	for declaration, heads := range headCount {
 		candidate[declaration] = !p.protected[declaration] && !negative[declaration] && (heads <= 1 || tailCount[declaration] <= 1 && heads <= 4)
+	}
+	for declaration := range tailCount {
+		if headCount[declaration] == 0 {
+			candidate[declaration] = !p.protected[declaration] && !negative[declaration]
+		}
 	}
 	// forbid_preds_from_cycles skips strata of size one: a self-recursive
 	// candidate stays allowed, and its recursive rules inline to nothing
