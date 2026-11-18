@@ -754,9 +754,25 @@ func (t *SMTTheoryArith) cancelFlag() bool {
 
 func (t *SMTTheoryArith) mkAxiom(ante, conseq ast.ASTHandle, simplifyConseq bool) (err error) {
 	m := t.state.manager
-	x := smtArithExprs{m: m}
-	defer func() { err = errors.Join(err, x.release()) }()
-	sAnte, err := t.rewrite(&x, ante)
+	if t.state.theoryRewriter == nil {
+		return ast.ErrASTDomain
+	}
+	// expr_ref s_ante(m), s_conseq(m): assigning s_ante = s_ante_n (and
+	// s_conseq = s_conseq_n) drops the rewritten negation at once; the refs
+	// die in reverse declaration order at return.
+	anteRef, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	conseqRef, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return errors.Join(err, m.DelRef(&anteRef))
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&conseqRef), m.DelRef(&anteRef)) }()
+	if err = t.state.theoryRewriter.Rewrite(ante, anteRef); err != nil {
+		return err
+	}
+	sAnte, err := m.RefGet(anteRef)
 	if err != nil {
 		return err
 	}
@@ -768,6 +784,9 @@ func (t *SMTTheoryArith) mkAxiom(ante, conseq ast.ASTHandle, simplifyConseq bool
 		return err
 	}
 	if negated {
+		if err = m.SetRef(anteRef, sAnteN); err != nil {
+			return err
+		}
 		sAnte = sAnteN
 	}
 	if err = t.state.Internalize(sAnte, false); err != nil {
@@ -780,11 +799,17 @@ func (t *SMTTheoryArith) mkAxiom(ante, conseq ast.ASTHandle, simplifyConseq bool
 	if negated {
 		lAnte = lAnte.Negated()
 	}
-	sConseq := conseq
+	if err = m.SetRef(conseqRef, conseq); err != nil {
+		return err
+	}
 	if simplifyConseq {
-		if sConseq, err = t.rewrite(&x, conseq); err != nil {
+		if err = t.state.theoryRewriter.Rewrite(conseq, conseqRef); err != nil {
 			return err
 		}
+	}
+	sConseq, err := m.RefGet(conseqRef)
+	if err != nil {
+		return err
 	}
 	if t.cancelFlag() {
 		return nil
@@ -794,6 +819,9 @@ func (t *SMTTheoryArith) mkAxiom(ante, conseq ast.ASTHandle, simplifyConseq bool
 		return err
 	}
 	if negated {
+		if err = m.SetRef(conseqRef, sConseqN); err != nil {
+			return err
+		}
 		sConseq = sConseqN
 	}
 	if err = t.state.Internalize(sConseq, false); err != nil {
