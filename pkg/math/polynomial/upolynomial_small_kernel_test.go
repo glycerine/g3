@@ -45,6 +45,24 @@ func upolySmallKernelWorkload(t *testing.T, armed bool) string {
 		}
 		return out
 	}
+	// reduce copies src with each coefficient p-normalized, as
+	// to_zp_manager does before Zp-mode operations: mpzzp asserts
+	// is_p_normalized on every operand (src/util/mpzzp.h).
+	reduce := func(src UPolynomial) UPolynomial {
+		n, e := m.Size(src)
+		serviceMust(t, e)
+		vals := make([]unumeral.Int, n)
+		for i := range vals {
+			serviceMust(t, m.ReadCoefficient(src, uint32(i), &vals[i]))
+			serviceMust(t, m.modular.PNormalize(&vals[i]))
+		}
+		out := upolySourceNew(t, m, nil)
+		serviceMust(t, m.SetInts(out, vals))
+		for i := range vals {
+			serviceMust(t, z.Del(&vals[i]))
+		}
+		return out
+	}
 	var text strings.Builder
 	show := func(name string, p UPolynomial) {
 		n, e := m.Size(p)
@@ -102,11 +120,12 @@ func upolySmallKernelWorkload(t *testing.T, armed bool) string {
 	for i, prime := range []string{"40009", "2305843009213693951", "1606938044258990275541962092341162602522202993782792835301611"} {
 		serviceMust(t, z.SetString(&p, prime))
 		serviceMust(t, m.modular.SetZP(&p))
+		ap, bp := reduce(a), reduce(b)
 		gz := poly()
-		serviceMust(t, m.GCD(a, b, gz))
+		serviceMust(t, m.GCD(ap, bp, gz))
 		show(fmt.Sprintf("gcd mod %d", i), gz)
 		mz := poly()
-		serviceMust(t, m.Mul(a, b, mz))
+		serviceMust(t, m.Mul(ap, bp, mz))
 		show(fmt.Sprintf("prod mod %d", i), mz)
 		serviceMust(t, m.modular.SetZ())
 	}
