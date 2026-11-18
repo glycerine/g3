@@ -61,14 +61,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	if err = command.Parse(args); err != nil {
 		return err
 	}
-	if command.Action == shell.CommandHelp {
-		_, err = fmt.Fprintln(output, "g3 Go SMT and optimization runner\nUsage: g3 [-smt2|-dimacs|-bpo|-wcnf|-log] <file> | g3 [-smt2|-dimacs|-bpo|-wcnf|-log] -in\n       g3 -dl <file-or-directory> (also selected by .dl or .datalog)\nGlobal parameter options: name=value; -p, -pd, -pm, -pp:name")
-		return err
-	}
-	if command.Action == shell.CommandVersion {
-		_, err = fmt.Fprintln(output, "g3 (Go SMT-LIB backend)")
-		return err
-	}
+	// parse_cmd_line_args: display_usage() / display_version(), exit(0).
 	if command.Action != shell.CommandContinue {
 		return command.WriteTerminalAction(output)
 	}
