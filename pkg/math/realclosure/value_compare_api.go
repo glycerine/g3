@@ -28,48 +28,34 @@ func (s *realValueStore) compareValues(a, b *realValue, bounds *numeral.BinaryRa
 	if a.isRational && b.isRational {
 		return s.numbers.Compare(&a.rational, &b.rational)
 	}
-	if !a.isRational && !b.isRational && a.root == b.root && len(a.functionNumerator.coefficients) == 2 && len(b.functionNumerator.coefficients) == 2 && s.rankedDenominatorIsOne(a.functionDenominator.coefficients) && s.rankedDenominatorIsOne(b.functionDenominator.coefficients) {
-		return 0, nil
-	}
 	if bounds == nil {
 		return 0, arena.ErrInvalidSlot
 	}
-	for precision := s.rationalInitialPrecision(); precision <= s.intervalMaxPrecision(); precision++ {
-		ai, err := s.valueInterval(a, bounds)
-		if err != nil {
-			return 0, err
-		}
-		bi, err := s.valueInterval(b, bounds)
-		if err != nil {
-			return 0, err
-		}
-		before, err := ai.Before(bi)
-		if err != nil {
-			return 0, err
-		}
-		if before {
-			return -1, nil
-		}
-		before, err = bi.Before(ai)
-		if err != nil {
-			return 0, err
-		}
-		if before {
-			return 1, nil
-		}
-		refinedA, err := s.refineValueInterval(a, bounds, precision+1)
-		if err != nil {
-			return 0, err
-		}
-		refinedB, err := s.refineValueInterval(b, bounds, precision+1)
-		if err != nil {
-			return 0, err
-		}
-		if !refinedA || !refinedB {
-			break
-		}
+	// imp::compare: one before() test of the current intervals, then
+	// sign(a - b); no refinement (AUDIT.md math_realclosure_02-F5).
+	ai, err := s.valueInterval(a, bounds)
+	if err != nil {
+		return 0, err
 	}
-	return 0, arena.ErrInvalidSlot
+	bi, err := s.valueInterval(b, bounds)
+	if err != nil {
+		return 0, err
+	}
+	before, err := ai.Before(bi)
+	if err != nil {
+		return 0, err
+	}
+	if before {
+		return -1, nil
+	}
+	if before, err = bi.Before(ai); err != nil {
+		return 0, err
+	}
+	if before {
+		return 1, nil
+	}
+	// m_use_prem defaults to true (rcf use_prem).
+	return s.compareRankedRetainedValues(a, b, true)
 }
 
 func (s *realValueStore) equalValues(a, b *realValue, bounds *numeral.BinaryRationalManager) (bool, error) {
