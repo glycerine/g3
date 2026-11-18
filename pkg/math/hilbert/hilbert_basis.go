@@ -105,11 +105,11 @@ func checkedMul(left, right int64) (int64, error) {
 // w = [to_numeral(-b), to_numeral(v[0]), ...]; with negate it is add_le,
 // which negates v and b first. A nil bound is rational(0).
 //
-// DELIBERATE DIVERGENCE: the source negates the rationals before
-// to_numeral, so a coordinate of exactly 2^63 becomes INT64_MIN and is
-// accepted; saturation then needs on the order of 2^63 resolution steps.
-// g3 converts first and applies checked_int64 negation, so such a row
-// reports the checked_int64 overflow at once (as g3 always has).
+// FORK FIX #124: z3 4.7.1 negated the rationals before to_numeral, so a
+// coordinate of exactly 2^63 became INT64_MIN and was accepted; saturation
+// then needed on the order of 2^63 resolution steps. The fork, like g3,
+// converts first and applies checked_int64 negation, so such a row reports
+// the checked_int64 overflow at once.
 func (b *Basis) addRow(values []numeral.Rational, bound *numeral.Rational, equal, negate bool) (err error) {
 	if len(b.inequalities) != 0 && len(values)+1 != len(b.inequalities[len(b.inequalities)-1].values) {
 		return ErrDimension

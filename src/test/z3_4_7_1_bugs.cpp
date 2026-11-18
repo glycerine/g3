@@ -405,6 +405,7 @@ Abstract:
 #include "opt/opt_parse.h"
 #include "opt/opt_cmds.h"
 #include "util/mpfx.h"
+#include "math/hilbert/hilbert_basis.h"
 #include <fstream>
 #include <cstdio>
 #include "api/z3_replayer.h"
@@ -4475,4 +4476,34 @@ void tst_z3_4_7_1_mpfx_div_carry() {
     std::string r = m.to_string(c);
     std::cout << "mpfx_div_carry: " << m.to_string(a) << " / " << m.to_string(b) << " = " << r << "\n";
     ENSURE(r == "4294967296");
+}
+
+// FORK FIX #124: hilbert_basis::add_ge/add_eq negated the bound, and add_le
+// the coefficients, as rationals before to_numeral, so a magnitude of 2^63
+// became INT64_MIN and was accepted; saturation then needs on the order of
+// 2^63 resolution steps. With the fix the value is converted first and
+// negated with checked_int64, which reports the overflow at once.
+static bool z3_4_7_1_hilbert_overflows(int which) {
+    reslimit rl;
+    hilbert_basis hb(rl);
+    rational two63 = power(rational(2), 63);
+    rational_vector v;
+    v.push_back(which == 2 ? two63 : rational(1));
+    try {
+        if (which == 0) hb.add_ge(v, two63);
+        else if (which == 1) hb.add_eq(v, two63);
+        else hb.add_le(v, rational(0));
+    }
+    catch (checked_int64<true>::overflow_exception &) {
+        return true;
+    }
+    return false;
+}
+
+void tst_z3_4_7_1_hilbert_int64_min() {
+    bool ge = z3_4_7_1_hilbert_overflows(0);
+    bool eq = z3_4_7_1_hilbert_overflows(1);
+    bool le = z3_4_7_1_hilbert_overflows(2);
+    std::cout << "hilbert_int64_min: add_ge " << ge << " add_eq " << eq << " add_le " << le << "\n";
+    ENSURE(ge && eq && le);
 }

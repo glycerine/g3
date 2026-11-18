@@ -711,7 +711,10 @@ void hilbert_basis::reset_statistics() {
 void hilbert_basis::add_ge(rational_vector const& v, rational const& b) {
     SASSERT(m_ineqs.empty() || v.size() + 1 == m_ineqs.back().size());
     num_vector w;
-    w.push_back(to_numeral(-b));
+    // FORK FIX #124 (g3 audit, see FORK_BUGFIXES.md): convert, then negate
+    // with checked_int64. Negating the rational first let a magnitude of 2^63
+    // through as INT64_MIN, and saturation then ran for about 2^63 steps.
+    w.push_back(-to_numeral(b));
     for (unsigned i = 0; i < v.size(); ++i) {
         w.push_back(to_numeral(v[i]));
     }
@@ -720,17 +723,27 @@ void hilbert_basis::add_ge(rational_vector const& v, rational const& b) {
 }
 
 void hilbert_basis::add_le(rational_vector const& v, rational const& b) {
-    rational_vector w(v);
-    for (unsigned i = 0; i < w.size(); ++i) {
-        w[i].neg();
+    // add_ge(-v, -b), with each coefficient converted before its negation.
+    // FORK FIX #124 (g3 audit, see FORK_BUGFIXES.md): convert, then negate
+    // with checked_int64. Negating the rational first let a magnitude of 2^63
+    // through as INT64_MIN, and saturation then ran for about 2^63 steps.
+    SASSERT(m_ineqs.empty() || v.size() + 1 == m_ineqs.back().size());
+    num_vector w;
+    w.push_back(to_numeral(b));
+    for (unsigned i = 0; i < v.size(); ++i) {
+        w.push_back(-to_numeral(v[i]));
     }
-    add_ge(w, -b);
+    m_ineqs.push_back(w);
+    m_iseq.push_back(false);
 }
 
 void hilbert_basis::add_eq(rational_vector const& v, rational const& b) {
     SASSERT(m_ineqs.empty() || v.size() + 1 == m_ineqs.back().size());
     num_vector w;
-    w.push_back(to_numeral(-b));
+    // FORK FIX #124 (g3 audit, see FORK_BUGFIXES.md): convert, then negate
+    // with checked_int64. Negating the rational first let a magnitude of 2^63
+    // through as INT64_MIN, and saturation then ran for about 2^63 steps.
+    w.push_back(-to_numeral(b));
     for (unsigned i = 0; i < v.size(); ++i) {
         w.push_back(to_numeral(v[i]));
     }
