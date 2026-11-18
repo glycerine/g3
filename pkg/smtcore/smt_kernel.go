@@ -24,6 +24,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
 type SMTKernelAssertion struct {
@@ -1909,7 +1910,9 @@ func (k *SMTKernel) Canceled() (bool, error) {
 	return k.manager.Canceled()
 }
 
-// Display renders the retained asserted formulas in the source kernel format.
+// Display renders the retained asserted formulas as kernel::imp::display
+// does, each with mk_ismt2_pp(f, m, 2): the indent applies after line
+// breaks, and the format_ref releases each document after printing.
 func (k *SMTKernel) Display(out io.Writer) error {
 	if err := k.open(); err != nil {
 		return err
@@ -1917,22 +1920,54 @@ func (k *SMTKernel) Display(out io.Writer) error {
 	if out == nil {
 		return ast.ErrASTHandle
 	}
-	printer, err := ast.NewLegacySMTPrinter(k.manager)
-	if err != nil {
-		return err
-	}
-	if _, err = io.WriteString(out, "(kernel"); err != nil {
+	if _, err := io.WriteString(out, "(kernel"); err != nil {
 		return err
 	}
 	for _, assertion := range k.assertions {
-		if _, err = io.WriteString(out, "\n  "); err != nil {
+		if _, err := io.WriteString(out, "\n  "); err != nil {
 			return err
 		}
-		if err = printer.DisplayAST(out, assertion.Formula, 2, nil); err != nil {
+		if err := k.displayIndentedAssertion(out, assertion.Formula); err != nil {
 			return err
 		}
 	}
-	_, err = io.WriteString(out, ")")
+	_, err := io.WriteString(out, ")")
+	return err
+}
+
+func (k *SMTKernel) displayIndentedAssertion(out io.Writer, formula ast.ASTHandle) (err error) {
+	f, err := k.manager.SMT2PPExprTree(formula, nil)
+	if err != nil {
+		return err
+	}
+	formats, err := k.manager.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	ref, err := formats.NewRef(f)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, formats.DelRef(&ref)) }()
+	if f, err = k.manager.FormatIndent(2, f); err != nil {
+		return err
+	}
+	if err = formats.SetRef(ref, f); err != nil {
+		return err
+	}
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: k.manager.Budget()})
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, stream.Close()) }()
+	if err = k.manager.PrintFormat(stream, f, nil, nil, nil); err != nil {
+		return err
+	}
+	text, err := stream.String()
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(out, text)
 	return err
 }
 

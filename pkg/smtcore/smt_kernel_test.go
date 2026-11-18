@@ -29,10 +29,29 @@ func TestSMTKernelDisplayStatisticsResetAndCancellation(t *testing.T) {
 	var out strings.Builder
 	astTestMust(t, kernel.Display(&out))
 	if got := out.String(); got != "(kernel\n  kernel-surface-a\n  kernel-surface-b)" {
-		t.Fatal("kernel display", got)
+		t.Fatalf("kernel display %q", got)
 	}
 	if err := kernel.Display(nil); err != ast.ErrASTHandle {
 		t.Fatal("nil display writer", err)
+	}
+	// kernel::display uses mk_ismt2_pp: bit-vector numerals print as #x..
+	// (AUDIT.md smtcore_04-F7).
+	{
+		bvKernel := smtTestKernel(t, m)
+		word, err := m.BitVectorNumeralUint64(5, 8)
+		astTestMust(t, err)
+		sort, err := m.GetSort(word)
+		astTestMust(t, err)
+		c, err := m.MkConst(astTestSymbol(t, m, "kernel-surface-bv"), sort)
+		astTestMust(t, err)
+		eq, err := m.MkEq(c, word)
+		astTestMust(t, err)
+		astTestMust(t, bvKernel.Assert(eq, ast.ASTHandle{}))
+		var bvOut strings.Builder
+		astTestMust(t, bvKernel.Display(&bvOut))
+		if got := bvOut.String(); got != "(kernel\n  (= kernel-surface-bv #x05))" {
+			t.Fatal("kernel display of a bit-vector numeral", got)
+		}
 	}
 
 	status, err := kernel.Check()
