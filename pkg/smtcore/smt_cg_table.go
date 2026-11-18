@@ -4,7 +4,6 @@ package smtcore
 // src/smt/smt_cg_table.cpp.
 
 import (
-	"encoding/binary"
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -13,15 +12,15 @@ import (
 // pointers, so one enode per key suffices. Wider keys encode root owners in a
 // suffix, which distinct roots can share, so they keep collision chains whose
 // entries still pass the exact source congruence comparison.
-type smtCongruenceKey struct {
-	first, second *SMTEnode
-	tail          string
-}
 type smtCongruenceBucket struct {
 	id          uint32
 	declaration ast.ASTHandle
 	small       smtCgSmallTable // arity one and two, without a string key
-	wide        map[smtCongruenceKey][]*SMTEnode
+	// wide holds the nodes of arity above two by smtCongruenceSignature;
+	// a chain can mix signatures that share the hash, and lookups test
+	// each candidate with SMTEnodesCongruent, so the first congruent
+	// entry is the one an exact-signature chain would yield.
+	wide map[uint64][]*SMTEnode
 	// flatAssociative is mk_table_for's choice of the positional n-ary
 	// table, not comm_table, for a flat-associative binary declaration.
 	flatAssociative bool
@@ -35,22 +34,13 @@ func smtCongruenceSmallKey(node *SMTEnode) [2]*SMTEnode {
 	return key
 }
 
-func smtCongruenceSignature(node *SMTEnode) smtCongruenceKey {
-	key := smtCongruenceKey{first: node.arguments[0].root}
-	if len(node.arguments) > 1 {
-		key.second = node.arguments[1].root
+// smtCongruenceSignature hashes the owners of the argument roots.
+func smtCongruenceSignature(node *SMTEnode) uint64 {
+	h := uint64(0xcbf29ce484222325) ^ uint64(len(node.arguments))
+	for _, arg := range node.arguments {
+		h = smtHandleMix(h, arg.root.owner)
 	}
-	if len(node.arguments) > 2 {
-		data := make([]byte, 0, 16*(len(node.arguments)-2))
-		for _, arg := range node.arguments[2:] {
-			h := arg.root.owner
-			data = binary.LittleEndian.AppendUint64(data, h.Origin())
-			data = binary.LittleEndian.AppendUint32(data, h.Slot())
-			data = binary.LittleEndian.AppendUint32(data, h.Generation())
-		}
-		key.tail = string(data)
-	}
-	return key
+	return h
 }
 
 // find returns the congruent entry for a node, if any.
@@ -199,7 +189,7 @@ func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, 
 	}
 	bucket := &smtCongruenceBucket{
 		id: node.functionDeclID, declaration: node.declaration,
-		wide:            make(map[smtCongruenceKey][]*SMTEnode),
+		wide:            make(map[uint64][]*SMTEnode),
 		flatAssociative: flags.FlatAssociative,
 	}
 	t.buckets = append(t.buckets, bucket)
