@@ -232,3 +232,26 @@ func TestInductionGeneralizerTransitionAxiomNestsOr(t *testing.T) {
 	closureMust(t, builder.Close())
 	inductionCloseFixture(t, owner, transformer, closeBase)
 }
+
+// core_generalizer's new_cores wrapper generalizes only a non-empty core:
+// an empty one stays empty and keeps uses_level (AUDIT muz_pdr_01-F6).
+func TestInductionGeneralizerSkipsEmptyCore(t *testing.T) {
+	manager, owner, transformer, term, closeBase := inductionTestTransformer(t, inductionTestEmpty)
+	parent, err := NewModelNode(nil, term, transformer, 2)
+	closureMust(t, err)
+	child, err := NewModelNode(parent, term, transformer, 1)
+	closureMust(t, err)
+	input, err := pinGeneralizedCore(manager, nil, false)
+	closureMust(t, err)
+	result, err := generalizeInductionCore(child, input)
+	closureMust(t, err)
+	closureMust(t, closeGeneralizedCores(manager, []generalizedCore{input}))
+	if len(result.literals) != 0 || result.usesLevel {
+		t.Fatal("empty core was generalized", result.literals, result.usesLevel)
+	}
+	closureMust(t, closeGeneralizedCores(manager, []generalizedCore{result}))
+	parent.children = nil
+	closureMust(t, child.release())
+	closureMust(t, parent.release())
+	inductionCloseFixture(t, owner, transformer, closeBase)
+}

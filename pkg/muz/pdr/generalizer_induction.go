@@ -506,6 +506,11 @@ func generalizeInductionCore(node *ModelNode, input generalizedCore) (result gen
 	if err := node.open(); err != nil {
 		return generalizedCore{}, err
 	}
+	// core_generalizer::operator()(n, core, uses_level, new_cores) keeps
+	// an empty core as it is: only a non-empty one is generalized.
+	if len(input.literals) == 0 {
+		return pinGeneralizedCore(node.transformer.manager, input.literals, input.usesLevel)
+	}
 	parent := node.parent
 	if parent == nil {
 		return pinGeneralizedCore(node.transformer.manager, input.literals, input.usesLevel)
