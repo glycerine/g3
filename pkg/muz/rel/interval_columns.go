@@ -82,6 +82,25 @@ func (r *intervalColumns) setEmpty() (result error) {
 	return result
 }
 
+// copyFrom is vector_relation::copy: an empty source is set_empty; otherwise
+// (*this)[i] = other[i] reads the source representative's interval and
+// writes it through the destination's own m_eqs (a destination class keeps
+// the last column's value). The second loop's merge(i, find(i)) merges a
+// column with its own representative: the destination's equalities are
+// unchanged.
+func (r *intervalColumns) copyFrom(other *intervalColumns) error {
+	if other.empty {
+		return r.setEmpty()
+	}
+	r.empty = false
+	for i := range r.columns {
+		if err := r.assign(r.find(uint32(i)), &other.columns[other.find(uint32(i))]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // assign is (*this)[index] = value on a representative index.
 func (r *intervalColumns) assign(index uint32, value *smtcore.RelationInterval) error {
 	return r.intervals.Set(&r.columns[index], value)

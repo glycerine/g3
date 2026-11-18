@@ -16,33 +16,21 @@ func cloneBoundColumn(c boundColumn) boundColumn {
 	return result
 }
 
-// copyFrom mirrors vector_relation::copy. It copies each representative's
-// payload into a fresh destination column, but does not recreate source
-// equality classes.
+// copyFrom is vector_relation::copy: an empty source is set_empty (fresh
+// equalities); otherwise (*this)[i] = other[i] writes each source
+// representative's payload through the destination's own m_eqs, so a
+// destination class keeps the last column's payload. The second loop's
+// merge(i, find(i)) merges a column with its own representative: the
+// destination's equalities are unchanged.
 func (r *BoundRelation) copyFrom(source *BoundRelation) {
-	if len(r.parent) != len(source.parent) {
-		r.parent = make([]uint32, len(source.parent))
-		r.size = make([]uint32, len(source.size))
-	}
-	if cap(r.columns) < len(source.columns) {
-		r.columns = make([]boundColumn, len(source.columns))
-	} else {
-		r.columns = r.columns[:len(source.columns)]
-	}
-	for i := range source.columns {
-		r.parent[i], r.size[i] = uint32(i), 1
-	}
 	if source.empty {
-		for i := range r.columns {
-			r.columns[i] = boundColumn{lt: make(map[uint32]bool), le: make(map[uint32]bool)}
-		}
-		r.empty = true
+		r.reset()
 		return
 	}
-	for i := range source.columns {
-		r.columns[i] = cloneBoundColumn(source.columns[source.find(uint32(i))])
-	}
 	r.empty = false
+	for i := range r.columns {
+		r.columns[r.find(uint32(i))] = cloneBoundColumn(source.columns[source.find(uint32(i))])
+	}
 }
 
 func sameBoundColumn(a, b boundColumn) bool {
@@ -159,17 +147,19 @@ func (r *BoundRelation) Union(source *BoundRelation) (bool, error) {
 
 func (r *BoundRelation) Widen(source *BoundRelation) (bool, error) { return r.Union(source) }
 
-// UnionWithDelta applies source union or widening and updates the distinct
-// delta relation when the target changes. An empty source resets delta.
+// UnionWithDelta is vector_relation::mk_union with a delta: an empty source
+// is copied into delta, a union into an empty target copies the source into
+// both, and otherwise delta gets a copy of the target when it changed.
 func (r *BoundRelation) UnionWithDelta(source, delta *BoundRelation, widen bool) (bool, error) {
 	if r == nil || source == nil || delta == nil || r == delta || source == delta || len(r.columns) != len(source.columns) || len(r.columns) != len(delta.columns) {
 		return false, ast.ErrASTDomain
 	}
+	wasEmpty := r.empty
 	changed, err := r.Union(source)
 	if err != nil {
 		return false, err
 	}
-	if source.empty {
+	if source.empty || wasEmpty {
 		delta.copyFrom(source)
 	} else if changed {
 		delta.copyFrom(r)

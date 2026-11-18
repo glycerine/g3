@@ -130,28 +130,28 @@ func renameIntervalColumns(source *intervalColumns, cycle []uint32) (_ *interval
 	return result, nil
 }
 
-// unionIntervalColumns is vector_relation::mk_union without the delta: the
-// target gets the source's hull or widening. The result reports the source's
-// delta-change condition.
-func unionIntervalColumns(target, source *intervalColumns, widen bool) (_ bool, resultErr error) {
-	if target == nil || source == nil || len(target.columns) != len(source.columns) {
+// unionIntervalColumns is vector_relation::mk_union: the target gets the
+// source's hull or widening, and a non-nil delta gets vector_relation::copy
+// of the source (an empty source, or a union into an empty target) or of the
+// changed target. The result reports the source's change condition.
+func unionIntervalColumns(target, source, delta *intervalColumns, widen bool) (_ bool, resultErr error) {
+	if target == nil || source == nil || len(target.columns) != len(source.columns) || delta != nil && len(delta.columns) != len(target.columns) {
 		return false, ast.ErrASTDomain
 	}
 	if source.empty {
+		if delta != nil {
+			return false, delta.copyFrom(source)
+		}
 		return false, nil
 	}
 	intervals := target.intervals
 	if target.empty {
-		// vector_relation::copy copies the values through the source's
-		// representatives but initializes fresh destination equivalences.
-		if err := target.setEmpty(); err != nil {
+		// copy(src): the values go through the target's own equalities.
+		if err := target.copyFrom(source); err != nil {
 			return false, err
 		}
-		target.empty = false
-		for i := range target.columns {
-			if err := target.assign(uint32(i), &source.columns[source.find(uint32(i))]); err != nil {
-				return false, err
-			}
+		if delta != nil {
+			return true, delta.copyFrom(source)
 		}
 		return true, nil
 	}
@@ -215,8 +215,11 @@ func unionIntervalColumns(target, source *intervalColumns, widen bool) (_ bool, 
 			changed = true
 		}
 	}
-	// dealloc(m_elems); m_elems = elems
+	// dealloc(m_eqs); dealloc(m_elems); m_eqs = uf; m_elems = elems
 	err := target.del()
 	target.columns, target.parent, target.size = result.columns, result.parent, result.size
+	if err == nil && delta != nil && changed {
+		err = delta.copyFrom(target)
+	}
 	return changed, err
 }

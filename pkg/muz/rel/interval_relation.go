@@ -95,34 +95,15 @@ func (r *IntervalRelation) Union(source *IntervalRelation, widen bool) (bool, er
 	if r == nil || source == nil {
 		return false, ast.ErrASTDomain
 	}
-	return unionIntervalColumns(r.values, source.values, widen)
+	return unionIntervalColumns(r.values, source.values, nil, widen)
 }
 
-// UnionWithDelta applies a union or widening and updates delta when the source
-// operation reports a change. An empty source resets delta to empty.
+// UnionWithDelta is vector_relation::mk_union(src, delta, is_widen).
 func (r *IntervalRelation) UnionWithDelta(source, delta *IntervalRelation, widen bool) (bool, error) {
 	if r == nil || source == nil || delta == nil || r.values == nil || source.values == nil || delta.values == nil || r == delta || source == delta || len(r.values.columns) != len(source.values.columns) || len(r.values.columns) != len(delta.values.columns) {
 		return false, ast.ErrASTDomain
 	}
-	changed, err := unionIntervalColumns(r.values, source.values, widen)
-	if err != nil {
-		return false, err
-	}
-	if source.Empty() {
-		return false, delta.values.setEmpty()
-	} else if changed {
-		// vector_relation::copy copies source values into fresh destination
-		// columns; its second merge loop leaves those columns independent.
-		copy := newIntervalColumns(r.values.intervals, len(r.values.columns), false)
-		for i := range copy.columns {
-			if err = copy.assign(uint32(i), &r.values.columns[r.values.find(uint32(i))]); err != nil {
-				return false, errors.Join(err, copy.del())
-			}
-		}
-		err = delta.values.del()
-		delta.values = copy
-	}
-	return changed, err
+	return unionIntervalColumns(r.values, source.values, delta.values, widen)
 }
 
 func JoinIntervalRelations(left, right *IntervalRelation, leftColumns, rightColumns []uint32) (*IntervalRelation, error) {

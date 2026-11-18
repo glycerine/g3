@@ -67,7 +67,7 @@ func TestIntervalVectorUnionAndWiden(t *testing.T) {
 	astTestMust(t, target.equate(0, 1))
 	astTestMust(t, testIntersect(source, 0, point(1)))
 	astTestMust(t, testIntersect(source, 1, point(2)))
-	changed, err := unionIntervalColumns(target, source, false)
+	changed, err := unionIntervalColumns(target, source, nil, false)
 	astTestMust(t, err)
 	if !changed || target.find(0) == target.find(1) {
 		t.Fatal("union must split unequal equivalence classes")
@@ -75,7 +75,7 @@ func TestIntervalVectorUnionAndWiden(t *testing.T) {
 	if !testContains(&target.columns[target.find(1)], big.NewRat(1, 1)) || !testContains(&target.columns[target.find(1)], big.NewRat(2, 1)) {
 		t.Fatal("union must include both bounds")
 	}
-	changed, err = unionIntervalColumns(target, source, false)
+	changed, err = unionIntervalColumns(target, source, nil, false)
 	astTestMust(t, err)
 	if changed {
 		t.Fatal("repeating union should not report a change")
@@ -84,7 +84,7 @@ func TestIntervalVectorUnionAndWiden(t *testing.T) {
 	widenTarget, widenSource := newIntervalColumns(IntervalTestManager(), 1, false), newIntervalColumns(IntervalTestManager(), 1, false)
 	astTestMust(t, testIntersect(widenTarget, 0, point(1)))
 	astTestMust(t, testIntersect(widenSource, 0, point(2)))
-	changed, err = unionIntervalColumns(widenTarget, widenSource, true)
+	changed, err = unionIntervalColumns(widenTarget, widenSource, nil, true)
 	astTestMust(t, err)
 	_, _, hi, _ := testBounds(&widenTarget.columns[0])
 	if !changed || hi != nil {
@@ -92,12 +92,12 @@ func TestIntervalVectorUnionAndWiden(t *testing.T) {
 	}
 
 	empty := newIntervalColumns(IntervalTestManager(), 2, true)
-	changed, err = unionIntervalColumns(empty, target, false)
+	changed, err = unionIntervalColumns(empty, target, nil, false)
 	astTestMust(t, err)
 	if !changed || empty.empty || !testContains(&empty.columns[1], big.NewRat(2, 1)) {
 		t.Fatal("union into empty relation failed")
 	}
-	changed, err = unionIntervalColumns(target, newIntervalColumns(IntervalTestManager(), 2, true), false)
+	changed, err = unionIntervalColumns(target, newIntervalColumns(IntervalTestManager(), 2, true), nil, false)
 	astTestMust(t, err)
 	if changed {
 		t.Fatal("empty source should not change union")

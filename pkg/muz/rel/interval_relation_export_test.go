@@ -170,7 +170,7 @@ func (r *IntervalRelation) AddFact(values []*big.Rat) (resultErr error) {
 			return err
 		}
 	}
-	_, err := unionIntervalColumns(r.values, fact, false)
+	_, err := unionIntervalColumns(r.values, fact, nil, false)
 	return err
 }
 
