@@ -350,3 +350,26 @@ func TestWrapperBooleanOperatorsAndContextGuards(t *testing.T) {
 		t.Fatal("cross-context equality", err)
 	}
 }
+
+// AUDIT.md duality_03-F4: get_sort_kind maps INT_SORT (1) to IntSort and
+// REAL_SORT (0) to RealSort.
+func TestWrapperArithmeticSortKinds(t *testing.T) {
+	context, manager, _ := dualityNativeSolverFixture(t)
+	for _, c := range []struct {
+		kind int32
+		want SortKind
+	}{{1, SortInt}, {0, SortReal}} {
+		h, err := manager.MkFamilySort(context.families.Arithmetic, c.kind, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s, err := NewSort(context, h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		closeSort(t, s)
+		if got, err := s.Kind(); err != nil || got != c.want {
+			t.Fatal(c.kind, got, err)
+		}
+	}
+}

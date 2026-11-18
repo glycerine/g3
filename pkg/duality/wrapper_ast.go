@@ -229,9 +229,10 @@ func (s *Sort) Kind() (SortKind, error) {
 		return SortUninterpreted, nil
 	case family == context.families.Basic && kind == 0:
 		return SortBool, nil
-	case family == context.families.Arithmetic && kind == 0:
-		return SortInt, nil
+	// INT_SORT is 1, REAL_SORT is 0 (AUDIT.md duality_03-F4).
 	case family == context.families.Arithmetic && kind == 1:
+		return SortInt, nil
+	case family == context.families.Arithmetic && kind == 0:
 		return SortReal, nil
 	case family == context.families.Array && kind == 0:
 		return SortArray, nil
