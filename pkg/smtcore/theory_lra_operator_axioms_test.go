@@ -163,6 +163,15 @@ func TestSMTLRAOperatorIntegerDivisionRemainderClauseShapes(t *testing.T) {
 		var want [][2]SMTLiteral
 		if op == smtArithOpRem {
 			want = [][2]SMTLiteral{{ge.Negated(), equality(h, mod)}, {ge, equality(h, f.app(smtArithOpUMinus, mod))}}
+			// AUDIT.md smtcore_11-F5: mk_rem_axiom builds -mod before the
+			// (>= divisor 0) atom.
+			negID, err := f.m.GetASTID(f.app(smtArithOpUMinus, mod))
+			astTestMust(t, err)
+			geID, err := f.m.GetASTID(f.app(smtArithOpGE, y, zero))
+			astTestMust(t, err)
+			if negID > geID {
+				t.Fatal("-mod created after the divisor sign atom", negID, geID)
+			}
 		} else {
 			le := literal(f.app(smtArithOpLE, y, zero))
 			div := f.app(smtArithOpIDiv, x, y)

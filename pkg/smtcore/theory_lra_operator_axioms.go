@@ -162,11 +162,10 @@ func (t *SMTLRATheory) Relevant(term ast.ASTHandle) (result error) {
 			if err != nil {
 				return err
 			}
+			// GCC evaluates a.mk_le(a.mk_sub(to_r, x), a.mk_real(0)) right to
+			// left: 0, the difference, le; then 1, x - to_r, ge. Both atoms
+			// exist before mk_literal(lo) internalizes the first.
 			zero, err := c.number(0, false)
-			if err != nil {
-				return err
-			}
-			one, err := c.number(1, false)
 			if err != nil {
 				return err
 			}
@@ -174,7 +173,11 @@ func (t *SMTLRATheory) Relevant(term ast.ASTHandle) (result error) {
 			if err != nil {
 				return err
 			}
-			lo, err := c.atom(smtArithOpLE, difference, zero)
+			loAtom, err := c.app(smtArithOpLE, difference, zero)
+			if err != nil {
+				return err
+			}
+			one, err := c.number(1, false)
 			if err != nil {
 				return err
 			}
@@ -182,11 +185,19 @@ func (t *SMTLRATheory) Relevant(term ast.ASTHandle) (result error) {
 			if err != nil {
 				return err
 			}
-			hi, err := c.atom(smtArithOpGE, difference, one)
+			hiAtom, err := c.app(smtArithOpGE, difference, one)
+			if err != nil {
+				return err
+			}
+			lo, err := c.literal(loAtom)
 			if err != nil {
 				return err
 			}
 			if err = c.unit(lo); err != nil {
+				return err
+			}
+			hi, err := c.literal(hiAtom)
+			if err != nil {
 				return err
 			}
 			return c.unit(hi.Negated())
@@ -251,24 +262,28 @@ func (t *SMTLRATheory) Relevant(term ast.ASTHandle) (result error) {
 	if err != nil {
 		return err
 	}
+	// mk_rem_axiom builds mmod = -mod before dgez, and emits each axiom
+	// before building the next equality.
+	var negative ast.ASTHandle
+	if op == smtArithOpRem {
+		if negative, err = c.app(smtArithOpUMinus, mod); err != nil {
+			return err
+		}
+	}
 	ge, err := c.atom(smtArithOpGE, y, zero)
 	if err != nil {
 		return err
 	}
 	if op == smtArithOpRem {
-		negative, err := c.app(smtArithOpUMinus, mod)
-		if err != nil {
-			return err
-		}
 		eq1, err := c.eq(term, mod)
 		if err != nil {
 			return err
 		}
-		eq2, err := c.eq(term, negative)
-		if err != nil {
+		if err = c.binary(ge.Negated(), eq1); err != nil {
 			return err
 		}
-		if err = c.binary(ge.Negated(), eq1); err != nil {
+		eq2, err := c.eq(term, negative)
+		if err != nil {
 			return err
 		}
 		return c.binary(ge, eq2)
