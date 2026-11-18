@@ -34,7 +34,7 @@ type UPolynomialConfig struct {
 type UPolynomialManager struct {
 	// kernelScratch holds the Go digit buffers of the direct coefficient
 	// operations (see upolySmallOps), allocated on first use.
-	kernelScratch *unumeral.CRAScratch
+	kernelScratch                           *unumeral.CRAScratch
 	sourceFactors                           *UPolynomialFactors
 	intervalBounds                          upolyIntervalBoundsScope
 	convertEntry                            upolyConvertEntryScope

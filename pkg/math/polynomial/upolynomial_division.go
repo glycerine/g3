@@ -69,6 +69,7 @@ func (m *UPolynomialManager) divScalarWithSourceContext(v UPolynomialView, b *un
 	}
 	return nil
 }
+
 // traceDivScalarNotDivides is CTRACE("upolynomial", !m().divides(b, p[i]),
 // tout << "b: " << m().to_string(b) << ", p[i]: " << m().to_string(p[i])
 // << "\n";) of core_manager::div (upolynomial.cpp:408). The condition is
