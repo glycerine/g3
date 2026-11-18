@@ -63,6 +63,7 @@ func newDomSimplifyTactic(m *ast.ASTManager, _ *uparams.ParamsRef) (*DomSimplify
 	t := &DomSimplifyTactic{manager: m, maxDepth: 1024, ownerBytes: n}
 	t.self = t
 	t.dominators = newExpressionDominators(m)
+	t.dominators.traceTags = t.tags
 	return t, nil
 }
 

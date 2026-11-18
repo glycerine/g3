@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	utext "github.com/glycerine/g3/pkg/util/text"
 	"io"
+	"strconv"
 )
 
 func (t *DomSimplifyTactic) tags() *diagnostic.TraceTags {
@@ -14,17 +15,22 @@ func (t *DomSimplifyTactic) tags() *diagnostic.TraceTags {
 	}
 	return diagnostic.BorrowProcessTraceTags()
 }
-func (t *DomSimplifyTactic) formatDom(h ast.ASTHandle) (text string, result error) {
-	f, e := t.manager.SMT2PPExprTree(h, nil)
+func (t *DomSimplifyTactic) formatDom(h ast.ASTHandle) (string, error) {
+	return formatDomExpr(t.manager, h)
+}
+
+// formatDomExpr is mk_pp(h, m) (also expr_ref's operator<<).
+func formatDomExpr(m *ast.ASTManager, h ast.ASTHandle) (text string, result error) {
+	f, e := m.SMT2PPExprTree(h, nil)
 	if e != nil {
 		return "", e
 	}
-	out, e := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: t.manager.Budget()})
+	out, e := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
 	if e != nil {
 		return "", e
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
-	if e = t.manager.PrintFormatTransient(out, f, nil, nil, nil); e != nil {
+	if e = m.PrintFormatTransient(out, f, nil, nil, nil); e != nil {
 		return "", e
 	}
 	return out.String()
@@ -74,5 +80,44 @@ func (t *DomSimplifyTactic) traceDominatorTree() {
 			return e
 		}
 		return walk(t.dominators.root, 0)
+	})
+}
+
+// traceDepth is the simplify_rec/simplify_arg TRACE("simplify")
+// "depth: d e" record, with " -> r" when r is set.
+func (t *DomSimplifyTactic) traceDepth(function string, line int, depth uint32, e, r ast.ASTHandle) {
+	tags := t.tags()
+	_ = tags.EmitConditional("simplify", function, "src/tactic/core/dom_simplify_tactic.cpp", line, func() bool { return true }, func(w io.Writer) error {
+		a, x := t.formatDom(e)
+		if x != nil {
+			return x
+		}
+		text := "depth: " + strconv.FormatUint(uint64(depth), 10) + " " + a
+		if !r.IsNull() {
+			b, x := t.formatDom(r)
+			if x != nil {
+				return x
+			}
+			text += " -> " + b
+		}
+		_, x = io.WriteString(w, text+"\n")
+		return x
+	})
+}
+
+// traceITE is simplify_ite's TRACE before m.mk_ite(new_c, new_t, new_e).
+func (t *DomSimplifyTactic) traceITE(c, th, el ast.ASTHandle) {
+	tags := t.tags()
+	_ = tags.EmitConditional("simplify", "simplify_ite", "src/tactic/core/dom_simplify_tactic.cpp", 245, func() bool { return true }, func(w io.Writer) error {
+		for _, h := range []ast.ASTHandle{c, th, el} {
+			s, x := t.formatDom(h)
+			if x != nil {
+				return x
+			}
+			if _, x = io.WriteString(w, s+"\n"); x != nil {
+				return x
+			}
+		}
+		return nil
 	})
 }

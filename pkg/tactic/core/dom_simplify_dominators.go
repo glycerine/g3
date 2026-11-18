@@ -3,7 +3,12 @@ package core
 // Source: src/tactic/core/dom_simplify_tactic.cpp:25-161 and
 // dom_simplify_tactic.h:29-61.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"io"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+)
 
 type expressionDominators struct {
 	manager   *ast.ASTManager
@@ -16,6 +21,8 @@ type expressionDominators struct {
 	// obj_map layout (and its capacity across reset()).
 	doms *ast.ObjMap
 	tree map[ast.ASTHandle][]ast.ASTHandle
+	// traceTags supplies the owning tactic's trace tags.
+	traceTags func() *diagnostic.TraceTags
 }
 
 func newExpressionDominators(m *ast.ASTManager) *expressionDominators {
@@ -159,6 +166,7 @@ func (d *expressionDominators) computeDominators() (bool, error) {
 	iterations := uint32(1)
 	for change {
 		change = false
+		d.traceDoms()
 		for i := 0; i+1 < len(d.post); i++ {
 			child := d.post[i]
 			p := d.parents[child]
@@ -204,4 +212,29 @@ func (d *expressionDominators) computeDominators() (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// traceDoms is the TRACE("simplify") at the top of each compute_dominators
+// round: m_doms in table order, "key |-> value" (expr_ref operator<<).
+func (d *expressionDominators) traceDoms() {
+	tags := diagnostic.BorrowProcessTraceTags()
+	if d.traceTags != nil {
+		tags = d.traceTags()
+	}
+	_ = tags.EmitConditional("simplify", "compute_dominators", "src/tactic/core/dom_simplify_tactic.cpp", 94, func() bool { return true }, func(w io.Writer) error {
+		for _, entry := range d.doms.Entries() {
+			k, e := formatDomExpr(d.manager, entry.Key)
+			if e != nil {
+				return e
+			}
+			v, e := formatDomExpr(d.manager, entry.Value[0])
+			if e != nil {
+				return e
+			}
+			if _, e = io.WriteString(w, k+" |-> "+v+"\n"); e != nil {
+				return e
+			}
+		}
+		return nil
+	})
 }

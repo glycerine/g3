@@ -35,6 +35,18 @@ func TestDomSimplifySourceTraceTreeAndRewrite(t *testing.T) {
 			t.Fatal("missing source trace", want, text)
 		}
 	}
+	// compute_dominators' m_doms dump, then simplify_rec's entry and exit
+	// records around simplify_arg's.
+	for _, want := range []string{
+		"[simplify] compute_dominators src/tactic/core/dom_simplify_tactic.cpp:94 ---------\n(and dom-a (or (not dom-a) dom-b)) |-> (and dom-a (or (not dom-a) dom-b))\ndom-a |-> ",
+		"[simplify] simplify_rec src/tactic/core/dom_simplify_tactic.cpp:267 ---------\ndepth: 0 (or (not dom-a) dom-b)\n",
+		"[simplify] simplify_arg src/tactic/core/dom_simplify_tactic.cpp:256 ---------\ndepth: 1 (not dom-a) -> (not dom-a)\n",
+		"[simplify] simplify_rec src/tactic/core/dom_simplify_tactic.cpp:306 ---------\ndepth: 1 dom-a -> dom-a\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing source trace %q\n%s", want, text)
+		}
+	}
 }
 
 // expr_dominators::display prints a node, then its children on the same

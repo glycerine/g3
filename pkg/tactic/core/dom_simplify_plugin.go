@@ -226,7 +226,8 @@ func (t *DomSimplifyTactic) domCached(h ast.ASTHandle) ast.ASTHandle {
 }
 
 // domArg is simplify_arg. The caller owns the returned reference.
-func (t *DomSimplifyTactic) domArg(e ast.ASTHandle) (ast.ASTRef, ast.ASTHandle, error) {
+// depth is m_depth when simplify_arg runs.
+func (t *DomSimplifyTactic) domArg(e ast.ASTHandle, depth uint32) (ast.ASTRef, ast.ASTHandle, error) {
 	m := t.manager
 	r, err := m.NewRef(t.domCached(e))
 	if err != nil {
@@ -239,6 +240,7 @@ func (t *DomSimplifyTactic) domArg(e ast.ASTHandle) (ast.ASTRef, ast.ASTHandle, 
 	if err != nil {
 		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, m.DelRef(&r))
 	}
+	t.traceDepth("simplify_arg", 256, depth, e, h)
 	return r, h, nil
 }
 
@@ -246,6 +248,7 @@ func (t *DomSimplifyTactic) domArg(e ast.ASTHandle) (ast.ASTRef, ast.ASTHandle, 
 func (t *DomSimplifyTactic) domRec(e0 ast.ASTHandle, depth uint32) (ast.ASTRef, ast.ASTHandle, error) {
 	m := t.manager
 	none := func(err error) (ast.ASTRef, ast.ASTHandle, error) { return ast.ASTRef{}, ast.ASTHandle{}, err }
+	t.traceDepth("simplify_rec", 267, depth, e0, ast.ASTHandle{})
 	e := t.domCached(e0)
 	var r ast.ASTRef
 	var err error
@@ -310,7 +313,7 @@ func (t *DomSimplifyTactic) domRec(e0 ast.ASTHandle, depth uint32) (ast.ASTRef, 
 			if x != nil {
 				return none(x)
 			}
-			ar, ah, x := t.domArg(a)
+			ar, ah, x := t.domArg(a, depth+1)
 			if x != nil {
 				return none(x)
 			}
@@ -344,6 +347,7 @@ func (t *DomSimplifyTactic) domRec(e0 ast.ASTHandle, depth uint32) (ast.ASTRef, 
 	}
 	t.domCache[e0] = h
 	t.domTrail = append(t.domTrail, tr)
+	t.traceDepth("simplify_rec", 306, depth+1, e0, h)
 	return r, h, nil
 }
 
@@ -439,7 +443,7 @@ func (t *DomSimplifyTactic) domAndOr(e ast.ASTHandle, depth uint32, and bool) (r
 				}
 			}
 		}
-		ar, ah, x := t.domArg(arg)
+		ar, ah, x := t.domArg(arg, depth+1)
 		if x != nil {
 			return ast.ASTRef{}, x
 		}
@@ -499,7 +503,7 @@ func (t *DomSimplifyTactic) domITE(ite ast.ASTHandle, depth uint32) (r ast.ASTRe
 		return ast.ASTRef{}, err
 	}
 	old := t.domSimp.ScopeLevel()
-	newC, nc, err := t.domArg(c) // expr_ref new_c
+	newC, nc, err := t.domArg(c, depth+1) // expr_ref new_c
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -510,11 +514,11 @@ func (t *DomSimplifyTactic) domITE(ite ast.ASTHandle, depth uint32) (r ast.ASTRe
 		}
 	}()
 	if m.IsTrue(nc) {
-		r, _, err = t.domArg(th)
+		r, _, err = t.domArg(th, depth+1)
 		return r, err
 	}
 	if m.IsFalse(nc) {
-		r, _, err = t.domArg(el)
+		r, _, err = t.domArg(el, depth+1)
 		return r, err
 	}
 	ok, err := t.domSimp.AssertExpression(nc, false)
@@ -522,7 +526,7 @@ func (t *DomSimplifyTactic) domITE(ite ast.ASTHandle, depth uint32) (r ast.ASTRe
 		return ast.ASTRef{}, err
 	}
 	if !ok {
-		r, _, err = t.domArg(el)
+		r, _, err = t.domArg(el, depth+1)
 		return r, err
 	}
 	branch := func(in, out ast.ASTHandle) error {
@@ -554,7 +558,7 @@ func (t *DomSimplifyTactic) domITE(ite ast.ASTHandle, depth uint32) (r ast.ASTRe
 	if err = branch(th, el); err != nil {
 		return ast.ASTRef{}, err
 	}
-	newT, nt, err := t.domArg(th) // expr_ref new_t
+	newT, nt, err := t.domArg(th, depth+1) // expr_ref new_t
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -568,7 +572,7 @@ func (t *DomSimplifyTactic) domITE(ite ast.ASTHandle, depth uint32) (r ast.ASTRe
 	if err = branch(el, th); err != nil {
 		return ast.ASTRef{}, errors.Join(err, m.DelRef(&newT))
 	}
-	newE, ne, err := t.domArg(el) // expr_ref new_e
+	newE, ne, err := t.domArg(el, depth+1) // expr_ref new_e
 	if err != nil {
 		return ast.ASTRef{}, errors.Join(err, m.DelRef(&newT))
 	}
@@ -578,6 +582,7 @@ func (t *DomSimplifyTactic) domITE(ite ast.ASTHandle, depth uint32) (r ast.ASTRe
 	case nt == ne:
 		h = nt
 	default:
+		t.traceITE(nc, nt, ne)
 		h, err = m.MkIte(nc, nt, ne)
 	}
 	if err == nil {

@@ -179,6 +179,14 @@ var goldenTraceSites = map[string]bool{
 	"qe process_partition src/qe/qe.cpp":                        true,
 	"qe find_min_weight src/qe/qe.cpp":                          true,
 	"qe solve_vars src/qe/qe.cpp":                               true,
+	// dom-simplify (compare with G3_GOLDEN_TAGS=simplify
+	// G3_GOLDEN_VECTORS=dom_simplify_ite_result,dom_simplify_post_order).
+	"simplify compute_dominators src/tactic/core/dom_simplify_tactic.cpp": true,
+	"simplify simplify_rec src/tactic/core/dom_simplify_tactic.cpp":       true,
+	"simplify simplify_arg src/tactic/core/dom_simplify_tactic.cpp":       true,
+	"simplify simplify_ite src/tactic/core/dom_simplify_tactic.cpp":       true,
+	"simplify simplify_goal src/tactic/core/dom_simplify_tactic.cpp":      true,
+	"simplify compile src/tactic/core/dom_simplify_tactic.cpp":            true,
 	// elim-small-bv's rw_cfg (compare with G3_GOLDEN_TAGS=elim_small_bv,
 	// elim_small_bv_app,elim_small_bv_pre G3_GOLDEN_VECTORS=
 	// verbose_progress_elim_small_bv).
