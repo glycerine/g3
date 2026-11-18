@@ -82,19 +82,21 @@ func (t *TermTree) Close() error {
 		return nil
 	}
 	t.closing = true
+	// ~TermTree deletes children[0..n-1]; then the members go: terms (a
+	// std::vector, destroyed front to back) and term (AUDIT.md
+	// duality_03-F7). A failed close is retried from the same index.
 	for len(t.children) > 0 {
-		n := len(t.children) - 1
-		if err := t.children[n].Close(); err != nil {
+		if err := t.children[0].Close(); err != nil {
 			return err
 		}
-		t.children = t.children[:n]
+		t.children[0] = nil
+		t.children = t.children[1:]
 	}
 	for len(t.terms) > 0 {
-		n := len(t.terms) - 1
-		err := t.terms[n].Close()
-		if t.terms[n].Closed() {
-			t.terms[n] = nil
-			t.terms = t.terms[:n]
+		err := t.terms[0].Close()
+		if t.terms[0].Closed() {
+			t.terms[0] = nil
+			t.terms = t.terms[1:]
 		}
 		if err != nil {
 			return err

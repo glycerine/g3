@@ -124,7 +124,9 @@ func termTreeConsumedRelease(t *testing.T, extra bool) {
 		t.Fatal("main-term cleanup retained a consumed reference")
 	}
 	parent.SetChildren([]*TermTree{proposed})
-	if len(parent.children) != 2 || parent.children[0] != retained || parent.children[1] != tree || retained.closed || proposed.closed {
+	// ~TermTree deletes children front to back: retained (child 0) is
+	// already released when tree (child 1) fails (AUDIT.md duality_03-F7).
+	if len(parent.children) != 1 || parent.children[0] != tree || !retained.closed || proposed.closed {
 		t.Fatal("mutation discarded children from a partially closed tree")
 	}
 
