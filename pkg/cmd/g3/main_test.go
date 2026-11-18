@@ -2672,6 +2672,7 @@ func TestTraceLogCPPReference(t *testing.T) {
 		"purify_root_power_order.smt2",           // tactic_arith_03-F10
 		"purify_asin_proof_order.smt2",           // tactic_arith_03-F10
 		"purify_root_object_order.smt2",          // tactic_arith_03-F10
+		"tseitin_core_failure_state.smt2",        // failed core run keeps its imp state
 	} {
 		t.Run(name, func(t *testing.T) {
 			input, err := filepath.Abs(filepath.Join("test_vectors", name))

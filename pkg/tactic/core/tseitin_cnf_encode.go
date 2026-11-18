@@ -40,7 +40,6 @@ type tseitinInvocation struct {
 	fresh         []ast.ASTHandle
 	currDep       ast.ASTDependency
 	models, cores bool
-	numAux        uint32
 }
 
 func newTseitinInvocation(t *TseitinCNFTactic) (_ *tseitinInvocation, err error) {
@@ -58,28 +57,67 @@ func newTseitinInvocation(t *TseitinCNFTactic) (_ *tseitinInvocation, err error)
 	return &tseitinInvocation{owner: t, rw: rw, occs: occs, cache: make(map[ast.ASTHandle]ast.ASTHandle)}, nil
 }
 func (c *tseitinInvocation) close() (err error) {
-	// The imp members end in reverse declaration order: m_deps, m_clauses,
-	// m_fresh_vars, then m_cache_domain, each vector in index order.
-	for i := range c.clauses {
-		if !c.clauses[i].dep.IsNull() {
-			err = errors.Join(err, c.owner.manager.DependencyDec(c.clauses[i].dep))
-		}
-	}
-	for i := range c.clauses {
-		err = errors.Join(err, c.owner.manager.DelRef(&c.clauses[i].ref))
-	}
-	for i := range c.freshRefs {
-		err = errors.Join(err, c.owner.manager.DelRef(&c.freshRefs[i]))
-	}
-	for i := range c.domainRefs {
-		err = errors.Join(err, c.owner.manager.DelRef(&c.domainRefs[i]))
-	}
-	if c.occs != nil {
-		err = errors.Join(err, c.occs.Close())
-	}
+	// ~imp: the members end in reverse declaration order: m_rw, m_deps,
+	// m_clauses, m_mc, m_fresh_vars, m_occs, then m_cache_domain, each
+	// vector in index order.
 	if c.rw != nil {
 		err = errors.Join(err, c.rw.Close())
 	}
+	err = errors.Join(err, c.releaseDeps(), c.releaseClauses(), c.releaseFresh())
+	if c.occs != nil {
+		err = errors.Join(err, c.occs.Close())
+	}
+	return errors.Join(err, c.releaseCacheDomain())
+}
+
+// reset is the start of imp::operator() after m_occs(*g): reset_cache(),
+// m_deps.reset(), m_fresh_vars.reset(), m_frame_stack.reset() and
+// m_clauses.reset(). The previous run's state lives in the imp until then
+// (or until cleanup()), also when that run threw.
+func (c *tseitinInvocation) reset() error {
+	clear(c.cache)
+	err := c.releaseCacheDomain()
+	err = errors.Join(err, c.releaseDeps(), c.releaseFresh())
+	c.frames = c.frames[:0]
+	err = errors.Join(err, c.releaseClauses())
+	c.currDep = ast.ASTDependency{}
+	return err
+}
+
+func (c *tseitinInvocation) releaseCacheDomain() (err error) {
+	for i := range c.domainRefs {
+		err = errors.Join(err, c.owner.manager.DelRef(&c.domainRefs[i]))
+	}
+	c.domainRefs = c.domainRefs[:0]
+	return err
+}
+
+// releaseDeps is m_deps.reset(); the clauses keep their slots until
+// releaseClauses.
+func (c *tseitinInvocation) releaseDeps() (err error) {
+	for i := range c.clauses {
+		if !c.clauses[i].dep.IsNull() {
+			err = errors.Join(err, c.owner.manager.DependencyDec(c.clauses[i].dep))
+			c.clauses[i].dep = ast.ASTDependency{}
+		}
+	}
+	return err
+}
+
+func (c *tseitinInvocation) releaseClauses() (err error) {
+	for i := range c.clauses {
+		err = errors.Join(err, c.owner.manager.DelRef(&c.clauses[i].ref))
+	}
+	c.clauses = c.clauses[:0]
+	return err
+}
+
+func (c *tseitinInvocation) releaseFresh() (err error) {
+	for i := range c.freshRefs {
+		err = errors.Join(err, c.owner.manager.DelRef(&c.freshRefs[i]))
+	}
+	c.freshRefs = c.freshRefs[:0]
+	c.fresh = c.fresh[:0]
 	return err
 }
 
@@ -351,7 +389,7 @@ func (c *tseitinInvocation) freshVar() (ast.ASTHandle, error) {
 	v, e = c.hold(&c.freshRefs, v)
 	if e == nil {
 		c.fresh = append(c.fresh, v)
-		c.numAux++
+		c.owner.numAux++
 	}
 	return v, e
 }
@@ -1098,8 +1136,8 @@ func (t *TseitinCNFTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult)
 	return tactic.ReportTacticProgress(":cnf-aux-vars", t.numAux)
 }
 
-// applyImp is tseitin_cnf_tactic::imp::operator(); its deferred cleanup adds
-// the invocation's auxiliary variables to t.numAux (imp::m_num_aux_vars).
+// applyImp is tseitin_cnf_tactic::imp::operator(). The imp (t.imp) keeps
+// its state after the run, until the next run or cleanup().
 func (t *TseitinCNFTactic) applyImp(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
 	if err = t.open(); err != nil {
 		return err
@@ -1125,11 +1163,13 @@ func (t *TseitinCNFTactic) applyImp(goal *tactic.Goal, result *tactic.TacticResu
 	if err = tactic.FailIfProofGeneration("tseitin-cnf", goal); err != nil {
 		return err
 	}
-	inv, e := newTseitinInvocation(t)
-	if e != nil {
-		return e
+	if t.imp == nil {
+		if t.imp, err = newTseitinInvocation(t); err != nil {
+			return err
+		}
 	}
-	defer func() { t.numAux += inv.numAux; err = errors.Join(err, inv.close()) }()
+	inv := t.imp
+	var e error
 	if inv.models, e = goal.ModelsEnabled(); e != nil {
 		return e
 	}
@@ -1137,6 +1177,9 @@ func (t *TseitinCNFTactic) applyImp(goal *tactic.Goal, result *tactic.TacticResu
 		return e
 	}
 	if e = inv.occs.Collect(goal); e != nil {
+		return e
+	}
+	if e = inv.reset(); e != nil {
 		return e
 	}
 	size, e := goal.Size()

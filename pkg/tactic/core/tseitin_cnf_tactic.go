@@ -28,6 +28,7 @@ type TseitinCNFTactic struct {
 	refs       uint32
 	numAux     uint32
 	closed     bool
+	imp        *tseitinInvocation // m_imp's state, created on first use
 
 	commonPatterns       bool
 	distributivity       bool
@@ -257,7 +258,24 @@ func (t *TseitinCNFTactic) ResetStatistics() error {
 	t.numAux = 0
 	return nil
 }
-func (t *TseitinCNFTactic) Cleanup() error                         { return t.open() }
+
+// Cleanup is tseitin_cnf_tactic::cleanup(): a fresh imp replaces the old
+// one, whose destruction releases the last run's clauses, auxiliary
+// variables, shared occurrences and cache (m_num_aux_vars carries over).
+func (t *TseitinCNFTactic) Cleanup() error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	return t.closeImp()
+}
+func (t *TseitinCNFTactic) closeImp() error {
+	if t.imp == nil {
+		return nil
+	}
+	imp := t.imp
+	t.imp = nil
+	return imp.close()
+}
 func (t *TseitinCNFTactic) Reset() error                           { return t.Cleanup() }
 func (t *TseitinCNFTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *TseitinCNFTactic) SetProgressCallback(func(uint32)) error { return t.open() }
@@ -275,6 +293,9 @@ func (t *TseitinCNFTactic) Close() error {
 	}
 	if t.closed {
 		return nil
+	}
+	if err := t.closeImp(); err != nil {
+		return err
 	}
 	if err := t.context.Del(&t.params); err != nil {
 		return err
