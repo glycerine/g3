@@ -270,3 +270,36 @@ func TestTseitinProgressAfterReport(t *testing.T) {
 		t.Fatalf("report/progress order: %q", output)
 	}
 }
+
+// tseitin_cnf checkpoint: cooperate, then m.canceled() throwing the fixed
+// TACTIC_CANCELED_MSG ("canceled"), then the memory limit. An exhausted
+// rlimit (whose cancel message would be "max. resource limit exceeded")
+// still reports "canceled" (AUDIT tactic_core_02-F8).
+func TestTseitinCheckpointCancelMessage(t *testing.T) {
+	m, c, g, services := solveEqFixture(t)
+	runner, err := NewTseitinCNFCoreTactic(m, c, g, nil, services)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	a := tseitinAtoms(t, m, 3)
+	and, err := m.MkAnd(a[1], a[2])
+	simplifyMust(t, err)
+	formula, err := m.MkOr(a[0], and)
+	simplifyMust(t, err)
+	goal, err := tactic.NewGoal(m, false, false, false)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, goal.Close()) })
+	simplifyMust(t, goal.Assert(formula))
+	limit := m.ResourceLimit()
+	simplifyMust(t, limit.Push(1))
+	defer limit.Pop()
+	limit.IncOffset(10)
+	if canceled, e := m.Canceled(); e != nil || !canceled {
+		t.Skip("rlimit exhaustion does not cancel this manager", canceled, e)
+	}
+	var result tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, result.Close()) })
+	err = runner.Apply(goal, &result)
+	if err == nil || err.Error() != "canceled" {
+		t.Fatalf("checkpoint error = %v, want canceled", err)
+	}
+}

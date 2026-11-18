@@ -366,19 +366,21 @@ func (c *tseitinInvocation) checkpoint() error {
 	if e := c.owner.services.Cooperation.Cooperate("tseitin cnf"); e != nil {
 		return e
 	}
+	// cooperate, then m.canceled() with the fixed TACTIC_CANCELED_MSG, then
+	// the memory limit.
+	y, e := c.owner.manager.Canceled()
+	if e != nil {
+		return e
+	}
+	if y {
+		return tactic.NewTacticException(tactic.TacticCanceledMessage)
+	}
 	n, e := c.owner.services.Memory.AllocationSize()
 	if e != nil {
 		return e
 	}
 	if n > c.owner.maxMemory {
 		return tactic.NewTacticException(tactic.TacticMaxMemoryMessage)
-	}
-	y, e := c.owner.manager.Canceled()
-	if e != nil {
-		return e
-	}
-	if y {
-		return tactic.NewTacticException(c.owner.manager.ResourceLimit().CancelMessage())
 	}
 	return nil
 }
@@ -1151,6 +1153,14 @@ func (t *TseitinCNFTactic) applyImp(goal *tactic.Goal, result *tactic.TacticResu
 			return x
 		}
 		if x = inv.process(form, dep); x != nil {
+			return x
+		}
+		// g->update(idx, m.mk_true(), nullptr, nullptr); // to save memory
+		truth, x := t.manager.MkTrue()
+		if x != nil {
+			return x
+		}
+		if x = goal.Update(i, truth, ast.ASTHandle{}, ast.ASTDependency{}); x != nil {
 			return x
 		}
 	}
