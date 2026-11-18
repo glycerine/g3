@@ -35,6 +35,10 @@ func NewDefaultParamsKernel(m *ast.ASTManager) (*DefaultParamsKernel, error) {
 	local := context.EmptyValue()
 	params, err := NewSMTParams(context, &local, globals, m.Budget())
 	if err != nil {
+		// A constructor failure returns the partly constructed params.
+		if params != nil {
+			err = errors.Join(err, params.Close())
+		}
 		return nil, err
 	}
 	kernel, err := NewSMTKernel(m, nil)
