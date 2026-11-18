@@ -237,14 +237,6 @@ func (c *SMTContext) BitVectorToInt(a ast.ASTHandle, signed ...bool) (ast.ASTHan
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	zero, e := m.BitVectorNumeralUint64(0, bits)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	negative, e := c.BitVectorSLT(a, zero)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
 	// rational max_bound = power(rational(2), sz); mk_numeral(max_bound, true)
 	var limit ast.ASTHandle
 	e = withRationals(m, 1, func(q *numeral.RationalManager, rs []numeral.Rational) error {
@@ -254,6 +246,16 @@ func (c *SMTContext) BitVectorToInt(a ast.ASTHandle, signed ...bool) (ast.ASTHan
 		}
 		return err
 	})
+	if e != nil {
+		return ast.ASTHandle{}, e
+	}
+	// Z3_mk_bv2int(signed): the bound numeral comes before zero and the
+	// bvslt predicate.
+	zero, e := m.BitVectorNumeralUint64(0, bits)
+	if e != nil {
+		return ast.ASTHandle{}, e
+	}
+	negative, e := c.BitVectorSLT(a, zero)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}

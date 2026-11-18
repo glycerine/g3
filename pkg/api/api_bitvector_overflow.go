@@ -256,11 +256,12 @@ func (c *SMTContext) BitVectorSDivNoOverflow(a, b ast.ASTHandle) (ast.ASTHandle,
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	minusOne, e := c.BitVectorValue(-1, sort)
+	// Z3_mk_bvsdiv_no_overflow: x = (= t1 min) before y = Z3_mk_int(-1).
+	x, e := m.MkEq(a, min)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	x, e := m.MkEq(a, min)
+	minusOne, e := c.BitVectorValue(-1, sort)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
