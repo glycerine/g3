@@ -8,12 +8,10 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// cloneObjectiveValue deep-copies source: its soft rationals are fresh
-// rationals of q, owned by the copy.
+// cloneObjectiveValue deep-copies source: its rationals (the soft values
+// and the inf_eps components) are fresh rationals of q, owned by the copy.
 func cloneObjectiveValue(q *numeral.RationalManager, source *ObjectiveValue) (ObjectiveValue, error) {
 	result := *source
-	result.Arithmetic.Finite = source.Arithmetic.Finite.Clone()
-	result.ArithmeticModel.Finite = source.ArithmeticModel.Finite.Clone()
 	result.SoftAssignment = append([]bool(nil), source.SoftAssignment...)
 	result.initRationals()
 	dst, src := result.rationals(), source.rationals()
@@ -49,8 +47,6 @@ func CloneObjectiveValues(q *numeral.RationalManager, source []ObjectiveValue) (
 		if err != nil {
 			return nil, errors.Join(err, ReleaseObjectiveValues(q, result[:i]))
 		}
-		value.DisplayLower = source[i].DisplayLower.Clone()
-		value.DisplayUpper = source[i].DisplayUpper.Clone()
 		result[i] = value
 	}
 	return result, nil

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
@@ -46,10 +45,10 @@ func TestSMTLRAObjectiveTraceBlockerPairFormatAndLiveReturn(t *testing.T) {
 			if !ok {
 				t.Fatal(tc.r)
 			}
-			value := simplex.NewInfinitesimal(r, big.NewRat(tc.eps, 1))
+			value := testNI(r, big.NewRat(tc.eps, 1))
 			// Pin only after the callback returns, exercising the actual API's
 			// unrooted return rather than an extra test-only reference.
-			h := f.pin(f.a.objectiveBlocker(v, value))
+			h := f.pin(f.a.objectiveBlocker(v, &value))
 			rounded, ok := new(big.Rat).SetString(tc.rounded)
 			if !ok {
 				t.Fatal(tc.rounded)
@@ -116,7 +115,7 @@ func TestSMTLRAObjectiveTraceLowerBoundRegistrationReuseAndPolarity(t *testing.T
 		if strict {
 			eps = 1
 		}
-		point := simplex.NewInfinitesimal(big.NewRat(5, 1), big.NewRat(eps, 1))
+		point := testNI(big.NewRat(5, 1), big.NewRat(eps, 1))
 		filter := objectiveBoundFilter(t, f.m)
 		base := "(>= trace-lower-x 5.0)"
 		final := base
@@ -206,7 +205,7 @@ func TestSMTLRAObjectiveTraceLowerBoundBadbit(t *testing.T) {
 		if strict {
 			eps = 1
 		}
-		h := f.pin(f.a.MakeObjectiveLowerBound(objectiveBoundFilter(t, f.m), v, simplex.NewInfinitesimal(big.NewRat(5, 1), big.NewRat(eps, 1))))
+		h := f.pin(f.a.MakeObjectiveLowerBound(objectiveBoundFilter(t, f.m), v, testNI(big.NewRat(5, 1), big.NewRat(eps, 1))))
 		negated, base, err := f.m.IsNot(h)
 		astTestMust(t, err)
 		if negated != strict {

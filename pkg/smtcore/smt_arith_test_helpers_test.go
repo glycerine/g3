@@ -102,8 +102,9 @@ func checkArithmeticObjective(t *testing.T, value SMTArithmeticObjectiveValue, m
 	if !ok {
 		t.Fatal(epsilon)
 	}
-	if value.Unbounded || value.Finite.Main.Cmp(r) != 0 || value.Finite.Epsilon.Cmp(e) != 0 {
-		t.Fatal("objective value", value.Unbounded, value.Finite.String(), "want", main, epsilon)
+	finite := asBigInf(&value.Finite)
+	if value.Unbounded || finite.Main.Cmp(r) != 0 || finite.Epsilon.Cmp(e) != 0 {
+		t.Fatal("objective value", value.Unbounded, finite.String(), "want", main, epsilon)
 	}
 }
 
@@ -191,13 +192,13 @@ func smtTestArithmeticExpressionContains(t *testing.T, m *ast.ASTManager, expres
 }
 
 func infiniteArithmeticValue(i, r, e int64) simplex.Infinitesimal {
-	return simplex.NewInfiniteInfinitesimal(big.NewRat(i, 1), big.NewRat(r, 1), big.NewRat(e, 1))
+	return testNII(big.NewRat(i, 1), big.NewRat(r, 1), big.NewRat(e, 1))
 }
 func checkInfiniteArithmetic(t *testing.T, got simplex.Infinitesimal, i, r, e int64) {
 	t.Helper()
 	want := infiniteArithmeticValue(i, r, e)
-	if got.Cmp(&want) != 0 {
-		t.Fatal(got.String(), "want", want.String())
+	if infCmp(&got, &want) != 0 {
+		t.Fatal(asBigInf(&got).String(), "want", asBigInf(&want).String())
 	}
 }
 

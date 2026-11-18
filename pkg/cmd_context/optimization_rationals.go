@@ -20,15 +20,22 @@ func (c *Context) optQ() *numeral.RationalManager { return c.manager.NumeralServ
 
 // newOptimizationObjective is an objective with zero rationals.
 func newOptimizationObjective() optimizationObjective {
-	return optimizationObjective{
-		softValue: numeral.NewRational(), softUpper: numeral.NewRational(),
-		softOffset: numeral.NewRational(), boundLower: numeral.NewRational(),
-		boundUpper: numeral.NewRational(), verifyOffset: numeral.NewRational(),
+	o := optimizationObjective{}
+	for _, r := range o.rationals() {
+		*r = numeral.NewRational()
 	}
+	return o
 }
 
+// rationals lists the objective's owned rationals: its rational fields and
+// the components of its inf_eps values (value, modelValue and the display
+// bounds).
 func (o *optimizationObjective) rationals() []*numeral.Rational {
-	return []*numeral.Rational{&o.softValue, &o.softUpper, &o.softOffset, &o.boundLower, &o.boundUpper, &o.verifyOffset}
+	return []*numeral.Rational{&o.softValue, &o.softUpper, &o.softOffset, &o.boundLower, &o.boundUpper, &o.verifyOffset,
+		&o.value.Finite.Infinity, &o.value.Finite.Main, &o.value.Finite.Epsilon,
+		&o.modelValue.Finite.Infinity, &o.modelValue.Finite.Main, &o.modelValue.Finite.Epsilon,
+		&o.displayLower.Infinity, &o.displayLower.Main, &o.displayLower.Epsilon,
+		&o.displayUpper.Infinity, &o.displayUpper.Main, &o.displayUpper.Epsilon}
 }
 
 // releaseSoftTerms destroys the weights of terms.
@@ -118,12 +125,15 @@ func (c *Context) optReplaceValue(v *opt.ObjectiveValue) error {
 	return err
 }
 
-// optInfinitesimal is the rational r as simplex's current value type.
-// TODO bigA: simplex.Infinitesimal still holds big.Rat; this boundary goes
-// when it holds rationals.
+// optInfinitesimal is inf_eps(r): a fresh value the caller owns.
 func (c *Context) optInfinitesimal(r *numeral.Rational) (simplex.Infinitesimal, error) {
-	var value simplex.Infinitesimal
-	return value, c.optQ().BigRatOf(r, &value.Main)
+	return simplex.RationalInfinitesimal(c.optQ(), r)
+}
+
+// optInfinite is inf_eps(rational(sign), inf_rational()): +oo or -oo, a
+// fresh value the caller owns.
+func (c *Context) optInfinite(sign int64) (simplex.Infinitesimal, error) {
+	return simplex.InfiniteInfinitesimal(c.optQ(), sign)
 }
 
 // optRestoreInfinitesimal is d.RestoreValue(penalty) as an infinitesimal.
@@ -136,4 +146,9 @@ func (c *Context) optRestoreInfinitesimal(d *opt.DecomposedObjective, penalty *n
 		out, err = c.optInfinitesimal(&value)
 	}
 	return out, errors.Join(err, q.Del(&value))
+}
+
+// optSetInf is dst = src for inf_eps values the objective owns.
+func (c *Context) optSetInf(dst, src *simplex.Infinitesimal) error {
+	return dst.Set(c.optQ(), src)
 }

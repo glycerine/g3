@@ -4,7 +4,6 @@ package opt
 
 import (
 	"errors"
-	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -144,10 +143,23 @@ func (s *ArithmeticSolver) geometricBox(result *ArithmeticResult) (_ *Arithmetic
 // geometricOpt is optsmt::geometric_opt; its bound local dies with it.
 func (s *ArithmeticSolver) geometricOpt(result *ArithmeticResult, models *OptsmtModels) (_ lbool.LBool, resultErr error) {
 	n := len(s.objectives)
+	// vector<inf_eps> lower(m_lower)
+	ro := newRatOps(s.manager)
 	lower := make([]simplex.Infinitesimal, n)
 	for k := range lower {
-		current := s.optLowerOf(s.boxOrigin(k))
-		lower[k] = current.Clone()
+		lower[k] = ro.infClone(s.optLowerOf(s.boxOrigin(k)))
+	}
+	// rational delta_per_step(1)
+	delta, one, two := ro.int64(1), ro.int64(1), ro.int64(2)
+	defer func() {
+		ro.del(&two)
+		ro.del(&one)
+		ro.del(&delta)
+		ro.infDelAll(lower)
+		resultErr = ro.joined(resultErr)
+	}()
+	if !ro.ok() {
+		return lbool.Undef, nil
 	}
 	// expr_ref bound(m)
 	var bound ast.ASTRef
@@ -169,9 +181,6 @@ func (s *ArithmeticSolver) geometricOpt(result *ArithmeticResult, models *Optsmt
 		bound = held
 		return nil
 	}
-	var delta big.Int
-	delta.SetInt64(1)
-	one := big.NewInt(1)
 	var steps, stepIncs, numScopes uint32
 	deltaIndex := 0
 	status := lbool.True
@@ -202,27 +211,34 @@ func (s *ArithmeticSolver) geometricOpt(result *ArithmeticResult, models *Optsmt
 				}
 			}
 			bound = held
-			if !s.boxMaxDelta(lower) {
-				delta.SetInt64(1)
+			if !s.boxMaxDelta(&ro, lower) {
+				ro.setInt64(&delta, 1)
 			} else if steps > stepIncs {
-				delta.Lsh(&delta, 1)
+				ro.mul(&delta, &delta, &two)
 				stepIncs++
 				steps = 0
 			} else {
 				steps++
 			}
-			if delta.Cmp(one) > 0 {
+			if !ro.ok() {
+				return lbool.Undef, nil
+			}
+			if ro.cmp(&delta, &one) > 0 {
 				if err = s.backend.Push(); err != nil {
 					return lbool.Undef, err
 				}
 				numScopes++
 				// only try to improve delta_index.
 				i := s.boxOrigin(deltaIndex)
-				current := s.optLowerOf(i)
-				jump := current.Clone()
-				jump.Main.Add(&jump.Main, new(big.Rat).SetInt(&delta))
-				ge, err := s.backend.OptimizationObjectiveGE(s.objectives[deltaIndex].backendIndex, s.filter, jump)
-				if err != nil {
+				// m_lower[i] + inf_eps(delta_per_step) is a temporary.
+				jump := ro.infClone(s.optLowerOf(i))
+				ro.add(&jump.Main, &jump.Main, &delta)
+				var ge ast.ASTHandle
+				if ro.ok() {
+					ge, err = s.backend.OptimizationObjectiveGE(s.objectives[deltaIndex].backendIndex, s.filter, jump)
+				}
+				ro.infDel(&jump)
+				if err = ro.joined(err); err != nil {
 					return lbool.Undef, err
 				}
 				if err = replaceBound(ge); err != nil {
@@ -236,9 +252,9 @@ func (s *ArithmeticSolver) geometricOpt(result *ArithmeticResult, models *Optsmt
 			if err = s.backend.Assert(h); err != nil {
 				return lbool.Undef, err
 			}
-		} else if status == lbool.False && delta.Cmp(one) > 0 {
+		} else if status == lbool.False && ro.cmp(&delta, &one) > 0 {
 			steps, stepIncs = 0, 0
-			delta.SetInt64(1)
+			ro.setInt64(&delta, 1)
 			numScopes--
 			if err = s.backend.Pop(1); err != nil {
 				return lbool.Undef, err
@@ -290,9 +306,13 @@ func (s *ArithmeticSolver) finishBox(result *ArithmeticResult, models *OptsmtMod
 		return result, err
 	}
 	// set the solution tight.
+	o := newRatOps(s.manager)
 	for k := range s.objectives {
 		i := s.boxOrigin(k)
-		s.setOptUpper(i, s.optLowerOf(i))
+		s.setOptUpper(&o, i, s.optLowerOf(i))
+	}
+	if !o.ok() {
+		return nil, o.err
 	}
 	result.Status, result.Optimal = lbool.True, true
 	result.ObjectiveModels = make([]*model.ModelCore, n)
@@ -306,9 +326,12 @@ func (s *ArithmeticSolver) finishBox(result *ArithmeticResult, models *OptsmtMod
 		// satisfiable midpoint); m_box_models then holds nullptr.
 		result.ObjectiveModels[k] = md
 		current := s.optLowerOf(s.boxOrigin(k))
-		value := smtcore.SMTArithmeticObjectiveValue{Finite: current.Clone()}
-		value.Unbounded = value.Finite.Infinity.Sign() > 0
-		result.Values[k].Arithmetic = s.orient(k, value)
+		value := smtcore.SMTArithmeticObjectiveValue{Finite: *current}
+		value.Unbounded = o.sign(&current.Infinity) > 0
+		o.fail(result.Values[k].setArithmetic(o.q, s.orient(&o, k, &value)))
+		if !o.ok() {
+			return nil, o.err
+		}
 		if md == nil {
 			continue
 		}
@@ -321,24 +344,33 @@ func (s *ArithmeticSolver) finishBox(result *ArithmeticResult, models *OptsmtMod
 
 // boxMaxDelta is optsmt::get_max_delta: whether an integer objective's
 // finite m_lower moved past the entry value lower.
-func (s *ArithmeticSolver) boxMaxDelta(lower []simplex.Infinitesimal) bool {
-	var maxDelta simplex.Infinitesimal
+func (s *ArithmeticSolver) boxMaxDelta(o *ratOps, lower []simplex.Infinitesimal) bool {
+	// inf_eps max_delta; the per-objective delta is a temporary.
+	maxDelta, d := simplex.ZeroInfinitesimal(), simplex.ZeroInfinitesimal()
+	defer o.infDel(&maxDelta)
+	defer o.infDel(&d)
 	for k := range s.objectives {
 		if !s.objectives[k].integer {
 			continue
 		}
 		current := s.optLowerOf(s.boxOrigin(k))
-		if current.Infinity.Sign() != 0 {
+		if !o.isFinite(current) {
 			continue
 		}
-		var d simplex.Infinitesimal
-		d.Set(&current)
-		d.Sub(&lower[k])
-		if d.Cmp(&maxDelta) > 0 {
-			maxDelta = d
+		o.infSet(&d, current)
+		if o.ok() {
+			o.fail(d.Sub(o.q, &lower[k]))
+		}
+		if o.infCmp(&d, &maxDelta) > 0 {
+			o.infSet(&maxDelta, &d)
 		}
 	}
-	return maxDelta.Sign() > 0
+	if !o.ok() {
+		return false
+	}
+	sign, err := maxDelta.Sign(o.q)
+	o.fail(err)
+	return sign > 0
 }
 
 // boxUpdateLower is optsmt::update_lower: maximize_objectives(disj), then
@@ -356,7 +388,13 @@ func (s *ArithmeticSolver) boxUpdateLower(models *OptsmtModels) (_ ast.ASTRef, r
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	if err = s.boxSetMax(models, values, disj); err != nil {
+	err = s.boxSetMax(models, values, disj)
+	// The objective values are copies that die here.
+	vo := newRatOps(s.manager)
+	for k := range values {
+		vo.infDel(&values[k].Finite)
+	}
+	if err = vo.joined(err); err != nil {
 		return ast.ASTRef{}, err
 	}
 	// IF_VERBOSE(2, "(optsmt.lower " << m_lower << ")"), each inf_eps
@@ -366,12 +404,12 @@ func (s *ArithmeticSolver) boxUpdateLower(models *OptsmtModels) (_ ast.ASTRef, r
 	} else if enabled {
 		var out strings.Builder
 		out.WriteString("(optsmt.lower ")
+		o := newRatOps(s.manager)
 		for k := 0; k < n; k++ {
-			v := s.optLowerOf(s.boxOrigin(k))
-			out.WriteString(infEpsText(&v) + " ")
+			out.WriteString(infEpsText(&o, s.optLowerOf(s.boxOrigin(k))) + " ")
 		}
 		out.WriteString(")\n")
-		if err = optProgress(2, out.String()); err != nil {
+		if err = o.joined(optProgress(2, out.String())); err != nil {
 			return ast.ASTRef{}, err
 		}
 	}
@@ -400,6 +438,18 @@ func (s *ArithmeticSolver) boxMaximizeObjectives(disj *[]ast.ASTRef) (_ []smtcor
 			err = errors.Join(err, s.manager.DelRef(&blocker))
 		}
 	}()
+	defer func() {
+		if err != nil {
+			o := newRatOps(s.manager)
+			for k := range values {
+				o.infDel(&values[k].Finite)
+			}
+			err = o.joined(err)
+		}
+	}()
+	for k := range values {
+		values[k].Finite = simplex.ZeroInfinitesimal()
+	}
 	for k := range s.objectives {
 		if values[k], err = s.backend.MaximizeOptimizationObjectiveInto(s.objectives[k].backendIndex, s.filter, &blocker); err != nil {
 			return nil, err
@@ -430,10 +480,29 @@ func (s *ArithmeticSolver) boxSetMax(models *OptsmtModels, values []smtcore.SMTA
 	}
 	for k := range s.objectives {
 		i := s.boxOrigin(k)
-		src := savedValue(values[k])
-		dst := s.optLowerOf(i)
-		if src.Cmp(&dst) >= 0 {
-			s.setOptLower(i, src)
+		err := s.boxSetMaxOne(models, values, disj, setDisj, k, i)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// boxSetMaxOne is set_max's iteration for objective k; src (the saved
+// value) is its temporary.
+func (s *ArithmeticSolver) boxSetMaxOne(models *OptsmtModels, values []smtcore.SMTArithmeticObjectiveValue, disj []ast.ASTRef, setDisj func(int, ast.ASTHandle) error, k, i int) (resultErr error) {
+	o := newRatOps(s.manager)
+	src := savedValue(&o, &values[k])
+	defer func() {
+		o.infDel(&src)
+		resultErr = o.joined(resultErr)
+	}()
+	{
+		if o.infCmp(&src, s.optLowerOf(i)) >= 0 {
+			s.setOptLower(&o, i, &src)
+			if !o.ok() {
+				return nil
+			}
 			md, err := s.backend.AcquireSavedObjectiveModel(s.objectives[k].backendIndex)
 			if err != nil {
 				return err
@@ -448,7 +517,7 @@ func (s *ArithmeticSolver) boxSetMax(models *OptsmtModels, values []smtcore.SMTA
 			if err = s.setLowerFormula(i, h); err != nil {
 				return err
 			}
-			if src.Infinity.Sign() > 0 {
+			if o.sign(&src.Infinity) > 0 {
 				falsity, err := s.manager.MkFalse()
 				if err != nil {
 					return err
@@ -460,7 +529,7 @@ func (s *ArithmeticSolver) boxSetMax(models *OptsmtModels, values []smtcore.SMTA
 					return err
 				}
 			}
-			continue
+			return nil
 		}
 		f, err := s.lowerFormula(i)
 		if err != nil {

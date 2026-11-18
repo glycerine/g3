@@ -2,9 +2,10 @@ package opt
 
 import (
 	"errors"
-	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/math/simplex"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (p *ObjectivePipeline) arithmeticSolver() (solver *ArithmeticSolver, resultErr error) {
@@ -70,11 +71,14 @@ func (p *ObjectivePipeline) checkArithmetic() (result *ObjectivePipelineResult, 
 	result.Statistics = ObjectivePipelineStatistics{Arithmetic: true, MaxSMT: append([]MaxSMTStatistics(nil), backend.MaxSMT...), Objectives: uint32(len(p.objectives)), Hard: uint32(len(p.hard))}
 	for i := range backend.Values {
 		source, value := &p.objectives[i], &backend.Values[i]
+		// The inf_eps values move to the pipeline result; backend.Close no
+		// longer sees them.
 		target := ObjectivePipelineValue{SourceKind: source.sourceKind, Soft: value.Soft, Arithmetic: value.Arithmetic, ModelValue: value.ArithmeticModel, ModelValid: value.ArithmeticModelValid, Interval: value.ArithmeticInterval, OpenBounds: value.ArithmeticOpenBounds}
+		value.Arithmetic.Finite, value.ArithmeticModel.Finite = simplex.ZeroInfinitesimal(), simplex.ZeroInfinitesimal()
 		target.Exact = numeral.NewRational()
 		if value.Soft {
 			if target.Exact, err = source.restore(q, &value.SoftCost); err != nil {
-				return nil, errors.Join(err, q.Del(&target.Exact), result.Close())
+				return nil, errors.Join(err, q.Del(&target.Exact), target.Arithmetic.Del(q), target.ModelValue.Del(q), result.Close())
 			}
 		}
 		result.Values[i] = target

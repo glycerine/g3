@@ -9,22 +9,25 @@ import (
 )
 
 var (
-	optQOnce sync.Once
-	optQM    *numeral.RationalManager
+	testNumeralsOnce sync.Once
+	testNumeralsS    *numeral.RationalService
 )
 
-// optQ is the tests' rational manager.
-func optQ() *numeral.RationalManager {
-	optQOnce.Do(func() {
+// testNumerals is the tests' numeral service; optQ is its manager.
+func testNumerals() *numeral.RationalService {
+	testNumeralsOnce.Do(func() {
 		budget := arena.NewBudget(^uint64(0))
-		m, err := numeral.NewRationalManager(numeral.RationalConfig{Integers: numeral.IntegerConfig{Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}})
+		s, err := numeral.NewRationalService(numeral.RationalServiceConfig{Integers: numeral.IntegerConfig{Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}})
 		if err != nil {
 			panic(err)
 		}
-		optQM = m
+		testNumeralsS = s
 	})
-	return optQM
+	return testNumeralsS
 }
+
+// optQ is the tests' rational manager.
+func optQ() *numeral.RationalManager { return testNumerals().Manager }
 
 // optRat is a fresh rational(n) of optQ.
 func optRat(n int64) *numeral.Rational {

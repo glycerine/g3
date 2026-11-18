@@ -392,6 +392,12 @@ func (t *SMTPseudoBooleanTheory) Close() error {
 	t.limits = nil
 	t.variables = nil
 	t.parameterOwner = nil
+	if t.simplex != nil {
+		// ~simplex frees its numerals and closes its manager.
+		if err := t.simplex.solver.Close(); err != nil {
+			return err
+		}
+	}
 	t.simplex = nil
 	t.trace = nil
 	return nil

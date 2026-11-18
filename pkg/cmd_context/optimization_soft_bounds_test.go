@@ -29,8 +29,8 @@ func TestOptimizationUnknownPublishesSoftSearchBounds(t *testing.T) {
 	contextMust(t, err)
 	upper, err := c.ObjectiveBound(0, false)
 	contextMust(t, err)
-	if lower.Value.Main.Cmp(big.NewRat(1, 2)) != 0 || upper.Value.Main.Cmp(big.NewRat(5, 2)) != 0 {
-		t.Fatal("partial bounds", lower.Value.Main.RatString(), upper.Value.Main.RatString())
+	if bigOfSmall(&lower.Value.Main).Cmp(big.NewRat(1, 2)) != 0 || bigOfSmall(&upper.Value.Main).Cmp(big.NewRat(5, 2)) != 0 {
+		t.Fatal("partial bounds", bigOfSmall(&lower.Value.Main).RatString(), bigOfSmall(&upper.Value.Main).RatString())
 	}
 	var output bytes.Buffer
 	contextMust(t, c.WriteOptimizationFrontendValues(&output))

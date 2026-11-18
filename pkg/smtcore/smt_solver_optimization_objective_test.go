@@ -96,7 +96,7 @@ func TestOptimizationObjectiveSharedRepairDecrementsRealOrInteger(t *testing.T) 
 		saved, err := s.SavedObjectiveValue(index)
 		astTestMust(t, err)
 		checkArithmeticObjective(t, saved, main, epsilon)
-		saved.Finite.Main.SetInt64(999)
+		setSmall(&saved.Finite.Main, 999)
 		again, err := s.SavedObjectiveValue(index)
 		astTestMust(t, err)
 		checkArithmeticObjective(t, again, main, epsilon)
@@ -159,8 +159,8 @@ func TestOptimizationObjectiveSatisfiableRepairUsesKernelModelWithoutDump(t *tes
 	if status != lbool.True {
 		t.Fatal(status)
 	}
-	value := SMTArithmeticObjectiveValue{}
-	value.Finite.Main.SetInt64(5)
+	value := testObjectiveValue()
+	setSmall(&value.Finite.Main, 5)
 	checks, count, scopes := s.kernel.internalizer.statistics.NumChecks, optimizationDumpCount, s.kernel.ScopeLevel()
 	status, err = s.decrementOptimizationValue(index, filter, &value)
 	astTestMust(t, err)
@@ -252,10 +252,10 @@ func (t *optimizationValueChangeTheory) FinalCheck() (SMTFinalCheckStatus, error
 		q := t.arithmetic.q
 		next := newSMTArithmeticValue()
 		defer next.del(q)
-		if err := q.SetBigRat(&next.rational, &t.next.Main); err != nil {
+		if err := q.Copy(&next.rational, &t.next.Main); err != nil {
 			return SMTFinalCheckGiveUp, err
 		}
-		if err := q.SetBigRat(&next.infinitesimal, &t.next.Epsilon); err != nil {
+		if err := q.Copy(&next.infinitesimal, &t.next.Epsilon); err != nil {
 			return SMTFinalCheckGiveUp, err
 		}
 		if err := t.arithmetic.setValue(SMTTheoryVar(t.column), &next); err != nil {
@@ -277,8 +277,8 @@ func TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue(t *tes
 			base, err := NewSMTTheoryBase(ast.FamilyID(73))
 			astTestMust(t, err)
 			hook := &optimizationValueChangeTheory{smtInternalizerTestTheory: &smtInternalizerTestTheory{SMTTheoryBase: base}}
-			hook.next = simplex.RationalInfinitesimal(big.NewRat(test.main, 1))
-			hook.next.Epsilon.SetInt64(test.epsilon)
+			hook.next = testRI(big.NewRat(test.main, 1))
+			setSmall(&hook.next.Epsilon, test.epsilon)
 			s, f, filter := optimizationRepairFixtureWithHook(t, false, hook)
 			x := f.variable("repair-changed-x")
 			astTestMust(t, s.Assert(f.app(smtArithOpGE, x, f.number("1"))))

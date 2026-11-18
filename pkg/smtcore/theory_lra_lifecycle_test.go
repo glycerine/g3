@@ -197,7 +197,7 @@ func TestSMTLRALPFreshCopyUsesDestinationSettingsAndIndependentNumerics(t *testi
 	}
 	value, err := fresh.numeric.value(copied.kernel.internalizer.context.enodes.get(tx).TheoryVar(targetFamily))
 	astTestMust(t, err)
-	if value.Main.Cmp(big.NewRat(1, 1)) < 0 || value.Main.Cmp(big.NewRat(2, 1)) > 0 {
+	if asBigInf(&value).Main.Cmp(big.NewRat(1, 1)) < 0 || asBigInf(&value).Main.Cmp(big.NewRat(2, 1)) > 0 {
 		t.Fatal("copy numeric value outside retained bounds", value)
 	}
 }

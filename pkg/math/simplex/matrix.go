@@ -4,9 +4,11 @@ package simplex
 // engines from src/math/simplex.
 
 import (
+	"errors"
 	"fmt"
 	"io"
-	"math/big"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const NullVariable = ^uint32(0)
@@ -17,10 +19,12 @@ type Row struct{ id uint32 }
 
 func (r Row) ID() uint32 { return r.id }
 
-// RowEntry is a borrowed coefficient-variable pair returned by Entries.
+// RowEntry is a row_iterator's variable and coefficient. The coefficient is
+// borrowed: a rational of the matrix's manager, valid until the matrix next
+// changes.
 type RowEntry struct {
 	Variable    uint32
-	Coefficient *big.Rat
+	Coefficient *numeral.Rational
 }
 
 // Source: src/math/simplex/sparse_matrix.h. A row or column keeps dead
@@ -35,7 +39,7 @@ const matrixDeadID = ^uint32(0)
 // dead entry, and colIdx then holds the next free row entry index.
 type matrixEntry struct {
 	variable uint32
-	coeff    big.Rat
+	coeff    numeral.Rational
 	colIdx   int32
 }
 
@@ -71,7 +75,11 @@ type matrixColumn struct {
 
 // Matrix is a concrete exact-rational replacement for the two retained C++
 // sparse_matrix instantiations. Integer coefficients use denominator one.
+// Its coefficients are rationals of its manager (sparse_matrix's m); as in
+// the source, a dead entry keeps its coefficient until the slot is reused,
+// compressed away or the matrix is destroyed.
 type Matrix struct {
+	c         *ratCalc
 	rows      []matrixRow
 	deadRows  []uint32
 	columns   []matrixColumn
@@ -80,11 +88,27 @@ type Matrix struct {
 	addRows   uint32
 }
 
+// NewMatrix returns an empty matrix over q's rationals; Close destroys it.
+func NewMatrix(q *numeral.RationalManager) *Matrix { return &Matrix{c: &ratCalc{q: q}} }
+
+// Close is ~sparse_matrix: it frees every entry's coefficient.
+func (m *Matrix) Close() error {
+	err := m.c.take()
+	for i := range m.rows {
+		r := &m.rows[i]
+		for j := range r.entries {
+			err = errors.Join(err, m.c.q.Del(&r.entries[j].coeff))
+		}
+	}
+	m.rows = nil
+	return err
+}
+
 // addRowEntry is _row::add_row_entry.
 func (r *matrixRow) addRowEntry() int32 {
 	r.size++
 	if r.firstFree == -1 {
-		r.entries = append(r.entries, matrixEntry{variable: matrixDeadID})
+		r.entries = append(r.entries, matrixEntry{variable: matrixDeadID, coeff: numeral.NewRational()})
 		return int32(len(r.entries) - 1)
 	}
 	pos := r.firstFree
@@ -102,8 +126,9 @@ func (r *matrixRow) delRowEntry(idx int32) {
 	r.firstFree = idx
 }
 
-// compress is _row::compress.
-func (r *matrixRow) compress(cols []matrixColumn) {
+// compress is _row::compress: the coefficients past the live prefix are
+// reset (freed).
+func (r *matrixRow) compress(c *ratCalc, cols []matrixColumn) {
 	j := 0
 	for i := range r.entries {
 		t1 := &r.entries[i]
@@ -119,6 +144,7 @@ func (r *matrixRow) compress(cols []matrixColumn) {
 		}
 	}
 	for i := int(r.size); i < len(r.entries); i++ {
+		c.del(&r.entries[i].coeff)
 		r.entries[i] = matrixEntry{}
 	}
 	r.entries = r.entries[:r.size]
@@ -126,9 +152,9 @@ func (r *matrixRow) compress(cols []matrixColumn) {
 }
 
 // compressIfNeeded is _row::compress_if_needed.
-func (r *matrixRow) compressIfNeeded(cols []matrixColumn) {
+func (r *matrixRow) compressIfNeeded(c *ratCalc, cols []matrixColumn) {
 	if r.size*2 < uint32(len(r.entries)) {
-		r.compress(cols)
+		r.compress(c, cols)
 	}
 }
 
@@ -216,10 +242,11 @@ func (m *Matrix) valid(r Row) bool { return int(r.id) < len(m.rows) && m.rows[r.
 func (m *Matrix) retainColumn(v uint32)  { m.columns[v].refs++ }
 func (m *Matrix) releaseColumn(v uint32) { m.columns[v].refs-- }
 
-// AddRational is sparse_matrix::add_var.
-func (m *Matrix) AddRational(r Row, coefficient *big.Rat, variable uint32) error {
-	if !m.valid(r) || coefficient == nil || coefficient.Sign() == 0 {
-		return fmt.Errorf("simplex: invalid matrix insertion")
+// AddRational is sparse_matrix::add_var; coefficient is a rational of the
+// matrix's manager.
+func (m *Matrix) AddRational(r Row, coefficient *numeral.Rational, variable uint32) error {
+	if !m.valid(r) || coefficient == nil || m.c.sign(coefficient) == 0 {
+		return m.c.joined(fmt.Errorf("simplex: invalid matrix insertion"))
 	}
 	m.EnsureVariable(variable)
 	if m.rows[r.id].indexOf(variable) != -1 {
@@ -231,10 +258,10 @@ func (m *Matrix) AddRational(r Row, coefficient *big.Rat, variable uint32) error
 	cIdx := c.addColumnEntry()
 	rEntry := &row.entries[rIdx]
 	rEntry.variable = variable
-	rEntry.coeff.Set(coefficient)
+	m.c.set(&rEntry.coeff, coefficient)
 	rEntry.colIdx = cIdx
 	c.entries[cIdx] = matrixColumnEntry{rowID: r.id, rowIdx: rIdx}
-	return nil
+	return m.c.joined(nil)
 }
 
 // Entries returns the live entries of r in slot order (row_iterator).
@@ -247,13 +274,13 @@ func (m *Matrix) Entries(r Row) ([]RowEntry, error) {
 	for i := range row.entries {
 		e := &row.entries[i]
 		if !e.isDead() {
-			out = append(out, RowEntry{e.variable, new(big.Rat).Set(&e.coeff)})
+			out = append(out, RowEntry{e.variable, &e.coeff})
 		}
 	}
 	return out, nil
 }
 
-func (m *Matrix) coefficient(r Row, variable uint32) (*big.Rat, bool) {
+func (m *Matrix) coefficient(r Row, variable uint32) (*numeral.Rational, bool) {
 	if !m.valid(r) {
 		return nil, false
 	}
@@ -277,13 +304,13 @@ func (m *Matrix) saveVarPos(r *matrixRow) {
 // sparse_matrix::add and its ADD_ROW loop: source entries are visited in
 // slot order, new variables take the destination's free slots first, and
 // cancelled entries are freed immediately.
-func (m *Matrix) Add(destination Row, coefficient *big.Rat, source Row) error {
+func (m *Matrix) Add(destination Row, coefficient *numeral.Rational, source Row) error {
 	if !m.valid(destination) || !m.valid(source) || coefficient == nil {
 		return fmt.Errorf("simplex: invalid row addition")
 	}
 	m.addRows++
-	if coefficient.Sign() == 0 {
-		return nil
+	if m.c.sign(coefficient) == 0 {
+		return m.c.joined(nil)
 	}
 	r1 := &m.rows[destination.id]
 	m.saveVarPos(r1)
@@ -300,7 +327,7 @@ func (m *Matrix) Add(destination Row, coefficient *big.Rat, source Row) error {
 			rowIdx := r1.addRowEntry()
 			rEntry := &r1.entries[rowIdx]
 			rEntry.variable = v
-			rEntry.coeff.Mul(&it.coeff, coefficient)
+			m.c.mul(&rEntry.coeff, &it.coeff, coefficient)
 			c := &m.columns[v]
 			colIdx := c.addColumnEntry()
 			rEntry.colIdx = colIdx
@@ -308,8 +335,8 @@ func (m *Matrix) Add(destination Row, coefficient *big.Rat, source Row) error {
 		} else {
 			// variable v is in row1
 			rEntry := &r1.entries[pos]
-			rEntry.coeff.Add(&rEntry.coeff, new(big.Rat).Mul(&it.coeff, coefficient))
-			if rEntry.coeff.Sign() == 0 {
+			m.c.addMul(&rEntry.coeff, &rEntry.coeff, &it.coeff, coefficient)
+			if m.c.sign(&rEntry.coeff) == 0 {
 				m.delRowEntry(r1, pos)
 			}
 		}
@@ -318,8 +345,8 @@ func (m *Matrix) Add(destination Row, coefficient *big.Rat, source Row) error {
 		m.varPos[v] = -1
 	}
 	m.varPosIdx = m.varPosIdx[:0]
-	r1.compressIfNeeded(m.columns)
-	return nil
+	r1.compressIfNeeded(m.c, m.columns)
+	return m.c.joined(nil)
 }
 
 // delRowEntry is sparse_matrix::del_row_entry.
@@ -375,7 +402,12 @@ func (m *Matrix) ColumnRows(variable uint32) []Row {
 }
 func (m *Matrix) AddRowCount() uint32 { return m.addRows }
 
-func (m *Matrix) Reset() { *m = Matrix{} }
+// Reset is sparse_matrix::reset; the coefficients are freed.
+func (m *Matrix) Reset() {
+	c := m.c
+	c.fail(m.Close())
+	*m = Matrix{c: c}
+}
 
 // WellFormed follows sparse_matrix::well_formed_row and well_formed_column,
 // including their free-list checks.
@@ -391,7 +423,7 @@ func (m *Matrix) WellFormed() bool {
 				dead[int32(i)] = true
 				continue
 			}
-			if vars[e.variable] || e.coeff.Sign() == 0 || int(e.variable) >= len(m.columns) {
+			if vars[e.variable] || m.c.sign(&e.coeff) == 0 || int(e.variable) >= len(m.columns) {
 				return false
 			}
 			col := &m.columns[e.variable]
@@ -465,7 +497,7 @@ func (m *Matrix) DisplayRow(w io.Writer, r Row) error {
 		return err
 	}
 	for _, e := range entries {
-		if _, err = fmt.Fprintf(w, "%s*v%d ", e.Coefficient.RatString(), e.Variable); err != nil {
+		if _, err = fmt.Fprintf(w, "%s*v%d ", m.c.text(e.Coefficient), e.Variable); err != nil {
 			return err
 		}
 	}

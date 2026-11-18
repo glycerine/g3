@@ -35,7 +35,8 @@ type ObjectivePipelineResult struct {
 	Values     []ObjectivePipelineValue
 	Model      *model.ModelCore
 	Statistics ObjectivePipelineStatistics
-	// Q owns the Values' Exact rationals; Close releases them.
+	// Q owns the Values' Exact rationals and inf_eps values; Close releases
+	// them.
 	Q *numeral.RationalManager
 }
 
@@ -46,7 +47,7 @@ func (r *ObjectivePipelineResult) Close() error {
 	var err error
 	if r.Q != nil {
 		for i := range r.Values {
-			err = errors.Join(err, r.Q.Del(&r.Values[i].Exact))
+			err = errors.Join(err, r.Q.Del(&r.Values[i].Exact), r.Values[i].Arithmetic.Del(r.Q), r.Values[i].ModelValue.Del(r.Q))
 			r.Values[i].Exact = numeral.NewRational()
 		}
 	}

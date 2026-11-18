@@ -7,7 +7,7 @@ import (
 )
 
 func TestSimplexSourceInitialEmptyAndFixedVariable(t *testing.T) {
-	s := NewSolver(nil)
+	s := newTestSolver(nil)
 	check := func(stage string) {
 		t.Helper()
 		status, err := s.MakeFeasible()
@@ -20,7 +20,7 @@ func TestSimplexSourceInitialEmptyAndFixedVariable(t *testing.T) {
 		s.EnsureVariable(i)
 	}
 	check("unconstrained")
-	one := RationalInfinitesimal(rat(1, 1))
+	one := testRI(rat(1, 1))
 	if err := s.SetLower(0, one); err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestSimplexSourceInitialEmptyAndFixedVariable(t *testing.T) {
 		t.Fatal(err)
 	}
 	check("fixed")
-	if got := s.Value(0); got.Main.Cmp(rat(1, 1)) != 0 {
+	if got := testValue(s, 0); qcmp(&got.Main, rat(1, 1)) != 0 {
 		t.Fatal("fixed variable", got)
 	}
 }

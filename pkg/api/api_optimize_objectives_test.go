@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestAPIOptimizeArithmeticObjectiveValueAndIsolation(t *testing.T) {
 	}
 	value, err := f.opt.ObjectiveValue(index)
 	astTestMust(t, err)
-	if !value.Available || value.Unbounded || value.Value.Main.Cmp(big.NewRat(5, 1)) != 0 {
+	if !value.Available || value.Unbounded || bigOfSmall(&value.Value.Main).Cmp(big.NewRat(5, 1)) != 0 {
 		t.Fatal("objective value", value)
 	}
 	if _, err = f.opt.Statistics(); err != nil {
@@ -44,4 +45,12 @@ func TestAPIOptimizeArithmeticObjectiveValueAndIsolation(t *testing.T) {
 	if _, err = f.opt.Objective(1); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("objective bounds", err)
 	}
+}
+
+// bigOfSmall reads a small (inline) rational of a test value as math/big.
+func bigOfSmall(r *unumeral.Rational) *big.Rat {
+	if !r.IsSmall() {
+		panic("test helper read a big rational")
+	}
+	return big.NewRat(int64(r.Num.Val), int64(r.Den.Val))
 }

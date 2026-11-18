@@ -89,11 +89,40 @@ func (v *ObjectiveValue) initRationals() {
 	}
 }
 
+// rationals lists the value's owned rationals: the soft values and the
+// components of its inf_eps values (Arithmetic, ArithmeticModel and the
+// display bounds).
 func (v *ObjectiveValue) rationals() []*numeral.Rational {
-	return []*numeral.Rational{&v.SoftCost, &v.SoftSatisfied, &v.SoftLower, &v.SoftUpper, &v.SourceLower, &v.SourceUpper}
+	return []*numeral.Rational{&v.SoftCost, &v.SoftSatisfied, &v.SoftLower, &v.SoftUpper, &v.SourceLower, &v.SourceUpper,
+		&v.Arithmetic.Finite.Infinity, &v.Arithmetic.Finite.Main, &v.Arithmetic.Finite.Epsilon,
+		&v.ArithmeticModel.Finite.Infinity, &v.ArithmeticModel.Finite.Main, &v.ArithmeticModel.Finite.Epsilon,
+		&v.DisplayLower.Infinity, &v.DisplayLower.Main, &v.DisplayLower.Epsilon,
+		&v.DisplayUpper.Infinity, &v.DisplayUpper.Main, &v.DisplayUpper.Epsilon}
 }
 
-// ReleaseRationals releases the value's soft rationals through q and
+// setArithmetic replaces Arithmetic with value, which the ObjectiveValue
+// takes over; the old value is freed.
+func (v *ObjectiveValue) setArithmetic(q *numeral.RationalManager, value smtcore.SMTArithmeticObjectiveValue) error {
+	err := v.Arithmetic.Del(q)
+	v.Arithmetic = value
+	return err
+}
+
+// setArithmeticModel replaces ArithmeticModel likewise.
+func (v *ObjectiveValue) setArithmeticModel(q *numeral.RationalManager, value smtcore.SMTArithmeticObjectiveValue) error {
+	err := v.ArithmeticModel.Del(q)
+	v.ArithmeticModel = value
+	return err
+}
+
+// setDisplay replaces the display bounds, which the value takes over.
+func (v *ObjectiveValue) setDisplay(q *numeral.RationalManager, lower, upper simplex.Infinitesimal) error {
+	err := errors.Join(v.DisplayLower.Del(q), v.DisplayUpper.Del(q))
+	v.DisplayLower, v.DisplayUpper = lower, upper
+	return err
+}
+
+// ReleaseRationals releases the value's rationals through q and
 // leaves them valid zeros.
 func (v *ObjectiveValue) ReleaseRationals(q *numeral.RationalManager) (err error) {
 	for _, r := range v.rationals() {
@@ -148,13 +177,12 @@ type ArithmeticSolver struct {
 	initial *ArithmeticResult
 	// lowerFmls is optsmt::m_lower_fmls.
 	lowerFmls []ast.ASTRef
-	// optLower is optsmt::m_lower (internal, maximizing orientation).
-	optLower    []simplex.Infinitesimal
-	optLowerSet []bool
+	// optLower is optsmt::m_lower (internal, maximizing orientation); a
+	// new entry is -infinity, as optsmt::add initializes it.
+	optLower []simplex.Infinitesimal
 	// optUpper is optsmt::m_upper (internal orientation; +infinity until
 	// geometric_lex sets it tight).
 	optUpper     []simplex.Infinitesimal
-	optUpperSet  []bool
 	internalized []internalizedObjective
 	// boxIndices maps a box copy's objectives to the parent's indices
 	// (m_lower, m_lower_fmls); nil for the identity.
@@ -578,13 +606,14 @@ func (s *ArithmeticSolver) replaceModel(result *ArithmeticResult) error {
 	return s.captureResultLabels(result)
 }
 
-func (s *ArithmeticSolver) orient(index int, value smtcore.SMTArithmeticObjectiveValue) smtcore.SMTArithmeticObjectiveValue {
+// orient returns a fresh copy of value in the objective's orientation.
+func (s *ArithmeticSolver) orient(o *ratOps, index int, value *smtcore.SMTArithmeticObjectiveValue) smtcore.SMTArithmeticObjectiveValue {
+	result := smtcore.SMTArithmeticObjectiveValue{Unbounded: value.Unbounded, Finite: o.infClone(&value.Finite)}
 	if s.objectives[index].maximize || value.Unbounded {
-		return value
+		return result
 	}
-	value.Finite = value.Finite.Clone()
-	value.Finite.Neg()
-	return value
+	o.infNeg(&result.Finite)
+	return result
 }
 
 func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
@@ -639,11 +668,12 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		// l_true (m_upper = m_lower); the committed earlier objectives
 		// made this one's search space empty. The reported value is
 		// m_lower[i], which execute_lex's update_lower set from the model.
-		if lower := s.optLowerOf(index); lower.Infinity.Sign() == 0 {
-			result.Values[index].Arithmetic = s.orient(index, smtcore.SMTArithmeticObjectiveValue{Finite: lower.Clone()})
+		o := newRatOps(s.manager)
+		if lower := s.optLowerOf(index); o.isFinite(lower) {
+			o.fail(result.Values[index].setArithmetic(o.q, s.orient(&o, index, &smtcore.SMTArithmeticObjectiveValue{Finite: *lower})))
 		}
-		s.finishGeometricLex(index)
-		return status, true, nil
+		s.finishGeometricLex(&o, index)
+		return status, true, o.err
 	}
 	if err != nil || status != lbool.True {
 		return status, false, err
@@ -691,11 +721,16 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		if err != nil {
 			return lbool.Undef, false, err
 		}
+		// inf_eps value is a local of the iteration.
+		defer ro.infDel(&value.Finite)
 		if err = s.replaceModel(result); err != nil {
 			return lbool.Undef, false, err
 		}
-		result.Values[index].Arithmetic = s.orient(index, value)
-		if err = s.updateLowerLex(index, savedValue(value)); err != nil {
+		ro.fail(result.Values[index].setArithmetic(ro.q, s.orient(&ro, index, &value)))
+		saved := savedValue(&ro, &value)
+		err = s.updateLowerLex(index, &saved)
+		ro.infDel(&saved)
+		if err = ro.joined(err); err != nil {
 			return lbool.Undef, false, err
 		}
 		// geometric_lex: an unbounded objective leaves m_lower infinite, so
@@ -712,15 +747,16 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 				steps++
 			}
 		}
-		boundValue := value.Finite.Clone()
-		boundValue.Main.Add(&boundValue.Main, ro.bigOf(&delta))
+		boundValue := ro.infClone(&value.Finite)
+		defer ro.infDel(&boundValue)
+		ro.add(&boundValue.Main, &boundValue.Main, &delta)
 		if !ro.ok() {
 			return lbool.Undef, false, nil
 		}
 		// optsmt::geometric_opt asserts the update_lower blocker; only a
 		// larger step pushes first and then builds mk_ge at the base level.
 		var bound ast.ASTHandle
-		if ro.cmp(&delta, &one) > 0 && value.Finite.Infinity.Sign() == 0 {
+		if ro.cmp(&delta, &one) > 0 && ro.isFinite(&value.Finite) {
 			err = s.backend.Push()
 			if err == nil {
 				jumpScopes++
@@ -765,9 +801,9 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		return lbool.Undef, false, e
 	}
 	if status == lbool.False {
-		s.finishGeometricLex(index)
+		s.finishGeometricLex(&ro, index)
 	}
-	return status, status == lbool.False, nil
+	return status, status == lbool.False, ro.err
 }
 
 func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *numeral.Rational, strict bool) (result ast.ASTHandle, resultErr error) {
@@ -1124,7 +1160,7 @@ func (s *ArithmeticSolver) captureArithmeticModelCore(index int, value *Objectiv
 	if !matched {
 		return ast.ErrASTDomain
 	}
-	value.ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: o.infinitesimalOf(&rational)}
+	o.fail(value.setArithmeticModel(o.q, smtcore.SMTArithmeticObjectiveValue{Finite: o.infOf(&rational)}))
 	value.ArithmeticModelValid = o.ok()
 	return o.err
 }
@@ -1140,10 +1176,10 @@ func (s *ArithmeticSolver) commitArithmeticLower(index int) error {
 	// optsmt::commit_assignment asserts mk_ge(i, m_lower[i]) for a finite
 	// m_lower (internal maximizing orientation).
 	lower := s.optLowerOf(index)
-	if lower.Infinity.Sign() != 0 {
-		return nil
+	if finite, err := s.rationalManager().IsZero(&lower.Infinity); err != nil || !finite {
+		return err
 	}
-	bound, err := s.backend.MakeObjectiveLowerBound(s.objectives[index].backendIndex, s.filter, lower)
+	bound, err := s.backend.MakeObjectiveLowerBound(s.objectives[index].backendIndex, s.filter, *lower)
 	if err != nil {
 		return err
 	}
@@ -1221,7 +1257,12 @@ func (s *ArithmeticSolver) retainRemainingModelValues(start int, result *Arithme
 		if err := s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
 			return err
 		}
-		result.Values[i].Arithmetic = result.Values[i].ArithmeticModel
+		o := newRatOps(s.manager)
+		model := &result.Values[i].ArithmeticModel
+		o.fail(result.Values[i].setArithmetic(o.q, smtcore.SMTArithmeticObjectiveValue{Unbounded: model.Unbounded, Finite: o.infClone(&model.Finite)}))
+		if !o.ok() {
+			return o.err
+		}
 	}
 	return nil
 }
@@ -1363,8 +1404,12 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 		// objective captures it here.
 		lexContinues := i+1 < len(s.objectives)
 		if !s.objectives[i].soft {
-			value := result.Values[i].Arithmetic
-			unbounded := value.Unbounded || value.Finite.Infinity.Sign() != 0
+			value := &result.Values[i].Arithmetic
+			infinite, err := s.rationalManager().Sign(&value.Finite.Infinity)
+			if err != nil {
+				return nil, err
+			}
+			unbounded := value.Unbounded || infinite != 0
 			// execute_min_max: an unbounded l_true objective over
 			// quantified hard constraints throws.
 			if unbounded && s.containsQuantifiers {
@@ -1386,7 +1431,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				// execute_lex returns here, but display_assignment still
 				// compares m_lower/m_upper of the objectives already run
 				// (AUDIT.md FUZZ_A-F2).
-				s.markArithmeticIntervals(result, i+1)
+				if err = s.markArithmeticIntervals(result, i+1); err != nil {
+					return nil, err
+				}
 				result.Status, result.Optimal = lbool.True, true
 				return result, nil
 			}
@@ -1421,7 +1468,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 			}
 		}
 	}
-	s.markArithmeticIntervals(result, len(s.objectives))
+	if err := s.markArithmeticIntervals(result, len(s.objectives)); err != nil {
+		return nil, err
+	}
 	result.Status, result.Optimal = lbool.True, true
 	return result, nil
 }
@@ -1429,14 +1478,15 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 // markArithmeticIntervals is display_assignment's test for the first n
 // objectives: an interval when get_lower_as_num(i) != get_upper_as_num(i),
 // i.e. when m_lower[i] != m_upper[i].
-func (s *ArithmeticSolver) markArithmeticIntervals(result *ArithmeticResult, n int) {
+func (s *ArithmeticSolver) markArithmeticIntervals(result *ArithmeticResult, n int) error {
+	o := newRatOps(s.manager)
 	for i := 0; i < n; i++ {
 		if s.objectives[i].soft {
 			continue
 		}
-		lower, upper := s.optLowerOf(i), s.optUpperOf(i)
-		result.Values[i].ArithmeticInterval = lower.Cmp(&upper) != 0
+		result.Values[i].ArithmeticInterval = o.infCmp(s.optLowerOf(i), s.optUpperOf(i)) != 0
 	}
+	return o.err
 }
 
 // DetachObjectiveTerms hands over the rewritten arithmetic objective terms
@@ -1615,26 +1665,36 @@ func (s *ArithmeticSolver) updateBoundCapturing(md *model.ModelCore, isLower boo
 			continue
 		}
 		if i == capture && captured != nil {
-			captured.ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: o.infinitesimalOf(&value)}
+			o.fail(captured.setArithmeticModel(o.q, smtcore.SMTArithmeticObjectiveValue{Finite: o.infOf(&value)}))
 			captured.ArithmeticModelValid = true
 		}
 		if !objective.maximize {
 			o.neg(&value)
 		}
-		bound := o.infinitesimalOf(&value)
+		bound := o.infOf(&value)
 		o.del(&value)
 		if !o.ok() {
+			o.infDel(&bound)
 			return o.err
 		}
 		if !isLower {
-			s.setOptUpper(i, bound)
+			s.setOptUpper(&o, i, &bound)
+			o.infDel(&bound)
+			if !o.ok() {
+				return o.err
+			}
 			continue
 		}
 		ge, err := s.backend.MakeObjectiveLowerBound(objective.backendIndex, s.filter, bound)
 		if err != nil {
-			return err
+			o.infDel(&bound)
+			return o.joined(err)
 		}
-		s.setOptLower(i, bound)
+		s.setOptLower(&o, i, &bound)
+		o.infDel(&bound)
+		if !o.ok() {
+			return o.err
+		}
 		held, err := s.manager.NewRef(ge)
 		if err != nil {
 			return err
@@ -1667,24 +1727,24 @@ func (s *ArithmeticSolver) fillDisplayBounds(result *ArithmeticResult) {
 				s.unexecutedSoftBounds(i, value)
 			}
 			o := newRatOps(s.manager)
-			value.DisplayLower = o.infinitesimalOf(&value.SoftLower)
-			value.DisplayUpper = o.infinitesimalOf(&value.SoftUpper)
+			lower, upper := o.infOf(&value.SoftLower), o.infOf(&value.SoftUpper)
+			o.fail(value.setDisplay(o.q, lower, upper))
 			value.DisplayValid = o.ok()
 			continue
 		}
 		if s.objectives[i].term == (ast.ASTRef{}) {
 			continue
 		}
-		lower, upper := s.optLowerOf(i), s.optUpperOf(i)
-		if s.objectives[i].maximize {
-			value.DisplayLower, value.DisplayUpper = lower.Clone(), upper.Clone()
-		} else {
+		o := newRatOps(s.manager)
+		lower, upper := o.infClone(s.optLowerOf(i)), o.infClone(s.optUpperOf(i))
+		if !s.objectives[i].maximize {
 			// O_MINIMIZE: adjust(m_upper) and adjust(m_lower), negated.
-			value.DisplayLower, value.DisplayUpper = upper.Clone(), lower.Clone()
-			value.DisplayLower.Neg()
-			value.DisplayUpper.Neg()
+			lower, upper = upper, lower
+			o.infNeg(&lower)
+			o.infNeg(&upper)
 		}
-		value.DisplayValid = true
+		o.fail(value.setDisplay(o.q, lower, upper))
+		value.DisplayValid = o.ok()
 	}
 }
 
@@ -1708,8 +1768,9 @@ func (s *ArithmeticSolver) InitialModel() *model.ModelCore {
 
 // ArithmeticDisplayBounds is get_lower_as_num/get_upper_as_num of the i-th
 // objective when it is an optsmt (O_MAXIMIZE/O_MINIMIZE) objective, as
-// fillDisplayBounds reports it.
+// fillDisplayBounds reports it. The bounds are fresh values the caller owns.
 func (s *ArithmeticSolver) ArithmeticDisplayBounds(i int) (lower, upper simplex.Infinitesimal, ok bool) {
+	lower, upper = simplex.ZeroInfinitesimal(), simplex.ZeroInfinitesimal()
 	if s == nil || i < 0 || i >= len(s.objectives) || s.objectives[i].soft || s.objectives[i].term == (ast.ASTRef{}) {
 		return lower, upper, false
 	}
@@ -1718,7 +1779,9 @@ func (s *ArithmeticSolver) ArithmeticDisplayBounds(i int) (lower, upper simplex.
 	result := &ArithmeticResult{Values: values, Q: q}
 	s.fillDisplayBounds(result)
 	value := &values[i]
+	// The bounds move out of the result before it dies.
 	lower, upper, ok = value.DisplayLower, value.DisplayUpper, value.DisplayValid
+	value.DisplayLower, value.DisplayUpper = simplex.ZeroInfinitesimal(), simplex.ZeroInfinitesimal()
 	if err := result.Close(); err != nil {
 		ok = false
 	}
@@ -1809,6 +1872,9 @@ func (s *ArithmeticSolver) Close() error {
 		}
 	}
 	s.lowerFmls = nil
+	if err := s.closeOptBounds(); err != nil {
+		return err
+	}
 	for len(s.softEngines) != 0 {
 		entry := s.softEngines[0]
 		s.softEngines = s.softEngines[1:]
@@ -1912,63 +1978,81 @@ func (s *ArithmeticSolver) DetachBackend() *smtcore.SMTSolver {
 	return s.backend
 }
 
-// optUpperOf is m_upper[i]; optsmt::add initializes it to +infinity.
-func (s *ArithmeticSolver) optUpperOf(i int) simplex.Infinitesimal {
-	if i < len(s.optUpperSet) && s.optUpperSet[i] {
-		return s.optUpper[i]
+// optBound is bounds[i], growing bounds with fresh inf_eps(sign) entries.
+func (s *ArithmeticSolver) optBound(bounds *[]simplex.Infinitesimal, i int, sign int64) *simplex.Infinitesimal {
+	for len(*bounds) <= i {
+		v, err := simplex.InfiniteInfinitesimal(s.rationalManager(), sign)
+		if err != nil {
+			// Setting a small integer cannot fail on a live manager; keep
+			// the slot a valid 0 and let the next numeral operation report.
+			v = simplex.ZeroInfinitesimal()
+		}
+		*bounds = append(*bounds, v)
 	}
-	return infiniteInfinitesimal(1)
+	return &(*bounds)[i]
 }
 
-func (s *ArithmeticSolver) setOptUpper(i int, v simplex.Infinitesimal) {
-	for len(s.optUpper) <= i {
-		s.optUpper = append(s.optUpper, simplex.Infinitesimal{})
-		s.optUpperSet = append(s.optUpperSet, false)
-	}
-	s.optUpper[i], s.optUpperSet[i] = v.Clone(), true
+// optUpperOf is m_upper[i] (borrowed); optsmt::add initializes it to
+// +infinity.
+func (s *ArithmeticSolver) optUpperOf(i int) *simplex.Infinitesimal {
+	return s.optBound(&s.optUpper, i, 1)
+}
+
+// setOptUpper is m_upper[i] = v.
+func (s *ArithmeticSolver) setOptUpper(o *ratOps, i int, v *simplex.Infinitesimal) {
+	o.infSet(s.optUpperOf(i), v)
 }
 
 // finishGeometricLex is geometric_lex's l_true exit: "set the solution
 // tight" (m_upper = m_lower) and reset every later m_lower to -infinity.
-func (s *ArithmeticSolver) finishGeometricLex(index int) {
-	s.setOptUpper(index, s.optLowerOf(index))
+func (s *ArithmeticSolver) finishGeometricLex(o *ratOps, index int) {
+	s.setOptUpper(o, index, s.optLowerOf(index))
+	minusInfinity := o.infinite(-1)
 	for i := index + 1; i < len(s.objectives); i++ {
-		s.setOptLower(i, infiniteInfinitesimal(-1))
+		s.setOptLower(o, i, &minusInfinity)
 	}
+	o.infDel(&minusInfinity)
 }
 
-// optLowerOf is m_lower[i]; optsmt::add initializes it to -infinity.
-func (s *ArithmeticSolver) optLowerOf(i int) simplex.Infinitesimal {
-	if i < len(s.optLowerSet) && s.optLowerSet[i] {
-		return s.optLower[i]
-	}
-	return infiniteInfinitesimal(-1)
+// optLowerOf is m_lower[i] (borrowed); optsmt::add initializes it to
+// -infinity.
+func (s *ArithmeticSolver) optLowerOf(i int) *simplex.Infinitesimal {
+	return s.optBound(&s.optLower, i, -1)
 }
 
-func (s *ArithmeticSolver) setOptLower(i int, v simplex.Infinitesimal) {
-	for len(s.optLower) <= i {
-		s.optLower = append(s.optLower, simplex.Infinitesimal{})
-		s.optLowerSet = append(s.optLowerSet, false)
-	}
-	s.optLower[i], s.optLowerSet[i] = v.Clone(), true
+// setOptLower is m_lower[i] = v.
+func (s *ArithmeticSolver) setOptLower(o *ratOps, i int, v *simplex.Infinitesimal) {
+	o.infSet(s.optLowerOf(i), v)
 }
 
-// savedValue is saved_objective_value as an inf_eps.
-func savedValue(value smtcore.SMTArithmeticObjectiveValue) simplex.Infinitesimal {
-	if value.Unbounded && value.Finite.Infinity.Sign() == 0 {
-		return infiniteInfinitesimal(1)
+// closeOptBounds frees m_lower and m_upper.
+func (s *ArithmeticSolver) closeOptBounds() error {
+	o := newRatOps(s.manager)
+	o.infDelAll(s.optLower)
+	o.infDelAll(s.optUpper)
+	s.optLower, s.optUpper = nil, nil
+	return o.err
+}
+
+// savedValue is saved_objective_value as a fresh inf_eps.
+func savedValue(o *ratOps, value *smtcore.SMTArithmeticObjectiveValue) simplex.Infinitesimal {
+	if value.Unbounded && o.isFinite(&value.Finite) {
+		return o.infinite(1)
 	}
-	return value.Finite.Clone()
+	return o.infClone(&value.Finite)
 }
 
 // updateLowerLex is optsmt::update_lower_lex: a better value for idx
 // re-maximizes every later arithmetic objective for its m_lower.
-func (s *ArithmeticSolver) updateLowerLex(idx int, v simplex.Infinitesimal) (resultErr error) {
-	current := s.optLowerOf(idx)
-	if v.Cmp(&current) <= 0 {
-		return nil
+func (s *ArithmeticSolver) updateLowerLex(idx int, v *simplex.Infinitesimal) (resultErr error) {
+	o := newRatOps(s.manager)
+	if o.infCmp(v, s.optLowerOf(idx)) <= 0 {
+		return o.err
 	}
-	s.setOptLower(idx, v)
+	s.setOptLower(&o, idx, v)
+	if !o.ok() {
+		return o.err
+	}
 	if err := s.lowerLexVerbose(idx, v); err != nil {
 		return err
 	}
@@ -1988,11 +2072,18 @@ func (s *ArithmeticSolver) updateLowerLex(idx int, v simplex.Infinitesimal) (res
 		}
 		if tmp != (ast.ASTRef{}) {
 			if err = s.manager.DelRef(&tmp); err != nil {
-				return errors.Join(err, s.manager.DelRef(&blocker))
+				o.infDel(&value.Finite)
+				return o.joined(errors.Join(err, s.manager.DelRef(&blocker)))
 			}
 		}
 		tmp = blocker
-		s.setOptLower(i, savedValue(value))
+		saved := savedValue(&o, &value)
+		s.setOptLower(&o, i, &saved)
+		o.infDel(&saved)
+		o.infDel(&value.Finite)
+		if !o.ok() {
+			return o.err
+		}
 	}
 	return nil
 }

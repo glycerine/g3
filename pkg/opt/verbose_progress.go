@@ -8,15 +8,15 @@ package opt
 
 import (
 	"errors"
-	"github.com/glycerine/g3/pkg/util/numeral"
-	"math/big"
 	"strconv"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
@@ -253,43 +253,30 @@ func (e *maxResEngine) coreDisplayVerbose(core []ast.ASTHandle) error {
 }
 
 // infEpsText is inf_eps_rational<inf_rational>::to_string.
-func infEpsText(v *simplex.Infinitesimal) string {
-	r := v.Main.RatString()
-	if v.Epsilon.Sign() != 0 {
-		sign := " +e*"
-		if v.Epsilon.Sign() < 0 {
-			sign = " -e*"
-		}
-		r = "(" + r + sign + new(big.Rat).Abs(&v.Epsilon).RatString() + ")"
+func infEpsText(o *ratOps, v *simplex.Infinitesimal) string {
+	if !o.ok() {
+		return ""
 	}
-	if v.Infinity.Sign() == 0 {
-		return r
-	}
-	var si string
-	switch {
-	case v.Infinity.Cmp(big.NewRat(1, 1)) == 0:
-		si = "oo"
-	case v.Infinity.Cmp(big.NewRat(-1, 1)) == 0:
-		si = "-oo"
-	default:
-		si = v.Infinity.RatString() + "*oo"
-	}
-	if v.Main.Sign() == 0 && v.Epsilon.Sign() == 0 {
-		return si
-	}
-	return "(" + si + " + " + r + ")"
+	text, err := smtcore.SMTInfEpsString(o.q, v)
+	o.fail(err)
+	return text
 }
 
 // lowerLexVerbose is optsmt::update_lower_lex's IF_VERBOSE(1, maximize ?
 // "(optsmt lower bound: " << v : "(optsmt upper bound: " << -v).
-func (s *ArithmeticSolver) lowerLexVerbose(idx int, v simplex.Infinitesimal) error {
+func (s *ArithmeticSolver) lowerLexVerbose(idx int, v *simplex.Infinitesimal) error {
 	if !diagnostic.VerboseProgress || idx < 0 || idx >= len(s.objectives) {
 		return nil
 	}
+	o := newRatOps(s.manager)
 	if s.objectives[idx].maximize {
-		return optProgress(1, "(optsmt lower bound: "+infEpsText(&v)+")\n")
+		text := infEpsText(&o, v)
+		return o.joined(optProgress(1, "(optsmt lower bound: "+text+")\n"))
 	}
-	n := v.Clone()
-	n.Neg()
-	return optProgress(1, "(optsmt upper bound: "+infEpsText(&n)+")\n")
+	// -v is a temporary.
+	n := o.infClone(v)
+	o.infNeg(&n)
+	text := infEpsText(&o, &n)
+	o.infDel(&n)
+	return o.joined(optProgress(1, "(optsmt upper bound: "+text+")\n"))
 }

@@ -417,13 +417,14 @@ func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, origi
 				// unbounded objective), so display_assignment shows
 				// m_adjust_value of its m_lower and m_upper as an interval
 				// (AUDIT.md FUZZ_A-F3).
+				q := c.optQ()
 				lower, e := c.optRestoreInfinitesimal(&d, &optimized.Values[i].SoftLower)
 				if e != nil {
-					return e
+					return errors.Join(e, lower.Del(q))
 				}
 				upper, e := c.optRestoreInfinitesimal(&d, &optimized.Values[i].SoftUpper)
 				if e != nil {
-					return e
+					return errors.Join(e, upper.Del(q), lower.Del(q))
 				}
 				// writeObjectiveValue prints (interval modelValue value) for
 				// maximize and (interval value modelValue) for minimize.
@@ -432,23 +433,30 @@ func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, origi
 					shown, model = lower, upper
 				}
 				if e = c.optReplaceValue(&optimized.Values[i]); e != nil {
-					return e
+					return errors.Join(e, upper.Del(q), lower.Del(q))
 				}
+				// The fresh value takes over both restored bounds.
 				optimized.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: shown}
 				optimized.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: model}
 				optimized.Values[i].ArithmeticModelValid = true
 				optimized.Values[i].ArithmeticInterval = true
 				continue
 			}
+			q := c.optQ()
 			finite, e := c.optRestoreInfinitesimal(&d, &optimized.Values[i].SoftCost)
+			if e != nil {
+				return errors.Join(e, finite.Del(q))
+			}
+			if e = c.optReplaceValue(&optimized.Values[i]); e != nil {
+				return errors.Join(e, finite.Del(q))
+			}
+			// The fresh value takes over finite and a copy of it.
+			model, e := finite.Clone(q)
+			optimized.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: finite}
+			optimized.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: model}
 			if e != nil {
 				return e
 			}
-			if e = c.optReplaceValue(&optimized.Values[i]); e != nil {
-				return e
-			}
-			optimized.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: finite}
-			optimized.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: finite.Clone()}
 			optimized.Values[i].ArithmeticModelValid = true
 		}
 		// execute_box's later calls report the values the first call
@@ -475,13 +483,18 @@ func (c *Context) restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult,
 			// get_lower_as_num/get_upper_as_num of a converted objective
 			// are m_adjust_value of the maxsmt bounds, unswapped
 			// (AUDIT.md FUZZ_A-F5).
+			q := c.optQ()
 			displayLower, err := c.optRestoreInfinitesimal(&decomposed[i], &value.SoftLower)
 			if err != nil {
-				return err
+				return errors.Join(err, displayLower.Del(q))
 			}
 			displayUpper, err := c.optRestoreInfinitesimal(&decomposed[i], &value.SoftUpper)
 			if err != nil {
-				return err
+				return errors.Join(err, displayUpper.Del(q), displayLower.Del(q))
+			}
+			// The value takes over the restored bounds.
+			if err = errors.Join(value.DisplayLower.Del(q), value.DisplayUpper.Del(q)); err != nil {
+				return errors.Join(err, displayUpper.Del(q), displayLower.Del(q))
 			}
 			value.DisplayLower = displayLower
 			value.DisplayUpper = displayUpper

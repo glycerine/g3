@@ -45,8 +45,8 @@ func TestOptimizationResourceLimitedSoftBoundsEndToEnd(t *testing.T) {
 	// The cheapest way to violate the conjunction is to falsify the
 	// weight-one term, so the exact optimum is one.
 	optimum := big.NewRat(1, 1)
-	if lower.Value.Main.Cmp(optimum) > 0 || upper.Value.Main.Cmp(optimum) < 0 || lower.Value.Main.Cmp(&upper.Value.Main) >= 0 {
-		t.Fatalf("partial interval [%s:%s] does not bracket optimum 1", lower.Value.Main.RatString(), upper.Value.Main.RatString())
+	if bigOfSmall(&lower.Value.Main).Cmp(optimum) > 0 || bigOfSmall(&upper.Value.Main).Cmp(optimum) < 0 || bigOfSmall(&lower.Value.Main).Cmp(bigOfSmall(&upper.Value.Main)) >= 0 {
+		t.Fatalf("partial interval [%s:%s] does not bracket optimum 1", bigOfSmall(&lower.Value.Main).RatString(), bigOfSmall(&upper.Value.Main).RatString())
 	}
 	var output bytes.Buffer
 	contextMust(t, c.WriteOptimizationFrontendValues(&output))
@@ -86,8 +86,8 @@ func TestOptimizationResourceLimitDuringMaxResCoreIsUnknown(t *testing.T) {
 	contextMust(t, err)
 	upper, err := c.ObjectiveBound(0, false)
 	contextMust(t, err)
-	if lower.Value.Main.Sign() != 0 || upper.Value.Main.Cmp(big.NewRat(1, 1)) != 0 {
-		t.Fatalf("interrupted core bounds = [%s:%s]", lower.Value.Main.RatString(), upper.Value.Main.RatString())
+	if bigOfSmall(&lower.Value.Main).Sign() != 0 || bigOfSmall(&upper.Value.Main).Cmp(big.NewRat(1, 1)) != 0 {
+		t.Fatalf("interrupted core bounds = [%s:%s]", bigOfSmall(&lower.Value.Main).RatString(), bigOfSmall(&upper.Value.Main).RatString())
 	}
 	model, err := c.Model()
 	contextMust(t, err)

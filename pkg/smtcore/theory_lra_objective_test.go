@@ -52,7 +52,7 @@ func TestSMTLRAObjectiveStrictValueAndSourceBlocker(t *testing.T) {
 	astTestMust(t, err)
 	checkInfiniteArithmetic(t, current.Finite, 0, 9, -2)
 	// Mutating the caller's point must not mutate LAR's owned assignment.
-	current.Finite.Main.SetInt64(99)
+	setSmall(&current.Finite.Main, 99)
 	current, err = f.a.ObjectiveValue(v)
 	astTestMust(t, err)
 	checkInfiniteArithmetic(t, current.Finite, 0, 9, -2)
@@ -140,8 +140,8 @@ func TestSMTLRAObjectiveBlockerRoundingAndEpsilon(t *testing.T) {
 					v, err := f.a.AddObjective(x)
 					astTestMust(t, err)
 					rational, _ := new(big.Rat).SetString(r)
-					point := simplex.NewInfinitesimal(rational, big.NewRat(eps, 1))
-					h := f.pin(f.a.objectiveBlocker(v, point))
+					point := testNI(rational, big.NewRat(eps, 1))
+					h := f.pin(f.a.objectiveBlocker(v, &point))
 					want, op := new(big.Rat).Set(rational), smtArithOpGT
 					if integer {
 						// Independently ceil the fractional input, or advance one whole integer.
@@ -170,7 +170,7 @@ func TestSMTLRAObjectiveLowerBoundReconstructionAndBooleanReuse(t *testing.T) {
 	astTestMust(t, err)
 	filter := objectiveBoundFilter(t, f.m)
 	astTestMust(t, f.s.PushScope())
-	point := simplex.NewInfinitesimal(big.NewRat(7, 1), big.NewRat(1, 1))
+	point := testNI(big.NewRat(7, 1), big.NewRat(1, 1))
 	h := f.pin(f.a.MakeObjectiveLowerBound(filter, v, point))
 	isNot, _, err := f.m.IsNot(h)
 	astTestMust(t, err)
@@ -254,7 +254,7 @@ func TestSMTLRAObjectiveLowerBoundActualConstraintsAndDomains(t *testing.T) {
 			v, err := f.a.AddObjective(term)
 			astTestMust(t, err)
 			f.propagate(true)
-			h := f.pin(f.a.MakeObjectiveLowerBound(objectiveBoundFilter(t, f.m), v, simplex.NewInfinitesimal(big.NewRat(5, 1), big.NewRat(eps, 1))))
+			h := f.pin(f.a.MakeObjectiveLowerBound(objectiveBoundFilter(t, f.m), v, testNI(big.NewRat(5, 1), big.NewRat(eps, 1))))
 			f.assert(h, true)
 			f.propagate(eps <= 0)
 		})
@@ -267,7 +267,7 @@ func TestSMTLRAObjectiveLowerBoundActualConstraintsAndDomains(t *testing.T) {
 		t.Fatal("nil filter", err)
 	}
 	point := simplex.Infinitesimal{}
-	point.Infinity.SetInt64(1)
+	setSmall(&point.Infinity, 1)
 	if _, err = f.a.MakeObjectiveLowerBound(objectiveBoundFilter(t, f.m), v, point); err != ast.ErrASTDomain {
 		t.Fatal("infinity accepted in inf_rational input", err)
 	}
@@ -321,7 +321,7 @@ func TestSMTLRAObjectivePhysicalRefusalAndOwnerCleanup(t *testing.T) {
 				t.Fatal("did not reach a cold AST reference frontier")
 			}
 			f.m.Budget().FailAfter(stop)
-			result, next := f.a.MakeObjectiveLowerBound(filter, v, simplex.NewInfinitesimal(big.NewRat(5, 1), big.NewRat(1, 1)))
+			result, next := f.a.MakeObjectiveLowerBound(filter, v, testNI(big.NewRat(5, 1), big.NewRat(1, 1)))
 			err = next
 			f.m.Budget().FailAfter(-1)
 			if err == nil {
@@ -367,7 +367,7 @@ func TestSMTLRAObjectiveMappedRayAndConstant(t *testing.T) {
 	}
 	checkInfiniteArithmetic(t, value.Finite, 0, 4, 0)
 	lraObjectiveBlockerShape(t, g, h, w, smtArithOpGT, big.NewRat(4, 1))
-	lower := g.pin(g.a.MakeObjectiveLowerBound(objectiveBoundFilter(t, g.m), w, simplex.RationalInfinitesimal(big.NewRat(3, 1))))
+	lower := g.pin(g.a.MakeObjectiveLowerBound(objectiveBoundFilter(t, g.m), w, testRI(big.NewRat(3, 1))))
 	if lower.IsNull() {
 		t.Fatal("constant lower bound missing")
 	}

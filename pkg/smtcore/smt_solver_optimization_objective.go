@@ -5,7 +5,6 @@ package smtcore
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -13,22 +12,41 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func cloneOptimizationValue(v SMTArithmeticObjectiveValue) SMTArithmeticObjectiveValue {
-	v.Finite = v.Finite.Clone()
-	return v
+// cloneOptimizationValue is the inf_eps copy constructor: a fresh value of
+// q the caller owns.
+func cloneOptimizationValue(q *numeral.RationalManager, v *SMTArithmeticObjectiveValue) (SMTArithmeticObjectiveValue, error) {
+	finite, err := v.Finite.Clone(q)
+	return SMTArithmeticObjectiveValue{Unbounded: v.Unbounded, Finite: finite}, err
 }
 
-func equalOptimizationValues(a, b SMTArithmeticObjectiveValue) bool {
-	left, right := a.Finite.Clone(), b.Finite.Clone()
+// equalOptimizationValues compares two values as inf_eps (Unbounded is
+// infinity 1); the copies are temporaries.
+func equalOptimizationValues(q *numeral.RationalManager, a, b *SMTArithmeticObjectiveValue) (equal bool, err error) {
+	left, err := a.Finite.Clone(q)
+	defer func() { err = smtErrJoin(err, left.Del(q)) }()
+	if err != nil {
+		return false, err
+	}
+	right, err := b.Finite.Clone(q)
+	defer func() { err = smtErrJoin(err, right.Del(q)) }()
+	if err != nil {
+		return false, err
+	}
 	if a.Unbounded {
-		left.Infinity.SetInt64(1)
+		if err = q.SetInt64(&left.Infinity, 1); err != nil {
+			return false, err
+		}
 	}
 	if b.Unbounded {
-		right.Infinity.SetInt64(1)
+		if err = q.SetInt64(&right.Infinity, 1); err != nil {
+			return false, err
+		}
 	}
-	return left.Infinity.Cmp(&right.Infinity) == 0 && left.Main.Cmp(&right.Main) == 0 && left.Epsilon.Cmp(&right.Epsilon) == 0
+	c, err := left.Cmp(q, &right)
+	return c == 0, err
 }
 
 func (s *SMTSolver) saveOptimizationModel(index uint32) error {
@@ -50,23 +68,32 @@ func (s *SMTSolver) saveOptimizationModel(index uint32) error {
 }
 
 // OptimizationObjectiveGE is opt_solver::mk_ge(var, val): false or true for
-// an infinite val, otherwise the theory's bound atom.
+// an infinite val, otherwise the theory's bound atom. value is borrowed.
 func (s *SMTSolver) OptimizationObjectiveGE(index uint32, filter *tactic.FilterModelConverter, value simplex.Infinitesimal) (ast.ASTHandle, error) {
-	return s.optimizationObjectiveGE(index, filter, SMTArithmeticObjectiveValue{Finite: value})
+	return s.optimizationObjectiveGE(index, filter, &SMTArithmeticObjectiveValue{Finite: value})
 }
 
-func (s *SMTSolver) optimizationObjectiveGE(index uint32, filter *tactic.FilterModelConverter, value SMTArithmeticObjectiveValue) (ast.ASTHandle, error) {
-	if value.Unbounded || value.Finite.Infinity.Sign() > 0 {
+func (s *SMTSolver) optimizationObjectiveGE(index uint32, filter *tactic.FilterModelConverter, value *SMTArithmeticObjectiveValue) (ast.ASTHandle, error) {
+	q := s.manager.NumeralService().Manager
+	infinity, err := q.Sign(&value.Finite.Infinity)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if value.Unbounded || infinity > 0 {
 		return s.manager.MkFalse()
 	}
-	if value.Finite.Infinity.Sign() < 0 {
+	if infinity < 0 {
 		return s.manager.MkTrue()
 	}
 	objective, err := s.objective(index)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if value.Finite.Epsilon.Sign() != 0 {
+	epsilon, err := q.Sign(&value.Finite.Epsilon)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if epsilon != 0 {
 		switch objective.theory.(type) {
 		case *SMTRealDiffTheory, *SMTDenseDiffTheory:
 			// opt_solver::mk_ge supports these concrete difference families
@@ -99,7 +126,7 @@ func (s *SMTSolver) decrementOptimizationValue(index uint32, filter *tactic.Filt
 			resultErr = errors.Join(resultErr, s.PopCore(1))
 		}
 	}()
-	bound, err := s.optimizationObjectiveGE(index, filter, *value)
+	bound, err := s.optimizationObjectiveGE(index, filter, value)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -145,10 +172,14 @@ func (s *SMTSolver) decrementOptimizationValue(index uint32, filter *tactic.Filt
 		if err != nil {
 			return status, err
 		}
+		q := s.manager.NumeralService().Manager
 		if kind == 0 {
-			value.Finite.Epsilon.Sub(&value.Finite.Epsilon, big.NewRat(1, 1))
+			err = q.Dec(&value.Finite.Epsilon)
 		} else {
-			value.Finite.Main.Sub(&value.Finite.Main, big.NewRat(1, 1))
+			err = q.Dec(&value.Finite.Main)
+		}
+		if err != nil {
+			return status, err
 		}
 		s.objectives[index].valid = false
 	}
@@ -168,11 +199,19 @@ func (s *SMTSolver) MaximizeOptimizationObjective(index uint32, filter *tactic.F
 // MaximizeOptimizationObjectiveInto is maximize_objective(i, expr_ref&
 // blocker): the theory's new blocker overwrites *blocker (releasing the old
 // one) before the model update and decrement_value run. *blocker stays owned
-// by the caller, also on error.
+// by the caller, also on error. The returned value belongs to the caller
+// (rationals of the AST manager's rational manager); on error it is 0.
 func (s *SMTSolver) MaximizeOptimizationObjectiveInto(index uint32, filter *tactic.FilterModelConverter, blocker *ast.ASTRef) (value SMTArithmeticObjectiveValue, resultErr error) {
+	value.Finite = simplex.ZeroInfinitesimal()
 	if blocker == nil {
 		return value, ast.ErrASTHandle
 	}
+	q := s.manager.NumeralService().Manager
+	defer func() {
+		if resultErr != nil {
+			resultErr = smtErrJoin(resultErr, value.Del(q))
+		}
+	}()
 	objective, err := s.objective(index)
 	if err != nil {
 		return value, err
@@ -181,6 +220,8 @@ func (s *SMTSolver) MaximizeOptimizationObjectiveInto(index uint32, filter *tact
 		return value, ast.ErrASTDomain
 	}
 	raw, condition, shared, err := objective.theory.MaximizeObjective(objective.variable)
+	// inf_eps val = ...maximize(...): the theory's value becomes this value.
+	value = raw
 	if err != nil {
 		return value, err
 	}
@@ -194,7 +235,6 @@ func (s *SMTSolver) MaximizeOptimizationObjectiveInto(index uint32, filter *tact
 		}
 	}
 	*blocker = root
-	value = cloneOptimizationValue(raw)
 	md, err := s.AcquireModel()
 	if err != nil {
 		return value, err
@@ -217,10 +257,14 @@ func (s *SMTSolver) MaximizeOptimizationObjectiveInto(index uint32, filter *tact
 	repair := !updated
 	if updated && shared {
 		current, err := s.ObjectiveValue(index)
-		if err != nil {
+		equal := false
+		if err == nil {
+			equal, err = equalOptimizationValues(q, &value, &current)
+		}
+		if err = smtErrJoin(err, current.Del(q)); err != nil {
 			return value, err
 		}
-		repair = !equalOptimizationValues(value, current)
+		repair = !equal
 	}
 	if repair {
 		if _, err = s.decrementOptimizationValue(index, filter, &value); err != nil {
@@ -229,7 +273,11 @@ func (s *SMTSolver) MaximizeOptimizationObjectiveInto(index uint32, filter *tact
 	} else if err = s.saveOptimizationModel(index); err != nil {
 		return value, err
 	}
-	s.objectives[index].saved = cloneOptimizationValue(value)
+	saved, err := cloneOptimizationValue(q, &value)
+	if err = smtErrJoin(err, s.objectives[index].saved.Del(q)); err != nil {
+		return value, smtErrJoin(err, saved.Del(q))
+	}
+	s.objectives[index].saved = saved
 	return value, nil
 }
 
@@ -244,9 +292,9 @@ func (s *SMTSolver) OptimizationObjectiveModelValid(index uint32) (bool, error) 
 func (s *SMTSolver) SavedObjectiveValue(index uint32) (SMTArithmeticObjectiveValue, error) {
 	objective, err := s.objective(index)
 	if err != nil {
-		return SMTArithmeticObjectiveValue{}, err
+		return SMTArithmeticObjectiveValue{Finite: simplex.ZeroInfinitesimal()}, err
 	}
-	return cloneOptimizationValue(objective.saved), nil
+	return cloneOptimizationValue(s.manager.NumeralService().Manager, &objective.saved)
 }
 
 // AcquireSavedObjectiveModel returns an independently owned reference to the

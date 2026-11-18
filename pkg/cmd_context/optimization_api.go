@@ -37,8 +37,8 @@ func (o *OptimizationObjective) Release(q *numeral.RationalManager) (err error) 
 	return err
 }
 
-// OptimizationObjectiveValue's SoftCost is a rational of the AST manager's
-// NumeralService().Manager owned by the value (Release).
+// OptimizationObjectiveValue's SoftCost, Value and ModelValue are rationals
+// of the AST manager's NumeralService().Manager owned by the value (Release).
 type OptimizationObjectiveValue struct {
 	Value, ModelValue simplex.Infinitesimal
 	SoftCost          numeral.Rational
@@ -49,9 +49,10 @@ type OptimizationObjectiveValue struct {
 	OpenBounds        bool
 }
 
-// Release destroys SoftCost (q is the AST manager's NumeralService().Manager).
+// Release destroys SoftCost, Value and ModelValue (q is the AST manager's
+// NumeralService().Manager).
 func (v *OptimizationObjectiveValue) Release(q *numeral.RationalManager) error {
-	return q.Del(&v.SoftCost)
+	return errors.Join(q.Del(&v.SoftCost), v.Value.Del(q), v.ModelValue.Del(q))
 }
 
 func (c *Context) ObjectiveCount() (uint32, error) {
@@ -81,7 +82,7 @@ func (c *Context) Objective(index uint32) (OptimizationObjective, error) {
 	return result, nil
 }
 
-// ObjectiveValue's result owns its SoftCost (Release).
+// ObjectiveValue's result owns its rationals (Release).
 func (c *Context) ObjectiveValue(index uint32) (OptimizationObjectiveValue, error) {
 	if err := c.valid(); err != nil {
 		return OptimizationObjectiveValue{}, err
@@ -91,10 +92,9 @@ func (c *Context) ObjectiveValue(index uint32) (OptimizationObjectiveValue, erro
 	}
 	source := &c.objectives[index]
 	result := OptimizationObjectiveValue{Available: source.valueReady, Unbounded: source.value.Unbounded, ModelUnbounded: source.modelValue.Unbounded, Interval: source.interval, OpenBounds: source.openBounds}
-	result.Value = source.value.Finite.Clone()
-	result.ModelValue = source.modelValue.Finite.Clone()
-	result.SoftCost = numeral.NewRational()
-	if err := c.optQ().Copy(&result.SoftCost, &source.softValue); err != nil {
+	q := c.optQ()
+	result.Value, result.ModelValue, result.SoftCost = simplex.ZeroInfinitesimal(), simplex.ZeroInfinitesimal(), numeral.NewRational()
+	if err := errors.Join(result.Value.Set(q, &source.value.Finite), result.ModelValue.Set(q, &source.modelValue.Finite), q.Copy(&result.SoftCost, &source.softValue)); err != nil {
 		return OptimizationObjectiveValue{}, errors.Join(err, result.Release(c.optQ()))
 	}
 	return result, nil

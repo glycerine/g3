@@ -318,7 +318,9 @@ func (t *SMTRealDiffTheory) PopScopes(count uint32) error {
 		return err
 	}
 	if oldEdges != t.realGraph.NumEdges() {
-		t.optimization.resetSimplex()
+		if err := t.optimization.resetSimplex(); err != nil {
+			return err
+		}
 	}
 	return t.SMTTheoryBase.PopScopes(count)
 }

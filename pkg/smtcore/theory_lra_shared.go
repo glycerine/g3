@@ -83,15 +83,11 @@ func (t *SMTLRATheory) delayedAssumeEqualities() (bool, error) {
 			}
 		}
 		if t.lraTraceTags().ShouldTrace("arith") {
-			a, err := t.rawLRAValue(pair.left)
+			equal, err := t.lraValuesEqual(pair.left, pair.right)
 			if err != nil {
 				return false, err
 			}
-			b, err := t.rawLRAValue(pair.right)
-			if err != nil {
-				return false, err
-			}
-			if a.Cmp(&b) == 0 && left.Root() != right.Root() {
+			if equal && left.Root() != right.Root() {
 				if err = t.emitLRA("delayed_assume_eqs", 1138, func(out io.Writer) error {
 					return smtWriteTheoryText(out, fmt.Sprintf("assuming eq: v%d = v%d\n", pair.left, pair.right))
 				}); err != nil {
@@ -99,15 +95,11 @@ func (t *SMTLRATheory) delayedAssumeEqualities() (bool, error) {
 				}
 			}
 		}
-		a, err := t.rawLRAValue(pair.left)
+		equal, err := t.lraValuesEqual(pair.left, pair.right)
 		if err != nil {
 			return false, err
 		}
-		b, err := t.rawLRAValue(pair.right)
-		if err != nil {
-			return false, err
-		}
-		if a.Cmp(&b) == 0 && left.Root() != right.Root() {
+		if equal && left.Root() != right.Root() {
 			if progress, err := t.state.assumeEquality(left, right); err != nil || progress {
 				return progress, err
 			}
@@ -192,19 +184,19 @@ func (t *SMTLRATheory) assumeSharedEqualities() (progress bool, err error) {
 		if err != nil {
 			return false, err
 		}
-		main := smtQZero()
-		err = t.numerals.SetBigRat(&main, &value.Main)
 		var sort smtLRAFixedKey
+		var key smtLRASharedValueKey
+		sort, err = t.fixedKey(v, &value.Main)
 		if err == nil {
-			sort, err = t.fixedKey(v, &main)
+			key.main, err = t.numerals.String(&value.Main)
 		}
-		if e := smtQDel(t.numerals, &main); err == nil {
-			err = e
+		if err == nil {
+			key.epsilon, err = t.numerals.String(&value.Epsilon)
 		}
-		if err != nil {
+		key.integer = sort.integer
+		if err = smtErrJoin(err, value.Del(t.numerals)); err != nil {
 			return false, err
 		}
-		key := smtLRASharedValueKey{value.Main.RatString(), value.Epsilon.RatString(), sort.integer}
 		other, found := values[key]
 		if !found {
 			values[key] = v
@@ -235,4 +227,21 @@ func (t *SMTLRATheory) assumeSharedEqualities() (progress bool, err error) {
 		}
 	}
 	return t.delayedAssumeEqualities()
+}
+
+// lraValuesEqual is get_ivalue(a) == get_ivalue(b); both values are
+// temporaries.
+func (t *SMTLRATheory) lraValuesEqual(a, b SMTTheoryVar) (equal bool, err error) {
+	x, err := t.rawLRAValue(a)
+	defer func() { err = smtErrJoin(err, x.Del(t.numerals)) }()
+	if err != nil {
+		return false, err
+	}
+	y, err := t.rawLRAValue(b)
+	defer func() { err = smtErrJoin(err, y.Del(t.numerals)) }()
+	if err != nil {
+		return false, err
+	}
+	c, err := x.Cmp(t.numerals, &y)
+	return c == 0, err
 }

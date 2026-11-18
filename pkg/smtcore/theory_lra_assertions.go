@@ -16,18 +16,20 @@ func lraAssertionContext() (*diagnostic.DebugContext, bool, error) {
 	return d, enabled, err
 }
 
+// rawLRAValue is get_ivalue(v) as a fresh inf_eps on the LRA's rational
+// manager (t.numerals), which the caller frees.
 func (t *SMTLRATheory) rawLRAValue(v SMTTheoryVar) (simplex.Infinitesimal, error) {
 	if err := t.numeric.ready(); err != nil {
-		return simplex.Infinitesimal{}, err
+		return simplex.ZeroInfinitesimal(), err
 	}
 	d, enabled, err := lraAssertionContext()
 	if err != nil {
-		return simplex.Infinitesimal{}, err
+		return simplex.ZeroInfinitesimal(), err
 	}
 	if enabled {
 		index, mapped := t.numeric.index(v)
 		if !mapped || !t.numeric.solver.VarIsRegistered(index) {
-			return simplex.Infinitesimal{}, diagnostic.DebugAssertionFailure(d, "src/smt/theory_lra.cpp", 1027, "can_get_ivalue(v)")
+			return simplex.ZeroInfinitesimal(), diagnostic.DebugAssertionFailure(d, "src/smt/theory_lra.cpp", 1027, "can_get_ivalue(v)")
 		}
 	}
 	return t.numeric.value(v)

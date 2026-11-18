@@ -130,8 +130,12 @@ func (s *SMTSolver) AddObjective(term ast.ASTHandle) (uint32, error) {
 		return 0, err
 	}
 	index := uint32(len(s.objectives))
-	entry := smtSolverObjective{term: ref, theory: theory, variable: variable, valid: true}
-	entry.saved.Finite.Infinity.SetInt64(-1)
+	// m_objective_values.push_back(inf_eps(rational(-1), inf_rational()))
+	saved, err := simplex.InfiniteInfinitesimal(s.manager.NumeralService().Manager, -1)
+	if err != nil {
+		return 0, smtErrJoin(err, s.manager.DelRef(&ref))
+	}
+	entry := smtSolverObjective{term: ref, theory: theory, variable: variable, valid: true, saved: SMTArithmeticObjectiveValue{Finite: saved}}
 	s.objectives = append(s.objectives, entry)
 	if s.optimization != nil {
 		s.optimization.models = append(s.optimization.models, nil)
@@ -205,16 +209,17 @@ func (s *SMTSolver) ObjectiveSupportsConflictRecording(index uint32) (bool, erro
 
 // ObjectiveConflictMinimize returns the best upper bound recorded for the
 // currently watched arithmetic objective conflict.
+// The value belongs to the caller.
 func (s *SMTSolver) ObjectiveConflictMinimize(index uint32) (simplex.Infinitesimal, bool, error) {
 	objective, err := s.objective(index)
 	if err != nil {
-		return simplex.Infinitesimal{}, false, err
+		return simplex.ZeroInfinitesimal(), false, err
 	}
 	recorder, ok := objective.theory.(interface {
 		ConflictMinimize() (simplex.Infinitesimal, bool)
 	})
 	if !ok {
-		return simplex.Infinitesimal{}, false, ast.ErrASTDomain
+		return simplex.ZeroInfinitesimal(), false, ast.ErrASTDomain
 	}
 	value, finite := recorder.ConflictMinimize()
 	return value, finite, nil
@@ -235,6 +240,9 @@ func (s *SMTSolver) clearObjectives() error {
 			if err := s.manager.DelRef(&s.objectives[last].term); err != nil {
 				return err
 			}
+		}
+		if err := s.objectives[last].saved.Del(s.manager.NumeralService().Manager); err != nil {
+			return err
 		}
 		s.objectives = s.objectives[:last]
 	}

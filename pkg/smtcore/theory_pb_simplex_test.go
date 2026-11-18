@@ -156,10 +156,10 @@ func TestSMTPBSimplexSharedRowsBoundConflictsAndRollback(t *testing.T) {
 					}
 				}
 				astTestMust(t, s.PopScopes(1))
-				if _, valid := pb.simplex.solver.Lower(rowA.slack); valid {
+				if _, valid := pbBound(t, pb.simplex.solver, rowA.slack, true); valid {
 					t.Fatal("predicate lower bound survived pop")
 				}
-				if _, valid := pb.simplex.solver.Upper(rowA.slack); valid {
+				if _, valid := pbBound(t, pb.simplex.solver, rowA.slack, false); valid {
 					t.Fatal("predicate upper bound survived pop")
 				}
 			}
@@ -245,26 +245,26 @@ func TestSMTPBSimplexBoundTrailAndRepresentativeRemoval(t *testing.T) {
 		_ = smtPBSimplexAtom(t, s, pb, xs, []int32{1, 1, 1}, 3, false)
 		variable := pb.simplex.rows[a.Var()].slack
 		astTestMust(t, s.PushScope())
-		bound := simplex.RationalInfinitesimal(big.NewRat(1, 1))
-		ok, err := pb.simplexUpdateBound(variable, a, true, bound)
+		bound := testRI(big.NewRat(1, 1))
+		ok, err := pb.simplexUpdateBound(variable, a, true, &bound)
 		astTestMust(t, err)
 		if !ok {
 			t.Fatal("initial bound rejected")
 		}
 		astTestMust(t, s.PushScope())
-		bound.Main.SetInt64(2)
-		ok, err = pb.simplexUpdateBound(variable, a, true, bound)
+		setSmall(&bound.Main, 2)
+		ok, err = pb.simplexUpdateBound(variable, a, true, &bound)
 		astTestMust(t, err)
 		if !ok {
 			t.Fatal("stronger bound rejected")
 		}
 		astTestMust(t, s.PopScopes(1))
-		got, valid := pb.simplex.solver.Lower(variable)
+		got, valid := pbBound(t, pb.simplex.solver, variable, true)
 		if !valid || got.Main.Cmp(big.NewRat(1, 1)) != 0 || smtPBExplain(pb.simplex.lower, variable) != a {
 			t.Fatal("bound/explanation restoration", got, valid)
 		}
 		astTestMust(t, s.PopScopes(1))
-		if _, valid = pb.simplex.solver.Lower(variable); valid {
+		if _, valid = pbBound(t, pb.simplex.solver, variable, true); valid {
 			t.Fatal("new bound survived rollback")
 		}
 		astTestMust(t, s.PopScopes(1))
@@ -323,15 +323,16 @@ func TestSMTPBSimplexPivotedScopedRowRemovalPreservesOuterRows(t *testing.T) {
 			t.Fatal("pivoted row deletion broke the retained outer equation")
 		}
 		info := pb.simplex.rows[outer.Var()]
-		slack := pb.simplex.solver.Value(info.slack)
+		slack := pbValue(t, pb.simplex.solver, info.slack)
 		x, err := s.Literal(xs[0])
 		astTestMust(t, err)
 		y, err := s.Literal(xs[1])
 		astTestMust(t, err)
-		sum := pb.simplex.solver.Value(uint32(x.Var()))
-		other := pb.simplex.solver.Value(uint32(y.Var()))
-		sum.Add(&other)
-		if sum.Cmp(&slack) != 0 || slack.Main.Cmp(big.NewRat(1, 1)) < 0 {
+		sum := pbValue(t, pb.simplex.solver, uint32(x.Var()))
+		other := pbValue(t, pb.simplex.solver, uint32(y.Var()))
+		sum.Main.Add(&sum.Main, &other.Main)
+		sum.Epsilon.Add(&sum.Epsilon, &other.Epsilon)
+		if sum.Cmp(slack) != 0 || slack.Main.Cmp(big.NewRat(1, 1)) < 0 {
 			t.Fatal("outer numeric row no longer represents x+y>=1", sum, slack)
 		}
 	}
@@ -376,4 +377,27 @@ func TestSMTPBSimplexSignedWeightedValuationOracle(t *testing.T) {
 			}
 		}
 	}
+}
+
+// pbBound reads a (small) solver bound.
+func pbBound(t *testing.T, solver *simplex.Solver, v uint32, lower bool) (*bigInf, bool) {
+	t.Helper()
+	out := simplex.ZeroInfinitesimal()
+	var valid bool
+	var err error
+	if lower {
+		valid, err = solver.Lower(v, &out)
+	} else {
+		valid, err = solver.Upper(v, &out)
+	}
+	astTestMust(t, err)
+	return asBigInf(&out), valid
+}
+
+// pbValue reads a (small) solver value.
+func pbValue(t *testing.T, solver *simplex.Solver, v uint32) *bigInf {
+	t.Helper()
+	out := simplex.ZeroInfinitesimal()
+	astTestMust(t, solver.Value(v, &out))
+	return asBigInf(&out)
 }

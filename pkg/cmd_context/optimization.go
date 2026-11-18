@@ -691,8 +691,7 @@ func (c *Context) initialDisplayBounds(values []opt.ObjectiveValue) (err error) 
 		value := &values[i]
 		value.DisplayValid = true
 		if !objective.soft {
-			value.DisplayLower.Infinity.SetInt64(-1)
-			value.DisplayUpper.Infinity.SetInt64(1)
+			err = errors.Join(err, q.SetInt64(&value.DisplayLower.Infinity, -1), q.SetInt64(&value.DisplayUpper.Infinity, 1))
 			continue
 		}
 		sum, upper := numeral.NewRational(), numeral.NewRational()
@@ -709,10 +708,12 @@ func (c *Context) initialDisplayBounds(values []opt.ObjectiveValue) (err error) 
 			err = errors.Join(err, q.Add(offset, &sum, &upper))
 		}
 		lower, e := c.optInfinitesimal(offset)
+		err = errors.Join(err, e, value.DisplayLower.Del(q))
 		value.DisplayLower = lower
-		err = errors.Join(err, e)
-		value.DisplayUpper, e = c.optInfinitesimal(&upper)
-		err = errors.Join(err, e, q.Del(&sum), q.Del(&upper))
+		displayUpper, e := c.optInfinitesimal(&upper)
+		err = errors.Join(err, e, value.DisplayUpper.Del(q))
+		value.DisplayUpper = displayUpper
+		err = errors.Join(err, q.Del(&sum), q.Del(&upper))
 	}
 	return err
 }
@@ -876,8 +877,8 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 			for i := range c.objectives {
 				c.objectives[i].valueReady = false
 				c.objectives[i].displayReady = failureDisplay[i].DisplayValid
-				c.objectives[i].displayLower = failureDisplay[i].DisplayLower.Clone()
-				c.objectives[i].displayUpper = failureDisplay[i].DisplayUpper.Clone()
+				err = errors.Join(err, c.optSetInf(&c.objectives[i].displayLower, &failureDisplay[i].DisplayLower),
+					c.optSetInf(&c.objectives[i].displayUpper, &failureDisplay[i].DisplayUpper))
 			}
 		}
 		status, failure := c.handleOptimizationFailure(err)
@@ -967,8 +968,8 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 			// never an earlier run's values.
 			c.objectives[i].valueReady = false
 			c.objectives[i].displayReady = true
-			c.objectives[i].displayLower = optimized.Values[i].DisplayLower.Clone()
-			c.objectives[i].displayUpper = optimized.Values[i].DisplayUpper.Clone()
+			resultErr = errors.Join(resultErr, c.optSetInf(&c.objectives[i].displayLower, &optimized.Values[i].DisplayLower),
+				c.optSetInf(&c.objectives[i].displayUpper, &optimized.Values[i].DisplayUpper))
 		}
 	}
 	if completed && len(c.objectives) == len(optimized.Values) {
@@ -997,11 +998,15 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 					resultErr = errors.Join(resultErr, q.Del(&maximum))
 				}
 			} else {
-				c.objectives[i].value = optimized.Values[i].Arithmetic
-				c.objectives[i].modelValue = optimized.Values[i].ArithmeticModel
-				c.objectives[i].openBounds = optimized.Values[i].ArithmeticOpenBounds
-				c.objectives[i].interval = optimized.Values[i].ArithmeticInterval && optimized.Values[i].ArithmeticModelValid &&
-					!sameArithmeticObjectiveValue(c.objectives[i].value, c.objectives[i].modelValue)
+				objective := &c.objectives[i]
+				objective.value.Unbounded = optimized.Values[i].Arithmetic.Unbounded
+				objective.modelValue.Unbounded = optimized.Values[i].ArithmeticModel.Unbounded
+				resultErr = errors.Join(resultErr, c.optSetInf(&objective.value.Finite, &optimized.Values[i].Arithmetic.Finite),
+					c.optSetInf(&objective.modelValue.Finite, &optimized.Values[i].ArithmeticModel.Finite))
+				objective.openBounds = optimized.Values[i].ArithmeticOpenBounds
+				same, err := sameArithmeticObjectiveValue(q, &objective.value, &objective.modelValue)
+				resultErr = errors.Join(resultErr, err)
+				objective.interval = optimized.Values[i].ArithmeticInterval && optimized.Values[i].ArithmeticModelValid && !same
 			}
 			c.objectives[i].valueReady = optimized.Optimal
 		}
@@ -1094,11 +1099,14 @@ func (c *Context) WriteObjectives(out io.Writer) error {
 		return err
 	}
 	for _, objective := range c.objectives {
+		// objective is a shallow copy: its rationals stay the objective's.
+		displayLower, displayUpper := &objective.displayLower, &objective.displayUpper
+		zero := simplex.ZeroInfinitesimal()
 		if c.optsmtReset {
 			// pop ran m_optsmt.reset(): get_lower/get_upper return
 			// inf_eps() for an index past m_lower.size().
 			objective.valueReady, objective.displayReady = false, true
-			objective.displayLower, objective.displayUpper = simplex.Infinitesimal{}, simplex.Infinitesimal{}
+			displayLower, displayUpper = &zero, &zero
 		}
 		if !objective.valueReady && !objective.displayReady {
 			return fmt.Errorf("objective value is not available")
@@ -1119,7 +1127,7 @@ func (c *Context) WriteObjectives(out io.Writer) error {
 			return err
 		}
 		if !objective.valueReady {
-			if err := c.writeDisplayBounds(out, &objective.displayLower, &objective.displayUpper); err != nil {
+			if err := c.writeDisplayBounds(out, displayLower, displayUpper); err != nil {
 				return err
 			}
 		} else if (objective.soft || objective.bitVector) && objective.softInterval {
@@ -1146,12 +1154,15 @@ func (c *Context) WriteObjectives(out io.Writer) error {
 // writeSoftObjectiveInterval is out << "  (interval " << get_lower(i) << " "
 // << get_upper(i) << ")": each to_expr runs just before it is printed, and
 // both temporaries live to the end of the statement.
-func (c *Context) writeSoftObjectiveInterval(out io.Writer, lower, upper *numeral.Rational) error {
+func (c *Context) writeSoftObjectiveInterval(out io.Writer, lower, upper *numeral.Rational) (resultErr error) {
+	q := c.optQ()
 	lowerValue, err := c.optInfinitesimal(lower)
+	defer func() { resultErr = errors.Join(resultErr, lowerValue.Del(q)) }()
 	if err != nil {
 		return err
 	}
 	upperValue, err := c.optInfinitesimal(upper)
+	defer func() { resultErr = errors.Join(resultErr, upperValue.Del(q)) }()
 	if err != nil {
 		return err
 	}
@@ -1161,10 +1172,16 @@ func (c *Context) writeSoftObjectiveInterval(out io.Writer, lower, upper *numera
 // writeDisplayBounds is display_assignment's value: the interval when
 // get_lower_as_num(i) != get_upper_as_num(i), else get_lower(i).
 func (c *Context) writeDisplayBounds(out io.Writer, lower, upper *simplex.Infinitesimal) error {
-	if lower.Cmp(upper) != 0 {
+	if cmp, err := lower.Cmp(c.optQ(), upper); err != nil {
+		return err
+	} else if cmp != 0 {
 		return c.writeInterval(out, lower, upper)
 	}
-	ref, err := opt.ArithmeticValueExpression(c.manager, lower, toExprInteger(lower))
+	integer, err := c.toExprInteger(lower)
+	if err != nil {
+		return err
+	}
+	ref, err := opt.ArithmeticValueExpression(c.manager, lower, integer)
 	if err != nil {
 		return err
 	}
@@ -1177,8 +1194,13 @@ func (c *Context) writeDisplayBounds(out io.Writer, lower, upper *simplex.Infini
 
 // toExprInteger is to_expr's is_int: no infinitesimal and an integral
 // rational part.
-func toExprInteger(v *simplex.Infinitesimal) bool {
-	return v.Epsilon.Sign() == 0 && v.Main.IsInt()
+func (c *Context) toExprInteger(v *simplex.Infinitesimal) (bool, error) {
+	q := c.optQ()
+	zero, err := q.IsZero(&v.Epsilon)
+	if err != nil || !zero {
+		return false, err
+	}
+	return q.IsInt(&v.Main)
 }
 
 // writeInterval writes "(interval " get_lower(i) " " get_upper(i) ")".
@@ -1198,7 +1220,11 @@ func (c *Context) writeInterval(out io.Writer, lower, upper *simplex.Infinitesim
 				return err
 			}
 		}
-		ref, err := opt.ArithmeticValueExpression(c.manager, bound, toExprInteger(bound))
+		integer, err := c.toExprInteger(bound)
+		if err != nil {
+			return err
+		}
+		ref, err := opt.ArithmeticValueExpression(c.manager, bound, integer)
 		if err != nil {
 			return err
 		}
@@ -1239,9 +1265,16 @@ func (c *Context) writeObjectiveValue(out io.Writer, objective *optimizationObje
 	if objective.openBounds {
 		// out << "(interval " << get_lower(i) << " " << get_upper(i): both
 		// to_expr temporaries live to the end of the statement.
-		var lower, upper simplex.Infinitesimal
-		lower.Infinity.SetInt64(-1)
-		upper.Infinity.SetInt64(1)
+		q := c.optQ()
+		lower, err := c.optInfinite(-1)
+		if err != nil {
+			return err
+		}
+		upper, err := c.optInfinite(1)
+		if err != nil {
+			return errors.Join(err, lower.Del(q))
+		}
+		defer func() { _ = upper.Del(q); _ = lower.Del(q) }()
 		lowerRef, err := opt.ArithmeticValueExpression(c.manager, &lower, false)
 		if err != nil {
 			return err
@@ -1275,48 +1308,63 @@ func (c *Context) writeObjectiveValue(out io.Writer, objective *optimizationObje
 		return errors.Join(err, c.manager.DelRef(&upperRef), c.manager.DelRef(&lowerRef))
 	}
 	if objective.interval {
-		lower, upper := objective.modelValue, objective.value
+		lower, upper := &objective.modelValue, &objective.value
 		if !objective.maximize {
 			lower, upper = upper, lower
 		}
 		// out << "  (interval " << get_lower(i) << " " << get_upper(i):
 		// both to_expr temporaries live to the end of the statement, as in
 		// writeInterval (AUDIT.md FUZZ_A-F9).
-		lowerValue := arithmeticObjectiveDisplayValue(lower, objective.maximize)
-		upperValue := arithmeticObjectiveDisplayValue(upper, objective.maximize)
-		return c.writeInterval(out, &lowerValue, &upperValue)
+		q := c.optQ()
+		lowerValue, err := arithmeticObjectiveDisplayValue(q, lower, objective.maximize)
+		if err != nil {
+			return err
+		}
+		upperValue, err := arithmeticObjectiveDisplayValue(q, upper, objective.maximize)
+		if err == nil {
+			err = c.writeInterval(out, &lowerValue, &upperValue)
+		}
+		return errors.Join(err, upperValue.Del(q), lowerValue.Del(q))
 	}
-	return c.writeArithmeticObjectiveValue(out, objective.expression, objective.value, objective.maximize)
+	return c.writeArithmeticObjectiveValue(out, objective.expression, &objective.value, objective.maximize)
 }
 
 // arithmeticObjectiveDisplayValue is the inf_eps get_lower_as_num or
 // get_upper_as_num hands to to_expr: +oo or -oo for an unbounded side.
-func arithmeticObjectiveDisplayValue(objective smtcore.SMTArithmeticObjectiveValue, maximize bool) simplex.Infinitesimal {
+// The result is a fresh value the caller owns.
+func arithmeticObjectiveDisplayValue(q *numeral.RationalManager, objective *smtcore.SMTArithmeticObjectiveValue, maximize bool) (simplex.Infinitesimal, error) {
 	if objective.Unbounded {
-		var infinite simplex.Infinitesimal
 		if maximize {
-			infinite.Infinity.SetInt64(1)
-		} else {
-			infinite.Infinity.SetInt64(-1)
+			return simplex.InfiniteInfinitesimal(q, 1)
 		}
-		return infinite
+		return simplex.InfiniteInfinitesimal(q, -1)
 	}
-	return objective.Finite.Clone()
+	return objective.Finite.Clone(q)
 }
 
-func sameArithmeticObjectiveValue(a, b smtcore.SMTArithmeticObjectiveValue) bool {
-	return a.Unbounded == b.Unbounded && (a.Unbounded || a.Finite.Cmp(&b.Finite) == 0)
+func sameArithmeticObjectiveValue(q *numeral.RationalManager, a, b *smtcore.SMTArithmeticObjectiveValue) (bool, error) {
+	if a.Unbounded != b.Unbounded {
+		return false, nil
+	}
+	if a.Unbounded {
+		return true, nil
+	}
+	c, err := a.Finite.Cmp(q, &b.Finite)
+	return c == 0, err
 }
 
-func (c *Context) writeArithmeticObjectiveValue(out io.Writer, expression ast.ASTHandle, objective smtcore.SMTArithmeticObjectiveValue, maximize bool) error {
+func (c *Context) writeArithmeticObjectiveValue(out io.Writer, expression ast.ASTHandle, objective *smtcore.SMTArithmeticObjectiveValue, maximize bool) (resultErr error) {
 	value := &objective.Finite
 	if objective.Unbounded {
 		// to_expr(inf_eps) of +/- infinity: oo or (* (- 1) oo).
-		infinite := simplex.Infinitesimal{}
+		sign := int64(-1)
 		if maximize {
-			infinite.Infinity.SetInt64(1)
-		} else {
-			infinite.Infinity.SetInt64(-1)
+			sign = 1
+		}
+		infinite, err := c.optInfinite(sign)
+		defer func() { resultErr = errors.Join(resultErr, infinite.Del(c.optQ())) }()
+		if err != nil {
+			return err
 		}
 		value = &infinite
 	}

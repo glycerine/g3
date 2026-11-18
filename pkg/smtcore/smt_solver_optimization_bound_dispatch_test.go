@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"github.com/glycerine/g3/pkg/math/simplex"
 	"strings"
 	"testing"
 
@@ -32,11 +33,11 @@ func TestOptimizationObjectiveGEDifferenceEpsilonFallback(t *testing.T) {
 			stream := optimizationDumpVerboseStream(t, s)
 			astTestMust(t, diagnostic.SetProcessVerbosityLevel(0))
 			for _, epsilon := range []int64{0, 1, -1} {
-				value := SMTArithmeticObjectiveValue{}
-				value.Finite.Main.SetInt64(3)
-				value.Finite.Epsilon.SetInt64(epsilon)
+				value := testObjectiveValue()
+				setSmall(&value.Finite.Main, 3)
+				setSmall(&value.Finite.Epsilon, epsilon)
 				before := len(s.kernel.internalizer.boolExpr)
-				bound, err := s.optimizationObjectiveGE(index, nil, value)
+				bound, err := s.optimizationObjectiveGE(index, nil, &value)
 				astTestMust(t, err)
 				root, err := s.manager.NewRef(bound)
 				astTestMust(t, err)
@@ -57,9 +58,9 @@ func TestOptimizationObjectiveGEDifferenceEpsilonFallback(t *testing.T) {
 				t.Fatal("source level-zero fallback diagnostic", text)
 			}
 			stream.FileBad = true
-			value := SMTArithmeticObjectiveValue{}
-			value.Finite.Epsilon.SetInt64(1)
-			bound, err := s.optimizationObjectiveGE(index, nil, value)
+			value := testObjectiveValue()
+			setSmall(&value.Finite.Epsilon, 1)
+			bound, err := s.optimizationObjectiveGE(index, nil, &value)
 			astTestMust(t, err)
 			if !s.manager.IsTrue(bound) {
 				t.Fatal("bad diagnostic stream changed fallback")
@@ -80,10 +81,10 @@ func TestOptimizationObjectiveGEInfinityErasesObjectiveLookup(t *testing.T) {
 		}
 	}
 	for _, sign := range []int64{-2, 2, 0} {
-		value := SMTArithmeticObjectiveValue{Unbounded: sign == 0}
-		value.Finite.Infinity.SetInt64(sign)
+		value := SMTArithmeticObjectiveValue{Unbounded: sign == 0, Finite: simplex.ZeroInfinitesimal()}
+		setSmall(&value.Finite.Infinity, sign)
 		m.Budget().FailAfter(0)
-		bound, err := s.optimizationObjectiveGE(^uint32(0), nil, value)
+		bound, err := s.optimizationObjectiveGE(^uint32(0), nil, &value)
 		m.Budget().FailAfter(-1)
 		astTestMust(t, err)
 		if m.IsTrue(bound) != (sign < 0) || m.IsFalse(bound) != (sign >= 0) {
@@ -97,10 +98,10 @@ func TestOptimizationObjectiveGELinearEpsilonStillBuildsTheoryBound(t *testing.T
 	x := f.variable("dispatch-linear-x")
 	index, err := s.AddObjective(x)
 	astTestMust(t, err)
-	value := SMTArithmeticObjectiveValue{}
-	value.Finite.Main.SetInt64(3)
-	value.Finite.Epsilon.SetInt64(-1)
-	bound, err := s.optimizationObjectiveGE(index, filter, value)
+	value := testObjectiveValue()
+	setSmall(&value.Finite.Main, 3)
+	setSmall(&value.Finite.Epsilon, -1)
+	bound, err := s.optimizationObjectiveGE(index, filter, &value)
 	astTestMust(t, err)
 	if s.manager.IsTrue(bound) || s.manager.IsFalse(bound) {
 		t.Fatal("linear epsilon took unsupported fallback")

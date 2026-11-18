@@ -6,8 +6,6 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/math/simplex"
-
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -131,13 +129,9 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 // sizeOptsmtBounds gives m_lower, m_upper and m_lower_fmls an entry per
 // objective so a box copy updates the same storage.
 func (s *ArithmeticSolver) sizeOptsmtBounds() {
-	for len(s.optLower) < len(s.objectives) {
-		s.optLower = append(s.optLower, simplex.Infinitesimal{})
-		s.optLowerSet = append(s.optLowerSet, false)
-	}
-	for len(s.optUpper) < len(s.objectives) {
-		s.optUpper = append(s.optUpper, simplex.Infinitesimal{})
-		s.optUpperSet = append(s.optUpperSet, false)
+	if n := len(s.objectives); n > 0 {
+		s.optLowerOf(n - 1)
+		s.optUpperOf(n - 1)
 	}
 	for len(s.lowerFmls) < len(s.objectives) {
 		s.lowerFmls = append(s.lowerFmls, ast.ASTRef{})

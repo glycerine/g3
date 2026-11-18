@@ -4,8 +4,6 @@ package smtcore
 // init_left_side, internalize_def, assert_bound, get_ivalue and make_feasible.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -350,89 +348,80 @@ func (s *smtLRANumeric) hasRationalBound(index uint32, lower bool, expected *num
 	return witness, equal, err
 }
 
-func (s *smtLRANumeric) rational(value *numeral.Rational) (*big.Rat, error) {
-	text, err := s.manager.String(value)
-	if err != nil {
-		return nil, err
-	}
-	result, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, ast.ErrASTDomain
-	}
-	return result, nil
-}
-
+// columnValue is get_ivalue of a column: inf_rational(x, y) as a fresh
+// inf_eps on the LRA's rational manager.
 func (s *smtLRANumeric) columnValue(index uint32) (simplex.Infinitesimal, error) {
 	value, err := s.solver.Value(index)
 	if err != nil {
-		return simplex.Infinitesimal{}, err
+		return simplex.ZeroInfinitesimal(), err
 	}
-	r, err := s.rational(&value.X)
-	if err != nil {
-		return simplex.Infinitesimal{}, err
-	}
-	e, err := s.rational(&value.Y)
-	if err != nil {
-		return simplex.Infinitesimal{}, err
-	}
-	return simplex.NewInfinitesimal(r, e), nil
+	return simplex.NewInfinitesimal(s.manager, &value.X, &value.Y)
 }
 
-func (s *smtLRANumeric) value(v SMTTheoryVar) (simplex.Infinitesimal, error) {
+// value is get_ivalue(v) as a fresh inf_eps on the LRA's rational manager,
+// which the caller frees.
+func (s *smtLRANumeric) value(v SMTTheoryVar) (result simplex.Infinitesimal, err error) {
 	if err := s.ready(); err != nil {
-		return simplex.Infinitesimal{}, err
+		return simplex.ZeroInfinitesimal(), err
 	}
 	index, ok := s.index(v)
 	if !ok || !s.solver.VarIsRegistered(index) {
-		return simplex.Infinitesimal{}, ast.ErrASTDomain
+		return simplex.ZeroInfinitesimal(), ast.ErrASTDomain
 	}
 	if !s.solver.IsTerm(index) {
 		return s.columnValue(index)
 	}
 	term := s.solver.Terms[index-lp.LARTermStartIndex]
-	constant, err := s.rational(&term.Value)
+	result, err = simplex.RationalInfinitesimal(s.manager, &term.Value)
+	defer func() {
+		if err != nil {
+			err = smtErrJoin(err, result.Del(s.manager))
+		}
+	}()
 	if err != nil {
-		return simplex.Infinitesimal{}, err
+		return result, err
 	}
-	result := simplex.RationalInfinitesimal(constant)
 	for j, coefficient := range term.Coefficients().All() {
 		value, err := s.columnValue(j)
-		if err != nil {
-			return simplex.Infinitesimal{}, err
+		if err == nil {
+			err = value.Mul(s.manager, coefficient)
 		}
-		c, err := s.rational(coefficient)
-		if err != nil {
-			return simplex.Infinitesimal{}, err
+		if err == nil {
+			err = result.Add(s.manager, &value)
 		}
-		value.Mul(c)
-		result.Add(&value)
+		if err = smtErrJoin(err, value.Del(s.manager)); err != nil {
+			return result, err
+		}
 	}
 	return result, nil
+}
+
+// smtUnboundedObjectiveValue is the unbounded maximize result.
+func smtUnboundedObjectiveValue() SMTArithmeticObjectiveValue {
+	return SMTArithmeticObjectiveValue{Unbounded: true, Finite: simplex.ZeroInfinitesimal()}
 }
 
 // Source imp::maximize uses the LAR term coefficients and adds its constant
 // after maximize_term. False from that routine has the source infinity meaning.
 // Its caller must retain the optsmt search/blocker loop: a raw callback can
 // return an intermediate local improvement with the preceding OPTIMAL status.
+// A finite result is on the LRA's rational manager; the caller frees it.
 func (s *smtLRANumeric) maximize(v SMTTheoryVar) (result SMTArithmeticObjectiveValue, err error) {
+	result.Finite = simplex.ZeroInfinitesimal()
 	if err = s.ready(); err != nil {
 		return result, err
 	}
 	index, ok := s.index(v)
 	if !ok {
-		return SMTArithmeticObjectiveValue{Unbounded: true}, nil
+		return smtUnboundedObjectiveValue(), nil
 	}
 	var entries []lp.RationalSparseEntry
-	var constant big.Rat
-	values := []numeral.Rational{numeral.NewRational(), numeral.NewRational(), numeral.NewRational()}
+	var constant *numeral.Rational
+	values := []numeral.Rational{numeral.NewRational(), numeral.NewRational(), numeral.NewRational(), numeral.NewRational()}
 	defer func() { err = s.finish(values, err) }()
 	if s.solver.IsTerm(index) {
 		term := s.solver.Terms[index-lp.LARTermStartIndex]
-		c, e := s.rational(&term.Value)
-		if e != nil {
-			return result, e
-		}
-		constant.Set(c)
+		constant = &term.Value
 		for j, coefficient := range term.Coefficients().All() {
 			entries = append(entries, lp.RationalSparseEntry{Index: j, Value: *coefficient})
 		}
@@ -449,18 +438,19 @@ func (s *smtLRANumeric) maximize(v SMTTheoryVar) (result SMTArithmeticObjectiveV
 		return result, err
 	}
 	if !bounded {
-		return SMTArithmeticObjectiveValue{Unbounded: true}, nil
+		return smtUnboundedObjectiveValue(), nil
 	}
-	r, err := s.rational(&out.X)
-	if err != nil {
+	// r = term_max.x + term constant
+	if err = s.manager.Copy(&values[3], &out.X); err != nil {
 		return result, err
 	}
-	e, err := s.rational(&out.Y)
-	if err != nil {
-		return result, err
+	if constant != nil {
+		if err = s.manager.Add(&values[3], constant, &values[3]); err != nil {
+			return result, err
+		}
 	}
-	r.Add(r, &constant)
-	return SMTArithmeticObjectiveValue{Finite: simplex.NewInfinitesimal(r, e)}, nil
+	result.Finite, err = simplex.NewInfinitesimal(s.manager, &values[3], &out.Y)
+	return result, err
 }
 
 // modelColumnValues returns copies (owned by the caller) of the model's

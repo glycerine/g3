@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/opt"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (o *APIOptimize) objectiveBound(index uint32, lower bool) (ast.ASTRef, error) {
@@ -20,7 +21,9 @@ func (o *APIOptimize) objectiveBound(index uint32, lower bool) (ast.ASTRef, erro
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	return opt.ArithmeticValueExpression(manager, &bound.Value, bound.Integer)
+	// The bound is a temporary.
+	ref, err := opt.ArithmeticValueExpression(manager, &bound.Value, bound.Integer)
+	return ref, errors.Join(err, bound.Release(manager.NumeralService().Manager))
 }
 
 func (o *APIOptimize) objectiveBoundVector(index uint32, lower bool) (result []ast.ASTRef, resultErr error) {
@@ -35,7 +38,8 @@ func (o *APIOptimize) objectiveBoundVector(index uint32, lower bool) (result []a
 	if err != nil {
 		return nil, err
 	}
-	return optimizationBoundVector(manager, bound)
+	result, err = optimizationBoundVector(manager, bound)
+	return result, errors.Join(err, bound.Release(manager.NumeralService().Manager))
 }
 
 func optimizationBoundVector(manager *ast.ASTManager, bound cmd_context.OptimizationBound) (result []ast.ASTRef, resultErr error) {
@@ -47,10 +51,14 @@ func optimizationBoundVector(manager *ast.ASTManager, bound cmd_context.Optimiza
 			result = nil
 		}
 	}()
-	components := bound.Components()
-	for i := range components {
-		value := &components[i]
-		handle, err := manager.ArithmeticNumeralRat(value, value.IsInt())
+	// The infinity, rational and infinitesimal coefficients, in the source
+	// vector order.
+	for _, value := range []*unumeral.Rational{&bound.Value.Infinity, &bound.Value.Main, &bound.Value.Epsilon} {
+		integer, err := manager.NumeralService().Manager.IsInt(value)
+		if err != nil {
+			return result, err
+		}
+		handle, err := manager.ArithmeticNumeralFromRational(value, integer)
 		if err != nil {
 			return result, err
 		}

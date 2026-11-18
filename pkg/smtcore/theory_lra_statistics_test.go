@@ -197,7 +197,7 @@ func TestSMTLRAStatisticsSolverCollectionAndResetNoOp(t *testing.T) {
 	v := s.kernel.internalizer.context.enodes.get(x).TheoryVar(family)
 	value, err := a.numeric.value(v)
 	astTestMust(t, err)
-	if value.Main.Cmp(big.NewRat(1, 1)) < 0 {
+	if asBigInf(&value).Main.Cmp(big.NewRat(1, 1)) < 0 {
 		t.Fatal("statistics collection changed numerical model", value)
 	}
 }

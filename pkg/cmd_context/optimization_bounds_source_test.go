@@ -1,6 +1,7 @@
 package cmd_context
 
 import (
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"testing"
 
@@ -61,11 +62,11 @@ func TestOptimizationBoundsPreserveStrictLexicographicEndpoints(t *testing.T) {
 			if !tc.maximize {
 				wantLower, wantUpper = value.Value, value.ModelValue
 			}
-			if lower.Value.Infinity.Sign() != 0 || lower.Value.Main.Cmp(&wantLower.Main) != 0 || lower.Value.Epsilon.Cmp(tc.wantLowerEpsilon) != 0 {
-				t.Fatalf("lower objective endpoint %s + %s epsilon, want model/value %s + %s epsilon", lower.Value.Main.RatString(), lower.Value.Epsilon.RatString(), wantLower.Main.RatString(), tc.wantLowerEpsilon.RatString())
+			if bigOfSmall(&lower.Value.Infinity).Sign() != 0 || bigOfSmall(&lower.Value.Main).Cmp(bigOfSmall(&wantLower.Main)) != 0 || bigOfSmall(&lower.Value.Epsilon).Cmp(tc.wantLowerEpsilon) != 0 {
+				t.Fatalf("lower objective endpoint %s + %s epsilon, want model/value %s + %s epsilon", bigOfSmall(&lower.Value.Main).RatString(), bigOfSmall(&lower.Value.Epsilon).RatString(), bigOfSmall(&wantLower.Main).RatString(), tc.wantLowerEpsilon.RatString())
 			}
-			if upper.Value.Infinity.Sign() != 0 || upper.Value.Main.Cmp(&wantUpper.Main) != 0 || upper.Value.Epsilon.Cmp(tc.wantUpperEpsilon) != 0 {
-				t.Fatalf("upper objective endpoint %s + %s epsilon, want value/model %s + %s epsilon", upper.Value.Main.RatString(), upper.Value.Epsilon.RatString(), wantUpper.Main.RatString(), tc.wantUpperEpsilon.RatString())
+			if bigOfSmall(&upper.Value.Infinity).Sign() != 0 || bigOfSmall(&upper.Value.Main).Cmp(bigOfSmall(&wantUpper.Main)) != 0 || bigOfSmall(&upper.Value.Epsilon).Cmp(tc.wantUpperEpsilon) != 0 {
+				t.Fatalf("upper objective endpoint %s + %s epsilon, want value/model %s + %s epsilon", bigOfSmall(&upper.Value.Main).RatString(), bigOfSmall(&upper.Value.Epsilon).RatString(), bigOfSmall(&wantUpper.Main).RatString(), tc.wantUpperEpsilon.RatString())
 			}
 		})
 	}
@@ -104,11 +105,19 @@ func TestOptimizationBoundsPreserveUnboundedLexicographicEndpoints(t *testing.T)
 	for _, tc := range cases {
 		bound, boundErr := c.ObjectiveBound(tc.index, tc.lower)
 		contextMust(t, boundErr)
-		if bound.Value.Infinity.Cmp(big.NewRat(tc.wantInfinity, 1)) != 0 || bound.Value.Main.Sign() != 0 || bound.Value.Epsilon.Sign() != 0 {
-			t.Fatalf("objective %d lower=%t endpoint infinity=%s main=%s epsilon=%s; want infinity=%d", tc.index, tc.lower, bound.Value.Infinity.RatString(), bound.Value.Main.RatString(), bound.Value.Epsilon.RatString(), tc.wantInfinity)
+		if bigOfSmall(&bound.Value.Infinity).Cmp(big.NewRat(tc.wantInfinity, 1)) != 0 || bigOfSmall(&bound.Value.Main).Sign() != 0 || bigOfSmall(&bound.Value.Epsilon).Sign() != 0 {
+			t.Fatalf("objective %d lower=%t endpoint infinity=%s main=%s epsilon=%s; want infinity=%d", tc.index, tc.lower, bigOfSmall(&bound.Value.Infinity).RatString(), bigOfSmall(&bound.Value.Main).RatString(), bigOfSmall(&bound.Value.Epsilon).RatString(), tc.wantInfinity)
 		}
 		if !bound.Integer {
 			t.Fatalf("objective %d lower=%t infinity endpoint should have integer numeral sort", tc.index, tc.lower)
 		}
 	}
+}
+
+// bigOfSmall reads a small (inline) rational of a test value as math/big.
+func bigOfSmall(r *unumeral.Rational) *big.Rat {
+	if !r.IsSmall() {
+		panic("test helper read a big rational")
+	}
+	return big.NewRat(int64(r.Num.Val), int64(r.Den.Val))
 }

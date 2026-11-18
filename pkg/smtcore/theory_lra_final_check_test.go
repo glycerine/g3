@@ -43,7 +43,7 @@ func TestSMTLRAFinalCheckFeasibilityCacheAndUnsupportedScope(t *testing.T) {
 	v := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 	value, err := f.a.numeric.value(v)
 	astTestMust(t, err)
-	if value.Main.Cmp(big.NewRat(3, 1)) < 0 {
+	if asBigInf(&value).Main.Cmp(big.NewRat(3, 1)) < 0 {
 		t.Fatal("infeasible final value", value)
 	}
 	// An optimal solver skips make_feasible and preserves cached model values.

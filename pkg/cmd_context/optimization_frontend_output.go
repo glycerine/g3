@@ -20,15 +20,33 @@ func (c *Context) WriteOptimizationFrontendValues(out io.Writer) error {
 		return fmt.Errorf("optimization: nil output")
 	}
 	for index := range c.objectives {
-		lower, err := c.ObjectiveBound(uint32(index), true)
+		if err := c.writeOptimizationFrontendValue(out, uint32(index)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeOptimizationFrontendValue writes one objective's bounds, which are
+// temporaries.
+func (c *Context) writeOptimizationFrontendValue(out io.Writer, index uint32) (resultErr error) {
+	q := c.optQ()
+	{
+		lower, err := c.ObjectiveBound(index, true)
+		defer func() { resultErr = errors.Join(resultErr, lower.Release(q)) }()
 		if err != nil {
 			return err
 		}
-		upper, err := c.ObjectiveBound(uint32(index), false)
+		upper, err := c.ObjectiveBound(index, false)
+		defer func() { resultErr = errors.Join(resultErr, upper.Release(q)) }()
 		if err != nil {
 			return err
 		}
-		equal := lower.Value.Cmp(&upper.Value) == 0
+		cmp, err := lower.Value.Cmp(q, &upper.Value)
+		if err != nil {
+			return err
+		}
+		equal := cmp == 0
 		prefix := "  ["
 		if equal {
 			prefix = "   "

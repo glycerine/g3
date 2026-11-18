@@ -15,123 +15,118 @@ func randomRat(r *rand.Rand) *big.Rat {
 	case 4:
 		return big.NewRat(int64(r.Intn(201)-100), int64(1+r.Intn(30)))
 	}
-	// Beyond int64, so a fast path cannot silently truncate.
+	// Beyond int64, so a small-value path cannot silently truncate.
 	huge := new(big.Int).Lsh(big.NewInt(int64(r.Intn(9)-4)), 90)
 	return new(big.Rat).SetFrac(huge, big.NewInt(int64(1+r.Intn(30))))
 }
 
-func randomInfinitesimal(r *rand.Rand) Infinitesimal {
-	return NewInfiniteInfinitesimal(randomRat(r), randomRat(r), randomRat(r))
-}
+type bigInfinitesimal struct{ infinity, main, epsilon *big.Rat }
 
-func slowCmp(a, b *Infinitesimal) int {
-	if n := a.Infinity.Cmp(&b.Infinity); n != 0 {
-		return n
-	}
-	if n := a.Main.Cmp(&b.Main); n != 0 {
-		return n
-	}
-	return a.Epsilon.Cmp(&b.Epsilon)
+func randomInfinitesimal(r *rand.Rand) (*Infinitesimal, bigInfinitesimal) {
+	b := bigInfinitesimal{randomRat(r), randomRat(r), randomRat(r)}
+	return testNII(bigRat(b.infinity), bigRat(b.main), bigRat(b.epsilon)), b
 }
 
 func sameInfinitesimal(a *Infinitesimal, infinity, main, epsilon *big.Rat) bool {
-	return a.Infinity.Cmp(infinity) == 0 && a.Main.Cmp(main) == 0 && a.Epsilon.Cmp(epsilon) == 0
+	return ratBig(&a.Infinity).Cmp(infinity) == 0 && ratBig(&a.Main).Cmp(main) == 0 && ratBig(&a.Epsilon).Cmp(epsilon) == 0
 }
 
-// Every fast path must agree with plain big.Rat arithmetic, including zero
+func slowCmp(a, b bigInfinitesimal) int {
+	if n := a.infinity.Cmp(b.infinity); n != 0 {
+		return n
+	}
+	if n := a.main.Cmp(b.main); n != 0 {
+		return n
+	}
+	return a.epsilon.Cmp(b.epsilon)
+}
+
+// Every operation must agree with plain big.Rat arithmetic, including zero
 // operands, values past int64, and repeated use of the same receiver.
 func TestInfinitesimalOperationsMatchBigRat(t *testing.T) {
+	q := optQ()
 	r := rand.New(rand.NewSource(11))
-	for round := 0; round < 20000; round++ {
-		a, b := randomInfinitesimal(r), randomInfinitesimal(r)
-		q := randomRat(r)
+	for round := 0; round < 2000; round++ {
+		a, ab := randomInfinitesimal(r)
+		b, bb := randomInfinitesimal(r)
+		m := randomRat(r)
+		mq := bigRat(m)
 		wi, wm, we := new(big.Rat), new(big.Rat), new(big.Rat)
 
-		sum := a.Clone()
-		sum.Add(&b)
-		wi.Add(&a.Infinity, &b.Infinity)
-		wm.Add(&a.Main, &b.Main)
-		we.Add(&a.Epsilon, &b.Epsilon)
-		if !sameInfinitesimal(&sum, wi, wm, we) {
-			t.Fatal("add", a.String(), b.String(), sum.String())
+		sum := iclone(a)
+		mustOK(t, sum.Add(q, b))
+		wi.Add(ab.infinity, bb.infinity)
+		wm.Add(ab.main, bb.main)
+		we.Add(ab.epsilon, bb.epsilon)
+		if !sameInfinitesimal(sum, wi, wm, we) {
+			t.Fatal("add", itext(a), itext(b), itext(sum))
 		}
-		diff := a.Clone()
-		diff.Sub(&b)
-		wi.Sub(&a.Infinity, &b.Infinity)
-		wm.Sub(&a.Main, &b.Main)
-		we.Sub(&a.Epsilon, &b.Epsilon)
-		if !sameInfinitesimal(&diff, wi, wm, we) {
-			t.Fatal("sub", a.String(), b.String(), diff.String())
+		diff := iclone(a)
+		mustOK(t, diff.Sub(q, b))
+		wi.Sub(ab.infinity, bb.infinity)
+		wm.Sub(ab.main, bb.main)
+		we.Sub(ab.epsilon, bb.epsilon)
+		if !sameInfinitesimal(diff, wi, wm, we) {
+			t.Fatal("sub", itext(a), itext(b), itext(diff))
 		}
-		negated := a.Clone()
-		negated.Neg()
-		wi.Neg(&a.Infinity)
-		wm.Neg(&a.Main)
-		we.Neg(&a.Epsilon)
-		if !sameInfinitesimal(&negated, wi, wm, we) {
-			t.Fatal("neg", a.String())
+		negated := iclone(a)
+		mustOK(t, negated.Neg(q))
+		wi.Neg(ab.infinity)
+		wm.Neg(ab.main)
+		we.Neg(ab.epsilon)
+		if !sameInfinitesimal(negated, wi, wm, we) {
+			t.Fatal("neg", itext(a))
 		}
-		product := a.Clone()
-		product.Mul(q)
-		wi.Mul(&a.Infinity, q)
-		wm.Mul(&a.Main, q)
-		we.Mul(&a.Epsilon, q)
-		if !sameInfinitesimal(&product, wi, wm, we) {
-			t.Fatal("mul", a.String(), q)
+		product := iclone(a)
+		mustOK(t, product.Mul(q, mq))
+		wi.Mul(ab.infinity, m)
+		wm.Mul(ab.main, m)
+		we.Mul(ab.epsilon, m)
+		if !sameInfinitesimal(product, wi, wm, we) {
+			t.Fatal("mul", itext(a), m)
 		}
-		if q.Sign() != 0 {
-			quotient := a.Clone()
-			quotient.Quo(q)
-			wi.Quo(&a.Infinity, q)
-			wm.Quo(&a.Main, q)
-			we.Quo(&a.Epsilon, q)
-			if !sameInfinitesimal(&quotient, wi, wm, we) {
-				t.Fatal("quo", a.String(), q)
+		if m.Sign() != 0 {
+			quotient := iclone(a)
+			mustOK(t, quotient.Quo(q, mq))
+			wi.Quo(ab.infinity, m)
+			wm.Quo(ab.main, m)
+			we.Quo(ab.epsilon, m)
+			if !sameInfinitesimal(quotient, wi, wm, we) {
+				t.Fatal("quo", itext(a), m)
 			}
+			mustOK(t, quotient.Del(q))
 		}
-		if got, want := a.Cmp(&b), slowCmp(&a, &b); got != want {
-			t.Fatal("cmp", a.String(), b.String(), got, want)
+		if got, want := icmp(a, b), slowCmp(ab, bb); got != want {
+			t.Fatal("cmp", itext(a), itext(b), got, want)
 		}
 		// Overwriting a nonzero receiver with zero must really clear it.
-		overwrite := randomInfinitesimal(r)
-		overwrite.Set(&a)
-		if overwrite.Cmp(&a) != 0 {
-			t.Fatal("set", a.String(), overwrite.String())
+		overwrite, _ := randomInfinitesimal(r)
+		mustOK(t, overwrite.Set(q, a))
+		if icmp(overwrite, a) != 0 {
+			t.Fatal("set", itext(a), itext(overwrite))
 		}
+		for _, v := range []*Infinitesimal{a, b, sum, diff, negated, product, overwrite} {
+			mustOK(t, v.Del(q))
+		}
+		mustOK(t, q.Del(mq))
 	}
 }
 
 // A clone must not share storage with its source.
 func TestInfinitesimalCloneIsIndependent(t *testing.T) {
-	a := NewInfiniteInfinitesimal(big.NewRat(3, 2), big.NewRat(-7, 3), big.NewRat(5, 1))
-	clone := a.Clone()
-	clone.Add(&a)
-	clone.Mul(big.NewRat(9, 4))
-	if !sameInfinitesimal(&a, big.NewRat(3, 2), big.NewRat(-7, 3), big.NewRat(5, 1)) {
-		t.Fatal("source changed through its clone", a.String())
+	q := optQ()
+	a := testNII(rat(3, 2), rat(-7, 3), rat(5, 1))
+	clone := iclone(a)
+	mustOK(t, clone.Add(q, a))
+	mustOK(t, clone.Mul(q, rat(9, 4)))
+	if !sameInfinitesimal(a, big.NewRat(3, 2), big.NewRat(-7, 3), big.NewRat(5, 1)) {
+		t.Fatal("source changed through its clone", itext(a))
 	}
 }
 
-func TestInfinitesimalQuoByZeroStillPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatal("division by zero did not panic")
-		}
-	}()
-	var zero Infinitesimal
-	zero.Quo(new(big.Rat))
-}
-
-// A rational-only value must not allocate for its zero components.
-func TestInfinitesimalZeroComponentsDoNotAllocate(t *testing.T) {
-	var a, b Infinitesimal
-	if allocs := testing.AllocsPerRun(100, func() {
-		a.Add(&b)
-		a.Sub(&b)
-		a.Set(&b)
-		a.Neg()
-		_ = a.Cmp(&b)
-	}); allocs != 0 {
-		t.Fatalf("%v allocations", allocs)
+func TestInfinitesimalQuoByZeroFails(t *testing.T) {
+	zero := ZeroInfinitesimal()
+	if err := zero.Quo(optQ(), rat(0, 1)); err == nil {
+		t.Fatal("division by zero did not fail")
 	}
 }

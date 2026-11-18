@@ -208,7 +208,7 @@ func TestSMTDiffObjectiveCompilerSourceDomainAndValueCopies(t *testing.T) {
 	}
 	value, err := f.r.ObjectiveValue(v)
 	astTestMust(t, err)
-	value.Finite.Main.SetInt64(99)
+	setSmall(&value.Finite.Main, 99)
 	again, err := f.r.ObjectiveValue(v)
 	astTestMust(t, err)
 	checkArithmeticObjective(t, again, "3", "0")

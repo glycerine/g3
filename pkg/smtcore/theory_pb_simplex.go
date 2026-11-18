@@ -5,7 +5,6 @@ package smtcore
 import (
 	"fmt"
 	"io"
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -45,37 +44,65 @@ func smtPBExplain(explains map[uint32]SMTLiteral, v uint32) SMTLiteral {
 	return SMTNullLiteral
 }
 
-func (t *SMTPseudoBooleanTheory) simplexUpdateBound(v uint32, explain SMTLiteral, lower bool, bound simplex.Infinitesimal) (bool, error) {
+// simplexUpdateBound is update_bound(v, explain, is_lower, bound); bound is
+// borrowed (a value of the AST manager's rational manager). The replaced
+// bound is kept for the trail's undo, which restores and frees it.
+func (t *SMTPseudoBooleanTheory) simplexUpdateBound(v uint32, explain SMTLiteral, lower bool, bound *simplex.Infinitesimal) (result bool, err error) {
 	s := t.simplex
-	var old, opposite simplex.Infinitesimal
+	q := t.q()
+	old, opposite := simplex.ZeroInfinitesimal(), simplex.ZeroInfinitesimal()
+	keepOld := false
+	defer func() {
+		err = smtErrJoin(err, opposite.Del(q))
+		if !keepOld {
+			err = smtErrJoin(err, old.Del(q))
+		}
+	}()
 	var valid, oppositeValid bool
 	explains, oppositeExplains := s.lower, s.upper
 	if lower {
-		old, valid = s.solver.Lower(v)
-		opposite, oppositeValid = s.solver.Upper(v)
-		if valid && bound.Cmp(&old) <= 0 {
-			return true, nil
-		}
-	} else {
-		old, valid = s.solver.Upper(v)
-		opposite, oppositeValid = s.solver.Lower(v)
-		explains, oppositeExplains = s.upper, s.lower
-		if valid && bound.Cmp(&old) >= 0 {
-			return true, nil
-		}
-	}
-	if oppositeValid && (lower && bound.Cmp(&opposite) > 0 || !lower && bound.Cmp(&opposite) < 0) {
-		lit := smtPBExplain(oppositeExplains, v)
-		line := 325
-		if !lower {
-			line = 346
-		}
-		if err := t.traceClause("update_bound", line, []SMTLiteral{lit.Negated(), explain.Negated()}); err != nil {
+		if valid, err = s.solver.Lower(v, &old); err != nil {
 			return false, err
 		}
-		return false, t.compilationClause([]SMTLiteral{lit.Negated(), explain.Negated()}, SMTClauseAux)
+		if oppositeValid, err = s.solver.Upper(v, &opposite); err != nil {
+			return false, err
+		}
+		if valid {
+			if c, err := bound.Cmp(q, &old); err != nil || c <= 0 {
+				return err == nil, err
+			}
+		}
+	} else {
+		if valid, err = s.solver.Upper(v, &old); err != nil {
+			return false, err
+		}
+		if oppositeValid, err = s.solver.Lower(v, &opposite); err != nil {
+			return false, err
+		}
+		explains, oppositeExplains = s.upper, s.lower
+		if valid {
+			if c, err := bound.Cmp(q, &old); err != nil || c >= 0 {
+				return err == nil, err
+			}
+		}
 	}
-	var err error
+	if oppositeValid {
+		c, err := bound.Cmp(q, &opposite)
+		if err != nil {
+			return false, err
+		}
+		if lower && c > 0 || !lower && c < 0 {
+			lit := smtPBExplain(oppositeExplains, v)
+			line := 325
+			if !lower {
+				line = 346
+			}
+			if err := t.traceClause("update_bound", line, []SMTLiteral{lit.Negated(), explain.Negated()}); err != nil {
+				return false, err
+			}
+			return false, t.compilationClause([]SMTLiteral{lit.Negated(), explain.Negated()}, SMTClauseAux)
+		}
+	}
 	if lower {
 		err = s.solver.SetLower(v, bound)
 	} else {
@@ -91,20 +118,32 @@ func (t *SMTPseudoBooleanTheory) simplexUpdateBound(v uint32, explain SMTLiteral
 		// bound has already been restored by the reverse trail walk.
 		if lower {
 			if valid {
-				_ = s.solver.SetLower(v, old)
+				_ = s.solver.SetLower(v, &old)
 			} else {
 				s.solver.UnsetLower(v)
 			}
 		} else {
 			if valid {
-				_ = s.solver.SetUpper(v, old)
+				_ = s.solver.SetUpper(v, &old)
 			} else {
 				s.solver.UnsetUpper(v)
 			}
 		}
 		explains[v] = previousExplain
+		_ = old.Del(q)
 	})
+	keepOld = err == nil
 	return err == nil, err
+}
+
+// simplexIntBound is a fresh inf_eps(rational(k)) of the AST manager's
+// rational manager.
+func (t *SMTPseudoBooleanTheory) simplexIntBound(k int64) (simplex.Infinitesimal, error) {
+	b := simplex.ZeroInfinitesimal()
+	if err := t.q().SetInt64(&b.Main, k); err != nil {
+		return b, smtErrJoin(err, b.Del(t.q()))
+	}
+	return b, nil
 }
 
 func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) (err error) {
@@ -112,7 +151,11 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) (err err
 		return nil
 	}
 	if t.simplex == nil {
-		t.simplex = &smtPBSimplex{solver: simplex.NewSolver(t.state.manager.ResourceLimit()), rows: make(map[int32]smtPBSimplexRow), representatives: make(map[string]int32), variables: make(map[uint32]bool), lower: make(map[uint32]SMTLiteral), upper: make(map[uint32]SMTLiteral)}
+		solver, err := simplex.NewSolver(t.state.manager.ResourceLimit(), t.state.manager.NumeralService())
+		if err != nil {
+			return err
+		}
+		t.simplex = &smtPBSimplex{solver: solver, rows: make(map[int32]smtPBSimplexRow), representatives: make(map[string]int32), variables: make(map[uint32]bool), lower: make(map[uint32]SMTLiteral), upper: make(map[uint32]SMTLiteral)}
 	}
 	s := t.simplex
 	// z3 4.7.1 bug: a predicate's Boolean ID names both its 0-1 literal
@@ -181,40 +224,15 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) (err err
 	} else {
 		s.representatives[representative] = c.literal.Var()
 		var variables []uint32
-		var coefficients []big.Int
-		for _, term := range rep.terms {
+		var coefficients []numeral.Rational
+		for i := range rep.terms {
+			term := &rep.terms[i]
 			v := uint32(term.literal.Var())
 			s.solver.EnsureVariable(v)
 			variables = append(variables, v)
 			if !s.variables[v] {
-				zero := simplex.RationalInfinitesimal(big.NewRat(0, 1))
-				one := simplex.RationalInfinitesimal(big.NewRat(1, 1))
-				value, err := t.state.Assignment(term.literal)
-				if err != nil {
+				if err = t.simplexBoundVariable(v, term.literal); err != nil {
 					return err
-				}
-				switch value {
-				case lbool.True:
-					if _, err = t.simplexUpdateBound(v, term.literal, true, one); err != nil {
-						return err
-					}
-					if err = s.solver.SetLower(v, one); err != nil {
-						return err
-					}
-				case lbool.False:
-					if _, err = t.simplexUpdateBound(v, term.literal.Negated(), false, zero); err != nil {
-						return err
-					}
-					if err = s.solver.SetUpper(v, zero); err != nil {
-						return err
-					}
-				default:
-					if err = s.solver.SetLower(v, zero); err != nil {
-						return err
-					}
-					if err = s.solver.SetUpper(v, one); err != nil {
-						return err
-					}
 				}
 				s.variables[v] = true
 				if err = t.trail.PushUndo(func() { delete(s.variables, v); s.solver.UnsetLower(v); s.solver.UnsetUpper(v) }); err != nil {
@@ -224,20 +242,19 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) (err err
 			if !term.coeff.IsInt() {
 				return ast.ErrASTDomain
 			}
-			// The simplex solver takes math/big rows until it moves to
-			// mpq_inf numerals.
-			b, err := smtQBig(q, &term.coeff)
-			if err != nil {
-				return err
-			}
-			var coefficient big.Int
-			coefficient.Set(b.Num())
-			coefficients = append(coefficients, coefficient)
+			// The row borrows rep's coefficients.
+			coefficients = append(coefficients, term.coeff)
 		}
 		s.solver.EnsureVariable(slack)
 		variables = append(variables, slack)
-		coefficients = append(coefficients, *big.NewInt(-1))
-		if _, err := s.solver.AddIntegerRow(slack, variables, coefficients); err != nil {
+		// m.set(coeffs.back(), -1): a temporary of the row.
+		coefficients = append(coefficients, smtQZero())
+		minusOne := &coefficients[len(coefficients)-1]
+		err = q.SetInt32(minusOne, -1)
+		if err == nil {
+			_, err = s.solver.AddRationalRow(slack, variables, coefficients)
+		}
+		if err = smtErrJoin(err, smtQDel(q, minusOne)); err != nil {
 			return err
 		}
 		if err := t.emitPB("internalize_atom", 597, func(out io.Writer) error {
@@ -259,6 +276,40 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) (err err
 	return nil
 }
 
+// simplexBoundVariable gives a new 0-1 column its bounds from the
+// literal's current assignment (zero and one are temporaries).
+func (t *SMTPseudoBooleanTheory) simplexBoundVariable(v uint32, literal SMTLiteral) (err error) {
+	s := t.simplex
+	q := t.q()
+	zero := simplex.ZeroInfinitesimal()
+	one, err := t.simplexIntBound(1)
+	defer func() { err = smtErrJoin(err, one.Del(q), zero.Del(q)) }()
+	if err != nil {
+		return err
+	}
+	value, err := t.state.Assignment(literal)
+	if err != nil {
+		return err
+	}
+	switch value {
+	case lbool.True:
+		if _, err = t.simplexUpdateBound(v, literal, true, &one); err != nil {
+			return err
+		}
+		return s.solver.SetLower(v, &one)
+	case lbool.False:
+		if _, err = t.simplexUpdateBound(v, literal.Negated(), false, &zero); err != nil {
+			return err
+		}
+		return s.solver.SetUpper(v, &zero)
+	default:
+		if err = s.solver.SetLower(v, &zero); err != nil {
+			return err
+		}
+		return s.solver.SetUpper(v, &one)
+	}
+}
+
 func (t *SMTPseudoBooleanTheory) simplexCheckFeasible() (bool, error) {
 	s := t.simplex
 	status, err := s.solver.MakeFeasible()
@@ -269,7 +320,12 @@ func (t *SMTPseudoBooleanTheory) simplexCheckFeasible() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	sq := s.solver.Numerals()
 	coefficient, err := s.solver.BaseCoefficient(r)
+	if err != nil {
+		return false, err
+	}
+	coefficientSign, err := sq.Sign(coefficient)
 	if err != nil {
 		return false, err
 	}
@@ -277,23 +333,22 @@ func (t *SMTPseudoBooleanTheory) simplexCheckFeasible() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	value := s.solver.Value(base)
-	bound, valid := s.solver.Lower(base)
-	below := valid && value.Cmp(&bound) < 0
-	if smtcoreSourceDebug && !below {
-		upper, valid := s.solver.Upper(base)
-		if !valid || value.Cmp(&upper) <= 0 {
-			return false, ast.ErrASTDomain
-		}
+	below, err := t.simplexBelowLower(base)
+	if err != nil {
+		return false, err
 	}
-	cantIncrease := below && coefficient.Sign() > 0 || !below && coefficient.Sign() < 0
+	cantIncrease := below && coefficientSign > 0 || !below && coefficientSign < 0
 	entries, err := s.solver.RowEntries(r)
 	if err != nil {
 		return false, err
 	}
 	var literals []SMTLiteral
 	for _, entry := range entries {
-		useLower := cantIncrease == (entry.Coefficient.Sign() > 0)
+		entrySign, err := sq.Sign(entry.Coefficient)
+		if err != nil {
+			return false, err
+		}
+		useLower := cantIncrease == (entrySign > 0)
 		if entry.Variable == base {
 			useLower = below
 		}
@@ -325,13 +380,57 @@ func (t *SMTPseudoBooleanTheory) simplexCheckFeasible() (bool, error) {
 	return false, err
 }
 
+// simplexBelowLower is the infeasible base's value < lower test (with the
+// debug check that it is otherwise above its upper bound); the values read
+// are temporaries.
+func (t *SMTPseudoBooleanTheory) simplexBelowLower(base uint32) (below bool, err error) {
+	s := t.simplex
+	q := t.q()
+	value, bound := simplex.ZeroInfinitesimal(), simplex.ZeroInfinitesimal()
+	defer func() { err = smtErrJoin(err, bound.Del(q), value.Del(q)) }()
+	if err = s.solver.Value(base, &value); err != nil {
+		return false, err
+	}
+	valid, err := s.solver.Lower(base, &bound)
+	if err != nil {
+		return false, err
+	}
+	if valid {
+		c, err := value.Cmp(q, &bound)
+		if err != nil {
+			return false, err
+		}
+		below = c < 0
+	}
+	if smtcoreSourceDebug && !below {
+		valid, err := s.solver.Upper(base, &bound)
+		if err != nil {
+			return false, err
+		}
+		c := 0
+		if valid {
+			if c, err = value.Cmp(q, &bound); err != nil {
+				return false, err
+			}
+		}
+		if !valid || c <= 0 {
+			return false, ast.ErrASTDomain
+		}
+	}
+	return below, nil
+}
+
 func (t *SMTPseudoBooleanTheory) simplexAssignArgument(v int32, isTrue bool) (bool, error) {
 	value := int64(0)
 	if isTrue {
 		value = 1
 	}
-	ok, err := t.simplexUpdateBound(uint32(v), NewSMTLiteral(v, !isTrue), isTrue, simplex.RationalInfinitesimal(big.NewRat(value, 1)))
-	if err != nil || !ok {
+	bound, err := t.simplexIntBound(value)
+	ok := false
+	if err == nil {
+		ok, err = t.simplexUpdateBound(uint32(v), NewSMTLiteral(v, !isTrue), isTrue, &bound)
+	}
+	if err = smtErrJoin(err, bound.Del(t.q())); err != nil || !ok {
 		return ok, err
 	}
 	return t.simplexCheckFeasible()
@@ -342,28 +441,39 @@ func (t *SMTPseudoBooleanTheory) simplexAssignPredicate(c *smtPBConstraint, isTr
 	if !found {
 		return false, ast.ErrASTDomain
 	}
-	main, err := smtQBig(t.q(), &info.bound)
-	if err != nil {
+	q := t.q()
+	bound, err := simplex.RationalInfinitesimal(q, &info.bound)
+	if err == nil {
+		err = t.simplexAssignPredicateBound(c, info.slack, isTrue, &bound)
+	}
+	if err = smtErrJoin(err, bound.Del(q)); err != nil {
 		return false, err
 	}
-	bound := simplex.RationalInfinitesimal(main)
+	return t.simplexCheckFeasible()
+}
+
+// simplexAssignPredicateBound installs the row's bounds for the predicate's
+// assignment; bound is the predicate's scoped_eps_numeral.
+func (t *SMTPseudoBooleanTheory) simplexAssignPredicateBound(c *smtPBConstraint, slack uint32, isTrue bool, bound *simplex.Infinitesimal) error {
 	explain := NewSMTLiteral(c.literal.Var(), !isTrue)
 	if isTrue {
-		if _, err := t.simplexUpdateBound(info.slack, explain, true, bound); err != nil {
-			return false, err
+		if _, err := t.simplexUpdateBound(slack, explain, true, bound); err != nil {
+			return err
 		}
 		if c.equality {
-			if _, err := t.simplexUpdateBound(info.slack, explain, false, bound); err != nil {
-				return false, err
+			if _, err := t.simplexUpdateBound(slack, explain, false, bound); err != nil {
+				return err
 			}
 		}
 	} else if !c.equality {
-		bound.Main.Sub(&bound.Main, big.NewRat(1, 1))
-		if _, err := t.simplexUpdateBound(info.slack, explain, false, bound); err != nil {
-			return false, err
+		if err := t.q().Dec(&bound.Main); err != nil {
+			return err
+		}
+		if _, err := t.simplexUpdateBound(slack, explain, false, bound); err != nil {
+			return err
 		}
 	}
-	return t.simplexCheckFeasible()
+	return nil
 }
 
 func (t *SMTPseudoBooleanTheory) simplexRemove(c *smtPBConstraint) error {

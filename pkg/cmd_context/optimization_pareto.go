@@ -669,12 +669,19 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			result.Values[i].ArithmeticOpenBounds = true
 			continue
 		}
+		q := c.optQ()
 		finite, e := c.optInfinitesimal(&values[i].measure)
+		if e != nil {
+			return nil, errors.Join(e, finite.Del(q), result.Close())
+		}
+		// The result's value takes over finite and a copy of it.
+		model, e := finite.Clone(q)
+		e = errors.Join(e, result.Values[i].Arithmetic.Del(q), result.Values[i].ArithmeticModel.Del(q))
+		result.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: finite}
+		result.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: model}
 		if e != nil {
 			return nil, errors.Join(e, result.Close())
 		}
-		result.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: finite}
-		result.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: finite.Clone()}
 		result.Values[i].ArithmeticModelValid = true
 	}
 	return result, nil
@@ -739,9 +746,17 @@ func (c *Context) paretoUpdatedDisplayBounds(values []opt.ObjectiveValue) (resul
 			// model's value.
 			lower, upper, ok := c.optimizationParetoOptimizer.ArithmeticDisplayBounds(arithmetic)
 			arithmetic++
-			if ok {
-				values[i].DisplayLower, values[i].DisplayUpper, values[i].DisplayValid = lower, upper, true
+			if !ok {
+				if err = errors.Join(lower.Del(q), upper.Del(q)); err != nil {
+					return err
+				}
+				continue
 			}
+			// The value takes over the fresh bounds.
+			if err = errors.Join(values[i].DisplayLower.Del(q), values[i].DisplayUpper.Del(q)); err != nil {
+				return errors.Join(err, lower.Del(q), upper.Del(q))
+			}
+			values[i].DisplayLower, values[i].DisplayUpper, values[i].DisplayValid = lower, upper, true
 			continue
 		}
 		// evaluateParetoModel's softCost starts at the from_fmls offset.
@@ -760,9 +775,11 @@ func (c *Context) paretoUpdatedDisplayBounds(values []opt.ObjectiveValue) (resul
 		if err != nil {
 			return err
 		}
-		if values[i].DisplayUpper, err = c.optInfinitesimal(&upper); err != nil {
-			return err
+		displayUpper, err := c.optInfinitesimal(&upper)
+		if err = errors.Join(err, values[i].DisplayUpper.Del(q)); err != nil {
+			return errors.Join(err, displayUpper.Del(q))
 		}
+		values[i].DisplayUpper = displayUpper
 	}
 	return nil
 }

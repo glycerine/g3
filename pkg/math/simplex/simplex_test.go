@@ -1,7 +1,6 @@
 package simplex
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/control"
@@ -9,30 +8,22 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func integerRow(values ...int64) []big.Rat {
-	r := make([]big.Rat, len(values))
-	for i, v := range values {
-		r[i].SetInt64(v)
-	}
-	return r
-}
-
 func TestSimplexFeasiblePivotAndValues(t *testing.T) {
-	s := NewSolver(nil)
+	s := newTestSolver(nil)
 	// z - x = 0, z >= 1. The base z starts at zero and pivots with x.
 	r, err := s.AddRationalRow(1, []uint32{1, 0}, integerRow(1, -1))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.SetLower(1, RationalInfinitesimal(rat(1, 1))); err != nil {
+	if err = s.SetLower(1, testRI(rat(1, 1))); err != nil {
 		t.Fatal(err)
 	}
 	result, err := s.MakeFeasible()
 	if err != nil || result != lbool.True {
 		t.Fatal("feasible", result, err)
 	}
-	v0, v1 := s.Value(0), s.Value(1)
-	if v0.Main.Cmp(rat(1, 1)) != 0 || v1.Main.Cmp(rat(1, 1)) != 0 {
+	v0, v1 := testValue(s, 0), testValue(s, 1)
+	if qcmp(&v0.Main, rat(1, 1)) != 0 || qcmp(&v1.Main, rat(1, 1)) != 0 {
 		t.Fatal("pivot values", v0, v1)
 	}
 	base, err := s.BaseVariable(r)
@@ -45,19 +36,19 @@ func TestSimplexFeasiblePivotAndValues(t *testing.T) {
 }
 
 func TestSimplexInfeasibleFixedNonbasicAndWitnessRow(t *testing.T) {
-	s := NewSolver(nil)
+	s := newTestSolver(nil)
 	r, err := s.AddRationalRow(1, []uint32{1, 0}, integerRow(1, -1))
 	if err != nil {
 		t.Fatal(err)
 	}
-	zero := RationalInfinitesimal(rat(0, 1))
+	zero := testRI(rat(0, 1))
 	if err = s.SetLower(0, zero); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.SetUpper(0, zero); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.SetLower(1, RationalInfinitesimal(rat(1, 1))); err != nil {
+	if err = s.SetLower(1, testRI(rat(1, 1))); err != nil {
 		t.Fatal(err)
 	}
 	result, err := s.MakeFeasible()
@@ -74,14 +65,14 @@ func TestSimplexInfeasibleFixedNonbasicAndWitnessRow(t *testing.T) {
 }
 
 func TestSimplexInfinitesimalStrictBounds(t *testing.T) {
-	s := NewSolver(nil)
+	s := newTestSolver(nil)
 	_, err := s.AddRationalRow(1, []uint32{1, 0}, integerRow(1, -1))
 	if err != nil {
 		t.Fatal(err)
 	}
-	zero := RationalInfinitesimal(rat(0, 1))
-	strict := NewInfinitesimal(rat(0, 1), rat(1, 1))
-	if strict.Cmp(&zero) <= 0 {
+	zero := testRI(rat(0, 1))
+	strict := testNI(rat(0, 1), rat(1, 1))
+	if icmp(strict, zero) <= 0 {
 		t.Fatal("epsilon ordering")
 	}
 	if err = s.SetUpper(0, zero); err != nil {
@@ -97,9 +88,8 @@ func TestSimplexInfinitesimalStrictBounds(t *testing.T) {
 }
 
 func TestSimplexIntegerRowFacadeAndReset(t *testing.T) {
-	s := NewSolver(nil)
-	coeff := []big.Int{*big.NewInt(2), *big.NewInt(-2)}
-	if _, err := s.AddIntegerRow(2, []uint32{2, 0}, coeff); err != nil {
+	s := newTestSolver(nil)
+	if _, err := s.AddInt64Row(2, []uint32{2, 0}, []int64{2, -2}); err != nil {
 		t.Fatal(err)
 	}
 	if uint32(len(s.vars)) != 3 || !s.matrix.WellFormed() {
@@ -112,27 +102,27 @@ func TestSimplexIntegerRowFacadeAndReset(t *testing.T) {
 }
 
 func TestSimplexMinimizeBoundedAndUnbounded(t *testing.T) {
-	bounded := NewSolver(nil)
+	bounded := newTestSolver(nil)
 	_, err := bounded.AddRationalRow(1, []uint32{1, 0}, integerRow(1, 1)) // objective + x = 0
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = bounded.SetLower(0, RationalInfinitesimal(rat(0, 1))); err != nil {
+	if err = bounded.SetLower(0, testRI(rat(0, 1))); err != nil {
 		t.Fatal(err)
 	}
-	if err = bounded.SetUpper(0, RationalInfinitesimal(rat(5, 1))); err != nil {
+	if err = bounded.SetUpper(0, testRI(rat(5, 1))); err != nil {
 		t.Fatal(err)
 	}
 	result, err := bounded.Minimize(1)
 	if err != nil || result != lbool.True {
 		t.Fatal("bounded minimum", result, err)
 	}
-	x, objective := bounded.Value(0), bounded.Value(1)
-	if x.Main.Cmp(rat(5, 1)) != 0 || objective.Main.Cmp(rat(-5, 1)) != 0 {
+	x, objective := testValue(bounded, 0), testValue(bounded, 1)
+	if qcmp(&x.Main, rat(5, 1)) != 0 || qcmp(&objective.Main, rat(-5, 1)) != 0 {
 		t.Fatal("minimum values", x, objective)
 	}
 
-	unbounded := NewSolver(nil)
+	unbounded := newTestSolver(nil)
 	_, err = unbounded.AddRationalRow(1, []uint32{1, 0}, integerRow(1, 1))
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +134,7 @@ func TestSimplexMinimizeBoundedAndUnbounded(t *testing.T) {
 }
 
 func TestSimplexDeleteBaseAndNonbasicRows(t *testing.T) {
-	s := NewSolver(nil)
+	s := newTestSolver(nil)
 	r, err := s.AddRationalRow(1, []uint32{1, 0}, integerRow(1, -1))
 	if err != nil {
 		t.Fatal(err)
@@ -175,8 +165,8 @@ func addSourceInequality(t *testing.T, s *Solver, a, b, bound int64, equality bo
 		slack = 2
 		one = 3
 	}
-	zero := RationalInfinitesimal(rat(0, 1))
-	oneValue := RationalInfinitesimal(rat(1, 1))
+	zero := testRI(rat(0, 1))
+	oneValue := testRI(rat(1, 1))
 	if err := s.SetLower(slack, zero); err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +181,7 @@ func addSourceInequality(t *testing.T, s *Solver, a, b, bound int64, equality bo
 	if err := s.SetUpper(one, oneValue); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AddIntegerRow(slack, []uint32{0, 1, slack, one}, []big.Int{*big.NewInt(a), *big.NewInt(b), *big.NewInt(-1), *big.NewInt(-bound)}); err != nil {
+	if _, err := s.AddInt64Row(slack, []uint32{0, 1, slack, one}, []int64{a, b, -1, -bound}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -209,7 +199,7 @@ func TestSimplexRetainedSourceFeasibilityCases(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := NewSolver(nil)
+			s := newTestSolver(nil)
 			s.EnsureVariable(1)
 			for _, row := range test.rows {
 				addSourceInequality(t, s, row[0], row[1], row[2], row[3] != 0)
@@ -226,7 +216,7 @@ func TestSimplexRetainedSourceFeasibilityCases(t *testing.T) {
 // patch entry that is already back in bounds still costs one m_limit.inc().
 func TestSimplexMakeFeasibleCountsStalePatchEntries(t *testing.T) {
 	lim := &control.Reslimit{}
-	s := NewSolver(lim)
+	s := newTestSolver(lim)
 	if _, err := s.AddRationalRow(1, []uint32{1, 0}, integerRow(1, -1)); err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +224,7 @@ func TestSimplexMakeFeasibleCountsStalePatchEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, v := range []uint32{1, 2} {
-		if err := s.SetLower(v, RationalInfinitesimal(rat(1, 1))); err != nil {
+		if err := s.SetLower(v, testRI(rat(1, 1))); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -250,7 +240,7 @@ func TestSimplexMakeFeasibleCountsStalePatchEntries(t *testing.T) {
 // AUDIT.md math_misc_02-F2: check_blands_rule runs for the default policy
 // and switches to Bland's rule after m_blands_rule_threshold repeats.
 func TestSimplexMakeFeasibleBlandAfterThreshold(t *testing.T) {
-	s := NewSolver(nil)
+	s := newTestSolver(nil)
 	left := make(map[uint32]bool)
 	var repeated uint32
 	for i := 0; i <= blandsRuleThreshold; i++ {
@@ -271,7 +261,7 @@ func TestSimplexMakeFeasibleBlandAfterThreshold(t *testing.T) {
 // build's libz3.a (simplex<mpq_ext>, same rows and bounds) printed
 // "status l_true row1 base v3 row2 base v6" with 2 pivots.
 func TestSelectPivotRandomTie(t *testing.T) {
-	s := NewSolver(nil)
+	s := newTestSolver(nil)
 	r1, err := s.AddRationalRow(0, []uint32{0, 1, 2, 3, 4}, integerRow(-1, 1, 1, 1, 1))
 	if err != nil {
 		t.Fatal(err)
@@ -280,7 +270,7 @@ func TestSelectPivotRandomTie(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	one := RationalInfinitesimal(rat(1, 1))
+	one := testRI(rat(1, 1))
 	if err = s.SetLower(0, one); err != nil {
 		t.Fatal(err)
 	}

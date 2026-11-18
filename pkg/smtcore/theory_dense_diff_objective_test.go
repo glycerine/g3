@@ -187,7 +187,7 @@ func TestSMTDenseObjectiveSourceIndexAndCompilerDomains(t *testing.T) {
 	current, err := f.d.ObjectiveValue(v)
 	astTestMust(t, err)
 	checkArithmeticObjective(t, current, "2", "-3")
-	current.Finite.Main.SetInt64(99)
+	setSmall(&current.Finite.Main, 99)
 	current, err = f.d.ObjectiveValue(v)
 	astTestMust(t, err)
 	checkArithmeticObjective(t, current, "2", "-3")

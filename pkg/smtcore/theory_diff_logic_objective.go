@@ -4,7 +4,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -34,8 +33,8 @@ func (o *smtDiffObjective) del(q *numeral.RationalManager) error {
 	return err
 }
 
-// The simplex package holds math/big values: rationals cross that boundary
-// through smtQBig / SetBigRat.
+// The simplex solver (m_S) keeps its numerals on its own rational manager;
+// values cross on the AST manager's (o.q).
 type smtDiffOptimization struct {
 	objectives []smtDiffObjective
 	solver     *simplex.Solver
@@ -45,10 +44,13 @@ type smtDiffOptimization struct {
 	q          *numeral.RationalManager
 }
 
-func (o *smtDiffOptimization) resetSimplex() {
+func (o *smtDiffOptimization) resetSimplex() error {
 	if o.edges != 0 {
+		err := o.solver.Close()
 		o.solver, o.rows, o.edges = nil, nil, 0
+		return err
 	}
+	return nil
 }
 func (o *smtDiffOptimization) node(v int32) uint32 {
 	return uint32(len(o.objectives)) + 2*uint32(v) + 1
@@ -69,6 +71,7 @@ func (t *SMTIntegerDiffTheory) closeDiffOptimization() (result error) {
 		o.objectives[i].core = nil
 		result = errors.Join(result, o.objectives[i].del(o.q))
 	}
+	result = errors.Join(result, o.solver.Close())
 	o.objectives, o.solver, o.rows, o.edges, o.manager = nil, nil, nil, 0, nil
 	return result
 }
@@ -247,20 +250,22 @@ func (o *smtDiffOptimization) addObjectiveRows() error {
 		i := len(o.rows)
 		objective := &o.objectives[i]
 		var variables []uint32
-		var coefficients []big.Rat
+		var coefficients []numeral.Rational
 		for j := range objective.terms {
 			term := &objective.terms[j]
 			variables = append(variables, o.node(int32(term.variable)))
-			c, err := smtQBig(o.q, &term.coefficient)
-			if err != nil {
-				return err
-			}
-			coefficients = append(coefficients, *c)
+			coefficients = append(coefficients, term.coefficient)
 		}
 		variables = append(variables, uint32(i))
-		coefficients = append(coefficients, *big.NewRat(1, 1))
-		row, err := o.solver.AddRationalRow(uint32(i), variables, coefficients)
-		if err != nil {
+		// The row borrows the terms' coefficients; the final 1 is a temporary.
+		coefficients = append(coefficients, smtQZero())
+		one := &coefficients[len(coefficients)-1]
+		err := o.q.SetInt32(one, 1)
+		var row simplex.Row
+		if err == nil {
+			row, err = o.solver.AddRationalRow(uint32(i), variables, coefficients)
+		}
+		if err = smtErrJoin(err, smtQDel(o.q, one)); err != nil {
 			return err
 		}
 		o.rows = append(o.rows, row)
@@ -270,25 +275,31 @@ func (o *smtDiffOptimization) addObjectiveRows() error {
 func (t *SMTRealDiffTheory) updateObjectiveSimplex() error {
 	o := &t.optimization
 	if o.solver == nil {
-		o.solver = simplex.NewSolver(&o.manager.Limit)
-	}
-	for i := range t.realGraph.assignment {
-		a, err := t.realInfBig(&t.realGraph.assignment[i])
+		solver, err := simplex.NewSolver(&o.manager.Limit, o.manager.NumeralService())
 		if err != nil {
 			return err
 		}
-		o.solver.SetValue(o.node(int32(i)), a)
+		o.solver = solver
 	}
-	zero := simplex.Infinitesimal{}
-	if err := o.solver.SetLower(o.node(int32(t.zero)), zero); err != nil {
+	for i := range t.realGraph.assignment {
+		a, err := t.realInf(&t.realGraph.assignment[i])
+		if err == nil {
+			err = o.solver.SetValue(o.node(int32(i)), &a)
+		}
+		if err = smtErrJoin(err, a.Del(t.q)); err != nil {
+			return err
+		}
+	}
+	zero := simplex.ZeroInfinitesimal()
+	if err := o.solver.SetLower(o.node(int32(t.zero)), &zero); err != nil {
 		return err
 	}
-	if err := o.solver.SetUpper(o.node(int32(t.zero)), zero); err != nil {
+	if err := o.solver.SetUpper(o.node(int32(t.zero)), &zero); err != nil {
 		return err
 	}
 	for i := o.edges; i < len(t.realGraph.edges); i++ {
 		e := &t.realGraph.edges[i]
-		if _, err := o.solver.AddIntegerRow(o.edge(i), []uint32{o.node(e.target), o.node(e.source), o.edge(i)}, []big.Int{*big.NewInt(1), *big.NewInt(-1), *big.NewInt(-1)}); err != nil {
+		if _, err := o.solver.AddInt64Row(o.edge(i), []uint32{o.node(e.target), o.node(e.source), o.edge(i)}, []int64{1, -1, -1}); err != nil {
 			return err
 		}
 	}
@@ -296,11 +307,11 @@ func (t *SMTRealDiffTheory) updateObjectiveSimplex() error {
 	for i := range t.realGraph.edges {
 		e := &t.realGraph.edges[i]
 		if e.enabled {
-			w, err := t.realInfBig(&e.weight)
-			if err != nil {
-				return err
+			w, err := t.realInf(&e.weight)
+			if err == nil {
+				err = o.solver.SetUpper(o.edge(i), &w)
 			}
-			if err := o.solver.SetUpper(o.edge(i), w); err != nil {
+			if err = smtErrJoin(err, w.Del(t.q)); err != nil {
 				return err
 			}
 		} else {
@@ -343,31 +354,21 @@ func (t *SMTRealDiffTheory) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObjecti
 			return SMTArithmeticObjectiveValue{}, err
 		}
 	}
-	result, err := smtQInfinitesimalBig(q, &main, &epsilon)
+	result, err := simplex.NewInfinitesimal(q, &main, &epsilon)
 	return SMTArithmeticObjectiveValue{Finite: result}, err
 }
 
-// smtQInfinitesimalBig is main + epsilon*eps as a simplex value (math/big,
-// a boundary).
-func smtQInfinitesimalBig(q *numeral.RationalManager, main, epsilon *numeral.Rational) (simplex.Infinitesimal, error) {
-	m, err := smtQBig(q, main)
-	if err != nil {
-		return simplex.Infinitesimal{}, err
+// realInf is an inf_int_rational as a fresh simplex value of t.q.
+func (t *SMTRealDiffTheory) realInf(v *smtInfIntRational) (simplex.Infinitesimal, error) {
+	e := smtQZero()
+	err := t.q.SetInt64(&e, int64(v.infinitesimal))
+	var r simplex.Infinitesimal
+	if err == nil {
+		r, err = simplex.NewInfinitesimal(t.q, &v.rational, &e)
+	} else {
+		r = simplex.ZeroInfinitesimal()
 	}
-	e, err := smtQBig(q, epsilon)
-	if err != nil {
-		return simplex.Infinitesimal{}, err
-	}
-	return simplex.NewInfinitesimal(m, e), nil
-}
-
-// realInfBig is an inf_int_rational as a simplex value (a boundary).
-func (t *SMTRealDiffTheory) realInfBig(v *smtInfIntRational) (simplex.Infinitesimal, error) {
-	m, err := smtQBig(t.q, &v.rational)
-	if err != nil {
-		return simplex.Infinitesimal{}, err
-	}
-	return simplex.NewInfinitesimal(m, big.NewRat(int64(v.infinitesimal), 1)), nil
+	return r, smtErrJoin(err, smtQDel(t.q, &e))
 }
 
 func (t *SMTIntegerDiffTheory) minimizeObjective(v SMTTheoryVar) (SMTArithmeticObjectiveValue, ast.ASTHandle, bool, error) {
@@ -388,7 +389,7 @@ func (t *SMTIntegerDiffTheory) minimizeObjective(v SMTTheoryVar) (SMTArithmeticO
 	}
 	if status != lbool.True {
 		blocker, err := s.manager.MkFalse()
-		return SMTArithmeticObjectiveValue{Unbounded: true}, blocker, false, err
+		return smtUnboundedObjectiveValue(), blocker, false, err
 	}
 	objective := &o.objectives[v]
 	for len(objective.core) > 0 {
@@ -398,9 +399,12 @@ func (t *SMTIntegerDiffTheory) minimizeObjective(v SMTTheoryVar) (SMTArithmeticO
 		}
 		objective.core = objective.core[:last]
 	}
-	value := o.solver.Value(uint32(v))
-	value.Neg()
-	return SMTArithmeticObjectiveValue{Finite: value}, ast.ASTHandle{}, false, nil
+	value := simplex.ZeroInfinitesimal()
+	err = o.solver.Value(uint32(v), &value)
+	if err == nil {
+		err = value.Neg(o.q)
+	}
+	return SMTArithmeticObjectiveValue{Finite: value}, ast.ASTHandle{}, false, err
 }
 
 func (t *SMTIntegerDiffTheory) saveObjectiveCore(v SMTTheoryVar, literals []SMTLiteral) error {
@@ -450,30 +454,23 @@ func (t *SMTRealDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObje
 	if err = t.computeModelDelta(true); err != nil {
 		return result, blocker, false, err
 	}
-	main, epsilon := smtQZero(), smtQZero()
-	defer smtQDel(t.q, &main)
-	defer smtQDel(t.q, &epsilon)
+	value := simplex.ZeroInfinitesimal()
+	defer smtQDelInfinitesimal(t.q, &value)
 	for i := range t.realGraph.assignment {
 		// r = val.get_rational() + m_delta * val.get_infinitesimal()
-		value := t.optimization.solver.Value(t.optimization.node(int32(i)))
-		if err = t.q.SetBigRat(&main, &value.Main); err != nil {
-			return result, blocker, false, err
-		}
-		if err = t.q.SetBigRat(&epsilon, &value.Epsilon); err != nil {
+		if err = t.optimization.solver.Value(t.optimization.node(int32(i)), &value); err != nil {
 			return result, blocker, false, err
 		}
 		a := &t.realGraph.assignment[i]
-		if err = t.q.AddMul(&main, &t.delta, &epsilon, &a.rational); err != nil {
+		if err = t.q.AddMul(&value.Main, &t.delta, &value.Epsilon, &a.rational); err != nil {
 			return result, blocker, false, err
 		}
 		a.infinitesimal = 0
 	}
 	blocker, err = t.diffObjectiveInequality(v, result.Finite, true)
-	constant, e := smtQBig(t.q, &objective.constant)
-	if e != nil {
+	if e := t.q.Add(&result.Finite.Main, &objective.constant, &result.Finite.Main); e != nil {
 		return result, blocker, false, errors.Join(err, e)
 	}
-	result.Finite.Main.Add(&result.Finite.Main, constant)
 	return result, blocker, false, err
 }
 
@@ -533,7 +530,11 @@ func (t *SMTIntegerDiffTheory) diffObjectiveInequality(v SMTTheoryVar, value sim
 			return expression, err
 		}
 	}
-	if expression.IsNull() || !strict && value.Epsilon.Sign() < 0 {
+	epsilon, err := t.q.Sign(&value.Epsilon)
+	if err != nil {
+		return expression, err
+	}
+	if expression.IsNull() || !strict && epsilon < 0 {
 		expression, err = m.MkAndArgs(objective.core)
 		if err != nil {
 			return expression, err
@@ -556,19 +557,27 @@ func (t *SMTIntegerDiffTheory) diffObjectiveInequality(v SMTTheoryVar, value sim
 	if err != nil {
 		return expression, err
 	}
-	numeral, err := m.ArithmeticNumeralRat(&value.Main, integer)
+	numeral, err := m.ArithmeticNumeralFromRational(&value.Main, integer)
 	if err != nil {
 		return expression, err
 	}
 	op := smtArithOpGE
-	if strict && value.Epsilon.Sign() >= 0 {
+	if strict && epsilon >= 0 {
 		op = smtArithOpGT
 	}
 	return m.MkFamilyApp(t.FamilyID(), op, nil, []ast.ASTHandle{expression, numeral})
 }
 func (t *SMTRealDiffTheory) MakeObjectiveLowerBound(_ *tactic.FilterModelConverter, v SMTTheoryVar, value simplex.Infinitesimal) (ast.ASTHandle, error) {
-	if value.Infinity.Sign() != 0 {
+	if finite, err := t.q.IsZero(&value.Infinity); err != nil {
+		return ast.ASTHandle{}, err
+	} else if !finite {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	return t.diffObjectiveInequality(v, value, false)
+}
+
+// smtQDelInfinitesimal frees a deferred simplex value (errors are dropped as
+// smtQDel's deferred uses are).
+func smtQDelInfinitesimal(q *numeral.RationalManager, v *simplex.Infinitesimal) {
+	_ = v.Del(q)
 }

@@ -176,8 +176,8 @@ func TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery(t *testing.T) {
 			checkInfiniteArithmetic(t, maximum.Finite, 0, 9, -2)
 			current, err := s.value(12)
 			astTestMust(t, err)
-			if current.Cmp(&maximum.Finite) != 0 {
-				t.Fatal("LAR assignment and objective diverged", current.String(), maximum.Finite.String())
+			if infCmp(&current, &maximum.Finite) != 0 {
+				t.Fatal("LAR assignment and objective diverged", asBigInf(&current).String(), asBigInf(&maximum.Finite).String())
 			}
 			columns, err := s.modelColumnValues()
 			astTestMust(t, err)
@@ -280,7 +280,7 @@ func TestSMTLRANumericUnboundedAndConstantTerm(t *testing.T) {
 	lraFeasible(t, s, lbool.True)
 	value, err = s.maximize(6)
 	astTestMust(t, err)
-	if value.Unbounded || value.Finite.Main.Cmp(big.NewRat(7, 3)) != 0 || !value.Finite.IsRational() {
+	if value.Unbounded || asBigInf(&value.Finite).Main.Cmp(big.NewRat(7, 3)) != 0 || !asBigInf(&value.Finite).IsRational() {
 		t.Fatal(value)
 	}
 	astTestMust(t, s.Close())
@@ -426,4 +426,17 @@ func TestSMTLRANumericCoupledRowsStrictOptimumAndConflict(t *testing.T) {
 		checkInfiniteArithmetic(t, value.Finite, 0, bound, 0)
 	}
 	checkNativeLRACoupledProgression(t)
+}
+
+// rational reads an LRA rational as math/big (a test oracle).
+func (s *smtLRANumeric) rational(value *numeral.Rational) (*big.Rat, error) {
+	text, err := s.manager.String(value)
+	if err != nil {
+		return nil, err
+	}
+	result, ok := new(big.Rat).SetString(text)
+	if !ok {
+		return nil, fmt.Errorf("lra rational %q", text)
+	}
+	return result, nil
 }

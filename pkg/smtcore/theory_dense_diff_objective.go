@@ -4,7 +4,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -40,93 +39,106 @@ func (t *SMTDenseDiffTheory) Close() error {
 	return err
 }
 
-// smtDenseBigParts returns the to_rational() parts of a dense numeral as
-// math/big values for the simplex package (a boundary conversion).
-func (t *SMTDenseDiffTheory) bigParts(parts func(n, k *numeral.Rational) error) (*big.Rat, *big.Rat, error) {
-	q := t.q()
-	n, k := smtQZero(), smtQZero()
-	defer smtQDel(q, &n)
-	defer smtQDel(q, &k)
-	if err := parts(&n, &k); err != nil {
-		return nil, nil, err
+// infParts returns the to_rational() parts of a dense numeral as a fresh
+// simplex value of the AST manager's rational manager.
+func (t *SMTDenseDiffTheory) infParts(parts func(n, k *numeral.Rational) error) (simplex.Infinitesimal, error) {
+	value := simplex.ZeroInfinitesimal()
+	if err := parts(&value.Main, &value.Epsilon); err != nil {
+		return value, smtErrJoin(err, value.Del(t.q()))
 	}
-	main, err := smtQBig(q, &n)
-	if err != nil {
-		return nil, nil, err
-	}
-	epsilon, err := smtQBig(q, &k)
-	return main, epsilon, err
+	return value, nil
 }
-func (t *SMTDenseDiffTheory) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObjectiveValue, error) {
+
+// ObjectiveValue is value(v): the objective constant plus the coefficients
+// times the assignment, a fresh value the caller owns.
+func (t *SMTDenseDiffTheory) ObjectiveValue(v SMTTheoryVar) (result SMTArithmeticObjectiveValue, err error) {
+	result.Finite = simplex.ZeroInfinitesimal()
 	objective, err := t.syntax.diffObjective(v)
 	if err != nil {
-		return SMTArithmeticObjectiveValue{}, err
+		return result, err
 	}
-	constant, err := smtQBig(t.syntax.q, &objective.constant)
-	if err != nil {
-		return SMTArithmeticObjectiveValue{}, err
-	}
-	value := simplex.RationalInfinitesimal(constant)
-	for i := range objective.terms {
-		coefficient, err := smtQBig(t.syntax.q, &objective.terms[i].coefficient)
+	q := t.syntax.q
+	defer func() {
 		if err != nil {
-			return SMTArithmeticObjectiveValue{}, err
+			err = smtErrJoin(err, result.Del(q))
 		}
+	}()
+	if err = q.Copy(&result.Finite.Main, &objective.constant); err != nil {
+		return result, err
+	}
+	for i := range objective.terms {
+		coefficient := &objective.terms[i].coefficient
 		// This source revision indexes the assignment by objective index v.
 		if v < 0 || int(v) >= t.modelVars {
-			return SMTArithmeticObjectiveValue{}, ast.ErrASTDomain
+			return result, ast.ErrASTDomain
 		}
-		main, epsilon, err := t.bigParts(func(n, k *numeral.Rational) error { return t.ext.assignmentParts(int(v), n, k) })
-		if err != nil {
-			return SMTArithmeticObjectiveValue{}, err
+		point, err := t.infParts(func(n, k *numeral.Rational) error { return t.ext.assignmentParts(int(v), n, k) })
+		if err == nil {
+			err = q.AddMul(&result.Finite.Main, coefficient, &point.Main, &result.Finite.Main)
 		}
-		value.Main.Add(&value.Main, new(big.Rat).Mul(coefficient, main))
-		value.Epsilon.Add(&value.Epsilon, new(big.Rat).Mul(coefficient, epsilon))
+		if err == nil {
+			err = q.AddMul(&result.Finite.Epsilon, coefficient, &point.Epsilon, &result.Finite.Epsilon)
+		}
+		if err = smtErrJoin(err, point.Del(q)); err != nil {
+			return result, err
+		}
 	}
-	return SMTArithmeticObjectiveValue{Finite: value}, nil
+	return result, nil
 }
 func (t *SMTDenseDiffTheory) MakeObjectiveLowerBound(_ *tactic.FilterModelConverter, v SMTTheoryVar, value simplex.Infinitesimal) (ast.ASTHandle, error) {
-	if value.Infinity.Sign() != 0 {
+	if finite, err := t.syntax.q.IsZero(&value.Infinity); err != nil {
+		return ast.ASTHandle{}, err
+	} else if !finite {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	return t.syntax.diffObjectiveInequality(v, value, false)
 }
 
-func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObjectiveValue, ast.ASTHandle, bool, error) {
+// MaximizeObjective builds the source's local simplex S over the dense
+// edges; S (and its numeral manager) dies when the call returns.
+func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (result SMTArithmeticObjectiveValue, blocker ast.ASTHandle, shared bool, err error) {
+	result.Finite = simplex.ZeroInfinitesimal()
 	objective, err := t.syntax.diffObjective(v)
 	if err != nil {
-		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		return result, blocker, false, err
 	}
 	state, err := t.State()
 	if err != nil {
-		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		return result, blocker, false, err
 	}
 	nodes, edges := t.NumVariables(), len(t.denseMatrix().edges)
 	if t.modelVars != nodes {
-		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, ast.ErrASTDomain
+		return result, blocker, false, ast.ErrASTDomain
 	}
-	solver := simplex.NewSolver(&state.manager.Limit)
+	q := t.syntax.q
+	solver, err := simplex.NewSolver(&state.manager.Limit, state.manager.NumeralService())
+	if err != nil {
+		return result, blocker, false, err
+	}
+	defer func() { err = smtErrJoin(err, solver.Close()) }()
 	solver.EnsureVariable(uint32(nodes + edges + len(t.syntax.optimization.objectives)))
 	for i := 0; i < nodes; i++ {
-		main, epsilon, err := t.bigParts(func(n, k *numeral.Rational) error { return t.ext.assignmentParts(i, n, k) })
-		if err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		point, err := t.infParts(func(n, k *numeral.Rational) error { return t.ext.assignmentParts(i, n, k) })
+		if err == nil {
+			err = solver.SetValue(uint32(i), &point)
 		}
-		solver.SetValue(uint32(i), simplex.NewInfinitesimal(main, epsilon))
+		if err = smtErrJoin(err, point.Del(q)); err != nil {
+			return result, blocker, false, err
+		}
 	}
 	for _, node := range t.variables {
 		zero, err := t.syntax.numeralIs(node.owner, 0)
 		if err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+			return result, blocker, false, err
 		}
 		if zero {
 			// Source sets bounds on v (objective index), not the zero node index.
-			zero := simplex.Infinitesimal{}
-			if err = solver.SetLower(uint32(v), zero); err != nil {
-				return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+			zero := simplex.ZeroInfinitesimal()
+			if err = solver.SetLower(uint32(v), &zero); err != nil {
+				return result, blocker, false, err
 			}
-			if err = solver.SetUpper(uint32(v), zero); err != nil {
-				return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+			if err = solver.SetUpper(uint32(v), &zero); err != nil {
+				return result, blocker, false, err
 			}
 			break
 		}
@@ -137,64 +149,75 @@ func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObj
 			continue
 		} // Null edge zero is retained.
 		base := uint32(nodes + i)
-		if _, err = solver.AddIntegerRow(base, []uint32{uint32(edge.target), uint32(edge.source), base}, []big.Int{*big.NewInt(1), *big.NewInt(-1), *big.NewInt(-1)}); err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		if _, err = solver.AddInt64Row(base, []uint32{uint32(edge.target), uint32(edge.source), base}, []int64{1, -1, -1}); err != nil {
+			return result, blocker, false, err
 		}
-		main, epsilon, err := t.bigParts(func(n, k *numeral.Rational) error { return t.ext.edgeParts(i, n, k) })
-		if err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		weight, err := t.infParts(func(n, k *numeral.Rational) error { return t.ext.edgeParts(i, n, k) })
+		if err == nil {
+			err = solver.SetUpper(base, &weight)
 		}
-		if err = solver.SetUpper(base, simplex.NewInfinitesimal(main, epsilon)); err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		if err = smtErrJoin(err, weight.Del(q)); err != nil {
+			return result, blocker, false, err
 		}
 	}
 	base := uint32(nodes+edges) + uint32(v)
 	var variables []uint32
-	var coefficients []big.Rat
+	var coefficients []numeral.Rational
 	for i := range objective.terms {
 		term := &objective.terms[i]
 		variables = append(variables, uint32(term.variable))
-		c, err := smtQBig(t.syntax.q, &term.coefficient)
-		if err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
-		}
-		coefficients = append(coefficients, *c)
+		coefficients = append(coefficients, term.coefficient)
 	}
 	variables = append(variables, base)
-	coefficients = append(coefficients, *big.NewRat(1, 1))
-	row, err := solver.AddRationalRow(base, variables, coefficients)
-	if err != nil {
-		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+	// The row borrows the terms' coefficients; the final 1 is a temporary.
+	coefficients = append(coefficients, smtQZero())
+	one := &coefficients[len(coefficients)-1]
+	err = q.SetInt32(one, 1)
+	var row simplex.Row
+	if err == nil {
+		row, err = solver.AddRationalRow(base, variables, coefficients)
+	}
+	if err = smtErrJoin(err, smtQDel(q, one)); err != nil {
+		return result, blocker, false, err
 	}
 	status, err := solver.MakeFeasible()
 	if err != nil {
-		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		return result, blocker, false, err
 	}
 	if status == lbool.False {
-		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, ast.ErrASTDomain
+		return result, blocker, false, ast.ErrASTDomain
 	}
 	if status != lbool.Undef {
 		status, err = solver.Minimize(base)
 		if err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+			return result, blocker, false, err
 		}
 	}
 	if status != lbool.True {
 		blocker, err := state.manager.MkFalse()
-		return SMTArithmeticObjectiveValue{Unbounded: true}, blocker, false, err
+		return smtUnboundedObjectiveValue(), blocker, false, err
 	}
-	value := solver.Value(base)
-	value.Neg()
+	defer func() {
+		if err != nil {
+			err = smtErrJoin(err, result.Del(q))
+		}
+	}()
+	if err = solver.Value(base, &result.Finite); err != nil {
+		return result, blocker, false, err
+	}
+	if err = result.Finite.Neg(q); err != nil {
+		return result, blocker, false, err
+	}
 	for len(objective.core) > 0 {
 		last := len(objective.core) - 1
 		if err = state.manager.DecRef(objective.core[last]); err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+			return result, blocker, false, err
 		}
 		objective.core = objective.core[:last]
 	}
 	entries, err := solver.RowEntries(row)
 	if err != nil {
-		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		return result, blocker, false, err
 	}
 	var literals []SMTLiteral
 	for _, entry := range entries {
@@ -206,32 +229,27 @@ func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObj
 		}
 	}
 	if err = t.syntax.saveObjectiveCore(v, literals); err != nil {
-		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		return result, blocker, false, err
 	}
+	point := simplex.ZeroInfinitesimal()
 	for i := 0; i < nodes; i++ {
-		point := solver.Value(uint32(i))
 		// Preserve the source's explicit TBD: dense maximization publishes the
 		// rational part only, unlike the sparse backend's finite-delta assignment.
 		// numeral a(q); m_assignment[i] = a.
-		r := smtQZero()
-		err := smtQFromBig(t.q(), &r, &point.Main)
+		err = solver.Value(uint32(i), &point)
 		if err == nil {
-			err = t.ext.setAssignment(i, &r)
-		}
-		if e := smtQDel(t.q(), &r); err == nil {
-			err = e
+			err = t.ext.setAssignment(i, &point.Main)
 		}
 		if err != nil {
-			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+			return result, blocker, false, smtErrJoin(err, point.Del(q))
 		}
 	}
-	blocker, err := t.syntax.diffObjectiveInequality(v, value, true)
-	constant, e := smtQBig(t.syntax.q, &objective.constant)
-	if e != nil && err == nil {
+	if err = point.Del(q); err != nil {
+		return result, blocker, false, err
+	}
+	blocker, err = t.syntax.diffObjectiveInequality(v, result.Finite, true)
+	if e := q.Add(&result.Finite.Main, &objective.constant, &result.Finite.Main); e != nil && err == nil {
 		err = e
 	}
-	if constant != nil {
-		value.Main.Add(&value.Main, constant)
-	}
-	return SMTArithmeticObjectiveValue{Finite: value}, blocker, false, err
+	return result, blocker, false, err
 }

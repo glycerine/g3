@@ -8,12 +8,12 @@ import (
 )
 
 func TestSimplexStatisticsUnsignedWrapPreservesPivotAndWitness(t *testing.T) {
-	s := NewSolver(nil)
+	s := newTestSolver(nil)
 	r, err := s.AddRationalRow(1, []uint32{1, 0}, integerRow(1, -1))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.SetLower(1, RationalInfinitesimal(rat(1, 1))); err != nil {
+	if err = s.SetLower(1, testRI(rat(1, 1))); err != nil {
 		t.Fatal(err)
 	}
 	s.Stats = Stats{NumPivots: math.MaxUint32, NumChecks: math.MaxUint32, NumInfeasible: math.MaxUint32}
@@ -28,7 +28,7 @@ func TestSimplexStatisticsUnsignedWrapPreservesPivotAndWitness(t *testing.T) {
 	if base != 0 {
 		t.Fatal("wrapped counter changed the entering variable", base)
 	}
-	if err = s.SetUpper(0, RationalInfinitesimal(rat(0, 1))); err != nil {
+	if err = s.SetUpper(0, testRI(rat(0, 1))); err != nil {
 		t.Fatal(err)
 	}
 	status, err = s.MakeFeasible()
@@ -42,7 +42,7 @@ func TestSimplexStatisticsUnsignedWrapPreservesPivotAndWitness(t *testing.T) {
 }
 
 func TestSparseMatrixRowAdditionStatisticUnsignedWrap(t *testing.T) {
-	var matrix Matrix
+	matrix := testMatrix()
 	a, b := matrix.NewRow(), matrix.NewRow()
 	if err := matrix.AddRational(a, rat(1, 1), 0); err != nil {
 		t.Fatal(err)
@@ -55,7 +55,7 @@ func TestSparseMatrixRowAdditionStatisticUnsignedWrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	entries, err := matrix.Entries(a)
-	if err != nil || matrix.AddRowCount() != 0 || len(entries) != 1 || entries[0].Coefficient.Cmp(rat(2, 1)) != 0 || !matrix.WellFormed() {
+	if err != nil || matrix.AddRowCount() != 0 || len(entries) != 1 || qcmp(entries[0].Coefficient, rat(2, 1)) != 0 || !matrix.WellFormed() {
 		t.Fatal("source matrix statistic wrap changed row addition", entries, err, matrix.AddRowCount())
 	}
 }

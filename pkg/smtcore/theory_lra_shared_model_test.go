@@ -141,7 +141,7 @@ func TestSMTLRASharedRandomizationSeparatesFlexibleValues(t *testing.T) {
 	astTestMust(t, err)
 	y0, err := f.a.numeric.value(yv)
 	astTestMust(t, err)
-	if x0.Cmp(&y0) != 0 {
+	if infCmp(&x0, &y0) != 0 {
 		t.Fatal("fixture did not begin with colliding values")
 	}
 	progress, err := f.a.assumeSharedEqualities()
@@ -150,7 +150,7 @@ func TestSMTLRASharedRandomizationSeparatesFlexibleValues(t *testing.T) {
 	astTestMust(t, err)
 	y1, err := f.a.numeric.value(yv)
 	astTestMust(t, err)
-	if progress || len(f.a.assumeCandidates) != 0 || x1.Cmp(&y1) == 0 {
+	if progress || len(f.a.assumeCandidates) != 0 || infCmp(&x1, &y1) == 0 {
 		t.Fatal("actual LAR randomization was skipped", progress, x1, y1)
 	}
 }
@@ -173,7 +173,7 @@ func TestSMTLRADelayedCandidateKeepsEpsilonDistinct(t *testing.T) {
 	astTestMust(t, err)
 	b, err := f.a.numeric.value(yv)
 	astTestMust(t, err)
-	if a.Main.Cmp(&b.Main) != 0 || a.Cmp(&b) == 0 {
+	if asBigInf(&a).Main.Cmp(&asBigInf(&b).Main) != 0 || infCmp(&a, &b) == 0 {
 		t.Fatal("fixture did not reach equal rationals with distinct epsilon")
 	}
 	f.a.assumeCandidates = append(f.a.assumeCandidates, smtArithmeticEqualityCandidate{xv, yv})

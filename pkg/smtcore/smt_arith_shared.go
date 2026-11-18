@@ -6,7 +6,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -16,10 +15,16 @@ import (
 // SMTArithmeticObjectiveValue is the concrete result of the arithmetic
 // maximizer: an unbounded sentinel, or an exact tableau point. For inf_ext,
 // Finite also retains the point's infinity coefficient; it must not be reduced
-// to Unbounded. All big.Rat components are owned and cloned before mutation.
+// to Unbounded. Finite's rationals belong to the AST manager's rational
+// manager and to the value's holder, which frees them (Del).
 type SMTArithmeticObjectiveValue struct {
 	Unbounded bool
 	Finite    simplex.Infinitesimal
+}
+
+// Del frees the value's rationals.
+func (v *SMTArithmeticObjectiveValue) Del(q *numeral.RationalManager) error {
+	return v.Finite.Del(q)
 }
 
 const (
@@ -128,35 +133,68 @@ type smtArithmeticEqualityCandidate struct {
 	left, right SMTTheoryVar
 }
 
-func floorSMTRational(value *big.Rat) *big.Int {
-	floor := new(big.Int).Quo(value.Num(), value.Denom())
-	if value.Sign() < 0 && !value.IsInt() {
-		floor.Sub(floor, big.NewInt(1))
-	}
-	return floor
+// SMTInfEpsString is inf_eps_rational<inf_rational>::to_string for a value
+// of q.
+func SMTInfEpsString(q *numeral.RationalManager, value *simplex.Infinitesimal) (string, error) {
+	return smtArithmeticBoundName(q, value)
 }
 
 // Source inf_eps_rational<inf_rational>::to_string and inf_rational::to_string.
-func smtArithmeticBoundName(value simplex.Infinitesimal) string {
-	finite := value.Main.RatString()
-	if value.Epsilon.Sign() != 0 {
+func smtArithmeticBoundName(q *numeral.RationalManager, value *simplex.Infinitesimal) (string, error) {
+	finite, err := q.String(&value.Main)
+	if err != nil {
+		return "", err
+	}
+	epsilon, err := q.Sign(&value.Epsilon)
+	if err != nil {
+		return "", err
+	}
+	if epsilon != 0 {
 		sign := " +e*"
-		if value.Epsilon.Sign() < 0 {
+		if epsilon < 0 {
 			sign = " -e*"
 		}
-		finite = "(" + finite + sign + new(big.Rat).Abs(&value.Epsilon).RatString() + ")"
+		// abs(m_infinitesimal) is a temporary.
+		a := smtQZero()
+		err = q.Copy(&a, &value.Epsilon)
+		if err == nil {
+			err = q.Abs(&a)
+		}
+		var text string
+		if err == nil {
+			text, err = q.String(&a)
+		}
+		if err = smtErrJoin(err, smtQDel(q, &a)); err != nil {
+			return "", err
+		}
+		finite = "(" + finite + sign + text + ")"
 	}
-	if value.Infinity.Sign() == 0 {
-		return finite
+	infinite, err := q.Sign(&value.Infinity)
+	if err != nil || infinite == 0 {
+		return finite, err
 	}
-	infinity := value.Infinity.RatString() + "*oo"
-	if value.Infinity.Cmp(big.NewRat(1, 1)) == 0 {
+	var infinity string
+	if one, err := q.IsOne(&value.Infinity); err != nil {
+		return "", err
+	} else if one {
 		infinity = "oo"
-	} else if value.Infinity.Cmp(big.NewRat(-1, 1)) == 0 {
+	} else if minusOne, err := q.IsMinusOne(&value.Infinity); err != nil {
+		return "", err
+	} else if minusOne {
 		infinity = "-oo"
+	} else {
+		text, err := q.String(&value.Infinity)
+		if err != nil {
+			return "", err
+		}
+		infinity = text + "*oo"
 	}
-	if value.Main.Sign() == 0 && value.Epsilon.Sign() == 0 {
-		return infinity
+	main, err := q.Sign(&value.Main)
+	if err != nil {
+		return "", err
 	}
-	return "(" + infinity + " + " + finite + ")"
+	if main == 0 && epsilon == 0 {
+		return infinity, nil
+	}
+	return "(" + infinity + " + " + finite + ")", nil
 }

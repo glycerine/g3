@@ -4,7 +4,6 @@ package opt
 
 import (
 	"errors"
-	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -77,7 +76,15 @@ func (s *ArithmeticSolver) farkasUpdateUpper(result *ArithmeticResult, models *O
 		}
 	}()
 	n := len(s.objectives)
+	// vector<inf_eps> mid
+	o := newRatOps(s.manager)
 	mid := make([]simplex.Infinitesimal, 0, n)
+	defer func() {
+		o.infDelAll(mid)
+		resultErr = o.joined(resultErr)
+	}()
+	two := o.int64(2)
+	defer o.del(&two)
 	bounds = make([]ast.ASTRef, 0, n)
 	for k := 0; k < n; k++ {
 		canceled, err := s.manager.Canceled()
@@ -89,11 +96,19 @@ func (s *ArithmeticSolver) farkasUpdateUpper(result *ArithmeticResult, models *O
 		}
 		i := s.boxOrigin(k)
 		lower, upper := s.optLowerOf(i), s.optUpperOf(i)
-		if lower.Cmp(&upper) < 0 {
-			m := upper.Clone()
-			m.Add(&lower)
-			m.Quo(big.NewRat(2, 1))
+		if o.infCmp(lower, upper) < 0 {
+			// mid.push_back((m_upper[i] + m_lower[i])/rational(2))
+			m := o.infClone(upper)
+			if o.ok() {
+				o.fail(m.Add(o.q, lower))
+			}
+			if o.ok() {
+				o.fail(m.Quo(o.q, &two))
+			}
 			mid = append(mid, m)
+			if !o.ok() {
+				return lbool.Undef, nil
+			}
 			ge, err := s.backend.OptimizationObjectiveGE(s.objectives[k].backendIndex, s.filter, m)
 			if err != nil {
 				return lbool.Undef, err
@@ -115,7 +130,7 @@ func (s *ArithmeticSolver) farkasUpdateUpper(result *ArithmeticResult, models *O
 			bounds = append(bounds, copied)
 		} else {
 			bounds = append(bounds, ast.ASTRef{})
-			mid = append(mid, simplex.Infinitesimal{})
+			mid = append(mid, simplex.ZeroInfinitesimal())
 		}
 	}
 	progress := false
@@ -129,7 +144,10 @@ func (s *ArithmeticSolver) farkasUpdateUpper(result *ArithmeticResult, models *O
 		}
 		i := s.boxOrigin(k)
 		lower, upper := s.optLowerOf(i), s.optUpperOf(i)
-		if !(lower.Cmp(&mid[k]) <= 0 && mid[k].Cmp(&upper) <= 0 && lower.Cmp(&upper) < 0) {
+		if !(o.infCmp(lower, &mid[k]) <= 0 && o.infCmp(&mid[k], upper) <= 0 && o.infCmp(lower, upper) < 0) {
+			if !o.ok() {
+				return lbool.Undef, nil
+			}
 			continue
 		}
 		index := s.objectives[k].backendIndex
@@ -155,11 +173,15 @@ func (s *ArithmeticSolver) farkasUpdateUpper(result *ArithmeticResult, models *O
 				if err != nil {
 					return lbool.Undef, err
 				}
-				if err = optProgress(2, "(optsmt lower bound for v"+strconv.Itoa(v)+" := "+infEpsText(&upper)+")\n"); err != nil {
+				text := infEpsText(&o, upper)
+				if err = o.joined(optProgress(2, "(optsmt lower bound for v"+strconv.Itoa(v)+" := "+text+")\n")); err != nil {
 					return lbool.Undef, err
 				}
 			}
-			s.setOptLower(i, mid[k])
+			s.setOptLower(&o, i, &mid[k])
+			if !o.ok() {
+				return lbool.Undef, nil
+			}
 			if err = s.backend.EnableObjectiveConflictRecording(index, ast.ASTHandle{}); err != nil {
 				return lbool.Undef, err
 			}
@@ -180,22 +202,28 @@ func (s *ArithmeticSolver) farkasUpdateUpper(result *ArithmeticResult, models *O
 			}
 		case lbool.False:
 			minimum, finite, err := s.backend.ObjectiveConflictMinimize(index)
+			// The conflict minimum is a temporary.
+			defer o.infDel(&minimum)
 			if err != nil {
 				return lbool.Undef, err
 			}
 			// IF_VERBOSE(2, "(optsmt conflict: " << th.conflict_minimize() << ") \n").
 			if diagnostic.VerboseProgress {
-				if err = optProgress(2, "(optsmt conflict: "+infEpsText(&minimum)+") \n"); err != nil {
+				text := infEpsText(&o, &minimum)
+				if err = o.joined(optProgress(2, "(optsmt conflict: "+text+") \n")); err != nil {
 					return lbool.Undef, err
 				}
 			}
 			if !finite {
 				// bounds is not in the core. The context is unsat.
-				s.setOptUpper(i, lower)
+				s.setOptUpper(&o, i, lower)
 				return lbool.False, nil
 			}
-			if minimum.Cmp(&upper) < 0 {
-				s.setOptUpper(i, minimum)
+			if o.infCmp(&minimum, upper) < 0 {
+				s.setOptUpper(&o, i, &minimum)
+			}
+			if !o.ok() {
+				return lbool.Undef, nil
 			}
 		default:
 			if err = s.backend.EnableObjectiveConflictRecording(index, ast.ASTHandle{}); err != nil {
@@ -301,7 +329,7 @@ func (s *ArithmeticSolver) symbaRounds(result *ArithmeticResult, models *OptsmtM
 	}
 	for k := range s.objectives {
 		upper := s.optUpperOf(s.boxOrigin(k))
-		ge, err := s.backend.OptimizationObjectiveGE(s.objectives[k].backendIndex, s.filter, upper)
+		ge, err := s.backend.OptimizationObjectiveGE(s.objectives[k].backendIndex, s.filter, *upper)
 		if err != nil {
 			return lbool.Undef, err
 		}
@@ -380,6 +408,14 @@ func (s *ArithmeticSolver) symbaRounds(result *ArithmeticResult, models *OptsmtM
 		if err != nil {
 			return lbool.Undef, err
 		}
+		// get_objective_values(): copies that die with the round.
+		defer func() {
+			o := newRatOps(m)
+			for k := range values {
+				o.infDel(&values[k].Finite)
+			}
+			resultErr = o.joined(resultErr)
+		}()
 		// m_s->get_model(m_model)
 		if err = s.replaceModel(result); err != nil {
 			return lbool.Undef, err
@@ -408,7 +444,11 @@ func (s *ArithmeticSolver) symbaRounds(result *ArithmeticResult, models *OptsmtM
 				continue
 			}
 			i := s.boxOrigin(k)
-			s.setOptLower(i, s.optUpperOf(i))
+			o := newRatOps(m)
+			s.setOptLower(&o, i, s.optUpperOf(i))
+			if !o.ok() {
+				return lbool.Undef, o.err
+			}
 			falsity, err := m.MkFalse()
 			if err != nil {
 				return lbool.Undef, err

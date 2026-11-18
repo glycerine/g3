@@ -5,14 +5,15 @@ package opt
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// ArithmeticValueExpression converts c*infinity+a+b*epsilon into an owned AST
-// reference suitable for SMT-LIB objective display.
+// ArithmeticValueExpression converts c*infinity+a+b*epsilon (a value of the
+// AST manager's rational manager) into an owned AST reference suitable for
+// SMT-LIB objective display.
 func ArithmeticValueExpression(m *ast.ASTManager, value *simplex.Infinitesimal, integer bool) (_ ast.ASTRef, result error) {
 	if m == nil || value == nil {
 		return ast.ASTRef{}, ast.ErrASTHandle
@@ -36,7 +37,9 @@ func ArithmeticValueExpression(m *ast.ASTManager, value *simplex.Infinitesimal, 
 		args = append(args, h)
 		return nil
 	}
-	coefficientTerm := func(coefficient *big.Rat, name string, termInteger bool) (ast.ASTHandle, error) {
+	o := newRatOps(m)
+	defer func() { result = o.joined(result) }()
+	coefficientTerm := func(coefficient *numeral.Rational, name string, termInteger bool) (ast.ASTHandle, error) {
 		family, err := m.ArithmeticFamilyID()
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -54,10 +57,10 @@ func ArithmeticValueExpression(m *ast.ASTManager, value *simplex.Infinitesimal, 
 			return ast.ASTHandle{}, err
 		}
 		term, err := m.MkConst(symbol, sort)
-		if err != nil || coefficient.Cmp(big.NewRat(1, 1)) == 0 {
+		if err != nil || o.isOne(coefficient) {
 			return term, err
 		}
-		numeral, err := m.ArithmeticNumeralRat(coefficient, termInteger)
+		numeral, err := m.ArithmeticNumeralFromRational(coefficient, termInteger)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -66,19 +69,19 @@ func ArithmeticValueExpression(m *ast.ASTManager, value *simplex.Infinitesimal, 
 	// bool is_int = eps.is_zero() && r.is_int(): from the value, not the
 	// objective's sort.
 	_ = integer
-	integer = value.Epsilon.Sign() == 0 && value.Main.IsInt()
-	if value.Infinity.Sign() != 0 {
+	integer = o.sign(&value.Epsilon) == 0 && o.isInt(&value.Main)
+	if o.sign(&value.Infinity) != 0 {
 		term, err := coefficientTerm(&value.Infinity, "oo", integer)
 		if err = hold(term, err); err != nil {
 			return ast.ASTRef{}, err
 		}
 	}
-	if value.Main.Sign() != 0 {
-		if err := hold(m.ArithmeticNumeralRat(&value.Main, integer)); err != nil {
+	if o.sign(&value.Main) != 0 {
+		if err := hold(m.ArithmeticNumeralFromRational(&value.Main, integer)); err != nil {
 			return ast.ASTRef{}, err
 		}
 	}
-	if value.Epsilon.Sign() != 0 {
+	if o.sign(&value.Epsilon) != 0 {
 		term, err := coefficientTerm(&value.Epsilon, "epsilon", false)
 		if err = hold(term, err); err != nil {
 			return ast.ASTRef{}, err
@@ -88,7 +91,8 @@ func ArithmeticValueExpression(m *ast.ASTManager, value *simplex.Infinitesimal, 
 	var err error
 	switch len(args) {
 	case 0:
-		expression, err = m.ArithmeticNumeralRat(new(big.Rat), true)
+		zero := numeral.NewRational()
+		expression, err = m.ArithmeticNumeralFromRational(&zero, true)
 	case 1:
 		expression = args[0]
 	default:

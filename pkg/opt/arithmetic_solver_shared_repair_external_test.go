@@ -1,6 +1,7 @@
 package opt_test
 
 import (
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"testing"
 
@@ -108,7 +109,7 @@ func TestArithmeticSolverSharedObjectiveRepairsStrictSupremum(t *testing.T) {
 		t.Fatal("shared repair result", result.Status, result.Optimal, result.Model)
 	}
 	value := result.Values[0].Arithmetic
-	if value.Unbounded || value.Finite.Main.Cmp(big.NewRat(5, 1)) != 0 || value.Finite.Epsilon.Cmp(big.NewRat(-1, 1)) != 0 {
+	if value.Unbounded || bigOfSmall(&value.Finite.Main).Cmp(big.NewRat(5, 1)) != 0 || bigOfSmall(&value.Finite.Epsilon).Cmp(big.NewRat(-1, 1)) != 0 {
 		t.Fatal("local unattainable maximum was not decremented", value)
 	}
 	decl, err := m.GetDecl(x)
@@ -127,4 +128,12 @@ func TestArithmeticSolverSharedObjectiveRepairsStrictSupremum(t *testing.T) {
 	if !matched || !ok || number.Cmp(big.NewRat(5, 1)) >= 0 {
 		t.Fatal("repair published an invalid shared assignment", text)
 	}
+}
+
+// bigOfSmall reads a small (inline) rational of a test value as math/big.
+func bigOfSmall(r *unumeral.Rational) *big.Rat {
+	if !r.IsSmall() {
+		panic("test helper read a big rational")
+	}
+	return big.NewRat(int64(r.Num.Val), int64(r.Den.Val))
 }

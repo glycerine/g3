@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lp"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTLRATheory) AddObjective(term ast.ASTHandle) (SMTTheoryVar, error) {
@@ -42,15 +42,46 @@ func (t *SMTLRATheory) AddObjective(term ast.ASTHandle) (SMTTheoryVar, error) {
 	return t.internalizeDef(term)
 }
 
-func (t *SMTLRATheory) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObjectiveValue, error) {
-	if _, err := t.State(); err != nil {
-		return SMTArithmeticObjectiveValue{}, err
-	}
-	value, err := t.rawLRAValue(v)
-	return SMTArithmeticObjectiveValue{Finite: value}, err
+// astQ is the AST manager's rational manager (z3's rational values); the
+// LRA's own numerals live on t.numerals.
+func (t *SMTLRATheory) astQ() *numeral.RationalManager {
+	return t.state.manager.NumeralService().Manager
 }
 
-func (t *SMTLRATheory) objectiveBlocker(v SMTTheoryVar, value simplex.Infinitesimal) (result ast.ASTHandle, resultErr error) {
+// objectiveValueOut copies an inf_eps of the LRA's rational manager into a
+// fresh value of the AST manager's, which the caller owns, and frees v.
+func (t *SMTLRATheory) objectiveValueOut(v *simplex.Infinitesimal, cause error) (SMTArithmeticObjectiveValue, error) {
+	out := simplex.ZeroInfinitesimal()
+	if cause == nil {
+		cause = out.CopyFrom(t.astQ(), t.numerals, v)
+	}
+	return SMTArithmeticObjectiveValue{Finite: out}, smtErrJoin(cause, v.Del(t.numerals))
+}
+
+// ObjectiveValue is value(v): inf_eps(get_ivalue(v)), owned by the caller.
+func (t *SMTLRATheory) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObjectiveValue, error) {
+	if _, err := t.State(); err != nil {
+		return SMTArithmeticObjectiveValue{Finite: simplex.ZeroInfinitesimal()}, err
+	}
+	value, err := t.rawLRAValue(v)
+	return t.objectiveValueOut(&value, err)
+}
+
+// lraNumeral is a.mk_numeral(r, is_int) for a rational r of the LRA's
+// manager: the numeral is made from a copy on the AST manager's.
+func (t *SMTLRATheory) lraNumeral(c *smtLRAAxiomCall, r *numeral.Rational, integer bool) (ast.ASTHandle, error) {
+	q := t.astQ()
+	copied := smtQZero()
+	err := q.CopyFrom(&copied, t.numerals, r)
+	var h ast.ASTHandle
+	if err == nil {
+		h, err = c.hold(t.state.manager.ArithmeticNumeralFromRational(&copied, integer))
+	}
+	return h, smtErrJoin(err, smtQDel(q, &copied))
+}
+
+// objectiveBlocker is mk_gt(v, val) for val on the LRA's rational manager.
+func (t *SMTLRATheory) objectiveBlocker(v SMTTheoryVar, value *simplex.Infinitesimal) (result ast.ASTHandle, resultErr error) {
 	node, err := t.Enode(v)
 	if err != nil {
 		return result, err
@@ -65,17 +96,28 @@ func (t *SMTLRATheory) objectiveBlocker(v SMTTheoryVar, value simplex.Infinitesi
 	}
 	c := &smtLRAAxiomCall{owner: t}
 	defer func() { resultErr = errors.Join(resultErr, c.close()) }()
-	r := new(big.Rat).Set(&value.Main)
+	q := t.numerals
+	r := smtQZero()
+	defer func() { resultErr = smtErrJoin(resultErr, smtQDel(q, &r)) }()
+	if err = q.Copy(&r, &value.Main); err != nil {
+		return result, err
+	}
 	op := smtArithOpGT
 	if kind == 1 {
-		n := floorSMTRational(r)
-		n.Add(n, big.NewInt(1))
-		r.SetInt(n)
+		// r = floor(r) + 1
+		if err = q.Floor(&r, &r); err == nil {
+			err = q.Inc(&r)
+		}
+		if err != nil {
+			return result, err
+		}
 		op = smtArithOpGE
-	} else if value.Epsilon.Sign() < 0 {
+	} else if sign, err := q.Sign(&value.Epsilon); err != nil {
+		return result, err
+	} else if sign < 0 {
 		op = smtArithOpGE
 	}
-	bound, err := c.hold(t.state.manager.ArithmeticNumeralRat(r, kind == 1))
+	bound, err := t.lraNumeral(c, &r, kind == 1)
 	if err != nil {
 		return result, err
 	}
@@ -87,7 +129,15 @@ func (t *SMTLRATheory) objectiveBlocker(v SMTTheoryVar, value simplex.Infinitesi
 	}
 	err = t.emitLRATag("opt", "mk_gt", 2392, func(out io.Writer) error {
 		// The source operand is lp::impq (numeric_pair), not inf_rational.
-		if err := smtWriteTheoryText(out, fmt.Sprintf("v%d (%s, %s) %s ", v, value.Main.RatString(), value.Epsilon.RatString(), r.RatString())); err != nil {
+		var texts [3]string
+		for i, x := range []*numeral.Rational{&value.Main, &value.Epsilon, &r} {
+			text, err := q.String(x)
+			if err != nil {
+				return err
+			}
+			texts[i] = text
+		}
+		if err := smtWriteTheoryText(out, fmt.Sprintf("v%d (%s, %s) %s ", v, texts[0], texts[1], texts[2])); err != nil {
 			return err
 		}
 		if err := t.displayLRAExpression(out, result); err != nil {
@@ -103,6 +153,10 @@ func (t *SMTLRATheory) MaximizeObjective(v SMTTheoryVar) (value SMTArithmeticObj
 		return
 	}
 	value, resultErr = t.numeric.maximize(v)
+	// The maximum crosses to the AST manager's rationals for the caller.
+	if !value.Unbounded {
+		value, resultErr = t.objectiveValueOut(&value.Finite, resultErr)
+	}
 	if resultErr != nil {
 		return
 	}
@@ -121,11 +175,10 @@ func (t *SMTLRATheory) MaximizeObjective(v SMTTheoryVar) (value SMTArithmeticObj
 		return
 	}
 	current, err := t.rawLRAValue(v)
-	if err != nil {
-		resultErr = err
-		return
+	if err == nil {
+		blocker, err = t.objectiveBlocker(v, &current)
 	}
-	blocker, resultErr = t.objectiveBlocker(v, current)
+	resultErr = smtErrJoin(err, current.Del(t.numerals))
 	return
 }
 
@@ -162,12 +215,7 @@ func (t *SMTLRATheory) objectiveExpression(c *smtLRAAxiomCall, v SMTTheoryVar) (
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		r, err := t.numeric.rational(coefficient)
-		if err != nil {
-			t.numeric.stopped = true
-			return ast.ASTHandle{}, err
-		}
-		numeral, err := c.hold(t.state.manager.ArithmeticNumeralRat(r, kind == 1))
+		numeral, err := t.lraNumeral(c, coefficient, kind == 1)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -177,12 +225,7 @@ func (t *SMTLRATheory) objectiveExpression(c *smtLRAAxiomCall, v SMTTheoryVar) (
 		}
 		args = append(args, product)
 	}
-	constant, err := t.numeric.rational(&term.Value)
-	if err != nil {
-		t.numeric.stopped = true
-		return ast.ASTHandle{}, err
-	}
-	numeral, err := c.hold(t.state.manager.ArithmeticNumeralRat(constant, kind == 1))
+	numeral, err := t.lraNumeral(c, &term.Value, kind == 1)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -197,7 +240,10 @@ func (t *SMTLRATheory) MakeObjectiveLowerBound(filter *tactic.FilterModelConvert
 	if filter == nil {
 		return result, ast.ErrASTHandle
 	}
-	if value.Infinity.Sign() != 0 {
+	q := t.astQ()
+	if finite, err := q.IsZero(&value.Infinity); err != nil {
+		return result, err
+	} else if !finite {
 		return result, ast.ErrASTDomain
 	}
 	if err := t.numeric.ready(); err != nil {
@@ -219,7 +265,7 @@ func (t *SMTLRATheory) MakeObjectiveLowerBound(filter *tactic.FilterModelConvert
 	defer func() { resultErr = errors.Join(resultErr, c.close()) }()
 	// a.mk_ge(mk_obj(v), a.mk_numeral(r, is_int)): GCC evaluates the
 	// numeral argument first.
-	bound, err := c.hold(t.state.manager.ArithmeticNumeralRat(&value.Main, kind == 1))
+	bound, err := c.hold(t.state.manager.ArithmeticNumeralFromRational(&value.Main, kind == 1))
 	if err != nil {
 		return result, err
 	}
@@ -227,7 +273,11 @@ func (t *SMTLRATheory) MakeObjectiveLowerBound(filter *tactic.FilterModelConvert
 	if err != nil {
 		return result, err
 	}
-	strict := value.Epsilon.Sign() > 0
+	epsilon, err := q.Sign(&value.Epsilon)
+	if err != nil {
+		return result, err
+	}
+	strict := epsilon > 0
 	op := smtArithOpGE
 	if strict {
 		op = smtArithOpLE
@@ -252,8 +302,8 @@ func (t *SMTLRATheory) MakeObjectiveLowerBound(filter *tactic.FilterModelConvert
 			return result, err
 		}
 		b := &smtLRABound{boolean: bv, variable: v, upper: strict, value: smtQZero()}
-		// The optimization value is a math/big simplex value (a boundary).
-		if err = t.numerals.SetBigRat(&b.value, &value.Main); err != nil {
+		// The bound's rational lives on the LRA's rational manager.
+		if err = t.numerals.CopyFrom(&b.value, q, &value.Main); err != nil {
 			return result, err
 		}
 		// Publish ownership before the fallible axiom work, as InternalizeAtom
