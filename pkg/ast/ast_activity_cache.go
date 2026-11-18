@@ -182,8 +182,7 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 	}
 	entry := c.table.find(k, hash)
 	if entry == nil {
-		entry = &astActivityEntry{key: k, hash: hash, dummy: true}
-		c.table.insert(entry)
+		entry = c.table.insert(astActivityEntry{key: k, hash: hash, dummy: true})
 	}
 	if entry.dummy {
 		if e := m.IncRef(k); e != nil {

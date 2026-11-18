@@ -14,9 +14,11 @@ const (
 	activityChashFree       = -2 // cell::m_next == reinterpret_cast<cell*>(1)
 )
 
+// Cells hold their entries, as the source's cells hold key and value; an
+// entry pointer is valid until the next insert or erase.
 type activityChashCell struct {
 	next  int32
-	entry *astActivityEntry
+	entry astActivityEntry
 }
 
 type activityChashtable struct {
@@ -130,7 +132,7 @@ func (t *activityChashtable) find(k ASTHandle, hash uint32) *astActivityEntry {
 		return nil
 	}
 	for ; c != activityChashNil; c = t.cells[c].next {
-		if entry := t.cells[c].entry; entry.key == k {
+		if entry := &t.cells[c].entry; entry.key == k {
 			return entry
 		}
 	}
@@ -139,7 +141,7 @@ func (t *activityChashtable) find(k ASTHandle, hash uint32) *astActivityEntry {
 
 // insert is insert_if_not_there for a key known to be absent: a colliding
 // entry becomes the chain head and the old head moves to a cellar cell.
-func (t *activityChashtable) insert(entry *astActivityEntry) {
+func (t *activityChashtable) insert(entry astActivityEntry) *astActivityEntry {
 	if !t.hasFreeCells() {
 		t.expandTable()
 	}
@@ -148,12 +150,13 @@ func (t *activityChashtable) insert(entry *astActivityEntry) {
 		t.size++
 		t.usedSlots++
 		t.cells[idx] = activityChashCell{next: activityChashNil, entry: entry}
-		return
+		return &t.cells[idx].entry
 	}
 	t.size++
 	c := t.getFreeCell()
 	t.cells[c] = t.cells[idx]
 	t.cells[idx] = activityChashCell{next: c, entry: entry}
+	return &t.cells[idx].entry
 }
 
 func (t *activityChashtable) erase(entry *astActivityEntry) {
@@ -163,7 +166,7 @@ func (t *activityChashtable) erase(entry *astActivityEntry) {
 	}
 	prev := int32(activityChashNil)
 	for c != activityChashNil {
-		if t.cells[c].entry == entry {
+		if &t.cells[c].entry == entry {
 			t.size--
 			if prev == activityChashNil {
 				next := t.cells[c].next
@@ -192,7 +195,7 @@ func (t *activityChashtable) each(visit func(*astActivityEntry) error) error {
 			continue
 		}
 		for it := i; it != activityChashNil; it = t.cells[it].next {
-			if e := visit(t.cells[it].entry); e != nil {
+			if e := visit(&t.cells[it].entry); e != nil {
 				return e
 			}
 		}
