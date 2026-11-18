@@ -233,6 +233,20 @@ func (m *MultivariatePolynomialManager) evaluationAlgebraicCall(op uint8, a, b *
 			cause = errors.Join(cause, e)
 		}
 	}()
+	// t_eval's ValManager is the public algebraic_numbers::manager, whose
+	// add/mul/power wrap the imp calls in TRACE("anum_detail") records.
+	if w := vm.manager; w != nil {
+		switch op {
+		case polynomialEvalAddInteger:
+			return w.AddInteger(a, n, out)
+		case polynomialEvalAdd:
+			return w.Add(a, b, out)
+		case polynomialEvalPower:
+			return w.Power(a, k, out)
+		case polynomialEvalMultiply:
+			return w.Mul(a, b, out)
+		}
+	}
 	switch op {
 	case polynomialEvalSet:
 		return vm.SetInteger(out, n)

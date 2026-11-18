@@ -871,66 +871,6 @@ func (m *MultivariatePolynomialManager) ComposeXPlusY(p Polynomial, y uint32, r 
 	}
 	return m.composeBody(p, m.composition.local.value, r)
 }
-func (m *MultivariatePolynomialManager) ComposeXMinusConstant(p Polynomial, a *unumeral.Int, r *PolynomialRef) (cause error) {
-	if e := m.ready(); e != nil {
-		return e
-	}
-	if e := m.compositionOutput(r); e != nil {
-		return e
-	}
-	if e := m.compositionUnivariate(p, 4872); e != nil {
-		return e
-	}
-	zero, e := m.core.modular.IsZero(a)
-	if e != nil {
-		return e
-	}
-	if zero {
-		return r.Assign(p)
-	}
-	x, e := m.core.MaxVariable(p)
-	if e != nil {
-		return e
-	}
-	if e = m.beginComposition(); e != nil {
-		return e
-	}
-	defer func() { cause = m.finishComposition(cause) }()
-	s := &m.composition
-	s.localCompleted = true
-	s.rawMask = 3
-	if e = m.compositionNumeral(0, a, 0, &s.raw[0]); e != nil {
-		return e
-	}
-	if e = m.compositionNumeral(3, nil, 1, &s.raw[1]); e != nil {
-		return e
-	}
-	if e = m.compositionNumeral(1, nil, 0, &s.raw[0]); e != nil {
-		return e
-	}
-	q, e := m.core.MkUnivariateTake(x, 1, s.raw[:2])
-	if e != nil {
-		return e
-	}
-	// Explicit RAW source Del actions occur before returning x-c to its ref.
-	if _, e = upolynomialSourceNumeralDel(m.core.integer, &s.raw[0]); e != nil {
-		s.stopped = true
-		s.sourceCause = e
-		return e
-	}
-	s.rawMask &^= 1
-	if _, e = upolynomialSourceNumeralDel(m.core.integer, &s.raw[1]); e != nil {
-		s.stopped = true
-		s.sourceCause = e
-		return e
-	}
-	s.rawMask &^= 2
-	if e = m.compositionAssignLocal(q); e != nil {
-		return e
-	}
-	return m.composeBody(p, s.local.value, r)
-}
-
 func (m *MultivariatePolynomialManager) compositionHasOrphans() bool {
 	for _, a := range m.composition.orphans {
 		if a != (Monomial{}) {

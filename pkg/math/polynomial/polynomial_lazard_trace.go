@@ -2,7 +2,10 @@ package polynomial
 
 // Source: src/math/polynomial/polynomial.cpp:5661,5671,5682,5688,5691.
 
-import "io"
+import (
+	"io"
+	"strconv"
+)
 
 func (m *MultivariatePolynomialCore) emitLazardTrace(line int, body func(*polynomialTraceSink) error) error {
 	tags := m.monomials.monomialTraceTags()
@@ -65,9 +68,16 @@ func (m *MultivariatePolynomialCore) traceLazardFinal(c, y Polynomial) error {
 		if e := m.gcdPRSTracePolynomial(sink, "C: ", c); e != nil {
 			return e
 		}
-		if e := m.gcdPRSTracePolynomial(sink, "\nY: ", y); e != nil {
-			return e
-		}
+		// Y is a raw polynomial const *: no operator<< for it is found by
+		// lookup, so ostream::operator<<(const void*) prints its address.
+		// The handle stands in for the address; the polynomial is not read.
+		_ = sink.WriteLiteral("\nY: ")
+		_ = sink.WriteLiteral(lazardPointerToken(y))
 		return sink.WriteLiteral("\n")
 	})
+}
+
+// lazardPointerToken is the "0x..." shape of a printed pointer.
+func lazardPointerToken(p Polynomial) string {
+	return "0x" + strconv.FormatUint(p.owner<<32|uint64(p.slot), 16)
 }

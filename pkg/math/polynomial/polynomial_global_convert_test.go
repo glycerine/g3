@@ -368,3 +368,29 @@ func TestPolynomialGlobalConvertFactoryForeignReplacement(t *testing.T) {
 		t.Fatal("actual final factory refusal not exercised")
 	}
 }
+
+// monomial_manager::convert -> mk_monomial(sz, pws) -> tmp_monomial::init
+// grows the temporary (increase_capacity(sz * 2)), so a monomial with more
+// powers than the initial capacity converts (AUDIT math_polynomial_05-F2).
+func TestMonomialConvertWideMonomialGrowsScratch(t *testing.T) {
+	source, target := monomialFixture(t), monomialFixture(t)
+	xs := make([]uint32, 200)
+	for i := range xs {
+		v, e := source.MkVar()
+		serviceMust(t, e)
+		xs[i] = v
+	}
+	a, e := source.MkFromVariables(xs)
+	serviceMust(t, e)
+	serviceMust(t, source.IncRef(a))
+	t.Cleanup(func() { serviceMust(t, source.DecRef(a)) })
+	r, e := target.Convert(source, a)
+	serviceMust(t, e)
+	serviceMust(t, target.IncRef(r))
+	t.Cleanup(func() { serviceMust(t, target.DecRef(r)) })
+	info, e := target.Info(r)
+	serviceMust(t, e)
+	if info.Size != 200 || info.TotalDegree != 200 {
+		t.Fatal("wide converted monomial", info)
+	}
+}

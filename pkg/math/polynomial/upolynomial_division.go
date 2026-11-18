@@ -4,6 +4,8 @@ package polynomial
 // Source: src/math/polynomial/upolynomial.cpp:403-651; outputs keep completed prefixes.
 
 import (
+	"io"
+
 	"github.com/glycerine/g3/pkg/arena"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
@@ -43,6 +45,9 @@ func (m *UPolynomialManager) divScalarWithSourceContext(v UPolynomialView, b *un
 		if e != nil {
 			return e
 		}
+		if e = m.traceDivScalarNotDivides(b, x, context); e != nil {
+			return e
+		}
 		enabled, e = refinementSourceAssertionsEnabled()
 		if e != nil {
 			return e
@@ -62,6 +67,33 @@ func (m *UPolynomialManager) divScalarWithSourceContext(v UPolynomialView, b *un
 			return e
 		}
 	}
+	return nil
+}
+// traceDivScalarNotDivides is CTRACE("upolynomial", !m().divides(b, p[i]),
+// tout << "b: " << m().to_string(b) << ", p[i]: " << m().to_string(p[i])
+// << "\n";) of core_manager::div (upolynomial.cpp:408). The condition is
+// evaluated only when the tag is enabled.
+func (m *UPolynomialManager) traceDivScalarNotDivides(b, x *unumeral.Int, context integerAllocationInvocationContext) error {
+	tags := m.modular.BorrowTraceTags()
+	if !tags.ShouldTrace("upolynomial") {
+		return nil
+	}
+	ok, e := numericIntegerModularManager_dividesWithHenselContext(m.modular, b, x, context)
+	if e != nil || ok {
+		return e
+	}
+	bText, e := m.modular.String(b)
+	if e != nil {
+		return e
+	}
+	xText, e := m.modular.String(x)
+	if e != nil {
+		return e
+	}
+	_ = tags.EmitConditional("upolynomial", "div", "src/math/polynomial/upolynomial.cpp", 408, func() bool { return true }, func(w io.Writer) error {
+		_, err := io.WriteString(w, "b: "+bText+", p[i]: "+xText+"\n")
+		return err
+	})
 	return nil
 }
 func (m *UPolynomialManager) DivScalar(p UPolynomial, b *unumeral.Int) error {

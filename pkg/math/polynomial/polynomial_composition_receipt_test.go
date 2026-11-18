@@ -14,7 +14,7 @@ import (
 )
 
 func TestPolynomialCompositionEveryReservation(t *testing.T) {
-	for op := 0; op < 8; op++ {
+	for op := 0; op < 7; op++ {
 		t.Run(fmt.Sprint(op), func(t *testing.T) {
 			success := false
 			for ordinal := int64(0); ordinal < 150; ordinal++ {
@@ -44,8 +44,6 @@ func TestPolynomialCompositionEveryReservation(t *testing.T) {
 					case 5:
 						e = m.ComposeXPlusY(p, 2, r)
 					case 6:
-						e = m.ComposeXMinusConstant(p, &c, r)
-					case 7:
 						e = m.Compose(p, m.core.unit, r)
 					}
 					polys := []Polynomial{p, r.root.value, r.root.incoming}
@@ -54,7 +52,7 @@ func TestPolynomialCompositionEveryReservation(t *testing.T) {
 					}
 					polynomialImpPhysicalAuditNamed(t, m, polys, []*unumeral.Int{&c}, r.header)
 					if e == nil {
-						if op == 7 {
+						if op == 6 {
 							a, x := m.core.coefficientCore(r.root.value, 0)
 							serviceMust(t, x)
 							if (a).Cell != 0 || a.NativeScalar() != 4 {
@@ -406,11 +404,6 @@ func TestPolynomialCompositionEarlyRoutesPreserveOlderContext(t *testing.T) {
 	if r.root.value != m.core.unit || m.composition.bodyCause != old || !m.composition.active {
 		t.Fatal("constant early route read/replaced old context")
 	}
-	zero := unumeral.Int{}
-	serviceMust(t, m.ComposeXMinusConstant(p, &zero, r))
-	if r.root.value != p || m.composition.bodyCause != old {
-		t.Fatal("zero-c route changed source context")
-	}
 	serviceMust(t, m.ComposeXMinusY(p, 0, r))
 	a, e := m.core.coefficientCore(r.root.value, 0)
 	serviceMust(t, e)
@@ -604,46 +597,6 @@ func TestPolynomialCompositionDeletionCallbackOwnsForeignContinuation(t *testing
 		t.Fatal("owning composition abort consumed foreign callback state")
 	}
 	polynomialImpPhysicalAuditNamed(t, m, []Polynomial{p, r.root.value, r.root.incoming}, nil, r.header+h.header)
-}
-
-func TestPolynomialCompositionNumericPendingForeignReplacement(t *testing.T) {
-	b := arena.NewBudget(1 << 25)
-	q, e := unumeral.NewRationalManager(unumeral.RationalConfig{Integers: unumeral.IntegerConfig{Cells: arena.Config{PageSize: 8, SlotLimit: 8, Budget: b}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: b}}, Profile: umemory.SmallAllocatorProfile{PointerBits: 64, Debug: true}}})
-	serviceMust(t, e)
-	t.Cleanup(func() {
-		serviceMust(t, q.CloseChecked())
-		if b.Used() != 0 {
-			t.Fatal("actual whole owned graph refund", b.Used())
-		}
-	})
-	m, p, _ := polynomialEvalFixtureWithRationals(t, q, []polynomialEvalTerm{{1, [3]uint32{1, 0, 0}}})
-	r, e := NewPolynomialRef(m.core)
-	serviceMust(t, e)
-	out := unumeral.NewInt(11)
-	defer func() {
-		serviceMust(t, m.CleanupComposition())
-		serviceMust(t, q.Integers().CleanupPendingAllocation())
-		serviceMust(t, q.Integers().Del(&out))
-		serviceMust(t, r.Close())
-	}()
-	cause := m.ComposeXMinusConstant(p, &q.Integers().Two64, r)
-	polynomialImpPhysicalAuditNamed(t, m, []Polynomial{p, r.root.value, r.root.incoming}, []*unumeral.Int{&out}, r.header)
-	if !errors.Is(cause, arena.ErrSlotLimit) || q.Integers().PendingCell.Object == (umemory.ObjectRef{}) || m.composition.numericPending != q.Integers().PendingCell.Object {
-		t.Fatal("actual raw coefficient Copy pending receipt", cause, q.Integers().PendingCell)
-	}
-	old := q.Integers().PendingCell
-	serviceMust(t, q.Integers().CleanupPendingAllocation())
-	cause = q.Integers().Copy(&out, &q.Integers().Two64)
-	if !errors.Is(cause, arena.ErrSlotLimit) || q.Integers().PendingCell.Object == (umemory.ObjectRef{}) || q.Integers().PendingCell.Object == old.Object {
-		t.Fatal("real later allocation generation", cause, q.Integers().PendingCell)
-	}
-	later := q.Integers().PendingCell
-	polynomialImpPhysicalAuditNamed(t, m, []Polynomial{p, r.root.value, r.root.incoming}, []*unumeral.Int{&out}, r.header)
-	serviceMust(t, m.CleanupComposition())
-	if q.Integers().PendingCell != later {
-		t.Fatal("old ObjectRef receipt swept later full backing")
-	}
-	polynomialImpPhysicalAuditNamed(t, m, []Polynomial{p, r.root.value, r.root.incoming}, []*unumeral.Int{&out}, r.header)
 }
 
 func TestPolynomialCompositionUnsignedDegreeConstructorStop(t *testing.T) {

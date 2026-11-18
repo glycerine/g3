@@ -3,6 +3,7 @@ package polynomial
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -27,10 +28,13 @@ func TestPolynomialLazardSourceTraceAllBranches(t *testing.T) {
 			record(5671, "a: 2\n") +
 			record(5682, "loop a: 1\nC : 1\n") +
 			record(5688, "if, C: 1\n") +
-			record(5691, "C: 1\nY: 1\n")
+			record(5691, "C: 1\nY: "+lazardPointerToken(m.unit)+"\n")
 	}
 	if output.String() != want {
 		t.Fatalf("Lazard source trace: got %q, want %q", output.String(), want)
+	}
+	if tags.ShouldTrace("Lazard") && !regexp.MustCompile(`\nY: 0x[0-9a-f]+\n-+\n$`).MatchString(output.String()) {
+		t.Fatal("Y is not printed as a pointer", output.String())
 	}
 	output.Reset()
 	// The entry TRACE precedes even the n==0 shortcut.
@@ -58,4 +62,6 @@ func TestPolynomialLazardSourceTraceAllBranches(t *testing.T) {
 	if !tags.ShouldTrace("Lazard") {
 		serviceMust(t, e)
 	}
+	// The final record prints Y's address and does not format Y.
+	serviceMust(t, m.traceLazardFinal(m.unit, unread))
 }

@@ -124,7 +124,7 @@ func TestPolynomialCompositionIndependentFiniteAndAliases(t *testing.T) {
 			}
 			p := polynomialCompositionTerms(t, m, []polynomialEvalTerm{{3, [3]uint32{3, 0, 0}}, {-3, [3]uint32{1, 0, 0}}, {5, [3]uint32{}}})
 			q := polynomialCompositionTerms(t, m, []polynomialEvalTerm{{1, [3]uint32{1, 0, 0}}, {1, [3]uint32{0, 1, 0}}})
-			for op := 0; op < 8; op++ {
+			for op := 0; op < 7; op++ {
 				r, e := NewPolynomialRef(m.core)
 				serviceMust(t, e)
 				serviceMust(t, r.Assign(p))
@@ -145,8 +145,6 @@ func TestPolynomialCompositionIndependentFiniteAndAliases(t *testing.T) {
 				case 5:
 					e = m.ComposeXPlusY(p, 1, r)
 				case 6:
-					e = m.ComposeXMinusConstant(p, &c, r)
-				case 7:
 					e = m.Compose(p, q, r)
 				}
 				serviceMust(t, e)
@@ -163,10 +161,8 @@ func TestPolynomialCompositionIndependentFiniteAndAliases(t *testing.T) {
 							v = -x
 						case 4:
 							v = x - y
-						case 5, 7:
+						case 5, 6:
 							v = x + y
-						case 6:
-							v = x - 3
 						}
 						want := 3*v*v*v - 3*v + 5
 						if op == 0 {

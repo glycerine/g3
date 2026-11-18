@@ -406,3 +406,51 @@ func TestAlgebraicManagerDetailBorrowProtectsEntireStream(t *testing.T) {
 	serviceMust(t, m.Del(&b))
 	serviceMust(t, m.Del(&a))
 }
+
+// AUDIT.md math_polynomial_01-F2: t_eval's ValManager is the public
+// algebraic_numbers::manager, so evaluating at algebraic values emits the
+// manager::power/mul/add TRACE("anum_detail") records.
+func TestPolynomialEvaluationAlgebraicUsesManagerWrappers(t *testing.T) {
+	m := algebraicManagerDetailFixture(t)
+	c := m.AlgebraicRootCore
+	pm, p, _ := polynomialEvalFixtureWithRationals(t, c.config.Rationals, []polynomialEvalTerm{{3, [3]uint32{2, 1, 0}}, {-2, [3]uint32{1, 0, 1}}, {-1, [3]uint32{}}})
+	values := algebraicSignTestValues{}
+	var out Algebraic
+	defer func() {
+		serviceMust(t, c.Del(&out))
+		for i := range values.values {
+			serviceMust(t, c.Del(&values.values[i]))
+		}
+	}()
+	for i, n := range []int32{2, 3, 5} {
+		v := unumeral.NewInt(n)
+		serviceMust(t, m.SetInteger(&values.values[i], &v))
+	}
+	var text strings.Builder
+	tags := diagnostic.NewTraceTagsWithWriter(&text)
+	tags.Enable("anum_detail")
+	serviceMust(t, m.config.Numerals.BindTrace(tags))
+	e := pm.EvaluateAlgebraic(p, c, &values, &out)
+	serviceMust(t, m.config.Numerals.BindTrace(nil))
+	serviceMust(t, e)
+	q := unumeral.NewRational()
+	defer func() { serviceMust(t, m.config.Numerals.Del(&q)) }()
+	serviceMust(t, m.config.Numerals.SetInt64(&q, 3*2*2*3-2*2*5-1))
+	cmp, e := m.CompareRational(&out, &q)
+	serviceMust(t, e)
+	if cmp != 0 {
+		t.Fatal("evaluation result", cmp)
+	}
+	if !tags.ShouldTrace("anum_detail") {
+		return
+	}
+	s := text.String()
+	for _, want := range []string{"^ result: ", "* result: ", "+ result: "} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("missing %q record:\n%s", want, s)
+		}
+	}
+	if strings.Index(s, "^ result: ") > strings.Index(s, "* result: ") {
+		t.Fatalf("power does not precede mul:\n%s", s)
+	}
+}

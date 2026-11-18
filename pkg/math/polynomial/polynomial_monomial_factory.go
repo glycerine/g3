@@ -334,8 +334,35 @@ func (m *MonomialManager) convertCreated(source *MonomialManager, a Monomial, ou
 	if m.creation.stage != 0 {
 		return Monomial{}, ErrMonomialPending
 	}
-	// Source init copies all powers before interning. No hidden spelling slice.
+	// mk_monomial(sz, pws) asserts is_valid_power_product, then
+	// m_mk_tmp.init(sz, pws) grows the temporary (increase_capacity(sz * 2))
+	// and copies all powers before interning. No hidden spelling slice.
+	if enabled, x := monomialSourceAssertionsEnabled(); x != nil {
+		return Monomial{}, x
+	} else if enabled {
+		valid, x := source.validPowerProductCore(a, info.Size)
+		if x != nil {
+			return Monomial{}, x
+		}
+		if e = m.sourceScalarAssert(867, "is_valid_power_product(sz, pws)", valid); e != nil {
+			return Monomial{}, e
+		}
+	}
 	t := &m.temps[0]
+	if e = m.tempConstruct(t); e != nil {
+		return Monomial{}, e
+	}
+	if info.Size > t.capacity {
+		if info.Size > ^uint32(0)/2 {
+			return Monomial{}, arena.ErrBounds
+		}
+		if e = m.tempGrow(t, info.Size*2, false, 521); e != nil {
+			return Monomial{}, e
+		}
+	}
+	if e = m.sourceScalarAssert(549, "sz < m_capacity", info.Size < t.capacity); e != nil {
+		return Monomial{}, e
+	}
 	if e = m.tempSetSize(t, info.Size); e != nil {
 		return Monomial{}, e
 	}
