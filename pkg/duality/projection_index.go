@@ -78,6 +78,11 @@ func (x *projectionIndex) linear(positive bool, coefficient, h ast.ASTHandle, id
 		return nil
 	}
 	if family == p.family && (op == 6 || op == 7) {
+		// IndexLA's Sub case visits only arg(0) and arg(1) (AUDIT.md
+		// duality_02-F7).
+		if op == 7 && n > 2 {
+			n = 2
+		}
 		for i := uint32(0); i < n; i++ {
 			child, err := m.GetArg(h, i)
 			if err != nil {
@@ -93,7 +98,9 @@ func (x *projectionIndex) linear(positive bool, coefficient, h ast.ASTHandle, id
 		}
 		return nil
 	}
-	if family == p.family && op == 9 && n == 2 {
+	// Times: arg(0) is the coefficient when it is a numeral, else arg(1),
+	// whatever the arity (AUDIT.md duality_02-F7).
+	if family == p.family && op == 9 && n >= 2 {
 		a, err := m.GetArg(h, 0)
 		if err != nil {
 			return err
@@ -113,7 +120,7 @@ func (x *projectionIndex) linear(positive bool, coefficient, h ast.ASTHandle, id
 		if ak != 0 && bk != 0 {
 			return nil
 		}
-		if bk == 0 {
+		if ak != 0 {
 			a, b = b, a
 		}
 		product, err := p.app(9, coefficient, a)

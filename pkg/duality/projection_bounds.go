@@ -131,11 +131,13 @@ func (p *projectionArithmetic) canonical(literal ast.ASTHandle) (term, bound ast
 		if err != nil {
 			return term, bound, false, err
 		}
-		bound, err = p.normalized(bound)
+		// bound = -(arg1 - 1); term = -arg0; then both are simplified
+		// (AUDIT.md duality_02-F7).
+		term, err = p.app(8, lhs)
 		if err != nil {
 			return term, bound, false, err
 		}
-		term, err = p.app(8, lhs)
+		bound, err = p.normalized(bound)
 		if err != nil {
 			return term, bound, false, err
 		}
