@@ -303,3 +303,20 @@ func TestTseitinCheckpointCancelMessage(t *testing.T) {
 		t.Fatalf("checkpoint error = %v, want canceled", err)
 	}
 }
+
+// translate allocates a fresh tseitin_cnf_tactic: m_num_aux_vars starts at 0
+// (AUDIT tactic_core_02-F11).
+func TestTseitinTranslateStartsWithZeroStatistics(t *testing.T) {
+	m, c, g, services := solveEqFixture(t)
+	runner, err := NewTseitinCNFCoreTactic(m, c, g, nil, services)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	runner.numAux = 3
+	copied, err := runner.Translate(m)
+	simplifyMust(t, err)
+	tc := copied.(*TseitinCNFTactic)
+	t.Cleanup(func() { simplifyMust(t, tc.Close()) })
+	if n := tc.numAux; n != 0 {
+		t.Fatal("translated copy inherited the aux-var count", n)
+	}
+}

@@ -235,7 +235,7 @@ func (t *SymmetryReduceTactic) runSymmetry(goal *tactic.Goal) (err error) {
 				return e
 			}
 			term := terms[index]
-			terms = append(terms[:index], terms[index+1:]...)
+			terms = symmetryEraseFirst(terms, term)
 			used, e = t.symmetryUsed(term, used, constants)
 			if e != nil {
 				return e
@@ -301,4 +301,15 @@ func (t *SymmetryReduceTactic) mkMember(term ast.ASTHandle, constants []ast.ASTH
 		eqs = append(eqs, r)
 	}
 	return m.MkOrArgs(values)
+}
+
+// symmetryEraseFirst is T.erase(t): vector::erase(T const&) removes the
+// first element equal to t, not the index the selection returned.
+func symmetryEraseFirst(terms []ast.ASTHandle, term ast.ASTHandle) []ast.ASTHandle {
+	for i, h := range terms {
+		if h == term {
+			return append(terms[:i], terms[i+1:]...)
+		}
+	}
+	return terms
 }

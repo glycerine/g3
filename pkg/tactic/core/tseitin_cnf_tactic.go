@@ -265,11 +265,9 @@ func (t *TseitinCNFTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	r, err := NewTseitinCNFCoreTactic(m, t.context, t.globals, &t.params, t.services)
-	if err == nil {
-		r.numAux = t.numAux
-	}
-	return r, err
+	// translate is alloc(tseitin_cnf_tactic, m, m_params): a fresh imp
+	// whose m_num_aux_vars is 0.
+	return NewTseitinCNFCoreTactic(m, t.context, t.globals, &t.params, t.services)
 }
 func (t *TseitinCNFTactic) Close() error {
 	if t == nil || t.self != t {

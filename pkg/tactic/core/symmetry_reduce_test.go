@@ -519,3 +519,15 @@ func symmetryNormalizeForTest(r *SymmetryReduceTactic, saved *solveEquationFrame
 	}
 	return value, err
 }
+
+// symmetry_reduce removes the selected term with T.erase(t), which drops the
+// first occurrence of t (AUDIT tactic_core_02-F9).
+func TestSymmetryReduceEraseFirstOccurrence(t *testing.T) {
+	m, _, _, _ := solveEqFixture(t)
+	a := tseitinAtoms(t, m, 2)
+	tt, u := a[0], a[1]
+	got := symmetryEraseFirst([]ast.ASTHandle{tt, u, tt}, tt)
+	if len(got) != 2 || got[0] != u || got[1] != tt {
+		t.Fatal("erase must remove the first occurrence", got)
+	}
+}
