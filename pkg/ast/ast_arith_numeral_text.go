@@ -1,8 +1,6 @@
 package ast
 
 import (
-	"math/big"
-
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -54,41 +52,6 @@ func (m *ASTManager) ArithmeticNumeralIsZero(h ASTHandle) (bool, error) {
 		return raw.Num.Val == 0, nil
 	}
 	return m.numerals.IsZero(rational)
-}
-
-// ArithmeticNumeralBigRat is ArithmeticNumeralText followed by
-// big.Rat.SetString of the text, without the text when the numeral is small.
-// A text that does not parse reports ErrASTDomain with matched set.
-func (m *ASTManager) ArithmeticNumeralBigRat(h ASTHandle) (value *big.Rat, integer, matched bool, err error) {
-	if err = m.lock(); err != nil {
-		return
-	}
-	defer m.mu.Unlock()
-	rational, integer, matched, err := m.arithmeticNumeralParameter(h)
-	if err != nil || !matched {
-		return nil, integer, false, err
-	}
-	if raw := &rational.Raw; raw.Num.Cell == 0 && raw.Den.Cell == 0 && raw.Den.Val > 0 {
-		if raw.Den.Val == 1 {
-			// An integer needs no normalization; big.NewRat would run a GCD.
-			return new(big.Rat).SetInt64(int64(raw.Num.Val)), integer, true, nil
-		}
-		return big.NewRat(int64(raw.Num.Val), int64(raw.Den.Val)), integer, true, nil
-	}
-	if direct, done, e := m.numerals.BigRat(rational); e != nil {
-		return nil, false, false, e
-	} else if done {
-		return direct, integer, true, nil
-	}
-	text, err := m.numerals.String(rational)
-	if err != nil {
-		return nil, false, false, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, integer, true, ErrASTDomain
-	}
-	return value, integer, true, nil
 }
 
 // ArithmeticNumeralRational is arith_util::is_numeral(n, r) for a caller
