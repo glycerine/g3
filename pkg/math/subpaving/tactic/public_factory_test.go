@@ -5,6 +5,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	goaltactic "github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/params"
@@ -223,5 +224,53 @@ func TestSubpavingPublicFactoryOwnsSimplifyComposition(t *testing.T) {
 	}
 	if err = created.DecRef(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// resetRecordingTactic wraps a tactic and records ResetStatistics.
+type resetRecordingTactic struct {
+	goaltactic.Tactic
+	resets int
+}
+
+func (r *resetRecordingTactic) ResetStatistics() error {
+	r.resets++
+	return r.Tactic.ResetStatistics()
+}
+
+// AUDIT.md math_subpaving_04-F4: reset_statistics reaches the core, whose
+// statistics Apply copies.
+func TestSubpavingSelectorResetStatisticsReachesCore(t *testing.T) {
+	m, c, _ := publicFactoryFixture(t)
+	p, err := c.NewValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Del(&p); err != nil {
+			t.Error(err)
+		}
+	})
+	core, err := NewSubpavingCoreTactic(m, c, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.IncRef(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := core.DecRef(); err != nil {
+			t.Error(err)
+		}
+	})
+	selected := core.(*selectedSubpavingTactic)
+	recorder := &resetRecordingTactic{Tactic: selected.inner}
+	selected.inner = recorder
+	defer func() { selected.inner = recorder.Tactic }()
+	if err := core.ResetStatistics(); err != nil {
+		t.Fatal(err)
+	}
+	if recorder.resets != 1 {
+		t.Fatal("inner statistics not reset", recorder.resets)
 	}
 }

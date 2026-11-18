@@ -164,6 +164,11 @@ func (a *selectedSubpavingTactic) ResetStatistics() error {
 		return err
 	}
 	a.stats.Reset()
+	// The source tactic owns one m_stats; the core keeps the Go copy that
+	// Apply collects, so reset it too (AUDIT.md math_subpaving_04-F4).
+	if a.inner != nil {
+		return a.inner.ResetStatistics()
+	}
 	return nil
 }
 
