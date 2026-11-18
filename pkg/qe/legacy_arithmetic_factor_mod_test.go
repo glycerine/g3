@@ -58,6 +58,17 @@ func TestLegacyArithmeticProjectionFactorsSharedModTerms(t *testing.T) {
 	if family != m.BasicFamilyID() || op != ast.ASTOpAnd {
 		t.Fatal("factored formula did not conjoin definition", family, op)
 	}
+	// AUDIT.md qe_02-F2: with one mod term the definitions are the unary
+	// (and (= mod_var (mod ...))) m.mk_and builds.
+	inner, err := m.GetArg(handle, 1)
+	fmMust(t, err)
+	op, err = m.GetDeclKind(inner)
+	fmMust(t, err)
+	count, err := m.GetNumArgs(inner)
+	fmMust(t, err)
+	if op != ast.ASTOpAnd || count != 1 {
+		t.Fatal("single mod definition is not a unary and", op, count)
+	}
 }
 
 func TestLegacyModFactoringFollowsSourceSiblingOrder(t *testing.T) {

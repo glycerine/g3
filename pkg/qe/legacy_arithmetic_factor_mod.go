@@ -192,7 +192,9 @@ func (p *legacyArithmeticProjection) factorModTerms(md *model.ModelCore, formula
 			}
 			handles = append(handles, handle)
 		}
-		conjunction, err := p.syntax.manager.MkAndArray(handles)
+		// m.mk_and(eqs.size(), eqs.c_ptr()) keeps a unary (and eq)
+		// (AUDIT.md qe_02-F2).
+		conjunction, err := p.syntax.manager.MkAndArgs(handles)
 		if err != nil {
 			return nil, err
 		}
