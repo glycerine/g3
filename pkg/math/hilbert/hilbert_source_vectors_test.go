@@ -20,7 +20,7 @@ func TestAdditionalSourceHilbertVectors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			b := New(nil)
+			b := New(testQ(), nil)
 			for index, row := range test.rows {
 				var err error
 				if test.equal[index] {

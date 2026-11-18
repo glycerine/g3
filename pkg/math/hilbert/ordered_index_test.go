@@ -3,7 +3,7 @@ package hilbert
 import "testing"
 
 func TestOrderedIndexUsesSourceDominanceAndNegativeWeightPartition(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	index := &orderedIndex{owner: b}
 	existing := &vector{values: []int64{1, 1}, weight: -2}
 	index.insert(existing)
@@ -19,7 +19,7 @@ func TestOrderedIndexUsesSourceDominanceAndNegativeWeightPartition(t *testing.T)
 // per-weight negative entries apart, so a positive candidate is never
 // pruned by a zero-weight vector it dominates.
 func TestIndexDoesNotPrunePositiveByZeroWeight(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	idx := &orderedIndex{owner: b}
 	idx.insert(&vector{values: []int64{0, 1, 0}, weight: 0})
 	if idx.subsumes(&vector{values: []int64{0, 1, 1}, weight: 2}) {

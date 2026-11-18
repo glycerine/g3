@@ -8,8 +8,8 @@ import (
 // Source int2ints iterates used hash-table slots, not occurrence order. For
 // variable indexes 1 then 0, the initial eight-slot table visits 0 then 1.
 func TestKarrIdenticalFilterSourceOrderIsObservable(t *testing.T) {
-	source := NewKarrFull(4, nil)
-	firstSeen := NewKarrFull(4, nil)
+	source := NewKarrFull(karrTestQ(), 4, nil)
+	firstSeen := NewKarrFull(karrTestQ(), 4, nil)
 	for _, p := range []struct {
 		r      *KarrRelation
 		groups [][]uint32

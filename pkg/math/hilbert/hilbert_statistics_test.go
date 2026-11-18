@@ -17,7 +17,7 @@ func sourceStatistic(st *statistics.Statistics, name string) uint32 {
 }
 
 func TestSourceSaturationStatistics(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	if err := b.AddEQ(rationals(1, -1), rational(0)); err != nil {
 		t.Fatal(err)
 	}

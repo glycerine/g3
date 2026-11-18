@@ -8,7 +8,7 @@ import (
 
 func TestOrderedSaturationCancellationStopsBeforeResolution(t *testing.T) {
 	calls := 0
-	b := New(func() bool { calls++; return calls == 1 })
+	b := New(testQ(), func() bool { calls++; return calls == 1 })
 	if err := b.AddEQ(rationals(1, -1), rational(0)); err != nil {
 		t.Fatal(err)
 	}

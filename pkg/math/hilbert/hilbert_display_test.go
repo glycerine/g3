@@ -7,7 +7,7 @@ import (
 )
 
 func TestSourceDiagnosticDisplay(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	if err := b.AddEQ(rationals(2, -1), rational(3)); err != nil {
 		t.Fatal(err)
 	}

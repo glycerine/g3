@@ -37,7 +37,11 @@ func basisKeys(t *testing.T, b *Basis) []string {
 			parts[0] = "initial"
 		}
 		for i := range values {
-			parts = append(parts, values[i].String())
+			text, err := testQ().String(&values[i])
+			if err != nil {
+				t.Fatal(err)
+			}
+			parts = append(parts, text)
 		}
 		keys = append(keys, strings.Join(parts, ":"))
 	}
@@ -47,7 +51,7 @@ func basisKeys(t *testing.T, b *Basis) []string {
 
 func TestOrderedSaturationMatchesOriginalWorkList(t *testing.T) {
 	build := func() *Basis {
-		b := New(nil)
+		b := New(testQ(), nil)
 		b.SetIsInt(0)
 		if err := b.AddGE(rationals(1, -1), rational(0)); err != nil {
 			t.Fatal(err)

@@ -3,7 +3,7 @@ package hilbert
 import "testing"
 
 func TestOrderedPassiveAdvancesAndResetsOffsetAcrossZero(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	positive := &vector{values: []int64{0, 1}, weight: 2}
 	negative := &vector{values: []int64{0, 1}, weight: -3}
 	p := newOrderedPassive(b, []*vector{positive, negative})
@@ -23,7 +23,7 @@ func TestOrderedPassiveAdvancesAndResetsOffsetAcrossZero(t *testing.T) {
 // erase_min moves the last value to the root, so three equal-weight inserts
 // 0, 1, 2 pop as 0, 2, 1. Exhausted slots are reused from the free list.
 func TestOrderedPassivePopsEqualWeightsInHeapOrder(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	positive := &vector{values: []int64{0, 1, 0, 0}, weight: 1}
 	negatives := []*vector{
 		{values: []int64{0, 1, 0, 0}, weight: -1},

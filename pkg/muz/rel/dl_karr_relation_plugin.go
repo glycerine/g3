@@ -40,11 +40,11 @@ func (p *KarrRelationPlugin) wrap(sorts []ast.ASTHandle, value *KarrRelation, fn
 }
 
 func (p *KarrRelationPlugin) MkEmpty(sorts []ast.ASTHandle) (RelationBase, error) {
-	return p.wrap(sorts, NewKarrEmpty(uint32(len(sorts)), p.cancel), ast.ASTHandle{}), nil
+	return p.wrap(sorts, NewKarrEmpty(p.manager.manager.NumeralService().Manager, uint32(len(sorts)), p.cancel), ast.ASTHandle{}), nil
 }
 
 func (p *KarrRelationPlugin) MkFull(predicate ast.ASTHandle, sorts []ast.ASTHandle) (RelationBase, error) {
-	return p.wrap(sorts, NewKarrFull(uint32(len(sorts)), p.cancel), predicate), nil
+	return p.wrap(sorts, NewKarrFull(p.manager.manager.NumeralService().Manager, uint32(len(sorts)), p.cancel), predicate), nil
 }
 
 func (p *KarrRelationPlugin) get(r RelationBase) (*karrRelationValue, bool) {

@@ -3,7 +3,7 @@ package hilbert
 import "testing"
 
 func TestOrderedPassiveSkipsOppositeIntegerCoordinates(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	b.integers[1] = true
 	positive := &vector{values: []int64{0, 1}, weight: 1}
 	negative := &vector{values: []int64{0, -1}, weight: -1}

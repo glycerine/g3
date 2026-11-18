@@ -7,10 +7,10 @@ package hilbert
 import (
 	"errors"
 	"math"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 var (
@@ -30,6 +30,8 @@ type vector struct {
 }
 
 type Basis struct {
+	// q is the rational manager of the rational_vector arguments and results.
+	q                  *numeral.RationalManager
 	inequalities       []inequality
 	integers           map[uint32]bool
 	basis              []*vector
@@ -41,8 +43,8 @@ type Basis struct {
 	stats              basisStatistics
 }
 
-func New(checkpoint func() bool) *Basis {
-	return &Basis{integers: make(map[uint32]bool), checkpoint: checkpoint, useSupport: true, orderedSupport: true, orderedSubsumption: true}
+func New(q *numeral.RationalManager, checkpoint func() bool) *Basis {
+	return &Basis{q: q, integers: make(map[uint32]bool), checkpoint: checkpoint, useSupport: true, orderedSupport: true, orderedSubsumption: true}
 }
 
 func (b *Basis) Reset() {
@@ -52,11 +54,22 @@ func (b *Basis) Reset() {
 	b.integers = make(map[uint32]bool)
 }
 
-func checkedRat(value *big.Rat) (int64, error) {
-	if value == nil || value.Denom().Cmp(big.NewInt(1)) != 0 || !value.Num().IsInt64() {
+// toNumeral is hilbert_basis::to_numeral: a rational that is not an
+// int64 throws checked_int64's overflow_exception.
+func (b *Basis) toNumeral(value *numeral.Rational) (int64, error) {
+	ok, err := b.q.IsInt64(value)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
 		return 0, ErrOverflow
 	}
-	return value.Num().Int64(), nil
+	return b.q.Int64(value)
+}
+
+// toRational is hilbert_basis::to_rational: rational(i, rational::i64()).
+func (b *Basis) toRational(value int64, out *numeral.Rational) error {
+	return b.q.SetInt64(out, value)
 }
 
 func checkedNeg(value int64) (int64, error) {
@@ -67,43 +80,53 @@ func checkedNeg(value int64) (int64, error) {
 }
 
 func checkedAdd(left, right int64) (int64, error) {
-	result := new(big.Int).Add(big.NewInt(left), big.NewInt(right))
-	if !result.IsInt64() {
+	result := left + right
+	if (left > 0 && right > 0 && result < 0) || (left < 0 && right < 0 && result >= 0) {
 		return 0, ErrOverflow
 	}
-	return result.Int64(), nil
+	return result, nil
 }
 
 func checkedMul(left, right int64) (int64, error) {
-	result := new(big.Int).Mul(big.NewInt(left), big.NewInt(right))
-	if !result.IsInt64() {
+	if left == 0 || right == 0 {
+		return 0, nil
+	}
+	if (left == -1 && right == math.MinInt64) || (right == -1 && left == math.MinInt64) {
 		return 0, ErrOverflow
 	}
-	return result.Int64(), nil
+	result := left * right
+	if result/right != left {
+		return 0, ErrOverflow
+	}
+	return result, nil
 }
 
-func (b *Basis) add(values []big.Rat, bound *big.Rat, equal bool, negate bool) error {
+// addRow is add_ge/add_eq(rational_vector const& v, rational const& b):
+// w = [to_numeral(-b), to_numeral(v[0]), ...]; with negate it is add_le,
+// which negates v and b first. A nil bound is rational(0).
+//
+// DELIBERATE DIVERGENCE: the source negates the rationals before
+// to_numeral, so a coordinate of exactly 2^63 becomes INT64_MIN and is
+// accepted; saturation then needs on the order of 2^63 resolution steps.
+// g3 converts first and applies checked_int64 negation, so such a row
+// reports the checked_int64 overflow at once (as g3 always has).
+func (b *Basis) addRow(values []numeral.Rational, bound *numeral.Rational, equal, negate bool) (err error) {
 	if len(b.inequalities) != 0 && len(values)+1 != len(b.inequalities[len(b.inequalities)-1].values) {
 		return ErrDimension
 	}
-	if bound == nil {
-		bound = new(big.Rat)
-	}
-	constant, err := checkedRat(bound)
-	if err != nil {
-		return err
-	}
-	if !negate {
-		constant, err = checkedNeg(constant)
-	}
-	if err != nil {
-		return err
-	}
 	row := make([]int64, len(values)+1)
-	row[0] = constant
+	if bound != nil {
+		if row[0], err = b.toNumeral(bound); err != nil {
+			return err
+		}
+		if !negate {
+			if row[0], err = checkedNeg(row[0]); err != nil {
+				return err
+			}
+		}
+	}
 	for i := range values {
-		row[i+1], err = checkedRat(&values[i])
-		if err == nil && negate {
+		if row[i+1], err = b.toNumeral(&values[i]); err == nil && negate {
 			row[i+1], err = checkedNeg(row[i+1])
 		}
 		if err != nil {
@@ -114,16 +137,17 @@ func (b *Basis) add(values []big.Rat, bound *big.Rat, equal bool, negate bool) e
 	return nil
 }
 
-func (b *Basis) AddGE(values []big.Rat, bound *big.Rat) error {
-	return b.add(values, bound, false, false)
+func (b *Basis) AddGE(values []numeral.Rational, bound *numeral.Rational) error {
+	return b.addRow(values, bound, false, false)
 }
 
-func (b *Basis) AddLE(values []big.Rat, bound *big.Rat) error {
-	return b.add(values, bound, false, true)
+// AddLE is add_le: add_ge of the negated row and bound.
+func (b *Basis) AddLE(values []numeral.Rational, bound *numeral.Rational) error {
+	return b.addRow(values, bound, false, true)
 }
 
-func (b *Basis) AddEQ(values []big.Rat, bound *big.Rat) error {
-	return b.add(values, bound, true, false)
+func (b *Basis) AddEQ(values []numeral.Rational, bound *numeral.Rational) error {
+	return b.addRow(values, bound, true, false)
 }
 
 func (b *Basis) SetIsInt(index uint32)   { b.integers[index+1] = true }
@@ -457,28 +481,45 @@ func (b *Basis) Saturate() (lbool.LBool, error) {
 
 func (b *Basis) BasisSize() uint32 { return uint32(len(b.basis)) }
 
-func (b *Basis) BasisSolution(index uint32) ([]big.Rat, bool, error) {
+// BasisSolution is get_basis_solution: the caller owns (and deletes) the
+// returned rationals, which belong to the basis's manager.
+func (b *Basis) BasisSolution(index uint32) ([]numeral.Rational, bool, error) {
 	if uint64(index) >= uint64(len(b.basis)) {
 		return nil, false, ErrDimension
 	}
 	value := b.basis[index]
-	result := make([]big.Rat, len(value.values)-1)
+	result := make([]numeral.Rational, len(value.values)-1)
+	for i := range result {
+		result[i] = numeral.NewRational()
+	}
 	for i := 1; i < len(value.values); i++ {
-		result[i-1].SetInt64(value.values[i])
+		if err := b.toRational(value.values[i], &result[i-1]); err != nil {
+			return result, false, err
+		}
 	}
 	return result, value.values[0] != 0, nil
 }
 
-func (b *Basis) Inequality(index uint32) ([]big.Rat, big.Rat, bool, error) {
+// Inequality is get_ge: b = to_rational(-m_ineqs[i][0]), where the
+// checked negation of INT64_MIN overflows. The caller owns the results.
+func (b *Basis) Inequality(index uint32) (values []numeral.Rational, bound numeral.Rational, equal bool, err error) {
+	bound = numeral.NewRational()
 	if uint64(index) >= uint64(len(b.inequalities)) {
-		return nil, big.Rat{}, false, ErrDimension
+		return nil, bound, false, ErrDimension
 	}
 	row := b.inequalities[index]
-	values := make([]big.Rat, len(row.values)-1)
-	for i := 1; i < len(row.values); i++ {
-		values[i-1].SetInt64(row.values[i])
+	values = make([]numeral.Rational, len(row.values)-1)
+	for i := range values {
+		values[i] = numeral.NewRational()
 	}
-	var bound big.Rat
-	bound.SetInt64(-row.values[0])
-	return values, bound, row.equal, nil
+	for i := 1; i < len(row.values); i++ {
+		if err = b.toRational(row.values[i], &values[i-1]); err != nil {
+			return values, bound, false, err
+		}
+	}
+	constant, err := checkedNeg(row.values[0])
+	if err == nil {
+		err = b.toRational(constant, &bound)
+	}
+	return values, bound, row.equal, err
 }

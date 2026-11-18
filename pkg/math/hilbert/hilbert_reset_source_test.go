@@ -7,7 +7,7 @@ import (
 )
 
 func TestSourceResetKeepsStatisticsUntilExplicitReset(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	if err := b.AddGE(rationals(1), rational(0)); err != nil {
 		t.Fatal(err)
 	}

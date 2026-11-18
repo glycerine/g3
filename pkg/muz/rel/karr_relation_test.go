@@ -2,7 +2,10 @@ package rel
 
 import (
 	"math/big"
+	"sync"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func karrRat(value int64) *big.Rat { return big.NewRat(value, 1) }
@@ -37,11 +40,11 @@ func requireKarrPoint(t *testing.T, matrix KarrMatrix, point []int64) {
 }
 
 func TestKarrFactUnionAndDualization(t *testing.T) {
-	first := NewKarrEmpty(2, nil)
+	first := NewKarrEmpty(karrTestQ(), 2, nil)
 	if err := first.AddFact([]*big.Rat{karrRat(1), karrRat(2)}); err != nil {
 		t.Fatal(err)
 	}
-	second := NewKarrEmpty(2, nil)
+	second := NewKarrEmpty(karrTestQ(), 2, nil)
 	if err := second.AddFact([]*big.Rat{karrRat(2), karrRat(4)}); err != nil {
 		t.Fatal(err)
 	}
@@ -64,11 +67,11 @@ func TestKarrFactUnionAndDualization(t *testing.T) {
 }
 
 func TestKarrJoinProjectAndRename(t *testing.T) {
-	left := NewKarrEmpty(2, nil)
+	left := NewKarrEmpty(karrTestQ(), 2, nil)
 	if err := left.AddFact([]*big.Rat{karrRat(2), karrRat(3)}); err != nil {
 		t.Fatal(err)
 	}
-	right := NewKarrEmpty(1, nil)
+	right := NewKarrEmpty(karrTestQ(), 1, nil)
 	if err := right.AddFact([]*big.Rat{karrRat(2)}); err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +108,7 @@ func TestKarrJoinProjectAndRename(t *testing.T) {
 }
 
 func TestKarrFiltersAndSourceEqualQuirk(t *testing.T) {
-	relation := NewKarrFull(3, nil)
+	relation := NewKarrFull(karrTestQ(), 3, nil)
 	if err := relation.FilterIdentical([]uint32{0, 2}); err != nil {
 		t.Fatal(err)
 	}
@@ -137,14 +140,14 @@ func karrPushRow(r *KarrRelation, row []big.Rat, constant *big.Rat, equal bool) 
 }
 
 func TestKarrGuards(t *testing.T) {
-	relation := NewKarrEmpty(2, nil)
+	relation := NewKarrEmpty(karrTestQ(), 2, nil)
 	if _, err := relation.Rename(nil); err != ErrKarrDimension {
 		t.Fatalf("Rename cycle error = %v", err)
 	}
 }
 
 func TestKarrRenameCyclePreservesLargeRationalRows(t *testing.T) {
-	source := NewKarrFull(3, nil)
+	source := NewKarrFull(karrTestQ(), 3, nil)
 	large := new(big.Int).Lsh(big.NewInt(1), 140)
 	row := []big.Rat{*new(big.Rat).SetInt(large), *big.NewRat(2, 1), *big.NewRat(3, 1)}
 	if err := karrPushRow(source, row, big.NewRat(0, 1), true); err != nil {
@@ -168,4 +171,21 @@ func TestKarrRenameCyclePreservesLargeRationalRows(t *testing.T) {
 	if original.A[0][0].Cmp(new(big.Rat).SetInt(large)) != 0 {
 		t.Fatal("rename mutated source", original)
 	}
+}
+
+var karrTestQOnce struct {
+	sync.Once
+	q *numeral.RationalManager
+}
+
+// karrTestQ is the tests' rational manager for the Karr relations.
+func karrTestQ() *numeral.RationalManager {
+	karrTestQOnce.Do(func() {
+		q, err := numeral.NewRationalManager(numeral.RationalConfig{})
+		if err != nil {
+			panic(err)
+		}
+		karrTestQOnce.q = q
+	})
+	return karrTestQOnce.q
 }

@@ -3,7 +3,7 @@ package hilbert
 import "testing"
 
 func TestSourceBasisIsSortedByCoordinateMagnitude(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	if err := b.AddEQ(rationals(1, 1, -2), rational(0)); err != nil {
 		t.Fatal(err)
 	}

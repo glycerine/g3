@@ -11,11 +11,11 @@ import (
 func TestKarrDualizationOverflowPreservesOwners(t *testing.T) {
 	largeInt := new(big.Int).Lsh(big.NewInt(1), 63)
 	large := new(big.Rat).SetInt(largeInt)
-	source := NewKarrEmpty(1, nil)
+	source := NewKarrEmpty(karrTestQ(), 1, nil)
 	if err := source.AddFact([]*big.Rat{large}); err != nil {
 		t.Fatal(err)
 	}
-	target := NewKarrEmpty(1, nil)
+	target := NewKarrEmpty(karrTestQ(), 1, nil)
 	if err := target.AddFact([]*big.Rat{big.NewRat(4, 1)}); err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestKarrDualizationOverflowPreservesOwners(t *testing.T) {
 			t.Fatal("failed basis conversion changed relation")
 		}
 	}
-	small := NewKarrEmpty(1, nil)
+	small := NewKarrEmpty(karrTestQ(), 1, nil)
 	if err := small.AddFact([]*big.Rat{big.NewRat(5, 1)}); err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestKarrDualizationOverflowPreservesOwners(t *testing.T) {
 	}
 
 	// A basis-to-inequality conversion has the same checked arithmetic boundary.
-	homogeneous := NewKarrFull(1, nil)
+	homogeneous := NewKarrFull(karrTestQ(), 1, nil)
 	homogeneous.inequalitiesValid = false
 	homogeneous.basisValid = true
 	homogeneous.basis.append([]big.Rat{*large}, big.NewRat(0, 1), true)

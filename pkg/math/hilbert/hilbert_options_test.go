@@ -3,7 +3,7 @@ package hilbert
 import "testing"
 
 func TestSourceConfigurationSetters(t *testing.T) {
-	b := New(nil)
+	b := New(testQ(), nil)
 	b.SetUseSupport(false)
 	b.SetUseOrderedSupport(false)
 	b.SetUseOrderedSubsumption(false)
