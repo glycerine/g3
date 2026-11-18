@@ -63,8 +63,6 @@ func newRewriterTraceOperandFixture(t *testing.T, name string, out io.Writer) (*
 		astTestMust(t, err)
 		astTestMust(t, r.BindTrace(tags))
 		emit = func(body rewriterTraceBody) error { return r.emitPushITETrace("operand", 51, body) }
-	case "elim_unused_vars":
-		emit = func(body rewriterTraceBody) error { return emitUnusedVarsTrace(m, "operand", 98, body) }
 	default:
 		t.Fatal("unknown trace fixture", name)
 	}
@@ -73,7 +71,7 @@ func newRewriterTraceOperandFixture(t *testing.T, name string, out io.Writer) (*
 }
 
 func TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors(t *testing.T) {
-	for _, name := range []string{"der", "factor_rewriter", "ac_sharing_detail", "push_app_ite", "elim_unused_vars"} {
+	for _, name := range []string{"der", "factor_rewriter", "ac_sharing_detail", "push_app_ite"} {
 		t.Run(name, func(t *testing.T) {
 			out := &rewriterTraceRefusal{}
 			_, emit := newRewriterTraceOperandFixture(t, name, out)
@@ -111,7 +109,7 @@ func TestRewriterTraceStreamContinuesOperandsAndPreservesTheirErrors(t *testing.
 }
 
 func TestRewriterTraceBadStreamStillComputesFormattingOperand(t *testing.T) {
-	for _, name := range []string{"der", "factor_rewriter", "ac_sharing_detail", "push_app_ite", "elim_unused_vars"} {
+	for _, name := range []string{"der", "factor_rewriter", "ac_sharing_detail", "push_app_ite"} {
 		t.Run(name, func(t *testing.T) {
 			out := &rewriterTraceRefusal{}
 			m, emit := newRewriterTraceOperandFixture(t, name, out)

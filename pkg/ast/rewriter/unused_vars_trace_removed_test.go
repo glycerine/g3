@@ -5,7 +5,6 @@ package rewriter
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"strings"
 	"testing"
 )
 
@@ -25,7 +24,7 @@ func TestUnusedVarsAllRemovedExternalShiftTrace(t *testing.T) {
 	if idx, e := m.GetVarIndex(got); e != nil || idx != 0 {
 		t.Fatal("shift", idx, e)
 	}
-	if tags.ShouldTrace("elim_unused_vars") && !strings.Contains(output.String(), " -> (:var 0)") {
+	if tags.ShouldTrace("elim_unused_vars") && output.Len() != 0 {
 		t.Fatal("result trace", output.String())
 	}
 }

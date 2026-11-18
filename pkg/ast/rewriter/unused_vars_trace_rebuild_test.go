@@ -5,7 +5,6 @@ package rewriter
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"strings"
 	"testing"
 )
 
@@ -27,7 +26,7 @@ func TestUnusedVarsRebuiltQuantifierTrace(t *testing.T) {
 	if n != 1 {
 		t.Fatal("decls", n)
 	}
-	if tags.ShouldTrace("elim_unused_vars") && !strings.Contains(output.String(), " -> (forall") {
+	if tags.ShouldTrace("elim_unused_vars") && output.Len() != 0 {
 		t.Fatal("rebuild trace", output.String())
 	}
 }

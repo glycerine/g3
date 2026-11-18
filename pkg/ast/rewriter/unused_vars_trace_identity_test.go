@@ -5,7 +5,6 @@ package rewriter
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"strings"
 	"testing"
 )
 
@@ -25,7 +24,7 @@ func TestUnusedVarsAllUsedIdentityTrace(t *testing.T) {
 	if got != q {
 		t.Fatal("identity", got, q)
 	}
-	if tags.ShouldTrace("elim_unused_vars") && strings.Count(output.String(), "var_subst.cpp:") != 2 {
+	if tags.ShouldTrace("elim_unused_vars") && output.Len() != 0 {
 		t.Fatal("trace sites", output.String())
 	}
 }

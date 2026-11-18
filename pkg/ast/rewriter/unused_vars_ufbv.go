@@ -42,18 +42,9 @@ func elimUnusedVars(m *ast.ASTManager, q ast.ASTHandle, ignorePatternsOnGroundBo
 	if m == nil {
 		return ast.ASTRef{}, ast.ErrASTHandle
 	}
-	if result = traceUnusedVarsEntry(m, q); result != nil {
-		return ast.ASTRef{}, result
-	}
-	out, result = elimUnusedVarsCore(m, q, ignorePatternsOnGroundBody)
-	if result != nil {
-		return out, result
-	}
-	if result = traceUnusedVarsResult(m, q, out); result != nil {
-		result = errors.Join(result, m.DelRef(&out))
-		return ast.ASTRef{}, result
-	}
-	return out, nil
+	// var_subst.cpp's unused_vars_eliminator and elim_unused_vars emit no
+	// trace.
+	return elimUnusedVarsCore(m, q, ignorePatternsOnGroundBody)
 }
 
 func elimUnusedVarsCore(m *ast.ASTManager, q ast.ASTHandle, ignorePatternsOnGroundBody bool) (_ ast.ASTRef, result error) {

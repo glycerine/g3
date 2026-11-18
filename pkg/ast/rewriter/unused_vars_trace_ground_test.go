@@ -7,7 +7,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
-	"strings"
 	"testing"
 )
 
@@ -37,12 +36,8 @@ func TestUnusedVarsGroundBranchSourceTrace(t *testing.T) {
 	if got != truth {
 		t.Fatal("ground result", got)
 	}
-	if tags.ShouldTrace("elim_unused_vars") {
-		trace := output.String()
-		for _, want := range []string{"var_subst.cpp:98", "var_subst.cpp:210", " -> true"} {
-			if !strings.Contains(trace, want) {
-				t.Fatalf("missing %q in %q", want, trace)
-			}
-		}
+	// AUDIT ast_rewriter_05-F7: z3 has no elim_unused_vars trace tag.
+	if tags.ShouldTrace("elim_unused_vars") && output.Len() != 0 {
+		t.Fatalf("Go-only elim_unused_vars trace: %q", output.String())
 	}
 }
