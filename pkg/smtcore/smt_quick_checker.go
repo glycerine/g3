@@ -222,9 +222,10 @@ func (q *SMTQuickChecker) CollectCandidates(quantifier ast.ASTHandle, conservati
 }
 
 func (q *SMTQuickChecker) clearQuery() error {
+	// m_new_exprs.reset() releases first to last.
 	var result error
-	for index := len(q.newExprs); index > 0; index-- {
-		result = errors.Join(result, q.context.manager.DelRef(&q.newExprs[index-1]))
+	for index := range q.newExprs {
+		result = errors.Join(result, q.context.manager.DelRef(&q.newExprs[index]))
 	}
 	q.newExprs = nil
 	q.checkCache = nil
@@ -582,50 +583,54 @@ func (q *SMTQuickChecker) processCandidates(quantifier ast.ASTHandle, unsat bool
 	}
 	q.bindings = make([]*SMTEnode, len(q.candidates))
 	generated := false
-	var visit func(int) error
-	visit = func(index int) error {
-		if index < len(q.candidates) {
-			for _, candidate := range q.candidates[index] {
-				q.bindings[len(q.bindings)-index-1] = candidate
-				if err := visit(index + 1); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		id, err := q.context.manager.GetASTID(quantifier)
-		if err != nil {
-			return err
+	id, err := q.context.manager.GetASTID(quantifier)
+	if err != nil {
+		return false, err
+	}
+	// product_iterator_next: it[0] advances first, so variable 0's
+	// candidates vary fastest.
+	it := make([]int, len(q.candidates))
+	for {
+		for i := range q.candidates {
+			q.bindings[len(q.bindings)-i-1] = q.candidates[i][it[i]]
 		}
 		contained, err := q.registry.fingerprints.Contains(quantifier, id, q.bindings)
-		if err != nil || contained {
-			return err
-		}
-		candidate := false
-		if unsat {
-			candidate, err = q.checkQuantifier(quantifier, false)
-			if err != nil {
-				return err
-			}
-		} else {
-			matched, err := q.checkQuantifier(quantifier, true)
-			if err != nil {
-				return err
-			}
-			candidate = !matched
-		}
-		if !candidate {
-			return nil
-		}
-		inserted, err := q.registry.AddInstance(quantifier, ast.ASTHandle{}, q.bindings, SMTEnodesMaxGeneration(q.bindings), 0, 0)
 		if err != nil {
-			return err
+			return false, err
 		}
-		generated = generated || inserted
-		return nil
-	}
-	if err := visit(0); err != nil {
-		return false, err
+		if !contained {
+			candidate := false
+			if unsat {
+				candidate, err = q.checkQuantifier(quantifier, false)
+				if err != nil {
+					return false, err
+				}
+			} else {
+				matched, err := q.checkQuantifier(quantifier, true)
+				if err != nil {
+					return false, err
+				}
+				candidate = !matched
+			}
+			if candidate {
+				inserted, err := q.registry.AddInstance(quantifier, ast.ASTHandle{}, q.bindings, SMTEnodesMaxGeneration(q.bindings), 0, 0)
+				if err != nil {
+					return false, err
+				}
+				generated = generated || inserted
+			}
+		}
+		i := 0
+		for ; i < len(it); i++ {
+			it[i]++
+			if it[i] < len(q.candidates[i]) {
+				break
+			}
+			it[i] = 0
+		}
+		if i == len(it) {
+			break
+		}
 	}
 	return generated, nil
 }

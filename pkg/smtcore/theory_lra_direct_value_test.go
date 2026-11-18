@@ -113,16 +113,19 @@ func TestSMTLRADirectValueManagedQuickChecker(t *testing.T) {
 	astTestMust(t, a.initializeVariableValues())
 	variable := f.pin(m.MkVar(0, sort))
 	sum := f.app(smtArithOpAdd, variable, f.number(1))
+	quick, err := NewSMTQuickChecker(manager.state.context, manager.rewriter, manager.registry)
+	astTestMust(t, err)
+	quick.state = manager.state
 	for _, n := range []int64{3, 4} {
 		eq := f.pin(m.MkEq(sum, f.number(n)))
 		quantifier := f.pin(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{astTestSymbol(t, m, "lra-quick-r")}, Body: eq}))
 		astTestMust(t, s.Internalize(quantifier, true))
-		generated, err := manager.quick.InstantiateNotSatCandidates(quantifier, []ast.ASTHandle{x})
+		generated, err := quick.InstantiateNotSatCandidates(quantifier, []ast.ASTHandle{x})
 		astTestMust(t, err)
 		if generated != (n == 4) {
 			t.Fatal("managed quick checker failed arithmetic substitution", n, generated)
 		}
-		if len(manager.quick.newExprs) != 0 || manager.quick.canonCache != nil {
+		if len(quick.newExprs) != 0 || quick.canonCache != nil {
 			t.Fatal("quick query retained temporary references")
 		}
 	}

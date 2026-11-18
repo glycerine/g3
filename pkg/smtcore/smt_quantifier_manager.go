@@ -24,7 +24,6 @@ type SMTQuantifierManager struct {
 	registry        *SMTQuantifierRegistry
 	rewriter        *rewriter.TheoryRewriter
 	checker         *SMTChecker
-	quick           *SMTQuickChecker
 	substitute      *SMTCachedVarSubstitution
 	builder         *SMTQIInstanceBuilder
 	mam             *smtMAMImpl
@@ -98,11 +97,6 @@ func NewSMTQuantifierManager(state *SMTInternalizerState, rw *rewriter.TheoryRew
 	if err != nil {
 		return nil, err
 	}
-	quick, err := NewSMTQuickChecker(state.context, rw, state.quantifiers)
-	if err != nil {
-		return nil, err
-	}
-	quick.state = state
 	substitute, err := NewSMTCachedVarSubstitution(state.manager)
 	if err != nil {
 		if substitute != nil {
@@ -123,7 +117,7 @@ func NewSMTQuantifierManager(state *SMTInternalizerState, rw *rewriter.TheoryRew
 	}
 	modelFinder.SetForceTemplate(config.ForceTemplate)
 	result := &SMTQuantifierManager{
-		state: state, registry: state.quantifiers, rewriter: rw, checker: checker, quick: quick,
+		state: state, registry: state.quantifiers, rewriter: rw, checker: checker,
 		substitute: substitute, builder: builder, mam: mam, lazyMAM: lazyMAM, modelFinder: modelFinder,
 		maxEagerMultipatterns:       config.MaxEagerMultipatterns,
 		maxLazyMultipatternMatching: config.MaxLazyMultipatternMatching,
@@ -470,12 +464,19 @@ func (q *SMTQuantifierManager) quickCheck() (bool, error) {
 			return false, err
 		}
 	}
+	// quick_check_quantifiers builds a fresh quick_checker mc per call, so
+	// the collector's sets start empty each time.
+	quick, err := NewSMTQuickChecker(q.state.context, q.rewriter, q.registry)
+	if err != nil {
+		return false, err
+	}
+	quick.state = q.state
 	result := true
 	for _, quantifier := range q.registry.quantifiers {
 		if !q.active(quantifier) {
 			continue
 		}
-		generated, err := q.quick.InstantiateUnsat(quantifier)
+		generated, err := quick.InstantiateUnsat(quantifier)
 		if err != nil {
 			return false, err
 		}
@@ -498,7 +499,7 @@ func (q *SMTQuantifierManager) quickCheck() (bool, error) {
 		if !q.active(quantifier) {
 			continue
 		}
-		generated, err := q.quick.InstantiateNotSat(quantifier)
+		generated, err := quick.InstantiateNotSat(quantifier)
 		if err != nil {
 			return false, err
 		}
@@ -755,7 +756,6 @@ func (q *SMTQuantifierManager) Close() error {
 		q.modelFinder = nil
 		q.modelChecker = nil
 		q.candidateModel = nil
-		q.quick = nil
 		q.checker = nil
 		q.rewriter = nil
 		q.registry = nil

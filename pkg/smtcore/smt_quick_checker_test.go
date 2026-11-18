@@ -170,3 +170,55 @@ func TestSMTQuickCheckerUnsatInstantiationCanonicalizationAndDuplicates(t *testi
 		t.Fatal("explicit candidate internalization", generated, context.enodes.get(thirdOwner), len(schedule.newEntries))
 	}
 }
+
+// AUDIT.md smtcore_06-F12: process_candidates walks the candidate product
+// with product_iterator_next, so variable 0's candidates vary fastest.
+func TestSMTQuickCheckerProductOrderVariesFirstVariableFastest(t *testing.T) {
+	m := astTestManager(t)
+	sort, err := m.MkSort(astTestSymbol(t, m, "QuickProductSort"), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	predicate := smtQuickPredicate(t, m, "quick-product-p", sort, boolean)
+	context, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	constants := make([]*SMTEnode, 2)
+	for index := range constants {
+		_, constants[index] = smtEnodeConstant(t, m, 2230+uint32(index), sort, 1)
+		astTestMust(t, context.RegisterEnode(constants[index], true))
+		application, _ := smtQuickApplicationNode(t, m, context, predicate, constants[index], true)
+		astTestMust(t, context.SetAssignment(application, lbool.False))
+	}
+	x0, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	x1, err := m.MkVar(1, sort)
+	astTestMust(t, err)
+	p0, err := m.MkApp(predicate, []ast.ASTHandle{x0})
+	astTestMust(t, err)
+	p1, err := m.MkApp(predicate, []ast.ASTHandle{x1})
+	astTestMust(t, err)
+	body, err := m.MkOr(p0, p1)
+	astTestMust(t, err)
+	quantifier, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort, sort}, Names: []symbol.Symbol{astTestSymbol(t, m, "quick-product-y"), astTestSymbol(t, m, "quick-product-x")}, Body: body})
+	astTestMust(t, err)
+	registry, schedule := smtQuickRegistry(t, m)
+	astTestMust(t, registry.Add(quantifier, 0))
+	checker, err := NewSMTQuickChecker(context, smtQuickTheoryRewriter(t, m), registry)
+	astTestMust(t, err)
+	a, b := constants[0], constants[1]
+	checker.candidates = [][]*SMTEnode{{a, b}, {a, b}}
+	generated, err := checker.processCandidates(quantifier, true)
+	astTestMust(t, err)
+	if !generated || len(schedule.newEntries) != 4 {
+		t.Fatal("instances", generated, len(schedule.newEntries))
+	}
+	// bindings[n-i-1] = candidates[i][it[i]]: the last binding is
+	// variable 0's candidate and changes first.
+	want := [][2]*SMTEnode{{a, a}, {a, b}, {b, a}, {b, b}}
+	for i, entry := range schedule.newEntries {
+		args := entry.Fingerprint.Args()
+		if len(args) != 2 || args[0] != want[i][0] || args[1] != want[i][1] {
+			t.Fatal("instance order", i, args, want[i])
+		}
+	}
+}
