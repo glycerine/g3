@@ -369,6 +369,14 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 				return e
 			}
 		} else {
+			if done, e := m.lehmerStepWords(a1, b1, t, r, tmp, A, B, C, D); e != nil {
+				return e
+			} else if done {
+				if e = m.gcdSourceGreaterEqualAt(a1, b1, 813, "ge(a1, b1)"); e != nil {
+					return e
+				}
+				continue
+			}
 			if e = m.setInt64WithAllocationContext(tmp, A, &context); e != nil {
 				return e
 			}

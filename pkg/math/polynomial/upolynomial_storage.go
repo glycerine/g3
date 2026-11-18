@@ -114,6 +114,12 @@ func (m *UPolynomialManager) freeBacking(s *upolyVectorState) {
 func (m *UPolynomialManager) trim(s *upolyVectorState) error {
 	a := m.values(s)
 	n := s.size
+	// Deleting an inline zero releases nothing (see upolySmallOps).
+	if n > 0 && a[n-1].Cell == 0 && a[n-1].Val == 0 && m.smallOps().on {
+		for n > 0 && a[n-1].Cell == 0 && a[n-1].Val == 0 {
+			n--
+		}
+	}
 	for n > 0 {
 		zero, e := m.modular.IsZero(&a[n-1])
 		if e != nil {
@@ -147,7 +153,11 @@ func (m *UPolynomialManager) setSize(s *upolyVectorState, n uint32) error {
 		return arena.ErrBounds
 	}
 	a := m.values(s)
+	small := n < s.size && m.smallOps().on
 	for i := n; i < s.size; i++ {
+		if small && a[i].Cell == 0 {
+			continue // deleting an inline value releases nothing
+		}
 		if e := m.modular.Del(&a[i]); e != nil {
 			return e
 		}
@@ -396,7 +406,30 @@ func (m *UPolynomialManager) setViewWithSourceContext(s *upolyVectorState, v UPo
 	if e := m.reserve(s, v.count); e != nil {
 		return e
 	}
+	var small upolySmallOps
+	var src []unumeral.Int
+	{
+		if small = m.smallOpsFor(&context); small.direct {
+			var e error
+			if src, e = m.viewValues(v); e != nil {
+				// read reports the failure at its own coefficient.
+				small = upolySmallOps{}
+			}
+		}
+	}
 	for i := uint32(0); i < v.count; i++ {
+		if small.direct {
+			done, e := small.setOp(&m.values(s)[i], &src[i])
+			if e != nil {
+				if q := context.removeOneHalfRootFrame(m.config.Integer); q != nil {
+					q.recordFailedRow(s, i)
+				}
+				return e
+			}
+			if done {
+				continue
+			}
+		}
 		a, e := m.read(v, i)
 		if e != nil {
 			return e

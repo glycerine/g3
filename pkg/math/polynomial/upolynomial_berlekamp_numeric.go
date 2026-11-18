@@ -191,6 +191,30 @@ func (q *upolyBerlekampMatrix) endNumeric(borrow *upolyFactorTraceBorrow, cause 
 
 // op selects only concrete numeral operations reached by this matrix.
 func (q *upolyBerlekampMatrix) numericCall(op uint8, a, b, c, out *unumeral.Int) (cause error) {
+	// Inline operands of the copy, multiplication and add/sub-mul leaves
+	// take z3's small paths (see upolySmallOps); they bind nothing.
+	if op <= 2 || op == 5 {
+		if small := q.m.smallOps(); small.on {
+			switch op {
+			case 0:
+				if small.set(small.z, out, a) {
+					return nil
+				}
+			case 1:
+				if small.subMul(a, b, c, out) {
+					return nil
+				}
+			case 2:
+				if small.mul(a, b, out) {
+					return nil
+				}
+			case 5:
+				if small.addMul(a, b, c, out) {
+					return nil
+				}
+			}
+		}
+	}
 	var borrow upolyFactorTraceBorrow
 	if e := q.beginNumeric(&borrow); e != nil {
 		return e

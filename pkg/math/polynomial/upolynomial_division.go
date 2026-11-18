@@ -278,6 +278,8 @@ func (m *UPolynomialManager) divRemCoreSpanWithSourceContext(a UPolynomialView, 
 		if e = m.checkpoint(); e != nil {
 			return e
 		}
+		// A checkpoint callback may arm a failure or a limit.
+		small := m.smallOpsFor(&context)
 		n := r.size
 		if n < b.count() {
 			return m.setSize(q, qsz)
@@ -292,11 +294,17 @@ func (m *UPolynomialManager) divRemCoreSpanWithSourceContext(a UPolynomialView, 
 			return e
 		}
 		if field {
-			if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Div(&m.values(r)[n-1], bn, am); e != nil {
-				return e
+			if !small.divOp(&m.values(r)[n-1], bn, am) {
+				if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Div(&m.values(r)[n-1], bn, am); e != nil {
+					return e
+				}
 			}
-			if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Add(&m.values(q)[delta], am, &m.values(q)[delta]); e != nil {
+			if done, e := small.addOp(&m.values(q)[delta], am, &m.values(q)[delta]); e != nil {
 				return e
+			} else if !done {
+				if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Add(&m.values(q)[delta], am, &m.values(q)[delta]); e != nil {
+					return e
+				}
 			}
 		} else {
 			*d++
@@ -308,6 +316,11 @@ func (m *UPolynomialManager) divRemCoreSpanWithSourceContext(a UPolynomialView, 
 				if e != nil {
 					return e
 				}
+				if done, e := small.mulOp(&m.values(r)[i], bn, &m.values(r)[i]); e != nil {
+					return e
+				} else if done {
+					continue
+				}
 				if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Mul(&m.values(r)[i], bn, &m.values(r)[i]); e != nil {
 					return e
 				}
@@ -316,6 +329,11 @@ func (m *UPolynomialManager) divRemCoreSpanWithSourceContext(a UPolynomialView, 
 				bn, e = m.readDivisor(b, b.count()-1)
 				if e != nil {
 					return e
+				}
+				if done, e := small.mulOp(&m.values(q)[i], bn, &m.values(q)[i]); e != nil {
+					return e
+				} else if done {
+					continue
 				}
 				if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Mul(&m.values(q)[i], bn, &m.values(q)[i]); e != nil {
 					return e
@@ -337,6 +355,12 @@ func (m *UPolynomialManager) divRemCoreSpanWithSourceContext(a UPolynomialView, 
 				return e
 			}
 			dst := &m.values(r)[i+delta]
+			if small.direct {
+				if _, e = small.subMulOp(dst, am, x, dst); e != nil {
+					return e
+				}
+				continue
+			}
 			if i == 0 {
 				u, ur := context.utilityWithRoots(m.modular.Integers())
 				ops, opsRoots = m.modular.WithAllocationContext(u), ur
@@ -473,6 +497,7 @@ func (m *UPolynomialManager) dividesViewsWithSourceContext(a, b UPolynomialView,
 		if n == 0 {
 			return true, nil
 		}
+		small := m.smallOpsFor(&context)
 		if b.count > n {
 			return false, nil
 		}
@@ -502,6 +527,27 @@ func (m *UPolynomialManager) dividesViewsWithSourceContext(a, b UPolynomialView,
 				var child *unumeral.IntegerAddMulInvocationReceipt
 				if frame != nil {
 					child = &frame.addMul
+				}
+				if small.direct {
+					// An inline submul cannot fail; the others publish the
+					// caller's child receipt as the full operation does.
+					if small.subMul(dst, ratio, x, dst) {
+						continue
+					}
+					if done, e := small.mod.DirectMulAdd(dst, ratio, x, dst, true, small.scratch); e != nil {
+						return false, e
+					} else if done {
+						continue
+					}
+					if child != nil {
+						e = small.mod.DirectSubMulTracked(dst, ratio, x, dst, child)
+					} else {
+						e = small.mod.DirectSubMul(dst, ratio, x, dst)
+					}
+					if e != nil {
+						return false, e
+					}
+					continue
 				}
 				if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).SubMul(dst, ratio, x, dst, child); e != nil {
 					return false, e

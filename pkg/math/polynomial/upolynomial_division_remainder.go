@@ -101,9 +101,12 @@ func (m *UPolynomialManager) remStateWithSourceContext(a, b UPolynomialView, d *
 		if e != nil {
 			return e
 		}
+		small := m.smallOpsFor(&context)
 		if field {
-			if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Div(&m.values(r)[n-1], bn, am); e != nil {
-				return e
+			if !small.divOp(&m.values(r)[n-1], bn, am) {
+				if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Div(&m.values(r)[n-1], bn, am); e != nil {
+					return e
+				}
 			}
 		} else {
 			*d++
@@ -125,12 +128,32 @@ func (m *UPolynomialManager) remStateWithSourceContext(a, b UPolynomialView, d *
 				if e != nil {
 					return e
 				}
+				if done, e := small.mulOp(&m.values(r)[i], bn, &m.values(r)[i]); e != nil {
+					return e
+				} else if done {
+					continue
+				}
 				if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Mul(&m.values(r)[i], bn, &m.values(r)[i]); e != nil {
 					return e
 				}
 			}
 		}
+		var bv []unumeral.Int
+		if small.direct {
+			if bv, e = m.viewValues(b); e != nil {
+				// read reports the failure at its own coefficient.
+				small, e = upolySmallOps{}, nil
+			}
+		}
+		rv := m.values(r)
 		for i := uint32(0); i < b.count-1; i++ {
+			if small.direct {
+				if done, e := small.subMulOp(&rv[i+delta], am, &bv[i], &rv[i+delta]); e != nil {
+					return e
+				} else if done {
+					continue
+				}
+			}
 			x, e := m.read(b, i)
 			if e != nil {
 				return e

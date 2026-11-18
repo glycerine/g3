@@ -32,6 +32,9 @@ type UPolynomialConfig struct {
 // are required, even though operations without a checkpoint do not call them.
 // Cold ownership and every actual typed backing are charged to Integer's budget.
 type UPolynomialManager struct {
+	// kernelScratch holds the Go digit buffers of the direct coefficient
+	// operations (see upolySmallOps), allocated on first use.
+	kernelScratch *unumeral.CRAScratch
 	sourceFactors                           *UPolynomialFactors
 	intervalBounds                          upolyIntervalBoundsScope
 	convertEntry                            upolyConvertEntryScope

@@ -83,7 +83,22 @@ func (m *UPolynomialManager) monicWithSourceContext(v UPolynomialView, lc, inv *
 	if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Inv(inv); e != nil {
 		return e
 	}
+	small := m.smallOpsFor(&context)
+	var xs []unumeral.Int
+	if small.direct {
+		if xs, e = m.viewValues(v); e != nil {
+			// read reports the failure at its own coefficient.
+			small, e = upolySmallOps{}, nil
+		}
+	}
 	for i := v.count - 1; i > 0; i-- {
+		if small.direct {
+			if done, e := small.mulOp(&xs[i-1], inv, &xs[i-1]); e != nil {
+				return e
+			} else if done {
+				continue
+			}
+		}
 		x, e := m.read(v, i-1)
 		if e != nil {
 			return e

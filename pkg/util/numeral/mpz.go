@@ -75,6 +75,10 @@ type IntegerManager struct {
 	AddMulInvocation                                integerAddMulScope
 	CopyAllocation                                  integerCopyAllocationScope
 	NormalizationExecuting                          bool
+	// lehmerWords selects lehmerStepWords for the gcd being run by GCDDirect.
+	// It sits in the padding after NormalizationExecuting, so the charged
+	// header size is unchanged.
+	lehmerWords bool
 	// callerFrameChanges counts caller frame/history mutations made while
 	// preparing an allocation (NoteCallerFrameChange). It sits in the
 	// padding after NormalizationExecuting, so the charged header size

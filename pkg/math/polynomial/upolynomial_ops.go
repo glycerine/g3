@@ -325,6 +325,8 @@ func (m *UPolynomialManager) mulWithSourceContext(a, b UPolynomialView, out *upo
 			if e := m.checkpoint(); e != nil {
 				return e
 			}
+			// A checkpoint callback may arm a failure or a limit.
+			small := m.smallOpsFor(&context)
 			x, e := m.read(a, i)
 			if e != nil {
 				return e
@@ -349,6 +351,30 @@ func (m *UPolynomialManager) mulWithSourceContext(a, b UPolynomialView, out *upo
 					continue
 				}
 				dst := &m.values(s)[i+j]
+				if small.direct {
+					if child != nil {
+						// The caller's add-mul child receipt is published as
+						// the full operation publishes it (an inline add-mul
+						// cannot fail, so it leaves the receipt of the last
+						// operation that could).
+						if small.addMul(dst, x, y, dst) {
+							continue
+						}
+						if done, e := small.mod.DirectMulAdd(dst, x, y, dst, false, small.scratch); e != nil {
+							return e
+						} else if done {
+							continue
+						}
+						if e = small.mod.DirectAddMulTracked(dst, x, y, dst, child); e != nil {
+							return e
+						}
+						continue
+					}
+					if _, e = small.addMulOp(dst, x, y, dst); e != nil {
+						return e
+					}
+					continue
+				}
 				if !resolved {
 					u, r := context.utilityWithRoots(z)
 					ops, opsRoots = m.modular.WithAllocationContext(u), r

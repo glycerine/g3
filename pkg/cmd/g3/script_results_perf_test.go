@@ -26,10 +26,11 @@ func init() {
 	// algebraic root x = 3^(1/65) with max_degree = UINT_MAX: 64 algebraic
 	// multiplications, each factoring a degree-4225 resultant, almost all
 	// of it in upolynomial mod_gcd (Zp Euclid, CRA, modular images).
-	// build/z3 (release) on the development machine, 2026-11-18: 21.2 s
-	// (rlimit-count 2156734). g3 at 2a387e415: 358 s.
+	// build/z3 (release) on the development machine, 2026-11-18: 21.1 s
+	// (rlimit-count 2156734). g3 at 2a387e415: 358 s; with the direct
+	// coefficient kernels of math/polynomial and util/numeral: 31.4 s.
 	perfScriptResults["model_validate_algebraic_power65.smt2"] = "sat\n"
-	perfScriptBudgets["model_validate_algebraic_power65.smt2"] = 600 * time.Second
+	perfScriptBudgets["model_validate_algebraic_power65.smt2"] = 60 * time.Second
 }
 
 // TestScriptPerformanceBudgets runs each perf vector through g3, checks its

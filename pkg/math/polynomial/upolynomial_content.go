@@ -49,6 +49,9 @@ func (m *UPolynomialManager) gcdSpanWithSourceContext(v UPolynomialView, out *un
 		if e = z.WithAllocationContext((context).utility(z)).Gcd(first, second, out); e != nil {
 			return e
 		}
+		// The integer gcd runs on the integer manager directly when the
+		// coefficient loop may (see upolySmallOps).
+		direct := m.smallOpsFor(&context).direct
 		for i := uint32(2); i < v.count; i++ {
 			if unumeral.IsOneInteger(out) {
 				break
@@ -56,6 +59,12 @@ func (m *UPolynomialManager) gcdSpanWithSourceContext(v UPolynomialView, out *un
 			next, e := m.read(v, i)
 			if e != nil {
 				return e
+			}
+			if direct {
+				if e = z.GCDDirect(out, next, out); e != nil {
+					return e
+				}
+				continue
 			}
 			if e = z.WithAllocationContext((context).utility(z)).Gcd(out, next, out); e != nil {
 				return e
@@ -105,6 +114,10 @@ func (m *UPolynomialManager) primitiveStateWithSourceContext(v UPolynomialView, 
 	if e = m.reserve(pp, v.count); e != nil {
 		return e
 	}
+	// In Z mode mpzzp div and set are the mpz ones (see upolySmallOps).
+	small := m.smallOpsFor(&context)
+	direct := small.direct && small.Z
+	z := m.modular.Integers()
 	for i := uint32(0); i < v.count; i++ {
 		x, e := m.read(v, i)
 		if e != nil {
@@ -115,6 +128,17 @@ func (m *UPolynomialManager) primitiveStateWithSourceContext(v UPolynomialView, 
 			return e
 		}
 		dst := &m.values(pp)[i]
+		if direct {
+			if zero {
+				e = z.SetInt64(dst, 0)
+			} else {
+				e = z.Div(x, cont, dst)
+			}
+			if e != nil {
+				return e
+			}
+			continue
+		}
 		if zero {
 			e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).SetInt64(dst, 0)
 		} else {

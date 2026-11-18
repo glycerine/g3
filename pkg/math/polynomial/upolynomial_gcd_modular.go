@@ -256,7 +256,53 @@ func (m *UPolynomialManager) combineImagesWithSourceContext(c1 *upolyVectorState
 	if n2 < n {
 		n = n2
 	}
+	// In Z mode the mpzzp operations are the mpz ones (p_normalize does
+	// nothing); with no failure transport or callback running they are run
+	// on the integer manager directly, as z3 does, instead of resolving the
+	// numeric caller context for each coefficient.
+	small := m.smallOpsFor(&context)
+	direct := small.on && small.Z
+	addDirect := func(x, y *unumeral.Int) error {
+		if done, e := z.CRACoefficient(x, y, a1, a2, bound, upper, newA, small.scratch); e != nil {
+			return e
+		} else if done {
+			dst, e := m.pushDefault(R)
+			if e != nil {
+				return e
+			}
+			return z.Copy(dst, newA)
+		}
+		if e := z.Mul(x, a1, tmp1); e != nil {
+			return e
+		}
+		if e := z.Mul(y, a2, tmp2); e != nil {
+			return e
+		}
+		if e := z.Add(tmp1, tmp2, tmp3); e != nil {
+			return e
+		}
+		if e := z.Mod(tmp3, bound, newA); e != nil {
+			return e
+		}
+		greater, e := z.Greater(newA, upper)
+		if e != nil {
+			return e
+		}
+		if greater {
+			if e = z.Sub(newA, bound, newA); e != nil {
+				return e
+			}
+		}
+		dst, e := m.pushDefault(R)
+		if e != nil {
+			return e
+		}
+		return z.Copy(dst, newA)
+	}
 	add := func(x, y *unumeral.Int) error {
+		if direct {
+			return addDirect(x, y)
+		}
 		if e := m.modular.WithAllocationContext((context).utility(m.modular.Integers())).Mul(x, a1, tmp1); e != nil {
 			return e
 		}
