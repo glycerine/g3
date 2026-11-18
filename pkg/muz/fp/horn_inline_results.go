@@ -14,7 +14,9 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineModelRule) (declaration ast.ASTHandle, result ast.ASTRef, resultErr error) {
+// normalizeInlineModelRule is horn_subsume_model_converter::mk_horn(head,
+// body, pred, body_res); rewrite is the converter's m_rewrite.
+func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineModelRule, rewrite *astrewriter.TheoryRewriter) (declaration ast.ASTHandle, result ast.ASTRef, resultErr error) {
 	head, err := e.manager.RefGet(rule.Head)
 	if err != nil {
 		return declaration, result, err
@@ -84,6 +86,8 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 	}
 	conjuncts := []ast.ASTHandle{body}
 	bindings := make([]ast.ASTHandle, freeCount)
+	// subst is non-empty once a head argument is a variable.
+	substituted := false
 	for index := uint32(0); index < arity; index++ {
 		argument, getErr := e.manager.GetArg(head, index)
 		if getErr != nil {
@@ -116,6 +120,7 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 			if uint64(variable) >= uint64(len(bindings)) {
 				return ast.ASTHandle{}, result, ast.ErrASTDomain
 			}
+			substituted = true
 			if bindings[variable].IsNull() {
 				bindings[variable] = formal
 				continue
@@ -146,7 +151,7 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 	if err != nil {
 		return ast.ASTHandle{}, result, err
 	}
-	if len(bindings) != 0 {
+	if substituted {
 		attempt.substitution, err = astrewriter.NewVarSubstitution(e.manager, false)
 		if err != nil {
 			return ast.ASTHandle{}, result, err
@@ -180,6 +185,25 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 	}
 	if !formula.IsNull() {
 		err = errors.Join(err, e.manager.SetRef(result, formula))
+	}
+	if err != nil || freeCount == 0 {
+		return declaration, result, err
+	}
+	// m_rewrite(body_res): th_rewriter::operator()(expr_ref&) assigns the
+	// rewritten term back (term = result).
+	if rewrite == nil {
+		return ast.ASTHandle{}, result, ErrPropositionalEngine
+	}
+	rewritten, err := reserve()
+	if err != nil {
+		return ast.ASTHandle{}, result, err
+	}
+	if err = rewrite.Rewrite(formula, rewritten); err != nil {
+		return ast.ASTHandle{}, result, errors.Join(err, rewrite.Reset())
+	}
+	formula, err = e.manager.RefGet(rewritten)
+	if err == nil {
+		err = e.manager.SetRef(result, formula)
 	}
 	return declaration, result, err
 }
@@ -294,7 +318,7 @@ func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model
 	if converter.empty() {
 		return nil
 	}
-	if e.params == nil || e.globals == nil || e.guard == nil {
+	if e.params == nil || e.globals == nil {
 		return ErrPropositionalEngine
 	}
 	cooperation, err := cooperate.NewCooperation(e.manager.Budget())
@@ -308,8 +332,12 @@ func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model
 		Memory:      e.manager.NumeralService().RuntimeOwner(),
 		Cooperation: cooperation,
 	}
+	rewrite, err := converter.rewriter(e)
+	if err != nil {
+		return err
+	}
 	for converter.normalized < len(converter.delayed) {
-		declaration, normalized, err := e.normalizeInlineModelRule(converter.delayed[converter.normalized])
+		declaration, normalized, err := e.normalizeInlineModelRule(converter.delayed[converter.normalized], rewrite)
 		if err != nil {
 			return err
 		}
@@ -339,102 +367,142 @@ func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model
 		converter.delayed, converter.normalized = nil, 0
 	}
 	for index := len(converter.funcs) - 1; index >= 0; index-- {
-		declaration, normalizeErr := e.manager.RefGet(converter.funcs[index])
-		if normalizeErr != nil {
-			return normalizeErr
-		}
-		normalizedHandle, normalizeErr := e.manager.RefGet(converter.bodies[index])
-		if normalizeErr == nil {
-			normalizeErr = e.addInlineDefaultInterpretations(destination.Core(), normalizedHandle)
-		}
-		evaluated, makeErr := e.manager.NewRef(ast.ASTHandle{})
-		if normalizeErr == nil && makeErr == nil {
-			evaluator, evaluatorErr := model.NewModelEvaluator(destination.Core(), configuration)
-			if evaluatorErr == nil {
-				evaluatorErr = evaluator.Evaluate(normalizedHandle, evaluated)
-			}
-			if evaluator != nil {
-				evaluatorErr = errors.Join(evaluatorErr, evaluator.Close())
-			}
-			normalizeErr = evaluatorErr
-		} else if normalizeErr == nil {
-			normalizeErr = makeErr
-		}
-		if normalizeErr != nil {
-			return errors.Join(normalizeErr, e.manager.DelRef(&evaluated))
-		}
-		value, normalizeErr := e.manager.RefGet(evaluated)
-		arity, arityErr := e.manager.GetArity(declaration)
-		if normalizeErr == nil {
-			normalizeErr = arityErr
-		}
-		var interpretation *model.FunctionInterpretation
-		if normalizeErr == nil && arity == 0 {
-			present, presentErr := destination.Core().HasConstantInterpretation(declaration)
-			if presentErr == nil && present {
-				var prior ast.ASTHandle
-				prior, presentErr = destination.Core().ConstantInterpretation(declaration)
-				if presentErr == nil {
-					value, presentErr = e.manager.MkOr(prior, value)
-				}
-			}
-			normalizeErr = presentErr
-		} else if normalizeErr == nil {
-			var presentErr error
-			interpretation, presentErr = destination.Core().FunctionInterpretation(declaration)
-			if presentErr == nil && interpretation != nil {
-				prior, priorErr := interpretation.Else()
-				if priorErr == nil && !prior.IsNull() {
-					value, priorErr = e.manager.MkOr(prior, value)
-				}
-				presentErr = priorErr
-			}
-			normalizeErr = presentErr
-		}
-		if normalizeErr == nil {
-			rewritten, rewriteErr := e.manager.NewRef(ast.ASTHandle{})
-			if rewriteErr == nil {
-				rewriteErr = e.guard.Rewrite(value, rewritten)
-				if rewriteErr != nil {
-					// Source's converter member keeps an interrupted traversal.
-					// The Go error-return boundary permits a new model export, so
-					// discard that attempt before returning to the caller. The
-					// engine continues to own the guard if resetting is refused.
-					rewriteErr = errors.Join(rewriteErr, e.guard.Reset())
-				}
-			}
-			if rewriteErr == nil {
-				value, rewriteErr = e.manager.RefGet(rewritten)
-				if arity == 0 {
-					rewriteErr = destination.Core().RegisterConstant(declaration, value)
-				} else {
-					created := false
-					if interpretation == nil {
-						interpretation, rewriteErr = model.NewFunctionInterpretation(e.manager, arity)
-						created = rewriteErr == nil
-					}
-					if rewriteErr == nil {
-						rewriteErr = interpretation.SetElse(value)
-					}
-					if rewriteErr == nil && created {
-						rewriteErr = destination.Core().RegisterFunction(declaration, interpretation)
-						if rewriteErr == nil {
-							interpretation = nil
-						}
-					}
-					if rewriteErr != nil && created && interpretation != nil {
-						rewriteErr = errors.Join(rewriteErr, interpretation.Close())
-					}
-				}
-			}
-			normalizeErr = errors.Join(rewriteErr, e.manager.DelRef(&rewritten))
-		}
-		normalizeErr = errors.Join(normalizeErr, e.manager.DelRef(&evaluated))
-		if normalizeErr != nil {
-			return normalizeErr
+		if err := e.applyHornInlineBody(destination, configuration, rewrite, converter.funcs[index], converter.bodies[index]); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// applyHornInlineBody is one iteration of operator()'s m_funcs loop. Its
+// expr_ref body is the single owner the evaluated body, the disjunction
+// with the previous interpretation, and the rewritten term pass through:
+// each assignment releases the term it replaces.
+func (e *PropositionalEngine) applyHornInlineBody(destination *model.Model, configuration model.ModelEvaluatorConfig, rewrite *astrewriter.TheoryRewriter, funcRef, bodyRef ast.ASTRef) (resultErr error) {
+	declaration, err := e.manager.RefGet(funcRef)
+	if err != nil {
+		return err
+	}
+	normalized, err := e.manager.RefGet(bodyRef)
+	if err != nil {
+		return err
+	}
+	// expr_ref body(m_bodies[i]); add_default_false_interpretation(body, mr)
+	body, err := e.manager.NewRef(normalized)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&body)) }()
+	if err = e.addInlineDefaultInterpretations(destination.Core(), normalized); err != nil {
+		return err
+	}
+	// expr_ref tmp(body); mr->eval(tmp, body)
+	evaluator, err := model.NewModelEvaluator(destination.Core(), configuration)
+	if err == nil {
+		err = evaluator.Evaluate(normalized, body)
+	}
+	if evaluator != nil {
+		err = errors.Join(err, evaluator.Close())
+	}
+	if err != nil {
+		return err
+	}
+	arity, err := e.manager.GetArity(declaration)
+	if err != nil {
+		return err
+	}
+	// body = m.mk_or(e, body)
+	disjoin := func(prior ast.ASTHandle) error {
+		value, err := e.manager.RefGet(body)
+		if err != nil {
+			return err
+		}
+		value, err = e.manager.MkOr(prior, value)
+		if err != nil {
+			return err
+		}
+		return e.manager.SetRef(body, value)
+	}
+	// m_rewrite(body)
+	rewriteBody := func() (ast.ASTHandle, error) {
+		value, err := e.manager.RefGet(body)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		rewritten, err := e.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if err = rewrite.Rewrite(value, rewritten); err != nil {
+			// Source's converter member keeps an interrupted traversal.
+			// The Go error-return boundary permits a new model export, so
+			// discard that attempt before returning to the caller. The
+			// converter continues to own its rewriter if resetting is
+			// refused.
+			return ast.ASTHandle{}, errors.Join(err, rewrite.Reset(), e.manager.DelRef(&rewritten))
+		}
+		value, err = e.manager.RefGet(rewritten)
+		if err == nil {
+			err = e.manager.SetRef(body, value)
+		}
+		return value, errors.Join(err, e.manager.DelRef(&rewritten))
+	}
+	if arity == 0 {
+		present, err := destination.Core().HasConstantInterpretation(declaration)
+		if err != nil {
+			return err
+		}
+		if present {
+			prior, err := destination.Core().ConstantInterpretation(declaration)
+			if err == nil {
+				err = disjoin(prior)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		value, err := rewriteBody()
+		if err != nil {
+			return err
+		}
+		return destination.Core().RegisterConstant(declaration, value)
+	}
+	interpretation, err := destination.Core().FunctionInterpretation(declaration)
+	if err != nil {
+		return err
+	}
+	if interpretation != nil {
+		prior, err := interpretation.Else()
+		if err == nil && !prior.IsNull() {
+			err = disjoin(prior)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	value, err := rewriteBody()
+	if err != nil {
+		return err
+	}
+	created := false
+	if interpretation == nil {
+		interpretation, err = model.NewFunctionInterpretation(e.manager, arity)
+		if err != nil {
+			return err
+		}
+		created = true
+	}
+	err = interpretation.SetElse(value)
+	if err == nil && created {
+		err = destination.Core().RegisterFunction(declaration, interpretation)
+		if err == nil {
+			interpretation = nil
+		}
+	}
+	if err != nil && created && interpretation != nil {
+		err = errors.Join(err, interpretation.Close())
+	}
+	return err
 }
 
 func (e *PropositionalEngine) hornInlineEliminated(conversions []hornModelConversion, declaration ast.ASTHandle) (bool, error) {

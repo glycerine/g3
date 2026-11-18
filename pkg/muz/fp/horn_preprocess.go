@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 )
@@ -94,6 +95,33 @@ type hornInlineConverter struct {
 	normalized int
 	funcs      []ast.ASTRef
 	bodies     []ast.ASTRef
+	// rewrite is m_rewrite, the converter's own th_rewriter: its cache
+	// lives with the converter. It is made on first use, with the engine's
+	// services.
+	rewrite *astrewriter.TheoryRewriter
+}
+
+func (c *hornInlineConverter) rewriter(e *PropositionalEngine) (*astrewriter.TheoryRewriter, error) {
+	if c.rewrite == nil {
+		r, err := astrewriter.NewTheoryRewriter(e.manager, e.params, e.globals, nil)
+		if err != nil {
+			return nil, err
+		}
+		c.rewrite = r
+	}
+	return c.rewrite, nil
+}
+
+// closeRewriter releases m_rewrite and its cache.
+func (c *hornInlineConverter) closeRewriter() error {
+	if c == nil || c.rewrite == nil {
+		return nil
+	}
+	if err := c.rewrite.Close(); err != nil {
+		return err
+	}
+	c.rewrite = nil
+	return nil
 }
 
 func newHornInlineConversion(manager *ast.ASTManager, rules []transforms.InlineModelRule) hornModelConversion {
@@ -104,12 +132,16 @@ func (c *hornInlineConverter) empty() bool {
 	return c == nil || len(c.delayed) == 0 && len(c.funcs) == 0
 }
 
-// close is ~horn_subsume_model_converter: m_delay_body, m_delay_head, then
-// m_bodies and m_funcs (reverse declaration order), each front to back.
+// close is ~horn_subsume_model_converter: m_delay_body, m_delay_head,
+// m_rewrite, then m_bodies and m_funcs (reverse declaration order), each
+// front to back.
 func (c *hornInlineConverter) close() error {
 	result := transforms.CloseInlineModelRules(c.delayed)
 	if result == nil {
 		c.delayed = nil
+	}
+	if result == nil {
+		result = c.closeRewriter()
 	}
 	for _, refs := range []*[]ast.ASTRef{&c.bodies, &c.funcs} {
 		for i := range *refs {

@@ -101,5 +101,13 @@ func (e *PropositionalEngine) expandDatalogModel(source *model.Model) (_ *model.
 	}
 	converter := *e
 	converter.params, converter.globals, converter.guard = context, globals, owners.guard
+	defer func() {
+		// The converters' rewriters use the temporary services.
+		for _, conversion := range e.datalogConversions {
+			if conversion.kind == hornConvertInline {
+				resultErr = errors.Join(resultErr, conversion.inline.closeRewriter())
+			}
+		}
+	}()
 	return converter.expandHornModel(source, e.datalogConversions)
 }

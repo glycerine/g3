@@ -87,7 +87,7 @@ func TestHornModelConversionsReplayInReverseApplicationOrder(t *testing.T) {
 	quantifierResultMust(t, err)
 	inlineBodyRef, err := manager.NewRef(inlineBody)
 	quantifierResultMust(t, err)
-	declaration, normalized, err := engine.normalizeInlineModelRule(transforms.InlineModelRule{Head: inlineHeadRef, Body: inlineBodyRef})
+	declaration, normalized, err := engine.normalizeInlineModelRule(transforms.InlineModelRule{Head: inlineHeadRef, Body: inlineBodyRef}, engine.guard)
 	quantifierResultMust(t, err)
 	if declaration != inlinePredicate {
 		t.Fatal("normalized inline predicate", declaration)
@@ -98,7 +98,9 @@ func TestHornModelConversionsReplayInReverseApplicationOrder(t *testing.T) {
 	quantifierResultMust(t, err)
 	declarations, err := manager.GetNumDeclarations(normalizedHandle)
 	quantifierResultMust(t, err)
-	if forall || declarations != 2 {
+	// mk_exists binds both free variables; m_rewrite drops the head
+	// variable the substitution removed (elim_unused_vars).
+	if forall || declarations != 1 {
 		t.Fatal("normalized inline existential", forall, declarations)
 	}
 	quantifierResultMust(t, manager.DelRef(&normalized))
