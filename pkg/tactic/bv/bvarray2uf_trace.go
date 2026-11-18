@@ -49,3 +49,19 @@ func (t *BVArray2UFTactic) tracePair(prefix string, a ast.ASTHandle, middle stri
 		return e
 	})
 }
+
+// traceGoal is TRACE("bvarray2uf", tout << label << std::endl;
+// g->display(tout);) in bvarray2uf_tactic::imp::operator().
+func (t *BVArray2UFTactic) traceGoal(label string, line int, g interface{ Display(io.Writer) error }) error {
+	tags := t.tags()
+	err := tags.EmitConditional("bvarray2uf", "operator()", "src/tactic/bv/bvarray2uf_tactic.cpp", line, func() bool { return true }, func(w io.Writer) error {
+		if _, e := io.WriteString(w, label+"\n"); e != nil {
+			return e
+		}
+		return g.Display(w)
+	})
+	if err != nil && !tags.IsStreamFailure(err) {
+		return err
+	}
+	return nil
+}

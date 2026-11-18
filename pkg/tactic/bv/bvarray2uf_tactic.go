@@ -127,6 +127,9 @@ func (t *BVArray2UFTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err 
 	if err = tactic.FailIfUnsatCoreGeneration("bvarray2uf", g); err != nil {
 		return err
 	}
+	if err = t.traceGoal("Before: ", 67, g); err != nil {
+		return err
+	}
 	models, err := g.ModelsEnabled()
 	if err != nil {
 		return err
@@ -186,7 +189,10 @@ func (t *BVArray2UFTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err 
 	if err = g.IncDepth(); err != nil {
 		return err
 	}
-	return out.AddGoal(g)
+	if err = out.AddGoal(g); err != nil {
+		return err
+	}
+	return t.traceGoal("After: ", 99, g)
 }
 func (t *BVArray2UFTactic) UpdateParams(*uparams.ParamsRef) error { return t.open() }
 
