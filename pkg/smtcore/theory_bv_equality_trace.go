@@ -7,6 +7,23 @@ import (
 	"io"
 )
 
+// expand_diseq's TRACE_CODE keeps two function-local statics, process-wide
+// counters of calls and of the Boolean variables they created.
+var bvExpandDiseqCalls, bvExpandDiseqNewBoolVars uint32
+
+func (t *SMTBitVectorTheory) traceBVExpandDiseq(newBoolVars int) error {
+	bvExpandDiseqNewBoolVars += uint32(newBoolVars)
+	num := bvExpandDiseqCalls
+	bvExpandDiseqCalls++
+	if num%1000 != 0 {
+		return nil
+	}
+	return t.emitBVTrace("expand_diseq", "expand_diseq", 1157, func(out io.Writer) error {
+		_, err := fmt.Fprintf(out, "num: %d %d\n", num, bvExpandDiseqNewBoolVars)
+		return err
+	})
+}
+
 func (t *SMTBitVectorTheory) traceBVStaticDisequality(left, right SMTTheoryVar) error {
 	return t.emitBVTrace("bv_diseq_axiom", "mk_new_diseq_axiom", 227, func(out io.Writer) error {
 		if _, err := io.WriteString(out, "found new diseq axiom\n"); err != nil {

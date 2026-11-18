@@ -955,6 +955,7 @@ func (t *SMTBitVectorTheory) NewDisequality(left, right SMTTheoryVar) error {
 	if leftWidth != rightWidth {
 		return ast.ErrASTDomain
 	}
+	numBoolVars := len(state.boolExpr) // TRACE_CODE: ctx.get_num_bool_vars()
 	equality, err := t.MkEqualityLiteral(leftNode.owner, rightNode.owner, true)
 	if err != nil {
 		return err
@@ -976,7 +977,10 @@ func (t *SMTBitVectorTheory) NewDisequality(left, right SMTTheoryVar) error {
 		return err
 	}
 	t.statistics.diseqDynamic++
-	return state.addTheoryAxiom(t.FamilyID(), clause)
+	if err = state.addTheoryAxiom(t.FamilyID(), clause); err != nil {
+		return err
+	}
+	return t.traceBVExpandDiseq(len(state.boolExpr) - numBoolVars)
 }
 
 func (t *SMTBitVectorTheory) Assign(variable int32, isTrue bool) error {
