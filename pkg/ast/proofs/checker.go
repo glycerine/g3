@@ -223,7 +223,8 @@ func (c *Checker) sideOr(fact ast.ASTHandle, parents []ast.ASTHandle) (ast.ASTHa
 		}
 		terms = append(terms, n)
 	}
-	return c.manager.MkOrArray(terms)
+	// m.mk_or(rewrite_eq.size(), ...): ast_manager's or, even for one term.
+	return c.manager.MkOrArgs(terms)
 }
 
 func invalid(err error) (bool, []ast.ASTHandle, error) {

@@ -117,6 +117,21 @@ func TestCheckerEliminationResolutionAndRewriteSideConditions(t *testing.T) {
 	if len(side) != 1 {
 		t.Fatalf("rewrite side conditions = %d", len(side))
 	}
+
+	// rewrite* with no parents: m.mk_or(rewrite_eq.size(), ...) keeps a
+	// one-term or (ast_sub_02-F11).
+	star, err := m.MkProofRewriteStar(a, b, nil)
+	must(t, err)
+	side = check(t, c, star, true)
+	if len(side) != 1 {
+		t.Fatalf("rewrite* side conditions = %d", len(side))
+	}
+	if kind, e := m.GetDeclKind(side[0]); e != nil || kind != ast.ASTOpOr {
+		t.Fatalf("rewrite* side condition is not an or: %d, %v", kind, e)
+	}
+	if n, e := m.GetNumArgs(side[0]); e != nil || n != 1 {
+		t.Fatalf("rewrite* side condition arity = %d, %v", n, e)
+	}
 }
 
 func TestCheckerLemmaClosesHypotheses(t *testing.T) {

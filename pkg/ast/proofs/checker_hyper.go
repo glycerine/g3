@@ -25,7 +25,7 @@ func (c *Checker) setFalse(e ast.ASTHandle, position uint32, formula, literal as
 			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
 		args[position] = f
-		r, err := c.manager.MkOrArray(args)
+		r, err := c.manager.MkOrArgs(args)
 		if !r.IsNull() {
 			err = errors.Join(err, c.manager.SetRef(formula, r))
 		}
@@ -67,7 +67,7 @@ func (c *Checker) setFalse(e ast.ASTHandle, position uint32, formula, literal as
 				return ast.ASTHandle{}, ast.ASTHandle{}, err
 			}
 			heads[position] = f
-			h, err := c.manager.MkOrArray(heads)
+			h, err := c.manager.MkOrArgs(heads)
 			if !h.IsNull() {
 				err = errors.Join(err, c.manager.SetRef(part, h))
 			}
@@ -97,7 +97,7 @@ func (c *Checker) setFalse(e ast.ASTHandle, position uint32, formula, literal as
 			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
 		bodies[position] = truth
-		b, err := c.manager.MkAndArray(bodies)
+		b, err := c.manager.MkAndArgs(bodies)
 		if !b.IsNull() {
 			err = errors.Join(err, c.manager.SetRef(part, b))
 		}
@@ -173,9 +173,10 @@ func (c *Checker) checkHyperResolve(p ast.ASTHandle) (valid bool, side []ast.AST
 			return false, nil, e
 		}
 		if len(sub) != 0 {
-			if kind, e := c.manager.GetKind(f); e != nil {
+			// is_forall(premise), not any quantifier.
+			if forall, e := c.isForall(f); e != nil {
 				return false, nil, e
-			} else if kind == ast.ASTQuantifier {
+			} else if forall {
 				f, e = c.manager.GetQuantifierBody(f)
 				if e != nil {
 					return false, nil, e
@@ -252,7 +253,7 @@ func (c *Checker) checkHyperResolve(p ast.ASTHandle) (valid bool, side []ast.AST
 		}
 	}
 	formulas[0] = premise0
-	resolved, err := c.manager.MkOrArray(formulas)
+	resolved, err := c.manager.MkOrArgs(formulas)
 	if err != nil {
 		return false, nil, err
 	}
@@ -260,9 +261,10 @@ func (c *Checker) checkHyperResolve(p ast.ASTHandle) (valid bool, side []ast.AST
 	if err != nil {
 		return false, nil, err
 	}
-	if kind, e := c.manager.GetKind(conclusionHandle); e != nil {
+	// is_forall(conclusion), not any quantifier.
+	if forall, e := c.isForall(conclusionHandle); e != nil {
 		return false, nil, e
-	} else if kind == ast.ASTQuantifier {
+	} else if forall {
 		body, e := c.manager.GetQuantifierBody(conclusionHandle)
 		if e != nil {
 			return false, nil, e
@@ -307,4 +309,13 @@ func joinResult(a, b error) error {
 		return a
 	}
 	return b
+}
+
+// isForall is ::is_forall(e): a universal quantifier.
+func (c *Checker) isForall(h ast.ASTHandle) (bool, error) {
+	kind, err := c.manager.GetKind(h)
+	if err != nil || kind != ast.ASTQuantifier {
+		return false, err
+	}
+	return c.manager.IsForall(h)
 }
