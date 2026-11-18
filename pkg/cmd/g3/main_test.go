@@ -336,6 +336,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_02-F7: produce-unsat-cores is tested first.
+	"get_unsat_core_disabled.smt2": "unsat\n(error \"line 3 column 15: unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)\")\n",
 	// AUDIT.md cmd_context_02-F8: smt2parser's own arity texts, reported
 	// at the closing paren.
 	"sort_constructor_arity_error.smt2": "(error \"line 2 column 23: invalid number of parameters to sort constructor\")\n(error \"line 4 column 17: sort constructor expects parameters\")\n(error \"line 6 column 27: invalid number of parameters to sort constructor\")\ndone\n",
@@ -2376,6 +2378,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"get_unsat_core_disabled.smt2": true,
 	"sort_constructor_arity_error.smt2": true,
 	"plugins6_declare_rel_arguments.smt2": true,
 	// AUDIT.md FUZZ-F5: get_ordinary_relation_plugin's missing plugin.

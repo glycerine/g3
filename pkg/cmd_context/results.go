@@ -569,7 +569,11 @@ func (c *Context) WriteUnsatCore(out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if !c.checked || c.status != lbool.False || !state.UnsatCore {
+	// get_unsat_core_cmd: the produce-unsat-cores test comes first.
+	if !state.UnsatCore {
+		return fmt.Errorf("unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)")
+	}
+	if !c.checked || c.status != lbool.False {
 		return fmt.Errorf("unsat core is not available")
 	}
 	return c.writeUnsatResultCore(out)
