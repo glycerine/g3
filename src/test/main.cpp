@@ -190,6 +190,7 @@ int main(int argc, char ** argv) {
     TST(escaped);
     TST(buffer);
     TST(chashtable);
+    TST(insdict);
     TST(ex);
     TST(nlarith_util);
     TST(api_bug);

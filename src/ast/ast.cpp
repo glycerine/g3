@@ -577,45 +577,6 @@ unsigned get_node_hash(ast const * n) {
     return 0;
 }
 
-void ast_table::erase(ast * n) {
-    // Customized erase method
-    // It uses two important properties:
-    // 1. n is known to be in the table.
-    // 2. operator== can be used instead of compare_nodes (big savings)
-    unsigned mask = m_slots - 1;
-    unsigned h    = n->hash();
-    unsigned idx  = h & mask;
-    cell * c      = m_table + idx;
-    SASSERT(!c->is_free());
-    cell * prev = nullptr;
-    while (true) {
-        if (c->m_data == n) {
-            m_size--;
-            if (prev == nullptr) {
-                cell * next = c->m_next;
-                if (next == nullptr) {
-                    m_used_slots--;
-                    c->mark_free();
-                    SASSERT(c->is_free());
-                }
-                else {
-                    *c = *next;
-                    recycle_cell(next);
-                }
-            }
-            else {
-                prev->m_next = c->m_next;
-                recycle_cell(c);
-            }
-            return;
-        }
-        CHS_CODE(m_collisions++;);
-        prev = c;
-        c = c->m_next;
-        SASSERT(c);
-    }
-}
-
 // -----------------------------------
 //
 // decl_plugin
@@ -1482,6 +1443,9 @@ ast_manager::~ast_manager() {
 
 void ast_manager::compact_memory() {
     m_alloc.consolidate();
+    // FORK FIX #140 (owner decision 2026-11-18, see FORK_BUGFIXES.md):
+    // m_ast_table is an insdict; capacity() is its index length, and the
+    // rebuild below re-inserts the live nodes in insertion order.
     unsigned capacity = m_ast_table.capacity();
     if (capacity > 4*m_ast_table.size()) {
         ast_table new_ast_table;

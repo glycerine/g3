@@ -52,6 +52,7 @@ add_executable(test-z3
   horn_subsume_model_converter.cpp
   hwf.cpp
   inf_rational.cpp
+  insdict.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   interval.cpp
   karr.cpp

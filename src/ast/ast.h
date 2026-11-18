@@ -42,6 +42,7 @@ Revision History:
 #include "util/parray.h"
 #include "util/dictionary.h"
 #include "util/chashtable.h"
+#include "util/insdict.h"
 #include "util/z3_exception.h"
 #include "util/dependency.h"
 #include "util/rlimit.h"
@@ -917,9 +918,22 @@ struct ast_eq_proc {
 
 class ast_translation;
 
-class ast_table : public chashtable<ast*, obj_ptr_hash<ast>, ast_eq_proc> {
+// FORK FIX #140 (owner decision 2026-11-18, see FORK_BUGFIXES.md): the AST
+// table is an insertion-ordered insdict (util/insdict.h) instead of
+// chashtable<ast*, obj_ptr_hash<ast>, ast_eq_proc>. A declared divergence,
+// not a bug fix: iteration (teardown free order, compress_ids,
+// set_next_expr_id) visits the live nodes in insertion order, and
+// capacity() is the insdict index length (a power of two >= 8, or 0 when
+// empty), so the Go port g3 iterates the table and reports
+// (ast-table :capacity ...) identically.
+struct ast_insdict_hash {
+    uint64_t operator()(ast const * n) const { return insdict_mix64(n->hash()); }
+};
+
+class ast_table : public insdict<ast*, ast_insdict_hash, ast_eq_proc> {
 public:
-    void erase(ast * n);
+    // n is known to be in the table: match it by pointer, not compare_nodes.
+    void erase(ast * n) { erase_identical(n); }
 };
 
 // -----------------------------------
