@@ -80,9 +80,8 @@ func (m *FixedPointManager) Power(a *FixedPoint, exponent uint32, out *FixedPoin
 		}
 	}()
 	if a.isZero() {
-		if exponent == 0 {
-			return ErrFixedPointDomain
-		}
+		// The source asserts p != 0 (debug only); the release build resets
+		// b, so 0^0 is 0.
 		return m.Reset(out)
 	}
 	switch exponent {

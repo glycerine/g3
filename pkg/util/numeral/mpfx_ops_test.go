@@ -88,8 +88,9 @@ func TestFixedPointRetainedFloorCeilInverseAndPower(t *testing.T) {
 	must(m.Power(out, 3, out))
 	want(out, "27/8")
 	must(m.Reset(a))
-	assertFixedPointException(t, m.Power(a, 0, out), ErrFixedPointDomain, ErrFixedPointOverflow, "multi-precision fixed point (mpfx) exception")
-	want(out, "27/8")
+	// z3's release build skips SASSERT(p != 0) and resets b: 0^0 is 0.
+	must(m.Power(a, 0, out))
+	want(out, "0")
 	must(m.Power(a, 3, out))
 	want(out, "0")
 	must(m.SetInt64(a, 2))

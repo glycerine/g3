@@ -2,7 +2,6 @@ package numeral
 
 import (
 	"bytes"
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -76,8 +75,9 @@ func TestFixedPointPowerSourceTraceAndRawWords(t *testing.T) {
 	if err := m.Reset(a); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.Power(a, 0, out); !errors.Is(err, ErrFixedPointDomain) {
-		t.Fatalf("zero exponent domain = %v", err)
+	// z3's release build skips SASSERT(p != 0) and resets b: 0^0 is 0.
+	if err := m.Power(a, 0, out); err != nil {
+		t.Fatalf("zero to the zero = %v", err)
 	}
-	check("")
+	check("[mpfx] (0) ^ 0<=0\n")
 }
