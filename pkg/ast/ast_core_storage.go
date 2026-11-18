@@ -143,6 +143,14 @@ type astFuncDeclRecord struct {
 	identityFamily FamilyID
 	identityKind   int32
 	identityCached bool
+	// domainRefs copies the domain payload (written once, at creation)
+	// for the hot readers of normal builds; debug builds read the payload.
+	domainRefs []astNodeRef
+	// arithDomain caches, for arithDomainFamily, whether some domain sort
+	// belongs to that family: 0 unknown, 1 no, 2 yes. Sort identities are
+	// fixed while the declaration lives.
+	arithDomain       uint8
+	arithDomainFamily FamilyID
 }
 type astAppRecord struct {
 	// count, the flags and the cached declaration identity come first: in

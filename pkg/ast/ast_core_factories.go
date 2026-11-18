@@ -96,6 +96,12 @@ func (m *ASTManager) mkFuncDeclInfo(name usymbol.Symbol, domain []ASTHandle, ran
 		m.freeNodeStorage(r)
 		return astNodeRef{}, e
 	}
+	if len(domain) != 0 && !ASTSourceDebug {
+		v.domainRefs = make([]astNodeRef, len(domain))
+		for i, s := range domain {
+			v.domainRefs[i] = astNodeRef{s.slot, s.generation}
+		}
+	}
 	return m.registerNode(r)
 }
 func (m *ASTManager) MkFuncDecl(name usymbol.Symbol, domain []ASTHandle, rangeSort ASTHandle, info ASTFuncDeclInfo) (ASTHandle, error) {
@@ -264,7 +270,7 @@ func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame 
 			m.freeNodeStorage(r)
 			return astNodeRef{}, ErrASTDomain
 		}
-		expected, e := m.readInternal(d.domain, index)
+		expected, e := m.declDomain(d, index)
 		if e != nil {
 			m.freeNodeStorage(r)
 			return astNodeRef{}, e

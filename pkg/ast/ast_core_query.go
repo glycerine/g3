@@ -35,7 +35,7 @@ func (m *ASTManager) GetDomain(h ASTHandle, i uint32) (ASTHandle, error) {
 	if i >= v.arity {
 		return ASTHandle{}, ErrASTDomain
 	}
-	r, e = m.readInternal(v.domain, i)
+	r, e = m.declDomain(v, i)
 	return m.external(r), e
 }
 func (m *ASTManager) GetRange(h ASTHandle) (ASTHandle, error) {

@@ -45,12 +45,41 @@ func (m *ASTManager) appCoercionNeeded(decl astNodeRef, args AppArguments, assoc
 	if !associative && d.arity != args.count {
 		return false, nil
 	}
+	family := m.arithmeticPlugin.family
+	if !ASTSourceDebug && d.arithDomainFamily == family {
+		// Every domain sort is outside the arithmetic family: the loop
+		// below would continue past each argument (or, associative, stop
+		// at the first) and report false.
+		if d.arithDomain == 1 {
+			return false, nil
+		}
+	} else if !ASTSourceDebug && d.arity != 0 {
+		state := uint8(1)
+		for i := uint32(0); i < d.arity; i++ {
+			s, e := m.declDomain(d, i)
+			if e != nil {
+				return false, e
+			}
+			fid, _, e := m.declIdentity(s)
+			if e != nil {
+				return false, e
+			}
+			if fid == family {
+				state = 2
+				break
+			}
+		}
+		d.arithDomain, d.arithDomainFamily = state, family
+		if state == 1 {
+			return false, nil
+		}
+	}
 	for i := uint32(0); i < args.count; i++ {
 		index := i
 		if associative {
 			index = 0
 		}
-		expected, e := m.readInternal(d.domain, index)
+		expected, e := m.declDomain(d, index)
 		if e != nil {
 			return false, e
 		}
@@ -95,7 +124,7 @@ func (m *ASTManager) coerceAppArguments(decl astNodeRef, args AppArguments, asso
 		if associative {
 			index = 0
 		}
-		expected, e := m.readInternal(d.domain, index)
+		expected, e := m.declDomain(d, index)
 		if e != nil {
 			return AppArguments{}, e
 		}

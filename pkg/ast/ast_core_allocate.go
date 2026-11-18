@@ -128,6 +128,7 @@ func (m *ASTManager) freeNodeStorage(r astNodeRef) error {
 	case ASTFuncDecl:
 		v := m.declAt(r.slot)
 		e = m.freePayload(v.domain, v.arity, astRefBytes)
+		v.domainRefs = nil
 	case ASTApp:
 		v := m.appAt(r.slot)
 		e = m.freePayload(v.args, v.count, astRefBytes)

@@ -103,6 +103,15 @@ func (m *ASTManager) appArg(a *astAppRecord, i uint32) (astNodeRef, error) {
 	return m.readInternal(a.args, i)
 }
 
+// declDomain is readInternal(d.domain, i) for the record d of a live
+// declaration with i < d.arity, from the record's copy in normal builds.
+func (m *ASTManager) declDomain(d *astFuncDeclRecord, i uint32) (astNodeRef, error) {
+	if i < uint32(len(d.domainRefs)) && !ASTSourceDebug {
+		return d.domainRefs[i], nil
+	}
+	return m.readInternal(d.domain, i)
+}
+
 // appArgPair is readInternalPair(a.args) for the record a of a live app.
 func (m *ASTManager) appArgPair(a *astAppRecord) (astNodeRef, astNodeRef, error) {
 	if a.count >= 2 && !ASTSourceDebug {
