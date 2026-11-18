@@ -424,8 +424,9 @@ func TestSMTKernelAssumptionsValidateCheckAndRollback(t *testing.T) {
 	if len(kernel.UnsatCore()) != 0 {
 		t.Fatal("ordinary check did not clear unsat core")
 	}
-	if _, err = kernel.CheckAssumptions([]ast.ASTHandle{clause}); err == nil {
-		t.Fatal("compound assumption accepted")
+	// validate_assumptions warns and the check is l_undef, not an error.
+	if result, err = kernel.CheckAssumptions([]ast.ASTHandle{clause}); err != nil || result != lbool.Undef {
+		t.Fatal("compound assumption accepted", result, err)
 	}
 }
 

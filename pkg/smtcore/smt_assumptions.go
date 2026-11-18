@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -78,13 +79,15 @@ func (k *SMTKernel) CheckAssumptions(assumptions []ast.ASTHandle) (result lbool.
 }
 
 func (k *SMTKernel) checkConfiguredAssumptions(assumptions []ast.ASTHandle) (result lbool.LBool, resultErr error) {
-	for index, assumption := range assumptions {
+	// context::validate_assumptions warns and check returns l_undef, before
+	// internalize_assertions and without check_finalize.
+	for _, assumption := range assumptions {
 		valid, err := k.validAssumption(assumption)
 		if err != nil {
 			return lbool.Undef, err
 		}
 		if !valid {
-			return lbool.Undef, fmt.Errorf("assumption %d: %w", index, ast.ErrASTDomain)
+			return lbool.Undef, diagnostic.BorrowProcessWarningService().Warning("an assumption must be a propositional variable or the negation of one")
 		}
 	}
 	if err := k.internalizeCheckAssertions(); err != nil {

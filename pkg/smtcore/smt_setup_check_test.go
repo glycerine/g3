@@ -1,7 +1,6 @@
 package smtcore
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -154,14 +153,14 @@ func TestSMTCheckAssumptionValidationFollowsSetupAndPrecedesInternalization(t *t
 	invalid, err := m.MkOr(a, b)
 	astTestMust(t, err)
 	astTestPin(t, m, invalid)
-	_, err = s.CheckSat([]ast.ASTHandle{invalid})
-	if !errors.Is(err, ast.ErrASTDomain) || !k.preprocessingSetupDone || !k.internalizer.theoriesSetup || k.smtState.RelevancyLvl != 0 {
+	status, err := s.CheckSat([]ast.ASTHandle{invalid})
+	if err != nil || status != lbool.Undef || !k.preprocessingSetupDone || !k.internalizer.theoriesSetup || k.smtState.RelevancyLvl != 0 {
 		t.Fatal("invalid assumption did not follow logic setup", err, k.preprocessingSetupDone, k.smtState.RelevancyLvl)
 	}
 	if k.assertedHead != 0 || len(k.internalizer.booleanData) != before || k.Statistics().NumChecks != 1 {
 		t.Fatal("invalid assumption internalized the pending assertions", k.assertedHead, k.Statistics())
 	}
-	status, err := s.CheckSat(nil)
+	status, err = s.CheckSat(nil)
 	astTestMust(t, err)
 	if status != lbool.True || k.Statistics().NumChecks != 2 {
 		t.Fatal("valid retry after invalid assumption", status, k.Statistics())

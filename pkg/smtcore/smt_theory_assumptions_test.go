@@ -1,10 +1,12 @@
 package smtcore
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -144,5 +146,29 @@ func TestSMTTheoryAssumptionsTrueInputStillValidatesEmptyCore(t *testing.T) {
 	astTestMust(t, err)
 	if result != lbool.Undef || theory.validations != 1 || len(theory.core) != 0 || theory.validationLevel != 0 {
 		t.Fatal("true-only assumption scope did not validate its empty core", result, theory.validations, theory.core, theory.validationLevel)
+	}
+}
+
+// AUDIT.md smtcore_01-F9: context::validate_assumptions warns and the check
+// returns l_undef; it is not an error.
+func TestSMTCheckAssumptionsRejectsNonLiteralWithWarning(t *testing.T) {
+	m := astTestManager(t)
+	k := smtTestKernel(t, m)
+	a := smtRelevancyBool(t, m, "assume-nonliteral-a")
+	b := smtRelevancyBool(t, m, "assume-nonliteral-b")
+	conjunction, err := m.MkAnd(a, b)
+	astTestMust(t, err)
+	astTestPin(t, m, conjunction)
+	var warnings bytes.Buffer
+	service := diagnostic.BorrowProcessWarningService()
+	previous := service.WarningStream()
+	astTestMust(t, service.SetWarningStream(&warnings))
+	t.Cleanup(func() { _ = service.SetWarningStream(previous) })
+	result, err := k.CheckAssumptions([]ast.ASTHandle{conjunction})
+	if err != nil || result != lbool.Undef {
+		t.Fatal("invalid assumption must yield l_undef without an error", result, err)
+	}
+	if got := warnings.String(); got != "WARNING: an assumption must be a propositional variable or the negation of one\n" {
+		t.Fatalf("unexpected warning %q", got)
 	}
 }
