@@ -1462,10 +1462,16 @@ namespace datalog {
                 relation_manager & rmgr = t2->get_plugin().get_manager();
                 m_project = rmgr.mk_project_fn(*t2, m_removed_cols.size(), m_removed_cols.c_ptr());
                 if (!m_project) {
+                    t2->deallocate();
                     throw default_exception("projection does not exist");
                 }
             }
-            return (*m_project)(*t2);
+            // FORK FIX #126 (g3 audit, see FORK_BUGFIXES.md): the filtered
+            // clone t2 was never deallocated, so a lazy table's clone kept
+            // its filter, and with it the condition, alive until ~ast_manager.
+            table_base * res = (*m_project)(*t2);
+            t2->deallocate();
+            return res;
         }
     };
 

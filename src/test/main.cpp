@@ -330,6 +330,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_mpfx_div_carry);
     TST(z3_4_7_1_hilbert_int64_min);
     TST(z3_4_7_1_dimacs_wrap);
+    TST(z3_4_7_1_filter_project_clone_leak);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

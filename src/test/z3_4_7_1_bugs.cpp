@@ -4525,3 +4525,46 @@ void tst_z3_4_7_1_dimacs_wrap() {
     ENSURE(s.num_vars() == 4);
     ENSURE(s.num_clauses() == 2);
 }
+
+// FORK FIX #126: relation_manager::default_table_filter_interpreted_and_project_fn
+// cloned its input table (t2 = tb.clone()), filtered and projected the
+// clone, and never deallocated it. A lazy table's clone holds its
+// lazy_table_filter_interpreted, which holds the condition: the condition
+// kept a reference until ~ast_manager (g3 audit: g0111's check_relation
+// filter conditions). After the functor, its result and the table are
+// deleted, only the caller's reference to the condition remains.
+void tst_z3_4_7_1_filter_project_clone_leak() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::register_engine re;
+    smt_params fp;
+    params_ref params;
+    params.set_sym("engine", symbol("datalog"));
+    datalog::context ctx(m, re, fp, params);
+    datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
+    datalog::table_plugin * lp = rmgr.get_table_plugin(symbol("lazy_sparse"));
+    ENSURE(lp);
+    datalog::table_signature sig;
+    sig.push_back(4);
+    sig.push_back(4);
+    datalog::scoped_rel<datalog::table_base> t = lp->mk_empty(sig);
+    datalog::table_fact f;
+    f.push_back(1);
+    f.push_back(2);
+    t->add_fact(f);
+    app_ref cond(m.mk_not(m.mk_false()), m);
+    unsigned before = cond->get_ref_count();
+    unsigned removed[1] = { 1 };
+    {
+        scoped_ptr<datalog::table_transformer_fn> fn =
+            rmgr.mk_filter_interpreted_and_project_fn(*t, cond, 1, removed);
+        ENSURE(fn);
+        datalog::scoped_rel<datalog::table_base> res = (*fn)(*t);
+        ENSURE(res);
+        res->get_size_estimate_rows();
+    }
+    t = nullptr;
+    unsigned after = cond->get_ref_count();
+    std::cout << "filter_project_clone_leak: condition references " << before << " -> " << after << "\n";
+    ENSURE(after == before);
+}
