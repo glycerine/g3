@@ -335,6 +335,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_opb_constraint_without_relation);
     TST(z3_4_7_1_proof_checker_rejects);
     TST(z3_4_7_1_log_escape_high_byte);
+    TST(z3_4_7_1_sls_restart_shift);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

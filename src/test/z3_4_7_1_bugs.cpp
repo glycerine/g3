@@ -422,6 +422,7 @@ Abstract:
 #include "util/mpq.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "tactic/sls/sls_engine.h"
 #include "ast/proofs/proof_checker.h"
 #include "muz/base/dl_util.h"
 #include "muz/fp/datalog_parser.h"
@@ -4684,4 +4685,37 @@ void tst_z3_4_7_1_log_escape_high_byte() {
               << " replay output: " << out.str() << "\n";
     ENSURE(text.find("a\\195b") != std::string::npos);
     ENSURE(out.str().empty());
+}
+
+// FORK FIX #133: sls_engine::check_restart computed 2 << (m_restarts >> 1)
+// on a signed int, undefined from shift 30 on. The restart point now
+// saturates at UINT_MAX from shift 31; below that the unsigned arithmetic
+// wraps as before.
+namespace {
+    struct z3_4_7_1_sls_engine_probe : public sls_engine {
+        z3_4_7_1_sls_engine_probe(ast_manager & m, params_ref const & p) : sls_engine(m, p) {}
+        unsigned restart(unsigned restarts, unsigned base, unsigned next, unsigned curr) {
+            m_stats.m_restarts = restarts;
+            m_restart_base = base;
+            m_restart_next = next;
+            check_restart(curr);
+            return m_restart_next;
+        }
+    };
+}
+
+void tst_z3_4_7_1_sls_restart_shift() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    params_ref p;
+    z3_4_7_1_sls_engine_probe e(m, p);
+    unsigned low = e.restart(8, 100, 5, 6);       // shift 4: 5 + 32 * 100
+    unsigned shift30 = e.restart(60, 1, 5, 6);    // shift 30: 5 + 2^31
+    unsigned shift31 = e.restart(62, 100, 5, 6);  // saturates
+    unsigned shift40 = e.restart(80, 100, 5, 6);  // saturates
+    std::cout << "sls_restart_shift: " << low << " " << shift30 << " " << shift31 << " " << shift40 << "\n";
+    ENSURE(low == 3205);
+    ENSURE(shift30 == 5u + (1u << 31));
+    ENSURE(shift31 == UINT_MAX);
+    ENSURE(shift40 == UINT_MAX);
 }

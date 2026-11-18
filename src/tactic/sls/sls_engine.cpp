@@ -629,8 +629,19 @@ unsigned sls_engine::check_restart(unsigned curr_value)
 #endif  */
         if (m_stats.m_restarts & 1)
             m_restart_next += m_restart_base;
-        else
-            m_restart_next += (2 << (m_stats.m_restarts >> 1)) * m_restart_base;
+        else {
+            // FORK FIX #133 (g3 audit, see FORK_BUGFIXES.md): the increment
+            // (2 << (m_restarts >> 1)) shifted a signed int, which overflows
+            // (undefined behavior) from shift 30 on, and shift counts of 32 or
+            // more are undefined too. Shift an unsigned below 31 (wrapping as
+            // the unsigned multiply and add already do) and saturate the next
+            // restart point at UINT_MAX from shift 31 on.
+            unsigned shift = m_stats.m_restarts >> 1;
+            if (shift >= 31)
+                m_restart_next = UINT_MAX;
+            else
+                m_restart_next += (2u << shift) * m_restart_base;
+        }
         return 0;
     }
     return 1;

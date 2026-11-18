@@ -609,6 +609,10 @@ func (e *Engine) CheckRestart(current uint32) bool {
 		if e.stats.Restarts&1 != 0 {
 			e.restartNext += e.restartBase
 		} else {
+			// z3 4.7.1 computes 2 << (m_restarts >> 1) on a signed int,
+			// which is undefined from shift 30 on; g3 and the fork fix
+			// (tst_z3_4_7_1_sls_restart_shift) shift an unsigned below 31
+			// and saturate restart_next from shift 31.
 			shift := e.stats.Restarts >> 1
 			if shift >= 31 {
 				e.restartNext = ^uint32(0)

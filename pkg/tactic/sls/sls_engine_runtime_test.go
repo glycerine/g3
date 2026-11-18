@@ -747,3 +747,30 @@ func TestSLSGoalOrchestrationResetsSATGoalAndStoresModel(t *testing.T) {
 		t.Fatal("stored SLS constant", count, err)
 	}
 }
+
+// check_restart's increment 2 << (restarts >> 1) is undefined in z3 4.7.1
+// from shift 30 on (signed int overflow); g3 and the fork fix shift an
+// unsigned below 31 and saturate restart_next at UINT_MAX from shift 31.
+// Values match tst_z3_4_7_1_sls_restart_shift (AUDIT tactic_sls_ufbv_01-F4).
+func TestSLSCheckRestartShiftMatchesForkFix(t *testing.T) {
+	e, _, _, _, _, _ := slsEngineFixture(t)
+	restart := func(restarts, base, next, curr uint32) uint32 {
+		e.stats.Restarts = restarts
+		e.restartBase = base
+		e.restartNext = next
+		if e.CheckRestart(curr) {
+			t.Fatal("restart point not passed", restarts)
+		}
+		return e.restartNext
+	}
+	for _, row := range []struct{ restarts, base, want uint32 }{
+		{8, 100, 3205},
+		{60, 1, 5 + 1<<31},
+		{62, 100, ^uint32(0)},
+		{80, 100, ^uint32(0)},
+	} {
+		if got := restart(row.restarts, row.base, 5, 6); got != row.want {
+			t.Fatal("restart point", row.restarts, got, row.want)
+		}
+	}
+}
