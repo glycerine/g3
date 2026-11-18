@@ -35,6 +35,9 @@ type SMTFingerprintSet struct {
 	byHash       map[uint64][]*SMTFingerprint
 	fingerprints []*SMTFingerprint
 	scopes       []int
+	// dummy is the argument buffer of fingerprint_set::mk_dummy; the
+	// stored fingerprint copies it.
+	dummy []*SMTEnode
 }
 
 func NewSMTFingerprintSet() *SMTFingerprintSet {
@@ -83,15 +86,16 @@ func (s *SMTFingerprintSet) find(hash uint64, data ast.ASTHandle, args []*SMTEno
 	return nil
 }
 
-func smtFingerprintRoots(args []*SMTEnode) ([]*SMTEnode, error) {
-	roots := make([]*SMTEnode, len(args))
-	for i, argument := range args {
+// dummyRoots fills the mk_dummy buffer with the roots of args.
+func (s *SMTFingerprintSet) dummyRoots(args []*SMTEnode) ([]*SMTEnode, error) {
+	s.dummy = s.dummy[:0]
+	for _, argument := range args {
 		if argument == nil || argument.root == nil {
 			return nil, ast.ErrASTDomain
 		}
-		roots[i] = argument.root
+		s.dummy = append(s.dummy, argument.root)
 	}
-	return roots, nil
+	return s.dummy, nil
 }
 
 func (s *SMTFingerprintSet) Insert(data ast.ASTHandle, dataHash uint32, args []*SMTEnode) (*SMTFingerprint, error) {
@@ -101,14 +105,15 @@ func (s *SMTFingerprintSet) Insert(data ast.ASTHandle, dataHash uint32, args []*
 	if s.find(smtFingerprintHash(data, args), data, args) != nil {
 		return nil, nil
 	}
-	roots, err := smtFingerprintRoots(args)
+	dummy, err := s.dummyRoots(args)
 	if err != nil {
 		return nil, err
 	}
-	hash := smtFingerprintHash(data, roots)
-	if s.find(hash, data, roots) != nil {
+	hash := smtFingerprintHash(data, dummy)
+	if s.find(hash, data, dummy) != nil {
 		return nil, nil
 	}
+	roots := append([]*SMTEnode(nil), dummy...)
 	fingerprint := &SMTFingerprint{data: data, dataHash: dataHash, args: roots, hash: hash}
 	s.byHash[hash] = append(s.byHash[hash], fingerprint)
 	s.fingerprints = append(s.fingerprints, fingerprint)
@@ -123,11 +128,11 @@ func (s *SMTFingerprintSet) Contains(data ast.ASTHandle, dataHash uint32, args [
 	if s.find(smtFingerprintHash(data, args), data, args) != nil {
 		return true, nil
 	}
-	roots, err := smtFingerprintRoots(args)
+	dummy, err := s.dummyRoots(args)
 	if err != nil {
 		return false, err
 	}
-	return s.find(smtFingerprintHash(data, roots), data, roots) != nil, nil
+	return s.find(smtFingerprintHash(data, dummy), data, dummy) != nil, nil
 }
 
 func (s *SMTFingerprintSet) SlowContains(data ast.ASTHandle, dataHash uint32, args []*SMTEnode) (bool, error) {

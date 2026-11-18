@@ -512,7 +512,9 @@ func (it *smtMAMInterpreter) step() bool {
 			it.top = 0
 			return false
 		}
-		if err := it.onMatch(pc.qa, pc.pat, append([]*SMTEnode(nil), it.bindings[:k]...), it.maxGeneration, it.usedEnodes); err != nil {
+		// on_match receives m_bindings itself; add_instance copies what it
+		// keeps (the fingerprint's roots).
+		if err := it.onMatch(pc.qa, pc.pat, it.bindings[:k:k], it.maxGeneration, it.usedEnodes); err != nil {
 			it.err = err
 		}
 		return false
