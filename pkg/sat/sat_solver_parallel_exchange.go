@@ -11,6 +11,7 @@ func (s *satSolverConflictResolution) exchangeParallelBound() error {
 		return err
 	}
 	var out []Literal
+	numIn := uint32(0)
 	for i := s.parallelLimitOut; i < rootSize; i++ {
 		literal, readErr := s.analysis.propagation.variables.trailRead(i)
 		if readErr != nil {
@@ -26,6 +27,7 @@ func (s *satSolverConflictResolution) exchangeParallelBound() error {
 		return err
 	}
 	s.parallelLimitIn = limit
+	numOut := uint32(len(out))
 	p := s.analysis.propagation
 	for _, literal := range in {
 		if p.inconsistent {
@@ -43,10 +45,16 @@ func (s *satSolverConflictResolution) exchangeParallelBound() error {
 			return readErr
 		}
 		if level != 0 || value != lbool.True {
+			numIn++
 			if err = p.assign(literal, satJustification{}); err != nil {
 				return err
 			}
 		}
+	}
+	if numIn > 0 || numOut > 0 {
+		// IF_VERBOSE(1, "(sat-sync out: " << num_out << " in: " << num_in
+		// << ")\n") (AUDIT.md sat_03-F3); g3trace builds only.
+		return satSyncVerbose(numOut, numIn)
 	}
 	return nil
 }
