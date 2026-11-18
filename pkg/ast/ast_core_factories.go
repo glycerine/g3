@@ -170,6 +170,9 @@ func (m *ASTManager) funcFlags(decl astNodeRef) (ASTFuncFlags, error) {
 	if m.nodeAt(decl.slot).kind != ASTFuncDecl {
 		return ASTFuncFlags{}, ErrASTDomain
 	}
+	if d := m.declAt(decl.slot); d.identityCached && !ASTSourceDebug {
+		return d.identityFlags, nil
+	}
 	p := m.declAt(decl.slot).info
 	if p == (ASTFuncDeclInfo{}) {
 		return ASTFuncFlags{}, nil

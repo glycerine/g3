@@ -47,6 +47,7 @@ func (m *ASTManager) setInfoForNode(r astNodeRef, slot, generation uint32) {
 		d.identityCached = false
 		if info, e := m.info(slot, generation); e == nil {
 			d.identityFamily, d.identityKind, d.identityCached = info.family, info.kind, true
+			d.identityFlags = info.flags
 		}
 	}
 }

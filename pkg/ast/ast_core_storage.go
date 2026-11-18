@@ -143,6 +143,8 @@ type astFuncDeclRecord struct {
 	identityFamily FamilyID
 	identityKind   int32
 	identityCached bool
+	// identityFlags copies that info's flags under the same condition.
+	identityFlags ASTFuncFlags
 	// domainRefs copies the domain payload (written once, at creation)
 	// for the hot readers of normal builds; debug builds read the payload.
 	domainRefs []astNodeRef
