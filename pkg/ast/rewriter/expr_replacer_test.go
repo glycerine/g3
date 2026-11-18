@@ -186,3 +186,38 @@ func TestSimplifyingExprReplacerTheoryRewriteAndDependencyTransfer(t *testing.T)
 		t.Fatal("simplifying replacer steps", steps, e)
 	}
 }
+
+// AUDIT ast_rewriter_03-F7: every C++ operator() overload funnels into the
+// four-argument one, which hands the used dependencies to a local
+// expr_dependency_ref and resets the cache. A plain Rewrite must not leave
+// them for the next RewriteWithDependency.
+func TestDefaultExprReplacerPlainRewriteResetsDependencies(t *testing.T) {
+	m := astTestManager(t)
+	a := goalTestAtom(t, m, "plain-dependency-a")
+	b := goalTestAtom(t, m, "plain-dependency-b")
+	x := goalTestAtom(t, m, "plain-dependency-x")
+	dx, err := m.DependencyLeaf(x)
+	satOK(t, err)
+	satOK(t, m.DependencyInc(dx))
+	t.Cleanup(func() { satOK(t, m.DependencyDec(dx)) })
+	s, err := m.NewExprSubstitutionPolicy(true, false)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, m.DelExprSubstitution(&s)) })
+	satOK(t, m.ExprSubstitutionInsert(s, a, x, ast.ASTHandle{}, dx))
+
+	r, err := NewDefaultExprReplacer(m)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, r.Close()) })
+	satOK(t, r.SetSubstitution(&s))
+	out := astTestPin(t, m, ast.ASTHandle{})
+	satOK(t, r.Rewrite(a, out))
+	if got, err := m.RefGet(out); err != nil || got != x {
+		t.Fatal("plain rewrite", got, x, err)
+	}
+	used, err := r.RewriteWithDependency(b, out)
+	satOK(t, err)
+	if !used.IsNull() {
+		satOK(t, m.DependencyDec(used))
+		t.Fatal("plain Rewrite left its dependency to the next call")
+	}
+}

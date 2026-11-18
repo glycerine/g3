@@ -267,24 +267,39 @@ func (r *DefaultExprReplacer) SetSubstitution(s *ast.ASTExprSubstitution) error 
 	return nil
 }
 
-// Rewrite applies the current substitution and leaves dependencies owned by
-// the replacer until Reset, SetSubstitution, Close, or RewriteWithDependency.
+// Rewrite is operator()(t, result). Every C++ overload funnels into the
+// four-argument operator(), whose local result_dep receives the used
+// dependencies (after which the cache is reset) and dies at the end of the
+// call: the dependency is released here.
 func (r *DefaultExprReplacer) Rewrite(t ast.ASTHandle, out ast.ASTRef) error {
-	if r == nil {
-		return ast.ErrASTHandle
+	d, err := r.RewriteWithDependency(t, out)
+	if err != nil {
+		return err
 	}
-	return r.engine.Rewrite(t, out)
+	return r.dropDependency(d)
 }
 
+// RewriteWithProof is operator()(t, result, result_pr); see Rewrite.
 func (r *DefaultExprReplacer) RewriteWithProof(t ast.ASTHandle, out, proof ast.ASTRef) error {
-	if r == nil {
-		return ast.ErrASTHandle
+	d, err := r.RewriteWithProofAndDependency(t, out, proof)
+	if err != nil {
+		return err
 	}
-	return r.engine.RewriteWithProof(t, out, proof)
+	return r.dropDependency(d)
+}
+
+func (r *DefaultExprReplacer) dropDependency(d ast.ASTDependency) error {
+	if d.IsNull() {
+		return nil
+	}
+	return r.cfg.manager.DependencyDec(d)
 }
 
 func (r *DefaultExprReplacer) RewriteWithProofAndDependency(t ast.ASTHandle, out, proof ast.ASTRef) (ast.ASTDependency, error) {
-	if err := r.RewriteWithProof(t, out, proof); err != nil {
+	if r == nil {
+		return ast.ASTDependency{}, ast.ErrASTHandle
+	}
+	if err := r.engine.RewriteWithProof(t, out, proof); err != nil {
 		return ast.ASTDependency{}, err
 	}
 	return r.transferDependency()
@@ -293,7 +308,10 @@ func (r *DefaultExprReplacer) RewriteWithProofAndDependency(t ast.ASTHandle, out
 // RewriteWithDependency transfers the accumulated dependency reference to the
 // caller. A nonnull result is owning and must be released with DependencyDec.
 func (r *DefaultExprReplacer) RewriteWithDependency(t ast.ASTHandle, out ast.ASTRef) (ast.ASTDependency, error) {
-	if err := r.Rewrite(t, out); err != nil {
+	if r == nil {
+		return ast.ASTDependency{}, ast.ErrASTHandle
+	}
+	if err := r.engine.Rewrite(t, out); err != nil {
 		return ast.ASTDependency{}, err
 	}
 	return r.transferDependency()
