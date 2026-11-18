@@ -3,7 +3,6 @@ package qe
 // Source: src/qe/qe_arith_plugin.cpp arith_qe_util relation matching.
 
 import (
-	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
@@ -47,13 +46,8 @@ func (u *ArithmeticQETermUtil) comparisonPolynomial(expression ast.ASTHandle, wa
 	if zero, cause := u.manager.ArithmeticNumeralIsZero(other); cause != nil {
 		return result, false, cause
 	} else if zero {
+		// is_le_ge_core returns p as is, unsimplified (AUDIT.md qe_01-F8).
 		result, cause = u.manager.NewRef(polynomial)
-		if cause == nil && u.theory != nil {
-			cause = u.theory.Rewrite(polynomial, result)
-			if cause != nil {
-				cause = errors.Join(cause, u.manager.DelRef(&result))
-			}
-		}
 		return result, cause == nil, cause
 	}
 	difference, err := u.manager.MkArithmeticSub(polynomial, other)
@@ -108,13 +102,8 @@ func (u *ArithmeticQETermUtil) MatchLT(expression ast.ASTHandle) (result ast.AST
 	if zero, cause := u.manager.ArithmeticNumeralIsZero(right); cause != nil {
 		return result, false, cause
 	} else if zero {
+		// is_lt returns p as is, unsimplified (AUDIT.md qe_01-F8).
 		result, cause = u.manager.NewRef(left)
-		if cause == nil && u.theory != nil {
-			cause = u.theory.Rewrite(left, result)
-			if cause != nil {
-				cause = errors.Join(cause, u.manager.DelRef(&result))
-			}
-		}
 		return result, cause == nil, cause
 	}
 	difference, err := u.manager.MkArithmeticSub(left, right)

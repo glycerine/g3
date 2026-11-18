@@ -289,3 +289,32 @@ func TestArithmeticQEFlatAndKeepsQuantifierConjunct(t *testing.T) {
 	}
 	arithmeticQEMust(t, f.manager.DelRef(&flat))
 }
+
+// AUDIT.md qe_01-F8: against the numeral 0, is_le_ge_core and is_lt return
+// p itself, without simplify.
+func TestArithmeticQERelationZeroSideIsUnsimplified(t *testing.T) {
+	f := newArithmeticQEFixture(t)
+	zero := f.integerNumeral(t, "0")
+	sum := f.pin(f.manager.MkArithmeticAdd(f.x, f.x))
+	for _, c := range []struct {
+		name  string
+		match func(ast.ASTHandle) (ast.ASTRef, bool, error)
+		e     ast.ASTHandle
+	}{
+		{"<=", f.util.MatchLE, f.pin(f.manager.MkArithmeticLE(sum, zero))},
+		{">=", f.util.MatchGE, f.pin(f.manager.MkArithmeticGE(sum, zero))},
+		{"<", f.util.MatchLT, f.pin(f.manager.MkArithmeticLT(sum, zero))},
+	} {
+		p, matched, err := c.match(c.e)
+		arithmeticQEMust(t, err)
+		if !matched {
+			t.Fatal(c.name, "not matched")
+		}
+		h, err := f.manager.RefGet(p)
+		arithmeticQEMust(t, err)
+		arithmeticQEMust(t, f.manager.DelRef(&p))
+		if h != sum {
+			t.Fatal(c.name, "did not return (+ x x) itself")
+		}
+	}
+}
