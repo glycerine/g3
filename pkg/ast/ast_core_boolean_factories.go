@@ -48,6 +48,9 @@ func (m *ASTManager) MkOrArray(args []ASTHandle) (ASTHandle, error) {
 
 // IsNot includes the source argument-output overload used by ast_ext2.
 func (m *ASTManager) IsNot(a ASTHandle) (bool, ASTHandle, error) {
+	if m.fastHandle(a) { // readNode's unchecked case
+		return m.isNot(astNodeRef{a.slot, a.generation})
+	}
 	if e := m.lock(); e != nil {
 		return false, ASTHandle{}, e
 	}
@@ -56,6 +59,9 @@ func (m *ASTManager) IsNot(a ASTHandle) (bool, ASTHandle, error) {
 	if e != nil {
 		return false, ASTHandle{}, e
 	}
+	return m.isNot(r)
+}
+func (m *ASTManager) isNot(r astNodeRef) (bool, ASTHandle, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, ASTHandle{}, nil
 	}
