@@ -17,7 +17,9 @@ type ConjunctionPartitioner struct {
 	self    *ConjunctionPartitioner
 	manager *ast.ASTManager
 	plugins []SolverPlugin
-	closed  bool
+	// config carries the owner's TRACE tags.
+	config Config
+	closed bool
 }
 
 func NewConjunctionPartitioner(manager *ast.ASTManager) (*ConjunctionPartitioner, error) {
@@ -251,7 +253,11 @@ func (p *ConjunctionPartitioner) GetPartition(formula ast.ASTHandle, variables [
 	if err != nil {
 		return closed, mixed, open, err
 	}
-	open, err = p.manager.NewRef(h)
+	if open, err = p.manager.NewRef(h); err != nil {
+		return closed, mixed, open, err
+	}
+	// TRACE("qe", closed, open, mixed) (AUDIT.md qe_05-F6).
+	err = qeTrace(p.manager, p.config, "get_partition", "src/qe/qe.cpp", 152, "closed\n", closed, "\nopen\n", open, "\nmixed\n", mixed, "\n")
 	return closed, mixed, open, err
 }
 

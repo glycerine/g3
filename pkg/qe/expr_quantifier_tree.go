@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
@@ -24,13 +25,14 @@ type exprQETree struct {
 	literals *exprQELiterals
 	branches unumeral.Rational // m_num_branches
 	pure     bool
+	config   Config
 }
 
 func newExprQETree(m *ast.ASTManager, config Config, parent *exprQETree, assignment ast.ASTHandle) (result *exprQETree, err error) {
 	if m == nil || assignment.IsNull() {
 		return nil, ast.ErrASTHandle
 	}
-	result = &exprQETree{manager: m, parent: parent, pure: true, branchIndex: make(map[string]int), branches: unumeral.NewRational()}
+	result = &exprQETree{manager: m, parent: parent, pure: true, branchIndex: make(map[string]int), branches: unumeral.NewRational(), config: config}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, result.Close())
@@ -184,6 +186,9 @@ func (s *exprQETree) addUnit(config Config, formula ast.ASTHandle) (*exprQETree,
 		return nil, errors.Join(err, child.Close())
 	}
 	s.children = append(s.children, child)
+	if err = s.traceAddChild(child, 1120); err != nil {
+		return nil, err
+	}
 	return child, nil
 }
 
@@ -213,6 +218,9 @@ func (s *exprQETree) addBranch(config Config, id *unumeral.Rational, assignment 
 	}
 	s.branchIndex[key] = len(s.children)
 	s.children = append(s.children, child)
+	if err = s.traceAddChild(child, 1134); err != nil {
+		return nil, err
+	}
 	return child, nil
 }
 
@@ -235,6 +243,11 @@ func (s *exprQETree) leaves() (result []ast.ASTRef, err error) {
 		node := todo[i]
 		todo = todo[:i]
 		if len(node.children) == 0 && node.formula != (ast.ASTRef{}) && len(node.variables) == 0 && node.selected == (ast.ASTRef{}) {
+			// TRACE("qe", st->display(tout << "appending leaf\n");)
+			// (AUDIT.md qe_05-F6).
+			if e := qeTrace(s.manager, s.config, "get_leaves", "src/qe/qe.cpp", 991, "appending leaf\n", func(out io.Writer) error { return node.display(out, "") }); e != nil {
+				return result, e
+			}
 			ref, e := s.manager.CopyRef(node.formula)
 			if e != nil {
 				return result, e

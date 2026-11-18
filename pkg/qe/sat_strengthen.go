@@ -36,7 +36,7 @@ func satExclusiveAtoms(atoms *BoolAtomIndex, positive bool) ([]ast.ASTHandle, er
 
 // satStrengthen expects B to be asserted in solver, as in the source tactic.
 // The returned expression is owned; all temporary solver scopes are popped.
-func satStrengthen(m *ast.ASTManager, normalizer *QENNFNormalizer, solver *smtcore.SMTSolver, rw *rewriter.TheoryRewriter, a, b ast.ASTHandle, checkpoint func() error) (result ast.ASTRef, err error) {
+func satStrengthen(m *ast.ASTManager, config Config, normalizer *QENNFNormalizer, solver *smtcore.SMTSolver, rw *rewriter.TheoryRewriter, a, b ast.ASTHandle, checkpoint func() error) (result ast.ASTRef, err error) {
 	if m == nil || normalizer == nil || solver == nil || rw == nil {
 		return result, ast.ErrASTHandle
 	}
@@ -108,6 +108,11 @@ func satStrengthen(m *ast.ASTManager, normalizer *QENNFNormalizer, solver *smtco
 				if e == nil {
 					e = solver.Pop(1)
 					if e == nil && status == lbool.True {
+						// TRACE("qe", tout << "consistent with: " << mk_pp(*it, m)
+						//       << " " << mk_pp(value, m) << "\n";) (AUDIT.md qe_05-F6).
+						e = qeTrace(m, config, "nnf_strengthen", "src/qe/qe_sat_tactic.cpp", 512, "consistent with: ", atom, " ", value, "\n")
+					}
+					if e == nil && status == lbool.True {
 						if e = m.ExprSubstitutionInsert(sub, atom, value, ast.ASTHandle{}, ast.ASTDependency{}); e == nil {
 							e = solver.AssertFormula(equal)
 						}
@@ -155,5 +160,9 @@ func satStrengthen(m *ast.ASTManager, normalizer *QENNFNormalizer, solver *smtco
 	if err = rw.Rewrite(old, result); err != nil {
 		return result, err
 	}
-	return result, nil
+	// TRACE("qe", tout << "A:  " << mk_pp(A, m) << "\n"; tout << "B:  "
+	//       << mk_pp(B, m) << "\n"; tout << "B': " << mk_pp(Bnnf.get(), m)
+	//       << "\n";) (AUDIT.md qe_05-F6).
+	err = qeTrace(m, config, "nnf_strengthening_extrapolate", "src/qe/qe_sat_tactic.cpp", 478, "A:  ", a, "\nB:  ", b, "\nB': ", result, "\n")
+	return result, err
 }

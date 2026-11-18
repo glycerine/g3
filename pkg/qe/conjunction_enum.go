@@ -132,7 +132,8 @@ func (c *ConjunctionEnum) arithmeticRelation(expression ast.ASTHandle) (kind int
 // inequalities become one lhs-rhs equality in the source scan order. The
 // temporaries are released as the source's expr_refs are (tmp2, tmp1, then
 // the trail front to back).
-func (c *ConjunctionEnum) ExtractEqualities() (result []ast.ASTRef, err error) {
+// config carries the TRACE tags.
+func (c *ConjunctionEnum) ExtractEqualities(config Config) (result []ast.ASTRef, err error) {
 	if err = c.open(); err != nil {
 		return nil, err
 	}
@@ -203,6 +204,11 @@ func (c *ConjunctionEnum) ExtractEqualities() (result []ast.ASTRef, err error) {
 		}
 		if seen[reverse] {
 			cause = push(&result, difference)
+			if cause == nil {
+				// TRACE("qe", tout << "found:  " << mk_ismt2_pp(tmp1, m) <<
+				// "\n";) (AUDIT.md qe_05-F6).
+				cause = qeTrace(m, config, "extract_equalities", "src/qe/qe.cpp", 331, "found:  ", difference, "\n")
+			}
 		} else {
 			cause = push(&trail, difference)
 			seen[difference] = true

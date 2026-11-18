@@ -299,6 +299,10 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 	if err = out.AddGoal(goal); err != nil {
 		return err
 	}
+	// TRACE("qe", g->display(tout);) (AUDIT.md qe_05-F6).
+	if err = qeTrace(t.manager, t.config, "operator()", "src/qe/qe_tactic.cpp", 84, goal.Display); err != nil {
+		return err
+	}
 	// m_st.reset(); m_imp->collect_statistics(m_st)
 	if err = t.qe.collectStatistics(runStats); err != nil {
 		return err

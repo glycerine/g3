@@ -117,7 +117,7 @@ func TestConjunctionEnumSourceOrderAndEqualityExtraction(t *testing.T) {
 			t.Fatalf("conjunct %d = %v, want %v", i, got, want)
 		}
 	}
-	equalities, err := conjunctions.ExtractEqualities()
+	equalities, err := conjunctions.ExtractEqualities(Config{})
 	fmMust(t, err)
 	if len(equalities) != 2 {
 		t.Fatalf("equalities = %d, want 2", len(equalities))

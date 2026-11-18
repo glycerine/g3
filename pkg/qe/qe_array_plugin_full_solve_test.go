@@ -22,7 +22,7 @@ func TestArrayPluginSolveExtractionFallbackRejectsSubtraction(t *testing.T) {
 	conjs, e := NewConjunctionEnum(m, formula)
 	fmMust(t, e)
 	defer func() { fmMust(t, conjs.Close()) }()
-	equalities, e := conjs.ExtractEqualities()
+	equalities, e := conjs.ExtractEqualities(Config{})
 	fmMust(t, e)
 	if len(equalities) != 1 {
 		t.Fatal("expected equality from opposite bounds", len(equalities))

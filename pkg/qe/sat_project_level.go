@@ -31,8 +31,14 @@ func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.AST
 			return e
 		}
 		defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
+		original := formula
 		formula, err = m.RefGet(ref)
 		if err != nil {
+			return err
+		}
+		// TRACE("qe", tout << mk_pp(_fml, m) << "\n-- context simplify -->\n"
+		//       << mk_pp(fml, m) << "\n";) (AUDIT.md qe_05-F6).
+		if err = qeTrace(m, config, "project", "src/qe/qe_sat_tactic.cpp", 629, original, "\n-- context simplify -->\n", formula, "\n"); err != nil {
 			return err
 		}
 	}
@@ -156,7 +162,12 @@ func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.AST
 	if err = m.AssignRef(levels.levels[index].formula, ref); err != nil {
 		return err
 	}
-	return levels.levels[index].solver.AssertFormula(negated)
+	if err = levels.levels[index].solver.AssertFormula(negated); err != nil {
+		return err
+	}
+	// TRACE("qe", tout << mk_pp(fml, m) << "\n--->\n"; tout << mk_pp(tmp, m)
+	//       << "\n";) (AUDIT.md qe_05-F6).
+	return qeTrace(m, config, "project", "src/qe/qe_sat_tactic.cpp", 664, formula, "\n--->\n", ref, "\n")
 }
 
 // simplifySATContext limits each source-level simplification to the current M(i).

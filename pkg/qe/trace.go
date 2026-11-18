@@ -127,8 +127,9 @@ func (d *ArrayDER) traceSelect(left, right ast.ASTHandle) error {
 }
 
 // qeTrace emits TRACE("qe", ...) for a site in file (a path such as
-// src/qe/qe.cpp). Each part is a string, written as is, or an expression,
-// written with mk_ismt2_pp.
+// src/qe/qe.cpp). Each part is a string, written as is, an expression
+// (handle or ref), written with mk_ismt2_pp, or a func(io.Writer) error
+// that writes a display procedure's text.
 func qeTrace(m *ast.ASTManager, config Config, function, file string, line int, parts ...interface{}) error {
 	tags := config.Trace
 	if tags == nil {
@@ -142,6 +143,18 @@ func qeTrace(m *ast.ASTManager, config Config, function, file string, line int, 
 				_, _ = io.WriteString(w, v)
 			case ast.ASTHandle:
 				if err := writeExpression(m, config, w, v); err != nil {
+					return err
+				}
+			case ast.ASTRef:
+				h, err := m.RefGet(v)
+				if err != nil {
+					return err
+				}
+				if err = writeExpression(m, config, w, h); err != nil {
+					return err
+				}
+			case func(io.Writer) error:
+				if err := v(w); err != nil {
 					return err
 				}
 			default:

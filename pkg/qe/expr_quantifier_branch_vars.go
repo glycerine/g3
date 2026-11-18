@@ -21,6 +21,8 @@ type exprQEBranchVariables struct {
 	// reset deallocates the contains_app objects in; nil keeps insertion
 	// order.
 	order *ast.ObjMap
+	// config carries the owner's TRACE tags.
+	config Config
 }
 
 func newExprQEBranchVariables(m *ast.ASTManager) (*exprQEBranchVariables, error) {
@@ -77,6 +79,11 @@ func (s *exprQEBranchVariables) add(variable ast.ASTHandle) (err error) {
 	}
 	entry.branch, err = m.NewRef(branch)
 	if err != nil {
+		return err
+	}
+	// TRACE("qe", tout << "Add branch var: " << x << " " << bv << "\n";)
+	// (AUDIT.md qe_05-F6).
+	if err = qeTrace(m, s.config, "add_var", "src/qe/qe.cpp", 1582, "Add branch var: ", variable, " ", branch, "\n"); err != nil {
 		return err
 	}
 	s.index[variable] = len(s.entries) - 1

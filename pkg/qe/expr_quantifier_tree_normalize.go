@@ -44,6 +44,11 @@ func normalizeExprQETree(node *exprQETree, rw *rewriter.TheoryRewriter, nnf *QEN
 	if err != nil {
 		return err
 	}
+	// TRACE("qe", tout << "nnf: " << mk_ismt2_pp(result.get(), m) << "\n";)
+	// (AUDIT.md qe_05-F6).
+	if err = qeTrace(m, node.config, "normalize", "src/qe/qe.cpp", 1809, "nnf: ", node.formula, "\n"); err != nil {
+		return errors.Join(err, atoms.Close())
+	}
 	if node.atoms != nil {
 		if err = node.atoms.Close(); err != nil {
 			return errors.Join(err, atoms.Close())

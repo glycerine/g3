@@ -152,6 +152,11 @@ func selectExprQEVariable(node *exprQETree, variables *exprQEBranchVariables, co
 				return v, true, nil
 			}
 		}
+		// TRACE("qe", tout << "setting variable " << mk_pp(x, m) << " free\n";)
+		// (AUDIT.md qe_05-F6).
+		if e = qeTrace(m, node.config, "find_min_weight", "src/qe/qe.cpp", 1990, "setting variable ", v, " free\n"); e != nil {
+			return selected, false, e
+		}
 		ref, e := m.NewRef(v)
 		if e != nil {
 			return selected, false, e

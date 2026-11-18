@@ -30,7 +30,7 @@ func TestSATSolverNNFStrengtheningAndScope(t *testing.T) {
 	truth := f.own(m.MkTrue())
 	fmMust(t, solver.AssertFormula(b))
 	checkpoints := 0
-	result, err := satStrengthen(m, normalizer, solver, rw, truth, b, func() error { checkpoints++; return nil })
+	result, err := satStrengthen(m, Config{}, normalizer, solver, rw, truth, b, func() error { checkpoints++; return nil })
 	fmMust(t, err)
 	defer func() { fmMust(t, m.DelRef(&result)) }()
 	h, err := m.RefGet(result)
@@ -123,14 +123,14 @@ func TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure(t *testing.
 	truth := f.own(m.MkTrue())
 	fmMust(t, solver.AssertFormula(b))
 	count := 0
-	result, err := satStrengthen(m, normalizer, solver, rw, truth, b, func() error { count++; return nil })
+	result, err := satStrengthen(m, Config{}, normalizer, solver, rw, truth, b, func() error { count++; return nil })
 	fmMust(t, err)
 	fmMust(t, m.DelRef(&result))
 	if count != 1 {
 		t.Fatalf("mixed-polarity atom was considered: %d checkpoints", count)
 	}
 	stopped := errors.New("stop")
-	_, err = satStrengthen(m, normalizer, solver, rw, truth, b, func() error { return stopped })
+	_, err = satStrengthen(m, Config{}, normalizer, solver, rw, truth, b, func() error { return stopped })
 	if !errors.Is(err, stopped) {
 		t.Fatal("checkpoint failure not propagated", err)
 	}

@@ -22,6 +22,13 @@ func (c *SolverContext) AddVariable(variable ast.ASTHandle) error {
 		// quant_elim_plugin::add_var: m_new_vars and the branch tables.
 		return c.tree.variables.add(variable)
 	}
+	if c.simplifyTrace != nil {
+		// TRACE("qe", tout << "add var: " << mk_pp(x, m) << "\n";) (AUDIT.md
+		// qe_05-F6).
+		if err = qeTrace(c.manager, *c.simplifyTrace, "add_var", "src/qe/qe.cpp", 2543, "add var: ", variable, "\n"); err != nil {
+			return err
+		}
+	}
 	c.variables = append(c.variables, variable)
 	c.variableOwners = append(c.variableOwners, ast.ASTRef{})
 	c.contains = append(c.contains, nil)

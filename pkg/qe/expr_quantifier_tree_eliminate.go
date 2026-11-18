@@ -55,6 +55,11 @@ func (t *exprQETreeContext) eliminate(index uint32, formula, definition ast.ASTH
 	if err != nil {
 		return err
 	}
+	// TRACE("qe", tout << mk_pp(x,m) << " " << mk_pp(def, m) << "\n";)
+	// (AUDIT.md qe_05-F6).
+	if err = qeTrace(node.manager, node.config, "elim_var", "src/qe/qe.cpp", 1559, variable, " ", definition, "\n"); err != nil {
+		return err
+	}
 	// m_current->set_var(x, rational(1))
 	q := node.manager.NumeralService().Manager
 	one := unumeral.NewRational()

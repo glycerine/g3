@@ -39,6 +39,7 @@ func assertExprQETreeConstraint(current *exprQETree, solver *smtcore.SMTSolver, 
 		return ast.ErrASTDomain
 	}
 	m := current.manager
+	config := current.config
 	// The C++ callers pass l1..l3 held in expr_refs, so m_literals.reset()
 	// never frees them. Pin them for the call: a caller's fresh literal may
 	// be hash-consed with one m_literals holds last.
@@ -98,5 +99,9 @@ func assertExprQETreeConstraint(current *exprQETree, solver *smtcore.SMTSolver, 
 		return err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
+	// TRACE("qe", tout << fml << "\n";) (AUDIT.md qe_05-F6).
+	if err = qeTrace(m, config, "add_constraint", "src/qe/qe.cpp", 1601, clause, "\n"); err != nil {
+		return err
+	}
 	return solver.AssertFormula(clause)
 }

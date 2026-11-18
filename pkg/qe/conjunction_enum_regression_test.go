@@ -12,7 +12,7 @@ func TestConjunctionEqualityExtractionDistinguishesArithmeticLE(t *testing.T) {
 	single, err := NewConjunctionEnum(m, forward)
 	fmMust(t, err)
 	defer func() { fmMust(t, single.Close()) }()
-	equalities, err := single.ExtractEqualities()
+	equalities, err := single.ExtractEqualities(Config{})
 	fmMust(t, err)
 	if len(equalities) != 0 {
 		for i := range equalities {
@@ -24,7 +24,7 @@ func TestConjunctionEqualityExtractionDistinguishesArithmeticLE(t *testing.T) {
 	paired, err := NewConjunctionEnum(m, both)
 	fmMust(t, err)
 	defer func() { fmMust(t, paired.Close()) }()
-	equalities, err = paired.ExtractEqualities()
+	equalities, err = paired.ExtractEqualities(Config{})
 	fmMust(t, err)
 	defer func() {
 		for i := range equalities {

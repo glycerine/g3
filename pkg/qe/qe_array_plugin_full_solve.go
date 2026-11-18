@@ -15,7 +15,7 @@ func (p *ArrayPlugin) Solve(conjs *ConjunctionEnum, formula ast.ASTHandle) (solv
 	if err != nil || solved {
 		return solved, err
 	}
-	equalities, err := conjs.ExtractEqualities()
+	equalities, err := conjs.ExtractEqualities(p.context.traceConfig())
 	if err != nil {
 		return false, err
 	}

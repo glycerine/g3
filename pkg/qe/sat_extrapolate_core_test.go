@@ -17,7 +17,7 @@ func TestSATSolverCoreExtrapolation(t *testing.T) {
 	p := f.constant("core-p", f.boolean)
 	q := f.constant("core-q", f.boolean)
 	count := 0
-	result, err := satCoreExtrapolate(m, solver, p, []ast.ASTHandle{p, q}, func() error { count++; return nil })
+	result, err := satCoreExtrapolate(m, Config{}, solver, ast.ASTHandle{}, p, []ast.ASTHandle{p, q}, func() error { count++; return nil })
 	fmMust(t, err)
 	defer func() { fmMust(t, m.DelRef(&result)) }()
 	h, err := m.RefGet(result)
@@ -37,11 +37,11 @@ func TestSATSolverCoreExtrapolation(t *testing.T) {
 	if count != 1 {
 		t.Fatal("checkpoint count", count)
 	}
-	if _, err = satCoreExtrapolate(m, solver, p, []ast.ASTHandle{q}, nil); err == nil {
+	if _, err = satCoreExtrapolate(m, Config{}, solver, ast.ASTHandle{}, p, []ast.ASTHandle{q}, nil); err == nil {
 		t.Fatal("accepted assignments that do not imply the formula")
 	}
 	stopped := errors.New("stop")
-	_, err = satCoreExtrapolate(m, solver, p, nil, func() error { return stopped })
+	_, err = satCoreExtrapolate(m, Config{}, solver, ast.ASTHandle{}, p, nil, func() error { return stopped })
 	if !errors.Is(err, stopped) {
 		t.Fatal("checkpoint failure not propagated", err)
 	}

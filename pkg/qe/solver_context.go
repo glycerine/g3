@@ -48,6 +48,9 @@ type SolverContext struct {
 	// sink is set while a plugin assigns a branch of the quant_elim_plugin
 	// search tree: add_constraint then asserts at once over the new node.
 	sink *exprQEConstraintSink
+	// simplifyTrace is set for simplify_solver_context, whose elim_var and
+	// add_var callbacks TRACE("qe", ...); it carries the owner's tags.
+	simplifyTrace *Config
 }
 
 // exprQEConstraintSink is quant_elim_plugin::add_constraint's m_current and
@@ -65,6 +68,15 @@ func (c *SolverContext) addConstraint(useVariable bool, literal ast.ASTHandle) (
 		return false, nil
 	}
 	return true, assertExprQETreeConstraint(c.sink.current, c.sink.solver, useVariable, literal)
+}
+
+// traceConfig is the owning quant_elim_plugin's configuration, for its
+// TRACE tags; a context without an owner uses the process tags.
+func (c *SolverContext) traceConfig() Config {
+	if c == nil || c.owner == nil {
+		return Config{}
+	}
+	return c.owner.config
 }
 
 func NewSolverContext(manager *ast.ASTManager, variables []ast.ASTHandle) (*SolverContext, error) {

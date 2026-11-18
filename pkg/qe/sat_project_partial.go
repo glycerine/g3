@@ -3,6 +3,8 @@ package qe
 // Source: src/qe/qe_sat_tactic.cpp, solver_context::project_var_partial.
 
 import (
+	"io"
+
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -66,13 +68,13 @@ func (c *satSolverContext) projectPartial(index uint32, source *model.Model, rw 
 	case bv:
 		projected, err = c.bv.ProjectModel(c.contains[index], source, c.formula, config)
 	default:
-		return tactic.NewTacticException(messages.Canceled) // check_success
+		return satCheckFailed(m, config) // check_success(has_plugin(x))
 	}
 	if err != nil {
 		return err
 	}
 	if !projected {
-		return tactic.NewTacticException(messages.Canceled) // check_success
+		return satCheckFailed(m, config) // check_success(p.project(...))
 	}
 	current, err := c.manager.RefGet(c.formula)
 	if err != nil {
@@ -85,5 +87,20 @@ func (c *satSolverContext) projectPartial(index uint32, source *model.Model, rw 
 	if err != nil {
 		return err
 	}
+	// TRACE("qe", model_v2_pp(tout, *model); tout << "\n";
+	//       tout << mk_pp(m_fml, m) << "\n";) (AUDIT.md qe_05-F6).
+	showModel := func(out io.Writer) error { return source.Core().WriteV2(out, config.Context, config.Globals, false) }
+	if err = qeTrace(m, config, "project_var_partial", "src/qe/qe_sat_tactic.cpp", 180, showModel, "\n", current, "\n"); err != nil {
+		return err
+	}
 	return c.eliminateVariable(index, current, ast.ASTHandle{})
+}
+
+// satCheckFailed is sat_tactic::check_success on failure: TRACE("qe",
+// tout << "check failed\n";) then the canceled tactic exception.
+func satCheckFailed(m *ast.ASTManager, config Config) error {
+	if err := qeTrace(m, config, "check_success", "src/qe/qe_sat_tactic.cpp", 678, "check failed\n"); err != nil {
+		return err
+	}
+	return tactic.NewTacticException(messages.Canceled)
 }

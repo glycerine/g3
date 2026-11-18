@@ -71,6 +71,11 @@ func closeExprQETreePartition(node *exprQETree, part *exprQETreePartition, solve
 			}
 		}
 		if e == nil {
+			// TRACE("qe", tout << mk_pp(x,m) << " " << mk_pp(val, m) << "\n";)
+			// (AUDIT.md qe_05-F6).
+			e = qeTrace(m, config, "update_current", "src/qe/qe.cpp", 1780, variable, " ", h, "\n")
+		}
+		if e == nil {
 			e = child.addDefinition(variable, h)
 		}
 		e = errors.Join(e, m.DelRef(&value))
@@ -78,12 +83,8 @@ func closeExprQETreePartition(node *exprQETree, part *exprQETreePartition, solve
 			return nil, false, e
 		}
 	}
-	for len(child.variables) > 0 {
-		i := len(child.variables) - 1
-		if err = m.DelRef(&child.variables[i]); err != nil {
-			return nil, false, err
-		}
-		child.variables = child.variables[:i]
+	if err = child.resetFreeVars(); err != nil {
+		return nil, false, err
 	}
 	if err = assertExprQETreeConstraint(child, solver, true); err != nil {
 		return nil, false, err

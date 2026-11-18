@@ -73,5 +73,9 @@ func (c *satSolverContext) projectFull(index uint32, rw *rewriter.TheoryRewriter
 	if err != nil {
 		return err
 	}
+	// TRACE("qe", tout << mk_pp(m_fml, m) << "\n";) (AUDIT.md qe_05-F6).
+	if err = qeTrace(m, config, "project_var_full", "src/qe/qe_sat_tactic.cpp", 193, value, "\n"); err != nil {
+		return err
+	}
 	return c.eliminateVariable(index, value, ast.ASTHandle{})
 }

@@ -34,6 +34,15 @@ func constrainExprQEBranch(node *exprQETree, variables *exprQEBranchVariables, s
 	if err = node.selectVariable(variable, count); err != nil {
 		return err
 	}
+	// TRACE("qe", tout << mk_pp(x, m) << " := " << k << "\n";) (AUDIT.md
+	// qe_05-F6).
+	k, err := q.String(count)
+	if err != nil {
+		return err
+	}
+	if err = qeTrace(m, node.config, "constrain_assignment", "src/qe/qe.cpp", 1915, variable, " := "+k+"\n"); err != nil {
+		return err
+	}
 	if isBV {
 		return nil
 	}

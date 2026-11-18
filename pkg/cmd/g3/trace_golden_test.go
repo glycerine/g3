@@ -148,7 +148,48 @@ var goldenTraceSites = map[string]bool{
 	"qe solve src/qe/qe.cpp":                 true,
 	"qe reduce_quantifier src/qe/qe.cpp":     true,
 	"qe operator() src/qe/qe_sat_tactic.cpp": true,
+	// The search-tree, quant_elim_plugin, qe-sat and qe tactic sites
+	// (AUDIT.md qe_05-F6). The qe_arith_plugin.cpp sites are not ported.
+	"qe operator() src/qe/qe_tactic.cpp":                        true,
+	"qe extract_alt_form src/qe/qe_sat_tactic.cpp":              true,
+	"qe qt src/qe/qe_sat_tactic.cpp":                            true,
+	"qe add_constraint src/qe/qe_sat_tactic.cpp":                true,
+	"qe blast_or src/qe/qe_sat_tactic.cpp":                      true,
+	"qe project_var_partial src/qe/qe_sat_tactic.cpp":           true,
+	"qe project_var_full src/qe/qe_sat_tactic.cpp":              true,
+	"qe project src/qe/qe_sat_tactic.cpp":                       true,
+	"qe check_success src/qe/qe_sat_tactic.cpp":                 true,
+	"qe nnf_strengthen src/qe/qe_sat_tactic.cpp":                true,
+	"qe nnf_strengthening_extrapolate src/qe/qe_sat_tactic.cpp": true,
+	"qe smt_test_extrapolate src/qe/qe_sat_tactic.cpp":          true,
+	"qe get_partition src/qe/qe.cpp":                            true,
+	"qe extract_equalities src/qe/qe.cpp":                       true,
+	"qe get_leaves src/qe/qe.cpp":                               true,
+	"qe reset src/qe/qe.cpp":                                    true,
+	"qe reset_free_vars src/qe/qe.cpp":                          true,
+	"qe add_child src/qe/qe.cpp":                                true,
+	"qe check src/qe/qe.cpp":                                    true,
+	"qe final_check src/qe/qe.cpp":                              true,
+	"qe elim_var src/qe/qe.cpp":                                 true,
+	"qe add_var src/qe/qe.cpp":                                  true,
+	"qe add_constraint src/qe/qe.cpp":                           true,
+	"qe update_current src/qe/qe.cpp":                           true,
+	"qe normalize src/qe/qe.cpp":                                true,
+	"qe constrain_assignment src/qe/qe.cpp":                     true,
+	"qe process_partition src/qe/qe.cpp":                        true,
+	"qe find_min_weight src/qe/qe.cpp":                          true,
+	"qe solve_vars src/qe/qe.cpp":                               true,
 }
+
+// goldenPointerMaskedSites print search_tree node addresses ("node 0x...");
+// they are compared with the addresses masked.
+var goldenPointerMaskedSites = map[string]bool{
+	"qe add_child src/qe/qe.cpp":  true,
+	"qe get_leaves src/qe/qe.cpp": true,
+	"qe check src/qe/qe.cpp":      true,
+}
+
+var goldenPointer = regexp.MustCompile(`node 0x[0-9a-f]+`)
 
 // goldenIDMaskedSites print AST ids ("#123"). Until g3 allocates the same
 // ids as z3 (TODO.md item 3) they are compared with the ids masked; every
@@ -169,6 +210,9 @@ var goldenTraceLine = regexp.MustCompile(`:[0-9]+$`)
 func goldenRecordText(r traceRecord) string {
 	if goldenIDMaskedSites[r.site] {
 		return goldenASTID.ReplaceAllString(r.text, "#")
+	}
+	if goldenPointerMaskedSites[r.site] {
+		return goldenPointer.ReplaceAllString(r.text, "node 0x")
 	}
 	return r.text
 }

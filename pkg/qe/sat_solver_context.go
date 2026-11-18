@@ -37,6 +37,7 @@ type satSolverContext struct {
 	atoms      *BoolAtomIndex
 	variables  []ast.ASTRef
 	contains   []*ast.ContainsApp
+	config     Config
 	closed     bool
 }
 
@@ -86,7 +87,7 @@ func newSATSolverContext(manager *ast.ASTManager, solver *smtcore.SMTSolver, con
 	if owner != manager {
 		return nil, ast.ErrASTHandle
 	}
-	c := &satSolverContext{manager: manager, solver: solver}
+	c := &satSolverContext{manager: manager, solver: solver, config: config}
 	defer func() {
 		if result != nil {
 			result = errors.Join(result, c.Close())
@@ -252,6 +253,11 @@ func (c *satSolverContext) addConstraint(useVar bool, literals ...ast.ASTHandle)
 		return err
 	}
 	err = c.solver.AssertFormula(clause)
+	if err == nil {
+		// TRACE("qe", tout << "add_constraint " << mk_pp(cnstr,m) << "\n";)
+		// (AUDIT.md qe_05-F6).
+		err = qeTrace(c.manager, c.config, "add_constraint", "src/qe/qe_sat_tactic.cpp", 159, "add_constraint ", clause, "\n")
+	}
 	return errors.Join(err, c.manager.DelRef(&ref))
 }
 
@@ -347,5 +353,10 @@ func satBlastOr(m *ast.ASTManager, config Config, variable ast.ASTHandle, fml as
 		return err
 	}
 	// fml = result.
-	return m.SetRef(fml, value)
+	if err = m.SetRef(fml, value); err != nil {
+		return err
+	}
+	// TRACE("qe", tout << mk_pp(var, m) << " " << mk_pp(fml, m) << "\n";)
+	// (AUDIT.md qe_05-F6).
+	return qeTrace(m, config, "blast_or", "src/qe/qe_sat_tactic.cpp", 169, variable, " ", fml, "\n")
 }

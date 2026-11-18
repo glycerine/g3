@@ -68,6 +68,20 @@ func extractSATAlternation(m *ast.ASTManager, config Config, formula ast.ASTHand
 		if block.IsForall != (len(result.variables)%2 == 0) {
 			return nil, errors.Join(ast.ErrASTDomain, block.Close())
 		}
+		// TRACE("qe", tout << "Hoist " << (is_fa?"fa":"ex") << "\n"; vars
+		// each followed by " "; "\n"; result) (AUDIT.md qe_05-F6).
+		quantifier := "ex"
+		if block.IsForall {
+			quantifier = "fa"
+		}
+		parts := []interface{}{"Hoist " + quantifier + "\n"}
+		for _, v := range block.Variables {
+			parts = append(parts, v, " ")
+		}
+		parts = append(parts, "\n", block.Formula, "\n")
+		if e = qeTrace(m, config, "extract_alt_form", "src/qe/qe_sat_tactic.cpp", 365, parts...); e != nil {
+			return nil, errors.Join(e, block.Close())
+		}
 		var refs []ast.ASTRef
 		for _, v := range block.Variables {
 			ref, cause := m.CopyRef(v)

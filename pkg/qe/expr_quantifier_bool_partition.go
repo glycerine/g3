@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -44,16 +45,17 @@ func processExprQEScalarPartition(node *exprQETree, partition *exprQETreePartiti
 	if err != nil {
 		return false, err
 	}
+	// TRACE("qe", tout << fml << " free: " << m_current->free_vars() <<
+	// "\n";) (AUDIT.md qe_05-F6).
+	if err = qeTrace(m, config, "process_partition", "src/qe/qe.cpp", 1956, value, " free: ", func(out io.Writer) error { return writeExpressionVector(m, config, out, node.variables) }, "\n"); err != nil {
+		return false, err
+	}
 	child, err := node.addUnit(config, value)
 	if err != nil {
 		return false, err
 	}
-	for len(child.variables) > 0 {
-		i := len(child.variables) - 1
-		if err = m.DelRef(&child.variables[i]); err != nil {
-			return false, err
-		}
-		child.variables = child.variables[:i]
+	if err = child.resetFreeVars(); err != nil {
+		return false, err
 	}
 	// block_assignment() walks from m_current, which process_partition does
 	// not advance to the new child (AUDIT.md qe_02-F3).

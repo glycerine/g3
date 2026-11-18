@@ -5,6 +5,7 @@ package qe
 import (
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -141,9 +142,9 @@ func (s *satPartialSearch) extrapolate(index uint32, context ast.ASTHandle, chec
 	}
 	switch s.options.extrapolate {
 	case 1:
-		return satStrengthen(m, s.nnf, s.levels.levels[index].solver, s.rw, context, b, s.checkpoint)
+		return satStrengthen(m, s.config, s.nnf, s.levels.levels[index].solver, s.rw, context, b, s.checkpoint)
 	case 2:
-		return satCoreExtrapolate(m, s.aux, b, check.assignments, s.checkpoint)
+		return satCoreExtrapolate(m, s.config, s.aux, context, b, check.assignments, s.checkpoint)
 	case 3:
 		return satWeaken(m, s.nnf, s.aux, s.rw, context, b, s.checkpoint)
 	default:
@@ -160,6 +161,11 @@ func (s *satPartialSearch) qt(index uint32, context ast.ASTHandle) (result *satP
 		// IF_VERBOSE(1, verbose_stream() << "(qt " << i << ")\n";)
 		// (AUDIT.md qe_05-F5).
 		if err = satVerbose(1, fmt.Sprintf("(qt %d)\n", index)); err != nil {
+			return nil, err
+		}
+		// TRACE("qe", tout << i << " " << mk_pp(ctx, m) << "\n"; display(tout);)
+		// (AUDIT.md qe_05-F6).
+		if err = qeTrace(m, s.config, "qt", "src/qe/qe_sat_tactic.cpp", 395, fmt.Sprintf("%d ", index), context, "\n", s.display); err != nil {
 			return nil, err
 		}
 		if err = s.checkpoint(); err != nil {
@@ -245,4 +251,47 @@ func satVerbose(level uint32, text string) error {
 		return err
 	}
 	return out.AppendCString(text)
+}
+
+// display is sat_tactic::display: each alternation's quantifier, its
+// variables and the level formula M(i+1).
+func (s *satPartialSearch) display(out io.Writer) error {
+	m := s.manager
+	forall := true
+	for i, block := range s.alt.variables {
+		quantifier := "ex "
+		if forall {
+			quantifier = "fa "
+		}
+		if _, err := io.WriteString(out, quantifier); err != nil {
+			return err
+		}
+		for _, v := range block {
+			h, err := m.RefGet(v)
+			if err != nil {
+				return err
+			}
+			if err = writeExpression(m, s.config, out, h); err != nil {
+				return err
+			}
+			if _, err = io.WriteString(out, " "); err != nil {
+				return err
+			}
+		}
+		if _, err := io.WriteString(out, "\n"); err != nil {
+			return err
+		}
+		h, err := m.RefGet(s.levels.levels[i+1].formula)
+		if err != nil {
+			return err
+		}
+		if err = writeExpression(m, s.config, out, h); err != nil {
+			return err
+		}
+		if _, err = io.WriteString(out, "\n"); err != nil {
+			return err
+		}
+		forall = !forall
+	}
+	return nil
 }

@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -96,6 +97,11 @@ search:
 		var step exprQETreeStatus
 	finalCheck:
 		for {
+			// TRACE("qe", model_v2_pp(tout, *model);) (AUDIT.md qe_05-F6).
+			shown := md
+			if e = qeTrace(m, config, "final_check", "src/qe/qe.cpp", 1519, func(out io.Writer) error { return shown.WriteV2(out, config.Context, config.Globals, false) }); e != nil {
+				return result, false, errors.Join(e, eval.Close(), md.DecRef())
+			}
 			variableCount := len(variables.entries)
 			current, step, e = advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
 			// while (can_propagate_assignment) propagate_assignment; then

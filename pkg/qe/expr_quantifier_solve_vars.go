@@ -36,6 +36,10 @@ func solveExprQEVars(tree *exprQETreeContext, context *SolverContext) (err error
 		if err != nil {
 			return err
 		}
+		// TRACE("qe", tout << fml << "\n";) (AUDIT.md qe_05-F6).
+		if err = qeTrace(m, tree.current.config, "solve_vars", "src/qe/qe.cpp", 2005, formula, "\n"); err != nil {
+			return err
+		}
 		conjs, err := NewConjunctionEnum(m, formula)
 		if err != nil {
 			return err

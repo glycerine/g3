@@ -20,6 +20,13 @@ func (c *SolverContext) EliminateVariable(index uint32, formula, definition ast.
 	if index >= uint32(len(c.variables)) {
 		return arena.ErrBounds
 	}
+	if c.simplifyTrace != nil {
+		// TRACE("qe", tout << mk_pp(m_vars->get(idx), m) << " " << mk_pp(fml,
+		// m) << "\n";) (AUDIT.md qe_05-F6).
+		if err := qeTrace(c.manager, *c.simplifyTrace, "elim_var", "src/qe/qe.cpp", 2532, c.variables[index], " ", formula, "\n"); err != nil {
+			return err
+		}
+	}
 	kind, err := c.manager.GetKind(formula)
 	if err != nil {
 		return err

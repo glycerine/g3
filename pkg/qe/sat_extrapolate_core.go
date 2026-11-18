@@ -13,7 +13,7 @@ import (
 
 // satCoreExtrapolate returns an owned conjunction of assignment literals
 // selected by the solver's unsatisfiable assumption core.
-func satCoreExtrapolate(m *ast.ASTManager, solver *smtcore.SMTSolver, b ast.ASTHandle, assignments []ast.ASTHandle, checkpoint func() error) (result ast.ASTRef, err error) {
+func satCoreExtrapolate(m *ast.ASTManager, config Config, solver *smtcore.SMTSolver, a, b ast.ASTHandle, assignments []ast.ASTHandle, checkpoint func() error) (result ast.ASTRef, err error) {
 	if m == nil || solver == nil {
 		return result, ast.ErrASTHandle
 	}
@@ -70,6 +70,11 @@ func satCoreExtrapolate(m *ast.ASTManager, solver *smtcore.SMTSolver, b ast.ASTH
 		if e = solver.AssertFormula(equal); e != nil {
 			return result, e
 		}
+		// TRACE("qe", tout << "assignment: " << mk_pp(m_assignments[i].get(), m)
+		//       << "\n";) (AUDIT.md qe_05-F6).
+		if e = qeTrace(m, config, "smt_test_extrapolate", "src/qe/qe_sat_tactic.cpp", 603, "assignment: ", assignment, "\n"); e != nil {
+			return result, e
+		}
 	}
 	status, err := solver.CheckSat(proxies)
 	if err != nil {
@@ -94,5 +99,12 @@ func satCoreExtrapolate(m *ast.ASTManager, solver *smtcore.SMTSolver, b ast.ASTH
 	if err != nil {
 		return result, err
 	}
-	return m.NewRef(conjunction)
+	if result, err = m.NewRef(conjunction); err != nil {
+		return result, err
+	}
+	// TRACE("qe", tout << "core: " << mk_pp(result, m) << "\n"; tout <<
+	//       mk_pp(A, m) << "\n"; tout << mk_pp(B, m) << "\n";) (AUDIT.md
+	//       qe_05-F6).
+	err = qeTrace(m, config, "smt_test_extrapolate", "src/qe/qe_sat_tactic.cpp", 611, "core: ", conjunction, "\n", a, "\n", b, "\n")
+	return result, err
 }

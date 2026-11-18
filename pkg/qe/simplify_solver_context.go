@@ -62,6 +62,7 @@ func newSimplifySolverContext(m *ast.ASTManager, config Config) (result *simplif
 	if result.context, err = NewSolverContext(m, nil); err != nil {
 		return result, err
 	}
+	result.context.simplifyTrace = &result.config
 	if result.atoms, err = NewBoolAtomIndex(m, nil, nil); err != nil {
 		return result, err
 	}
@@ -135,6 +136,10 @@ func (s *simplifySolverContext) solve(variables []ast.ASTHandle, formula ast.AST
 	if err = context.resetVariables(); err != nil {
 		return nil, err
 	}
+	// init installs the variables directly; only add_var traces.
+	trace := context.simplifyTrace
+	context.simplifyTrace = nil
+	defer func() { context.simplifyTrace = trace }()
 	for i, v := range variables {
 		if err = context.AddVariable(v); err != nil {
 			return nil, err
@@ -145,6 +150,7 @@ func (s *simplifySolverContext) solve(variables []ast.ASTHandle, formula ast.AST
 			return nil, err
 		}
 	}
+	context.simplifyTrace = trace
 	for {
 		canceled, e := m.Canceled()
 		if e != nil {

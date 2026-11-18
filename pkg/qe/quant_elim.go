@@ -8,6 +8,7 @@ package qe
 
 import (
 	"errors"
+	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -423,7 +424,8 @@ func (q *quantElimNew) eliminateBlock(vars []ast.ASTHandle, fml ast.ASTRef, free
 	}
 	err = th.check(vars, q.assumption, fml, free)
 	q.pushContext(th)
-	if err = errors.Join(err, th.reset()); err != nil {
+	// push_context's th->reset() resets the (empty) m_root.
+	if err = errors.Join(err, th.reset(), traceExprQETreeReset(m, th.config)); err != nil {
 		return lbool.Undef, err
 	}
 	value, err = m.RefGet(fml)
@@ -542,6 +544,7 @@ func newQuantElimPlugin(q *quantElimNew) (th *quantElimPlugin, err error) {
 	if err != nil {
 		return th, err
 	}
+	th.partitioner.config = config
 	th.context, err = NewSolverContext(m, nil)
 	if err != nil {
 		return th, err
@@ -673,6 +676,9 @@ func (th *quantElimPlugin) Close() (err error) {
 		return nil
 	}
 	err = th.reset()
+	// ~quant_elim_plugin's reset() resets m_root, then m_root's own
+	// destructor resets it again.
+	err = errors.Join(err, traceExprQETreeReset(th.manager, th.config), traceExprQETreeReset(th.manager, th.config))
 	if th.nnf != nil {
 		err = errors.Join(err, th.nnf.Close())
 		th.nnf = nil
@@ -719,6 +725,10 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 	if err = th.reset(); err != nil {
 		return err
 	}
+	// reset() resets m_root, empty since the previous check.
+	if err = traceExprQETreeReset(m, th.config); err != nil {
+		return err
+	}
 	if err = th.solver.PushCore(); err != nil {
 		return err
 	}
@@ -732,6 +742,7 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 	if err != nil {
 		return err
 	}
+	variables.config = th.config
 	defer func() { err = errors.Join(err, variables.Close()) }()
 	if th.var2contains == nil {
 		th.var2contains = ast.NewObjMap(m)
@@ -812,6 +823,10 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 	if err = th.solver.AssertFormula(work); err != nil {
 		return err
 	}
+	// TRACE("qe", vars each on a line; f) (AUDIT.md qe_05-F6).
+	if err = qeTrace(m, th.config, "check", "src/qe/qe.cpp", 1442, append(qeTraceVars(vars, "\n"), sub, "\n")...); err != nil {
+		return err
+	}
 	if a, e := m.RefGet(assumption); e == nil && !a.IsNull() {
 		if err = th.solver.AssertFormula(a); err != nil {
 			return err
@@ -828,7 +843,13 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 	if !complete {
 		// l_undef: every block variable stays free and fml is unchanged.
 		popped = true
-		return errors.Join(appendQEFreeVars(m, free, vars), th.resetCheck(variables, root), th.solver.PopCore(1))
+		if err = appendQEFreeVars(m, free, vars); err != nil {
+			return err
+		}
+		if err = root.traceReset(); err != nil {
+			return err
+		}
+		return errors.Join(th.resetCheck(variables, root), th.solver.PopCore(1))
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&result)) }()
 	answer, err := m.RefGet(result)
@@ -837,6 +858,17 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 	}
 	if err = m.SetRef(fml, answer); err != nil {
 		return err
+	}
+	if isSat {
+		// TRACE("qe", result:, input:, subformula:, m_root.display,
+		// m_root.display_validate, free:) (AUDIT.md qe_05-F6).
+		err = qeTrace(m, th.config, "check", "src/qe/qe.cpp", 1485, "result:", answer, "\ninput: ", work, "\nsubformula: ", sub, "\n",
+			func(out io.Writer) error { return root.display(out, "") },
+			root.displayValidate,
+			"free: ", func(out io.Writer) error { return writeExpressionVector(m, th.config, out, th.freeVars) }, "\n")
+		if err != nil {
+			return err
+		}
 	}
 	// if (!m_free_vars.empty() || m_solver.inconsistent()): the result
 	// replaces m_subfml inside the formula with its irrelevant conjuncts.
@@ -855,6 +887,9 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 		}
 	}
 	popped = true
+	if err = root.traceReset(); err != nil {
+		return err
+	}
 	return errors.Join(th.resetCheck(variables, root), th.solver.PopCore(1))
 }
 
