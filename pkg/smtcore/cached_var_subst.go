@@ -9,11 +9,14 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
+// smtCachedSubstitutionEntry is an m_instances entry. Its key (qa and the
+// bindings) and value (the result) are the entry's run of m_refs, which
+// pushes exactly qa, the bindings and the result: refs[start] is qa,
+// refs[start+1:start+1+n] the bindings, refs[start+1+n] the result (z3's
+// region-allocated key holds the same pointers). next chains entries
+// whose hashes collide.
 type smtCachedSubstitutionEntry struct {
-	quantifier ast.ASTHandle
-	bindings   []ast.ASTHandle
-	owned      []ast.ASTRef
-	result     ast.ASTRef
+	start, count, next uint32
 }
 
 type SMTCachedVarSubstitution struct {
@@ -23,16 +26,21 @@ type SMTCachedVarSubstitution struct {
 	// entries is cached_var_subst::m_instances, a map keyed by (qa,
 	// bindings) under key_hash_proc (a hash of the whole binding tuple and
 	// qa's id). Buckets hold only hash collisions.
-	entries map[uint64][]*smtCachedSubstitutionEntry
-	ordered []*smtCachedSubstitutionEntry
-	closed  bool
+	entries map[uint64]uint32 // hash -> 1 + index of its newest entry
+	list    []smtCachedSubstitutionEntry
+	// scratch is m_new_keys: the probe key, reused until an insertion.
+	scratch []ast.ASTHandle
+	// refs is m_refs, an expr_ref_vector: qa, the bindings and the result
+	// of each entry, in insertion order (inc_ref only, no reference slots).
+	refs   []ast.ASTHandle
+	closed bool
 }
 
 func NewSMTCachedVarSubstitution(m *ast.ASTManager) (*SMTCachedVarSubstitution, error) {
 	if m == nil {
 		return nil, ast.ErrASTDomain
 	}
-	c := &SMTCachedVarSubstitution{manager: m, entries: make(map[uint64][]*smtCachedSubstitutionEntry)}
+	c := &SMTCachedVarSubstitution{manager: m, entries: make(map[uint64]uint32)}
 	c.self = c
 	var err error
 	c.substitution, err = rewriter.NewVarSubstitution(m, true)
@@ -69,23 +77,25 @@ func smtSubstitutionKeyHash(quantifier ast.ASTHandle, bindings []ast.ASTHandle) 
 	return h
 }
 
-func (c *SMTCachedVarSubstitution) find(hash uint64, quantifier ast.ASTHandle, bindings []ast.ASTHandle) *smtCachedSubstitutionEntry {
-	for _, entry := range c.entries[hash] {
-		if entry.quantifier != quantifier || len(entry.bindings) != len(bindings) {
+func (c *SMTCachedVarSubstitution) find(hash uint64, quantifier ast.ASTHandle, bindings []ast.ASTHandle) (ast.ASTHandle, bool) {
+	for i := c.entries[hash]; i != 0; i = c.list[i-1].next {
+		e := c.list[i-1]
+		if int(e.count) != len(bindings) || c.refs[e.start] != quantifier {
 			continue
 		}
+		key := c.refs[e.start+1 : e.start+1+e.count]
 		equal := true
-		for i := range bindings {
-			if entry.bindings[i] != bindings[i] {
+		for k := range bindings {
+			if key[k] != bindings[k] {
 				equal = false
 				break
 			}
 		}
 		if equal {
-			return entry
+			return c.refs[e.start+1+e.count], true
 		}
 	}
-	return nil
+	return ast.ASTHandle{}, false
 }
 
 func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, bindings []*SMTEnode, out ast.ASTRef) (cached bool, result error) {
@@ -99,20 +109,17 @@ func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, binding
 	if kind != ast.ASTQuantifier {
 		return false, ast.ErrASTDomain
 	}
-	owners := make([]ast.ASTHandle, len(bindings))
-	for i, binding := range bindings {
+	owners := c.scratch[:0]
+	for _, binding := range bindings {
 		if binding == nil || binding.owner.IsNull() {
 			return false, ast.ErrASTDomain
 		}
-		owners[i] = binding.owner
+		owners = append(owners, binding.owner)
 	}
+	c.scratch = owners
 	hash := smtSubstitutionKeyHash(quantifier, owners)
-	if entry := c.find(hash, quantifier, owners); entry != nil {
-		value, err := c.manager.RefGet(entry.result)
-		if err != nil {
-			return false, err
-		}
-		return true, c.manager.SetRef(out, value)
+	if result, found := c.find(hash, quantifier, owners); found {
+		return true, c.manager.SetRef(out, result)
 	}
 	body, err := c.manager.GetQuantifierBody(quantifier)
 	if err != nil {
@@ -125,24 +132,21 @@ func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, binding
 	if err != nil {
 		return false, err
 	}
-	entry := &smtCachedSubstitutionEntry{quantifier: quantifier, bindings: append([]ast.ASTHandle(nil), owners...)}
-	handles := make([]ast.ASTHandle, 0, len(owners)+2)
-	handles = append(handles, quantifier)
-	handles = append(handles, owners...)
-	handles = append(handles, value)
-	for _, handle := range handles {
-		ref, err := c.manager.NewRef(handle)
-		if err != nil {
-			for i := len(entry.owned) - 1; i >= 0; i-- {
-				err = errors.Join(err, c.manager.DelRef(&entry.owned[i]))
+	start := len(c.refs)
+	c.refs = append(c.refs, quantifier)
+	c.refs = append(c.refs, owners...)
+	c.refs = append(c.refs, value)
+	for i, h := range c.refs[start:] {
+		if err := c.manager.IncRef(h); err != nil {
+			for k := start + i - 1; k >= start; k-- {
+				err = errors.Join(err, c.manager.DecRef(c.refs[k]))
 			}
+			c.refs = c.refs[:start]
 			return false, err
 		}
-		entry.owned = append(entry.owned, ref)
 	}
-	entry.result = entry.owned[len(entry.owned)-1]
-	c.entries[hash] = append(c.entries[hash], entry)
-	c.ordered = append(c.ordered, entry)
+	c.list = append(c.list, smtCachedSubstitutionEntry{start: uint32(start), count: uint32(len(owners)), next: c.entries[hash]})
+	c.entries[hash] = uint32(len(c.list))
 	return false, nil
 }
 
@@ -150,7 +154,7 @@ func (c *SMTCachedVarSubstitution) Size() uint32 {
 	if c == nil {
 		return 0
 	}
-	return uint32(len(c.ordered))
+	return uint32(len(c.list))
 }
 
 func (c *SMTCachedVarSubstitution) Reset() error {
@@ -163,19 +167,20 @@ func (c *SMTCachedVarSubstitution) Reset() error {
 }
 
 func (c *SMTCachedVarSubstitution) clearEntries() error {
-	// m_refs (qa, bindings, result per entry) is an expr_ref_vector:
-	// released front to back.
-	for len(c.ordered) != 0 {
-		entry := c.ordered[0]
-		for len(entry.owned) != 0 {
-			if err := c.manager.DelRef(&entry.owned[0]); err != nil {
-				return err
-			}
-			entry.owned = entry.owned[1:]
+	// m_instances goes first: its entries index m_refs, which is then
+	// released front to back (an expr_ref_vector).
+	c.list = nil
+	c.entries = make(map[uint64]uint32)
+	for len(c.refs) != 0 {
+		consumed, err := c.manager.DecRefConsumed(c.refs[0])
+		if consumed {
+			c.refs = c.refs[1:]
 		}
-		c.ordered = c.ordered[1:]
+		if err != nil {
+			return err
+		}
 	}
-	c.entries = make(map[uint64][]*smtCachedSubstitutionEntry)
+	c.refs = nil
 	return nil
 }
 
