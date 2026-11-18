@@ -30,6 +30,11 @@ type activityChashtable struct {
 	freeCell   int32
 	initSlots  int32
 	initCellar int32
+	// spare is a cell array the table no longer uses (the one an expansion
+	// or a reset replaced), kept to back the next array of at most its
+	// capacity; the source returns these to the allocator. Its cells are
+	// rewritten before reuse.
+	spare []activityChashCell
 }
 
 func newActivityChashtable() activityChashtable {
@@ -46,8 +51,31 @@ func activityChashAlloc(n int32) []activityChashCell {
 	return cells
 }
 
+// alloc is activityChashAlloc(n), backed by the spare array when it is
+// large enough.
+func (t *activityChashtable) alloc(n int32) []activityChashCell {
+	if s := t.spare; int32(cap(s)) >= n {
+		t.spare = nil
+		cells := s[:n]
+		for i := range cells {
+			cells[i] = activityChashCell{next: activityChashFree}
+		}
+		return cells
+	}
+	return activityChashAlloc(n)
+}
+
+// keep offers a cell array the table no longer uses as its spare.
+func (t *activityChashtable) keep(cells []activityChashCell) {
+	if cap(cells) > cap(t.spare) {
+		t.spare = cells
+	}
+}
+
 func (t *activityChashtable) init(slots, cellar int32) {
-	t.cells = activityChashAlloc(slots + cellar)
+	old := t.cells
+	t.cells = t.alloc(slots + cellar)
+	t.keep(old)
 	t.slots = slots
 	t.usedSlots = 0
 	t.size = 0
@@ -110,9 +138,10 @@ func (t *activityChashtable) expandTable() {
 	newSlots := t.slots * 2
 	newCellar := currCellar * 2
 	for {
-		target := activityChashAlloc(newSlots + newCellar)
+		target := t.alloc(newSlots + newCellar)
 		next, used := t.copyTable(target, newSlots)
 		if next >= 0 {
+			t.keep(t.cells)
 			t.cells = target
 			t.slots = newSlots
 			t.usedSlots = used
@@ -120,6 +149,7 @@ func (t *activityChashtable) expandTable() {
 			t.freeCell = activityChashNil
 			return
 		}
+		t.keep(target)
 		newCellar *= 2
 	}
 }
@@ -212,5 +242,12 @@ func (t *activityChashtable) reset() {
 }
 
 func (t *activityChashtable) finalize() {
+	t.init(t.initSlots, t.initCellar)
+}
+
+// release is finalize that also drops the spare array.
+func (t *activityChashtable) release() {
+	t.spare = nil
+	t.cells = nil
 	t.init(t.initSlots, t.initCellar)
 }

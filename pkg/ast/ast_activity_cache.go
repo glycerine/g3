@@ -275,7 +275,7 @@ func (c *ActivityCache) clear(cleanup bool) (err error) {
 		return e
 	}
 	if cleanup {
-		c.table.finalize()
+		c.table.release()
 	} else {
 		c.table.reset()
 	}
