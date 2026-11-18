@@ -17,7 +17,7 @@ const (
 
 // seekExprQETree writes the branch number into branch (a rational of the
 // manager's NumeralService().Manager owned by the caller).
-func seekExprQETree(root *exprQETree, variables *exprQEBranchVariables, evaluator *model.ModelEvaluator, branch *unumeral.Rational) (current *exprQETree, status exprQETreeStatus, err error) {
+func seekExprQETree(root *exprQETree, variables *exprQEBranchVariables, evaluator *model.ModelEvaluator, branch *unumeral.Rational, config Config) (current *exprQETree, status exprQETreeStatus, err error) {
 	if root == nil || root.manager == nil || root.parent != nil || variables == nil || variables.manager != root.manager || evaluator == nil {
 		return nil, status, ast.ErrASTHandle
 	}
@@ -53,6 +53,9 @@ func seekExprQETree(root *exprQETree, variables *exprQEBranchVariables, evaluato
 			outside = c >= 0
 		}
 		if outside {
+			if e = qeTrace(m, config, "update_current", "src/qe/qe.cpp", 1694, "evaluation failed: setting branch to 0\n"); e != nil {
+				return nil, status, e
+			}
 			if e = q.SetInt32(branch, 0); e != nil {
 				return nil, status, e
 			}

@@ -1,8 +1,12 @@
 package qe
 
 import (
-	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -33,14 +37,14 @@ func TestExprQETreeSeekUsesModelAndUnitBranches(t *testing.T) {
 	fmMust(t, vars.consume(root))
 	fmMust(t, root.selectVariable(p, qeSmallRat(2, 1)))
 	branch := unumeral.NewRational()
-	current, status, err := seekExprQETree(root, vars, eval, &branch)
+	current, status, err := seekExprQETree(root, vars, eval, &branch, Config{})
 	fmMust(t, err)
 	if current != root || status != exprQENeedPropagation || qeRatText(m, &branch) != "1" {
 		t.Fatal("missing model branch")
 	}
 	child, err := root.addBranch(f.r.config, qeSmallRat(1, 1), p)
 	fmMust(t, err)
-	current, status, err = seekExprQETree(root, vars, eval, &branch)
+	current, status, err = seekExprQETree(root, vars, eval, &branch, Config{})
 	fmMust(t, err)
 	if current != child || status != exprQEChooseVariable {
 		t.Fatal("uninitialized child not selected")
@@ -48,7 +52,7 @@ func TestExprQETreeSeekUsesModelAndUnitBranches(t *testing.T) {
 	fmMust(t, child.initialize(truth))
 	unit, err := child.addUnit(f.r.config, truth)
 	fmMust(t, err)
-	current, status, err = seekExprQETree(root, vars, eval, &branch)
+	current, status, err = seekExprQETree(root, vars, eval, &branch, Config{})
 	fmMust(t, err)
 	if current != unit || status != exprQEChooseVariable {
 		t.Fatal("unit branch was not traversed")
@@ -59,9 +63,16 @@ func TestExprQETreeSeekUsesModelAndUnitBranches(t *testing.T) {
 	fmMust(t, limited.initialize(truth))
 	fmMust(t, limited.consumeVariables([]ast.ASTHandle{p}))
 	fmMust(t, limited.selectVariable(p, qeSmallRat(1, 1)))
-	_, status, err = seekExprQETree(limited, vars, eval, &branch)
+	var trace bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&trace)
+	tags.Enable("qe")
+	t.Cleanup(tags.Finalize)
+	_, status, err = seekExprQETree(limited, vars, eval, &branch, Config{Trace: tags})
 	fmMust(t, err)
 	if status != exprQENeedPropagation || !qeRatIs(m, &branch, 0, 1) {
 		t.Fatal("out-of-range model branch did not default to zero")
+	}
+	if tags.ShouldTrace("qe") && !strings.Contains(trace.String(), "[qe] update_current src/qe/qe.cpp:1694 ---------\nevaluation failed: setting branch to 0\n") {
+		t.Fatal("missing evaluation-failed record", trace.String())
 	}
 }

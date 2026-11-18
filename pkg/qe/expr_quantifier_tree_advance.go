@@ -20,7 +20,7 @@ func advanceExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables,
 	q := root.manager.NumeralService().Manager
 	branch := unumeral.NewRational()
 	defer func() { err = errors.Join(err, q.Del(&branch)) }()
-	current, status, err := seekExprQETree(root, variables, evaluator, &branch)
+	current, status, err := seekExprQETree(root, variables, evaluator, &branch, config)
 	if err != nil {
 		return nil, status, err
 	}

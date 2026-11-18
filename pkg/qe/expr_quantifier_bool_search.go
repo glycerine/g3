@@ -151,7 +151,7 @@ search:
 					var selected *exprQETree
 					q := root.manager.NumeralService().Manager
 					branch := unumeral.NewRational()
-					selected, _, e = seekExprQETree(root, variables, eval, &branch)
+					selected, _, e = seekExprQETree(root, variables, eval, &branch, config)
 					e = errors.Join(e, q.Del(&branch))
 					if e == nil && selected != current {
 						continue finalCheck
