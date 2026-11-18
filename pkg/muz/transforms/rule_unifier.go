@@ -64,14 +64,10 @@ func (u *RuleUnifier) UnifyRules(target *base.Rule, tailIndex int, source *base.
 	if right > left {
 		left = right
 	}
-	replacement, err := substitution.New(u.manager)
-	if err != nil {
+	// m_subst.reset(): the bindings' m_refs, then the cache (m_new_exprs).
+	if err = u.subst.Reset(); err != nil {
 		return false, err
 	}
-	if err = u.subst.Close(); err != nil {
-		return false, errors.Join(err, replacement.Close())
-	}
-	u.subst = replacement
 	if err = u.subst.Reserve(2, left); err != nil {
 		return false, err
 	}

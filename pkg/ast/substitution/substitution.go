@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
@@ -27,11 +28,6 @@ type VariableOffset struct {
 	Offset   uint32
 }
 
-type applyKey struct {
-	term  ExprOffset
-	depth uint32
-}
-
 // Substitution maps de Bruijn variable/offset pairs to expression/offset
 // pairs and owns every expression stored in its range.
 type Substitution struct {
@@ -41,8 +37,9 @@ type Substitution struct {
 	order     []VariableOffset
 	refs      []ast.ASTRef
 	scopes    []int
-	cache     map[applyKey]ast.ASTHandle
+	cache     map[ExprOffset]ast.ASTHandle
 	cacheRefs []ast.ASTRef
+	todo      []ExprOffset
 	state     substitutionState
 	closed    bool
 }
@@ -51,7 +48,7 @@ func New(m *ast.ASTManager) (*Substitution, error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	s := &Substitution{manager: m, cache: make(map[applyKey]ast.ASTHandle)}
+	s := &Substitution{manager: m, cache: make(map[ExprOffset]ast.ASTHandle)}
 	s.self = s
 	return s, nil
 }
@@ -142,13 +139,16 @@ func (s *Substitution) PopScope(count uint32) error {
 	}
 	s.order = s.order[:oldSize]
 	s.scopes = s.scopes[:newLevel]
-	for len(s.refs) > oldSize {
-		i := len(s.refs) - 1
+	// m_refs.shrink(old_sz) releases front to back.
+	for i := oldSize; i < len(s.refs); i++ {
+		if s.refs[i] == (ast.ASTRef{}) {
+			continue
+		}
 		if err := s.manager.DelRef(&s.refs[i]); err != nil {
 			return err
 		}
-		s.refs = s.refs[:i]
 	}
+	s.refs = s.refs[:oldSize]
 	return s.ResetCache()
 }
 
@@ -268,326 +268,6 @@ func add32(a, b uint32) (uint32, error) {
 	return a + b, nil
 }
 
-func (s *Substitution) shift(h ast.ASTHandle, amount, bound uint32, memo map[applyKey]ast.ASTHandle) (ast.ASTHandle, error) {
-	key := applyKey{NewExprOffset(h, amount), bound}
-	if v, ok := memo[key]; ok {
-		return v, nil
-	}
-	kind, err := s.manager.GetKind(h)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	result := h
-	switch kind {
-	case ast.ASTVar:
-		i, err := s.manager.GetVarIndex(h)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if i >= bound {
-			i, err = add32(i, amount)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			sort, err := s.manager.GetSort(h)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			reference, err := s.reserveCacheRef()
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			result, err = s.manager.MkVar(i, sort)
-			if err = errors.Join(err, s.manager.SetRef(reference, result)); err != nil {
-				return ast.ASTHandle{}, err
-			}
-		}
-	case ast.ASTApp:
-		n, err := s.manager.GetNumArgs(h)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		args := make([]ast.ASTHandle, n)
-		changed := false
-		for i := range args {
-			old, err := s.manager.GetArg(h, uint32(i))
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			args[i], err = s.shift(old, amount, bound, memo)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			changed = changed || args[i] != old
-		}
-		if changed {
-			d, err := s.manager.GetDecl(h)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			reference, err := s.reserveCacheRef()
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			result, err = s.manager.MkApp(d, args)
-			if err = errors.Join(err, s.manager.SetRef(reference, result)); err != nil {
-				return ast.ASTHandle{}, err
-			}
-		}
-	case ast.ASTQuantifier:
-		n, err := s.manager.GetNumDeclarations(h)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		inner, err := add32(bound, n)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		result, err = s.shiftQuantifier(h, amount, inner, memo)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-	default:
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	memo[key] = result
-	return result, nil
-}
-
-func (s *Substitution) shiftQuantifier(q ast.ASTHandle, amount, bound uint32, memo map[applyKey]ast.ASTHandle) (ast.ASTHandle, error) {
-	pn, err := s.manager.GetNumPatterns(q)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	patterns := make([]ast.ASTHandle, pn)
-	changed := false
-	for i := range patterns {
-		old, e := s.manager.GetPattern(q, uint32(i))
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		patterns[i], e = s.shift(old, amount, bound, memo)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		changed = changed || patterns[i] != old
-	}
-	nn, err := s.manager.GetNumNoPatterns(q)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	noPatterns := make([]ast.ASTHandle, nn)
-	for i := range noPatterns {
-		old, e := s.manager.GetNoPattern(q, uint32(i))
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		noPatterns[i], e = s.shift(old, amount, bound, memo)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		changed = changed || noPatterns[i] != old
-	}
-	body, err := s.manager.GetQuantifierBody(q)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	newBody, err := s.shift(body, amount, bound, memo)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if !changed && newBody == body {
-		return q, nil
-	}
-	reference, err := s.reserveCacheRef()
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	r, err := s.manager.UpdateQuantifierAnnotations(q, patterns, noPatterns, newBody)
-	return r, errors.Join(err, s.manager.SetRef(reference, r))
-}
-
-func (s *Substitution) apply(n, replace, replacement ExprOffset, depth uint32, deltas []uint32, active map[applyKey]bool) (ast.ASTHandle, error) {
-	key := applyKey{n, depth}
-	if h, ok := s.cache[key]; ok {
-		return h, nil
-	}
-	if active[key] {
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	active[key] = true
-	defer delete(active, key)
-	current := n
-	if n == replace && !replace.expr.IsNull() {
-		current = replacement
-	}
-	kind, err := s.manager.GetKind(current.expr)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	result := current.expr
-	switch kind {
-	case ast.ASTVar:
-		idx, err := s.manager.GetVarIndex(current.expr)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if idx >= depth {
-			if target, ok, e := s.bindings.find(idx-depth, current.offset); e != nil {
-				return ast.ASTHandle{}, e
-			} else if ok {
-				if depth != 0 {
-					target.expr, e = s.shift(target.expr, depth, 0, make(map[applyKey]ast.ASTHandle))
-					if e != nil {
-						return ast.ASTHandle{}, e
-					}
-				}
-				result, err = s.apply(target, replace, replacement, depth, deltas, active)
-				if err != nil {
-					return ast.ASTHandle{}, err
-				}
-				break
-			}
-		}
-		if int(current.offset) >= len(deltas) {
-			return ast.ASTHandle{}, ast.ErrASTDomain
-		}
-		if deltas[current.offset] != 0 {
-			idx, err = add32(idx, deltas[current.offset])
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			sort, e := s.manager.GetSort(current.expr)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			reference, e := s.reserveCacheRef()
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			result, e = s.manager.MkVar(idx, sort)
-			if e = errors.Join(e, s.manager.SetRef(reference, result)); e != nil {
-				return ast.ASTHandle{}, e
-			}
-		}
-	case ast.ASTApp:
-		count, e := s.manager.GetNumArgs(current.expr)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		args := make([]ast.ASTHandle, count)
-		changed := false
-		for i := range args {
-			old, e := s.manager.GetArg(current.expr, uint32(i))
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			args[i], e = s.apply(NewExprOffset(old, current.offset), replace, replacement, depth, deltas, active)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			changed = changed || args[i] != old
-		}
-		if changed {
-			d, e := s.manager.GetDecl(current.expr)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			reference, e := s.reserveCacheRef()
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			result, e = s.manager.MkApp(d, args)
-			if e = errors.Join(e, s.manager.SetRef(reference, result)); e != nil {
-				return ast.ASTHandle{}, e
-			}
-		}
-	case ast.ASTQuantifier:
-		count, e := s.manager.GetNumDeclarations(current.expr)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		inner, e := add32(depth, count)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		var shiftedReplace, shiftedReplacement ExprOffset
-		if !replace.expr.IsNull() {
-			shiftedReplace = replace
-			shiftedReplacement = replacement
-			shiftedReplace.expr, e = s.shift(replace.expr, count, 0, make(map[applyKey]ast.ASTHandle))
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			shiftedReplacement.expr, e = s.shift(replacement.expr, count, 0, make(map[applyKey]ast.ASTHandle))
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-		}
-		result, e = s.applyQuantifier(current.expr, current.offset, shiftedReplace, shiftedReplacement, inner, deltas, active)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-	default:
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	s.cache[key] = result
-	return result, nil
-}
-
-func (s *Substitution) applyQuantifier(q ast.ASTHandle, offset uint32, replace, replacement ExprOffset, depth uint32, deltas []uint32, active map[applyKey]bool) (ast.ASTHandle, error) {
-	pn, e := s.manager.GetNumPatterns(q)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	ps := make([]ast.ASTHandle, pn)
-	changed := false
-	for i := range ps {
-		old, e := s.manager.GetPattern(q, uint32(i))
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		ps[i], e = s.apply(NewExprOffset(old, offset), replace, replacement, depth, deltas, active)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		changed = changed || ps[i] != old
-	}
-	nn, e := s.manager.GetNumNoPatterns(q)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	ns := make([]ast.ASTHandle, nn)
-	for i := range ns {
-		old, e := s.manager.GetNoPattern(q, uint32(i))
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		ns[i], e = s.apply(NewExprOffset(old, offset), replace, replacement, depth, deltas, active)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		changed = changed || ns[i] != old
-	}
-	body, e := s.manager.GetQuantifierBody(q)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	nb, e := s.apply(NewExprOffset(body, offset), replace, replacement, depth, deltas, active)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	if !changed && nb == body {
-		return q, nil
-	}
-	reference, e := s.reserveCacheRef()
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	r, e := s.manager.UpdateQuantifierAnnotations(q, ps, ns, nb)
-	return r, errors.Join(e, s.manager.SetRef(reference, r))
-}
-
 func (s *Substitution) Apply(offsets uint32, deltas []uint32, n ExprOffset, out ast.ASTRef) (result error) {
 	return s.ApplyModulo(offsets, deltas, n, ExprOffset{}, ExprOffset{}, out)
 }
@@ -596,6 +276,11 @@ func (s *Substitution) ApplyExpression(n ast.ASTHandle, out ast.ASTRef) error {
 	return s.Apply(1, []uint32{0}, NewExprOffset(n, 0), out)
 }
 
+// ApplyModulo is substitution::apply(num_actual_offsets, deltas, n, s, t,
+// result): an iterative post-order walk over m_todo, caching each
+// expression/offset's image in m_apply_cache and owning every new image in
+// m_new_exprs. A quantifier's body is applied by a nested substitution whose
+// bindings are var_shifter-shifted past the quantifier's declarations.
 func (s *Substitution) ApplyModulo(offsets uint32, deltas []uint32, n, replace, replacement ExprOffset, out ast.ASTRef) (result error) {
 	if err := s.open(); err != nil {
 		return err
@@ -604,6 +289,8 @@ func (s *Substitution) ApplyModulo(offsets uint32, deltas []uint32, n, replace, 
 		return ast.ErrASTDomain
 	}
 	deltas = deltas[:offsets]
+	// It is incorrect to cache results between different calls if we are
+	// applying a substitution modulo a substitution s -> t.
 	modulo := !replace.expr.IsNull()
 	if s.state == substitutionInsert || modulo {
 		if err := s.ResetCache(); err != nil {
@@ -616,16 +303,309 @@ func (s *Substitution) ApplyModulo(offsets uint32, deltas []uint32, n, replace, 
 			result = errors.Join(result, s.ResetCache())
 		}
 	}()
-	h, err := s.apply(n, replace, replacement, 0, deltas, make(map[applyKey]bool))
-	if err != nil {
-		return err
+	s.todo = append(s.todo[:0], n)
+	// expanding records the m_todo slot whose children are pending. The
+	// source requires an acyclic substitution (it would not terminate); a
+	// second uncached slot of the same term while the first is pending is
+	// a cycle, refused here.
+	expanding := make(map[ExprOffset]int)
+	for len(s.todo) != 0 {
+		top := len(s.todo) - 1
+		current := s.todo[top]
+		if _, cached := s.cache[current]; cached {
+			s.todo = s.todo[:top]
+			continue
+		}
+		if slot, pending := expanding[current]; pending && slot != top {
+			return ast.ErrASTDomain
+		}
+		expanding[current] = top
+		prime := current
+		if modulo && current == replace {
+			prime = replacement
+		}
+		visited := true
+		e, off := prime.expr, prime.offset
+		kind, err := s.manager.GetKind(e)
+		if err != nil {
+			return err
+		}
+		switch kind {
+		case ast.ASTVar:
+			index, err := s.manager.GetVarIndex(e)
+			if err != nil {
+				return err
+			}
+			target, found, err := s.bindings.find(index, off)
+			if err != nil {
+				return err
+			}
+			if found {
+				if _, cached := s.cache[target]; !cached {
+					s.todo = append(s.todo, target)
+					visited = false
+				}
+				if visited {
+					s.todo = s.todo[:len(s.todo)-1]
+					s.cache[current] = s.cache[target]
+				}
+				break
+			}
+			s.todo = s.todo[:len(s.todo)-1]
+			if int(off) >= len(deltas) {
+				return ast.ErrASTDomain
+			}
+			image := e
+			if delta := deltas[off]; delta > 0 {
+				shifted, err := add32(index, delta)
+				if err != nil {
+					return err
+				}
+				sort, err := s.manager.GetSort(e)
+				if err != nil {
+					return err
+				}
+				reference, err := s.reserveCacheRef()
+				if err != nil {
+					return err
+				}
+				image, err = s.manager.MkVar(shifted, sort)
+				if err = errors.Join(err, s.manager.SetRef(reference, image)); err != nil {
+					return err
+				}
+			}
+			s.cache[current] = image
+		case ast.ASTApp:
+			count, err := s.manager.GetNumArgs(e)
+			if err != nil {
+				return err
+			}
+			for j := count; j > 0; j-- {
+				arg, err := s.manager.GetArg(e, j-1)
+				if err != nil {
+					return err
+				}
+				child := NewExprOffset(arg, off)
+				if _, cached := s.cache[child]; !cached {
+					s.todo = append(s.todo, child)
+					visited = false
+				}
+			}
+			if !visited {
+				break
+			}
+			s.todo = s.todo[:len(s.todo)-1]
+			args := make([]ast.ASTHandle, count)
+			changed := false
+			for i := range args {
+				arg, err := s.manager.GetArg(e, uint32(i))
+				if err != nil {
+					return err
+				}
+				image, cached := s.cache[NewExprOffset(arg, off)]
+				if !cached {
+					return ast.ErrASTDomain
+				}
+				args[i] = image
+				changed = changed || image != arg
+			}
+			if !changed {
+				s.cache[current] = e
+				break
+			}
+			declaration, err := s.manager.GetDecl(e)
+			if err != nil {
+				return err
+			}
+			reference, err := s.reserveCacheRef()
+			if err != nil {
+				return err
+			}
+			image, err := s.manager.MkApp(declaration, args)
+			if err = errors.Join(err, s.manager.SetRef(reference, image)); err != nil {
+				return err
+			}
+			s.cache[current] = image
+		case ast.ASTQuantifier:
+			image, err := s.applyQuantifier(offsets, deltas, e, off, replace, replacement)
+			if err != nil {
+				return err
+			}
+			s.todo = s.todo[:len(s.todo)-1]
+			s.cache[current] = image
+		default:
+			return ast.ErrASTDomain
+		}
 	}
-	// m_new_exprs retains the result of every source apply call, including an
+	h, cached := s.cache[n]
+	if !cached {
+		return ast.ErrASTDomain
+	}
+	// m_new_exprs retains the result of every apply call, including an
 	// unchanged input whose descendants are borrowed by the persistent cache.
-	if _, err = s.keep(h); err != nil {
+	if _, err := s.keep(h); err != nil {
 		return err
 	}
 	return s.manager.SetRef(out, h)
+}
+
+// applyQuantifier is apply's AST_QUANTIFIER case: a nested substitution
+// holds every binding var_shifter-shifted by the quantifier's declarations,
+// and applies itself, modulo the shifted s -> t, to the patterns, the
+// no-patterns and the body. The new quantifier joins m_new_exprs; the block's
+// locals die in reverse declaration order: no_pats, pats, t1_ref, s1_ref,
+// var_sh, er, subst.
+func (s *Substitution) applyQuantifier(offsets uint32, deltas []uint32, q ast.ASTHandle, off uint32, replace, replacement ExprOffset) (image ast.ASTHandle, resultErr error) {
+	m := s.manager
+	numVars, err := m.GetNumDeclarations(q)
+	if err != nil {
+		return image, err
+	}
+	nested, err := New(m)
+	if err != nil {
+		return image, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, nested.Close()) }()
+	variables, err := add32(s.bindings.variables, numVars)
+	if err != nil {
+		return image, err
+	}
+	if err = nested.Reserve(s.bindings.offsets, variables); err != nil {
+		return image, err
+	}
+	er, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return image, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&er)) }()
+	shifter, err := rewriter.NewVarShifter(m)
+	if err != nil {
+		if shifter != nil {
+			err = errors.Join(err, shifter.Close())
+		}
+		return image, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, shifter.Close()) }()
+	for i := uint32(0); i < s.bindings.offsets; i++ {
+		for j := uint32(0); j < s.bindings.variables; j++ {
+			r, found, err := s.bindings.find(j, i)
+			if err != nil {
+				return image, err
+			}
+			if !found {
+				continue
+			}
+			if err = shifter.ShiftBy(r.expr, numVars, er); err != nil {
+				return image, err
+			}
+			shifted, err := m.RefGet(er)
+			if err != nil {
+				return image, err
+			}
+			if err = nested.Insert(j+numVars, i, NewExprOffset(shifted, r.offset)); err != nil {
+				return image, err
+			}
+		}
+	}
+	body, err := m.GetQuantifierBody(q)
+	if err != nil {
+		return image, err
+	}
+	s1Ref, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return image, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&s1Ref)) }()
+	t1Ref, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return image, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&t1Ref)) }()
+	if !replace.expr.IsNull() {
+		if err = shifter.ShiftBy(replace.expr, numVars, s1Ref); err != nil {
+			return image, err
+		}
+	}
+	if !replacement.expr.IsNull() {
+		if err = shifter.ShiftBy(replacement.expr, numVars, t1Ref); err != nil {
+			return image, err
+		}
+	}
+	s1Expr, err := m.RefGet(s1Ref)
+	if err != nil {
+		return image, err
+	}
+	t1Expr, err := m.RefGet(t1Ref)
+	if err != nil {
+		return image, err
+	}
+	s1, t1 := NewExprOffset(s1Expr, replace.offset), NewExprOffset(t1Expr, replacement.offset)
+	var pats, noPats []ast.ASTRef
+	defer func() {
+		for i := range noPats {
+			resultErr = errors.Join(resultErr, m.DelRef(&noPats[i]))
+		}
+		for i := range pats {
+			resultErr = errors.Join(resultErr, m.DelRef(&pats[i]))
+		}
+	}()
+	applyChild := func(child ast.ASTHandle) (ast.ASTHandle, error) {
+		if err := nested.ApplyModulo(offsets, deltas, NewExprOffset(child, off), s1, t1, er); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return m.RefGet(er)
+	}
+	numPatterns, err := m.GetNumPatterns(q)
+	if err != nil {
+		return image, err
+	}
+	patterns := make([]ast.ASTHandle, numPatterns)
+	for i := range patterns {
+		pattern, err := m.GetPattern(q, uint32(i))
+		if err != nil {
+			return image, err
+		}
+		if patterns[i], err = applyChild(pattern); err != nil {
+			return image, err
+		}
+		held, err := m.NewRef(patterns[i])
+		if err != nil {
+			return image, err
+		}
+		pats = append(pats, held)
+	}
+	numNoPatterns, err := m.GetNumNoPatterns(q)
+	if err != nil {
+		return image, err
+	}
+	noPatterns := make([]ast.ASTHandle, numNoPatterns)
+	for i := range noPatterns {
+		pattern, err := m.GetNoPattern(q, uint32(i))
+		if err != nil {
+			return image, err
+		}
+		if noPatterns[i], err = applyChild(pattern); err != nil {
+			return image, err
+		}
+		held, err := m.NewRef(noPatterns[i])
+		if err != nil {
+			return image, err
+		}
+		noPats = append(noPats, held)
+	}
+	newBody, err := applyChild(body)
+	if err != nil {
+		return image, err
+	}
+	// er = update_quantifier(q, pats, no_pats, er), then m_new_exprs.
+	updated, err := m.UpdateQuantifierAnnotations(q, patterns, noPatterns, newBody)
+	if err != nil {
+		return image, err
+	}
+	if err = m.SetRef(er, updated); err != nil {
+		return image, err
+	}
+	return s.keep(updated)
 }
 
 func (s *Substitution) Acyclic() (bool, error) {
