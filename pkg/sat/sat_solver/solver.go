@@ -17,6 +17,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -81,9 +82,12 @@ type Solver struct {
 	failures                     []memory.ConstructionFailure
 	status                       lbool.LBool
 	unknown                      string
-	refs                         uint32
-	header                       uint64
-	closed                       bool
+	// exps is inc_sat_solver's m_exps (vector<rational>): the powers of
+	// two internalize_value sums; it lives as long as the solver.
+	exps   []unumeral.OwnedRational
+	refs   uint32
+	header uint64
+	closed bool
 }
 
 type IncrementalSolverConfig struct {
@@ -241,6 +245,15 @@ func (s *Solver) Close() error {
 	}
 	if err := s.drainModelWork(); err != nil {
 		return err
+	}
+	// ~inc_sat_solver: m_exps, the last member, goes first.
+	service := s.manager.NumeralService()
+	for len(s.exps) > 0 {
+		i := len(s.exps) - 1
+		if err := service.CleanupValue(&s.exps[i]); err != nil {
+			return err
+		}
+		s.exps = s.exps[:i]
 	}
 	// ~inc_sat_solver: members in reverse declaration order: m_mc0 (and the
 	// other converters), m_subgoals, m_preprocess, m_bb_rewriter, then

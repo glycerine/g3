@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/sat"
@@ -143,17 +142,7 @@ func (s *Solver) fixedVariable(variable ast.ASTHandle, byVariable map[sat.BoolVa
 			value, err = s.manager.MkNot(variable)
 		}
 	} else {
-		var integer big.Int
-		for i, literal := range values {
-			if !literal.Sign() {
-				integer.SetBit(&integer, i, 1)
-			}
-		}
-		var numeral ast.ASTHandle
-		numeral, err = s.manager.BitVectorNumeralRat(new(big.Rat).SetInt(&integer), uint32(len(values)))
-		if err == nil {
-			value, err = s.manager.MkEq(variable, numeral)
-		}
+		value, err = s.internalizeBitVectorValue(variable, values)
 	}
 	if err != nil {
 		return ast.ASTHandle{}, false, err
@@ -331,4 +320,42 @@ func (s *Solver) FindMutexes(variables []ast.ASTHandle) (status lbool.LBool, res
 		result = append(result, expressions)
 	}
 	return lbool.True, result, nil
+}
+
+// internalizeBitVectorValue is internalize_value's bit-vector branch: it
+// extends m_exps with doubled powers of two, sums the powers of the true
+// bits into rational r, and returns v = mk_numeral(r, size).
+func (s *Solver) internalizeBitVectorValue(variable ast.ASTHandle, values []sat.Literal) (result ast.ASTHandle, err error) {
+	service := s.manager.NumeralService()
+	if len(s.exps) == 0 {
+		one, e := service.One()
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		s.exps = append(s.exps, one)
+	}
+	for len(s.exps) < len(values) {
+		next, e := service.MulInt(&s.exps[len(s.exps)-1], 2)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		s.exps = append(s.exps, next)
+	}
+	r, err := service.Zero()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { err = errors.Join(err, service.CleanupValue(&r)) }()
+	for i, literal := range values {
+		if !literal.Sign() {
+			if err = service.AddAssign(&r, &s.exps[i]); err != nil {
+				return ast.ASTHandle{}, err
+			}
+		}
+	}
+	numeral, err := s.manager.BitVectorNumeral(&r, uint32(len(values)))
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return s.manager.MkEq(variable, numeral)
 }
