@@ -4,7 +4,6 @@ package polynomial
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
@@ -23,7 +22,7 @@ const (
 
 // GCDSimplifyInto removes the greatest common divisor of the retained
 // coefficients and publishes an independently owned result in out.
-func (m *MultivariatePolynomialCore) GCDSimplifyInto(p Polynomial, relation GCDSimplifyRelation, out *PolynomialRef) error {
+func (m *MultivariatePolynomialCore) GCDSimplifyInto(p Polynomial, relation GCDSimplifyRelation, out *PolynomialRef) (err error) {
 	if out == nil || out.owner != m {
 		return arena.ErrConfig
 	}
@@ -37,11 +36,29 @@ func (m *MultivariatePolynomialCore) GCDSimplifyInto(p Polynomial, relation GCDS
 		}
 		return out.Assign(p)
 	}
-	g, coefficients, monomials, err := m.polynomialContent(p, relation)
+	z, err := m.IntegerManager()
 	if err != nil {
 		return err
 	}
-	if g.Sign() == 0 || g.Cmp(big.NewInt(1)) == 0 {
+	g, coefficients, monomials, err := m.polynomialContent(z, p, relation)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, z.Del(&g))
+		for i := range coefficients {
+			err = errors.Join(err, z.Del(&coefficients[i]))
+		}
+	}()
+	zero, err = z.IsZero(&g)
+	if err != nil {
+		return err
+	}
+	one, err := z.IsOne(&g)
+	if err != nil {
+		return err
+	}
+	if zero || one {
 		return out.Assign(p)
 	}
 	for i := range coefficients {
@@ -50,41 +67,47 @@ func (m *MultivariatePolynomialCore) GCDSimplifyInto(p Polynomial, relation GCDS
 			return cause
 		}
 		if constant && relation != GCDSimplifyEquality {
-			if relation == GCDSimplifyGreater {
-				coefficients[i] = integerCeilQuotient(coefficients[i], g)
-			} else {
-				coefficients[i] = integerFloorQuotient(coefficients[i], g)
-			}
+			err = integerRoundedQuotient(z, &coefficients[i], &g, relation == GCDSimplifyGreater)
 		} else {
-			coefficients[i] = new(big.Int).Quo(coefficients[i], g)
+			err = z.MachineDiv(&coefficients[i], &g, &coefficients[i])
+		}
+		if err != nil {
+			return err
 		}
 	}
-	return m.publishGCDSimplification(coefficients, monomials, out)
+	return m.publishGCDSimplification(z, coefficients, monomials, out)
 }
 
-func integerFloorQuotient(a, b *big.Int) *big.Int {
-	q, r := new(big.Int), new(big.Int)
-	q.QuoRem(a, b, r)
-	if r.Sign() < 0 {
-		q.Sub(q, big.NewInt(1))
+// integerRoundedQuotient sets a to floor(a/b) (or ceil(a/b) when ceil) for
+// b > 0: the truncated quotient adjusted by the remainder's sign.
+func integerRoundedQuotient(z *unumeral.IntegerManager, a, b *unumeral.Int, ceil bool) (err error) {
+	var r unumeral.Int
+	defer func() { err = errors.Join(err, z.Del(&r)) }()
+	if err = z.Rem(a, b, &r); err != nil {
+		return err
 	}
-	return q
-}
-
-func integerCeilQuotient(a, b *big.Int) *big.Int {
-	q, r := new(big.Int), new(big.Int)
-	q.QuoRem(a, b, r)
-	if r.Sign() > 0 {
-		q.Add(q, big.NewInt(1))
+	if err = z.MachineDiv(a, b, a); err != nil {
+		return err
 	}
-	return q
-}
-
-func (m *MultivariatePolynomialCore) publishGCDSimplification(values []*big.Int, monomials []Monomial, out *PolynomialRef) (err error) {
-	z, err := m.IntegerManager()
+	sign, err := z.Sign(&r)
 	if err != nil {
 		return err
 	}
+	var one unumeral.Int
+	if err = z.SetInt64(&one, 1); err != nil {
+		return err
+	}
+	if ceil && sign > 0 {
+		return z.Add(a, &one, a)
+	}
+	if !ceil && sign < 0 {
+		return z.Sub(a, &one, a)
+	}
+	return nil
+}
+
+// publishGCDSimplification builds the result from the borrowed values.
+func (m *MultivariatePolynomialCore) publishGCDSimplification(z *unumeral.IntegerManager, values []unumeral.Int, monomials []Monomial, out *PolynomialRef) (err error) {
 	coefficients := make([]unumeral.Int, len(values))
 	defer func() {
 		for i := range coefficients {
@@ -92,7 +115,7 @@ func (m *MultivariatePolynomialCore) publishGCDSimplification(values []*big.Int,
 		}
 	}()
 	for i := range values {
-		if err = z.SetString(&coefficients[i], values[i].String()); err != nil {
+		if err = z.Copy(&coefficients[i], &values[i]); err != nil {
 			return err
 		}
 	}
