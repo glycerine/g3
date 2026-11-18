@@ -170,12 +170,20 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		return err
 	}
 	*trace = append(*trace, owned)
-	if proofResult == nil {
-		// nonlinear::get_proof: IF_VERBOSE(1, mk_pp(rm.to_formula(r))). The
-		// source walks the rules once; the Go trace walk prints them.
-		if err = c.verboseRuleFormula(selected); err != nil {
-			return err
-		}
+	// nonlinear::get_proof: rm.to_formula(*r, fml), IF_VERBOSE(1, mk_pp(fml)).
+	// fml lives until the frame ends; it is the asserted proof's formula
+	// when the rule carries no proof.
+	fmlRef, err := selected.ToFormula()
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = disposeASTRefs(m, []ast.ASTRef{fmlRef}, resultErr) }()
+	fml, err := m.RefGet(fmlRef)
+	if err != nil {
+		return err
+	}
+	if err = verboseExpression(m, 1, fml); err != nil {
+		return err
 	}
 	tails, err := selected.UninterpretedTailSize()
 	if err != nil {
@@ -202,19 +210,12 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 			// The fork asserts the rule's formula, as linear::get_model does
 			// (z3 4.7.1 passes the null proof to mk_hyper_resolve and
 			// segfaults; test_vectors/z3_bug_bmc_nonlinear_head_vars.smt2).
-			fmlRef, err := selected.ToFormula()
-			if err != nil {
-				return err
-			}
-			fml, err := m.RefGet(fmlRef)
-			if err == nil {
-				proof, err = m.MkProofAsserted(fml)
-			}
+			proof, err = m.MkProofAsserted(fml)
 			var pinned ast.ASTRef
 			if err == nil {
 				pinned, err = m.NewRef(proof)
 			}
-			if err = disposeASTRefs(m, []ast.ASTRef{fmlRef}, err); err != nil {
+			if err != nil {
 				return err
 			}
 			defer func() { resultErr = disposeASTRefs(m, []ast.ASTRef{pinned}, resultErr) }()

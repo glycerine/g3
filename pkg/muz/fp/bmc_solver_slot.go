@@ -112,13 +112,24 @@ func (e *PropositionalEngine) resetBMCSolver() error {
 	if err := e.bmcSlot.clp.ResetGoals(); err != nil {
 		return err
 	}
-	// bmc::query: m_answer = nullptr follows the kernel reset.
+	// bmc::query: m_answer = nullptr follows the kernel reset, then
+	// m_ctx.ensure_opened() and m_rules.reset().
 	if e.bmcProof != (ast.ASTRef{}) {
 		if err := e.manager.DelRef(&e.bmcProof); err != nil {
 			return err
 		}
 	}
-	return nil
+	return e.releaseBMCRules()
+}
+
+// releaseBMCRules is bmc's m_rules.reset() (or its destruction with ~bmc).
+func (e *PropositionalEngine) releaseBMCRules() error {
+	rules := e.bmcRules
+	if rules == nil {
+		return nil
+	}
+	e.bmcRules = nil
+	return rules.Close()
 }
 
 // bmcQuerySolver returns the engine kernel for one search. The first search

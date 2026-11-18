@@ -207,8 +207,13 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		return lbool.Undef, ErrPropositionalEngine
 	}
 	sourceDeclaration := declaration
-	if err := e.clearBMCTrace(); err != nil {
-		return lbool.Undef, err
+	// bmc::query: m_answer = nullptr follows the kernel reset
+	// (resetBMCSolver); m_rule_trace is reset by the encoding's setup
+	// (resetBMCRuleTrace), after the transformations.
+	if e.bmcProof != (ast.ASTRef{}) {
+		if err := e.manager.DelRef(&e.bmcProof); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	e.bmcStatistics.Reset()
 	finalized, err := e.set.IsFinalized()
@@ -244,6 +249,12 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		// context's m_mc (context::add_model_converter), which the next
 		// context::query releases.
 		e.datalogConversions = append(e.datalogConversions, preprocessed.takeModelConversions()...)
+		// m_rules.replace_rules(rules): bmc keeps the transformed rules
+		// until the next query's m_rules.reset().
+		if rules := preprocessed.rules; rules != nil && e.bmcRules == nil {
+			preprocessed.rules = nil
+			e.bmcRules = rules
+		}
 		resultErr = errors.Join(resultErr, preprocessed.Close())
 	}()
 	rules := preprocessed.rules
@@ -381,10 +392,7 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
 		// nonlinear::get_model always builds the proof; a rule without a
 		// proof is asserted (fork fix, as linear::get_model does).
-		e.bmcTrace, err = compiler.NonlinearTrace(rules, declaration, level, md, services)
-		if err == nil {
-			e.bmcProof, err = compiler.NonlinearProof(rules, declaration, level, md, services)
-		}
+		e.bmcTrace, e.bmcProof, err = compiler.NonlinearModel(rules, declaration, level, md, services)
 	}
 	if err != nil {
 		return lbool.Undef, err

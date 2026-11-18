@@ -66,7 +66,8 @@ func TestBMCEmptyQueryChecksCancellationBeforeFalseResult(t *testing.T) {
 
 				status, queryErr = query()
 				must(queryErr)
-				if status != lbool.False || e.queryClone == nil || e.queryClone.closed || e.queryClonePredicate.IsNull() {
+				// bmc::query runs on the context (no query clone).
+				if status != lbool.False || e.queryClone != nil || !e.expressionQuerySelf || e.queryClonePredicate.IsNull() {
 					t.Fatal("empty BMC query did not recover", status, e.queryClone, e.queryClonePredicate)
 				}
 				last, err := e.LastResult()
@@ -80,11 +81,10 @@ func TestBMCEmptyQueryChecksCancellationBeforeFalseResult(t *testing.T) {
 					t.Fatal("empty BMC retry kept cancellation", reason)
 				}
 
-				prior := e.queryClone
 				status, queryErr = query()
 				must(queryErr)
-				if status != lbool.False || e.queryClone == nil || e.queryClone == prior || !prior.closed {
-					t.Fatal("repeated empty BMC query did not replace its clone owner", status, prior.closed)
+				if status != lbool.False || e.queryClone != nil || !e.expressionQuerySelf {
+					t.Fatal("repeated empty BMC query", status, e.queryClone, e.expressionQuerySelf)
 				}
 			})
 		}

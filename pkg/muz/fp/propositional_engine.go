@@ -231,8 +231,11 @@ type PropositionalEngine struct {
 	bmcStatistics     statistics.Statistics
 	bmcTrace          []*base.Rule
 	bmcProof          ast.ASTRef
-	bmcSlot           *bmcSolverSlot
-	bmcSlotBorrowed   bool
+	// bmcRules is bmc::m_rules: the query's transformed rules, kept until
+	// the next bmc::query's m_rules.reset() or ~bmc.
+	bmcRules        *base.RuleSet
+	bmcSlot         *bmcSolverSlot
+	bmcSlotBorrowed bool
 	// relationQuery marks a rel_query in progress: the engine was ensured
 	// before the query expression and bmc::query resets before flushing.
 	relationQuery       bool
@@ -3656,6 +3659,7 @@ func (e *PropositionalEngine) Close() (result error) {
 		return errors.Join(result, err)
 	}
 	result = errors.Join(result, e.clearBMCTrace())
+	result = errors.Join(result, e.releaseBMCRules())
 	result = errors.Join(result, e.clearTabAnswer())
 	result = errors.Join(result, e.closeTabSession())
 	result = errors.Join(result, e.closeBMCSolver())

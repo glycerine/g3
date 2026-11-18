@@ -44,7 +44,7 @@ func TestBMCRequestedNonlinearProofWithoutGlobalTracing(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("nonlinear query", status)
 			}
-			if e.forceProofTrace || e.queryClone == nil || e.queryClone.forceProofTrace {
+			if e.forceProofTrace || e.queryClone != nil || !e.expressionQuerySelf {
 				t.Fatal("temporary proof setting escaped the query")
 			}
 			answer, err := e.Answer(f.declarations["u"])

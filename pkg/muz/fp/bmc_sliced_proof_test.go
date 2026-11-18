@@ -108,7 +108,7 @@ func testBMCSlicedProofUsesOriginalRules(t *testing.T, backend string, nonlinear
 	if status != lbool.True {
 		t.Fatal("sliced query status", status)
 	}
-	if e.queryClone == nil || e.forceProofTrace || e.queryClone.forceProofTrace {
+	if !e.expressionQuerySelf || e.queryClone != nil || e.forceProofTrace {
 		t.Fatal("query snapshot missing or temporary proof setting escaped")
 	}
 	sliced := 0

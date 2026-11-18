@@ -17,6 +17,9 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 			if err := e.clearBMCTrace(); err != nil {
 				return err
 			}
+			if err := e.releaseBMCRules(); err != nil {
+				return err
+			}
 			e.bmcStatistics.Reset()
 			if err := e.closeBMCSolver(); err != nil {
 				return err

@@ -10,7 +10,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
-	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
@@ -89,20 +88,4 @@ func (w bmcVerboseWriter) Write(body []byte) (int, error) {
 		return 0, err
 	}
 	return len(body), nil
-}
-
-func (c *Compiler) verboseRuleFormula(rule *base.Rule) (result error) {
-	if _, enabled, err := bmcVerboseStream(1); err != nil || !enabled {
-		return err
-	}
-	formula, err := rule.ToFormula()
-	if err != nil {
-		return err
-	}
-	defer func() { result = errors.Join(result, c.manager.DelRef(&formula)) }()
-	handle, err := c.manager.RefGet(formula)
-	if err != nil {
-		return err
-	}
-	return verboseExpression(c.manager, 1, handle)
 }

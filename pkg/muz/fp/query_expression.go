@@ -188,7 +188,10 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	// m_context, which keeps its rules, model and proof converters until
 	// the next query replaces them.
 	interfaceQuery := e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer"
-	self := e.backend == "datalog" || interfaceQuery
+	// bmc::query likewise runs on the context: old_rules(rules0), mk_query
+	// on the context's rules, which m_ctx.replace_rules(old_rules) restores.
+	bmcQuery := e.backend == "bmc" || e.backend == "qbmc"
+	self := e.backend == "datalog" || interfaceQuery || bmcQuery
 	var clone *PropositionalEngine
 	if self {
 		clone = e
@@ -307,7 +310,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		// only the original program belongs in the search rule index.
 		return clone.queryTabExpression(query)
 	}
-	if self && !interfaceQuery {
+	if self && !interfaceQuery && !bmcQuery {
 		// rel_context::query's scoped_query, ended when the query returns
 		// or throws.
 		scoped, cause := e.beginDatalogScopedQuery()
@@ -317,7 +320,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		defer func() { resultErr = errors.Join(resultErr, e.endDatalogScopedQuery(scoped)) }()
 	}
 	var restoreRevision func()
-	if interfaceQuery {
+	if interfaceQuery || bmcQuery {
 		// dl_interface::query: datalog::rule_set old_rules(rules0) before
 		// mk_query; m_ctx.replace_rules(old_rules) restores the rules.
 		old, cause := base.NewRuleSet(e.rules)
@@ -541,7 +544,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		// rel_context::query(expr*) clones the queried relation
 		// (m_last_result_relation) before its emptiness test
 		// (queryDatalogPredicates).
-		if self {
+		if bmcQuery {
+			result, err = e.QueryPredicate(declaration)
+		} else if self {
 			e.datalogExpressionQuery = true
 			result, err = e.queryDatalogPredicate(declaration)
 			e.datalogExpressionQuery = false
@@ -549,7 +554,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			result, err = clone.QueryPredicate(declaration)
 		}
 	}
-	if err == nil && self && !interfaceQuery && e.datalogQueryObserver != nil {
+	if err == nil && self && !interfaceQuery && !bmcQuery && e.datalogQueryObserver != nil {
 		e.datalogQueryObserver(e, declaration)
 	}
 	if err == nil {
