@@ -659,6 +659,13 @@ func (t *SMTArrayTheory) PopScopes(count uint32) error {
 	if err := t.arrayTrail.PopScope(count); err != nil {
 		return err
 	}
+	// theory_array::pop_scope_eh: m_trail_stack.pop_scope undoes the
+	// ast2ast_trail of m_sort2epsilon (releasing epsilon) before
+	// theory_array_base::pop_scope_eh's restore_sorts releases the
+	// extensionality skolems.
+	if err := t.restoreArrayEpsilons(scope.epsilons); err != nil {
+		return err
+	}
 	t.arrayData = t.arrayData[:oldVars]
 	// Source theory_array_base::pop_scope_eh clears pending work before
 	// dropping the enodes and fingerprints owned by the popped scopes.
@@ -693,9 +700,6 @@ func (t *SMTArrayTheory) PopScopes(count uint32) error {
 	}
 	for _, expression := range t.defaultTrail[scope.defaults:] {
 		delete(t.defaults, expression)
-	}
-	if err := t.restoreArrayEpsilons(scope.epsilons); err != nil {
-		return err
 	}
 	for _, node := range t.defaultFingerprintTrail[scope.defaultFingerprints:] {
 		delete(t.defaultFingerprints, node)
