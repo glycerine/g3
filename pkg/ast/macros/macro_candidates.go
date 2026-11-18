@@ -56,12 +56,13 @@ func (u *Util) QuasiMacroHeadToMacroHead(qhead ast.ASTHandle, declarations uint3
 	if err != nil {
 		return declarations, err
 	}
-	converted, err := u.manager.MkApp(declaration, args)
-	if err != nil {
+	// bool_rewriter(m_manager).mk_and(new_conds.size(), new_conds.c_ptr(), cond)
+	// comes before head = m_manager.mk_app(...).
+	if err = u.boolRewrite(ast.ASTOpAnd, conditions, condition); err != nil {
 		return declarations, err
 	}
-	// bool_rewriter(m_manager).mk_and(new_conds.size(), new_conds.c_ptr(), cond)
-	if err = u.boolRewrite(ast.ASTOpAnd, conditions, condition); err != nil {
+	converted, err := u.manager.MkApp(declaration, args)
+	if err != nil {
 		return declarations, err
 	}
 	if err = u.manager.SetRef(head, converted); err != nil {

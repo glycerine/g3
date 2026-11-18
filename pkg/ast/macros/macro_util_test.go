@@ -948,3 +948,37 @@ func TestMacroRecognizersTreatBooleanVariablesAsNonMatches(t *testing.T) {
 		t.Fatal("variable quantifier body was not rejected as a pseudo predicate", matched, err)
 	}
 }
+
+// macro_util.cpp builds the condition (bool_rewriter mk_and) before the head
+// app: with two new equalities the and gets the smaller id.
+func TestQuasiMacroHeadConditionBuiltBeforeHead(t *testing.T) {
+	m := fixture(t)
+	u, err := macros.NewUtil(m)
+	must(t, err)
+	b, err := m.MkBoolSort()
+	must(t, err)
+	v0, err := m.MkVar(0, b)
+	must(t, err)
+	f := declaration(t, m, "order-f", []ast.ASTHandle{b, b, b}, b)
+	triple, err := m.MkApp(f, []ast.ASTHandle{v0, v0, v0})
+	must(t, err)
+	headRef, err := m.NewRef(ast.ASTHandle{})
+	must(t, err)
+	t.Cleanup(func() { must(t, m.DelRef(&headRef)) })
+	conditionRef, err := m.NewRef(ast.ASTHandle{})
+	must(t, err)
+	t.Cleanup(func() { must(t, m.DelRef(&conditionRef)) })
+	_, err = u.QuasiMacroHeadToMacroHead(triple, 1, headRef, conditionRef)
+	must(t, err)
+	head, err := m.RefGet(headRef)
+	must(t, err)
+	condition, err := m.RefGet(conditionRef)
+	must(t, err)
+	headID, err := m.GetASTID(head)
+	must(t, err)
+	conditionID, err := m.GetASTID(condition)
+	must(t, err)
+	if conditionID >= headID {
+		t.Fatal("condition must be built before the head", conditionID, headID)
+	}
+}
