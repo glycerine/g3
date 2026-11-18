@@ -110,6 +110,15 @@ func (u *SMTTheoryOptimizationUtil) IsLinear(term ast.ASTHandle) (bool, error) {
 				todo = append(todo, argument)
 			}
 		case smtArithOpMul:
+			// is_mul(t, t1, t2) is MATCH_BINARY: an n-ary product is not
+			// linear here.
+			count, e := u.manager.GetNumArgs(current)
+			if e != nil {
+				return false, e
+			}
+			if count != 2 {
+				return false, nil
+			}
 			first, e := u.manager.GetArg(current, 0)
 			if e != nil {
 				return false, e

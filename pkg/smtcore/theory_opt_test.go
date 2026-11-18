@@ -37,6 +37,12 @@ func TestSMTTheoryOptimizationLinearAndNumeralRecognition(t *testing.T) {
 	if linear, err := util.IsLinear(sum); err != nil || !linear {
 		t.Fatal("linear arithmetic DAG", linear, err)
 	}
+	// AUDIT.md smtcore_11-F6: is_mul matches only binary products.
+	ternary, err := m.MkFamilyApp(arithmetic, smtArithOpMul, nil, []ast.ASTHandle{cast, x, y})
+	astTestMust(t, err)
+	if linear, err := util.IsLinear(ternary); err != nil || linear {
+		t.Fatal("n-ary product accepted as linear", linear, err)
+	}
 	nonlinear, err := m.MkFamilyApp(arithmetic, smtArithOpMul, nil, []ast.ASTHandle{x, y})
 	astTestMust(t, err)
 	if linear, err := util.IsLinear(nonlinear); err != nil || linear {
