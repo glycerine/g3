@@ -20,11 +20,11 @@ func scannerTokenDescription(s *Scanner, token Token) string {
 	case StringToken:
 		return "string:" + s.String()
 	case IntegerToken:
-		return "int:" + s.Number().RatString()
+		return "int:" + scannerNumberText(s)
 	case DecimalToken:
-		return "decimal:" + s.Number().RatString()
+		return "decimal:" + scannerNumberText(s)
 	case BitVectorToken:
-		return fmt.Sprint("bv:", s.Number().RatString(), "/", s.BitVectorSize())
+		return fmt.Sprint("bv:", scannerNumberText(s), "/", s.BitVectorSize())
 	case LeftParenToken:
 		return "("
 	case RightParenToken:
@@ -37,7 +37,7 @@ func scannerTokenDescription(s *Scanner, token Token) string {
 }
 
 func TestSMT2ScannerCommandTokensAndExactNumerals(t *testing.T) {
-	s, err := NewScanner(strings.NewReader("; comment\n( :kw |a b| -12 - 12 1.25 #xAf #b0010 \"a\"\"b\" )"), true)
+	s, err := NewScanner(strings.NewReader("; comment\n( :kw |a b| -12 - 12 1.25 #xAf #b0010 \"a\"\"b\" )"), true, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestSMT2ScannerCommandTokensAndExactNumerals(t *testing.T) {
 
 func TestSMT2ScannerComplianceQuotedEscapesAndLocations(t *testing.T) {
 	for _, compliant := range []bool{false, true} {
-		s, err := NewScanner(strings.NewReader("-12.5 "), compliant)
+		s, err := NewScanner(strings.NewReader("-12.5 "), compliant, testScannerNumerals)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -71,7 +71,7 @@ func TestSMT2ScannerComplianceQuotedEscapesAndLocations(t *testing.T) {
 			t.Fatal(compliant, got)
 		}
 	}
-	s, err := NewScanner(strings.NewReader(";ignored\n(foo\n bar)"), true)
+	s, err := NewScanner(strings.NewReader(";ignored\n(foo\n bar)"), true, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestSMT2ScannerComplianceQuotedEscapesAndLocations(t *testing.T) {
 			t.Fatal("source token location", token, s.Line(), s.Position(), want)
 		}
 	}
-	s, err = NewScanner(strings.NewReader(`|a\|b| `), true)
+	s, err = NewScanner(strings.NewReader(`|a\|b| `), true, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestSMT2ScannerComplianceQuotedEscapesAndLocations(t *testing.T) {
 }
 
 func TestSMT2ScannerInputCachingAndRecovery(t *testing.T) {
-	s, err := NewScanner(strings.NewReader(" \t(echo \"a\"\"b\") remainder "), true)
+	s, err := NewScanner(strings.NewReader(" \t(echo \"a\"\"b\") remainder "), true, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestSMT2ScannerInputCachingAndRecovery(t *testing.T) {
 	if got, err := s.CachedString(0, 0); err != nil || got != "" {
 		t.Fatal("empty cache", got, err)
 	}
-	s, err = NewScanner(strings.NewReader("[ good )"), true)
+	s, err = NewScanner(strings.NewReader("[ good )"), true, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestSMT2ScannerInputCachingAndRecovery(t *testing.T) {
 
 func TestSMT2ScannerMalformedAndEOFGuards(t *testing.T) {
 	for _, tc := range []struct{ input, message string }{{"|abc", "unexpected end of quoted symbol"}, {"\"abc", "unexpected end of string"}, {"#q ", "invalid bit-vector literal, expecting 'x' or 'b'"}, {"#x ", "invalid empty bit-vector literal"}, {"#b ", "invalid empty bit-vector literal"}} {
-		s, err := NewScanner(strings.NewReader(tc.input), true)
+		s, err := NewScanner(strings.NewReader(tc.input), true, testScannerNumerals)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -155,7 +155,7 @@ func TestSMT2ScannerMalformedAndEOFGuards(t *testing.T) {
 		}
 	}
 	for _, tc := range []struct{ input, want string }{{"word", "eof"}, {"12", "int:12"}, {"#b10", "bv:2/2"}, {"\"ok\"", "string:ok"}} {
-		s, err := NewScanner(strings.NewReader(tc.input), true)
+		s, err := NewScanner(strings.NewReader(tc.input), true, testScannerNumerals)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -170,7 +170,7 @@ func TestSMT2ScannerMalformedAndEOFGuards(t *testing.T) {
 			t.Fatal("repeated EOF", token, err)
 		}
 	}
-	if _, err := NewScanner(failingScannerReader{}, true); !errors.Is(err, io.ErrUnexpectedEOF) {
+	if _, err := NewScanner(failingScannerReader{}, true, testScannerNumerals); !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Fatal("input error was lost", err)
 	}
 }
@@ -180,7 +180,7 @@ type failingScannerReader struct{}
 func (failingScannerReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
 
 func TestSMT2ScannerSourceTraceAndLargeTokens(t *testing.T) {
-	s, err := NewScanner(strings.NewReader("|quoted| plain -1.25 "), false)
+	s, err := NewScanner(strings.NewReader("|quoted| plain -1.25 "), false, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestSMT2ScannerSourceTraceAndLargeTokens(t *testing.T) {
 		t.Fatal("disabled trace wrote output")
 	}
 	large := strings.Repeat("x", 5000)
-	s, err = NewScanner(strings.NewReader("|"+large+"| "), true)
+	s, err = NewScanner(strings.NewReader("|"+large+"| "), true, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}

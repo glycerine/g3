@@ -3,8 +3,8 @@ package util
 import (
 	"errors"
 	"fmt"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"io"
-	"math/big"
 	"os"
 	"strings"
 
@@ -23,8 +23,8 @@ type SimpleParser struct {
 	manager  *ast.ASTManager
 	builtins map[string]builtinOp
 	vars     map[string]ast.ASTHandle
-	integer  func(*big.Rat) (ast.ASTHandle, error)
-	floating func(*big.Rat) (ast.ASTHandle, error)
+	integer  func(*unumeral.Rational) (ast.ASTHandle, error)
+	floating func(*unumeral.Rational) (ast.ASTHandle, error)
 	// warnings is the warning_msg route; it defaults to the process
 	// warning service so -nw/warning=false applies.
 	warnings *diagnostic.WarningService
@@ -54,7 +54,9 @@ func (p *SimpleParser) SetWarningService(warnings *diagnostic.WarningService) {
 	p.warnings = warnings
 }
 
-func (p *SimpleParser) SetNumberParsers(integer, floating func(*big.Rat) (ast.ASTHandle, error)) {
+// SetNumberParsers installs the integer and float number_parser objects;
+// they receive the scanner's rational (of NumeralService().Manager).
+func (p *SimpleParser) SetNumberParsers(integer, floating func(*unumeral.Rational) (ast.ASTHandle, error)) {
 	p.integer, p.floating = integer, floating
 }
 
@@ -170,9 +172,10 @@ func (p *SimpleParser) Parse(reader io.Reader) (result ast.ASTRef, ok bool, err 
 	if reader == nil {
 		return ast.ASTRef{}, false, fmt.Errorf("parser: nil reader")
 	}
-	scanner := NewScanner(reader, os.Stderr, false, false)
+	scanner := NewScanner(reader, os.Stderr, false, false, p.manager.NumeralService().Manager)
 	var trail []ast.ASTRef
 	defer func() {
+		err = errors.Join(err, scanner.NumberError(), scanner.Close())
 		for i := len(trail) - 1; i >= 0; i-- {
 			err = errors.Join(err, p.manager.DelRef(&trail[i]))
 		}

@@ -2,7 +2,6 @@ package util
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 	"testing"
 )
@@ -10,7 +9,7 @@ import (
 func TestScannerSMT2TokensNumbersSymbolsStringsAndComments(t *testing.T) {
 	input := "(foo :bar 12 3.25 #x0f #b101 |quoted symbol| \"a\\\"b\" {note}\n; skip\n)"
 	var diagnostics bytes.Buffer
-	s := NewScanner(strings.NewReader(input), &diagnostics, true, true)
+	s := NewScanner(strings.NewReader(input), &diagnostics, true, true, testScannerNumerals)
 	want := []Token{LeftParen, Identifier, Colon, Identifier, Integer, Float, BitVector, BitVector, Identifier, String, Comment, RightParen, EndOfFile}
 	for i, token := range want {
 		if got := s.Scan(); got != token {
@@ -22,20 +21,20 @@ func TestScannerSMT2TokensNumbersSymbolsStringsAndComments(t *testing.T) {
 				t.Fatal(s.ID())
 			}
 		case 4:
-			if s.Number().Cmp(big.NewRat(12, 1)) != 0 {
-				t.Fatal(s.Number())
+			if scannerNumberText(s) != "12" {
+				t.Fatal(scannerNumberText(s))
 			}
 		case 5:
-			if s.Number().Cmp(big.NewRat(13, 4)) != 0 {
-				t.Fatal(s.Number())
+			if scannerNumberText(s) != "13/4" {
+				t.Fatal(scannerNumberText(s))
 			}
 		case 6:
-			if s.Number().Cmp(big.NewRat(15, 1)) != 0 || s.BitVectorSize() != 8 {
-				t.Fatal(s.Number(), s.BitVectorSize())
+			if scannerNumberText(s) != "15" || s.BitVectorSize() != 8 {
+				t.Fatal(scannerNumberText(s), s.BitVectorSize())
 			}
 		case 7:
-			if s.Number().Cmp(big.NewRat(5, 1)) != 0 || s.BitVectorSize() != 3 {
-				t.Fatal(s.Number(), s.BitVectorSize())
+			if scannerNumberText(s) != "5" || s.BitVectorSize() != 3 {
+				t.Fatal(scannerNumberText(s), s.BitVectorSize())
 			}
 		case 8:
 			if s.ID() != "quoted symbol" {
@@ -57,9 +56,9 @@ func TestScannerSMT2TokensNumbersSymbolsStringsAndComments(t *testing.T) {
 }
 
 func TestScannerLegacyNegativeParametersAndBitVectorCompatibility(t *testing.T) {
-	s := NewScanner(strings.NewReader("-20 op[12:name:3] #xF"), nil, false, false)
-	if s.Scan() != Integer || s.Number().Cmp(big.NewRat(-20, 1)) != 0 {
-		t.Fatal("negative", s.Number())
+	s := NewScanner(strings.NewReader("-20 op[12:name:3] #xF"), nil, false, false, testScannerNumerals)
+	if s.Scan() != Integer || scannerNumberText(s) != "-20" {
+		t.Fatal("negative", scannerNumberText(s))
 	}
 	if s.Scan() != Identifier || s.ID() != "op" {
 		t.Fatal("identifier", s.ID())
@@ -78,7 +77,7 @@ func TestScannerLegacyNegativeParametersAndBitVectorCompatibility(t *testing.T) 
 		t.Fatal("eof")
 	}
 
-	compat := NewScanner(strings.NewReader("#xF #b10"), nil, true, false)
+	compat := NewScanner(strings.NewReader("#xF #b10"), nil, true, false, testScannerNumerals)
 	if compat.Scan() != Identifier || compat.ID() != "bvhexF" {
 		t.Fatal(compat.ID())
 	}
@@ -89,11 +88,11 @@ func TestScannerLegacyNegativeParametersAndBitVectorCompatibility(t *testing.T) 
 
 func TestScannerErrorsAreTerminal(t *testing.T) {
 	var diagnostics bytes.Buffer
-	s := NewScanner(strings.NewReader("#q"), &diagnostics, true, true)
+	s := NewScanner(strings.NewReader("#q"), &diagnostics, true, true, testScannerNumerals)
 	if s.Scan() != ScanError || s.Scan() != ScanError || diagnostics.Len() != 0 {
 		t.Fatal("bit-vector error", diagnostics.String())
 	}
-	s = NewScanner(strings.NewReader("|unterminated"), &diagnostics, true, false)
+	s = NewScanner(strings.NewReader("|unterminated"), &diagnostics, true, false, testScannerNumerals)
 	if s.Scan() != EndOfFile || !strings.Contains(diagnostics.String(), "unexpected end of file") {
 		t.Fatal("quoted error", diagnostics.String())
 	}

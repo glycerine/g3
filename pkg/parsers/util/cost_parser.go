@@ -2,7 +2,7 @@ package util
 
 import (
 	"fmt"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -47,10 +47,10 @@ func NewCostParser(manager *ast.ASTManager) (*CostParser, error) {
 	if err != nil {
 		return nil, err
 	}
-	parser.SetNumberParsers(func(value *big.Rat) (ast.ASTHandle, error) {
-		return manager.ArithmeticNumeralRat(value, false)
-	}, func(value *big.Rat) (ast.ASTHandle, error) {
-		return manager.ArithmeticNumeralRat(value, false)
+	parser.SetNumberParsers(func(value *unumeral.Rational) (ast.ASTHandle, error) {
+		return manager.ArithmeticNumeralFromRational(value, false)
+	}, func(value *unumeral.Rational) (ast.ASTHandle, error) {
+		return manager.ArithmeticNumeralFromRational(value, false)
 	})
 	return result, nil
 }

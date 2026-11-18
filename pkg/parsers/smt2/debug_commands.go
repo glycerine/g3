@@ -5,7 +5,6 @@ package smt2
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -613,14 +612,26 @@ func (p *commandParser) debugSExpr() (string, error) {
 		text = `"` + strings.ReplaceAll(p.scanner.String(), `"`, `""`) + `"`
 	case KeywordToken, SymbolToken:
 		text = p.scanner.ID()
-	case IntegerToken:
-		text = p.scanner.Number().Num().String()
+	case IntegerToken, BitVectorToken:
+		value, err := p.scanner.Numbers().String(p.scanner.Number())
+		if err != nil {
+			return "", err
+		}
+		text = value
+		if p.token == BitVectorToken {
+			text = fmt.Sprintf("(_ bv%s %d)", value, p.scanner.BitVectorSize())
+		}
 	case DecimalToken:
-		value := p.scanner.Number()
-		scale := decimalScale(value.Denom())
-		text = value.FloatString(scale)
-	case BitVectorToken:
-		text = fmt.Sprintf("(_ bv%s %d)", p.scanner.Number().Num().String(), p.scanner.BitVectorSize())
+		// A decimal token's denominator is 2^a*5^b, so its exact expansion
+		// has max(a, b) <= bitsize digits and display_decimal stops there.
+		q, value := p.scanner.Numbers(), p.scanner.Number()
+		bits, err := q.Bitsize(value)
+		if err != nil {
+			return "", err
+		}
+		if text, err = q.DecimalString(value, bits+1, true); err != nil {
+			return "", err
+		}
 	default:
 		return "", fmt.Errorf("s-expression atom expected")
 	}
@@ -628,25 +639,4 @@ func (p *commandParser) debugSExpr() (string, error) {
 		return "", err
 	}
 	return text, nil
-}
-
-func decimalScale(denominator *big.Int) int {
-	remaining := new(big.Int).Set(denominator)
-	two, five := big.NewInt(2), big.NewInt(5)
-	var twos, fives int
-	for new(big.Int).Mod(remaining, two).Sign() == 0 {
-		remaining.Div(remaining, two)
-		twos++
-	}
-	for new(big.Int).Mod(remaining, five).Sign() == 0 {
-		remaining.Div(remaining, five)
-		fives++
-	}
-	if remaining.Cmp(big.NewInt(1)) != 0 {
-		return 0
-	}
-	if twos > fives {
-		return twos
-	}
-	return fives
 }

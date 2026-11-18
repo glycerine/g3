@@ -6,11 +6,11 @@ package cmd_context
 
 import (
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // setOptionBuiltins is set_get_option_cmd::is_builtin_option: the exact
@@ -32,11 +32,19 @@ func setOptionToBool(value string) (bool, error) {
 	return value == "true", nil
 }
 
-func setOptionToUnsigned(value *big.Rat) (uint32, error) {
-	if !value.IsInt() || value.Sign() < 0 || !value.Num().IsUint64() || value.Num().Uint64() > uint64(^uint32(0)) {
+// NumeralService is the rational service shared by this context's AST
+// manager (rational's mpq manager); it exists before the manager does.
+func (c *Context) NumeralService() *unumeral.RationalService { return c.config.Params.NumeralsField }
+
+func setOptionToUnsigned(q *unumeral.RationalManager, value *unumeral.Rational) (uint32, error) {
+	ok, err := q.IsUnsigned(value)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
 		return 0, fmt.Errorf("option value is too big to fit in a machine integer.")
 	}
-	return uint32(value.Num().Uint64()), nil
+	return q.Unsigned(value)
 }
 
 func (c *Context) setOptionCheckNotInitialized(name string) error {
@@ -138,13 +146,16 @@ func (c *Context) SetOptionSymbol(keyword, value string) (unsupported bool, err 
 }
 
 // SetOptionNumeral is set_option_cmd::set_next_arg(rational).
-func (c *Context) SetOptionNumeral(keyword string, value *big.Rat) error {
+// SetOptionNumeral is set_option_cmd::set_next_arg(rational const&); value
+// is a rational of NumeralService().Manager.
+func (c *Context) SetOptionNumeral(keyword string, value *unumeral.Rational) error {
 	if err := c.valid(); err != nil {
 		return err
 	}
+	q := c.NumeralService().Manager
 	switch keyword {
 	case ":random-seed":
-		n, err := setOptionToUnsigned(value)
+		n, err := setOptionToUnsigned(q, value)
 		if err != nil {
 			return err
 		}
@@ -152,14 +163,14 @@ func (c *Context) SetOptionNumeral(keyword string, value *big.Rat) error {
 		return nil
 	case ":reproducible-resource-limit":
 		// ctx.params().set_rlimit: the context parameters only, not gparams.
-		n, err := setOptionToUnsigned(value)
+		n, err := setOptionToUnsigned(q, value)
 		if err != nil {
 			return err
 		}
 		name, text := "rlimit", strconv.FormatUint(uint64(n), 10)
 		return c.parameters.Set(&name, &text)
 	case ":verbosity":
-		n, err := setOptionToUnsigned(value)
+		n, err := setOptionToUnsigned(q, value)
 		if err != nil {
 			return err
 		}
@@ -169,7 +180,11 @@ func (c *Context) SetOptionNumeral(keyword string, value *big.Rat) error {
 		return fmt.Errorf("option value is not a numeral")
 	}
 	// rational::to_string: an integer, or num/den.
-	return c.setOptionParam(keyword, value.RatString())
+	text, err := q.String(value)
+	if err != nil {
+		return err
+	}
+	return c.setOptionParam(keyword, text)
 }
 
 // SetOptionString is set_option_cmd::set_next_arg(char const*).

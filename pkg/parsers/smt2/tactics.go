@@ -312,14 +312,22 @@ func (p *commandParser) parseProbe() (result tactic.ProbeEvaluator, err error) {
 		return nil, err
 	}
 	if p.token == IntegerToken || p.token == DecimalToken {
-		value := p.scanner.Number()
-		if !value.IsInt() || !value.Num().IsInt64() || value.Num().Int64() < -2147483648 || value.Num().Int64() > 2147483647 {
+		q, n := p.scanner.Numbers(), p.scanner.Number()
+		fits, e := q.IsInt32(n)
+		if e != nil {
+			return nil, e
+		}
+		if !fits {
 			return nil, fmt.Errorf("invalid probe, constant is too big to fit in a fixed size integer")
+		}
+		value, e := q.Int64(n)
+		if e != nil {
+			return nil, e
 		}
 		if err = p.advance(); err != nil {
 			return nil, err
 		}
-		result, err = tactic.NewProbe(manager.Budget(), tactic.ProbeConstant, float64(value.Num().Int64()))
+		result, err = tactic.NewProbe(manager.Budget(), tactic.ProbeConstant, float64(value))
 	} else if p.token == SymbolToken {
 		name, e := p.symbol()
 		if e != nil {
@@ -487,7 +495,7 @@ func (p *commandParser) parseDeclaredTactic(name, body string) (result tactic.Ta
 	if err != nil {
 		return nil, err
 	}
-	subscanner, err := NewScanner(strings.NewReader(body+" "), compliant)
+	subscanner, err := NewScanner(strings.NewReader(body+" "), compliant, p.scanner.Numbers())
 	if err != nil {
 		return nil, err
 	}
@@ -497,6 +505,7 @@ func (p *commandParser) parseDeclaredTactic(name, body string) (result tactic.Ta
 	defer func() {
 		p.tacticExpansion = p.tacticExpansion[:len(p.tacticExpansion)-1]
 		p.scanner, p.token, p.cacheEnd = previousScanner, previousToken, previousEnd
+		err = errors.Join(err, subscanner.Close())
 		if err != nil && result != nil {
 			err = errors.Join(err, result.DecRef())
 			result = nil
@@ -552,11 +561,14 @@ func (p *commandParser) tacticParameter(c *uparams.ParamsContext, settings *upar
 		if p.token != IntegerToken && p.token != DecimalToken {
 			return fmt.Errorf("invalid parameter value, unsigned integer expected")
 		}
-		n := p.scanner.Number()
-		if !n.IsInt() || n.Sign() < 0 || !n.Num().IsUint64() || n.Num().Uint64() > uint64(^uint32(0)) {
+		n, ok, e := p.scannerUnsigned()
+		if e != nil {
+			return e
+		}
+		if !ok {
 			return fmt.Errorf("invalid parameter value, unsigned integer expected")
 		}
-		if err = c.SetUIntName(settings, &key, uint32(n.Num().Uint64())); err != nil {
+		if err = c.SetUIntName(settings, &key, n); err != nil {
 			return err
 		}
 	case uparams.ParamDouble, uparams.ParamNumeral:
@@ -565,7 +577,11 @@ func (p *commandParser) tacticParameter(c *uparams.ParamsContext, settings *upar
 		}
 		n := p.scanner.Number()
 		if kind == uparams.ParamDouble {
-			value, _ := n.Float64()
+			// rational::get_double
+			value, e := p.scanner.Numbers().Float64(n)
+			if e != nil {
+				return e
+			}
 			if err = c.SetDoubleName(settings, &key, value); err != nil {
 				return err
 			}
@@ -575,7 +591,7 @@ func (p *commandParser) tacticParameter(c *uparams.ParamsContext, settings *upar
 				return e
 			}
 			defer func() { err = errors.Join(err, c.Numerals().Del(&r)) }()
-			if err = c.Numerals().SetString(&r, n.RatString()); err != nil {
+			if err = c.Numerals().Manager.Copy(&r.Raw, n); err != nil {
 				return err
 			}
 			if err = c.SetRatName(settings, &key, &r); err != nil {

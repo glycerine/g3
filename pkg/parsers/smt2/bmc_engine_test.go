@@ -136,7 +136,7 @@ func TestSMT2BMCRecursiveCertificate(t *testing.T) {
 	// including the checked proof's conclusion and original predicates. This
 	// permits printer layout and let-binding changes without accepting a
 	// truncated certificate.
-	scanner, err := NewScanner(strings.NewReader(strings.TrimPrefix(output.String(), "sat\n")), false)
+	scanner, err := NewScanner(strings.NewReader(strings.TrimPrefix(output.String(), "sat\n")), false, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestSMT2BMCRecursiveCertificate(t *testing.T) {
 		case StringToken:
 			return scanner.String()
 		case IntegerToken, DecimalToken, BitVectorToken:
-			return fmt.Sprintf("%s/%d", scanner.Number().RatString(), scanner.BitVectorSize())
+			return fmt.Sprintf("%s/%d", scannerNumberText(scanner), scanner.BitVectorSize())
 		default:
 			return ""
 		}
@@ -193,7 +193,7 @@ func TestSMT2BMCRecursiveCertificate(t *testing.T) {
 	if err = context.WriteExpression(&formatted, proof); err != nil {
 		t.Fatal(err)
 	}
-	expectedScanner, err := NewScanner(strings.NewReader(formatted.String()), false)
+	expectedScanner, err := NewScanner(strings.NewReader(formatted.String()), false, testScannerNumerals)
 	if err != nil {
 		t.Fatal(err)
 	}

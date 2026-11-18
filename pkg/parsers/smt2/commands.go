@@ -17,6 +17,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/util/escaped"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/symbol"
 	"github.com/glycerine/g3/pkg/util/z3exception"
@@ -49,7 +50,7 @@ type commandParser struct {
 	ignoreChecks       bool
 	queryCollector     *fixedpointQueryCollector
 	tacticExpansion    []string
-	softWeight         big.Rat
+	softWeight         unumeral.Rational // assert-soft :weight parameter, a rational of scanner.Numbers()
 	softID             string
 }
 
@@ -136,12 +137,17 @@ func parseCommandsWithStop(context *cmd_context.Context, input io.Reader, out io
 	if err != nil {
 		return err
 	}
-	scanner, err := NewScanner(input, compliant)
+	scanner, err := NewScanner(input, compliant, context.NumeralService().Manager)
 	if err != nil {
 		return err
 	}
-	p := &commandParser{context: context, scanner: scanner, filename: filename, out: context.RegularOutput(), ignoreChecks: ignoreChecks, queryCollector: collector, stop: stop}
-	p.softWeight.SetInt64(1)
+	p := &commandParser{context: context, scanner: scanner, filename: filename, out: context.RegularOutput(), ignoreChecks: ignoreChecks, queryCollector: collector, stop: stop, softWeight: unumeral.NewRational()}
+	defer func() {
+		result = errors.Join(result, scanner.Numbers().Del(&p.softWeight), scanner.Close())
+	}()
+	if err = scanner.Numbers().SetInt32(&p.softWeight, 1); err != nil {
+		return err
+	}
 	defer func() {
 		result = errors.Join(result, p.clearCommand())
 		if p.shifter != nil {
@@ -348,19 +354,80 @@ func (p *commandParser) unsigned() (uint32, error) {
 	if p.token != IntegerToken {
 		return 0, fmt.Errorf("unsigned numeral expected")
 	}
-	n := p.scanner.Number()
-	if !n.IsInt() || n.Sign() < 0 || !n.Num().IsUint64() || n.Num().Uint64() > uint64(^uint32(0)) {
+	value, ok, err := p.scannerUnsigned()
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
 		return 0, fmt.Errorf("unsigned numeral is out of range")
 	}
-	value := uint32(n.Num().Uint64())
 	return value, p.advance()
 }
-func (p *commandParser) rational() (*big.Rat, error) {
-	if p.token != IntegerToken && p.token != DecimalToken {
-		return nil, fmt.Errorf("rational numeral expected")
+
+// assertSoft reads assert-soft's options into weight and the parser's
+// persistent :weight/:id values, then registers the soft constraint.
+func (p *commandParser) assertSoft(q *unumeral.RationalManager, expression ast.ASTHandle, weight *unumeral.Rational) (err error) {
+	if err = q.Copy(weight, &p.softWeight); err != nil {
+		return err
 	}
-	value := p.scanner.Number()
-	return value, p.advance()
+	id := p.softID
+	for p.token != RightParenToken {
+		if p.token != KeywordToken {
+			return fmt.Errorf("assert-soft option keyword expected")
+		}
+		rawKey := p.scanner.ID()
+		key := uparams.NormParamName(&rawKey)
+		if err = p.advance(); err != nil {
+			return err
+		}
+		switch key {
+		case "weight":
+			err = p.rational(weight)
+			if err == nil {
+				err = q.Copy(&p.softWeight, weight)
+			}
+		case "id":
+			id, err = p.symbol()
+			if err == nil {
+				p.softID = id
+			}
+		default:
+			return fmt.Errorf("unsupported assert-soft option %s", rawKey)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	// TODO bigB: pass weight itself once AddSoftConstraint takes a
+	// *numeral.Rational; this Go-API conversion is temporary.
+	converted := new(big.Rat)
+	if err = q.BigRatOf(weight, converted); err != nil {
+		return err
+	}
+	return p.context.AddSoftConstraint(expression, converted, id)
+}
+
+// scannerUnsigned is curr_numeral().is_unsigned() / get_unsigned().
+func (p *commandParser) scannerUnsigned() (uint32, bool, error) {
+	q, n := p.scanner.Numbers(), p.scanner.Number()
+	ok, err := q.IsUnsigned(n)
+	if err != nil || !ok {
+		return 0, false, err
+	}
+	value, err := q.Unsigned(n)
+	return value, err == nil, err
+}
+
+// rational copies the current numeral token into out (a rational of
+// scanner.Numbers()) and advances.
+func (p *commandParser) rational(out *unumeral.Rational) error {
+	if p.token != IntegerToken && p.token != DecimalToken {
+		return fmt.Errorf("rational numeral expected")
+	}
+	if err := p.scanner.Numbers().Copy(out, p.scanner.Number()); err != nil {
+		return err
+	}
+	return p.advance()
 }
 func (p *commandParser) astManager() (*ast.ASTManager, error) {
 	if p.manager != nil {
@@ -639,11 +706,14 @@ func (p *commandParser) command() (bool, error) {
 		if p.token != IntegerToken {
 			return false, fmt.Errorf("invalid sort declaration, arity (<numeral>) or ')' expected")
 		}
-		n := p.scanner.Number()
-		if !n.IsInt() || n.Sign() < 0 || !n.Num().IsUint64() || n.Num().Uint64() > uint64(^uint32(0)) {
+		arity, ok, err := p.scannerUnsigned()
+		if err != nil {
+			return false, err
+		}
+		if !ok {
 			return false, fmt.Errorf("unsigned numeral is out of range")
 		}
-		if _, err = p.context.DeclareSortConstructor(name, uint32(n.Num().Uint64())); err != nil {
+		if _, err = p.context.DeclareSortConstructor(name, arity); err != nil {
 			return false, err
 		}
 		if err = p.advance(); err != nil {
@@ -963,36 +1033,13 @@ func (p *commandParser) command() (bool, error) {
 			// Source assert_soft_cmd::set_next_arg (opt_cmds.cpp).
 			return false, fmt.Errorf("Invalid type for expression. Expected Boolean type.")
 		}
-		weight := new(big.Rat).Set(&p.softWeight)
-		id := p.softID
-		for p.token != RightParenToken {
-			if p.token != KeywordToken {
-				return false, fmt.Errorf("assert-soft option keyword expected")
-			}
-			rawKey := p.scanner.ID()
-			key := uparams.NormParamName(&rawKey)
-			if err = p.advance(); err != nil {
-				return false, err
-			}
-			switch key {
-			case "weight":
-				weight, err = p.rational()
-				if err == nil {
-					p.softWeight.Set(weight)
-				}
-			case "id":
-				id, err = p.symbol()
-				if err == nil {
-					p.softID = id
-				}
-			default:
-				return false, fmt.Errorf("unsupported assert-soft option %s", rawKey)
-			}
-			if err != nil {
-				return false, err
-			}
+		// rational weight = ps().get_rat(symbol("weight"), rational::one());
+		q := p.scanner.Numbers()
+		weight := unumeral.NewRational()
+		if err = p.assertSoft(q, expression, &weight); err != nil {
+			return false, errors.Join(err, q.Del(&weight))
 		}
-		if err = p.context.AddSoftConstraint(expression, weight, id); err != nil {
+		if err = q.Del(&weight); err != nil {
 			return false, err
 		}
 	case "maximize", "minimize":
@@ -1021,14 +1068,21 @@ func (p *commandParser) command() (bool, error) {
 			if p.token != IntegerToken {
 				return false, fmt.Errorf("invalid push command, integer expected")
 			}
-			value := p.scanner.Number()
-			if value.Sign() < 0 {
+			negative, err := p.scanner.Numbers().IsNeg(p.scanner.Number())
+			if err != nil {
+				return false, err
+			}
+			if negative {
 				return false, fmt.Errorf("invalid push command, value is negative.")
 			}
-			if !value.IsInt() || !value.Num().IsUint64() || value.Num().Uint64() > uint64(^uint32(0)) {
+			value, ok, err := p.scannerUnsigned()
+			if err != nil {
+				return false, err
+			}
+			if !ok {
 				return false, fmt.Errorf("invalid push command, value is too big to fit in an unsigned machine integer")
 			}
-			n = uint32(value.Num().Uint64())
+			n = value
 			if err = p.advance(); err != nil {
 				return false, err
 			}
@@ -2024,7 +2078,9 @@ func (p *commandParser) indexedApplication(name string, indices []identifierInde
 	return p.manager.RefGet(ref)
 }
 
-func parseBitVectorName(name string) (string, bool) {
+// parseBitVectorName is is_bv_num's syntax check: bv[0-9]+, bvbin[0-1]+
+// or bvhex[0-9a-fA-F]+. It returns the digits' radix and text.
+func parseBitVectorName(name string) (int, string, bool) {
 	base, digits := 10, ""
 	switch {
 	case strings.HasPrefix(name, "bvbin"):
@@ -2034,10 +2090,10 @@ func parseBitVectorName(name string) (string, bool) {
 	case strings.HasPrefix(name, "bv"):
 		digits = name[len("bv"):]
 	default:
-		return "", false
+		return 0, "", false
 	}
 	if digits == "" {
-		return "", false
+		return 0, "", false
 	}
 	for _, digit := range digits {
 		valid := '0' <= digit && digit <= '9'
@@ -2047,18 +2103,48 @@ func parseBitVectorName(name string) (string, bool) {
 			valid = ('0' <= digit && digit <= '9') || ('a' <= digit && digit <= 'f') || ('A' <= digit && digit <= 'F')
 		}
 		if !valid {
-			return "", false
+			return 0, "", false
 		}
 	}
-	value, ok := new(big.Int).SetString(digits, base)
-	if !ok || value.Sign() < 0 {
-		return "", false
-	}
-	return value.String(), true
+	return base, digits, true
 }
 
-func (p *commandParser) parseBVNumeral(name string, indices []identifierIndex) (ast.ASTHandle, error) {
-	text, ok := parseBitVectorName(name)
+// bitVectorNameValue is is_bv_decimal / is_bv_binary / is_bv_hex's
+// accumulation into m_last_bv_numeral: n = n*base + digit.
+func bitVectorNameValue(q *unumeral.RationalManager, base int, digits string, n *unumeral.Rational) (resultErr error) {
+	radix, digit := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&radix), q.Del(&digit)) }()
+	if err := q.SetInt32(&radix, int32(base)); err != nil {
+		return err
+	}
+	if err := q.SetInt32(n, 0); err != nil {
+		return err
+	}
+	for _, c := range digits {
+		var v int32
+		switch {
+		case '0' <= c && c <= '9':
+			v = c - '0'
+		case 'a' <= c && c <= 'f':
+			v = 10 + c - 'a'
+		default:
+			v = 10 + c - 'A'
+		}
+		if err := q.Mul(n, &radix, n); err != nil {
+			return err
+		}
+		if err := q.SetInt32(&digit, v); err != nil {
+			return err
+		}
+		if err := q.Add(n, &digit, n); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *commandParser) parseBVNumeral(name string, indices []identifierIndex) (result ast.ASTHandle, resultErr error) {
+	base, digits, ok := parseBitVectorName(name)
 	if !ok {
 		return ast.ASTHandle{}, fmt.Errorf("invalid bit-vector numeral")
 	}
@@ -2066,9 +2152,11 @@ func (p *commandParser) parseBVNumeral(name string, indices []identifierIndex) (
 		return ast.ASTHandle{}, fmt.Errorf("invalid bit-vector constant, index expected")
 	}
 	// A decimal SMT-LIB bv numeral is integral and may exceed machine width.
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return ast.ASTHandle{}, fmt.Errorf("invalid bit-vector numeral")
+	q := p.scanner.Numbers()
+	value := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&value)) }()
+	if err := bitVectorNameValue(q, base, digits, &value); err != nil {
+		return ast.ASTHandle{}, err
 	}
-	return p.pinExpression(p.manager.BitVectorNumeralRat(value, indices[0].number))
+	return p.pinExpression(p.manager.BitVectorNumeralFromRational(&value, indices[0].number))
 }

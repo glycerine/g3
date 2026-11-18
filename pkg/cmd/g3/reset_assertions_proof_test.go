@@ -7,7 +7,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestSMTLibRunnerResetAssertionsPreservesProofResultsCPPReference(t *testing.T) {
@@ -15,12 +17,22 @@ func TestSMTLibRunnerResetAssertionsPreservesProofResultsCPPReference(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
+	b := arena.NewBudget(1 << 30)
+	numerals, err := unumeral.NewRationalService(unumeral.RationalServiceConfig{Integers: unumeral.IntegerConfig{Cells: arena.Config{Budget: b}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: b}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	check := func(output []byte) {
 		t.Helper()
-		scanner, err := smt2.NewScanner(bytes.NewReader(output), false)
+		scanner, err := smt2.NewScanner(bytes.NewReader(output), false, numerals.Manager)
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer func() {
+			if err := scanner.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}()
 		events := []string{}
 		for {
 			token, err := scanner.Scan()

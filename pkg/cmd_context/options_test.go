@@ -1,8 +1,10 @@
 package cmd_context
 
 import (
-	"math/big"
+	"errors"
 	"testing"
+
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // AUDIT.md cmd_context_02-F5: get_option_cmd compares the raw keyword, so
@@ -39,13 +41,23 @@ func TestSetOptionNumeralUsesRationalText(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
-	if err = context.SetOptionNumeral(":smt.qi.eager_threshold", big.NewRat(3, 2)); err != nil {
+	q := context.NumeralService().Manager
+	threeHalves, three := unumeral.NewRational(), unumeral.NewRational()
+	defer func() {
+		if err := errors.Join(q.Del(&threeHalves), q.Del(&three)); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if err = errors.Join(q.SetFraction(&threeHalves, 3, 2), q.SetInt32(&three, 3)); err != nil {
+		t.Fatal(err)
+	}
+	if err = context.SetOptionNumeral(":smt.qi.eager_threshold", &threeHalves); err != nil {
 		t.Fatal(err)
 	}
 	if value, supported, err := context.GetOption(":smt.qi.eager_threshold"); err != nil || !supported || value != "3" {
 		t.Fatal(value, supported, err)
 	}
-	if err = context.SetOptionNumeral(":print-success", big.NewRat(3, 1)); err == nil || err.Error() != "option value is not a numeral" {
+	if err = context.SetOptionNumeral(":print-success", &three); err == nil || err.Error() != "option value is not a numeral" {
 		t.Fatal(err)
 	}
 }

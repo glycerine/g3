@@ -4,12 +4,13 @@ package smt2
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type Token uint8
@@ -47,31 +48,51 @@ type Scanner struct {
 	eof                    bool
 	line, column, position int
 	id, text               string
-	number                 big.Rat
+	numbers                *unumeral.RationalManager // rational's mpq manager
+	number                 unumeral.Rational         // m_number
 	bvSize                 uint32
 	caching                bool
 	cache                  []byte
 	traceTags              *diagnostic.TraceTags
 }
 
-func NewScanner(reader io.Reader, compliant bool) (*Scanner, error) {
+// NewScanner borrows numbers, the rational manager of the parser's AST
+// manager (ast.ASTManager.NumeralService().Manager), for m_number.
+func NewScanner(reader io.Reader, compliant bool, numbers *unumeral.RationalManager) (*Scanner, error) {
 	if reader == nil {
 		return nil, fmt.Errorf("nil SMT-LIB input")
 	}
-	s := &Scanner{reader: bufio.NewReader(reader), compliant: compliant, line: 1, bvSize: ^uint32(0)}
+	if numbers == nil {
+		return nil, fmt.Errorf("nil SMT-LIB numeral manager")
+	}
+	s := &Scanner{reader: bufio.NewReader(reader), compliant: compliant, line: 1, bvSize: ^uint32(0), numbers: numbers, number: unumeral.NewRational()}
 	return s, s.next()
 }
 
-func (s *Scanner) Line() int             { return s.line }
-func (s *Scanner) Position() int         { return s.position }
-func (s *Scanner) ID() string            { return s.id }
-func (s *Scanner) String() string        { return s.text }
-func (s *Scanner) Number() *big.Rat      { return new(big.Rat).Set(&s.number) }
-func (s *Scanner) BitVectorSize() uint32 { return s.bvSize }
-func (s *Scanner) StartCaching()         { s.caching = true; s.cache = nil }
-func (s *Scanner) StopCaching()          { s.caching = false }
-func (s *Scanner) ResetCache()           { s.cache = nil }
-func (s *Scanner) CacheSize() int        { return len(s.cache) }
+// Close is the scanner destructor: it destroys m_number.
+func (s *Scanner) Close() error {
+	if s == nil || s.numbers == nil {
+		return nil
+	}
+	err := s.numbers.Del(&s.number)
+	s.numbers = nil
+	return err
+}
+
+func (s *Scanner) Line() int      { return s.line }
+func (s *Scanner) Position() int  { return s.position }
+func (s *Scanner) ID() string     { return s.id }
+func (s *Scanner) String() string { return s.text }
+
+// Number is get_number(): the current numeral token's value, borrowed
+// until the next token; callers copy it with Numbers().Copy.
+func (s *Scanner) Number() *unumeral.Rational         { return &s.number }
+func (s *Scanner) Numbers() *unumeral.RationalManager { return s.numbers }
+func (s *Scanner) BitVectorSize() uint32              { return s.bvSize }
+func (s *Scanner) StartCaching()                      { s.caching = true; s.cache = nil }
+func (s *Scanner) StopCaching()                       { s.caching = false }
+func (s *Scanner) ResetCache()                        { s.cache = nil }
+func (s *Scanner) CacheSize() int                     { return len(s.cache) }
 
 func scannerSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f'
@@ -160,18 +181,41 @@ func (s *Scanner) readQuotedSymbol() (Token, error) {
 	return NullToken, &ScannerError{"unexpected end of quoted symbol", s.line, s.column}
 }
 
-func (s *Scanner) readNumber(negative bool) (Token, error) {
-	var numerator big.Int
-	denominator := big.NewInt(1)
-	ten := big.NewInt(10)
+func (s *Scanner) readNumber(negative bool) (result Token, resultErr error) {
+	m := s.numbers
+	// rational q(1); m_number = rational(curr() - '0'); next();
+	q, ten, digit := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, m.Del(&q), m.Del(&ten), m.Del(&digit)) }()
+	if err := m.SetInt32(&q, 1); err != nil {
+		return NullToken, err
+	}
+	if err := m.SetInt32(&ten, 10); err != nil {
+		return NullToken, err
+	}
+	if err := m.SetInt32(&s.number, int32(s.curr-'0')); err != nil {
+		return NullToken, err
+	}
+	if err := s.next(); err != nil {
+		return NullToken, err
+	}
 	decimal := false
 	for !s.eof {
 		c := s.curr
 		if c >= '0' && c <= '9' {
-			numerator.Mul(&numerator, ten)
-			numerator.Add(&numerator, big.NewInt(int64(c-'0')))
+			// m_number = rational(10)*m_number + rational(c - '0');
+			if err := m.Mul(&ten, &s.number, &s.number); err != nil {
+				return NullToken, err
+			}
+			if err := m.SetInt32(&digit, int32(c-'0')); err != nil {
+				return NullToken, err
+			}
+			if err := m.Add(&s.number, &digit, &s.number); err != nil {
+				return NullToken, err
+			}
 			if decimal {
-				denominator.Mul(denominator, ten)
+				if err := m.Mul(&q, &ten, &q); err != nil {
+					return NullToken, err
+				}
 			}
 		} else if c == '.' && !decimal {
 			decimal = true
@@ -182,12 +226,22 @@ func (s *Scanner) readNumber(negative bool) (Token, error) {
 			return NullToken, err
 		}
 	}
-	s.number.SetFrac(&numerator, denominator)
-	if err := s.trace("read_number", 147, "new number: "+s.number.RatString()+"\n"); err != nil {
+	if decimal {
+		if err := m.Div(&s.number, &q, &s.number); err != nil {
+			return NullToken, err
+		}
+	}
+	text, err := m.String(&s.number)
+	if err != nil {
+		return NullToken, err
+	}
+	if err := s.trace("read_number", 147, "new number: "+text+"\n"); err != nil {
 		return NullToken, err
 	}
 	if negative {
-		s.number.Neg(&s.number)
+		if err := m.Neg(&s.number); err != nil {
+			return NullToken, err
+		}
 	}
 	if decimal {
 		return DecimalToken, nil
@@ -240,7 +294,7 @@ func scannerDigit(c byte, base int64) int64 {
 	return v
 }
 
-func (s *Scanner) readBitVector() (Token, error) {
+func (s *Scanner) readBitVector() (result Token, resultErr error) {
 	if err := s.next(); err != nil {
 		return NullToken, err
 	}
@@ -257,16 +311,32 @@ func (s *Scanner) readBitVector() (Token, error) {
 	if err := s.next(); err != nil {
 		return NullToken, err
 	}
-	var value big.Int
-	s.number.SetInt64(0)
+	m := s.numbers
+	radix, digitValue := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, m.Del(&radix), m.Del(&digitValue)) }()
+	if err := m.SetInt32(&radix, int32(base)); err != nil {
+		return NullToken, err
+	}
+	// m_number = rational(0);
+	if err := m.SetInt32(&s.number, 0); err != nil {
+		return NullToken, err
+	}
 	s.bvSize = 0
 	for !s.eof {
 		digit := scannerDigit(s.curr, base)
 		if digit < 0 {
 			break
 		}
-		value.Mul(&value, big.NewInt(base))
-		value.Add(&value, big.NewInt(digit))
+		// m_number *= rational(16); m_number += rational(digit);
+		if err := m.Mul(&s.number, &radix, &s.number); err != nil {
+			return NullToken, err
+		}
+		if err := m.SetInt32(&digitValue, int32(digit)); err != nil {
+			return NullToken, err
+		}
+		if err := m.Add(&s.number, &digitValue, &s.number); err != nil {
+			return NullToken, err
+		}
 		s.bvSize += width
 		if err := s.next(); err != nil {
 			return NullToken, err
@@ -275,7 +345,6 @@ func (s *Scanner) readBitVector() (Token, error) {
 	if s.bvSize == 0 {
 		return NullToken, &ScannerError{"invalid empty bit-vector literal", s.line, s.column}
 	}
-	s.number.SetInt(&value)
 	return BitVectorToken, nil
 }
 

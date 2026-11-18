@@ -35,11 +35,13 @@ func (p *commandParser) rootObjectExpression() (result ast.ASTHandle, resultErr 
 	if p.token != IntegerToken {
 		return ast.ASTHandle{}, fmt.Errorf("invalid root-obj, (unsigned) integer expected")
 	}
-	indexValue := p.scanner.Number()
-	if !indexValue.IsInt() || indexValue.Sign() < 0 || !indexValue.Num().IsUint64() || indexValue.Num().Uint64() > uint64(^uint32(0)) {
+	index, ok, err := p.scannerUnsigned()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !ok {
 		return ast.ASTHandle{}, fmt.Errorf("invalid root-obj, index must fit in an unsigned machine integer")
 	}
-	index := uint32(indexValue.Num().Uint64())
 	if index == 0 {
 		return ast.ASTHandle{}, fmt.Errorf("invalid root-obj, index must be >= 1")
 	}
@@ -136,7 +138,7 @@ func (p *commandParser) parseRootObjectSExpr(manager *usexpr.SexprManager) (resu
 			return usexpr.SexprHandle{}, err
 		}
 		defer func() { resultErr = errors.Join(resultErr, p.manager.NumeralService().CleanupValue(&numeral)) }()
-		if err = p.manager.NumeralService().SetString(&numeral, p.scanner.Number().RatString()); err != nil {
+		if err = p.manager.NumeralService().Manager.Copy(&numeral.Raw, p.scanner.Number()); err != nil {
 			return usexpr.SexprHandle{}, err
 		}
 		result, err := manager.MkNumeral(&numeral, line, pos)
@@ -150,7 +152,7 @@ func (p *commandParser) parseRootObjectSExpr(manager *usexpr.SexprManager) (resu
 			return usexpr.SexprHandle{}, err
 		}
 		defer func() { resultErr = errors.Join(resultErr, p.manager.NumeralService().CleanupValue(&numeral)) }()
-		if err = p.manager.NumeralService().SetString(&numeral, p.scanner.Number().RatString()); err != nil {
+		if err = p.manager.NumeralService().Manager.Copy(&numeral.Raw, p.scanner.Number()); err != nil {
 			return usexpr.SexprHandle{}, err
 		}
 		result, err := manager.MkBVNumeral(&numeral, p.scanner.BitVectorSize(), line, pos)
@@ -266,12 +268,12 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 	switch p.token {
 	case IntegerToken, DecimalToken:
 		integer := p.token == IntegerToken && !p.context.NumeralsAsReal()
-		result, err = m.ArithmeticNumeralRat(p.scanner.Number(), integer)
+		result, err = m.ArithmeticNumeralFromRational(p.scanner.Number(), integer)
 		if err == nil {
 			err = p.advance()
 		}
 	case BitVectorToken:
-		result, err = m.BitVectorNumeralRat(p.scanner.Number(), p.scanner.BitVectorSize())
+		result, err = m.BitVectorNumeralFromRational(p.scanner.Number(), p.scanner.BitVectorSize())
 		if err == nil {
 			err = p.advance()
 		}
@@ -368,7 +370,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 					return value, "", localErr
 				}
 				var value ast.ASTHandle
-				if _, numeral := parseBitVectorName(name); numeral {
+				if _, _, numeral := parseBitVectorName(name); numeral {
 					value, err = p.parseBVNumeral(name, indices)
 				} else {
 					value, err = p.indexedApplication(name, indices, nil, ast.ASTHandle{})
@@ -389,7 +391,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				if value, found, localErr := p.qualifiedLocal(name, indices, rangeSort, true); localErr != nil || found {
 					return value, "", localErr
 				}
-				if _, ok := parseBitVectorName(name); ok {
+				if _, _, ok := parseBitVectorName(name); ok {
 					if len(indices) != 1 || !indices[0].function.IsNull() {
 						return ast.ASTHandle{}, "", fmt.Errorf("invalid bit-vector constant, index expected")
 					}
