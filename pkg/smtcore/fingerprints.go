@@ -14,6 +14,11 @@ type SMTFingerprint struct {
 	dataHash uint32
 	args     []*SMTEnode
 	hash     uint64 // fingerprint_hash_proc of data and args, for removal
+	// next chains the fingerprints of one SMTFingerprintSet bucket, the
+	// most recently inserted first.
+	next *SMTFingerprint
+	// inline backs args when it is short (one allocation per fingerprint).
+	inline [4]*SMTEnode
 }
 
 func (f *SMTFingerprint) Data() ast.ASTHandle { return f.data }
@@ -30,9 +35,13 @@ func (f *SMTFingerprint) Arg(index uint32) (*SMTEnode, error) {
 // SMTFingerprintSet uses concrete quantifier handles for the only retained
 // instantiation of fingerprint::m_data. Entries preserve insertion order.
 type SMTFingerprintSet struct {
-	// byHash is fingerprint_set::m_set, hashed like fingerprint_hash_proc
-	// over the data and every argument; buckets hold only collisions.
-	byHash       map[uint64][]*SMTFingerprint
+	// buckets is fingerprint_set::m_set, hashed like fingerprint_hash_proc
+	// over the data and every argument: a power-of-two array of chains
+	// linked through SMTFingerprint.next. Each chain lists its entries
+	// newest first, so PopScopes, which removes in reverse insertion
+	// order, always unlinks a chain head. Lookups are exact-match only;
+	// nothing iterates the buckets.
+	buckets      []*SMTFingerprint
 	fingerprints []*SMTFingerprint
 	scopes       []int
 	// dummy is the argument buffer of fingerprint_set::mk_dummy; the
@@ -41,7 +50,7 @@ type SMTFingerprintSet struct {
 }
 
 func NewSMTFingerprintSet() *SMTFingerprintSet {
-	return &SMTFingerprintSet{byHash: make(map[uint64][]*SMTFingerprint)}
+	return &SMTFingerprintSet{}
 }
 
 func (s *SMTFingerprintSet) Size() uint32 {
@@ -77,13 +86,35 @@ func smtFingerprintHash(data ast.ASTHandle, args []*SMTEnode) uint64 {
 	return h
 }
 
+func (s *SMTFingerprintSet) bucket(hash uint64) uint64 {
+	return (hash ^ hash>>32) & uint64(len(s.buckets)-1)
+}
+
 func (s *SMTFingerprintSet) find(hash uint64, data ast.ASTHandle, args []*SMTEnode) *SMTFingerprint {
-	for _, fingerprint := range s.byHash[hash] {
-		if fingerprint.data == data && smtFingerprintArgsEqual(fingerprint.args, args) {
+	if len(s.buckets) == 0 {
+		return nil
+	}
+	for fingerprint := s.buckets[s.bucket(hash)]; fingerprint != nil; fingerprint = fingerprint.next {
+		if fingerprint.hash == hash && fingerprint.data == data && smtFingerprintArgsEqual(fingerprint.args, args) {
 			return fingerprint
 		}
 	}
 	return nil
+}
+
+// grow doubles the bucket array, relinking the entries in insertion order
+// so every chain stays newest first.
+func (s *SMTFingerprintSet) grow() {
+	n := 2 * len(s.buckets)
+	if n < 64 {
+		n = 64
+	}
+	s.buckets = make([]*SMTFingerprint, n)
+	for _, fingerprint := range s.fingerprints {
+		b := s.bucket(fingerprint.hash)
+		fingerprint.next = s.buckets[b]
+		s.buckets[b] = fingerprint
+	}
 }
 
 // dummyRoots fills the mk_dummy buffer with the roots of args.
@@ -102,21 +133,37 @@ func (s *SMTFingerprintSet) Insert(data ast.ASTHandle, dataHash uint32, args []*
 	if s == nil || data.IsNull() {
 		return nil, ast.ErrASTDomain
 	}
-	if s.find(smtFingerprintHash(data, args), data, args) != nil {
+	hash := smtFingerprintHash(data, args)
+	if s.find(hash, data, args) != nil {
 		return nil, nil
 	}
 	dummy, err := s.dummyRoots(args)
 	if err != nil {
 		return nil, err
 	}
-	hash := smtFingerprintHash(data, dummy)
-	if s.find(hash, data, dummy) != nil {
-		return nil, nil
+	// When every argument is its own root the second probe repeats the
+	// first one exactly.
+	if !smtFingerprintArgsEqual(dummy, args) {
+		hash = smtFingerprintHash(data, dummy)
+		if s.find(hash, data, dummy) != nil {
+			return nil, nil
+		}
 	}
-	roots := append([]*SMTEnode(nil), dummy...)
-	fingerprint := &SMTFingerprint{data: data, dataHash: dataHash, args: roots, hash: hash}
-	s.byHash[hash] = append(s.byHash[hash], fingerprint)
+	fingerprint := &SMTFingerprint{data: data, dataHash: dataHash, hash: hash}
+	if len(dummy) <= len(fingerprint.inline) {
+		fingerprint.args = fingerprint.inline[:len(dummy):len(dummy)]
+		copy(fingerprint.args, dummy)
+	} else {
+		fingerprint.args = append([]*SMTEnode(nil), dummy...)
+	}
 	s.fingerprints = append(s.fingerprints, fingerprint)
+	if len(s.fingerprints) > len(s.buckets) {
+		s.grow() // links fingerprint too
+	} else {
+		b := s.bucket(hash)
+		fingerprint.next = s.buckets[b]
+		s.buckets[b] = fingerprint
+	}
 	return fingerprint, nil
 }
 
@@ -143,7 +190,7 @@ func (s *SMTFingerprintSet) Reset() {
 	if s == nil {
 		return
 	}
-	s.byHash = make(map[uint64][]*SMTFingerprint)
+	s.buckets = nil
 	s.fingerprints = nil
 }
 
@@ -163,21 +210,14 @@ func (s *SMTFingerprintSet) PopScopes(count uint32) error {
 	oldSize := s.scopes[newLevel]
 	for i := len(s.fingerprints) - 1; i >= oldSize; i-- {
 		fingerprint := s.fingerprints[i]
-		bucket := s.byHash[fingerprint.hash]
-		for j := len(bucket) - 1; j >= 0; j-- {
-			if bucket[j] == fingerprint {
-				copy(bucket[j:], bucket[j+1:])
-				bucket[len(bucket)-1] = nil // the backing array keeps no stale pointer
-				bucket = bucket[:len(bucket)-1]
+		for link := &s.buckets[s.bucket(fingerprint.hash)]; *link != nil; link = &(*link).next {
+			if *link == fingerprint {
+				*link = fingerprint.next
 				break
 			}
 		}
+		fingerprint.next = nil
 		s.fingerprints[i] = nil
-		if len(bucket) == 0 {
-			delete(s.byHash, fingerprint.hash)
-		} else {
-			s.byHash[fingerprint.hash] = bucket
-		}
 	}
 	s.fingerprints = s.fingerprints[:oldSize]
 	s.scopes = s.scopes[:newLevel]
