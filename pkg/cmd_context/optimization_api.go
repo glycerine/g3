@@ -6,7 +6,6 @@ package cmd_context
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/numeral"
-	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -124,65 +123,4 @@ func (c *Context) softObjectiveIndexOf(key softObjectiveKey) (uint32, error) {
 		return 0, ast.ErrASTDomain
 	}
 	return uint32(index), nil
-}
-
-// WriteOptimizationReplaySMT2 extends the ordinary command-context replay
-// with the active optimization objectives.  Objective terms are emitted after
-// the live assertion stack: this is the same current optimize problem, and it
-// keeps the declaration collection performed by WriteReplaySMT2 authoritative.
-func (c *Context) WriteOptimizationReplaySMT2(out io.Writer) error {
-	if err := c.WriteReplaySMT2(out); err != nil {
-		return err
-	}
-	for i := range c.objectives {
-		objective := &c.objectives[i]
-		if objective.soft {
-			for j := range objective.softTerms {
-				term := &objective.softTerms[j]
-				if _, err := io.WriteString(out, "(assert-soft "); err != nil {
-					return err
-				}
-				if err := c.WriteExpression(out, term.expression); err != nil {
-					return err
-				}
-				if _, err := io.WriteString(out, " :weight "); err != nil {
-					return err
-				}
-				if err := c.writeSoftObjectiveValue(out, &term.weight); err != nil {
-					return err
-				}
-				if objective.id != "" {
-					symbol, err := c.manager.Symbols.Intern(objective.id)
-					if err != nil {
-						return err
-					}
-					name, err := c.smt2SymbolName(symbol)
-					if err != nil {
-						return err
-					}
-					if _, err = io.WriteString(out, " :id "+name); err != nil {
-						return err
-					}
-				}
-				if _, err := io.WriteString(out, ")\n"); err != nil {
-					return err
-				}
-			}
-			continue
-		}
-		command := "minimize"
-		if objective.maximize {
-			command = "maximize"
-		}
-		if _, err := io.WriteString(out, "("+command+" "); err != nil {
-			return err
-		}
-		if err := c.WriteExpression(out, objective.expression); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(out, ")\n"); err != nil {
-			return err
-		}
-	}
-	return nil
 }

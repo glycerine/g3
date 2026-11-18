@@ -24,7 +24,7 @@ func (o *APIOptimize) SMT2() (string, error) {
 		return "", err
 	}
 	var output strings.Builder
-	if err := o.command.WriteOptimizationReplaySMT2(&output); err != nil {
+	if err := o.command.WriteOptimizationSMT2(&output); err != nil {
 		return "", err
 	}
 	return output.String(), nil

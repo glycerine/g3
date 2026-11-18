@@ -27,7 +27,7 @@ func TestAPIOptimizeSoftGroupAndObjectiveDisplay(t *testing.T) {
 	}
 	replay, err := f.opt.SMT2()
 	astTestMust(t, err)
-	if strings.Count(replay, "(assert-soft ") != 2 || !strings.Contains(replay, ":weight 2 :id preferences") {
+	if strings.Count(replay, "(assert-soft ") != 2 || !strings.Contains(replay, ":weight 2 :id preferences)") {
 		t.Fatal("soft objective replay", replay)
 	}
 	status, err := f.opt.Check()
