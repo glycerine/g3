@@ -21,7 +21,7 @@ func (m *ASTManager) registrationBefore(r astNodeRef) (bool, error) {
 			return contains, nil
 		}
 		count := uint32(0)
-		for _, curr := range m.table.entries.All() {
+		for _, curr := range m.tableEntries() {
 			equal, e := m.compareNodes(curr, r)
 			if e != nil {
 				return false, e

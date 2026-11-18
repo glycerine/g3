@@ -2,14 +2,16 @@ package ast
 
 // Source: src/ast/ast.h:920-924; src/ast/ast.cpp:1714-1780.
 
-import "github.com/glycerine/insdict"
-
 // Canonical entries borrow exact node tokens. An open-addressed index on the
-// node hash accelerates structural comparison; dictionary order makes
-// teardown deterministic. The table holds at most one node per structure,
-// so the probe order among equal hashes never decides a lookup.
+// node hash accelerates structural comparison; insertion order (order)
+// makes teardown deterministic. The table holds at most one node per
+// structure, so the probe order among equal hashes never decides a lookup.
 type astCanonicalTable struct {
-	entries insdict.Dict[uint64, astNodeRef]
+	// order lists the entries by insertion; an erased entry leaves a zero
+	// ref (dead counts them) until the next compaction. A live entry's
+	// node records its position (astNodeRecord.tablePos).
+	order []astNodeRef
+	dead  uint32
 	// slots is a linear-probing index, its length a power of two (or nil
 	// when empty). A slot with ref.slot == 0 is free.
 	slots []astTableSlot
@@ -24,8 +26,66 @@ type astTableSlot struct {
 
 const astTableMinSlots = 64
 
-func astTableKey(r astNodeRef) uint64 {
-	return uint64(r.slot)<<32 | uint64(r.generation)
+// tableEntries lists the canonical table's entries in insertion order.
+func (m *ASTManager) tableEntries() []astNodeRef {
+	t := &m.table
+	out := make([]astNodeRef, 0, t.size)
+	for _, r := range t.order {
+		if r.slot != 0 {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// tableOwnsPos reports whether r's node record is r's own (live, same
+// generation), so its tablePos can be read and written.
+func (m *ASTManager) tableOwnsPos(r astNodeRef) bool {
+	if r.slot == 0 || r.slot >= m.nextNode {
+		return false
+	}
+	n := m.nodeAt(r.slot)
+	return n.live && n.generation == r.generation
+}
+
+// tableUnlist removes key from order. A placement that is no longer the
+// key's own (freed or reused) is found by scanning.
+func (m *ASTManager) tableUnlist(key astNodeRef) {
+	t := &m.table
+	pos := -1
+	if m.tableOwnsPos(key) {
+		if p := m.nodeAt(key.slot).tablePos; int(p) < len(t.order) && t.order[p] == key {
+			pos = int(p)
+		}
+	}
+	if pos < 0 {
+		for i, r := range t.order {
+			if r == key {
+				pos = i
+				break
+			}
+		}
+		if pos < 0 {
+			return
+		}
+	}
+	t.order[pos] = astNodeRef{}
+	t.dead++
+	if t.dead > 32 && 2*t.dead > uint32(len(t.order)) {
+		live := t.order[:0]
+		for _, r := range t.order {
+			if r.slot == 0 {
+				continue
+			}
+			if m.tableOwnsPos(r) {
+				m.nodeAt(r.slot).tablePos = uint32(len(live))
+			}
+			live = append(live, r)
+		}
+		clear(t.order[len(live):])
+		t.order = live
+		t.dead = 0
+	}
 }
 
 // home spreads the node hash over the index (multiplicative hashing).
@@ -102,7 +162,8 @@ func (m *ASTManager) tableInsert(key astNodeRef) (astNodeRef, bool, error) {
 		t.grow()
 	}
 	t.place(m.nodeAt(key.slot).hash, key)
-	t.entries.Put(astTableKey(key), key)
+	m.nodeAt(key.slot).tablePos = uint32(len(t.order))
+	t.order = append(t.order, key)
 	t.size++
 	return key, true, nil
 }
@@ -118,7 +179,7 @@ func (m *ASTManager) tableEraseCaptured(key astNodeRef, hash uint32) error {
 	if !t.unindex(key, hash) {
 		return ErrASTHandle
 	}
-	t.entries.DelPackMaybe(astTableKey(key))
+	m.tableUnlist(key)
 	t.size--
 	return nil
 }

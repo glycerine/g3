@@ -43,7 +43,7 @@ func TestASTNativeCanonicalTableGrowthCollisionIdentityAndGeneration(t *testing.
 		}
 	}
 	index := 0
-	for _, key := range m.table.entries.All() {
+	for _, key := range m.tableEntries() {
 		if key != keys[index] {
 			t.Fatal("native canonical order changed", index, key)
 		}

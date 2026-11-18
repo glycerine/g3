@@ -352,7 +352,7 @@ func (m *ASTManager) closeCore(source bool) error {
 				m.nodeAt(s).closeMark = false
 			}
 		}
-		for _, r := range m.table.entries.All() {
+		for _, r := range m.tableEntries() {
 			if e := m.validNode(r); e != nil {
 				return e
 			}
@@ -402,7 +402,7 @@ func (m *ASTManager) closeCore(source bool) error {
 		}
 		// Select roots in native dictionary order, then delete that snapshot.
 		var roots []astNodeRef
-		for _, r := range m.table.entries.All() {
+		for _, r := range m.tableEntries() {
 			if !m.nodeAt(r.slot).closeMark {
 				roots = append(roots, r)
 			}
