@@ -296,3 +296,64 @@ func TestFactorRewriterPowersFollowObjMapOrder(t *testing.T) {
 		t.Fatal("powers order", got, want)
 	}
 }
+
+// ast_manager::mk_or(n, args) does not collapse a single argument:
+// (= (* x x) 0) has powers {x:2} and becomes (or (= x 0)).
+func TestFactorRewriterSinglePowerEqualityKeepsUnaryOr(t *testing.T) {
+	f := newFactorFixture(t)
+	x, zero := f.variable("factor-unary-x"), f.numeral(0)
+	rw, err := NewFactorRewriter(f.m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, rw.Close()) }()
+	out := astTestPin(t, f.m, ast.ASTHandle{})
+	xx := f.app(factorOpMul, x, x)
+	_, decl := f.relation(-1, xx, zero)
+	status, err := rw.RewriteApp(decl, ast.SliceArguments([]ast.ASTHandle{xx, zero}), out)
+	astTestMust(t, err)
+	if status != RewriteDone {
+		t.Fatal("square equality refused", status)
+	}
+	eq, err := f.m.MkEq(x, zero)
+	astTestMust(t, err)
+	want, err := f.m.MkOrArgs([]ast.ASTHandle{eq})
+	astTestMust(t, err)
+	if got, err := f.m.RefGet(out); err != nil || got != want {
+		t.Fatal("unary or", got, want, err)
+	}
+}
+
+// mk_is_negative builds or(and(pos, pos0), and(neg, neg0)) and GCC evaluates
+// the arguments right to left: and(neg, neg0) gets the smaller id.
+func TestFactorRewriterIsNegativeConstructionOrder(t *testing.T) {
+	f := newFactorFixture(t)
+	x, y, zero := f.variable("factor-neg-x"), f.variable("factor-neg-y"), f.numeral(0)
+	rw, err := NewFactorRewriter(f.m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, rw.Close()) }()
+	out := astTestPin(t, f.m, ast.ASTHandle{})
+	xy := f.app(factorOpMul, x, y)
+	_, decl := f.relation(factorOpLE, xy, zero)
+	status, err := rw.RewriteApp(decl, ast.SliceArguments([]ast.ASTHandle{xy, zero}), out)
+	astTestMust(t, err)
+	if status != RewriteDone {
+		t.Fatal("product inequality refused", status)
+	}
+	got, err := f.m.RefGet(out)
+	astTestMust(t, err)
+	n, err := f.m.GetNumArgs(got)
+	astTestMust(t, err)
+	// (or eq_x eq_y (or (and neg pos0) (and pos neg0)))
+	negative, err := f.m.GetArg(got, n-1)
+	astTestMust(t, err)
+	np, err := f.m.GetArg(negative, 0)
+	astTestMust(t, err)
+	pn, err := f.m.GetArg(negative, 1)
+	astTestMust(t, err)
+	npID, err := f.m.GetASTID(np)
+	astTestMust(t, err)
+	pnID, err := f.m.GetASTID(pn)
+	astTestMust(t, err)
+	if pnID >= npID {
+		t.Fatal("and(pos, neg0) must be built before and(neg, pos0)", pnID, npID)
+	}
+}

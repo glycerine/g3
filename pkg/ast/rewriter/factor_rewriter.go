@@ -88,6 +88,16 @@ func (c *factorCall) numeral(h ast.ASTHandle) (text string, integer, matched boo
 }
 
 func (c *factorCall) numeralFor(expr ast.ASTHandle, value int64) (ast.ASTHandle, error) {
+	h, err := c.numeralRaw(expr, value)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return c.hold(h)
+}
+
+// numeralRaw is a().mk_numeral(value, sort(expr)) as a raw expr*: the caller
+// decides who owns it.
+func (c *factorCall) numeralRaw(expr ast.ASTHandle, value int64) (ast.ASTHandle, error) {
 	sort, err := c.owner.manager.GetSort(expr)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -105,11 +115,7 @@ func (c *factorCall) numeralFor(expr ast.ASTHandle, value int64) (ast.ASTHandle,
 	if err = service.SetInt64(&q, value); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	h, err := c.owner.manager.ArithmeticNumeral(&q, kind == 1)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return c.hold(h)
+	return c.owner.manager.ArithmeticNumeral(&q, kind == 1)
 }
 
 func (c *factorCall) negateNumeral(h ast.ASTHandle) (ast.ASTHandle, error) {
@@ -129,19 +135,7 @@ func (c *factorCall) negateNumeral(h ast.ASTHandle) (ast.ASTHandle, error) {
 	if err = s.NegAssign(&q); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	r, err := c.owner.manager.ArithmeticNumeral(&q, integer)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return c.hold(r)
-}
-
-func (c *factorCall) mkArith(op int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
-	h, err := c.owner.manager.MkFamilyApp(c.owner.arithFamily, op, nil, args)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return c.hold(h)
+	return c.owner.manager.ArithmeticNumeral(&q, integer)
 }
 
 func (c *factorCall) mkBasic(makeNode func() (ast.ASTHandle, error)) (ast.ASTHandle, error) {
@@ -277,13 +271,41 @@ func removeFactor(row []ast.ASTHandle, i int) []ast.ASTHandle {
 	return append(row[:i], row[i+1:]...)
 }
 
-func (c *factorCall) extractFactors() (bool, error) {
+// resetFactors is m_factors.reset(): the member expr_ref_vector releases its
+// references front to back. m_factors outlives the call, as in C++, until
+// the next extract_factors or the rewriter's destruction.
+func (r *FactorRewriter) resetFactors() (result error) {
+	for i := range r.factorRefs {
+		result = errors.Join(result, r.manager.DelRef(&r.factorRefs[i]))
+	}
+	r.factorRefs = r.factorRefs[:0]
+	return result
+}
+
+func (c *factorCall) pushFactor(h ast.ASTHandle) error {
+	ref, err := c.owner.manager.NewRef(h)
+	if err != nil {
+		return err
+	}
+	c.owner.factorRefs = append(c.owner.factorRefs, ref)
+	c.factors = append(c.factors, h)
+	return nil
+}
+
+func (c *factorCall) extractFactors() (_ bool, result error) {
 	c.factors = c.factors[:0]
+	if err := c.owner.resetFactors(); err != nil {
+		return false, err
+	}
 	if len(c.muls) == 1 {
 		if len(c.muls[0]) <= 1 {
 			return false, nil
 		}
-		c.factors = append(c.factors, c.muls[0]...)
+		for _, h := range c.muls[0] {
+			if err := c.pushFactor(h); err != nil {
+				return false, err
+			}
+		}
 		if !c.adds[0].positive {
 			found := false
 			for i, h := range c.factors {
@@ -292,20 +314,26 @@ func (c *factorCall) extractFactors() (bool, error) {
 					return false, err
 				}
 				if numeral {
-					c.factors[i], err = c.negateNumeral(h)
+					negated, err := c.negateNumeral(h)
 					if err != nil {
 						return false, err
 					}
+					if err = c.owner.manager.SetRef(c.owner.factorRefs[i], negated); err != nil {
+						return false, err
+					}
+					c.factors[i] = negated
 					found = true
 					break
 				}
 			}
 			if !found {
-				minusOne, err := c.numeralFor(c.muls[0][0], -1)
+				minusOne, err := c.numeralRaw(c.muls[0][0], -1)
 				if err != nil {
 					return false, err
 				}
-				c.factors = append(c.factors, minusOne)
+				if err = c.pushFactor(minusOne); err != nil {
+					return false, err
+				}
 			}
 		}
 		if err := c.collectPowers(); err != nil {
@@ -335,7 +363,9 @@ func (c *factorCall) extractFactors() (bool, error) {
 			i++
 			continue
 		}
-		c.factors = append(c.factors, candidate)
+		if err := c.pushFactor(candidate); err != nil {
+			return false, err
+		}
 		for j, p := range positions {
 			c.muls[j] = removeFactor(c.muls[j], p)
 		}
@@ -343,37 +373,54 @@ func (c *factorCall) extractFactors() (bool, error) {
 	if len(c.factors) == 0 {
 		return false, nil
 	}
+	// trail is the local expr_ref_vector: it releases its references front
+	// to back when extract_factors returns.
 	trail := make([]ast.ASTHandle, 0, len(c.adds))
+	trailRefs := make([]ast.ASTRef, 0, len(c.adds))
+	defer func() {
+		for i := range trailRefs {
+			result = errors.Join(result, c.owner.manager.DelRef(&trailRefs[i]))
+		}
+	}()
 	for i, term := range c.adds {
 		var h ast.ASTHandle
 		var err error
 		switch len(c.muls[i]) {
 		case 0:
-			h, err = c.numeralFor(c.factors[0], 1)
+			h, err = c.numeralRaw(c.factors[0], 1)
 		case 1:
 			h = c.muls[i][0]
 		default:
-			h, err = c.mkArith(factorOpMul, c.muls[i]...)
+			h, err = c.owner.manager.MkFamilyApp(c.owner.arithFamily, factorOpMul, nil, c.muls[i])
 		}
 		if err != nil {
 			return false, err
 		}
 		if !term.positive {
-			h, err = c.mkArith(factorOpUMinus, h)
+			h, err = c.owner.manager.MkFamilyApp(c.owner.arithFamily, factorOpUMinus, nil, []ast.ASTHandle{h})
 			if err != nil {
 				return false, err
 			}
 		}
-		trail = append(trail, h)
-	}
-	if len(trail) == 1 {
-		c.factors = append(c.factors, trail[0])
-	} else if len(trail) > 1 {
-		h, err := c.mkArith(factorOpAdd, trail...)
+		ref, err := c.owner.manager.NewRef(h)
 		if err != nil {
 			return false, err
 		}
-		c.factors = append(c.factors, h)
+		trailRefs = append(trailRefs, ref)
+		trail = append(trail, h)
+	}
+	if len(trail) == 1 {
+		if err := c.pushFactor(trail[0]); err != nil {
+			return false, err
+		}
+	} else if len(trail) > 1 {
+		h, err := c.owner.manager.MkFamilyApp(c.owner.arithFamily, factorOpAdd, nil, trail)
+		if err != nil {
+			return false, err
+		}
+		if err = c.pushFactor(h); err != nil {
+			return false, err
+		}
 	}
 	if err := c.traceFactors(); err != nil {
 		return false, err
@@ -384,22 +431,63 @@ func (c *factorCall) extractFactors() (bool, error) {
 	return true, nil
 }
 
-func (c *factorCall) isNegative() (ast.ASTHandle, []ast.ASTHandle, error) {
-	zero, err := c.numeralFor(c.powers[0].expr, 0)
-	if err != nil {
+// isNegative is mk_is_negative(result, eqs). Its expr_ref locals neg0, neg,
+// pos0, pos, tmp and zero release their references, in reverse declaration
+// order, when it returns; the unused pos0 chain dies there. The reference
+// GCC build evaluates mk_or(mk_and(a, b), mk_and(c, d)) right to left, so
+// the second conjunction is built first.
+func (c *factorCall) isNegative() (_ ast.ASTHandle, _ []ast.ASTHandle, result error) {
+	m := c.owner.manager
+	const (
+		neg0 = iota
+		neg
+		pos0
+		pos
+		tmp
+		zero
+		localCount
+	)
+	var locals [localCount]ast.ASTRef
+	created := 0
+	defer func() {
+		for i := created - 1; i >= 0; i-- {
+			result = errors.Join(result, m.DelRef(&locals[i]))
+		}
+	}()
+	for i := range locals {
+		ref, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return ast.ASTHandle{}, nil, err
+		}
+		locals[i] = ref
+		created++
+	}
+	get := func(i int) ast.ASTHandle {
+		h, _ := m.RefGet(locals[i])
+		return h
+	}
+	set := func(i int, h ast.ASTHandle, err error) error {
+		if err != nil {
+			return err
+		}
+		return m.SetRef(locals[i], h)
+	}
+	h, err := c.numeralRaw(c.powers[0].expr, 0)
+	if err = set(zero, h, err); err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
-	pos, err := c.mkBasic(c.owner.manager.MkTrue)
-	if err != nil {
+	z := get(zero)
+	h, err = m.MkTrue()
+	if err = set(pos0, h, err); err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
-	neg, err := c.mkBasic(c.owner.manager.MkFalse)
-	if err != nil {
+	h, err = m.MkFalse()
+	if err = set(neg0, h, err); err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
 	eqs := make([]ast.ASTHandle, 0, len(c.powers))
 	for _, power := range c.powers {
-		eq, err := c.mkBasic(func() (ast.ASTHandle, error) { return c.owner.manager.MkEq(zero, power.expr) })
+		eq, err := c.mkBasic(func() (ast.ASTHandle, error) { return m.MkEq(z, power.expr) })
 		if err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
@@ -407,45 +495,57 @@ func (c *factorCall) isNegative() (ast.ASTHandle, []ast.ASTHandle, error) {
 		if power.count&1 == 0 {
 			continue
 		}
-		positive, err := c.mkArith(factorOpLT, zero, power.expr)
-		if err != nil {
+		h, err = m.MkFamilyApp(c.owner.arithFamily, factorOpLT, nil, []ast.ASTHandle{z, power.expr})
+		if err = set(pos, h, err); err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		negative, err := c.mkArith(factorOpLT, power.expr, zero)
-		if err != nil {
+		h, err = m.MkFamilyApp(c.owner.arithFamily, factorOpLT, nil, []ast.ASTHandle{power.expr, z})
+		if err = set(neg, h, err); err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		if c.owner.manager.IsFalse(neg) {
-			pos, neg = positive, negative
+		if m.IsFalse(get(neg0)) {
+			if err = set(neg0, get(neg), nil); err != nil {
+				return ast.ASTHandle{}, nil, err
+			}
+			if err = set(pos0, get(pos), nil); err != nil {
+				return ast.ASTHandle{}, nil, err
+			}
 			continue
 		}
-		pp, err := c.mkBasic(func() (ast.ASTHandle, error) { return c.owner.manager.MkAnd(positive, pos) })
+		// tmp = or(and(pos, pos0), and(neg, neg0))
+		nn, err := m.MkAnd(get(neg), get(neg0))
 		if err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		nn, err := c.mkBasic(func() (ast.ASTHandle, error) { return c.owner.manager.MkAnd(negative, neg) })
+		pp, err := m.MkAnd(get(pos), get(pos0))
 		if err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		nextPos, err := c.mkBasic(func() (ast.ASTHandle, error) { return c.owner.manager.MkOr(pp, nn) })
+		h, err = m.MkOr(pp, nn)
+		if err = set(tmp, h, err); err != nil {
+			return ast.ASTHandle{}, nil, err
+		}
+		// neg0 = or(and(neg, pos0), and(pos, neg0))
+		pn, err := m.MkAnd(get(pos), get(neg0))
 		if err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		np, err := c.mkBasic(func() (ast.ASTHandle, error) { return c.owner.manager.MkAnd(negative, pos) })
+		np, err := m.MkAnd(get(neg), get(pos0))
 		if err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		pn, err := c.mkBasic(func() (ast.ASTHandle, error) { return c.owner.manager.MkAnd(positive, neg) })
-		if err != nil {
+		h, err = m.MkOr(np, pn)
+		if err = set(neg0, h, err); err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		neg, err = c.mkBasic(func() (ast.ASTHandle, error) { return c.owner.manager.MkOr(np, pn) })
-		if err != nil {
+		if err = set(pos0, get(tmp), nil); err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		pos = nextPos
 	}
-	return neg, eqs, nil
+	// result = neg0: the caller's expr_ref takes its reference before the
+	// locals die.
+	r, err := c.hold(get(neg0))
+	return r, eqs, err
 }
 
 func (c *factorCall) rewriteRelation(op int32, lhs, rhs ast.ASTHandle) (ast.ASTHandle, RewriteStatus, error) {
@@ -486,7 +586,8 @@ func (c *factorCall) rewriteRelation(op int32, lhs, rhs ast.ASTHandle) (ast.ASTH
 			}
 			eqs = append(eqs, eq)
 		}
-		h, err := c.owner.manager.MkOrArray(eqs)
+		// ast_manager::mk_or(n, args) builds an or even for one argument.
+		h, err := c.owner.manager.MkOrArgs(eqs)
 		return h, RewriteDone, err
 	}
 	negative, eqs, err := c.isNegative()
@@ -495,7 +596,7 @@ func (c *factorCall) rewriteRelation(op int32, lhs, rhs ast.ASTHandle) (ast.ASTH
 	}
 	if op == factorOpLE {
 		eqs = append(eqs, negative)
-		h, err := c.owner.manager.MkOrArray(eqs)
+		h, err := c.owner.manager.MkOrArgs(eqs)
 		if err == nil {
 			err = c.traceLessEqualResult(lhs, rhs, h)
 		}
@@ -511,7 +612,7 @@ func (c *factorCall) rewriteRelation(op int32, lhs, rhs ast.ASTHandle) (ast.ASTH
 		}
 	}
 	eqs = append(eqs, negative)
-	h, err := c.owner.manager.MkAndArray(eqs)
+	h, err := c.owner.manager.MkAndArgs(eqs)
 	if err == nil {
 		err = c.traceStrictResult(h)
 	}
@@ -542,7 +643,9 @@ type FactorRewriter struct {
 	trace       *diagnostic.TraceTags
 	// powers is the member m_powers (obj_map<expr, unsigned>).
 	powers *ast.ObjMap
-	closed bool
+	// factorRefs owns the member m_factors (expr_ref_vector).
+	factorRefs []ast.ASTRef
+	closed     bool
 }
 
 func NewFactorRewriter(m *ast.ASTManager) (*FactorRewriter, error) {
@@ -644,6 +747,9 @@ func (r *FactorRewriter) Close() error {
 		if err := r.traversal.Close(); err != nil {
 			return err
 		}
+	}
+	if err := r.resetFactors(); err != nil {
+		return err
 	}
 	if r.powers != nil {
 		r.powers.Finalize()
