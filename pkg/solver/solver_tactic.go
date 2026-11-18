@@ -224,18 +224,8 @@ func ExtractClausesAndDependencies(goal *tactic.Goal) (result *ClauseExtraction,
 }
 
 type SolverTacticConfig struct {
-	Params                       *uparams.ParamsContext
-	TargetConfig                 func(*ast.ASTManager) (SolverTacticConfig, error)
-	CandidateModels              bool
-	FailIfInconclusive           bool
-	InconclusivePolicyConfigured bool
-}
-
-func (c SolverTacticConfig) failIfInconclusive() bool {
-	if !c.InconclusivePolicyConfigured {
-		return true
-	}
-	return c.FailIfInconclusive
+	Params       *uparams.ParamsContext
+	TargetConfig func(*ast.ASTManager) (SolverTacticConfig, error)
 }
 
 type SolverTactic struct {
@@ -410,43 +400,6 @@ func (t *SolverTactic) applyUNSAT(in *tactic.Goal, result *tactic.TacticResult, 
 	return result.SetCore(dependency)
 }
 
-func (t *SolverTactic) applyCandidateModel(in *tactic.Goal, result *tactic.TacticResult, local Solver) error {
-	provider, ok := local.(CandidateModelProvider)
-	if !ok {
-		return ast.ErrASTDomain
-	}
-	available, err := provider.PrepareCandidateModel()
-	if err != nil {
-		return err
-	}
-	if !available {
-		return ast.ErrASTDomain
-	}
-	models, err := in.ModelsEnabled()
-	if err != nil {
-		return err
-	}
-	if models {
-		md, e := local.AcquireModel()
-		if e != nil {
-			return e
-		}
-		stored, e := tactic.NewStoredModel(md)
-		if md != nil {
-			e = errors.Join(e, md.DecRef())
-		}
-		if e != nil {
-			_ = closeUnownedModelConverter(stored)
-			return e
-		}
-		if e = result.SetModelConverter(stored); e != nil {
-			_ = closeUnownedModelConverter(stored)
-			return e
-		}
-	}
-	return result.AddGoal(in)
-}
-
 func (t *SolverTactic) Apply(in *tactic.Goal, result *tactic.TacticResult) (err error) {
 	if err = t.open(); err != nil {
 		return err
@@ -476,16 +429,12 @@ func (t *SolverTactic) Apply(in *tactic.Goal, result *tactic.TacticResult) (err 
 	if err != nil {
 		return err
 	}
+	// solver2tactic::operator(): no precision checks and no candidate
+	// models (those are smt_tactic's).
 	switch status {
 	case lbool.True:
-		if t.config.failIfInconclusive() && !in.SatPreserved() {
-			return tactic.NewTacticException("over-approximated goal found to be sat")
-		}
 		err = t.applySAT(in, result, local, extraction)
 	case lbool.False:
-		if t.config.failIfInconclusive() && !in.UnsatPreserved() {
-			return tactic.NewTacticException("under-approximated goal found to be unsat")
-		}
 		err = t.applyUNSAT(in, result, local, extraction)
 	default:
 		canceled, e := t.manager.Canceled()
@@ -498,16 +447,6 @@ func (t *SolverTactic) Apply(in *tactic.Goal, result *tactic.TacticResult) (err 
 		reason, e := local.ReasonUnknown()
 		if e != nil {
 			return e
-		}
-		if t.config.CandidateModels {
-			if e = t.applyCandidateModel(in, result, local); e == nil {
-				break
-			} else if !errors.Is(e, ast.ErrASTDomain) {
-				return e
-			}
-		}
-		if t.config.failIfInconclusive() && !t.config.CandidateModels {
-			return tactic.NewTacticException("smt tactic failed to show goal to be sat/unsat " + reason)
 		}
 		return tactic.NewTacticException(reason)
 	}
@@ -529,22 +468,10 @@ func (t *SolverTactic) UpdateParams(p *uparams.ParamsRef) error {
 	if p == nil {
 		return uparams.ErrParamsOwner
 	}
-	candidateName := "candidate_models"
-	candidate, err := t.config.Params.GetBoolName(p, &candidateName, false)
-	if err != nil {
-		return err
-	}
-	failName := "fail_if_inconclusive"
-	fail, err := t.config.Params.GetBoolName(p, &failName, true)
-	if err != nil {
-		return err
-	}
+	// solver2tactic::updt_params: m_params.append(p), then the solver's.
 	if err := t.config.Params.Append(&t.params, p); err != nil {
 		return err
 	}
-	t.config.CandidateModels = candidate
-	t.config.FailIfInconclusive = fail
-	t.config.InconclusivePolicyConfigured = true
 	return t.solver.UpdateParams(p)
 }
 func (t *SolverTactic) CollectParamDescrs(p *uparams.ParamDescrs) error {
@@ -553,16 +480,6 @@ func (t *SolverTactic) CollectParamDescrs(p *uparams.ParamDescrs) error {
 	}
 	if p == nil {
 		return uparams.ErrParamDescrsPrecondition
-	}
-	candidateDescription := "(default: false) create candidate models even when quantifier or theory reasoning is incomplete."
-	candidateDefault := "false"
-	if err := p.InsertName("candidate_models", uparams.ParamBool, &candidateDescription, &candidateDefault, nil); err != nil {
-		return err
-	}
-	failDescription := "(default: true) fail if found unsat (sat) for under (over) approximated goal."
-	failDefault := "true"
-	if err := p.InsertName("fail_if_inconclusive", uparams.ParamBool, &failDescription, &failDefault, nil); err != nil {
-		return err
 	}
 	return t.solver.CollectParamDescrs(p)
 }
@@ -617,9 +534,6 @@ func (t *SolverTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 		if e != nil {
 			return nil, e
 		}
-		targetConfig.CandidateModels = config.CandidateModels
-		targetConfig.FailIfInconclusive = config.FailIfInconclusive
-		targetConfig.InconclusivePolicyConfigured = config.InconclusivePolicyConfigured
 		config = targetConfig
 		params = nil
 	}
