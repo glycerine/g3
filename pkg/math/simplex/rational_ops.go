@@ -80,7 +80,12 @@ func (o *ratCalc) div(dst, a, b *numeral.Rational) {
 // addMul is dst = a + b*c.
 func (o *ratCalc) addMul(dst, a, b, c *numeral.Rational) {
 	if o.ok() {
-		o.fail(o.q.AddMul(a, b, c, dst))
+		if err := o.q.AddMul(a, b, c, dst); err != nil {
+			// The source's addmul temporary is a scoped local that the
+			// exception unwind destroys; release it so the manager is
+			// usable again after the failure.
+			o.fail(errors.Join(err, o.q.CleanupFusedTemporary()))
+		}
 	}
 }
 
