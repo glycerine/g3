@@ -31,7 +31,7 @@ func (s *BVBoundsSimplifier) recognize(h ast.ASTHandle) (variable ast.ASTHandle,
 			return variable, bound, false, e
 		}
 		// bv_bounds_tactic.cpp::is_number rejects every numeral wider than
-		// uint64, even though the shared modular interval type supports them.
+		// uint64, and the interval type holds uint64_t bounds (sz <= 64).
 		if ln && w > 64 || rn && rw > 64 {
 			return variable, bound, false, nil
 		}

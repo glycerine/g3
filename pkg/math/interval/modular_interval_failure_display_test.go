@@ -13,8 +13,11 @@ func TestModularIntervalValidationDispatchAndDisplay(t *testing.T) {
 	if _, err := NewModularInterval(modularTestValue(t, "0"), modularTestValue(t, "256"), 8, true); !errors.Is(err, ErrExtendedDomain) {
 		t.Fatal(err)
 	}
+	if _, err := NewModularInterval(1, 3, 65, true); !errors.Is(err, ErrExtendedDomain) {
+		t.Fatal(err)
+	}
 	small := modularTestInterval(t, "1", "3", 8, true)
-	large := modularTestInterval(t, "1", "3", 80, true)
+	large := modularTestInterval(t, "1", "3", 64, true)
 	if _, err := small.Equal(large); !errors.Is(err, ErrExtendedDomain) {
 		t.Fatal(err)
 	}

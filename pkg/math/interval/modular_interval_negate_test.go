@@ -1,10 +1,13 @@
 package interval
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+)
 
 func TestModularIntervalNegationComplements(t *testing.T) {
-	for _, size := range []uint32{8, 80} {
-		bound := modularBound(size).String()
+	for _, size := range []uint32{8, 64} {
+		bound := strconv.FormatUint(modularBound(size), 10)
 		result := &ModularInterval{}
 		loZero := modularTestInterval(t, "0", "10", size, true)
 		ok, err := loZero.Negate(result)

@@ -1,15 +1,15 @@
 package interval
 
 import (
-	"math/big"
+	"strconv"
 	"testing"
 )
 
-func modularTestValue(t *testing.T, text string) *big.Int {
+func modularTestValue(t *testing.T, text string) uint64 {
 	t.Helper()
-	v, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		t.Fatal(text)
+	v, err := strconv.ParseUint(text, 10, 64)
+	if err != nil {
+		t.Fatal(text, err)
 	}
 	return v
 }
@@ -23,7 +23,7 @@ func modularTestInterval(t *testing.T, lower, upper string, size uint32, tight b
 }
 func requireModularInterval(t *testing.T, v *ModularInterval, lower, upper string, tight bool) {
 	t.Helper()
-	if v.Lower().String() != lower || v.Upper().String() != upper || v.Tight() != tight || !v.Invariant() {
+	if strconv.FormatUint(v.Lower(), 10) != lower || strconv.FormatUint(v.Upper(), 10) != upper || v.Tight() != tight || !v.Invariant() {
 		t.Fatal(v.Lower(), v.Upper(), v.Tight())
 	}
 }

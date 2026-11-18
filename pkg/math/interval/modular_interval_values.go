@@ -1,8 +1,6 @@
 package interval
 
-// Source: src/math/interval/mod_interval.h:181-230.
-
-import "math/big"
+// Source: src/tactic/bv/bv_bounds_tactic.cpp:35-60.
 
 func (v *ModularInterval) Size() uint32 {
 	if v == nil {
@@ -10,35 +8,23 @@ func (v *ModularInterval) Size() uint32 {
 	}
 	return v.size
 }
+
 func (v *ModularInterval) Tight() bool { return v != nil && v.tight }
 
-func (v *ModularInterval) Lower() *big.Int {
+func (v *ModularInterval) Lower() uint64 {
 	if v == nil {
-		return nil
+		return 0
 	}
-	if v.small {
-		return new(big.Int).SetUint64(v.lowerSmall)
-	}
-	return new(big.Int).Set(v.lowerLarge)
+	return v.lower
 }
 
-func (v *ModularInterval) Upper() *big.Int {
+func (v *ModularInterval) Upper() uint64 {
 	if v == nil {
-		return nil
+		return 0
 	}
-	if v.small {
-		return new(big.Int).SetUint64(v.upperSmall)
-	}
-	return new(big.Int).Set(v.upperLarge)
+	return v.upper
 }
 
-func (v *ModularInterval) setSmall(lower, upper uint64, tight bool) {
-	v.small, v.lowerSmall, v.upperSmall, v.tight = true, lower, upper, tight
-	v.lowerLarge, v.upperLarge = nil, nil
-}
-
-func (v *ModularInterval) setLarge(lower, upper *big.Int, tight bool) {
-	v.small, v.tight = false, tight
-	v.lowerLarge, v.upperLarge = new(big.Int).Set(lower), new(big.Int).Set(upper)
-	v.lowerSmall, v.upperSmall = 0, 0
+func (v *ModularInterval) set(lower, upper uint64, tight bool) {
+	v.lower, v.upper, v.tight = lower, upper, tight
 }

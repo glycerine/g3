@@ -1,50 +1,33 @@
 package interval
 
-// Source: src/math/interval/mod_interval.h:21-55,137-179.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp:28-60 (uMaxInt and struct
+// interval: uint64_t l, h with sz <= 64).
 
-import "math/big"
-
-// ModularInterval is a cyclic unsigned bit-vector interval. Lower > Upper is
-// the source wrapped representation. Widths through 64 bits retain the source
-// uint64 fast path; wider values use arbitrary-precision integers.
+// ModularInterval is bv_bounds_tactic's cyclic unsigned bit-vector
+// interval. Lower > Upper is the source wrapped representation. Like the
+// source, it holds uint64_t bounds and widths of at most 64 bits.
 type ModularInterval struct {
-	small                  bool
-	lowerSmall, upperSmall uint64
-	lowerLarge, upperLarge *big.Int
-	size                   uint32
-	tight                  bool
+	lower, upper uint64
+	size         uint32
+	tight        bool
 }
 
-func NewModularInterval(lower, upper *big.Int, size uint32, tight bool) (*ModularInterval, error) {
-	if lower == nil || upper == nil || size == 0 || lower.Sign() < 0 || upper.Sign() < 0 {
+func NewModularInterval(lower, upper uint64, size uint32, tight bool) (*ModularInterval, error) {
+	if size == 0 || size > 64 {
 		return nil, ErrExtendedDomain
 	}
 	bound := modularBound(size)
-	if lower.Cmp(bound) > 0 || upper.Cmp(bound) > 0 {
+	if lower > bound || upper > bound {
 		return nil, ErrExtendedDomain
 	}
-	v := &ModularInterval{size: size, tight: tight, small: size <= 64}
-	if v.small {
-		v.lowerSmall, v.upperSmall = lower.Uint64(), upper.Uint64()
-	} else {
-		v.lowerLarge, v.upperLarge = new(big.Int).Set(lower), new(big.Int).Set(upper)
-	}
+	v := &ModularInterval{lower: lower, upper: upper, size: size, tight: tight}
 	if !v.Invariant() {
 		return nil, ErrExtendedDomain
 	}
 	return v, nil
 }
 
-func modularBound(size uint32) *big.Int {
-	if size == 0 {
-		return new(big.Int)
-	}
-	return new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(size)), big.NewInt(1))
-}
-
-func modularSmallBound(size uint32) uint64 {
-	if size == 64 {
-		return ^uint64(0)
-	}
-	return (uint64(1) << size) - 1
+// modularBound is uMaxInt(sz): ULLONG_MAX >> (64u - sz).
+func modularBound(size uint32) uint64 {
+	return ^uint64(0) >> (64 - size)
 }

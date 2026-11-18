@@ -1,8 +1,8 @@
 package interval
 
-// Source: src/math/interval/mod_interval.h:76-117, uint64 instantiation.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp:89-136 (interval::intersect).
 
-func intersectModularSmall(a, b, r *ModularInterval) bool {
+func intersectModular(a, b, r *ModularInterval) bool {
 	equal, _ := a.Equal(b)
 	if a.IsFull() || equal {
 		copyModularInterval(r, b)
@@ -14,34 +14,34 @@ func intersectModularSmall(a, b, r *ModularInterval) bool {
 	}
 	if a.IsWrapped() {
 		if b.IsWrapped() {
-			if a.upperSmall >= b.lowerSmall {
+			if a.upper >= b.lower {
 				copyModularInterval(r, b)
-			} else if b.upperSmall >= a.lowerSmall {
+			} else if b.upper >= a.lower {
 				copyModularInterval(r, a)
 			} else {
-				r.setSmall(maxU64(a.lowerSmall, b.lowerSmall), minU64(a.upperSmall, b.upperSmall), false)
+				r.set(maxU64(a.lower, b.lower), minU64(a.upper, b.upper), false)
 			}
 			return true
 		}
-		return intersectModularSmall(b, a, r)
+		return intersectModular(b, a, r)
 	}
 	if b.IsWrapped() {
-		if a.upperSmall < b.lowerSmall && a.lowerSmall > b.upperSmall {
+		if a.upper < b.lower && a.lower > b.upper {
 			return false
 		}
-		if a.upperSmall >= b.lowerSmall && a.lowerSmall <= b.upperSmall {
+		if a.upper >= b.lower && a.lower <= b.upper {
 			copyModularInterval(r, b)
-		} else if a.upperSmall >= b.lowerSmall {
-			r.setSmall(b.lowerSmall, a.upperSmall, false)
+		} else if a.upper >= b.lower {
+			r.set(b.lower, a.upper, false)
 		} else {
-			r.setSmall(a.lowerSmall, minU64(a.upperSmall, b.upperSmall), false)
+			r.set(a.lower, minU64(a.upper, b.upper), false)
 		}
 		return true
 	}
-	if a.lowerSmall > b.upperSmall || a.upperSmall < b.lowerSmall {
+	if a.lower > b.upper || a.upper < b.lower {
 		return false
 	}
-	r.setSmall(maxU64(a.lowerSmall, b.lowerSmall), minU64(a.upperSmall, b.upperSmall), a.tight && b.tight)
+	r.set(maxU64(a.lower, b.lower), minU64(a.upper, b.upper), a.tight && b.tight)
 	return true
 }
 func minU64(a, b uint64) uint64 {

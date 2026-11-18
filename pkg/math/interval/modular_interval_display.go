@@ -1,8 +1,11 @@
 package interval
 
-// Source: src/math/interval/mod_interval.h:232-239.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp:158-164 (operator<<).
 
-import "io"
+import (
+	"io"
+	"strconv"
+)
 
 func (v *ModularInterval) Display(w io.Writer) error {
 	if v == nil || w == nil {
@@ -11,13 +14,13 @@ func (v *ModularInterval) Display(w io.Writer) error {
 	if _, err := io.WriteString(w, "["); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, v.Lower().String()); err != nil {
+	if _, err := io.WriteString(w, strconv.FormatUint(v.lower, 10)); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, ", "); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, v.Upper().String()); err != nil {
+	if _, err := io.WriteString(w, strconv.FormatUint(v.upper, 10)); err != nil {
 		return err
 	}
 	_, err := io.WriteString(w, "]")

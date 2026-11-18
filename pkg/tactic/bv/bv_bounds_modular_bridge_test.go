@@ -15,7 +15,7 @@ func TestBVBoundsModularBridgeWrappedRoundTrip(t *testing.T) {
 		tight: true,
 	}
 	v, ok := b.modularInterval()
-	if !ok || !v.IsWrapped() || v.Lower().Int64() != 240 || v.Upper().Int64() != 15 || !v.Tight() {
+	if !ok || !v.IsWrapped() || v.Lower() != 240 || v.Upper() != 15 || !v.Tight() {
 		t.Fatalf("unexpected modular bridge: ok=%v value=%v", ok, v)
 	}
 	if got := bvBoundsFromModularInterval(v); !got.equal(b) {

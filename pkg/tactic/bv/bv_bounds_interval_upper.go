@@ -9,5 +9,5 @@ func (b bvBoundsSet) nonWrappedUpper() (*big.Int, bool) {
 	if !ok || v.IsWrapped() {
 		return nil, false
 	}
-	return v.Upper(), true
+	return new(big.Int).SetUint64(v.Upper()), true
 }

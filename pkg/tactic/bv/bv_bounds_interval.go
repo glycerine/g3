@@ -33,7 +33,7 @@ func bvBoundsLooseRangeSet(width uint32, lo, hi *big.Int) bvBoundsSet {
 func (b bvBoundsSet) singleton() (*big.Int, bool) {
 	v, ok := b.modularInterval()
 	if ok && v.IsSingleton() {
-		return v.Lower(), true
+		return new(big.Int).SetUint64(v.Lower()), true
 	}
 	return nil, false
 }

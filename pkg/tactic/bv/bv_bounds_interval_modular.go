@@ -34,7 +34,11 @@ func (b bvBoundsSet) modularInterval() (*interval.ModularInterval, bool) {
 		}
 		lower, upper = b.ranges[1].lo, b.ranges[0].hi
 	}
-	v, err := interval.NewModularInterval(lower, upper, b.width, b.tight)
+	// bv_bounds_tactic's interval holds uint64_t bounds (sz <= 64).
+	if !lower.IsUint64() || !upper.IsUint64() {
+		return nil, false
+	}
+	v, err := interval.NewModularInterval(lower.Uint64(), upper.Uint64(), b.width, b.tight)
 	return v, err == nil
 }
 
@@ -43,7 +47,7 @@ func bvBoundsFromModularInterval(v *interval.ModularInterval) bvBoundsSet {
 		return bvBoundsSet{}
 	}
 	b := bvBoundsSet{width: v.Size(), tight: v.Tight()}
-	lower, upper := v.Lower(), v.Upper()
+	lower, upper := new(big.Int).SetUint64(v.Lower()), new(big.Int).SetUint64(v.Upper())
 	if v.IsWrapped() {
 		b.ranges = []bvBoundsRange{
 			{lo: big.NewInt(0), hi: upper},
