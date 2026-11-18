@@ -176,3 +176,72 @@ func TestSubstitutionTreeVariableCandidatesAndOffsetGuards(t *testing.T) {
 		t.Fatal("offset capacity guard")
 	}
 }
+
+// substitution_tree::visit stops the variable query's loop over the roots
+// once the visitor asks to stop (AUDIT ast_sub_03-F4).
+func TestSubstitutionTreeVarQueryStopsAcrossRoots(t *testing.T) {
+	m := offsetManager(t)
+	sort, e := m.MkUninterpretedSort(symbol.Numerical(7500), nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	substPin(t, m, sort)
+	decl := func(id uint32, arity int) ast.ASTHandle {
+		ds := make([]ast.ASTHandle, arity)
+		for i := range ds {
+			ds[i] = sort
+		}
+		d, e := m.MkFuncDecl(symbol.Numerical(id), ds, sort, ast.ASTFuncDeclInfo{})
+		if e != nil {
+			t.Fatal(e)
+		}
+		return substPin(t, m, d)
+	}
+	app := func(d ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle {
+		h, e := m.MkApp(d, args)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return substPin(t, m, h)
+	}
+	f, g := decl(7501, 1), decl(7502, 1)
+	a, b := app(decl(7503, 0)), app(decl(7504, 0))
+	tree, e := NewSubstitutionTree(m)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer tree.Close()
+	for _, h := range []ast.ASTHandle{app(f, a), app(g, b)} {
+		if e = tree.Insert(h); e != nil {
+			t.Fatal(e)
+		}
+	}
+	s, e := New(m)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	if e = s.Reserve(3, 16); e != nil {
+		t.Fatal(e)
+	}
+	x, e := m.MkVar(0, sort)
+	if e != nil {
+		t.Fatal(e)
+	}
+	substPin(t, m, x)
+	visitor := &collectingTreeVisitor{subst: s}
+	if e = tree.Unify(x, visitor); e != nil {
+		t.Fatal(e)
+	}
+	if len(visitor.found) != 2 {
+		t.Fatal("unifier count", visitor.found)
+	}
+	visitor.found = nil
+	visitor.stop = 1
+	if e = tree.Unify(x, visitor); e != nil {
+		t.Fatal(e)
+	}
+	if len(visitor.found) != 1 {
+		t.Fatal("visitor stop", visitor.found)
+	}
+}

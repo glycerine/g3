@@ -176,15 +176,17 @@ func (v *treeVisit) clearStack() error {
 	}
 	return v.popScope()
 }
-func (v *treeVisit) visitRoot(query ast.ASTHandle, root *treeNode) (result error) {
+// visitRoot is substitution_tree::visit(e, st, r): it reports false when
+// the visitor asked to stop.
+func (v *treeVisit) visitRoot(query ast.ASTHandle, root *treeNode) (proceed bool, result error) {
 	v.stack = v.stack[:0]
 	v.stack = append(v.stack, root)
 	if e := v.subst.PushScope(); e != nil {
-		return e
+		return false, e
 	}
 	if e := v.subst.Insert(0, v.registerOffset, NewExprOffset(query, v.inOffset)); e != nil {
 		_ = v.popScope()
-		return e
+		return false, e
 	}
 	defer func() {
 		if len(v.stack) != 0 {
@@ -196,30 +198,30 @@ func (v *treeVisit) visitRoot(query ast.ASTHandle, root *treeNode) (result error
 	for {
 		n := v.stack[len(v.stack)-1]
 		if e := v.subst.PushScope(); e != nil {
-			return e
+			return false, e
 		}
 		ok, e := v.visitInstructions(n.subst)
 		if e != nil {
-			return e
+			return false, e
 		}
 		if ok {
 			if n.leaf {
 				acyclic, e := v.subst.Acyclic()
 				if e != nil {
-					return e
+					return false, e
 				}
 				if acyclic {
 					more, e := v.visitor.VisitTreeExpression(n.expr)
 					if e != nil {
-						return e
+						return false, e
 					}
 					if !more {
-						return v.clearStack()
+						return false, v.clearStack()
 					}
 				}
 				more, e := v.backtrack()
 				if e != nil {
-					return e
+					return false, e
 				}
 				if !more {
 					break
@@ -230,14 +232,14 @@ func (v *treeVisit) visitRoot(query ast.ASTHandle, root *treeNode) (result error
 		} else {
 			more, e := v.backtrack()
 			if e != nil {
-				return e
+				return false, e
 			}
 			if !more {
 				break
 			}
 		}
 	}
-	return v.clearStack()
+	return true, v.clearStack()
 }
 func (v *treeVisit) visitVariables(query ast.ASTHandle) (bool, error) {
 	sort, e := v.tree.manager.GetSort(query)
@@ -327,7 +329,8 @@ func (t *SubstitutionTree) UnifyOffsets(query ast.ASTHandle, visitor TreeVisitor
 			return e
 		}
 		if root := t.roots[decl]; root != nil {
-			return v.visitRoot(query, root)
+			_, e := v.visitRoot(query, root)
+			return e
 		}
 		return nil
 	}
@@ -351,7 +354,8 @@ func (t *SubstitutionTree) UnifyOffsets(query ast.ASTHandle, visitor TreeVisitor
 			return e
 		}
 		if rs == qs {
-			if e = v.visitRoot(query, root); e != nil {
+			more, e := v.visitRoot(query, root)
+			if e != nil || !more {
 				return e
 			}
 		}
