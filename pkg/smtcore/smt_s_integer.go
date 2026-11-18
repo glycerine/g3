@@ -21,7 +21,6 @@ package smtcore
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -67,16 +66,26 @@ func smtSIntegerOfRational(q *numeral.RationalManager, r *numeral.Rational) int3
 	if r.IsSmall() && r.Den.Val == 1 {
 		return r.Num.Val
 	}
-	var b big.Rat
-	if err := q.BigRatOf(r, &b); err != nil {
-		panic(fmt.Sprintf("smtcore: s_integer(rational): %v", err))
-	}
-	if b.IsInt() && b.Num().IsInt64() {
-		if v := b.Num().Int64(); v >= math.MinInt32 && v <= math.MaxInt32 {
-			return int32(v)
+	if r.IsInt() {
+		fits, err := q.IsInt64(r)
+		if err != nil {
+			panic(fmt.Sprintf("smtcore: s_integer(rational): %v", err))
+		}
+		if fits {
+			v, err := q.Int64(r)
+			if err != nil {
+				panic(fmt.Sprintf("smtcore: s_integer(rational): %v", err))
+			}
+			if v >= math.MinInt32 && v <= math.MaxInt32 {
+				return int32(v)
+			}
 		}
 	}
-	panic(fmt.Sprintf("smtcore: s_integer(rational %s) is not an int: static_cast<int>(r.get_int64()) has no defined value in z3 (src/util/s_integer.h)", b.RatString()))
+	text, err := q.String(r)
+	if err != nil {
+		panic(fmt.Sprintf("smtcore: s_integer(rational): %v", err))
+	}
+	panic(fmt.Sprintf("smtcore: s_integer(rational %s) is not an int: static_cast<int>(r.get_int64()) has no defined value in z3 (src/util/s_integer.h)", text))
 }
 
 func (a smtSInteger) add(b smtSInteger) smtSInteger {

@@ -5,18 +5,22 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// smtModelFinderProjectionValue is a value with its numeral_lt /
+// signed_bv_lt key: the is_numeral rational (signed values normalized by
+// bv_util::norm), held until the sort is done.
 type smtModelFinderProjectionValue struct {
-	value   ast.ASTHandle
-	numeral *big.Rat
-	id      uint32
+	value     ast.ASTHandle
+	numeral   numeral.Rational
+	isNumeral bool
+	id        uint32
 }
 
 func (g *smtModelFinderAUFGraph) instantiationValues(node *smtModelFinderAUFNode) ([]ast.ASTHandle, error) {
@@ -36,7 +40,7 @@ func (g *smtModelFinderAUFGraph) instantiationValues(node *smtModelFinderAUFNode
 	return values, nil
 }
 
-func (g *smtModelFinderAUFGraph) sortedProjectionValues(node *smtModelFinderAUFNode) ([]ast.ASTHandle, error) {
+func (g *smtModelFinderAUFGraph) sortedProjectionValues(node *smtModelFinderAUFNode) (_ []ast.ASTHandle, result error) {
 	values, err := g.instantiationValues(node)
 	if err != nil {
 		return nil, err
@@ -53,44 +57,70 @@ func (g *smtModelFinderAUFGraph) sortedProjectionValues(node *smtModelFinderAUFN
 			return nil, err
 		}
 	}
+	q := m.NumeralService().Manager
 	keys := make([]smtModelFinderProjectionValue, len(values))
+	defer func() {
+		for i := range keys {
+			result = smtErrJoin(result, smtQDel(q, &keys[i].numeral))
+		}
+	}()
+	for i := range keys {
+		keys[i].numeral = smtQZero()
+	}
+	// bv_util::norm(v, sz, true): v >= 2^(sz-1) becomes v - 2^sz.
+	signBit, modulus := smtQZero(), smtQZero()
+	defer func() { result = smtErrJoin(result, smtQDel(q, &signBit), smtQDel(q, &modulus)) }()
+	signed := bv && node.root().signed
+	if signed {
+		two := smtQInt(2)
+		if err = q.Power(&two, width, &modulus); err != nil {
+			return nil, err
+		}
+		if err = q.Div(&modulus, &two, &signBit); err != nil {
+			return nil, err
+		}
+	}
 	for i, value := range values {
 		id, err := m.GetASTID(value)
 		if err != nil {
 			return nil, err
 		}
-		var text string
-		var numeral bool
+		key := &keys[i]
+		key.value, key.id = value, id
 		if bv {
-			text, numeral, err = m.BitVectorNumeralText(value)
+			_, key.isNumeral, err = m.BitVectorNumeralRational(value, &key.numeral)
 		} else {
-			text, _, numeral, err = m.ArithmeticNumeralText(value)
+			_, key.isNumeral, err = m.ArithmeticNumeralRational(value, &key.numeral)
 		}
 		if err != nil {
 			return nil, err
 		}
-		key := smtModelFinderProjectionValue{value: value, id: id}
-		if numeral {
-			key.numeral = new(big.Rat)
-			if _, ok := key.numeral.SetString(text); !ok {
-				return nil, ast.ErrASTDomain
+		if key.isNumeral && signed {
+			c, err := q.Compare(&key.numeral, &signBit)
+			if err != nil {
+				return nil, err
 			}
-			if bv && node.root().signed {
-				modulus := new(big.Int).Lsh(big.NewInt(1), uint(width))
-				signBit := new(big.Int).Rsh(new(big.Int).Set(modulus), 1)
-				if key.numeral.Num().Cmp(signBit) >= 0 {
-					key.numeral.Sub(key.numeral, new(big.Rat).SetInt(modulus))
+			if c >= 0 {
+				if err = q.Sub(&key.numeral, &modulus, &key.numeral); err != nil {
+					return nil, err
 				}
 			}
 		}
-		keys[i] = key
 	}
+	var cmpErr error
 	sort.Slice(keys, func(i, j int) bool {
-		if keys[i].numeral != nil && keys[j].numeral != nil {
-			return keys[i].numeral.Cmp(keys[j].numeral) < 0
+		if keys[i].isNumeral && keys[j].isNumeral {
+			c, err := q.Compare(&keys[i].numeral, &keys[j].numeral)
+			if err != nil && cmpErr == nil {
+				cmpErr = err
+			}
+			return c < 0
 		}
 		return keys[i].id < keys[j].id
 	})
+	if cmpErr != nil {
+		return nil, cmpErr
+	}
 	for i := range keys {
 		values[i] = keys[i].value
 	}

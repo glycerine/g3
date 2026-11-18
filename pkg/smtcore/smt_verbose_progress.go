@@ -8,7 +8,6 @@ package smtcore
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/numeral"
-	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -311,17 +310,22 @@ func (k *SMTKernel) tickVerbose(counter *uint32, conflictBase uint32) error {
 
 // smtInfEpsText is inf_eps_rational<inf_rational>::to_string.
 func smtInfEpsText(q *numeral.RationalManager, v *smtArithmeticValue) string {
-	var rational, infinitesimal, infinity big.Rat
-	_ = q.BigRatOf(&v.rational, &rational)
-	_ = q.BigRatOf(&v.infinitesimal, &infinitesimal)
-	_ = q.BigRatOf(&v.infinity, &infinity)
-	r := rational.RatString()
+	// to_string reads the rationals; abs(infinitesimal) is a temporary.
+	text := func(x *numeral.Rational) string {
+		s, _ := q.String(x)
+		return s
+	}
+	r := text(&v.rational)
 	if v.infinitesimal.Sign() != 0 {
 		sign := " +e*"
 		if v.infinitesimal.Sign() < 0 {
 			sign = " -e*"
 		}
-		r = "(" + r + sign + new(big.Rat).Abs(&infinitesimal).RatString() + ")"
+		abs := smtQZero()
+		_ = q.Copy(&abs, &v.infinitesimal)
+		_ = q.Abs(&abs)
+		r = "(" + r + sign + text(&abs) + ")"
+		_ = smtQDel(q, &abs)
 	}
 	if v.infinity.Sign() == 0 {
 		return r
@@ -333,7 +337,7 @@ func smtInfEpsText(q *numeral.RationalManager, v *smtArithmeticValue) string {
 	case v.infinity.IsMinusOne():
 		si = "-oo"
 	default:
-		si = infinity.RatString() + "*oo"
+		si = text(&v.infinity) + "*oo"
 	}
 	if v.rational.Sign() == 0 && v.infinitesimal.Sign() == 0 {
 		return si

@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (p *smtFPAValueProcedure) modelTraceTags(generator *SMTModelGenerator) *diagnostic.TraceTags {
@@ -85,7 +85,7 @@ func (p *smtFPAValueProcedure) readModelBitVector(value ast.ASTHandle) (text str
 	return text, width, result
 }
 
-func (p *smtFPAValueProcedure) modelComponents(values []ast.ASTHandle) ([3]string, error) {
+func (p *smtFPAValueProcedure) modelComponents(values []ast.ASTHandle) (_ [3]string, result error) {
 	var components [3]string
 	if len(values) == 3 {
 		for i, value := range values {
@@ -100,23 +100,42 @@ func (p *smtFPAValueProcedure) modelComponents(values []ast.ASTHandle) ([3]strin
 	if len(values) != 1 || p.ebits < 2 || p.sbits < 2 {
 		return components, ast.ErrASTDomain
 	}
-	text, width, err := p.readModelBitVector(values[0])
-	if err != nil || width != p.ebits+p.sbits {
-		if err != nil {
+	// rational all_r; scoped_mpz all_z, sgn_z, exp_z (the source's mpz
+	// manager split: machine_div2k and mod by m_powers2).
+	q := p.manager.NumeralService().Manager
+	z := q.Integers()
+	allR := smtQZero()
+	var allZ, sgnZ, expZ, power numeral.Int
+	defer func() {
+		result = smtErrJoin(result, smtQDel(q, &allR), z.Del(&allZ), z.Del(&sgnZ), z.Del(&expZ), z.Del(&power))
+	}()
+	width, found, err := p.manager.BitVectorNumeralRational(values[0], &allR)
+	if err != nil {
+		return components, err
+	}
+	if !found || width != p.ebits+p.sbits || !allR.IsInt() || allR.IsNeg() {
+		return components, ast.ErrASTDomain
+	}
+	two := numeral.NewInt(2)
+	steps := []func() error{
+		func() error { return q.Numerator(&allR, &allZ) },
+		func() error { return z.MachineDiv2k(&allZ, width-1, &sgnZ) },
+		func() error { return z.Power(&two, width-1, &power) },
+		func() error { return z.Mod(&allZ, &power, &allZ) },
+		func() error { return z.MachineDiv2k(&allZ, p.sbits-1, &expZ) },
+		func() error { return z.Power(&two, p.sbits-1, &power) },
+		func() error { return z.Mod(&allZ, &power, &allZ) },
+	}
+	for _, step := range steps {
+		if err = step(); err != nil {
 			return components, err
 		}
-		return components, ast.ErrASTDomain
 	}
-	packed, ok := new(big.Int).SetString(text, 10)
-	if !ok || packed.Sign() < 0 {
-		return components, ast.ErrASTDomain
+	for i, n := range []*numeral.Int{&sgnZ, &expZ, &allZ} {
+		if components[i], err = z.String(n); err != nil {
+			return components, err
+		}
 	}
-	components[0] = new(big.Int).Rsh(new(big.Int).Set(packed), uint(width-1)).String()
-	exponent := new(big.Int).Rsh(new(big.Int).Set(packed), uint(p.sbits-1))
-	exponent.And(exponent, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(p.ebits)), big.NewInt(1)))
-	components[1] = exponent.String()
-	significand := new(big.Int).And(new(big.Int).Set(packed), new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(p.sbits-1)), big.NewInt(1)))
-	components[2] = significand.String()
 	return components, nil
 }
 
