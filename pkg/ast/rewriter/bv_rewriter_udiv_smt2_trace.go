@@ -24,9 +24,20 @@ func (p *BVRewriter) writeBVTraceSMT2(w io.Writer, h ast.ASTHandle, globals *upa
 }
 
 func writeBVTraceSMT2(m *ast.ASTManager, w io.Writer, h ast.ASTHandle, globals *uparams.GlobalParamsService) (result error) {
+	return writeBVTraceSMT2Indent(m, w, h, globals, 0)
+}
+
+// writeBVTraceSMT2Indent is mk_ismt2_pp(h, m, indent): ast_smt2_pp wraps the
+// format in mk_indent when indent > 0.
+func writeBVTraceSMT2Indent(m *ast.ASTManager, w io.Writer, h ast.ASTHandle, globals *uparams.GlobalParamsService, indent uint32) (result error) {
 	format, err := m.SMT2PPExprTree(h, nil)
 	if err != nil {
 		return err
+	}
+	if indent > 0 {
+		if format, err = m.FormatIndent(indent, format); err != nil {
+			return err
+		}
 	}
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
 	if err != nil {

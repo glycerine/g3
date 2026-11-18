@@ -37,7 +37,7 @@ func (d *DER) traceEliminationOrder(order []uint32) error {
 		}
 		for i, index := range order {
 			if i != 0 {
-				if _, err := io.WriteString(w, " "); err != nil {
+				if _, err := io.WriteString(w, ","); err != nil {
 					return err
 				}
 			}

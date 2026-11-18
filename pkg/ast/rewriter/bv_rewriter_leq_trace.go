@@ -18,7 +18,8 @@ func (p *BVRewriter) traceLEExtra(line int, signed bool, a, b ast.ASTHandle, out
 	if globals == nil || globals.Context == nil {
 		return nil
 	}
-	return tags.EmitConditional("le_extra", "mk_bv_le_core", "src/ast/rewriter/bv_rewriter.cpp", line,
+	// C++ prints each term with mk_ismt2_pp(t, m(), 2).
+	return tags.EmitConditional("le_extra", "mk_leq_core", "src/ast/rewriter/bv_rewriter.cpp", line,
 		func() bool { return true }, func(w io.Writer) error {
 			label := "bv_ule\n"
 			if signed {
@@ -28,7 +29,7 @@ func (p *BVRewriter) traceLEExtra(line int, signed bool, a, b ast.ASTHandle, out
 				return err
 			}
 			for _, h := range [...]ast.ASTHandle{a, b} {
-				if err := p.writeBVTraceSMT2(w, h, globals); err != nil {
+				if err := writeBVTraceSMT2Indent(p.manager, w, h, globals, 2); err != nil {
 					return err
 				}
 				if _, err := io.WriteString(w, "\n"); err != nil {
@@ -42,7 +43,7 @@ func (p *BVRewriter) traceLEExtra(line int, signed bool, a, b ast.ASTHandle, out
 			if err != nil {
 				return err
 			}
-			if err = p.writeBVTraceSMT2(w, result, globals); err != nil {
+			if err = writeBVTraceSMT2Indent(p.manager, w, result, globals, 2); err != nil {
 				return err
 			}
 			_, err = io.WriteString(w, "\n")

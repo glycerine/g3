@@ -54,7 +54,7 @@ func TestBVRewriterLEExtraSourceTrace(t *testing.T) {
 		return
 	}
 	record := func(line, body string) string {
-		return "-------- [le_extra] mk_bv_le_core src/ast/rewriter/bv_rewriter.cpp:" + line + " ---------\n" + body + "------------------------------------------------\n"
+		return "-------- [le_extra] mk_leq_core src/ast/rewriter/bv_rewriter.cpp:" + line + " ---------\n" + body + "------------------------------------------------\n"
 	}
 	want := record("514", "bv_ule\n(concat (:var 0) (:var 1))\n(concat (:var 0) (:var 2))\n--->\n(bvule (:var 1) (:var 2))\n") +
 		record("514", "bv_sle\n(concat (:var 0) (:var 1))\n(concat (:var 0) (:var 2))\n--->\n(bvule (:var 1) (:var 2))\n") +

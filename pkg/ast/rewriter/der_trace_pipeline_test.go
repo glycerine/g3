@@ -66,3 +66,43 @@ func TestDERUniversalSourceTracePipeline(t *testing.T) {
 		}
 	}
 }
+
+// der.cpp get_elimination_order separates the indices with commas.
+func TestDERTraceEliminationOrderCommaSeparated(t *testing.T) {
+	f := newFactorFixture(t)
+	bindBVTraceGlobals(t, f.m)
+	d, err := NewDER(f.m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, d.Close()) })
+	x0, err := f.m.MkVar(0, f.sort)
+	astTestMust(t, err)
+	x1, err := f.m.MkVar(1, f.sort)
+	astTestMust(t, err)
+	eq0, err := f.m.MkEq(x0, f.numeral(5))
+	astTestMust(t, err)
+	eq1, err := f.m.MkEq(x1, f.numeral(6))
+	astTestMust(t, err)
+	ne0, err := f.m.MkNot(eq0)
+	astTestMust(t, err)
+	ne1, err := f.m.MkNot(eq1)
+	astTestMust(t, err)
+	boolean, err := f.m.MkBoolSort()
+	astTestMust(t, err)
+	p, err := f.m.MkConst(astTestSymbol(t, f.m, "der-order-p"), boolean)
+	astTestMust(t, err)
+	body, err := f.m.MkOrArgs([]ast.ASTHandle{ne0, ne1, p})
+	astTestMust(t, err)
+	q := derQuantifier(t, f.m, true, []ast.ASTHandle{f.sort, f.sort}, body)
+	var output bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&output)
+	tags.Enable("der")
+	astTestMust(t, d.BindTrace(tags))
+	derReduce(t, d, f.m, q)
+	if !tags.ShouldTrace("der") {
+		return
+	}
+	trace := output.String()
+	if !strings.Contains(trace, "Elimination m_order:\n1,0\n") && !strings.Contains(trace, "Elimination m_order:\n0,1\n") {
+		t.Fatalf("elimination order not comma separated: %q", trace)
+	}
+}
