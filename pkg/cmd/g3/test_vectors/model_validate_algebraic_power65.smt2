@@ -1,0 +1,1 @@
+(set-option :model_validate true)(declare-const x Real)(assert (= (* x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x) 3.0))(check-sat)
