@@ -2,6 +2,7 @@ package arena
 
 import (
 	"math"
+	"math/bits"
 	"reflect"
 )
 
@@ -55,7 +56,8 @@ func newDescriptorSlab(config Config) (*descriptorSlab, error) {
 
 func (s *descriptorSlab) location(slot Slot) (uint32, uint32) {
 	n := uint32(slot) - 1
-	return n / s.config.PageSize, n & (s.config.PageSize - 1)
+	// PageSize is a power of two (checked at construction): shift, not divide.
+	return n >> bits.TrailingZeros32(s.config.PageSize), n & (s.config.PageSize - 1)
 }
 func (s *descriptorSlab) state(slot Slot) *slotState {
 	if slot == 0 || uint32(slot) > s.slots {
