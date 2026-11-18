@@ -17,9 +17,9 @@ func (t *SparseTable) FilterInterpretedAndProject(manager *RelationManager, sort
 	if err != nil {
 		return nil, err
 	}
-	// default_table_filter_interpreted_and_project_fn never deallocates its
-	// clone t2, so no sparse recycle line is printed for it.
-	defer func() { resultErr = errors.Join(resultErr, filtered.release()) }()
+	// default_table_filter_interpreted_and_project_fn deallocates its clone
+	// t2 after the projection (FORK FIX #126): sparse recycle line.
+	defer func() { resultErr = errors.Join(resultErr, filtered.Close()) }()
 	if err = filtered.FilterInterpreted(manager, sorts, rewriter, condition); err != nil {
 		return nil, err
 	}

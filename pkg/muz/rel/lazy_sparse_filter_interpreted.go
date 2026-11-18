@@ -216,12 +216,12 @@ func filterInterpretedProjectForced(m *RelationManager, table FiniteTable, filte
 		return nil, err
 	}
 	if err = filterInterpretedForced(clone, filter.interpreted); err != nil {
-		return nil, errors.Join(err, releaseUnallocated(clone))
+		return nil, errors.Join(err, clone.Close())
 	}
 	projected, projectErr := finiteTableProjectIn(m, clone, removed)
-	// default_table_filter_interpreted_and_project_fn never deallocates
-	// its clone t2 (no recycle line).
-	closeErr := releaseUnallocated(clone)
+	// default_table_filter_interpreted_and_project_fn deallocates its
+	// clone t2 after the projection (FORK FIX #126).
+	closeErr := clone.Close()
 	if projectErr != nil || closeErr != nil {
 		if projected != nil {
 			closeErr = errors.Join(closeErr, projected.Close())

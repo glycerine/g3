@@ -84,20 +84,23 @@ func (p *TableRelationPlugin) MkFilterInterpretedAndProjectFn(t RelationBase, co
 // tableFilterInterpretedAndProject is
 // default_table_filter_interpreted_and_project_fn (the sparse, hashtable
 // and lazy plugins have none): t2 = tb.clone(), the filter of t2, then
-// mk_project_fn(t2); t2 is never deallocated.
+// mk_project_fn(t2), then t2->deallocate() (FORK FIX #126).
 func (m *RelationManager) tableFilterInterpretedAndProject(table FiniteTable, sorts []ast.ASTHandle, condition ast.ASTHandle, removed []int) (FiniteTable, error) {
 	clone, err := table.CloneFinite()
 	if err != nil {
 		return nil, err
 	}
 	if err = m.tableFilterInterpreted(clone, sorts, condition); err != nil {
-		return nil, errors.Join(err, releaseUnallocated(clone))
+		return nil, errors.Join(err, clone.Close())
 	}
 	result, err := finiteTableProjectIn(m, clone, removed)
 	if err != nil {
-		return nil, errors.Join(err, releaseUnallocated(clone))
+		return nil, errors.Join(err, clone.Close())
 	}
-	return result, releaseUnallocated(clone)
+	if err = clone.Close(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	return result, nil
 }
 
 // MkSelectEqualAndProjectFn is
