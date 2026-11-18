@@ -39,8 +39,38 @@ func (p *BVRewriter) RewriteLE(signed bool, a, b ast.ASTHandle, out ast.ASTRef) 
 	defer func() { p.running = false; p.fail(err) }()
 	return p.rewriteLE(signed, a, b, out)
 }
+
+// leMayApply reports whether mk_leq_core can do anything for (a, b). With
+// a != b, neither side a numeral and bv_le_extra off, only the unsigned
+// is_zero_bit rule remains, and is_zero_bit(b, msb) is false unless b is a
+// concatenation; the source then returns BR_FAILED having built no term
+// and touched no numeral, so the numeral storage is not set up at all.
+func (p *BVRewriter) leMayApply(signed bool, a, b ast.ASTHandle) (bool, error) {
+	if a == b || p.polynomial.config.bitVector.LEExtra {
+		return true, nil
+	}
+	m := p.manager
+	if yes, err := m.IsBitVectorNumeral(a); err != nil || yes {
+		return yes, err
+	}
+	if yes, err := m.IsBitVectorNumeral(b); err != nil || yes {
+		return yes, err
+	}
+	if signed {
+		return false, nil
+	}
+	if concat, err := m.IsBitVectorOperation(b, 37); err != nil || concat { // OP_CONCAT
+		return concat, err
+	}
+	width, err := m.BitVectorSize(b)
+	return width == 0, err
+}
+
 func (p *BVRewriter) rewriteLE(signed bool, a, b ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
 	m := p.manager
+	if possible, err := p.leMayApply(signed, a, b); err != nil || !possible {
+		return RewriteFailed, err
+	}
 	bytes := bvLEInvocationBytes
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return RewriteFailed, e

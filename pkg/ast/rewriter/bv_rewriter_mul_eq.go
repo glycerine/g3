@@ -37,6 +37,24 @@ func (p *BVPolynomialRewriter) RewriteMultiplicationEquality(lhs, rhs ast.ASTHan
 		}
 	}()
 	m := p.manager
+	// mk_mul_eq only does numeral work when lhs is (bvmul c x) with c a
+	// numeral, or lhs is a numeral; otherwise it returns BR_FAILED having
+	// built nothing, so the numeral storage is not set up.
+	binary, c, _, e := bvBinaryMultiplication(m, lhs)
+	if e != nil {
+		return st, e
+	}
+	possible := false
+	if binary {
+		if possible, e = m.IsBitVectorNumeral(c); e != nil {
+			return st, e
+		}
+	}
+	if !possible {
+		if possible, e = m.IsBitVectorNumeral(lhs); e != nil || !possible {
+			return st, e
+		}
+	}
 	n, e := ast.ReuseBitVectorMulEqualityNumerals(m, p.mulEqualitySpare)
 	p.mulEqualitySpare = nil
 	p.mulEquality = n
