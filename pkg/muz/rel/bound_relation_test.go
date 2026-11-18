@@ -90,7 +90,7 @@ func TestBoundRelationFactAbstraction(t *testing.T) {
 
 func TestBoundRelationUnionInterval(t *testing.T) {
 	n := func(v int64) *big.Rat { return big.NewRat(v, 1) }
-	interval := rel.NewIntervalEmpty(3)
+	interval := rel.NewIntervalEmpty(rel.IntervalTestManager(), 3)
 	if err := interval.AddFact([]*big.Rat{n(1), n(2), n(2)}); err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestBoundRelationUnionInterval(t *testing.T) {
 	if err != nil || len(strict) != 0 || !reflect.DeepEqual(weak, []uint32{2}) {
 		t.Fatal("equal endpoint handling", strict, weak, err)
 	}
-	if err = r.UnionInterval(rel.NewIntervalFull(3)); err != nil {
+	if err = r.UnionInterval(rel.NewIntervalFull(rel.IntervalTestManager(), 3)); err != nil {
 		t.Fatal(err)
 	}
 	strict, weak, err = r.Bounds(0)

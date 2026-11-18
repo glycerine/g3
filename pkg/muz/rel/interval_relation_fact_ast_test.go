@@ -21,8 +21,8 @@ func TestIntervalRelationASTFactMembership(t *testing.T) {
 	}
 	one, two, three := own(m.ArithmeticRealNumeralText("1")), own(m.ArithmeticRealNumeralText("2")), own(m.ArithmeticRealNumeralText("3"))
 	x, y := own(m.MkVar(0, real)), own(m.MkVar(1, real))
-	r := NewIntervalFull(2)
-	astTestMust(t, r.FilterEqual(0, big.NewRat(2, 1)))
+	r := NewIntervalFull(IntervalTestManager(), 2)
+	astTestMust(t, r.FilterEqualRat(0, big.NewRat(2, 1)))
 	astTestMust(t, r.FilterIdenticalColumns([]uint32{0, 1}))
 	for _, tc := range []struct {
 		name   string
@@ -42,7 +42,7 @@ func TestIntervalRelationASTFactMembership(t *testing.T) {
 			}
 		})
 	}
-	if got, err := NewIntervalEmpty(1).ContainsFactExpressions(m, []ast.ASTHandle{three}); err != nil || !got {
+	if got, err := NewIntervalEmpty(IntervalTestManager(), 1).ContainsFactExpressions(m, []ast.ASTHandle{three}); err != nil || !got {
 		t.Fatal("source empty relation bounds should remain conservatively visible", got, err)
 	}
 	if _, err = r.ContainsFactExpressions(m, []ast.ASTHandle{two}); err == nil {
@@ -69,7 +69,7 @@ func TestIntervalRelationASTFactInsertion(t *testing.T) {
 		return h
 	}
 	one, three := own(m.ArithmeticRealNumeralText("1")), own(m.ArithmeticRealNumeralText("3"))
-	r := NewIntervalEmpty(1)
+	r := NewIntervalEmpty(IntervalTestManager(), 1)
 	astTestMust(t, r.AddFactExpressions(m, []ast.ASTHandle{real}, []ast.ASTHandle{one}))
 	astTestMust(t, r.AddFactExpressions(m, []ast.ASTHandle{real}, []ast.ASTHandle{three}))
 	for _, value := range []ast.ASTHandle{one, three} {
@@ -86,7 +86,7 @@ func TestIntervalRelationASTFactInsertion(t *testing.T) {
 	astTestMust(t, err)
 	astTestPin(t, m, declaration)
 	symbolic := own(m.MkApp(declaration, nil))
-	symbols := NewIntervalEmpty(1)
+	symbols := NewIntervalEmpty(IntervalTestManager(), 1)
 	astTestMust(t, symbols.AddFactExpressions(m, []ast.ASTHandle{real}, []ast.ASTHandle{symbolic}))
 	if !symbols.IsFull() {
 		t.Fatal("unrecognized symbolic source fact should produce the conservative full interval")

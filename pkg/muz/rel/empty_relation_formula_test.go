@@ -14,7 +14,7 @@ func TestEmptyRelationFormulaSourceSemantics(t *testing.T) {
 	astTestMust(t, err)
 	sorts := []ast.ASTHandle{sort, sort}
 	bound := NewBoundRelation(2, true)
-	interval := NewIntervalEmpty(2)
+	interval := NewIntervalEmpty(IntervalTestManager(), 2)
 	for name, test := range map[string]struct {
 		makeFormula func() (ast.ASTRef, error)
 		wantTrue    bool

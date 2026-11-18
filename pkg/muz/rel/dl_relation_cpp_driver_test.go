@@ -19,14 +19,14 @@ func TestIntervalRelationSourceOperations(t *testing.T) {
 	own := func(h ast.ASTHandle, err error) ast.ASTHandle { astTestMust(t, err); astTestPin(t, m, h); return h }
 	x0, x1 := own(m.MkVar(0, sort)), own(m.MkVar(1, sort))
 	zero, one := own(m.ArithmeticIntegerNumeralText("0")), own(m.ArithmeticIntegerNumeralText("1"))
-	empty, full := NewIntervalEmpty(4), NewIntervalFull(4)
+	empty, full := NewIntervalEmpty(IntervalTestManager(), 4), NewIntervalFull(IntervalTestManager(), 4)
 	if !empty.Empty() || full.Empty() {
 		t.Fatal("source empty/full initialization")
 	}
 	astTestMust(t, full.FilterInterpreted(m, own(m.MkArithmeticLE(x0, zero))))
 	joined, err := JoinIntervalRelations(full, full, []uint32{1, 2}, []uint32{2, 3})
 	astTestMust(t, err)
-	astTestMust(t, full.FilterEqual(2, big.NewRat(4, 1)))
+	astTestMust(t, full.FilterEqualRat(2, big.NewRat(4, 1)))
 	astTestMust(t, full.FilterIdentical(1, 2))
 	fact := func(a int64) []*big.Rat {
 		return []*big.Rat{big.NewRat(a, 1), big.NewRat(4, 1), big.NewRat(4, 1), big.NewRat(5, 1)}
@@ -59,7 +59,7 @@ func TestIntervalRelationSourceOperations(t *testing.T) {
 	x := own(m.MkVar(0, real))
 	half := own(m.ArithmeticRealNumeralText("1/2"))
 	two := own(m.ArithmeticRealNumeralText("2"))
-	ranged := NewIntervalFull(1)
+	ranged := NewIntervalFull(IntervalTestManager(), 1)
 	astTestMust(t, ranged.FilterInterpreted(m, own(m.MkArithmeticLT(half, x))))
 	astTestMust(t, ranged.FilterInterpreted(m, own(m.MkArithmeticLE(x, two))))
 	var display bytes.Buffer

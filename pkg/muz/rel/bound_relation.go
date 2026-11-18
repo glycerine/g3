@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type boundColumn struct{ lt, le map[uint32]bool }
@@ -198,25 +199,53 @@ func (r *BoundRelation) UnionInterval(source *IntervalRelation) error {
 	if r == nil || source == nil || source.values == nil || len(r.columns) != len(source.values.columns) {
 		return ast.ErrASTDomain
 	}
+	q := source.values.intervals.Rationals()
+	// hi.is_infinite() || lo.to_rational() >= hi.to_rational() (strict) or
+	// > (weak), with lo = src[i].sup() and hi = src[j].inf().
+	drop := func(lo *numeral.Rational, j uint32, strict bool) (bool, error) {
+		hi := &source.values.columns[source.values.find(j)]
+		if hi.MinusInfinity() {
+			return true, nil
+		}
+		value, err := hi.LowerValue()
+		if err != nil {
+			return false, err
+		}
+		c, err := q.Compare(lo, value)
+		if err != nil {
+			return false, err
+		}
+		return c > 0 || strict && c == 0, nil
+	}
 	for i := range r.columns {
 		if r.find(uint32(i)) != uint32(i) {
 			continue
 		}
-		_, _, upper, _ := source.values.columns[source.values.find(uint32(i))].Bounds()
-		if upper == nil {
+		column := &source.values.columns[source.values.find(uint32(i))]
+		if column.PlusInfinity() {
 			clear(r.columns[i].lt)
 			clear(r.columns[i].le)
 			continue
 		}
+		upper, err := column.UpperValue()
+		if err != nil {
+			return err
+		}
 		for j := range r.columns[i].lt {
-			lower, _, _, _ := source.values.columns[source.values.find(j)].Bounds()
-			if lower == nil || upper.Cmp(lower) >= 0 {
+			remove, err := drop(upper, j, true)
+			if err != nil {
+				return err
+			}
+			if remove {
 				delete(r.columns[i].lt, j)
 			}
 		}
 		for j := range r.columns[i].le {
-			lower, _, _, _ := source.values.columns[source.values.find(j)].Bounds()
-			if lower == nil || upper.Cmp(lower) > 0 {
+			remove, err := drop(upper, j, false)
+			if err != nil {
+				return err
+			}
+			if remove {
 				delete(r.columns[i].le, j)
 			}
 		}

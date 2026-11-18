@@ -13,7 +13,7 @@ func TestBoundRelationUnionFromEmptyIntervalUsesResetPayload(t *testing.T) {
 	// bound_relation::mk_union_i reads src[i].sup() without checking
 	// src.empty(). An empty interval relation has reset, unbounded payloads,
 	// so the source path clears every bound on each representative column.
-	emptyIntervals := NewIntervalEmpty(2)
+	emptyIntervals := NewIntervalEmpty(IntervalTestManager(), 2)
 	if !emptyIntervals.Empty() {
 		t.Fatal("precondition: interval relation should remain empty")
 	}
@@ -31,8 +31,8 @@ func TestBoundRelationUnionFromEmptyIntervalUsesResetPayload(t *testing.T) {
 
 func TestBoundRelationUnionIntervalDoesNotReviveEmptyTarget(t *testing.T) {
 	target := NewBoundRelation(1, true)
-	source := NewIntervalFull(1)
-	astTestMust(t, source.FilterEqual(0, big.NewRat(3, 1)))
+	source := NewIntervalFull(IntervalTestManager(), 1)
+	astTestMust(t, source.FilterEqualRat(0, big.NewRat(3, 1)))
 
 	astTestMust(t, target.UnionInterval(source))
 	if !target.Empty() {

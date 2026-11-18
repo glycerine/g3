@@ -3,19 +3,17 @@ package rel
 import (
 	"math/big"
 	"testing"
-
-	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 func TestIntervalRelationUnionIntoEmptyUsesSourceVectorCopy(t *testing.T) {
-	source := NewIntervalFull(2)
-	source.values.columns[0] = smtcore.NewRelationInterval(big.NewRat(1, 1), false, big.NewRat(5, 1), false)
-	source.values.columns[1] = smtcore.NewRelationInterval(big.NewRat(3, 1), false, big.NewRat(8, 1), false)
+	source := NewIntervalFull(IntervalTestManager(), 2)
+	source.values.columns[0] = NewTestRelationInterval(big.NewRat(1, 1), false, big.NewRat(5, 1), false)
+	source.values.columns[1] = NewTestRelationInterval(big.NewRat(3, 1), false, big.NewRat(8, 1), false)
 	if err := source.values.equate(0, 1); err != nil {
 		t.Fatal(err)
 	}
 
-	target := NewIntervalEmpty(2)
+	target := NewIntervalEmpty(IntervalTestManager(), 2)
 	changed, err := target.Union(source, false)
 	if err != nil {
 		t.Fatal(err)
@@ -37,7 +35,7 @@ func TestIntervalRelationUnionIntoEmptyUsesSourceVectorCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	unchanged, err := target.Union(NewIntervalEmpty(2), false)
+	unchanged, err := target.Union(NewIntervalEmpty(IntervalTestManager(), 2), false)
 	if err != nil || unchanged || target.Empty() {
 		t.Fatalf("empty source changed target: changed=%v empty=%v err=%v", unchanged, target.Empty(), err)
 	}

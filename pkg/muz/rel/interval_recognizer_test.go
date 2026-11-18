@@ -1,10 +1,22 @@
 package rel
 
 import (
-	"github.com/glycerine/g3/pkg/ast"
 	"math"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
+
+// recognizedConstant is k's text; the constant is freed.
+func recognizedConstant(t *testing.T, m *ast.ASTManager, c *intervalConstraint) string {
+	t.Helper()
+	q := m.NumeralService().Manager
+	text, err := q.String(&c.constant)
+	astTestMust(t, err)
+	astTestMust(t, q.Del(&c.constant))
+	c.constant = newIntervalConstraint().constant
+	return text
+}
 
 func TestIntervalRelationLinearComparisonRecognition(t *testing.T) {
 	m := astTestManager(t)
@@ -44,21 +56,21 @@ func TestIntervalRelationLinearComparisonRecognition(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			kind, c, ok, e := intervalComparison(m, tc.h)
+			kind, c, ok, e := intervalComparison(m, m.NumeralService().Manager, tc.h)
 			astTestMust(t, e)
 			if ok != tc.ok {
 				t.Fatalf("matched %v want %v", ok, tc.ok)
 			}
-			if ok && (kind != tc.kind || c.positive != tc.pos || c.negative != tc.neg || c.constant.RatString() != tc.k || c.integer != tc.integer) {
-				t.Fatalf("kind=%d +%d -%d k=%s integer=%v", kind, c.positive, c.negative, c.constant.RatString(), c.integer)
+			if ok && (kind != tc.kind || c.positive != tc.pos || c.negative != tc.neg || recognizedConstant(t, m, &c) != tc.k || c.integer != tc.integer) {
+				t.Fatalf("kind=%d +%d -%d k=%s integer=%v", kind, c.positive, c.negative, recognizedConstant(t, m, &c), c.integer)
 			}
 		})
 	}
 	// A missing side uses the source unsigned sentinel rather than variable zero.
 	lone := own(m.MkArithmeticLE(x, two))
-	kind, c, ok, e := intervalComparison(m, lone)
+	kind, c, ok, e := intervalComparison(m, m.NumeralService().Manager, lone)
 	astTestMust(t, e)
-	if !ok || kind != 0 || c.positive != math.MaxUint32 || c.negative != 0 || c.constant.RatString() != "2" {
+	if !ok || kind != 0 || c.positive != math.MaxUint32 || c.negative != 0 || recognizedConstant(t, m, &c) != "2" {
 		t.Fatal("sentinel", kind, c, ok)
 	}
 }

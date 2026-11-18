@@ -17,12 +17,12 @@ func TestIntervalColumnsInterpretedFilters(t *testing.T) {
 	own := func(h ast.ASTHandle, err error) ast.ASTHandle { astTestMust(t, err); astTestPin(t, m, h); return h }
 	x, y := own(m.MkVar(0, real)), own(m.MkVar(1, real))
 	zero, two := own(m.ArithmeticRealNumeralText("0")), own(m.ArithmeticRealNumeralText("2"))
-	r := newIntervalColumns(2, false)
+	r := newIntervalColumns(IntervalTestManager(), 2, false)
 	astTestMust(t, r.filterInterpreted(m, own(m.MkArithmeticGE(x, zero))))
 	astTestMust(t, r.filterInterpreted(m, own(m.MkArithmeticLT(x, two))))
 	astTestMust(t, r.filterInterpreted(m, own(m.MkEq(y, x))))
 	for i, v := range r.columns {
-		lo, loOpen, hi, hiOpen := v.Bounds()
+		lo, loOpen, hi, hiOpen := testBounds(&v)
 		if lo == nil || hi == nil || lo.RatString() != "0" || hi.RatString() != "2" || loOpen || !hiOpen {
 			t.Fatalf("column %d: %v %v %v %v", i, lo, loOpen, hi, hiOpen)
 		}
@@ -31,7 +31,7 @@ func TestIntervalColumnsInterpretedFilters(t *testing.T) {
 	if !r.empty {
 		t.Fatal("disjoint bounds must empty the relation")
 	}
-	falseRelation := newIntervalColumns(1, false)
+	falseRelation := newIntervalColumns(IntervalTestManager(), 1, false)
 	astTestMust(t, falseRelation.filterInterpreted(m, own(m.MkFalse())))
 	if !falseRelation.empty {
 		t.Fatal("false condition must empty the relation")
@@ -51,24 +51,24 @@ func TestIntervalColumnsUnknownInterpretedConditionIsConservative(t *testing.T) 
 	belowTwo := own(m.MkArithmeticLE(x, two))
 	aboveFour := own(m.MkArithmeticGE(x, four))
 	condition := own(m.MkAndArgs([]ast.ASTHandle{belowTwo, aboveFour}))
-	relation := newIntervalColumns(1, false)
+	relation := newIntervalColumns(IntervalTestManager(), 1, false)
 	astTestMust(t, relation.filterInterpreted(m, condition))
 	// The source recognizes one comparison at a time; an unsupported
 	// conjunction is ignored instead of combining its child predicates.
-	lower, _, upper, _ := relation.columns[0].Bounds()
+	lower, _, upper, _ := testBounds(&relation.columns[0])
 	if relation.empty || lower != nil || upper != nil {
 		t.Fatalf("unsupported condition changed the full interval: %v %v", lower, upper)
 	}
 }
 
 func TestIntervalVectorColumnEquivalences(t *testing.T) {
-	r := newIntervalColumns(3, false)
+	r := newIntervalColumns(IntervalTestManager(), 3, false)
 	point := func(n int64) smtcore.RelationInterval {
 		v := big.NewRat(n, 1)
-		return smtcore.NewRelationInterval(v, false, v, false)
+		return NewTestRelationInterval(v, false, v, false)
 	}
-	astTestMust(t, r.intersect(0, smtcore.NewRelationInterval(big.NewRat(0, 1), false, big.NewRat(2, 1), false)))
-	astTestMust(t, r.intersect(1, smtcore.NewRelationInterval(big.NewRat(1, 1), false, big.NewRat(3, 1), false)))
+	astTestMust(t, testIntersect(r, 0, NewTestRelationInterval(big.NewRat(0, 1), false, big.NewRat(2, 1), false)))
+	astTestMust(t, testIntersect(r, 1, NewTestRelationInterval(big.NewRat(1, 1), false, big.NewRat(3, 1), false)))
 	astTestMust(t, r.equate(0, 1))
 	if r.find(0) != 1 {
 		t.Fatal("equal-size merge must select second root")
@@ -77,14 +77,14 @@ func TestIntervalVectorColumnEquivalences(t *testing.T) {
 	if r.find(2) != 1 {
 		t.Fatal("merge must preserve the larger root")
 	}
-	astTestMust(t, r.intersect(2, point(2)))
+	astTestMust(t, testIntersect(r, 2, point(2)))
 	for i := uint32(0); i < 3; i++ {
 		v := r.columns[r.find(i)]
-		if !v.Contains(big.NewRat(2, 1)) || v.Contains(big.NewRat(1, 1)) {
+		if !testContains(&v, big.NewRat(2, 1)) || testContains(&v, big.NewRat(1, 1)) {
 			t.Fatalf("column %d did not share intersected range", i)
 		}
 	}
-	astTestMust(t, r.intersect(1, point(3)))
+	astTestMust(t, testIntersect(r, 1, point(3)))
 	if !r.empty {
 		t.Fatal("conflicting equal column must empty relation")
 	}
@@ -94,9 +94,9 @@ func TestIntervalVectorColumnEquivalences(t *testing.T) {
 		}
 	}
 
-	r = newIntervalColumns(2, false)
-	astTestMust(t, r.intersect(0, point(1)))
-	astTestMust(t, r.intersect(1, point(2)))
+	r = newIntervalColumns(IntervalTestManager(), 2, false)
+	astTestMust(t, testIntersect(r, 0, point(1)))
+	astTestMust(t, testIntersect(r, 1, point(2)))
 	astTestMust(t, r.equate(0, 1))
 	if !r.empty {
 		t.Fatal("equating disjoint columns must empty relation")
@@ -112,12 +112,12 @@ func TestIntervalColumnsBinaryPropagation(t *testing.T) {
 	own := func(h ast.ASTHandle, err error) ast.ASTHandle { astTestMust(t, err); astTestPin(t, m, h); return h }
 	x, y := own(m.MkVar(0, real)), own(m.MkVar(1, real))
 	one, five := own(m.ArithmeticRealNumeralText("1")), own(m.ArithmeticRealNumeralText("5"))
-	r := newIntervalColumns(2, false)
+	r := newIntervalColumns(IntervalTestManager(), 2, false)
 	astTestMust(t, r.filterInterpreted(m, own(m.MkArithmeticLE(x, five))))
 	astTestMust(t, r.filterInterpreted(m, own(m.MkArithmeticGE(y, one))))
 	astTestMust(t, r.filterInterpreted(m, own(m.MkArithmeticLT(y, x))))
-	lo, loOpen, _, _ := r.columns[0].Bounds()
-	_, _, hi, hiOpen := r.columns[1].Bounds()
+	lo, loOpen, _, _ := testBounds(&r.columns[0])
+	_, _, hi, hiOpen := testBounds(&r.columns[1])
 	if lo == nil || lo.RatString() != "1" || !loOpen || hi == nil || hi.RatString() != "5" || !hiOpen {
 		t.Fatalf("binary propagation: x lower %v open=%v, y upper %v open=%v", lo, loOpen, hi, hiOpen)
 	}
@@ -138,22 +138,22 @@ func TestIntervalColumnsIntegerStrictBounds(t *testing.T) {
 	three := own(m.ArithmeticIntegerNumeralText("3"))
 	four := own(m.ArithmeticIntegerNumeralText("4"))
 
-	less := newIntervalColumns(1, false)
+	less := newIntervalColumns(IntervalTestManager(), 1, false)
 	astTestMust(t, less.filterInterpreted(m, own(m.MkArithmeticLT(x, three))))
-	_, lowerOpen, upper, upperOpen := less.columns[0].Bounds()
+	_, lowerOpen, upper, upperOpen := testBounds(&less.columns[0])
 	if !lowerOpen || upper == nil || upper.RatString() != "2" || upperOpen {
 		t.Fatalf("integer x < 3 bound: lower open=%v, upper=%v open=%v", lowerOpen, upper, upperOpen)
 	}
 
-	notAtMost := newIntervalColumns(1, false)
+	notAtMost := newIntervalColumns(IntervalTestManager(), 1, false)
 	atMost := own(m.MkArithmeticLE(x, three))
 	astTestMust(t, notAtMost.filterInterpreted(m, own(m.MkNot(atMost))))
-	lower, lowerOpen, _, _ := notAtMost.columns[0].Bounds()
+	lower, lowerOpen, _, _ := testBounds(&notAtMost.columns[0])
 	if lower == nil || lower.RatString() != "4" || lowerOpen {
 		t.Fatalf("integer not (x <= 3) bound: lower=%v open=%v", lower, lowerOpen)
 	}
 
-	contradiction := newIntervalColumns(1, false)
+	contradiction := newIntervalColumns(IntervalTestManager(), 1, false)
 	astTestMust(t, contradiction.filterInterpreted(m, own(m.MkArithmeticLT(x, three))))
 	astTestMust(t, contradiction.filterInterpreted(m, own(m.MkArithmeticGE(x, four))))
 	if !contradiction.empty {

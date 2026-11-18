@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-
-	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 func TestIntervalRelationUnionAndWidenEqualEndpointTieMatrix(t *testing.T) {
 	newRelation := func(lowerOpen, upperOpen bool) *IntervalRelation {
-		relation := NewIntervalFull(1)
-		relation.values.columns[0] = smtcore.NewRelationInterval(big.NewRat(0, 1), lowerOpen, big.NewRat(2, 1), upperOpen)
+		relation := NewIntervalFull(IntervalTestManager(), 1)
+		relation.values.columns[0] = NewTestRelationInterval(big.NewRat(0, 1), lowerOpen, big.NewRat(2, 1), upperOpen)
 		return relation
 	}
 	for targetMask := 0; targetMask < 4; targetMask++ {

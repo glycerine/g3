@@ -21,13 +21,13 @@ func TestIntervalRelationUnionAndWidenEndpointOpenness(t *testing.T) {
 	zero := own(m.ArithmeticRealNumeralText("0"))
 	two := own(m.ArithmeticRealNumeralText("2"))
 	openLowerClosedUpper := func() *IntervalRelation {
-		r := NewIntervalFull(1)
+		r := NewIntervalFull(IntervalTestManager(), 1)
 		astTestMust(t, r.FilterInterpreted(m, own(m.MkArithmeticGT(x, zero))))
 		astTestMust(t, r.FilterInterpreted(m, own(m.MkArithmeticLE(x, two))))
 		return r
 	}
 	closedLowerOpenUpper := func() *IntervalRelation {
-		r := NewIntervalFull(1)
+		r := NewIntervalFull(IntervalTestManager(), 1)
 		astTestMust(t, r.FilterInterpreted(m, own(m.MkArithmeticGE(x, zero))))
 		astTestMust(t, r.FilterInterpreted(m, own(m.MkArithmeticLT(x, two))))
 		return r

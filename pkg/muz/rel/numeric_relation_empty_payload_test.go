@@ -46,7 +46,7 @@ func TestNumericRelationFiltersMutateEmptyPayloadLikeSource(t *testing.T) {
 	t.Run("interval", func(t *testing.T) {
 		x := own(m.MkVar(0, real))
 		three := own(m.ArithmeticRealNumeralText("3"))
-		r := NewIntervalEmpty(1)
+		r := NewIntervalEmpty(IntervalTestManager(), 1)
 		astTestMust(t, r.FilterInterpreted(m, own(m.MkEq(x, three))))
 		if !r.Empty() {
 			t.Fatal("filter cleared the source empty flag")

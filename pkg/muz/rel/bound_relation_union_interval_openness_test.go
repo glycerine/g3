@@ -29,7 +29,7 @@ func TestBoundRelationUnionIntervalIgnoresEndpointOpenness(t *testing.T) {
 		{"open", own(m.MkArithmeticLT(x, one)), own(m.MkArithmeticGT(y, one))},
 	} {
 		t.Run(endpoint.name, func(t *testing.T) {
-			interval := NewIntervalFull(2)
+			interval := NewIntervalFull(IntervalTestManager(), 2)
 			astTestMust(t, interval.FilterInterpreted(m, endpoint.left))
 			astTestMust(t, interval.FilterInterpreted(m, endpoint.right))
 			for _, strict := range []bool{true, false} {

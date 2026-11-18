@@ -3,8 +3,6 @@ package rel
 import (
 	"math/big"
 	"testing"
-
-	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 func TestBoundRelationUnionIntervalUsesRepresentativePayload(t *testing.T) {
@@ -18,10 +16,10 @@ func TestBoundRelationUnionIntervalUsesRepresentativePayload(t *testing.T) {
 		{name: "weak", strict: false, upper: 9},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			intervals := NewIntervalFull(3)
-			intervals.values.columns[0] = smtcore.NewRelationInterval(newRat(0), false, newRat(10), false)
-			intervals.values.columns[1] = smtcore.NewRelationInterval(newRat(5), false, newRat(tc.upper), false)
-			intervals.values.columns[2] = smtcore.NewRelationInterval(newRat(9), false, newRat(12), false)
+			intervals := NewIntervalFull(IntervalTestManager(), 3)
+			intervals.values.columns[0] = NewTestRelationInterval(newRat(0), false, newRat(10), false)
+			intervals.values.columns[1] = NewTestRelationInterval(newRat(5), false, newRat(tc.upper), false)
+			intervals.values.columns[2] = NewTestRelationInterval(newRat(9), false, newRat(12), false)
 			if err := intervals.values.equate(0, 1); err != nil {
 				t.Fatal(err)
 			}

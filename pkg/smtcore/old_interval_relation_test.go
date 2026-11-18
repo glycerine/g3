@@ -1,43 +1,82 @@
 package smtcore
 
 import (
-	"math/big"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestIntervalRelationRangeOperations(t *testing.T) {
-	q := func(n int64) *big.Rat { return big.NewRat(n, 1) }
-	a := NewRelationInterval(q(0), true, q(2), false)
-	b := NewRelationInterval(q(0), false, q(2), true)
-	h := a.Hull(b)
-	if !h.Contains(q(0)) || !h.Contains(q(2)) {
+	q, err := numeral.NewRationalManager(numeral.RationalConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRelationIntervalManager(q)
+	var owned []*RelationInterval
+	keep := func(i RelationInterval, err error) *RelationInterval {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		owned = append(owned, &i)
+		return &i
+	}
+	defer func() {
+		for _, i := range owned {
+			if err := m.Del(i); err != nil {
+				t.Error(err)
+			}
+		}
+	}()
+	r := func(n int32) *numeral.Rational { v := smtQInt(n); return &v }
+	contains := func(i *RelationInterval, n int32) bool {
+		t.Helper()
+		ok, err := i.Contains(r(n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ok
+	}
+	meet := func(a, b *RelationInterval) (*RelationInterval, bool) {
+		t.Helper()
+		i, empty, err := m.Meet(a, b)
+		return keep(i, err), empty
+	}
+	a := keep(m.Bounds(r(0), true, r(2), false))
+	b := keep(m.Bounds(r(0), false, r(2), true))
+	h := keep(m.Unite(a, b))
+	if !contains(h, 0) || !contains(h, 2) {
 		t.Fatal("union endpoint openness")
 	}
-	meet, empty := a.Meet(b)
-	if empty || meet.Contains(q(0)) || meet.Contains(q(2)) || !meet.Contains(q(1)) {
+	i, empty := meet(a, b)
+	if empty || contains(i, 0) || contains(i, 2) || !contains(i, 1) {
 		t.Fatal("intersection endpoint openness")
 	}
-	w := a.Widen(b)
-	lo, _, hi, _ := w.Bounds()
-	if lo != nil || hi != nil {
+	w := keep(m.Widen(a, b))
+	if !w.MinusInfinity() || !w.PlusInfinity() {
 		t.Fatal("source widening must expand both endpoints")
 	}
-	reverse := b.Widen(a)
-	lo, _, hi, _ = reverse.Bounds()
-	if lo == nil || hi == nil {
+	reverse := keep(m.Widen(b, a))
+	if reverse.MinusInfinity() || reverse.PlusInfinity() {
 		t.Fatal("source widening is asymmetric")
 	}
-	_, empty = a.Meet(NewRelationInterval(q(2), false, q(3), false))
-	if empty {
+	if _, empty = meet(a, keep(m.Bounds(r(2), false, r(3), false))); empty {
 		t.Fatal("closed endpoint is shared")
 	}
-	_, empty = b.Meet(NewRelationInterval(q(2), false, q(3), false))
-	if !empty {
+	if _, empty = meet(b, keep(m.Bounds(r(2), false, r(3), false))); !empty {
 		t.Fatal("open endpoint is disjoint")
 	}
-	lo, _, _, _ = a.Bounds()
-	lo.SetInt64(100)
-	if !a.Contains(q(1)) {
-		t.Fatal("returned bound aliases interval")
+	if got := keep(m.HalfBound(r(-1), true, false)).String(); got != "(-oo, -1)" {
+		t.Fatalf("half bound display %q", got)
+	}
+	if got := keep(m.Point(r(3))).String(); got != "[3, 3]" {
+		t.Fatalf("point display %q", got)
+	}
+	half := numeral.NewRational()
+	if err := q.SetString(&half, "-1/2"); err != nil {
+		t.Fatal(err)
+	}
+	if got := keep(m.HalfBound(&half, false, true)).String(); got != "[-1/2, oo)" {
+		t.Fatalf("fraction display %q", got)
 	}
 }

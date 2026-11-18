@@ -15,7 +15,7 @@ func TestIntervalRelationToFormula(t *testing.T) {
 	own := func(h ast.ASTHandle, e error) ast.ASTHandle { astTestMust(t, e); astTestPin(t, m, h); return h }
 	x, y := own(m.MkVar(0, real)), own(m.MkVar(1, real))
 	zero, two := own(m.ArithmeticRealNumeralText("0")), own(m.ArithmeticRealNumeralText("2"))
-	r := NewIntervalFull(2)
+	r := NewIntervalFull(IntervalTestManager(), 2)
 	astTestMust(t, r.FilterInterpreted(m, own(m.MkArithmeticLT(zero, x))))
 	astTestMust(t, r.FilterInterpreted(m, own(m.MkArithmeticLE(x, two))))
 	astTestMust(t, r.FilterIdentical(0, 1))
@@ -31,7 +31,7 @@ func TestIntervalRelationToFormula(t *testing.T) {
 	if _, err = r.ToFormula(m, []ast.ASTHandle{real}); err == nil {
 		t.Fatal("wrong formula arity accepted")
 	}
-	full, err := NewIntervalFull(1).ToFormula(m, []ast.ASTHandle{real})
+	full, err := NewIntervalFull(IntervalTestManager(), 1).ToFormula(m, []ast.ASTHandle{real})
 	astTestMust(t, err)
 	defer func() { astTestMust(t, m.DelRef(&full)) }()
 	h, err := m.RefGet(full)
@@ -39,7 +39,7 @@ func TestIntervalRelationToFormula(t *testing.T) {
 	if !m.IsTrue(h) {
 		t.Fatal("full interval should produce true")
 	}
-	emptyFormula, err := NewIntervalEmpty(1).ToFormula(m, []ast.ASTHandle{real})
+	emptyFormula, err := NewIntervalEmpty(IntervalTestManager(), 1).ToFormula(m, []ast.ASTHandle{real})
 	astTestMust(t, err)
 	defer func() { astTestMust(t, m.DelRef(&emptyFormula)) }()
 	emptyHandle, err := m.RefGet(emptyFormula)

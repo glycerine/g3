@@ -22,10 +22,10 @@ func TestNumericRelationUnionDeltaPublishesEqualitySplit(t *testing.T) {
 	})
 
 	t.Run("interval", func(t *testing.T) {
-		target, source, delta := NewIntervalFull(2), NewIntervalFull(2), NewIntervalEmpty(2)
+		target, source, delta := NewIntervalFull(IntervalTestManager(), 2), NewIntervalFull(IntervalTestManager(), 2), NewIntervalEmpty(IntervalTestManager(), 2)
 		astTestMust(t, target.FilterIdentical(0, 1))
-		astTestMust(t, source.FilterEqual(0, big.NewRat(1, 1)))
-		astTestMust(t, source.FilterEqual(1, big.NewRat(2, 1)))
+		astTestMust(t, source.FilterEqualRat(0, big.NewRat(1, 1)))
+		astTestMust(t, source.FilterEqualRat(1, big.NewRat(2, 1)))
 		changed, err := target.UnionWithDelta(source, delta, false)
 		astTestMust(t, err)
 		if !changed || target.values.find(0) == target.values.find(1) || delta.Empty() || delta.values.find(0) == delta.values.find(1) {

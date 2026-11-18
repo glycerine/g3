@@ -36,7 +36,7 @@ func TestNumericRelationNullarySourceBehavior(t *testing.T) {
 	})
 
 	t.Run("interval", func(t *testing.T) {
-		full, empty := NewIntervalFull(0), NewIntervalEmpty(0)
+		full, empty := NewIntervalFull(IntervalTestManager(), 0), NewIntervalEmpty(IntervalTestManager(), 0)
 		if full.Empty() || !full.ContainsFact(nil) || !empty.Empty() || !empty.ContainsFact(nil) {
 			t.Fatal("nullary full/empty fact semantics", full.Empty(), empty.Empty())
 		}
@@ -53,7 +53,7 @@ func TestNumericRelationNullarySourceBehavior(t *testing.T) {
 		if joined.Empty() {
 			t.Fatal("full nullary join")
 		}
-		joined, err = JoinIntervalRelations(full, NewIntervalEmpty(0), nil, nil)
+		joined, err = JoinIntervalRelations(full, NewIntervalEmpty(IntervalTestManager(), 0), nil, nil)
 		astTestMust(t, err)
 		if !joined.Empty() {
 			t.Fatal("empty nullary join")

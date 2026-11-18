@@ -15,7 +15,7 @@ func (w intervalRelationRefusingWriter) Write([]byte) (int, error) { return 0, w
 
 func TestIntervalRelationFactAndJoin(t *testing.T) {
 	n := func(v int64) *big.Rat { return big.NewRat(v, 1) }
-	r := rel.NewIntervalEmpty(2)
+	r := rel.NewIntervalEmpty(rel.IntervalTestManager(), 2)
 	if !r.Empty() {
 		t.Fatal("new empty relation")
 	}
@@ -28,7 +28,7 @@ func TestIntervalRelationFactAndJoin(t *testing.T) {
 	if !r.ContainsFact([]*big.Rat{n(2), n(3)}) || r.ContainsFact([]*big.Rat{n(0), n(3)}) {
 		t.Fatal("fact hull")
 	}
-	if err := r.FilterEqual(0, n(2)); err != nil {
+	if err := r.FilterEqualRat(0, n(2)); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.FilterIdentical(0, 1); err != nil {
@@ -37,7 +37,7 @@ func TestIntervalRelationFactAndJoin(t *testing.T) {
 	if !r.ContainsFact([]*big.Rat{n(2), n(2)}) || r.ContainsFact([]*big.Rat{n(2), n(3)}) {
 		t.Fatal("equal columns")
 	}
-	other := rel.NewIntervalEmpty(1)
+	other := rel.NewIntervalEmpty(rel.IntervalTestManager(), 1)
 	if err := other.AddFact([]*big.Rat{n(2)}); err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestIntervalRelationFactAndJoin(t *testing.T) {
 	if !projected.ContainsFact([]*big.Rat{n(2)}) {
 		t.Fatal("bounds escaped mutable state")
 	}
-	emptyProjection, err := rel.NewIntervalEmpty(2).Project([]uint32{0})
+	emptyProjection, err := rel.NewIntervalEmpty(rel.IntervalTestManager(), 2).Project([]uint32{0})
 	if err != nil || emptyProjection.Empty() || !emptyProjection.IsFull() {
 		t.Fatal("C++ vector_relation::mk_project makes empty-source projection full", err)
 	}
@@ -68,11 +68,11 @@ func TestIntervalRelationFactAndJoin(t *testing.T) {
 
 func TestIntervalRelationJoinPropagatesEmptyOperands(t *testing.T) {
 	for _, emptyOnLeft := range []bool{true, false} {
-		left, right := rel.NewIntervalFull(1), rel.NewIntervalFull(1)
+		left, right := rel.NewIntervalFull(rel.IntervalTestManager(), 1), rel.NewIntervalFull(rel.IntervalTestManager(), 1)
 		if emptyOnLeft {
-			left = rel.NewIntervalEmpty(1)
+			left = rel.NewIntervalEmpty(rel.IntervalTestManager(), 1)
 		} else {
-			right = rel.NewIntervalEmpty(1)
+			right = rel.NewIntervalEmpty(rel.IntervalTestManager(), 1)
 		}
 		joined, err := rel.JoinIntervalRelations(left, right, []uint32{0}, []uint32{0})
 		if err != nil || !joined.Empty() {
@@ -82,21 +82,21 @@ func TestIntervalRelationJoinPropagatesEmptyOperands(t *testing.T) {
 }
 
 func TestIntervalRelationFull(t *testing.T) {
-	if !rel.NewIntervalFull(2).IsFull() {
+	if !rel.NewIntervalFull(rel.IntervalTestManager(), 2).IsFull() {
 		t.Fatal("full interval relation reported bounded")
 	}
-	if !rel.NewIntervalEmpty(2).IsFull() {
+	if !rel.NewIntervalEmpty(rel.IntervalTestManager(), 2).IsFull() {
 		t.Fatal("empty relation columns should retain full interval bounds")
 	}
 	// interval_relation::contains_fact checks the reset per-column payload and
 	// does not consult vector_relation::empty(). The empty bit and membership
 	// answer are intentionally independent in this source path.
-	empty := rel.NewIntervalEmpty(1)
+	empty := rel.NewIntervalEmpty(rel.IntervalTestManager(), 1)
 	if !empty.Empty() || !empty.ContainsFact([]*big.Rat{big.NewRat(3, 1)}) {
 		t.Fatal("source membership must inspect the empty relation's reset full interval payload")
 	}
-	bounded := rel.NewIntervalFull(1)
-	if err := bounded.FilterEqual(0, big.NewRat(3, 1)); err != nil {
+	bounded := rel.NewIntervalFull(rel.IntervalTestManager(), 1)
+	if err := bounded.FilterEqualRat(0, big.NewRat(3, 1)); err != nil {
 		t.Fatal(err)
 	}
 	if bounded.IsFull() {
@@ -109,7 +109,7 @@ func TestIntervalRelationFull(t *testing.T) {
 
 func TestIntervalRelationRename(t *testing.T) {
 	n := func(v int64) *big.Rat { return big.NewRat(v, 1) }
-	r := rel.NewIntervalEmpty(3)
+	r := rel.NewIntervalEmpty(rel.IntervalTestManager(), 3)
 	if err := r.AddFact([]*big.Rat{n(1), n(2), n(3)}); err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestIntervalRelationRename(t *testing.T) {
 	if _, err := r.Rename([]uint32{3}); err == nil {
 		t.Fatal("out-of-range cycle column accepted")
 	}
-	empty, err := rel.NewIntervalEmpty(2).Rename([]uint32{0, 1})
+	empty, err := rel.NewIntervalEmpty(rel.IntervalTestManager(), 2).Rename([]uint32{0, 1})
 	if err != nil || empty.Empty() || !empty.IsFull() {
 		t.Fatal("C++ vector_relation::mk_rename makes empty-source rename full", err)
 	}
@@ -134,7 +134,7 @@ func TestIntervalRelationRename(t *testing.T) {
 
 func TestIntervalRelationUnionDelta(t *testing.T) {
 	n := func(v int64) *big.Rat { return big.NewRat(v, 1) }
-	target, source, delta := rel.NewIntervalEmpty(1), rel.NewIntervalEmpty(1), rel.NewIntervalEmpty(1)
+	target, source, delta := rel.NewIntervalEmpty(rel.IntervalTestManager(), 1), rel.NewIntervalEmpty(rel.IntervalTestManager(), 1), rel.NewIntervalEmpty(rel.IntervalTestManager(), 1)
 	if err := source.AddFact([]*big.Rat{n(1)}); err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestIntervalRelationUnionDelta(t *testing.T) {
 	if err != nil || changed || !delta.ContainsFact([]*big.Rat{n(1)}) {
 		t.Fatalf("unchanged delta: %v", err)
 	}
-	changed, err = target.UnionWithDelta(rel.NewIntervalEmpty(1), delta, false)
+	changed, err = target.UnionWithDelta(rel.NewIntervalEmpty(rel.IntervalTestManager(), 1), delta, false)
 	if err != nil || changed || !delta.Empty() {
 		t.Fatalf("empty source delta: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestIntervalRelationUnionDelta(t *testing.T) {
 
 func TestIntervalRelationCloneMatchesSourceCopy(t *testing.T) {
 	n := func(v int64) *big.Rat { return big.NewRat(v, 1) }
-	source := rel.NewIntervalEmpty(2)
+	source := rel.NewIntervalEmpty(rel.IntervalTestManager(), 2)
 	for _, value := range []int64{0, 10} {
 		if err := source.AddFact([]*big.Rat{n(value), n(value)}); err != nil {
 			t.Fatal(err)
@@ -177,7 +177,7 @@ func TestIntervalRelationCloneMatchesSourceCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := clone.FilterEqual(0, n(5)); err != nil {
+	if err := clone.FilterEqualRat(0, n(5)); err != nil {
 		t.Fatal(err)
 	}
 	if !clone.ContainsFact([]*big.Rat{n(5), n(4)}) {
@@ -186,7 +186,7 @@ func TestIntervalRelationCloneMatchesSourceCopy(t *testing.T) {
 	if !source.ContainsFact([]*big.Rat{n(6), n(6)}) {
 		t.Fatal("clone mutation changed source relation")
 	}
-	empty, err := rel.NewIntervalEmpty(2).Clone()
+	empty, err := rel.NewIntervalEmpty(rel.IntervalTestManager(), 2).Clone()
 	if err != nil || !empty.Empty() {
 		t.Fatal("clone must preserve empty state", err)
 	}
@@ -197,7 +197,7 @@ func TestIntervalRelationCloneMatchesSourceCopy(t *testing.T) {
 
 func TestIntervalRelationDisplaySourceFormat(t *testing.T) {
 	var output bytes.Buffer
-	full := rel.NewIntervalFull(3)
+	full := rel.NewIntervalFull(rel.IntervalTestManager(), 3)
 	if err := full.Display(&output); err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestIntervalRelationDisplaySourceFormat(t *testing.T) {
 	}
 
 	output.Reset()
-	if err := rel.NewIntervalEmpty(2).Display(&output); err != nil {
+	if err := rel.NewIntervalEmpty(rel.IntervalTestManager(), 2).Display(&output); err != nil {
 		t.Fatal(err)
 	}
 	if output.String() != "empty\n" {
@@ -215,7 +215,7 @@ func TestIntervalRelationDisplaySourceFormat(t *testing.T) {
 	}
 
 	output.Reset()
-	joined := rel.NewIntervalFull(2)
+	joined := rel.NewIntervalFull(rel.IntervalTestManager(), 2)
 	if err := joined.FilterIdentical(0, 1); err != nil {
 		t.Fatal(err)
 	}

@@ -245,7 +245,7 @@ func TestBoundRelationPluginIntervalUnionDispatch(t *testing.T) {
 	plugin, err := NewBoundRelationPlugin(manager)
 	astTestMust(t, err)
 	n := func(value int64) *big.Rat { return big.NewRat(value, 1) }
-	source := NewIntervalEmpty(3)
+	source := NewIntervalEmpty(IntervalTestManager(), 3)
 	astTestMust(t, source.AddFact([]*big.Rat{n(1), n(2), n(2)}))
 	makeTarget := func() *BoundRelation {
 		t.Helper()
@@ -272,7 +272,7 @@ func TestBoundRelationPluginIntervalUnionDispatch(t *testing.T) {
 			t.Fatal("interval dispatch changed ignored delta", widen, strict, weak)
 		}
 	}
-	if err = plugin.UnionInterval(makeTarget(), NewIntervalFull(2), nil, false); err == nil {
+	if err = plugin.UnionInterval(makeTarget(), NewIntervalFull(IntervalTestManager(), 2), nil, false); err == nil {
 		t.Fatal("mismatched interval arity accepted")
 	}
 	var nilPlugin *BoundRelationPlugin

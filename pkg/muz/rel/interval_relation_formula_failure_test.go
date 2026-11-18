@@ -28,7 +28,7 @@ func TestIntervalRelationToFormulaAllocationFailureAndRetry(t *testing.T) {
 			}
 			x := own(m.MkVar(0, real))
 			zero, two := own(m.ArithmeticRealNumeralText("0")), own(m.ArithmeticRealNumeralText("2"))
-			r := NewIntervalFull(2)
+			r := NewIntervalFull(IntervalTestManager(), 2)
 			astTestMust(t, r.FilterInterpreted(m, own(m.MkArithmeticLT(zero, x))))
 			astTestMust(t, r.FilterInterpreted(m, own(m.MkArithmeticLE(x, two))))
 			astTestMust(t, r.FilterIdenticalColumns([]uint32{0, 1}))

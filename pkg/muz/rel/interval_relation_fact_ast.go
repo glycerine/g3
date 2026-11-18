@@ -5,9 +5,9 @@ package rel
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // AddFactExpressions constructs the source full interval tuple, filters each
@@ -16,7 +16,10 @@ func (r *IntervalRelation) AddFactExpressions(manager *ast.ASTManager, sorts, va
 	if r == nil || r.values == nil || manager == nil || len(sorts) != len(values) || len(values) != len(r.values.columns) || !CanHandleIntervalSorts(manager, sorts) {
 		return ast.ErrASTDomain
 	}
-	fact := NewIntervalFull(uint32(len(values)))
+	// interval_relation r(get_plugin(), get_signature(), false): a local
+	// freed when add_fact returns.
+	fact := NewIntervalFull(r.values.intervals, uint32(len(values)))
+	defer func() { resultErr = errors.Join(resultErr, fact.Close()) }()
 	for i, value := range values {
 		sort, err := manager.GetSort(value)
 		if err != nil || sort != sorts[i] {
@@ -56,28 +59,27 @@ func (r *IntervalRelation) ContainsFactExpressions(manager *ast.ASTManager, valu
 	if r == nil || r.values == nil || manager == nil || len(values) != len(r.values.columns) {
 		return false, ast.ErrASTDomain
 	}
+	q := r.values.intervals.Rationals()
 	for i, value := range values {
 		root := r.values.find(uint32(i))
 		if value != values[root] {
 			return false, nil
 		}
-		interval := r.values.columns[root]
-		lower, _, upper, _ := interval.Bounds()
-		if lower == nil && upper == nil {
+		interval := &r.values.columns[root]
+		if interval.IsInfinite() {
 			continue
 		}
-		text, _, matched, err := manager.ArithmeticNumeralText(value)
-		if err != nil {
+		// rational v; if (p.m_arith.is_numeral(f[i], v)) ...
+		v := numeral.NewRational()
+		_, matched, err := manager.ArithmeticNumeralRational(value, &v)
+		contained := true
+		if err == nil && matched {
+			contained, err = interval.Contains(&v)
+		}
+		if err = errors.Join(err, q.Del(&v)); err != nil {
 			return false, err
 		}
-		if !matched {
-			continue
-		}
-		number, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return false, ast.ErrASTDomain
-		}
-		if !interval.Contains(number) {
+		if !contained {
 			return false, nil
 		}
 	}

@@ -44,7 +44,7 @@ func TestIntervalRelationSignatureCapability(t *testing.T) {
 
 func TestIntervalRelationNaryIdenticalFilter(t *testing.T) {
 	n := func(value int64) *big.Rat { return big.NewRat(value, 1) }
-	r := NewIntervalEmpty(4)
+	r := NewIntervalEmpty(IntervalTestManager(), 4)
 	for _, tuple := range [][]int64{{0, 2, 4, 6}, {10, 8, 6, 4}} {
 		fact := make([]*big.Rat, len(tuple))
 		for i, value := range tuple {

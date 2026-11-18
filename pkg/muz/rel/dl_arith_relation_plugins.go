@@ -13,6 +13,8 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // relationOnlyDomain is the register-signature domain the compiler records
@@ -162,7 +164,8 @@ func (m *RelationManager) closeRelationElements() (result error) {
 	return result
 }
 
-// relationNumeral is arith_util::is_numeral(e, r).
+// relationNumeral is arith_util::is_numeral(e, r) into a big.Rat
+// (karr_relation's numerals until they hold rationals).
 func relationNumeral(m *ast.ASTManager, value ast.ASTHandle) (*big.Rat, bool, error) {
 	text, _, matched, err := m.ArithmeticNumeralText(value)
 	if err != nil || !matched {
@@ -173,6 +176,13 @@ func relationNumeral(m *ast.ASTManager, value ast.ASTHandle) (*big.Rat, bool, er
 		return nil, false, ast.ErrASTDomain
 	}
 	return number, true, nil
+}
+
+// relationRational is arith_util::is_numeral(e, r): r is a rational of the
+// AST manager's rational manager (left unchanged when e is not a numeral).
+func relationRational(m *ast.ASTManager, value ast.ASTHandle, r *numeral.Rational) (bool, error) {
+	_, matched, err := m.ArithmeticNumeralRational(value, r)
+	return matched, err
 }
 
 func uint32Columns(cols []int) []uint32 {
@@ -225,10 +235,12 @@ func (r *vectorRelationBase) Close() error {
 type IntervalRelationPlugin struct {
 	RelationPluginDefaults
 	manager *RelationManager
+	// intervals is m_dep with the rational manager of the intervals.
+	intervals *smtcore.RelationIntervalManager
 }
 
 func NewIntervalRelationPlugin(m *RelationManager) *IntervalRelationPlugin {
-	return &IntervalRelationPlugin{manager: m}
+	return &IntervalRelationPlugin{manager: m, intervals: smtcore.NewRelationIntervalManager(m.manager.NumeralService().Manager)}
 }
 
 func (p *IntervalRelationPlugin) Name() string              { return "interval_relation" }
@@ -243,11 +255,11 @@ func (p *IntervalRelationPlugin) wrap(sorts []ast.ASTHandle, value *IntervalRela
 }
 
 func (p *IntervalRelationPlugin) MkEmpty(sorts []ast.ASTHandle) (RelationBase, error) {
-	return p.wrap(sorts, NewIntervalEmpty(uint32(len(sorts)))), nil
+	return p.wrap(sorts, NewIntervalEmpty(p.intervals, uint32(len(sorts)))), nil
 }
 
 func (p *IntervalRelationPlugin) MkFull(_ ast.ASTHandle, sorts []ast.ASTHandle) (RelationBase, error) {
-	return p.wrap(sorts, NewIntervalFull(uint32(len(sorts)))), nil
+	return p.wrap(sorts, NewIntervalFull(p.intervals, uint32(len(sorts)))), nil
 }
 
 func (p *IntervalRelationPlugin) get(r RelationBase) (*intervalRelationValue, bool) {
@@ -371,20 +383,24 @@ func (p *IntervalRelationPlugin) MkFilterEqualFn(t RelationBase, value ast.ASTHa
 	if _, ok := p.get(t); !ok {
 		return nil, nil
 	}
-	number, ok, err := relationNumeral(p.manager.manager, value)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
+	// filter_equal_fn's rational m_value lives as long as the functor.
+	q := p.intervals.Rationals()
+	number := numeral.NewRational()
+	ok, err := relationRational(p.manager.manager, value, &number)
+	if err == nil && !ok {
 		// VERIFY(arith.is_numeral(value, m_value))
-		return nil, ast.ErrASTDomain
+		err = ast.ErrASTDomain
 	}
+	if err != nil {
+		return nil, errors.Join(err, q.Del(&number))
+	}
+	p.manager.fnClosers = append(p.manager.fnClosers, func() error { return q.Del(&number) })
 	return func(a RelationBase) error {
 		x, ok := p.get(a)
 		if !ok {
 			return ErrInstruction
 		}
-		return x.value.FilterEqual(uint32(col), number)
+		return x.value.FilterEqual(uint32(col), &number)
 	}, nil
 }
 
@@ -430,9 +446,14 @@ func (r *intervalRelationValue) ToFormula() (ast.ASTRef, error) {
 }
 
 // Reset is vector_relation's reset: set_empty.
-func (r *intervalRelationValue) Reset() error {
-	r.value.values.setEmpty()
-	return nil
+func (r *intervalRelationValue) Reset() error { return r.value.values.setEmpty() }
+
+// Close is ~interval_relation: the intervals' rationals are freed.
+func (r *intervalRelationValue) Close() error {
+	if err := r.vectorRelationBase.Close(); err != nil {
+		return err
+	}
+	return r.value.Close()
 }
 
 func (r *intervalRelationValue) CloneRelation() (RelationBase, error) {

@@ -77,13 +77,17 @@ func (r *IntervalRelation) ToFormula(m *ast.ASTManager, sorts []ast.ASTHandle) (
 			}
 			continue
 		}
-		lower, lowerOpen, upper, upperOpen := r.values.columns[i].Bounds()
-		if lower != nil {
-			bound, e := hold(m.ArithmeticNumeralRat(lower, integers[i]))
+		iv := &r.values.columns[i]
+		if !iv.MinusInfinity() {
+			lower, e := iv.LowerValue()
 			if e != nil {
 				return result, e
 			}
-			if lowerOpen {
+			bound, e := hold(m.ArithmeticNumeralFromRational(lower, integers[i]))
+			if e != nil {
+				return result, e
+			}
+			if iv.LowerOpen() {
 				err = add(m.MkArithmeticLT(bound, variables[i]))
 			} else {
 				err = add(m.MkArithmeticLE(bound, variables[i]))
@@ -92,12 +96,16 @@ func (r *IntervalRelation) ToFormula(m *ast.ASTManager, sorts []ast.ASTHandle) (
 				return result, err
 			}
 		}
-		if upper != nil {
-			bound, e := hold(m.ArithmeticNumeralRat(upper, integers[i]))
+		if !iv.PlusInfinity() {
+			upper, e := iv.UpperValue()
 			if e != nil {
 				return result, e
 			}
-			if upperOpen {
+			bound, e := hold(m.ArithmeticNumeralFromRational(upper, integers[i]))
+			if e != nil {
+				return result, e
+			}
+			if iv.UpperOpen() {
 				err = add(m.MkArithmeticLT(variables[i], bound))
 			} else {
 				err = add(m.MkArithmeticLE(variables[i], bound))
