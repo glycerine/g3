@@ -2,55 +2,59 @@ package numeral
 
 // Source: src/util/mpfx.h:160-247 and src/util/mpfx.cpp:316-417.
 
-import "math/big"
-
 func (m *FixedPointManager) IsPos(a *FixedPoint) (bool, error) {
 	if err := m.check(a); err != nil {
 		return false, err
 	}
-	return !a.sourceIsZero() && !a.sourceNegative(), nil
+	return a.isPos(), nil
 }
 
 func (m *FixedPointManager) IsNeg(a *FixedPoint) (bool, error) {
 	if err := m.check(a); err != nil {
 		return false, err
 	}
-	return a.sourceNegative(), nil
+	return a.isNeg(), nil
 }
 
 func (m *FixedPointManager) IsNonPos(a *FixedPoint) (bool, error) {
 	if err := m.check(a); err != nil {
 		return false, err
 	}
-	return a.sourceIsZero() || a.sourceNegative(), nil
+	return !a.isPos(), nil
 }
 
 func (m *FixedPointManager) IsNonNeg(a *FixedPoint) (bool, error) {
 	if err := m.check(a); err != nil {
 		return false, err
 	}
-	return !a.sourceNegative(), nil
+	return !a.isNeg(), nil
 }
 
 func (m *FixedPointManager) IsOne(a *FixedPoint) (bool, error) {
 	if err := m.check(a); err != nil {
 		return false, err
 	}
-	return a.scaled.Cmp(&m.scale) == 0, nil
+	return a.isPos() && m.isAbsOne(a), nil
 }
 
 func (m *FixedPointManager) IsMinusOne(a *FixedPoint) (bool, error) {
 	if err := m.check(a); err != nil {
 		return false, err
 	}
-	var minusOne big.Int
-	minusOne.Neg(&m.scale)
-	return a.scaled.Cmp(&minusOne) == 0, nil
+	return a.isNeg() && m.isAbsOne(a), nil
 }
 
 func (m *FixedPointManager) Equal(a, b *FixedPoint) (bool, error) {
-	cmp, err := m.Compare(a, b)
-	return cmp == 0, err
+	if err := m.pair(a, b); err != nil {
+		return false, err
+	}
+	return m.eq(a, b), nil
+}
+
+// isAbsOne is the source is_abs_one.
+func (m *FixedPointManager) isAbsOne(n *FixedPoint) bool {
+	w := m.view(n)
+	return m.isInt(n) && w[m.fracWords] == 1 && fixedWordsZero(w[m.fracWords+1:])
 }
 
 func (m *FixedPointManager) Less(a, b *FixedPoint) (bool, error) {
@@ -58,7 +62,7 @@ func (m *FixedPointManager) Less(a, b *FixedPoint) (bool, error) {
 		return false, err
 	}
 	m.traceFixedLess(a, b, false, false)
-	less := compareFixedPointSource(a, b) < 0
+	less := m.lt(a, b)
 	m.traceFixedLess(a, b, true, less)
 	return less, nil
 }
@@ -83,31 +87,19 @@ func (m *FixedPointManager) GreaterEqual(a, b *FixedPoint) (bool, error) {
 	return !less, nil
 }
 
-// Inc and Dec are source add/sub with the manager's retained one numeral.
+// Inc and Dec are the source add/sub with the manager's m_one.
 func (m *FixedPointManager) Inc(a *FixedPoint) error {
 	if err := m.check(a); err != nil {
 		return err
 	}
-	var next big.Int
-	next.Add(&a.scaled, &m.scale)
-	if err := m.publish(a, &next); err != nil {
-		m.publishAddOverflow(a, &next)
-		return err
-	}
-	return nil
+	return m.add(a, &m.one, a)
 }
 
 func (m *FixedPointManager) Dec(a *FixedPoint) error {
 	if err := m.check(a); err != nil {
 		return err
 	}
-	var next big.Int
-	next.Sub(&a.scaled, &m.scale)
-	if err := m.publish(a, &next); err != nil {
-		m.publishAddOverflow(a, &next)
-		return err
-	}
-	return nil
+	return m.sub(a, &m.one, a)
 }
 
 // Swap exchanges owned values without exchanging their manager bindings.
@@ -118,12 +110,7 @@ func (m *FixedPointManager) Swap(a, b *FixedPoint) error {
 	if a == b {
 		return nil
 	}
-	var temp big.Int
-	temp.Set(&a.scaled)
-	tempSlot, tempNegative := a.sourceZeroSlot, a.sourceZeroNegative
-	a.scaled.Set(&b.scaled)
-	a.sourceZeroSlot, a.sourceZeroNegative = b.sourceZeroSlot, b.sourceZeroNegative
-	b.scaled.Set(&temp)
-	b.sourceZeroSlot, b.sourceZeroNegative = tempSlot, tempNegative
+	a.sign, b.sign = b.sign, a.sign
+	a.words, b.words = b.words, a.words
 	return nil
 }

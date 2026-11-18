@@ -2,73 +2,64 @@ package numeral
 
 // Source: src/util/mpfx.cpp:558-650 and src/util/mpfx.h:260-278.
 
-import "math/big"
-
-// Floor rounds an owned fixed-point value toward minus infinity.
+// Floor is the source floor: it rounds toward minus infinity in place.
 func (m *FixedPointManager) Floor(a *FixedPoint) error {
 	if err := m.check(a); err != nil {
 		return err
 	}
 	m.traceFixedRoundIntegral(a, false, false)
-	var q, rem, rounded big.Int
-	q.QuoRem(&a.scaled, &m.scale, &rem)
-	if rem.Sign() != 0 && a.scaled.Sign() < 0 {
-		q.Sub(&q, big.NewInt(1))
-	}
-	rounded.Mul(&q, &m.scale)
-	if err := m.publish(a, &rounded); err != nil {
-		// Source clears the fractional words before inc wraps every integer
-		// word to zero and reports overflow.
-		a.scaled.SetInt64(0)
-		a.sourceZeroSlot = true
-		a.sourceZeroNegative = true
+	if err := m.roundIntegral(a, a.isNeg()); err != nil {
 		return err
 	}
 	m.traceFixedRoundIntegral(a, false, true)
 	return nil
 }
 
-// Ceil rounds an owned fixed-point value toward plus infinity.
+// Ceil is the source ceil: it rounds toward plus infinity in place.
 func (m *FixedPointManager) Ceil(a *FixedPoint) error {
 	if err := m.check(a); err != nil {
 		return err
 	}
 	m.traceFixedRoundIntegral(a, true, false)
-	var q, rem, rounded big.Int
-	q.QuoRem(&a.scaled, &m.scale, &rem)
-	if rem.Sign() != 0 && a.scaled.Sign() > 0 {
-		q.Add(&q, big.NewInt(1))
-	}
-	rounded.Mul(&q, &m.scale)
-	if err := m.publish(a, &rounded); err != nil {
-		// The in-place integer-word increment wraps after the source has
-		// cleared all fractional words.
-		a.scaled.SetInt64(0)
-		a.sourceZeroSlot = true
-		a.sourceZeroNegative = false
+	if err := m.roundIntegral(a, a.isPos()); err != nil {
 		return err
 	}
 	m.traceFixedRoundIntegral(a, true, true)
 	return nil
 }
 
-// Inv uses the manager's current directed rounding for 1/a. The source
-// numeral manager invokes division by its retained one numeral.
+// roundIntegral is the shared floor/ceil body: the fractional words are
+// cleared, and a nonzero fraction increments the integer words when away is
+// set. The source writes the zero slot's shared words; g3's zero slot has
+// none, and it stays the zero slot.
+func (m *FixedPointManager) roundIntegral(n *FixedPoint, away bool) error {
+	if n.isZero() {
+		m.reset(n)
+		return nil
+	}
+	w := n.words
+	frac := m.fracWords
+	isInt := fixedWordsZero(w[:frac])
+	clear(w[:frac])
+	if away && !isInt && !fixedWordsInc(w[frac:]) {
+		return ErrFixedPointOverflow
+	}
+	if fixedWordsZero(w[frac:]) {
+		m.reset(n)
+	}
+	return nil
+}
+
+// Inv is the source inv: div(m_one, a, a) under the current rounding.
 func (m *FixedPointManager) Inv(a *FixedPoint) error {
 	if err := m.check(a); err != nil {
 		return err
 	}
-	if a.scaled.Sign() == 0 {
+	if a.isZero() || fixedWordsZero(a.words) {
 		return ErrFixedPointDivZero
 	}
 	m.traceFixedInverse(a, false)
-	var oneScaled big.Int
-	oneScaled.Mul(&m.scale, &m.scale)
-	q, err := m.roundMagnitude(&oneScaled, &a.scaled)
-	if err != nil {
-		return err
-	}
-	if err := m.publish(a, q); err != nil {
+	if err := m.div(&m.one, a, a); err != nil {
 		return err
 	}
 	m.traceFixedInverse(a, true)
@@ -88,7 +79,7 @@ func (m *FixedPointManager) Power(a *FixedPoint, exponent uint32, out *FixedPoin
 			m.traceFixedPower(input, exponent, out)
 		}
 	}()
-	if a.sourceIsZero() {
+	if a.isZero() {
 		if exponent == 0 {
 			return ErrFixedPointDomain
 		}

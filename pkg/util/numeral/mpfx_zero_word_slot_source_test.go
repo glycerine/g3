@@ -301,8 +301,8 @@ func TestFixedPointMultiplyOverflowPublishesSignBeforeProductWords(t *testing.T)
 			t.Fatal("old product words with new sign", got, want, err)
 		}
 		zero, err := m.IsZero(v)
-		if err != nil || zero || v.sourceZeroSlot != zeroSlot {
-			t.Fatal("source product slot after failure", zero, v.sourceZeroSlot, zeroSlot, err)
+		if err != nil || zero || fixedZeroSlot(v) != zeroSlot {
+			t.Fatal("source product slot after failure", zero, fixedZeroSlot(v), zeroSlot, err)
 		}
 		if tags.ShouldTrace("mpfx_trace") && (!strings.Contains(output.String(), " <= ") && !strings.Contains(output.String(), " >= ") || strings.HasSuffix(output.String(), want+"\n")) {
 			t.Fatal("source multiplication reached result trace after overflow", output.String())
@@ -365,8 +365,8 @@ func TestFixedPointDivideOverflowPublishesSignBeforeQuotientWords(t *testing.T) 
 	check := func(v *FixedPoint, want string, slot bool) {
 		t.Helper()
 		got, err := m.String(v)
-		if err != nil || got != want || v.sourceZeroSlot != slot {
-			t.Fatal("source quotient failure prefix", got, want, v.sourceZeroSlot, slot, err)
+		if err != nil || got != want || fixedZeroSlot(v) != slot {
+			t.Fatal("source quotient failure prefix", got, want, fixedZeroSlot(v), slot, err)
 		}
 		if tags.ShouldTrace("mpfx_trace") && (!strings.Contains(output.String(), " / ") || strings.HasSuffix(output.String(), want+"\n")) {
 			t.Fatal("division overflow reached result trace", output.String())
@@ -397,3 +397,7 @@ func TestFixedPointDivideOverflowPublishesSignBeforeQuotientWords(t *testing.T) 
 	}
 	check(a, "-4294967295", false)
 }
+
+// fixedZeroSlot reports the source's allocated numeral whose words are all
+// zero, which is_zero does not treat as zero.
+func fixedZeroSlot(v *FixedPoint) bool { return v.words != nil && fixedWordsZero(v.words) }

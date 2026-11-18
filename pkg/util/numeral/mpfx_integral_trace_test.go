@@ -3,7 +3,6 @@ package numeral
 import (
 	"bytes"
 	"errors"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -77,7 +76,7 @@ func TestFixedPointFloorCeilSourceTrace(t *testing.T) {
 		t.Fatal(err)
 	}
 	// An overflowing ceil writes only the source prefix.
-	n.scaled.Add(&n.scaled, big.NewInt(1))
+	fixedWordsInc(n.words) // one unit in the last place
 	before, err := m.String(n)
 	if err != nil {
 		t.Fatal(err)

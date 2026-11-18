@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math/big"
 	"strconv"
 )
 
@@ -48,22 +47,20 @@ func (m *FixedPointManager) traceFixedPower(input string, exponent uint32, out *
 }
 
 func (m *FixedPointManager) displayFixedRawTrace(w io.Writer, n *FixedPoint) error {
-	if n.sourceNegative() {
+	if n.isNeg() {
 		if err := writeFixedPointPart(w, "-"); err != nil {
 			return err
 		}
 	}
-	var magnitude, word big.Int
-	magnitude.Abs(&n.scaled)
-	for i := int(m.intWords + m.fracWords); i > 0; {
-		if uint32(i) == m.fracWords {
+	ws := m.view(n)
+	for i := m.totalWords; i > 0; {
+		if i == m.fracWords {
 			if err := writeFixedPointPart(w, "."); err != nil {
 				return err
 			}
 		}
 		i--
-		word.Rsh(&magnitude, uint(i)*32)
-		if err := writeFixedPointPart(w, fmt.Sprintf("%08x", uint32(word.Uint64()))); err != nil {
+		if err := writeFixedPointPart(w, fmt.Sprintf("%08x", ws[i])); err != nil {
 			return err
 		}
 	}

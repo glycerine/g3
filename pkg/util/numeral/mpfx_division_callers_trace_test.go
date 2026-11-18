@@ -75,7 +75,9 @@ func TestFixedPointRetainedDivisionCallersTrace(t *testing.T) {
 		t.Fatalf("numerator construction overflow = %v", err)
 	}
 	check("operand construction overflow", "")
-	n.scaled.SetInt64(1) // the smallest positive fixed-point value
+	m.allocateIfNeeded(n) // the smallest positive fixed-point value
+	m.setEpsilon(n)
+	n.sign = false
 	if err := m.Inv(n); !errors.Is(err, ErrFixedPointOverflow) {
 		t.Fatalf("inverse overflow = %v", err)
 	}

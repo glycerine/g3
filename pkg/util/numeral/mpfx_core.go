@@ -5,7 +5,8 @@ package numeral
 
 import (
 	"errors"
-	"math/big"
+
+	"github.com/glycerine/g3/pkg/arena"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/z3exception"
@@ -30,46 +31,53 @@ var (
 	ErrFixedPointDivZero  error = &fixedPointException{message: "multi-precision fixed point (mpfx) division by zero", parent: ErrFixedPointDomain}
 )
 
-// FixedPointManager stores the source's fixed number of integer/fractional
-// 32-bit words as a signed, scaled Go integer. Rounding initially points down.
+// FixedPointManager is the source mpfx_manager: every numeral has the same
+// number of 32-bit integer and fractional words, least significant first.
+// Rounding initially points toward minus infinity.
 type FixedPointManager struct {
-	self                  *FixedPointManager
-	intWords, fracWords   uint32
-	fracBits              uint
-	scale, magnitudeLimit big.Int
-	roundUp               bool
-	trace                 *diagnostic.TraceTags
-	live                  uint32
-	closed                bool
+	self                *FixedPointManager
+	intWords, fracWords uint32
+	totalWords          uint32
+	roundUp             bool
+	// buffer0..2 are the source's 2*m_total_sz scratch vectors.
+	buffer0, buffer1, buffer2 []uint32
+	tmpDigits                 []uint32
+	zeroWords                 []uint32
+	one                       FixedPoint
+	mpn                       *NaturalManager
+	trace                     *diagnostic.TraceTags
+	live                      uint32
+	closed                    bool
 }
 
-// FixedPoint is an owned concrete mpfx numeral. Its signed value is
-// scaled / 2^(32*fracWords); zero has no negative representation.
+// FixedPoint is an owned concrete mpfx numeral. words is nil while the
+// numeral holds the source's unallocated zero slot (m_sig_idx == 0);
+// otherwise it holds m_total_sz words. An allocated slot whose words are all
+// zero is not the source's zero: is_zero tests only the slot.
 type FixedPoint struct {
-	self               *FixedPoint
-	manager            *FixedPointManager
-	scaled             big.Int
-	sourceZeroSlot     bool
-	sourceZeroNegative bool
-	closed             bool
-}
-
-func (v *FixedPoint) sourceIsZero() bool {
-	return v.scaled.Sign() == 0 && !v.sourceZeroSlot
-}
-
-func (v *FixedPoint) sourceNegative() bool {
-	return v.scaled.Sign() < 0 || v.sourceZeroSlot && v.sourceZeroNegative
+	self    *FixedPoint
+	manager *FixedPointManager
+	sign    bool
+	words   []uint32
+	closed  bool
 }
 
 func NewFixedPointManager(intWords, fracWords uint32) (*FixedPointManager, error) {
 	if intWords == 0 || fracWords == 0 || uint64(intWords)+uint64(fracWords) > 1<<20 {
 		return nil, ErrFixedPointOwner
 	}
-	m := &FixedPointManager{intWords: intWords, fracWords: fracWords, fracBits: uint(fracWords) * 32}
+	budget := arena.NewBudget(^uint64(0))
+	mpn, err := NewNaturalManager(arena.VectorConfig{PageSize: 16, Descriptors: arena.Config{PageSize: 2, Budget: budget}})
+	if err != nil {
+		return nil, err
+	}
+	total := intWords + fracWords
+	m := &FixedPointManager{intWords: intWords, fracWords: fracWords, totalWords: total, mpn: mpn,
+		buffer0: make([]uint32, 2*total), buffer1: make([]uint32, 2*total), buffer2: make([]uint32, 2*total), zeroWords: make([]uint32, total)}
 	m.self = m
-	m.scale.Lsh(big.NewInt(1), m.fracBits)
-	m.magnitudeLimit.Lsh(big.NewInt(1), uint(intWords+fracWords)*32)
+	m.one = FixedPoint{manager: m}
+	m.one.self = &m.one
+	m.setUint32(&m.one, 1)
 	return m, nil
 }
 
@@ -110,9 +118,7 @@ func (v *FixedPoint) Close() error {
 	if v.closed {
 		return nil
 	}
-	v.scaled.SetInt64(0)
-	v.sourceZeroSlot = false
-	v.sourceZeroNegative = false
+	v.manager.reset(v)
 	v.closed = true
 	v.manager.live--
 	return nil
@@ -124,6 +130,10 @@ func (m *FixedPointManager) Close() error {
 	}
 	if m.live != 0 {
 		return ErrFixedPointOwner
+	}
+	if !m.closed {
+		m.reset(&m.one)
+		m.mpn.Close()
 	}
 	m.closed = true
 	return nil
@@ -140,137 +150,162 @@ func (m *FixedPointManager) SetRounding(up bool) error {
 	return nil
 }
 
-func (m *FixedPointManager) publish(dst *FixedPoint, scaled *big.Int) error {
-	var abs big.Int
-	abs.Abs(scaled)
-	if abs.Cmp(&m.magnitudeLimit) >= 0 {
-		return ErrFixedPointOverflow
+// isZero is the source is_zero: the numeral holds the zero slot.
+func (n *FixedPoint) isZero() bool { return n.words == nil }
+
+// isPos and isNeg are the source is_pos and is_neg.
+func (n *FixedPoint) isPos() bool { return !n.sign && n.words != nil }
+func (n *FixedPoint) isNeg() bool { return n.sign }
+
+// view is words(n): the zero slot reads as m_total_sz zero words.
+func (m *FixedPointManager) view(n *FixedPoint) []uint32 {
+	if n.words == nil {
+		return m.zeroWords
 	}
-	dst.scaled.Set(scaled)
-	dst.sourceZeroSlot = false
-	dst.sourceZeroNegative = false
-	return nil
+	return n.words
 }
 
-// add_sub's fixed-width ::add writes all destination words before returning
-// its carry. Preserve that physical publication when its caller throws.
-func (m *FixedPointManager) publishAddOverflow(dst *FixedPoint, value *big.Int) {
-	var magnitude big.Int
-	magnitude.Abs(value)
-	magnitude.Mod(&magnitude, &m.magnitudeLimit)
-	negative := value.Sign() < 0
-	if magnitude.Sign() == 0 {
-		dst.scaled.SetInt64(0)
-		dst.sourceZeroSlot = true
-		dst.sourceZeroNegative = negative
-		return
+func (m *FixedPointManager) allocateIfNeeded(n *FixedPoint) {
+	if n.words == nil {
+		n.words = make([]uint32, m.totalWords)
 	}
-	if negative {
-		magnitude.Neg(&magnitude)
-	}
-	dst.scaled.Set(&magnitude)
-	dst.sourceZeroSlot = false
-	dst.sourceZeroNegative = false
 }
 
-// Product and numeral-conversion paths acquire the destination slot and set
-// its sign before checking temporary result size. Old words stay in place.
-func (m *FixedPointManager) publishSignBeforeWords(dst *FixedPoint, negative bool) {
-	if dst.scaled.Sign() == 0 {
-		dst.sourceZeroSlot = true
-		dst.sourceZeroNegative = negative
-		return
+func (m *FixedPointManager) reset(n *FixedPoint) {
+	n.words = nil
+	n.sign = false
+}
+
+// sz is the source sz(ws): the number of words up to the highest nonzero
+// one. The source requires a nonzero argument; zero words would read below
+// the array (UB), so g3 returns 0 for them and callers treat that case.
+func fixedWordsSize(ws []uint32) uint32 {
+	r := uint32(len(ws))
+	for r > 0 {
+		r--
+		if ws[r] != 0 {
+			return r + 1
+		}
 	}
-	dst.scaled.Abs(&dst.scaled)
-	if negative {
-		dst.scaled.Neg(&dst.scaled)
-	}
-	dst.sourceZeroSlot = false
-	dst.sourceZeroNegative = false
+	return 0
 }
 
 func (m *FixedPointManager) Reset(dst *FixedPoint) error {
 	if err := m.check(dst); err != nil {
 		return err
 	}
-	dst.scaled.SetInt64(0)
-	dst.sourceZeroSlot = false
-	dst.sourceZeroNegative = false
+	m.reset(dst)
 	return nil
+}
+
+func (m *FixedPointManager) setUint32(n *FixedPoint, v uint32) {
+	if v == 0 {
+		m.reset(n)
+		return
+	}
+	m.allocateIfNeeded(n)
+	n.sign = false
+	clear(n.words)
+	n.words[m.fracWords] = v
+}
+
+// setUint64 is the source set(mpfx&, uint64_t).
+func (m *FixedPointManager) setUint64(n *FixedPoint, v uint64) error {
+	if m.intWords == 1 && v > 0xffffffff {
+		return ErrFixedPointOverflow
+	}
+	if v == 0 {
+		m.reset(n)
+		return nil
+	}
+	m.allocateIfNeeded(n)
+	n.sign = false
+	clear(n.words)
+	n.words[m.fracWords] = uint32(v)
+	if m.intWords > 1 {
+		n.words[m.fracWords+1] = uint32(v >> 32)
+	}
+	return nil
+}
+
+// setInt64 is the source set(mpfx&, int64_t). The source negates v as a
+// signed value, which is UB for INT64_MIN; the unsigned negation gives the
+// intended magnitude 2^63.
+func (m *FixedPointManager) setInt64(n *FixedPoint, v int64) error {
+	if m.intWords == 1 && (v < -0xffffffff || v > 0xffffffff) {
+		return ErrFixedPointOverflow
+	}
+	if v == 0 {
+		m.reset(n)
+		return nil
+	}
+	if v < 0 {
+		if err := m.setUint64(n, -uint64(v)); err != nil {
+			return err
+		}
+		n.sign = true
+		return nil
+	}
+	return m.setUint64(n, uint64(v))
 }
 
 func (m *FixedPointManager) SetInt64(dst *FixedPoint, n int64) error {
 	if err := m.check(dst); err != nil {
 		return err
 	}
-	var scaled big.Int
-	scaled.Mul(big.NewInt(n), &m.scale)
-	return m.publish(dst, &scaled)
+	return m.setInt64(dst, n)
 }
 
 func (m *FixedPointManager) SetUint64(dst *FixedPoint, n uint64) error {
 	if err := m.check(dst); err != nil {
 		return err
 	}
-	var scaled, val big.Int
-	val.SetUint64(n)
-	scaled.Mul(&val, &m.scale)
-	return m.publish(dst, &scaled)
+	return m.setUint64(dst, n)
+}
+
+// set is the source set(mpfx&, mpfx const&).
+func (m *FixedPointManager) set(n, v *FixedPoint) {
+	if v.isZero() {
+		m.reset(n)
+		return
+	}
+	if n == v {
+		return
+	}
+	m.allocateIfNeeded(n)
+	n.sign = v.sign
+	copy(n.words, v.words)
 }
 
 func (m *FixedPointManager) Copy(dst, src *FixedPoint) error {
 	if err := m.pair(dst, src); err != nil {
 		return err
 	}
-	dst.scaled.Set(&src.scaled)
-	dst.sourceZeroSlot = src.sourceZeroSlot
-	dst.sourceZeroNegative = src.sourceZeroNegative
+	m.set(dst, src)
 	return nil
 }
 
-// roundMagnitude is the source sign/mode rule shared by fixed-point
-// multiplication and division: an inexact quotient grows in magnitude when
-// its sign differs from the selected plus-infinity direction.
-func (m *FixedPointManager) roundMagnitude(num, den *big.Int) (*big.Int, error) {
-	if den.Sign() == 0 {
-		return nil, ErrFixedPointDivZero
-	}
-	negative := num.Sign() != den.Sign() && num.Sign() != 0
-	var an, ad, q, rem big.Int
-	an.Abs(num)
-	ad.Abs(den)
-	q.QuoRem(&an, &ad, &rem)
-	if rem.Sign() != 0 && negative != m.roundUp {
-		q.Add(&q, big.NewInt(1))
-	}
-	if negative {
-		q.Neg(&q)
-	}
-	return &q, nil
-}
-
+// SetRatio is the source set(mpfx&, int64_t num, uint64_t den): both
+// operands become mpfx numerals before the division.
 func (m *FixedPointManager) SetRatio(dst *FixedPoint, num int64, den uint64) error {
 	if err := m.check(dst); err != nil {
 		return err
 	}
-	var numerator, denominator big.Int
-	numerator.Mul(big.NewInt(num), &m.scale)
-	denominator.SetUint64(den)
-	var absNum, scaledDen big.Int
-	absNum.Abs(&numerator)
-	scaledDen.Mul(&denominator, &m.scale)
-	if absNum.Cmp(&m.magnitudeLimit) >= 0 || scaledDen.Cmp(&m.magnitudeLimit) >= 0 {
-		return ErrFixedPointOverflow // source constructs both integer operands first
+	a := FixedPoint{manager: m}
+	a.self = &a
+	b := FixedPoint{manager: m}
+	b.self = &b
+	if err := m.setInt64(&a, num); err != nil {
+		return err
 	}
-	if den == 0 {
+	if err := m.setUint64(&b, den); err != nil {
+		return err
+	}
+	if b.isZero() {
 		return ErrFixedPointDivZero
 	}
 	m.traceFixedIntegerDivision(num, den, dst, false)
-	q, err := m.roundMagnitude(&numerator, &denominator)
-	if err != nil {
-		return err
-	}
-	if err := m.publish(dst, q); err != nil {
+	if err := m.div(&a, &b, dst); err != nil {
 		return err
 	}
 	m.traceFixedIntegerDivision(num, den, dst, true)
@@ -281,60 +316,82 @@ func (m *FixedPointManager) Compare(a, b *FixedPoint) (int, error) {
 	if err := m.pair(a, b); err != nil {
 		return 0, err
 	}
-	return compareFixedPointSource(a, b), nil
+	if m.eq(a, b) {
+		return 0, nil
+	}
+	if m.lt(a, b) {
+		return -1, nil
+	}
+	return 1, nil
 }
 
-func compareFixedPointSource(a, b *FixedPoint) int {
-	if cmp := a.scaled.Cmp(&b.scaled); cmp != 0 {
-		return cmp
+// eq is the source eq.
+func (m *FixedPointManager) eq(a, b *FixedPoint) bool {
+	if a.isZero() && b.isZero() {
+		return true
 	}
-	if a.scaled.Sign() != 0 {
-		return 0
+	if a.isZero() || b.isZero() {
+		return false
 	}
-	// Source is_zero uses the word-slot ID, so the two zero-word slots
-	// remain ordered on either side of the canonical unallocated zero.
-	rank := func(v *FixedPoint) int {
-		if !v.sourceZeroSlot {
-			return 0
+	if a.sign != b.sign {
+		return false
+	}
+	for i := range a.words {
+		if a.words[i] != b.words[i] {
+			return false
 		}
-		if v.sourceZeroNegative {
-			return -1
-		}
-		return 1
 	}
-	if rank(a) < rank(b) {
-		return -1
+	return true
+}
+
+// lt is the source lt without its STRACE.
+func (m *FixedPointManager) lt(a, b *FixedPoint) bool {
+	if a.isZero() {
+		return !b.isZero() && !b.isNeg()
 	}
-	if rank(a) > rank(b) {
-		return 1
+	if b.isZero() {
+		return a.isNeg()
 	}
-	return 0
+	if a.isNeg() {
+		return b.isPos() || fixedWordsLess(b.words, a.words)
+	}
+	return b.isPos() && fixedWordsLess(a.words, b.words)
 }
 
 func (m *FixedPointManager) IsZero(a *FixedPoint) (bool, error) {
 	if err := m.check(a); err != nil {
 		return false, err
 	}
-	return a.sourceIsZero(), nil
+	return a.isZero(), nil
+}
+
+// isInt is the source is_int: the fractional words are zero.
+func (m *FixedPointManager) isInt(n *FixedPoint) bool {
+	if n.words == nil {
+		return true
+	}
+	for _, w := range n.words[:m.fracWords] {
+		if w != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *FixedPointManager) IsInt(a *FixedPoint) (bool, error) {
 	if err := m.check(a); err != nil {
 		return false, err
 	}
-	var rem big.Int
-	rem.Rem(&a.scaled, &m.scale)
-	return rem.Sign() == 0, nil
+	return m.isInt(a), nil
 }
 
+// Neg is the source neg: the zero slot keeps its sign.
 func (m *FixedPointManager) Neg(a *FixedPoint) error {
 	if err := m.check(a); err != nil {
 		return err
 	}
-	if a.sourceZeroSlot {
-		a.sourceZeroNegative = !a.sourceZeroNegative
-	} else {
-		a.scaled.Neg(&a.scaled)
+	if !a.isZero() {
+		a.sign = !a.sign
 	}
 	return nil
 }
@@ -343,25 +400,48 @@ func (m *FixedPointManager) Abs(a *FixedPoint) error {
 	if err := m.check(a); err != nil {
 		return err
 	}
-	a.scaled.Abs(&a.scaled)
-	a.sourceZeroNegative = false
+	a.sign = false
 	return nil
 }
 
-// addSubZeroSlot preserves the source's allocated zero-word result when its
-// shortcut copies a zero-word operand or equal-sign zero words are added.
-// Capture this before publication because out may alias either operand.
-func addSubZeroSlot(a, b *FixedPoint, sub bool) (bool, bool) {
-	if a.sourceIsZero() {
-		return b.sourceZeroSlot, b.sourceNegative() != sub
+// addSub is the source add_sub without its outer STRACE.
+func (m *FixedPointManager) addSub(isSub bool, a, b, c *FixedPoint) error {
+	if a.isZero() {
+		m.set(c, b)
+		if isSub && !c.isZero() {
+			c.sign = !c.sign
+		}
+		return nil
 	}
-	if b.sourceIsZero() {
-		return a.sourceZeroSlot, a.sourceNegative()
+	if b.isZero() {
+		m.set(c, a)
+		return nil
 	}
-	if a.sourceZeroSlot && b.sourceZeroSlot && a.sourceNegative() == (b.sourceNegative() != sub) {
-		return true, a.sourceNegative()
+	m.traceFixedAddSubInner(a, b, c, isSub, true)
+	sgnA, sgnB := a.sign, b.sign
+	wa, wb := a.words, b.words
+	if isSub {
+		sgnB = !sgnB
 	}
-	return false, false
+	m.allocateIfNeeded(c)
+	wc := c.words
+	if sgnA == sgnB {
+		c.sign = sgnA
+		if !fixedWordsAdd(wa, wb, wc) {
+			return ErrFixedPointOverflow
+		}
+	} else if fixedWordsLess(wa, wb) {
+		c.sign = sgnB
+		m.mpn.Sub(wb, wa, wc)
+	} else {
+		c.sign = sgnA
+		m.mpn.Sub(wa, wb, wc)
+		if fixedWordsZero(wc) {
+			m.reset(c)
+		}
+	}
+	m.traceFixedAddSubInner(a, b, c, isSub, false)
+	return nil
 }
 
 func (m *FixedPointManager) Add(a, b, out *FixedPoint) error {
@@ -371,24 +451,13 @@ func (m *FixedPointManager) Add(a, b, out *FixedPoint) error {
 	if err := m.check(out); err != nil {
 		return err
 	}
+	return m.add(a, b, out)
+}
+
+func (m *FixedPointManager) add(a, b, out *FixedPoint) error {
 	m.traceFixedAddSubOuter(a, b, out, false, true)
-	inner := !a.sourceIsZero() && !b.sourceIsZero()
-	retainsSlot, negative := addSubZeroSlot(a, b, false)
-	if inner {
-		m.traceFixedAddSubInner(a, b, out, false, true)
-	}
-	var v big.Int
-	v.Add(&a.scaled, &b.scaled)
-	if err := m.publish(out, &v); err != nil {
-		m.publishAddOverflow(out, &v)
+	if err := m.addSub(false, a, b, out); err != nil {
 		return err
-	}
-	if v.Sign() == 0 && retainsSlot {
-		out.sourceZeroSlot = true
-		out.sourceZeroNegative = negative
-	}
-	if inner {
-		m.traceFixedAddSubInner(a, b, out, false, false)
 	}
 	m.traceFixedAddSubOuter(a, b, out, false, false)
 	return nil
@@ -401,24 +470,13 @@ func (m *FixedPointManager) Sub(a, b, out *FixedPoint) error {
 	if err := m.check(out); err != nil {
 		return err
 	}
+	return m.sub(a, b, out)
+}
+
+func (m *FixedPointManager) sub(a, b, out *FixedPoint) error {
 	m.traceFixedAddSubOuter(a, b, out, true, true)
-	inner := !a.sourceIsZero() && !b.sourceIsZero()
-	retainsSlot, negative := addSubZeroSlot(a, b, true)
-	if inner {
-		m.traceFixedAddSubInner(a, b, out, true, true)
-	}
-	var v big.Int
-	v.Sub(&a.scaled, &b.scaled)
-	if err := m.publish(out, &v); err != nil {
-		m.publishAddOverflow(out, &v)
+	if err := m.addSub(true, a, b, out); err != nil {
 		return err
-	}
-	if v.Sign() == 0 && retainsSlot {
-		out.sourceZeroSlot = true
-		out.sourceZeroNegative = negative
-	}
-	if inner {
-		m.traceFixedAddSubInner(a, b, out, true, false)
 	}
 	m.traceFixedAddSubOuter(a, b, out, true, false)
 	return nil
@@ -432,25 +490,38 @@ func (m *FixedPointManager) Mul(a, b, out *FixedPoint) error {
 		return err
 	}
 	m.traceFixedProduct(a, b, out, false, false)
-	retainsSlot := !a.sourceIsZero() && !b.sourceIsZero()
-	negative := a.sourceNegative() != b.sourceNegative()
-	var product big.Int
-	product.Mul(&a.scaled, &b.scaled)
-	q, err := m.roundMagnitude(&product, &m.scale)
-	if err != nil {
+	if err := m.mul(a, b, out); err != nil {
 		return err
-	}
-	if err := m.publish(out, q); err != nil {
-		m.publishSignBeforeWords(out, negative)
-		return err
-	}
-	if q.Sign() == 0 && retainsSlot {
-		// Source enters the nonzero-operand branch, allocates c, then copies
-		// zero product words without calling reset.
-		out.sourceZeroSlot = true
-		out.sourceZeroNegative = negative
 	}
 	m.traceFixedProduct(a, b, out, false, true)
+	return nil
+}
+
+// mul is the source mul without its STRACE.
+func (m *FixedPointManager) mul(a, b, c *FixedPoint) error {
+	if a.isZero() || b.isZero() {
+		m.reset(c)
+		return nil
+	}
+	wa, wb := a.words, b.words
+	sign := a.sign != b.sign
+	m.allocateIfNeeded(c)
+	c.sign = sign
+	total, frac := m.totalWords, m.fracWords
+	r := m.buffer0[:2*total]
+	m.mpn.Mul(wa, wb, r)
+	// round result
+	rr := r[frac:]
+	if c.sign != m.roundUp && !fixedWordsZero(r[:frac]) {
+		if !fixedWordsInc(rr[:total]) {
+			return ErrFixedPointOverflow
+		}
+	}
+	// check for overflows
+	if !fixedWordsZero(rr[total : total+m.intWords]) {
+		return ErrFixedPointOverflow
+	}
+	copy(c.words, rr[:total])
 	return nil
 }
 
@@ -461,30 +532,84 @@ func (m *FixedPointManager) Div(a, b, out *FixedPoint) error {
 	if err := m.check(out); err != nil {
 		return err
 	}
-	if b.scaled.Sign() == 0 {
+	if b.isZero() || fixedWordsZero(b.words) {
 		return ErrFixedPointDivZero
 	}
 	m.traceFixedProduct(a, b, out, true, false)
-	negative := a.sourceNegative() != b.sourceNegative()
-	var numerator big.Int
-	numerator.Mul(&a.scaled, &m.scale)
-	q, err := m.roundMagnitude(&numerator, &b.scaled)
-	if err != nil {
-		return err
-	}
-	if err := m.publish(out, q); err != nil {
-		m.publishSignBeforeWords(out, negative)
+	if err := m.div(a, b, out); err != nil {
 		return err
 	}
 	m.traceFixedProduct(a, b, out, true, true)
 	return nil
 }
 
-// Rational returns an independent exact value for testing and concrete
-// subpaving boundary conversions.
-func (m *FixedPointManager) Rational(a *FixedPoint) (*big.Rat, error) {
-	if err := m.check(a); err != nil {
-		return nil, err
+// div is the source div without its STRACE; b is nonzero. An allocated
+// all-zero divisor or dividend would make the source's sz read below its
+// words (UB): g3 reports division by zero for the divisor and a zero
+// quotient for the dividend.
+func (m *FixedPointManager) div(a, b, c *FixedPoint) error {
+	if b.isZero() || fixedWordsZero(b.words) {
+		return ErrFixedPointDivZero
 	}
-	return new(big.Rat).SetFrac(new(big.Int).Set(&a.scaled), new(big.Int).Set(&m.scale)), nil
+	if a.isZero() || fixedWordsZero(a.words) {
+		m.reset(c)
+		return nil
+	}
+	total, frac := m.totalWords, m.fracWords
+	sign := a.sign != b.sign
+	wa, wb := a.words, b.words
+	aShiftSize := fixedWordsSize(wa) + frac
+	shifted := m.buffer0[:2*total]
+	clear(shifted[:frac])
+	copy(shifted[frac:frac+total], wa)
+	bSize := fixedWordsSize(wb)
+	m.allocateIfNeeded(c)
+	c.sign = sign
+	if bSize > aShiftSize {
+		if c.sign != m.roundUp {
+			m.setEpsilon(c)
+		} else {
+			m.reset(c)
+		}
+		return nil
+	}
+	qSize := aShiftSize - bSize + 1
+	q := m.buffer1[:2*total]
+	rem := m.buffer2[:bSize]
+	if _, err := m.mpn.Div(shifted[:aShiftSize], wb[:bSize], q[:qSize], rem); err != nil {
+		return err
+	}
+	for i := total; i < qSize; i++ {
+		if q[i] != 0 {
+			return ErrFixedPointOverflow
+		}
+	}
+	// The source increments m_total_sz quotient words but then copies only
+	// q_sz of them when q_sz < m_total_sz, so a carry out of the q_sz words
+	// lands in a stale buffer word and is lost (the quotient collapses to
+	// epsilon). g3 clears those words and keeps the carry.
+	if qSize < total {
+		clear(q[qSize:total])
+	}
+	if c.sign != m.roundUp && !fixedWordsZero(rem) {
+		// round the result
+		if !fixedWordsInc(q[:total]) {
+			return ErrFixedPointOverflow
+		}
+	}
+	copy(c.words, q[:total])
+	if fixedWordsZero(c.words) {
+		if c.sign != m.roundUp {
+			m.setEpsilon(c)
+		} else {
+			m.reset(c)
+		}
+	}
+	return nil
+}
+
+// setEpsilon is the source set_epsilon on an allocated numeral.
+func (m *FixedPointManager) setEpsilon(n *FixedPoint) {
+	clear(n.words)
+	n.words[0] = 1
 }
