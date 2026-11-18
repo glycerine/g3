@@ -199,22 +199,22 @@ func (m *ASTManager) substFindOutputs(s ASTExprSubstitution, key astNodeRef, def
 	if e != nil {
 		return false, e
 	}
-	t, _ := m.substTable(s, 0)
+	// substState validated s; its tables are read without revalidating.
+	state := m.exprSubstitutions[s.record]
+	t := &state.base
 	token, found, e := m.substFind(t, key)
 	if e != nil || !found {
 		return found, e
 	}
 	a, _ := t.entries.Get2(token)
 	*def = m.external(a.value)
-	if flags&1 != 0 {
-		t, _ = m.substTable(s, 1)
-		if a, found := t.entries.Get2(token); found {
+	if flags&1 != 0 && state.proof != nil {
+		if a, found := state.proof.entries.Get2(token); found {
 			*proof = m.external(a.value)
 		}
 	}
-	if dep != nil && flags&2 != 0 {
-		t, _ = m.substTable(s, 2)
-		if a, found := t.entries.Get2(token); found {
+	if dep != nil && flags&2 != 0 && state.dep != nil {
+		if a, found := state.dep.entries.Get2(token); found {
 			*dep = m.substDependency(a.value)
 		}
 	}
