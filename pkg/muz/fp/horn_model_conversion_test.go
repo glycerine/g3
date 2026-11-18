@@ -136,7 +136,9 @@ func TestHornModelConversionsReplayInReverseApplicationOrder(t *testing.T) {
 	functionalRule := transforms.InlineModelRule{Head: functionalHeadRef, Body: functionalBodyRef}
 	functionalSource, err := model.NewModel(manager)
 	quantifierResultMust(t, err)
-	functionalExpanded, err := engine.expandHornModel(functionalSource, []hornModelConversion{{kind: hornConvertInline, inline: []transforms.InlineModelRule{functionalRule}}})
+	// The converter owns its clauses (horn_subsume_model_converter::insert).
+	functionalConversion := newHornInlineConversion(manager, []transforms.InlineModelRule{functionalRule})
+	functionalExpanded, err := engine.expandHornModel(functionalSource, []hornModelConversion{functionalConversion})
 	quantifierResultMust(t, err)
 	functionalInterpretation, err := functionalExpanded.Core().FunctionInterpretation(inlinePredicate)
 	quantifierResultMust(t, err)
@@ -149,8 +151,7 @@ func TestHornModelConversionsReplayInReverseApplicationOrder(t *testing.T) {
 		t.Fatal("inline functional clause did not retain its constrained argument", functionalFormula)
 	}
 	quantifierResultMust(t, functionalExpanded.Close())
-	quantifierResultMust(t, manager.DelRef(&functionalBodyRef))
-	quantifierResultMust(t, manager.DelRef(&functionalHeadRef))
+	quantifierResultMust(t, functionalConversion.inline.close())
 
 	missingName, err := manager.Symbols.Intern("horn-inline-missing")
 	quantifierResultMust(t, err)
@@ -172,15 +173,11 @@ func TestHornModelConversionsReplayInReverseApplicationOrder(t *testing.T) {
 		return transforms.InlineModelRule{Head: headRef, Body: bodyRef}
 	}
 	inlineRules := []transforms.InlineModelRule{makeRule(truth), makeRule(missingApp)}
-	t.Cleanup(func() {
-		for index := len(inlineRules) - 1; index >= 0; index-- {
-			quantifierResultMust(t, manager.DelRef(&inlineRules[index].Body))
-			quantifierResultMust(t, manager.DelRef(&inlineRules[index].Head))
-		}
-	})
+	inlineConversion := newHornInlineConversion(manager, inlineRules)
+	t.Cleanup(func() { quantifierResultMust(t, inlineConversion.inline.close()) })
 	inlineSource, err := model.NewModel(manager)
 	quantifierResultMust(t, err)
-	inlineExpanded, err := engine.expandHornModel(inlineSource, []hornModelConversion{{kind: hornConvertInline, inline: inlineRules}})
+	inlineExpanded, err := engine.expandHornModel(inlineSource, []hornModelConversion{inlineConversion})
 	quantifierResultMust(t, err)
 	t.Cleanup(func() { quantifierResultMust(t, inlineExpanded.Close()) })
 	value, err = inlineExpanded.Core().ConstantInterpretation(missing)

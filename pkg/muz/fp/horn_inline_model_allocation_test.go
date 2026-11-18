@@ -51,7 +51,7 @@ func newHornInlineArrayModelFixture(t *testing.T) (*fpRuleNameFixture, ast.ASTHa
 	inline, quantified := 0, 0
 	for _, conversion := range f.e.spacerConversions {
 		if conversion.kind == hornConvertInline {
-			inline += len(conversion.inline)
+			inline += len(conversion.inline.delayed) + len(conversion.inline.funcs)
 		}
 		if conversion.kind == hornConvertQuantifier {
 			quantified += len(conversion.predicates)

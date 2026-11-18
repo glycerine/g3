@@ -78,7 +78,7 @@ func (e *PropositionalEngine) datalogInlinerWithFacts(context *uparams.ParamsCon
 func (e *PropositionalEngine) expandDatalogModel(source *model.Model) (_ *model.Model, resultErr error) {
 	needsServices := false
 	for _, conversion := range e.datalogConversions {
-		needsServices = needsServices || conversion.kind == hornConvertInline && len(conversion.inline) != 0
+		needsServices = needsServices || conversion.kind == hornConvertInline && !conversion.inline.empty()
 	}
 	if !needsServices || e.params != nil || e.globals != nil {
 		return e.expandHornModel(source, e.datalogConversions)

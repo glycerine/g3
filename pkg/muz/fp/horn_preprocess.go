@@ -83,6 +83,47 @@ func (r *hornPreprocessResult) takeModelConversions() []hornModelConversion {
 	return conversions
 }
 
+// hornInlineConverter is the rule inliner's horn_subsume_model_converter:
+// the inlined clauses wait in m_delay_head/m_delay_body until the first
+// conversion turns them (mk_horn) into m_funcs/m_bodies, which every later
+// conversion evaluates again.
+type hornInlineConverter struct {
+	manager *ast.ASTManager
+	delayed []transforms.InlineModelRule
+	// normalized counts the delayed clauses already in m_funcs/m_bodies.
+	normalized int
+	funcs      []ast.ASTRef
+	bodies     []ast.ASTRef
+}
+
+func newHornInlineConversion(manager *ast.ASTManager, rules []transforms.InlineModelRule) hornModelConversion {
+	return hornModelConversion{kind: hornConvertInline, inline: &hornInlineConverter{manager: manager, delayed: rules}}
+}
+
+func (c *hornInlineConverter) empty() bool {
+	return c == nil || len(c.delayed) == 0 && len(c.funcs) == 0
+}
+
+// close is ~horn_subsume_model_converter: m_delay_body, m_delay_head, then
+// m_bodies and m_funcs (reverse declaration order), each front to back.
+func (c *hornInlineConverter) close() error {
+	result := transforms.CloseInlineModelRules(c.delayed)
+	if result == nil {
+		c.delayed = nil
+	}
+	for _, refs := range []*[]ast.ASTRef{&c.bodies, &c.funcs} {
+		for i := range *refs {
+			if (*refs)[i] != (ast.ASTRef{}) {
+				result = errors.Join(result, c.manager.DelRef(&(*refs)[i]))
+			}
+		}
+		if result == nil {
+			*refs = nil
+		}
+	}
+	return result
+}
+
 type hornModelConversionKind uint8
 
 const (
@@ -140,7 +181,7 @@ type hornModelConversion struct {
 	// converter's iteration order; nil means AST id order.
 	order  []ast.ASTHandle
 	cone   transforms.ConeModelStep
-	inline []transforms.InlineModelRule
+	inline *hornInlineConverter
 }
 
 func closeHornModelConversions(conversions []hornModelConversion) (result error) {
@@ -148,8 +189,8 @@ func closeHornModelConversions(conversions []hornModelConversion) (result error)
 		if conversions[i].kind == hornConvertCone {
 			result = errors.Join(result, transforms.CloseConeModelSteps([]transforms.ConeModelStep{conversions[i].cone}))
 		}
-		if conversions[i].kind == hornConvertInline {
-			result = errors.Join(result, transforms.CloseInlineModelRules(conversions[i].inline))
+		if conversions[i].kind == hornConvertInline && conversions[i].inline != nil {
+			result = errors.Join(result, conversions[i].inline.close())
 		}
 	}
 	return result

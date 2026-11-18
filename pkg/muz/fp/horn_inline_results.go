@@ -286,8 +286,12 @@ func (e *PropositionalEngine) addInlineDefaultInterpretations(destination *model
 	return nil
 }
 
-func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model, rules []transforms.InlineModelRule) (resultErr error) {
-	if len(rules) == 0 {
+// applyHornInlineModelRules is horn_subsume_model_converter::operator():
+// mk_horn turns every delayed clause, in order, into m_funcs/m_bodies, the
+// delayed clauses go, and then each body, last first, is evaluated into the
+// model.
+func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model, converter *hornInlineConverter) (resultErr error) {
+	if converter.empty() {
 		return nil
 	}
 	if e.params == nil || e.globals == nil || e.guard == nil {
@@ -304,12 +308,42 @@ func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model
 		Memory:      e.manager.NumeralService().RuntimeOwner(),
 		Cooperation: cooperation,
 	}
-	for index := len(rules) - 1; index >= 0; index-- {
-		declaration, normalized, normalizeErr := e.normalizeInlineModelRule(rules[index])
+	for converter.normalized < len(converter.delayed) {
+		declaration, normalized, err := e.normalizeInlineModelRule(converter.delayed[converter.normalized])
+		if err != nil {
+			return err
+		}
+		// insert(pred, body_res): m_funcs and m_bodies keep both.
+		predicate, err := e.manager.NewRef(declaration)
+		if err != nil {
+			return errors.Join(err, e.manager.DelRef(&normalized))
+		}
+		converter.funcs = append(converter.funcs, predicate)
+		converter.bodies = append(converter.bodies, normalized)
+		converter.normalized++
+	}
+	if len(converter.delayed) != 0 {
+		// m_delay_head.reset(); m_delay_body.reset().
+		for _, field := range []func(*transforms.InlineModelRule) *ast.ASTRef{
+			func(r *transforms.InlineModelRule) *ast.ASTRef { return &r.Head },
+			func(r *transforms.InlineModelRule) *ast.ASTRef { return &r.Body },
+		} {
+			for i := range converter.delayed {
+				if ref := field(&converter.delayed[i]); *ref != (ast.ASTRef{}) {
+					if err := e.manager.DelRef(ref); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		converter.delayed, converter.normalized = nil, 0
+	}
+	for index := len(converter.funcs) - 1; index >= 0; index-- {
+		declaration, normalizeErr := e.manager.RefGet(converter.funcs[index])
 		if normalizeErr != nil {
 			return normalizeErr
 		}
-		normalizedHandle, normalizeErr := e.manager.RefGet(normalized)
+		normalizedHandle, normalizeErr := e.manager.RefGet(converter.bodies[index])
 		if normalizeErr == nil {
 			normalizeErr = e.addInlineDefaultInterpretations(destination.Core(), normalizedHandle)
 		}
@@ -327,7 +361,7 @@ func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model
 			normalizeErr = makeErr
 		}
 		if normalizeErr != nil {
-			return errors.Join(normalizeErr, e.manager.DelRef(&evaluated), e.manager.DelRef(&normalized))
+			return errors.Join(normalizeErr, e.manager.DelRef(&evaluated))
 		}
 		value, normalizeErr := e.manager.RefGet(evaluated)
 		arity, arityErr := e.manager.GetArity(declaration)
@@ -395,7 +429,7 @@ func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model
 			}
 			normalizeErr = errors.Join(rewriteErr, e.manager.DelRef(&rewritten))
 		}
-		normalizeErr = errors.Join(normalizeErr, e.manager.DelRef(&evaluated), e.manager.DelRef(&normalized))
+		normalizeErr = errors.Join(normalizeErr, e.manager.DelRef(&evaluated))
 		if normalizeErr != nil {
 			return normalizeErr
 		}
@@ -408,7 +442,19 @@ func (e *PropositionalEngine) hornInlineEliminated(conversions []hornModelConver
 		if conversion.kind != hornConvertInline {
 			continue
 		}
-		for _, rule := range conversion.inline {
+		if conversion.inline == nil {
+			continue
+		}
+		for _, predicate := range conversion.inline.funcs {
+			headDeclaration, err := e.manager.RefGet(predicate)
+			if err != nil {
+				return false, err
+			}
+			if headDeclaration == declaration {
+				return true, nil
+			}
+		}
+		for _, rule := range conversion.inline.delayed {
 			head, err := e.manager.RefGet(rule.Head)
 			if err != nil {
 				return false, err

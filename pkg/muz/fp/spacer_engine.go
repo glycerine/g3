@@ -583,7 +583,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	appendInlineRules := func(index int) {
 		if index < len(inlineModelRules) && len(inlineModelRules[index]) != 0 {
-			modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertInline, inline: inlineModelRules[index]})
+			modelConversions = append(modelConversions, newHornInlineConversion(e.manager, inlineModelRules[index]))
 			inlineModelRules[index] = nil
 		}
 	}

@@ -1262,7 +1262,7 @@ func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuer
 		cleanupErr = transforms.CloseInlineModelRules(inlineRules)
 		resultErr = errors.Join(resultErr, cleanupErr)
 		if cleanupErr != nil {
-			e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertInline, inline: inlineRules})
+			e.datalogConversions = append(e.datalogConversions, newHornInlineConversion(e.manager, inlineRules))
 		}
 	}()
 	context, globals, err := owners.services(e)
@@ -1397,7 +1397,7 @@ func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuer
 	}
 	coneSteps = nil
 	if len(inlineRules) != 0 {
-		e.datalogConversions = append(e.datalogConversions, hornModelConversion{kind: hornConvertInline, inline: inlineRules})
+		e.datalogConversions = append(e.datalogConversions, newHornInlineConversion(e.manager, inlineRules))
 		inlineRules = nil
 	}
 	e.revision++

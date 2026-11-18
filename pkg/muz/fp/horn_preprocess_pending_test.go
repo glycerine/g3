@@ -61,7 +61,7 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 
 			for i := 0; i < 2; i++ {
 				cause := conversionResult.Close()
-				intact = intact && errors.Is(cause, ast.ErrASTPending) && !conversionResult.closed && len(conversionResult.modelConversions) == 1 && conversionResult.modelConversions[0].inline[0].Head != (ast.ASTRef{}) && conversionResult.modelConversions[0].inline[0].Body != (ast.ASTRef{})
+				intact = intact && errors.Is(cause, ast.ErrASTPending) && !conversionResult.closed && len(conversionResult.modelConversions) == 1 && conversionResult.modelConversions[0].inline.delayed[0].Head != (ast.ASTRef{}) && conversionResult.modelConversions[0].inline.delayed[0].Body != (ast.ASTRef{})
 			}
 			rules, proof := result.rules, result.sliceProof
 			for i := 0; i < 2; i++ {
@@ -178,7 +178,7 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	if len(modelRules) == 0 {
 		t.Fatal("missing inline model roots")
 	}
-	conversionResult = &hornPreprocessResult{modelConversions: []hornModelConversion{{kind: hornConvertInline, inline: modelRules}}}
+	conversionResult = &hornPreprocessResult{modelConversions: []hornModelConversion{newHornInlineConversion(m, modelRules)}}
 	must(inlined.Close())
 	must(inliner.Close())
 	plugin := transforms.NewRuleSlicePlugin(m, rules, 1)
@@ -211,7 +211,7 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	must(ledgerSet.Close())
 	must(ledgerPlugin.Close())
 	backend = &PropositionalEngine{manager: m}
-	backend.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{{kind: hornConvertInline, inline: ledgerRules}}})
+	backend.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{newHornInlineConversion(m, ledgerRules)}})
 	defer func() { must(backend.clearPDRPreprocessing()) }()
 	proofBackend = &PropositionalEngine{manager: m}
 	proofBackend.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}})
@@ -240,7 +240,7 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	defer func() { must(transforms.CloseInlineModelRules(rootModels)) }()
 	must(rootSet.Close())
 	must(rootPlugin.Close())
-	rootEngine.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{{kind: hornConvertInline, inline: rootModels}}})
+	rootEngine.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{newHornInlineConversion(m, rootModels)}})
 	defer func() { must(rootEngine.clearPDRPreprocessing()); must(rootEngine.Close()) }()
 
 	defer func() { must(proofBackend.clearPDRPreprocessing()) }()
@@ -290,8 +290,8 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 		t.Fatal("closing conversion owner published model conversions")
 	}
 	// A completed component release is safe to revisit during owner cleanup.
-	must(transforms.CloseInlineModelRules(conversionResult.modelConversions[0].inline))
-	must(transforms.CloseInlineModelRules(conversionResult.modelConversions[0].inline))
+	must(transforms.CloseInlineModelRules(conversionResult.modelConversions[0].inline.delayed))
+	must(transforms.CloseInlineModelRules(conversionResult.modelConversions[0].inline.delayed))
 	must(conversionResult.Close())
 	must(conversionResult.Close())
 	must(transforms.CloseConeModelSteps(coneSteps))
