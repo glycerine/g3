@@ -102,11 +102,11 @@ func TestSimplexIntegerRowFacadeAndReset(t *testing.T) {
 	if _, err := s.AddIntegerRow(2, []uint32{2, 0}, coeff); err != nil {
 		t.Fatal(err)
 	}
-	if s.NumVariables() != 3 || !s.matrix.WellFormed() {
+	if uint32(len(s.vars)) != 3 || !s.matrix.WellFormed() {
 		t.Fatal("integer row")
 	}
 	s.Reset()
-	if s.NumVariables() != 0 || len(s.matrix.rows) != 0 || len(s.patch.values) != 0 {
+	if uint32(len(s.vars)) != 0 || len(s.matrix.rows) != 0 || len(s.patch.values) != 0 {
 		t.Fatal("reset")
 	}
 }
@@ -169,7 +169,7 @@ func TestSimplexDeleteBaseAndNonbasicRows(t *testing.T) {
 
 func addSourceInequality(t *testing.T, s *Solver, a, b, bound int64, equality bool) {
 	t.Helper()
-	slack := s.NumVariables()
+	slack := uint32(len(s.vars))
 	one := slack + 1
 	if slack < 2 {
 		slack = 2

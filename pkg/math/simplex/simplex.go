@@ -203,7 +203,6 @@ func (s *Solver) EnsureVariable(v uint32) {
 	}
 	s.patch.ensure(v)
 }
-func (s *Solver) NumVariables() uint32      { return uint32(len(s.vars)) }
 func (s *Solver) Matrix() *Matrix           { return &s.matrix }
 func (s *Solver) SetMaxIterations(n uint32) { s.maxIterations = n }
 
@@ -609,10 +608,6 @@ func (s *Solver) BaseCoefficient(r Row) (*big.Rat, error) {
 }
 func (s *Solver) RowEntries(r Row) ([]RowEntry, error) { return s.matrix.Entries(r) }
 
-// ColumnRows and BasicRow expose the concrete tableau incidence information
-// needed by the retained arithmetic theory's nonlinear cluster traversal.
-func (s *Solver) ColumnRows(variable uint32) []Row { return s.matrix.ColumnRows(variable) }
-
 // BasicRows returns live rows in source row-vector order, including holes
 // reused by later row creation.
 func (s *Solver) BasicRows() []Row {
@@ -623,13 +618,6 @@ func (s *Solver) BasicRows() []Row {
 		}
 	}
 	return rows
-}
-
-func (s *Solver) BasicRow(variable uint32) (Row, bool) {
-	if !s.isBase(variable) {
-		return Row{}, false
-	}
-	return Row{s.vars[variable].row}, true
 }
 
 // DeleteRow removes the row containing variable. A nonbasic variable is first

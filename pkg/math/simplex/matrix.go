@@ -237,13 +237,6 @@ func (m *Matrix) AddRational(r Row, coefficient *big.Rat, variable uint32) error
 	return nil
 }
 
-func (m *Matrix) AddInteger(r Row, coefficient *big.Int, variable uint32) error {
-	if coefficient == nil {
-		return fmt.Errorf("simplex: nil coefficient")
-	}
-	return m.AddRational(r, new(big.Rat).SetInt(coefficient), variable)
-}
-
 // Entries returns the live entries of r in slot order (row_iterator).
 func (m *Matrix) Entries(r Row) ([]RowEntry, error) {
 	if !m.valid(r) {
@@ -340,23 +333,6 @@ func (m *Matrix) delRowEntry(r *matrixRow, pos int32) {
 	c.compressIfNeeded(m.rows)
 }
 
-func (m *Matrix) Multiply(r Row, coefficient *big.Rat) error {
-	if !m.valid(r) || coefficient == nil || coefficient.Sign() == 0 {
-		return fmt.Errorf("simplex: invalid row multiplier")
-	}
-	if coefficient.Cmp(big.NewRat(1, 1)) == 0 {
-		return nil
-	}
-	row := &m.rows[r.id]
-	for i := range row.entries {
-		if !row.entries[i].isDead() {
-			row.entries[i].coeff.Mul(&row.entries[i].coeff, coefficient)
-		}
-	}
-	return nil
-}
-func (m *Matrix) Negate(r Row) error { return m.Multiply(r, big.NewRat(-1, 1)) }
-
 // Delete is sparse_matrix::del. The row keeps its dead entries and free list
 // for the next mk_row.
 func (m *Matrix) Delete(r Row) error {
@@ -372,57 +348,6 @@ func (m *Matrix) Delete(r Row) error {
 	rw.live = false
 	m.deadRows = append(m.deadRows, r.id)
 	return nil
-}
-
-func gcdInt(a, b *big.Int) *big.Int {
-	a = new(big.Int).Abs(new(big.Int).Set(a))
-	b = new(big.Int).Abs(new(big.Int).Set(b))
-	return new(big.Int).GCD(nil, nil, a, b)
-}
-func lcmInt(a, b *big.Int) *big.Int {
-	if a.Sign() == 0 || b.Sign() == 0 {
-		return new(big.Int)
-	}
-	g := gcdInt(a, b)
-	return new(big.Int).Abs(new(big.Int).Mul(new(big.Int).Quo(new(big.Int).Set(a), g), b))
-}
-
-// GCDNormalize divides a row by the exact rational gcd of its coefficients
-// and returns that gcd. For integral rows this is the ordinary positive GCD.
-func (m *Matrix) GCDNormalize(r Row) (*big.Rat, error) {
-	if !m.valid(r) {
-		return nil, fmt.Errorf("simplex: invalid row")
-	}
-	row := &m.rows[r.id]
-	if row.size == 0 {
-		return big.NewRat(1, 1), nil
-	}
-	num := new(big.Int)
-	den := big.NewInt(1)
-	for i := range row.entries {
-		if row.entries[i].isDead() {
-			continue
-		}
-		c := &row.entries[i].coeff
-		if num.Sign() == 0 {
-			num.Abs(c.Num())
-		} else {
-			num = gcdInt(num, c.Num())
-		}
-		den = lcmInt(den, c.Denom())
-	}
-	if num.Sign() == 0 {
-		return big.NewRat(1, 1), nil
-	}
-	g := new(big.Rat).SetFrac(num, den)
-	if g.Cmp(big.NewRat(1, 1)) != 0 {
-		for i := range row.entries {
-			if !row.entries[i].isDead() {
-				row.entries[i].coeff.Quo(&row.entries[i].coeff, g)
-			}
-		}
-	}
-	return g, nil
 }
 
 // ColumnSize is sparse_matrix::column_size.
