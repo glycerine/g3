@@ -179,8 +179,12 @@ func (c *goalFormulaConverter) buildITE(n *node) (err error) {
 	if isIFF {
 		items = items[:2]
 	}
+	// mk_ite(get_cached(c), get_cached(t), get_cached(e)) and mk_iff: GCC
+	// evaluates the arguments right to left, so the last literal's (not ...)
+	// is built first.
 	var args [3]ast.ASTHandle
-	for i, l := range items {
+	for i := len(items) - 1; i >= 0; i-- {
+		l := items[i]
 		h, e := c.literal(l)
 		if e != nil {
 			return e

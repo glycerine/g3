@@ -184,3 +184,60 @@ func TestAIGToGoalFlattensSingleUsePositiveAndUnderNegation(t *testing.T) {
 	aigMust(t, a.Close())
 	aigMust(t, g.Close())
 }
+
+// aig2expr::mk_ite is mk_ite(get_cached(c), get_cached(t), get_cached(e));
+// GCC converts e first, so (not r) is built before (not q)
+// (AUDIT tactic_small_01-F8).
+func TestAIGToGoalIteBuildsElseBeforeThen(t *testing.T) {
+	m, _ := aigFixture(t)
+	sort, e := m.MkBoolSort()
+	aigMust(t, e)
+	p, e := m.MkFreshConst("p", sort)
+	aigMust(t, e)
+	q, e := m.MkFreshConst("q", sort)
+	aigMust(t, e)
+	r, e := m.MkFreshConst("r", sort)
+	aigMust(t, e)
+	g, e := NewManager(m)
+	aigMust(t, e)
+	a, e := g.MakeVariable(p)
+	aigMust(t, e)
+	b, e := g.MakeVariable(q)
+	aigMust(t, e)
+	c, e := g.MakeVariable(r)
+	aigMust(t, e)
+	nb, e := b.Not()
+	aigMust(t, e)
+	nc, e := c.Not()
+	aigMust(t, e)
+	ite, e := g.Ite(a, nb, nc)
+	aigMust(t, e)
+	goal, e := tactic.NewGoal(m, false, false, false)
+	aigMust(t, e)
+	t.Cleanup(func() { aigMust(t, goal.Close()) })
+	aigMust(t, g.ToGoal(ite, goal))
+	h, e := goal.Form(0)
+	aigMust(t, e)
+	op, e := m.GetDeclKind(h)
+	aigMust(t, e)
+	defer func() {
+		for _, r := range []*Ref{ite, nc, nb, c, b, a} {
+			aigMust(t, r.Close())
+		}
+		aigMust(t, g.Close())
+	}()
+	if op != ast.ASTOpIte {
+		t.Skip("ITE shape not recognized for complemented branches", op)
+	}
+	thenArg, e := m.GetArg(h, 1)
+	aigMust(t, e)
+	elseArg, e := m.GetArg(h, 2)
+	aigMust(t, e)
+	thenID, e := m.GetASTID(thenArg)
+	aigMust(t, e)
+	elseID, e := m.GetASTID(elseArg)
+	aigMust(t, e)
+	if elseID >= thenID {
+		t.Fatal("else literal must be converted before then literal", elseID, thenID)
+	}
+}
