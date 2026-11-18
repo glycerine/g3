@@ -4,6 +4,7 @@ package interp
 // congruence, and transitivity rules.
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -28,6 +29,15 @@ func (p *DirectProofInterpolator) MakeModusPonens(equivalence, premise1, premise
 	if err := p.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// make_mp's arguments are const ast& the caller holds (iz3mgr::ast
+	// smart references), so releasing make_mp's temporaries never frees
+	// them. Go callers pass bare handles; the interpolator takes the
+	// caller's reference here and keeps it until Close.
+	for _, h := range []ast.ASTHandle{equivalence, premise1, premise2} {
+		if err := p.hold(h); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
 	side, err := p.TermSide(equivalence)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -41,7 +51,13 @@ func (p *DirectProofInterpolator) MakeModusPonens(equivalence, premise1, premise
 		return ast.ASTHandle{}, err
 	}
 	if side == TermMixed {
+		// triv_interp(modpon, p, p_eq_q, mk_not(q), mask): the mk_not(q)
+		// temporary is released when the call returns.
 		negatedRight, e := p.base.manager.MkNot(right)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		releaseNegatedRight, e := p.temporary(negatedRight)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -64,18 +80,10 @@ func (p *DirectProofInterpolator) MakeModusPonens(equivalence, premise1, premise
 			}
 		}
 		interpolation, e := p.trivialInterpolation(p.modusPonens, []ast.ASTHandle{left, equivalence, negatedRight}, mask)
-		if e != nil {
+		if e = errors.Join(e, releaseNegatedRight()); e != nil {
 			return ast.ASTHandle{}, e
 		}
-		negatedEquivalence, e := p.base.manager.MkNot(equivalence)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		interpolation, e = p.MakeResolution(left, []ast.ASTHandle{right, negatedEquivalence}, interpolation, premise1)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		return p.MakeResolution(equivalence, []ast.ASTHandle{right}, interpolation, premise2)
+		return p.resolveModusPonens(equivalence, left, right, interpolation, premise1, premise2)
 	}
 	leftSide, err := p.TermSide(left)
 	if err != nil {
@@ -107,12 +115,17 @@ func (p *DirectProofInterpolator) MakeModusPonens(equivalence, premise1, premise
 			return ast.ASTHandle{}, ProofError{}
 		}
 	} else if rightSide == TermA {
+		// get_term_type(make(Equal, p, q)): a temporary of the condition.
 		comparison, e := p.base.manager.Make(OperatorEqual, left, right)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		comparisonSide, e := p.TermSide(comparison)
+		releaseComparison, e := p.temporary(comparison)
 		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		comparisonSide, e := p.TermSide(comparison)
+		if e = errors.Join(e, releaseComparison()); e != nil {
 			return ast.ASTHandle{}, e
 		}
 		if comparisonSide != TermA {
@@ -125,15 +138,37 @@ func (p *DirectProofInterpolator) MakeModusPonens(equivalence, premise1, premise
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	return p.resolveModusPonens(equivalence, left, right, interpolation, premise1, premise2)
+}
+
+// resolveModusPonens is make_mp's tail: conc = {q, mk_not(p_eq_q)} holds the
+// negation through the first resolution, and conc.pop_back() releases it
+// before the second.
+func (p *DirectProofInterpolator) resolveModusPonens(equivalence, left, right, interpolation, premise1, premise2 ast.ASTHandle) (ast.ASTHandle, error) {
 	negatedEquivalence, err := p.base.manager.MkNot(equivalence)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	interpolation, err = p.MakeResolution(left, []ast.ASTHandle{right, negatedEquivalence}, interpolation, premise1)
+	release, err := p.temporary(negatedEquivalence)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	interpolation, err = p.MakeResolution(left, []ast.ASTHandle{right, negatedEquivalence}, interpolation, premise1)
+	if err = errors.Join(err, release()); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return p.MakeResolution(equivalence, []ast.ASTHandle{right}, interpolation, premise2)
+}
+
+// temporary holds h as an iz3mgr::ast smart reference does; the returned
+// release drops it, deleting h at once when nothing else refers to it, as
+// the source's destructor does.
+func (p *DirectProofInterpolator) temporary(h ast.ASTHandle) (func() error, error) {
+	ref, err := p.base.manager.ast.NewRef(h)
+	if err != nil {
+		return nil, err
+	}
+	return func() error { return p.base.manager.ast.DelRef(&ref) }, nil
 }
 
 func (p *DirectProofInterpolator) MakeCongruence(premiseConclusion, conclusion, premise ast.ASTHandle) (ast.ASTHandle, error) {

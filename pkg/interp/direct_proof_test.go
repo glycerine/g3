@@ -2055,3 +2055,29 @@ func TestDirectProofMixedCongruenceCreationOrder(t *testing.T) {
 		t.Fatal("placeholder(not con) created after the position numeral", placeholderID, sevenID)
 	}
 }
+
+// make_mp's mk_not(p_eq_q) lives in the conc vector until pop_back and is
+// then freed (ast_r destructor) when nothing else holds it: build_trace/z3
+// del_ast's it right after the first resolution (Duality reproduction,
+// mk/del event 3570). The caller's equivalence survives.
+func TestDirectProofModusPonensReleasesNegatedEquivalence(t *testing.T) {
+	_, manager, base, p, _ := directProofFixture(t)
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	truth, err := manager.Make(OperatorTrue)
+	interpMust(t, err)
+	equivalence, err := manager.Make(OperatorIff, p, p)
+	interpMust(t, err)
+	negated, err := manager.MkNot(equivalence)
+	interpMust(t, err)
+	if _, err = direct.MakeModusPonens(equivalence, truth, truth); err != nil {
+		t.Fatal(err)
+	}
+	if manager.ast.IsLiveHandle(negated) {
+		t.Fatal("make_mp kept its mk_not(p_eq_q) temporary")
+	}
+	if !manager.ast.IsLiveHandle(equivalence) {
+		t.Fatal("make_mp freed the caller's equivalence")
+	}
+}
