@@ -352,9 +352,9 @@ var scriptResults = map[string]string{
 	// AUDIT.md parsers_shell_01-F11: the header arity is not checked
 	// against the par binder.
 	"datatype_header_arity_unchecked.smt2": "sat\n(model \n  (define-fun l () (L Int Real)\n    (cons 0 nil))\n  (define-fun x () (A Int)\n    a)\n)\n",
-	"macro_manager_destroy_order.smt2":    "sat\n",
-	"macro_expand_rewriter_lifetime.smt2": "sat\n",
-	"idl_dense_big_constants.smt2":        "sat\n(((- x y) 4000000001)\n ((- y z) 0)\n ((- x z) 4000000001))\nsat\n",
+	"macro_manager_destroy_order.smt2":     "sat\n",
+	"macro_expand_rewriter_lifetime.smt2":  "sat\n",
+	"idl_dense_big_constants.smt2":         "sat\n(((- x y) 4000000001)\n ((- y z) 0)\n ((- x z) 4000000001))\nsat\n",
 	// xform.karr: mk_karr_invariants' inner datalog context rejects the
 	// loop-counter rules (fork fix #A frees the transformer's rule set; see
 	// ast_event_digests.txt).
@@ -2387,11 +2387,11 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
-	"declare_map_errors.smt2": true,
-	"macro_name_survives_pop.smt2": true,
-	"output_channel_open_failure.smt2": true,
-	"get_unsat_core_disabled.smt2": true,
-	"sort_constructor_arity_error.smt2": true,
+	"declare_map_errors.smt2":             true,
+	"macro_name_survives_pop.smt2":        true,
+	"output_channel_open_failure.smt2":    true,
+	"get_unsat_core_disabled.smt2":        true,
+	"sort_constructor_arity_error.smt2":   true,
 	"plugins6_declare_rel_arguments.smt2": true,
 	// AUDIT.md FUZZ-F5: get_ordinary_relation_plugin's missing plugin.
 	"plugins6_external_relation_missing.smt2": true,

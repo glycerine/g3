@@ -3,7 +3,6 @@ package api
 // Source: src/api/api_quant.cpp:24-69,165-194,285-486.
 
 import (
-
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -234,6 +233,7 @@ func (c *SMTContext) PatternTerm(value ast.ASTHandle, index uint32) (ast.ASTHand
 	}
 	return m.GetArg(value, index)
 }
+
 // PatternString is Z3_pattern_to_string, which is Z3_ast_to_string of the
 // pattern: the context print mode applies (SMTLIB_FULL disables let
 // aliases), and the argument is not checked to be a pattern.
