@@ -178,7 +178,10 @@ func TestLegacyProjectionRemainingArithmeticSubstitutionPolicy(t *testing.T) {
 		if tags.ShouldTrace("spacer_mbp") {
 			text := output.String()
 			previous := -1
-			for _, marker := range []string{"After qe_lite:\n", "Vars:\nremaining-policy-x\n", "Array vars:\n", "extended model:\n", "Auxiliary variables of index and value sorts:\n", "Arith vars:\nremaining-policy-x\n", "Projected arith vars:\n", "Remaining arith vars:\nremaining-policy-x\n"} {
+			if !strings.HasPrefix(text, "-------- [spacer_mbp] qe_project ") || !strings.Contains(text[:strings.Index(text, "\n")+1+len("Before projection:\n")], "\nBefore projection:\n") {
+				t.Fatalf("first record is not qe_project's Before projection: %s", text)
+			}
+			for _, marker := range []string{"Before projection:\n", "Vars:\nremaining-policy-x\n", "After qe_lite:\n", "Vars:\nremaining-policy-x\n", "Array vars:\n", "extended model:\n", "Auxiliary variables of index and value sorts:\n", "Arith vars:\nremaining-policy-x\n", "Projected arith vars:\n", "Remaining arith vars:\nremaining-policy-x\n"} {
 				offset := strings.Index(text[previous+1:], marker)
 				if offset < 0 {
 					t.Fatalf("missing ordered marker %q in %s", marker, text)

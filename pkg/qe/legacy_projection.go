@@ -250,6 +250,11 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&current)) }()
+	// TRACE("spacer_mbp", "Before projection:", fml, "Vars:", vars) on entry
+	// (AUDIT.md qe_03-F7).
+	if err = p.traceProjectionStage(483, "Before projection:", current, "Vars:", variables, nil); err != nil {
+		return nil, err
+	}
 	// qe_project flattens its input once before the repeated qe_lite stages.
 	// flatten_and's swap/reprocessing order also applies to an already flat
 	// conjunction, and must precede any theory rewriting or variable selection.
