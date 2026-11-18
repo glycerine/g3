@@ -34,16 +34,12 @@ func TestFixedpointUndefinedStatusMatchesSourceBackend(t *testing.T) {
 		t.Fatalf("abstract Datalog status = %q, want approximated", reason)
 	}
 
-	e.backend = "pdr"
-	e.recordQueryStatusWithApproximation(lbool.Undef, nil, true)
-	reason, err = e.ReasonUnknown()
-	fragmentMust(t, err)
-	if reason != "approximated" {
-		t.Fatalf("multi-relation extension status = %q, want approximated", reason)
-	}
 }
 
-func TestFixedpointExplicitApproximationDoesNotInheritSpacerBound(t *testing.T) {
+// context::rel_query never sets m_last_status: a multi-relation query on a
+// non-Datalog engine (engine_base::query returns l_undef) keeps the previous
+// reason (AUDIT muz_fp_04-F6).
+func TestFixedpointMultiRelationQueryKeepsStatus(t *testing.T) {
 	f := newDirectFactFixture(t)
 	e := f.engine
 	fragmentMust(t, e.globals.SourceSetName("fixedpoint.spacer.max_level", "0"))
@@ -68,7 +64,7 @@ func TestFixedpointExplicitApproximationDoesNotInheritSpacerBound(t *testing.T) 
 	}
 	reason, err = e.ReasonUnknown()
 	fragmentMust(t, err)
-	if reason != "approximated" {
-		t.Fatalf("multi-relation Spacer reason = %q, want approximated", reason)
+	if reason != "bounded" {
+		t.Fatalf("multi-relation Spacer reason = %q, want the previous bounded", reason)
 	}
 }

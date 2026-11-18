@@ -2637,11 +2637,24 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
-	approximate := false
-	defer func() { e.recordQueryStatusWithApproximation(result, resultErr, approximate) }()
+	keepStatus := false
+	defer func() {
+		// context::rel_query never sets m_last_status: engine_base::query
+		// with other than one relation returns l_undef at once, and only
+		// m_last_answer is cleared.
+		status := e.lastStatus
+		e.recordQueryStatusCore(result, resultErr)
+		if keepStatus {
+			e.lastStatus = status
+		}
+	}()
 	// Source context::rel_query resolves the configured engine before dispatch.
 	if err := e.selectFactEngine(); err != nil {
 		return lbool.Undef, err
+	}
+	if e.backend != "datalog" && len(declarations) != 1 {
+		keepStatus = true
+		return lbool.Undef, nil
 	}
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
@@ -2653,10 +2666,6 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 		}
 	}()
 	if e.backend != "datalog" {
-		if len(declarations) != 1 {
-			approximate = true
-			return lbool.Undef, nil
-		}
 		if e.predicates[declarations[0]] == nil {
 			return lbool.Undef, ErrPropositionalHorn
 		}
@@ -3082,7 +3091,7 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 }
 
 func (e *PropositionalEngine) recordQueryStatus(result lbool.LBool, err error) {
-	e.recordQueryStatusWithApproximation(result, err, false)
+	e.recordQueryStatusCore(result, err)
 }
 
 // ReasonUnknown returns the native fixedpoint execution-status spelling for

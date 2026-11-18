@@ -57,7 +57,7 @@ func (e *PropositionalEngine) recordResultSnapshot(result lbool.LBool, queryErr 
 	e.lastResult = result
 }
 
-func (e *PropositionalEngine) recordQueryStatusWithApproximation(result lbool.LBool, err error, approximate bool) {
+func (e *PropositionalEngine) recordQueryStatusCore(result lbool.LBool, err error) {
 	timedOut := e.datalogTimedOut
 	e.datalogTimedOut = false
 	e.recordResultSnapshot(result, err)
@@ -66,13 +66,6 @@ func (e *PropositionalEngine) recordQueryStatusWithApproximation(result lbool.LB
 		return
 	}
 	if result == lbool.Undef {
-		// This path represents an approximation without dispatching a backend
-		// query, so it must not inherit a bounded state from an earlier Spacer
-		// search.
-		if approximate {
-			e.lastStatus = "approximated"
-			return
-		}
 		var context *muzspacer.Context
 		if e.backend == "spacer" {
 			context = e.spacer
