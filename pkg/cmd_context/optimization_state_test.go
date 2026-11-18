@@ -1,7 +1,6 @@
 package cmd_context
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -52,7 +51,7 @@ func TestOptimizationObjectiveMutationClosesParetoSolverImmediately(t *testing.T
 	if status != lbool.True || c.optimizationParetoBackend == nil {
 		t.Fatal("Pareto enumeration did not restart after rejected objective", status, c.optimizationParetoBackend)
 	}
-	if err = c.AddSoftConstraint(x, big.NewRat(1, 1), "invalid"); err == nil {
+	if err = c.AddSoftConstraint(x, softRat(1, 1), "invalid"); err == nil {
 		t.Fatal("integer soft constraint was accepted")
 	}
 	if c.optimizationParetoBackend == nil || !c.optimizationParetoActive {

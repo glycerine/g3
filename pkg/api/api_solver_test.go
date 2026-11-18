@@ -6,7 +6,6 @@ package api
 import (
 	"bytes"
 	"errors"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -201,8 +200,8 @@ func TestSMTContextOptimizationObjectivesAndSoftConstraints(t *testing.T) {
 		astTestMust(t, err)
 		p := f.pin(f.m.MkConst(symbol, boolean))
 		notP := f.pin(f.m.MkNot(p))
-		astTestMust(t, f.c.AssertSoft(p, big.NewRat(2, 1), "preferences"))
-		astTestMust(t, f.c.AssertSoft(notP, big.NewRat(1, 1), "preferences"))
+		astTestMust(t, f.c.AssertSoft(p, softRat(2, 1), "preferences"))
+		astTestMust(t, f.c.AssertSoft(notP, softRat(1, 1), "preferences"))
 		status, err := f.c.CheckSat()
 		astTestMust(t, err)
 		if status != lbool.True {

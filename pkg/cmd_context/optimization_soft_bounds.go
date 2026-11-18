@@ -1,10 +1,15 @@
 package cmd_context
 
-import "github.com/glycerine/g3/pkg/opt"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/opt"
+)
 
 // publishOptimizationBounds copies available search bounds even when the
 // search stops before finding an optimum. The result owns its values.
 func (c *Context) publishOptimizationBounds(result *opt.ArithmeticResult) {
+	q := c.optQ()
 	var err error
 	for i := range c.objectives {
 		objective := &c.objectives[i]
@@ -14,11 +19,9 @@ func (c *Context) publishOptimizationBounds(result *opt.ArithmeticResult) {
 		}
 		value := &result.Values[i]
 		if objective.soft && value.SoftBoundsValid {
-			c.optSetBig(&objective.boundLower, &value.SoftLower, &err)
-			c.optSetBig(&objective.boundUpper, &value.SoftUpper, &err)
+			err = errors.Join(err, q.Copy(&objective.boundLower, &value.SoftLower), q.Copy(&objective.boundUpper, &value.SoftUpper))
 		} else if !objective.soft && value.SourceBoundsValid {
-			c.optSetBig(&objective.boundLower, &value.SourceLower, &err)
-			c.optSetBig(&objective.boundUpper, &value.SourceUpper, &err)
+			err = errors.Join(err, q.Copy(&objective.boundLower, &value.SourceLower), q.Copy(&objective.boundUpper, &value.SourceUpper))
 		} else {
 			continue
 		}

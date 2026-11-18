@@ -1,7 +1,6 @@
 package api
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -13,7 +12,7 @@ func TestAPIOptimizeObjectiveExpressionsBuildSoftPenaltySum(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := f.pin(f.m.MkConst(name, boolean))
-	if _, err = f.opt.AssertSoft(p, big.NewRat(7, 2), "group"); err != nil {
+	if _, err = f.opt.AssertSoft(p, softRat(7, 2), "group"); err != nil {
 		t.Fatal(err)
 	}
 	refs, err := f.opt.ObjectiveExpressions()

@@ -1,7 +1,7 @@
 package cmd_context
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/opt"
@@ -30,17 +30,16 @@ func (c *Context) EncodeOptimizationFormulas() (*opt.ObjectiveFormulaSet, error)
 			continue
 		}
 		objective := opt.FormulaObjective{Kind: opt.FormulaMaxSAT, ID: source.id, SoftTerms: make([]ast.ASTHandle, len(source.softTerms))}
-		weights := make([]*big.Rat, len(source.softTerms))
+		objective.Weights = make([]numeral.Rational, len(source.softTerms))
+		objectives[i] = objective
 		for j := range source.softTerms {
 			objective.SoftTerms[j] = source.softTerms[j].expression
-			weights[j] = &source.softTerms[j].weight
+			if objective.Weights[j], err = c.optClone(&source.softTerms[j].weight); err != nil {
+				objective.Weights = objective.Weights[:j+1]
+				objectives[i] = objective
+				return nil, c.optDelObjectiveWeights(objectives, err)
+			}
 		}
-		rats, err := c.optRats(weights)
-		if err != nil {
-			return nil, c.optDelObjectiveWeights(objectives, err)
-		}
-		objective.Weights = rats
-		objectives[i] = objective
 	}
 	set, err := opt.NewObjectiveFormulaSet(manager, hard, objectives)
 	return set, c.optDelObjectiveWeights(objectives, err)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -232,8 +233,16 @@ func TestGeneratedOptimizeReplaySoftGroups(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		if !value.Available || value.SoftCost.RatString() != "1/2" {
-			t.Fatal("soft optimum", value)
+		m, e := o.value.command.Manager()
+		if e != nil {
+			return e
+		}
+		q := m.NumeralService().Manager
+		if text, e := q.String(&value.SoftCost); e != nil || !value.Available || text != "1/2" {
+			t.Fatal("soft optimum", value, e)
+		}
+		if e = errors.Join(value.Release(q), objective.Release(q)); e != nil {
+			return e
 		}
 		checked = true
 		return nil

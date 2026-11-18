@@ -6,8 +6,8 @@ package api
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"io"
-	"math/big"
 	"strings"
 	"sync"
 
@@ -164,8 +164,9 @@ func (c *SMTContext) Minimize(expression ast.ASTHandle) error {
 }
 
 // AssertSoft adds a weighted Boolean constraint. Constraints with the same
-// identifier belong to one soft-objective group. The weight is copied.
-func (c *SMTContext) AssertSoft(formula ast.ASTHandle, weight *big.Rat, id string) error {
+// identifier belong to one soft-objective group. The weight, a rational of
+// the AST manager's NumeralService().Manager, is copied.
+func (c *SMTContext) AssertSoft(formula ast.ASTHandle, weight *numeral.Rational, id string) error {
 	if err := c.open(); err != nil {
 		return err
 	}

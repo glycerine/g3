@@ -77,7 +77,7 @@ func TestCommandContextPurifiedPipelineFacade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = c.AddSoftConstraint(condition, big.NewRat(4, 1), "pref"); err != nil {
+	if err = c.AddSoftConstraint(condition, softRat(4, 1), "pref"); err != nil {
 		t.Fatal(err)
 	}
 	pipeline, err := c.PreparePurifiedOptimizationPipeline(nil)

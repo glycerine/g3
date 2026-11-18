@@ -3,7 +3,7 @@ package api
 // Source: src/api/api_opt.cpp:70-136.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -15,7 +15,10 @@ func (o *APIOptimize) Assert(formula ast.ASTHandle) error {
 	return o.command.Assert(formula, "")
 }
 
-func (o *APIOptimize) AssertSoft(formula ast.ASTHandle, weight *big.Rat, id string) (uint32, error) {
+// AssertSoft is Z3_optimize_assert_soft with its rational weight: a rational
+// of the AST manager's NumeralService().Manager, borrowed (the objective
+// keeps a copy).
+func (o *APIOptimize) AssertSoft(formula ast.ASTHandle, weight *numeral.Rational, id string) (uint32, error) {
 	if err := o.open(); err != nil {
 		return 0, err
 	}

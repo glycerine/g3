@@ -4,7 +4,6 @@ package cmd_context
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -147,7 +146,9 @@ func (c *Context) optimizationSoftModelComparison(objective *optimizationObjecti
 			}
 		}
 	}()
-	var bound big.Rat
+	// rational k(0)
+	bound := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, c.optQ().Del(&bound)) }()
 	for i := range objective.softTerms {
 		term := &objective.softTerms[i]
 		arguments[i] = term.expression
@@ -155,7 +156,7 @@ func (c *Context) optimizationSoftModelComparison(objective *optimizationObjecti
 		if err != nil {
 			return result, err
 		}
-		if err = service.SetString(&coefficients[i], term.weight.RatString()); err != nil {
+		if err = service.Manager.Copy(&coefficients[i].Raw, &term.weight); err != nil {
 			return result, err
 		}
 		ref, evaluated, err := c.evaluateOptimizationModel(md, term.expression)
@@ -172,14 +173,16 @@ func (c *Context) optimizationSoftModelComparison(objective *optimizationObjecti
 			return result, err
 		}
 		if truth {
-			bound.Add(&bound, &term.weight)
+			if err = c.optQ().Add(&bound, &term.weight, &bound); err != nil {
+				return result, err
+			}
 		}
 	}
 	threshold, err = service.NewValue()
 	if err != nil {
 		return result, err
 	}
-	if err = service.SetString(&threshold, bound.RatString()); err != nil {
+	if err = service.Manager.Copy(&threshold.Raw, &bound); err != nil {
 		return result, err
 	}
 	if isGE {

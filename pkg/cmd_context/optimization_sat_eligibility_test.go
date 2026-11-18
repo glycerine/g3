@@ -1,7 +1,6 @@
 package cmd_context
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -15,7 +14,7 @@ func optimizationSATFixture(t *testing.T, c *Context) ast.ASTHandle {
 	contextMust(t, err)
 	p, err := c.MakeApp("sat-eligibility-p", nil, nil, ast.ASTHandle{})
 	contextMust(t, err)
-	contextMust(t, c.AddSoftConstraint(p, big.NewRat(1, 1), ""))
+	contextMust(t, c.AddSoftConstraint(p, softRat(1, 1), ""))
 	return p
 }
 
@@ -73,7 +72,7 @@ func TestOptimizationSATCoreEligibilityMatchesSourceGate(t *testing.T) {
 			contextMust(t, err)
 			formula, err := c.MakeApp("sat-eligibility-f", []ast.ASTHandle{p}, nil, ast.ASTHandle{})
 			contextMust(t, err)
-			contextMust(t, c.AddSoftConstraint(formula, big.NewRat(1, 1), ""))
+			contextMust(t, c.AddSoftConstraint(formula, softRat(1, 1), ""))
 		}},
 		{name: "pseudo-Boolean hard formula", mutate: func(t *testing.T, c *Context) {
 			m, err := c.Manager()
@@ -104,7 +103,7 @@ func TestOptimizationSATCoreEligibilityMatchesSourceGate(t *testing.T) {
 			contextMust(t, err)
 			equal, err := m.MkEq(term, zero)
 			contextMust(t, err)
-			contextMust(t, c.AddSoftConstraint(equal, big.NewRat(1, 1), ""))
+			contextMust(t, c.AddSoftConstraint(equal, softRat(1, 1), ""))
 		}, want: true},
 		{name: "bit-vector objective lowering remains eligible", mutate: func(t *testing.T, c *Context) {
 			m, err := c.Manager()

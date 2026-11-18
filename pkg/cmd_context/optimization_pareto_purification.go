@@ -55,7 +55,7 @@ func (c *Context) prepareParetoPurification() (resultErr error) {
 			objectives[i].Term = ast.ASTHandle{}
 			for _, term := range objective.softTerms {
 				objectives[i].SoftTerms = append(objectives[i].SoftTerms, term.expression)
-				weight, _ := c.optRat(&term.weight)
+				weight, _ := c.optClone(&term.weight)
 				objectives[i].Weights = append(objectives[i].Weights, weight)
 			}
 		}
@@ -76,16 +76,22 @@ func (c *Context) prepareParetoPurification() (resultErr error) {
 		return err
 	}
 	state.hard = set.Hard
-	state.objectives = append([]optimizationObjective(nil), c.objectives...)
+	// The purified objectives own their rationals (releaseParetoPurification).
+	if state.objectives, err = c.cloneObjectives(c.objectives); err != nil {
+		return err
+	}
+	q := c.optQ()
 	for i, objective := range set.Objectives {
 		if !state.objectives[i].soft {
 			state.objectives[i].expression = objective.Term
 			continue
 		}
+		err = errors.Join(err, c.releaseSoftTerms(state.objectives[i].softTerms))
 		state.objectives[i].softTerms = make([]optimizationSoftTerm, len(objective.SoftTerms))
 		for j, term := range objective.SoftTerms {
 			state.objectives[i].softTerms[j].expression = term
-			c.optSetBig(&state.objectives[i].softTerms[j].weight, &objective.Weights[j], &err)
+			state.objectives[i].softTerms[j].weight = numeral.NewRational()
+			err = errors.Join(err, q.Copy(&state.objectives[i].softTerms[j].weight, &objective.Weights[j]))
 		}
 	}
 	return err

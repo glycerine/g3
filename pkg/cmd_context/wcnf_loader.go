@@ -1,8 +1,10 @@
 package cmd_context
 
 import (
+	"errors"
 	"fmt"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/opt"
@@ -32,8 +34,12 @@ func (c *Context) LoadWCNF(document opt.WCNFDocument) (WCNFLoadSummary, error) {
 			e = c.Assert(clause, "")
 			summary.HardClauses++
 		} else {
-			weight := new(big.Rat).SetInt(new(big.Int).SetUint64(document.Clauses[i].Weight))
-			e = c.AddSoftConstraint(clause, weight, "")
+			weight := numeral.NewRational()
+			q := c.manager.NumeralService().Manager
+			if e = q.SetString(&weight, strconv.FormatUint(document.Clauses[i].Weight, 10)); e == nil {
+				e = c.AddSoftConstraint(clause, &weight, "")
+			}
+			e = errors.Join(e, q.Del(&weight))
 			summary.SoftClauses++
 		}
 		if e != nil {

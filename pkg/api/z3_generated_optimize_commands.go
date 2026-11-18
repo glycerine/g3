@@ -4,7 +4,6 @@ package api
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -160,15 +159,7 @@ func replayOptimizeCommand(r *Z3Replayer, id uint32) (err error) {
 		if e = service.SetString(&weight, weightText); e != nil {
 			return e
 		}
-		text, e := service.String(&weight)
-		if e != nil {
-			return e
-		}
-		rational, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return ast.ErrASTDomain
-		}
-		_, err = o.value.AssertSoft(value.handle, rational, softID)
+		_, err = o.value.AssertSoft(value.handle, &weight.Raw, softID)
 	case 545:
 		err = o.value.Push()
 	case 546:

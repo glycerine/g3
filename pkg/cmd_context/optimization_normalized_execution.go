@@ -8,7 +8,6 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -243,18 +242,33 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			return nil, err
 		}
 	}
-	normalized := append([]optimizationObjective(nil), original...)
+	// The normalized objectives are opt::context's m_objectives after
+	// from_fmls: their own rationals, released when the original objectives
+	// return.
+	normalized, err := c.cloneObjectives(original)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.releaseObjectives(normalized)) }()
+	q := c.optQ()
+	// setSoftTerms replaces an objective's soft terms with terms/weights.
+	setSoftTerms := func(o *optimizationObjective, terms []ast.ASTHandle, weights []numeral.Rational) error {
+		err := c.releaseSoftTerms(o.softTerms)
+		o.softTerms = make([]optimizationSoftTerm, len(terms))
+		for j, term := range terms {
+			o.softTerms[j].expression = term
+			o.softTerms[j].weight = numeral.NewRational()
+			err = errors.Join(err, q.Copy(&o.softTerms[j].weight, &weights[j]))
+		}
+		return err
+	}
 	var bridgeErr error
 	for i, d := range decomposed {
 		if i < len(source.Objectives) {
 			objective := source.Objectives[i]
 			if objective.Kind == opt.FormulaMaxSAT {
-				normalized[i].softTerms = make([]optimizationSoftTerm, len(objective.SoftTerms))
-				for j, term := range objective.SoftTerms {
-					normalized[i].softTerms[j].expression = term
-					c.optSetBig(&normalized[i].softTerms[j].weight, &objective.Weights[j], &bridgeErr)
-				}
-				c.optSetBig(&normalized[i].softOffset, &objective.Offset, &bridgeErr)
+				bridgeErr = errors.Join(bridgeErr, setSoftTerms(&normalized[i], objective.SoftTerms, objective.Weights),
+					q.Copy(&normalized[i].softOffset, &objective.Offset))
 			} else {
 				normalized[i].expression = objective.Term
 				normalized[i].maximize = objective.Kind == opt.FormulaMaximize
@@ -262,13 +276,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		}
 		if !original[i].soft && d.Converted {
 			normalized[i].verifyConverted, normalized[i].verifyNegate = true, d.Negate
-			c.optSetBig(&normalized[i].verifyOffset, &d.Offset, &bridgeErr)
+			bridgeErr = errors.Join(bridgeErr, q.Copy(&normalized[i].verifyOffset, &d.Offset))
 			normalized[i].soft, normalized[i].bitVector = true, false
-			normalized[i].softTerms = make([]optimizationSoftTerm, len(d.SoftTerms))
-			for j, term := range d.SoftTerms {
-				normalized[i].softTerms[j].expression = term
-				c.optSetBig(&normalized[i].softTerms[j].weight, &d.Weights[j], &bridgeErr)
-			}
+			bridgeErr = errors.Join(bridgeErr, setSoftTerms(&normalized[i], d.SoftTerms, d.Weights))
 		}
 		if purified == nil || i >= len(purified.Objectives) {
 			continue
@@ -324,8 +334,10 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		// internalize(): display_assignment reads the bounds optsmt::add
 		// and maxsmt::add left, through the normalized m_adjust_value.
 		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
-		c.initialDisplayBounds(values)
 		c.optimizationFailureDisplay = values
+		if err = c.initialDisplayBounds(values); err != nil {
+			return nil, err
+		}
 	}
 	if boxContinuation {
 		optimized, err = c.checkOptimizeBox(assumptions, true)
@@ -339,6 +351,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			// A later execute_pareto reports values through this
 			// normalization; keep its value transforms (also when the
 			// engine threw: m_pareto and m_objectives survive it).
+			if e := opt.ReleaseDecomposed(c.optQ(), c.optimizationParetoPurification.decomposed); e != nil {
+				err = errors.Join(err, e)
+			}
 			c.optimizationParetoPurification.decomposed = c.paretoValueTransforms(decomposed)
 		}
 	} else if priority == "box" && len(c.objectives) > 1 {
@@ -402,11 +417,11 @@ func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, origi
 				// unbounded objective), so display_assignment shows
 				// m_adjust_value of its m_lower and m_upper as an interval
 				// (AUDIT.md FUZZ_A-F3).
-				lower, e := c.optRestoreBig(&d, &optimized.Values[i].SoftLower)
+				lower, e := c.optRestoreInfinitesimal(&d, &optimized.Values[i].SoftLower)
 				if e != nil {
 					return e
 				}
-				upper, e := c.optRestoreBig(&d, &optimized.Values[i].SoftUpper)
+				upper, e := c.optRestoreInfinitesimal(&d, &optimized.Values[i].SoftUpper)
 				if e != nil {
 					return e
 				}
@@ -419,17 +434,16 @@ func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, origi
 				if e = c.optReplaceValue(&optimized.Values[i]); e != nil {
 					return e
 				}
-				optimized.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(shown)}
-				optimized.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(model)}
+				optimized.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: shown}
+				optimized.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: model}
 				optimized.Values[i].ArithmeticModelValid = true
 				optimized.Values[i].ArithmeticInterval = true
 				continue
 			}
-			value, e := c.optRestoreBig(&d, &optimized.Values[i].SoftCost)
+			finite, e := c.optRestoreInfinitesimal(&d, &optimized.Values[i].SoftCost)
 			if e != nil {
 				return e
 			}
-			finite := simplex.RationalInfinitesimal(value)
 			if e = c.optReplaceValue(&optimized.Values[i]); e != nil {
 				return e
 			}
@@ -461,16 +475,16 @@ func (c *Context) restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult,
 			// get_lower_as_num/get_upper_as_num of a converted objective
 			// are m_adjust_value of the maxsmt bounds, unswapped
 			// (AUDIT.md FUZZ_A-F5).
-			displayLower, err := c.optRestoreBig(&decomposed[i], &value.SoftLower)
+			displayLower, err := c.optRestoreInfinitesimal(&decomposed[i], &value.SoftLower)
 			if err != nil {
 				return err
 			}
-			displayUpper, err := c.optRestoreBig(&decomposed[i], &value.SoftUpper)
+			displayUpper, err := c.optRestoreInfinitesimal(&decomposed[i], &value.SoftUpper)
 			if err != nil {
 				return err
 			}
-			value.DisplayLower = simplex.RationalInfinitesimal(displayLower)
-			value.DisplayUpper = simplex.RationalInfinitesimal(displayUpper)
+			value.DisplayLower = displayLower
+			value.DisplayUpper = displayUpper
 		}
 		lowerPenalty, upperPenalty := &value.SoftLower, &value.SoftUpper
 		if decomposed[i].Negate {
@@ -503,7 +517,7 @@ func (c *Context) originalDecodedObjective(objective *optimizationObjective) opt
 		result.Kind = opt.FormulaMaxSAT
 		for _, term := range objective.softTerms {
 			result.SoftTerms = append(result.SoftTerms, term.expression)
-			weight, _ := c.optRat(&term.weight)
+			weight, _ := c.optClone(&term.weight)
 			result.Weights = append(result.Weights, weight)
 		}
 	}

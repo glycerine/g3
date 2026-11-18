@@ -37,10 +37,13 @@ func (c *Context) ObjectiveBound(index uint32, lower bool) (OptimizationBound, e
 	}
 	var value simplex.Infinitesimal
 	if source.boundsReady {
+		bound := &source.boundUpper
 		if lower {
-			value.Main.Set(&source.boundLower)
-		} else {
-			value.Main.Set(&source.boundUpper)
+			bound = &source.boundLower
+		}
+		var err error
+		if value, err = c.optInfinitesimal(bound); err != nil {
+			return OptimizationBound{}, err
 		}
 	} else if source.openBounds {
 		if lower {
@@ -49,7 +52,10 @@ func (c *Context) ObjectiveBound(index uint32, lower bool) (OptimizationBound, e
 			value.Infinity.SetInt64(1)
 		}
 	} else if source.soft || source.bitVector {
-		value.Main.Set(&source.softValue)
+		var err error
+		if value, err = c.optInfinitesimal(&source.softValue); err != nil {
+			return OptimizationBound{}, err
+		}
 	} else {
 		selected, unbounded := &source.value.Finite, source.value.Unbounded
 		if source.interval && lower == source.maximize {

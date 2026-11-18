@@ -15,7 +15,7 @@ func TestOptimizationUnknownPublishesSoftSearchBounds(t *testing.T) {
 	contextMust(t, err)
 	term, err := m.MkTrue()
 	contextMust(t, err)
-	contextMust(t, c.AddSoftConstraint(term, big.NewRat(5, 1), ""))
+	contextMust(t, c.AddSoftConstraint(term, softRat(5, 1), ""))
 	result := &opt.ArithmeticResult{Q: c.optQ(), Status: lbool.Undef, Values: opt.NewObjectiveValues(c.optQ(), 1)}
 	value := &result.Values[0]
 	value.Soft = true

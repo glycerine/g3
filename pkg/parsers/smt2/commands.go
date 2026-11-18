@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -398,13 +397,7 @@ func (p *commandParser) assertSoft(q *unumeral.RationalManager, expression ast.A
 			return err
 		}
 	}
-	// TODO bigB: pass weight itself once AddSoftConstraint takes a
-	// *numeral.Rational; this Go-API conversion is temporary.
-	converted := new(big.Rat)
-	if err = q.BigRatOf(weight, converted); err != nil {
-		return err
-	}
-	return p.context.AddSoftConstraint(expression, converted, id)
+	return p.context.AddSoftConstraint(expression, weight, id)
 }
 
 // scannerUnsigned is curr_numeral().is_unsigned() / get_unsigned().

@@ -25,7 +25,7 @@ func TestOptimizationResourceLimitedSoftBoundsEndToEnd(t *testing.T) {
 		contextMust(t, err)
 		variables[i], err = c.MakeApp(name, nil, nil, ast.ASTHandle{})
 		contextMust(t, err)
-		contextMust(t, c.AddSoftConstraint(variables[i], big.NewRat(int64(i+1), 1), ""))
+		contextMust(t, c.AddSoftConstraint(variables[i], softRat(int64(i+1), 1), ""))
 	}
 	all, err := m.MkAndArray(variables)
 	contextMust(t, err)

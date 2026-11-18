@@ -1,7 +1,6 @@
 package api
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -14,8 +13,8 @@ func TestAPIOptimizationObjectivesBuildMaxSMTPenaltySum(t *testing.T) {
 	astTestMust(t, err)
 	left := f.pin(f.m.MkConst(leftName, boolean))
 	right := f.pin(f.m.MkConst(rightName, boolean))
-	astTestMust(t, f.c.AssertSoft(left, big.NewRat(2, 1), "group"))
-	astTestMust(t, f.c.AssertSoft(right, big.NewRat(3, 1), "group"))
+	astTestMust(t, f.c.AssertSoft(left, softRat(2, 1), "group"))
+	astTestMust(t, f.c.AssertSoft(right, softRat(3, 1), "group"))
 	objectives, err := f.c.OptimizationObjectives()
 	astTestMust(t, err)
 	if len(objectives) != 1 {

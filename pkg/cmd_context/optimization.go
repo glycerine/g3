@@ -10,7 +10,6 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -129,11 +128,12 @@ func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
 	if err != nil {
 		return err
 	}
-	objective := optimizationObjective{expression: expression, ref: ref, maximize: maximize, bitVector: isBitVector}
+	objective := newOptimizationObjective()
+	objective.expression, objective.ref, objective.maximize, objective.bitVector = expression, ref, maximize, isBitVector
 	if isBitVector {
 		objective.bitWidth, err = m.BitVectorSize(sort)
 		if err != nil {
-			return errors.Join(err, m.DelRef(&ref))
+			return errors.Join(err, m.DelRef(&ref), c.releaseObjectiveRationals(&objective))
 		}
 	}
 	c.objectives = append(c.objectives, objective)
@@ -143,7 +143,10 @@ func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
 // AddSoftConstraint groups constraints by identifier at the position of the
 // group's first occurrence. Terms appended inside a scope are trailed
 // separately because the group itself may predate that scope.
-func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, id string) error {
+//
+// weight is a rational of the AST manager's NumeralService().Manager,
+// borrowed; the soft term keeps its own copy.
+func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *numeral.Rational, id string) error {
 	if c.optimizationTarget != nil {
 		return c.optimizationTarget.AddSoftConstraint(expression, weight, id)
 	}
@@ -174,18 +177,22 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 	index, found := c.softObjectiveIndex[id]
 	if !found {
 		index = len(c.objectives)
-		c.objectives = append(c.objectives, optimizationObjective{soft: true, id: id})
+		objective := newOptimizationObjective()
+		objective.soft, objective.id = true, id
+		c.objectives = append(c.objectives, objective)
 		c.softObjectiveIndex[id] = index
 	}
-	if weight.Sign() == 0 {
+	if weight.IsZero() {
 		return nil
 	}
 	ref, err := m.NewRef(expression)
 	if err != nil {
 		return err
 	}
-	term := optimizationSoftTerm{expression: expression, ref: ref}
-	term.weight.Set(weight)
+	term := optimizationSoftTerm{expression: expression, ref: ref, weight: numeral.NewRational()}
+	if err = c.optQ().Copy(&term.weight, weight); err != nil {
+		return errors.Join(err, c.optQ().Del(&term.weight), m.DelRef(&term.ref))
+	}
 	c.objectives[index].softTerms = append(c.objectives[index].softTerms, term)
 	c.softObjectiveTrail = append(c.softObjectiveTrail, index)
 	return nil
@@ -217,6 +224,9 @@ func (c *Context) restoreObjectives(size, softTerms int) error {
 		if err := c.manager.DelRef(&objective.softTerms[termIndex].ref); err != nil {
 			return err
 		}
+		if err := c.optQ().Del(&objective.softTerms[termIndex].weight); err != nil {
+			return err
+		}
 		objective.softTerms = objective.softTerms[:termIndex]
 		c.softObjectiveTrail = c.softObjectiveTrail[:last]
 	}
@@ -229,6 +239,9 @@ func (c *Context) restoreObjectives(size, softTerms int) error {
 				return ast.ErrASTDomain
 			}
 		} else if err := c.manager.DelRef(&objective.ref); err != nil {
+			return err
+		}
+		if err := c.releaseObjectiveRationals(objective); err != nil {
 			return err
 		}
 		c.objectives = c.objectives[:last]
@@ -260,7 +273,13 @@ func (c *Context) addBitVectorObjective(optimizer *opt.ArithmeticSolver, objecti
 	}
 	refs = append(refs, valueRef)
 	terms := make([]ast.ASTHandle, objective.bitWidth)
-	weights := make([]*big.Rat, objective.bitWidth)
+	// weights[i] = rational::power_of_two(i)
+	q := c.optQ()
+	weights := make([]numeral.Rational, objective.bitWidth)
+	for i := range weights {
+		weights[i] = numeral.NewRational()
+	}
+	defer func() { resultErr = c.optDelRats(weights, resultErr) }()
 	for i := uint32(0); i < objective.bitWidth; i++ {
 		extracted, e := c.manager.MkBitVectorExtract(i, i, objective.expression)
 		if e != nil {
@@ -289,13 +308,11 @@ func (c *Context) addBitVectorObjective(optimizer *opt.ArithmeticSolver, objecti
 		}
 		refs = append(refs, termRef)
 		terms[i] = term
-		weights[i] = new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(i)))
+		if e = errors.Join(q.SetInt32(&weights[i], 2), q.Power(&weights[i], i, &weights[i])); e != nil {
+			return e
+		}
 	}
-	rats, err := c.optRats(weights)
-	if err != nil {
-		return err
-	}
-	return c.optDelRats(rats, optimizer.AddSoftObjective(terms, rats))
+	return optimizer.AddSoftObjective(terms, weights)
 }
 
 func (c *Context) optimizationPriority() (priority string, resultErr error) {
@@ -475,20 +492,20 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 	objective := &c.objectives[index]
 	if objective.soft {
 		terms := make([]ast.ASTHandle, len(objective.softTerms))
-		weights := make([]*big.Rat, len(objective.softTerms))
+		weights := make([]numeral.Rational, len(objective.softTerms))
+		var err error
 		for i := range objective.softTerms {
 			terms[i] = objective.softTerms[i].expression
-			weights[i] = &objective.softTerms[i].weight
+			weights[i], err = c.optClone(&objective.softTerms[i].weight)
+			if err != nil {
+				return c.optDelRats(weights[:i+1], err)
+			}
 		}
-		rats, err := c.optRats(weights)
-		if err != nil {
-			return err
-		}
-		offset, err := c.optRat(&objective.softOffset)
+		offset, err := c.optClone(&objective.softOffset)
 		if err == nil {
-			err = optimizer.AddSoftObjectiveWithOffset(terms, rats, &offset)
+			err = optimizer.AddSoftObjectiveWithOffset(terms, weights, &offset)
 		}
-		if err = c.optDelRats(append(rats, offset), err); err != nil {
+		if err = c.optDelRats(append(weights, offset), err); err != nil {
 			return err
 		}
 		// z3 4.7.1 bug, deliberately not reproduced: from_fmls declares
@@ -500,7 +517,7 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 		// in upstream z3 (fixed there). See TODO.md "z3 4.7.1 bugs fixed in
 		// g3" and test_vectors/z3_bug_opt_stale_objective_term.smt2.
 		if objective.verifyConverted && !objective.expression.IsNull() {
-			offset, err := c.optRat(&objective.verifyOffset)
+			offset, err := c.optClone(&objective.verifyOffset)
 			if err == nil {
 				err = optimizer.SetObjectiveVerification(index, objective.expression, &offset, objective.verifyNegate)
 			}
@@ -621,7 +638,9 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 		// internalize() ran before the check, so display_assignment reads
 		// the bounds optsmt::add / maxsmt::add left (AUDIT.md FUZZ_A-F1).
 		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
-		c.initialDisplayBounds(values)
+		if err = c.initialDisplayBounds(values); err != nil {
+			return nil, errors.Join(err, (&opt.ArithmeticResult{Q: c.optQ(), Values: values}).Close())
+		}
 		// is_sat != l_false: s.get_model(m_model) kept the undecided
 		// check's model.
 		var md *model.ModelCore
@@ -665,7 +684,8 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 // internalize(): optsmt::add leaves m_lower = -oo and m_upper = +oo (both
 // orientations display as -oo..oo); a maxsmt has m_lower = 0 and m_upper =
 // the sum of the weights maxsmt::add received, both through m_adjust_value.
-func (c *Context) initialDisplayBounds(values []opt.ObjectiveValue) {
+func (c *Context) initialDisplayBounds(values []opt.ObjectiveValue) (err error) {
+	q := c.optQ()
 	for i := range c.objectives {
 		objective := &c.objectives[i]
 		value := &values[i]
@@ -675,23 +695,26 @@ func (c *Context) initialDisplayBounds(values []opt.ObjectiveValue) {
 			value.DisplayUpper.Infinity.SetInt64(1)
 			continue
 		}
-		var sum big.Rat
+		sum, upper := numeral.NewRational(), numeral.NewRational()
 		for j := range objective.softTerms {
-			sum.Add(&sum, &objective.softTerms[j].weight)
+			err = errors.Join(err, q.Add(&sum, &objective.softTerms[j].weight, &sum))
 		}
 		offset, negate := &objective.softOffset, false
 		if objective.verifyConverted {
 			offset, negate = &objective.verifyOffset, objective.verifyNegate
 		}
-		upper := new(big.Rat)
 		if negate {
-			upper.Sub(offset, &sum)
+			err = errors.Join(err, q.Sub(offset, &sum, &upper))
 		} else {
-			upper.Add(offset, &sum)
+			err = errors.Join(err, q.Add(offset, &sum, &upper))
 		}
-		value.DisplayLower = simplex.RationalInfinitesimal(offset)
-		value.DisplayUpper = simplex.RationalInfinitesimal(upper)
+		lower, e := c.optInfinitesimal(offset)
+		value.DisplayLower = lower
+		err = errors.Join(err, e)
+		value.DisplayUpper, e = c.optInfinitesimal(&upper)
+		err = errors.Join(err, e, q.Del(&sum), q.Del(&upper))
 	}
+	return err
 }
 
 func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation bool) (optimized *opt.ArithmeticResult, resultErr error) {
@@ -936,6 +959,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		return lbool.Undef, err
 	}
 	c.publishOptimizationBounds(optimized)
+	q := c.optQ()
 	for i := range c.objectives {
 		c.objectives[i].displayReady = false
 		if !completed && i < len(optimized.Values) && optimized.Values[i].DisplayValid {
@@ -951,24 +975,26 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		for i := range c.objectives {
 			c.objectives[i].softInterval = false
 			if c.objectives[i].soft {
-				c.optSetBig(&c.objectives[i].softValue, &optimized.Values[i].SoftCost, &resultErr)
+				resultErr = errors.Join(resultErr, q.Copy(&c.objectives[i].softValue, &optimized.Values[i].SoftCost))
 				if optimized.Values[i].SoftInterval {
 					c.objectives[i].softInterval = true
-					c.optSetBig(&c.objectives[i].softUpper, &optimized.Values[i].SoftUpper, &resultErr)
+					resultErr = errors.Join(resultErr, q.Copy(&c.objectives[i].softUpper, &optimized.Values[i].SoftUpper))
 				}
 			} else if c.objectives[i].bitVector {
-				c.optSetBig(&c.objectives[i].softValue, &optimized.Values[i].SoftCost, &resultErr)
+				resultErr = errors.Join(resultErr, q.Copy(&c.objectives[i].softValue, &optimized.Values[i].SoftCost))
 				if optimized.Values[i].SoftInterval {
 					// An unexecuted maxsmt's m_upper (AUDIT.md FUZZ_A-F3).
 					c.objectives[i].softInterval = true
-					c.optSetBig(&c.objectives[i].softUpper, &optimized.Values[i].SoftUpper, &resultErr)
+					resultErr = errors.Join(resultErr, q.Copy(&c.objectives[i].softUpper, &optimized.Values[i].SoftUpper))
 				}
 				if c.objectives[i].maximize {
-					maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(c.objectives[i].bitWidth)), big.NewInt(1))
-					c.objectives[i].softValue.Sub(new(big.Rat).SetInt(maximum), &c.objectives[i].softValue)
+					maximum := numeral.NewRational()
+					resultErr = errors.Join(resultErr, c.optBitVectorMaximum(c.objectives[i].bitWidth, &maximum),
+						q.Sub(&maximum, &c.objectives[i].softValue, &c.objectives[i].softValue))
 					if c.objectives[i].softInterval {
-						c.objectives[i].softUpper.Sub(new(big.Rat).SetInt(maximum), &c.objectives[i].softUpper)
+						resultErr = errors.Join(resultErr, q.Sub(&maximum, &c.objectives[i].softUpper, &c.objectives[i].softUpper))
 					}
+					resultErr = errors.Join(resultErr, q.Del(&maximum))
 				}
 			} else {
 				c.objectives[i].value = optimized.Values[i].Arithmetic
@@ -1120,9 +1146,15 @@ func (c *Context) WriteObjectives(out io.Writer) error {
 // writeSoftObjectiveInterval is out << "  (interval " << get_lower(i) << " "
 // << get_upper(i) << ")": each to_expr runs just before it is printed, and
 // both temporaries live to the end of the statement.
-func (c *Context) writeSoftObjectiveInterval(out io.Writer, lower, upper *big.Rat) error {
-	lowerValue := simplex.RationalInfinitesimal(lower)
-	upperValue := simplex.RationalInfinitesimal(upper)
+func (c *Context) writeSoftObjectiveInterval(out io.Writer, lower, upper *numeral.Rational) error {
+	lowerValue, err := c.optInfinitesimal(lower)
+	if err != nil {
+		return err
+	}
+	upperValue, err := c.optInfinitesimal(upper)
+	if err != nil {
+		return err
+	}
 	return c.writeInterval(out, &lowerValue, &upperValue)
 }
 
@@ -1183,20 +1215,11 @@ func (c *Context) writeInterval(out io.Writer, lower, upper *simplex.Infinitesim
 	return err
 }
 
-func (c *Context) writeSoftObjectiveValue(out io.Writer, value *big.Rat) (resultErr error) {
-	service := c.manager.NumeralService()
-	if service == nil || value == nil {
+func (c *Context) writeSoftObjectiveValue(out io.Writer, value *numeral.Rational) (resultErr error) {
+	if c.manager.NumeralService() == nil || value == nil {
 		return ast.ErrASTHandle
 	}
-	numeral, err := service.NewValue()
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, service.Del(&numeral)) }()
-	if err = service.SetString(&numeral, value.RatString()); err != nil {
-		return err
-	}
-	expression, err := c.manager.ArithmeticNumeral(&numeral, value.IsInt())
+	expression, err := c.manager.ArithmeticNumeralFromRational(value, value.IsInt())
 	if err != nil {
 		return err
 	}
@@ -1422,6 +1445,9 @@ func (c *Context) releaseOptScopedState() error {
 		if c.objectives[i].soft {
 			delete(c.softObjectiveIndex, c.objectives[i].id)
 		}
+	}
+	if err := c.releaseObjectives(c.objectives); err != nil {
+		return err
 	}
 	c.objectives = nil
 	c.softObjectiveTrail = nil

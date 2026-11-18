@@ -1,7 +1,6 @@
 package api
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -15,7 +14,7 @@ func TestAPIOptimizationObjectivesPreserveMixedInsertionOrder(t *testing.T) {
 	astTestMust(t, err)
 	p := f.pin(f.m.MkConst(name, boolean))
 	astTestMust(t, f.c.Minimize(x))
-	astTestMust(t, f.c.AssertSoft(p, big.NewRat(5, 1), "soft-middle"))
+	astTestMust(t, f.c.AssertSoft(p, softRat(5, 1), "soft-middle"))
 	astTestMust(t, f.c.Maximize(x))
 	count, err := f.c.OptimizationObjectiveCount()
 	astTestMust(t, err)
@@ -55,8 +54,8 @@ func TestAPIOptimizationObjectivesSoftGroupSum(t *testing.T) {
 		astTestMust(t, err)
 		terms = append(terms, f.pin(f.m.MkConst(name, boolean)))
 	}
-	astTestMust(t, f.c.AssertSoft(terms[0], big.NewRat(2, 1), "soft-sum"))
-	astTestMust(t, f.c.AssertSoft(terms[1], big.NewRat(3, 1), "soft-sum"))
+	astTestMust(t, f.c.AssertSoft(terms[0], softRat(2, 1), "soft-sum"))
+	astTestMust(t, f.c.AssertSoft(terms[1], softRat(3, 1), "soft-sum"))
 	objectives, err := f.c.OptimizationObjectives()
 	astTestMust(t, err)
 	if len(objectives) != 1 {

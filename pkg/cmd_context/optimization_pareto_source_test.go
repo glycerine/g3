@@ -171,7 +171,8 @@ func TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch(t *testing.T)
 	}
 	values, err := c.evaluateParetoModel(fresh.Model)
 	contextMust(t, err)
-	if len(values) != 1 || values[0].measure.RatString() != "2" {
+	defer func() { contextMust(t, c.releaseParetoValues(values)) }()
+	if v, ok := values[0].measure.SmallInt32(); len(values) != 1 || !ok || v != 2 {
 		t.Fatal("canceled dominance constraints leaked into fresh search", values)
 	}
 }

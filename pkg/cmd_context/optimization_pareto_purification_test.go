@@ -2,7 +2,6 @@ package cmd_context
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -165,7 +164,7 @@ func TestParetoLiveSoftPurificationAndMutationCleanup(t *testing.T) {
 	contextMust(t, err)
 	condition, err := c.manager.MkArithmeticGT(x, zero)
 	contextMust(t, err)
-	contextMust(t, c.AddSoftConstraint(condition, big.NewRat(3, 2), "soft"))
+	contextMust(t, c.AddSoftConstraint(condition, softRat(3, 2), "soft"))
 	contextMust(t, c.AddObjective(x, false))
 	var state *paretoPurification
 	for i := 0; i < 2; i++ {

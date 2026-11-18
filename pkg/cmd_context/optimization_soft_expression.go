@@ -29,7 +29,7 @@ func (c *Context) optimizationSoftExpression(objective *optimizationObjective) (
 	temporaries = append(temporaries, zeroRef)
 	penalties := make([]ast.ASTHandle, 0, len(objective.softTerms))
 	for _, term := range objective.softTerms {
-		weight, e := c.manager.ArithmeticNumeralRat(&term.weight, false)
+		weight, e := c.manager.ArithmeticNumeralFromRational(&term.weight, false)
 		if e != nil {
 			return ast.ASTRef{}, e
 		}

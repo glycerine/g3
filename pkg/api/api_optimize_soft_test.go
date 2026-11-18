@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -14,9 +13,9 @@ func TestAPIOptimizeSoftGroupAndObjectiveDisplay(t *testing.T) {
 	boolean := f.pin(f.c.BoolSort())
 	p := f.pin(f.c.Constant("api-object-opt-p", boolean))
 	notP := f.pin(f.c.Not(p))
-	first, err := f.opt.AssertSoft(p, big.NewRat(2, 1), "preferences")
+	first, err := f.opt.AssertSoft(p, softRat(2, 1), "preferences")
 	astTestMust(t, err)
-	second, err := f.opt.AssertSoft(notP, big.NewRat(1, 1), "preferences")
+	second, err := f.opt.AssertSoft(notP, softRat(1, 1), "preferences")
 	astTestMust(t, err)
 	if first != second || first != 0 {
 		t.Fatal("soft group indices", first, second)
@@ -38,9 +37,10 @@ func TestAPIOptimizeSoftGroupAndObjectiveDisplay(t *testing.T) {
 	}
 	value, err := f.opt.ObjectiveValue(first)
 	astTestMust(t, err)
-	if !value.Available || value.SoftCost.Cmp(big.NewRat(1, 1)) != 0 {
+	if !value.Available || !value.SoftCost.IsOne() {
 		t.Fatal("soft optimum", value)
 	}
+	astTestMust(t, value.Release(f.m.NumeralService().Manager))
 	var output bytes.Buffer
 	astTestMust(t, f.opt.WriteObjectives(&output))
 	if !strings.Contains(output.String(), "preferences 1") {

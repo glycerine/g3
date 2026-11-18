@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	satsolver "github.com/glycerine/g3/pkg/sat/sat_solver"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"io"
-	"math/big"
 	"os"
 	"strconv"
 	"strings"
@@ -51,17 +51,17 @@ type optimizationObjective struct {
 	value      smtcore.SMTArithmeticObjectiveValue
 	modelValue smtcore.SMTArithmeticObjectiveValue
 	softTerms  []optimizationSoftTerm
-	softValue  big.Rat
+	softValue  numeral.Rational
 	// softUpper/softInterval: a MaxSMT objective displayed as
 	// (interval get_lower(i) get_upper(i)), softValue being the lower end.
-	softUpper    big.Rat
+	softUpper    numeral.Rational
 	softInterval bool
 	// displayReady: display_assignment's bounds after an undecided search.
 	displayReady               bool
 	displayLower, displayUpper simplex.Infinitesimal
-	softOffset                 big.Rat
-	boundLower                 big.Rat
-	boundUpper                 big.Rat
+	softOffset                 numeral.Rational
+	boundLower                 numeral.Rational
+	boundUpper                 numeral.Rational
 	id                         string
 	maximize                   bool
 	soft                       bool
@@ -75,12 +75,12 @@ type optimizationObjective struct {
 	// with expression (m_term) by verify_model.
 	verifyConverted bool
 	verifyNegate    bool
-	verifyOffset    big.Rat
+	verifyOffset    numeral.Rational
 }
 type optimizationSoftTerm struct {
 	expression ast.ASTHandle
 	ref        ast.ASTRef
-	weight     big.Rat
+	weight     numeral.Rational
 }
 type scope struct{ functions, sorts, assertions, objectives, softTerms, macros, sortConstructors, psorts int }
 type builtin struct {
