@@ -12,7 +12,7 @@ import (
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
-func (md *ModelCore) writeV2Expr(out io.Writer, h ast.ASTHandle, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (result error) {
+func (md *ModelCore) writeV2Expr(out io.Writer, h ast.ASTHandle, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, indent uint32) (result error) {
 	format, err := md.manager.SMT2PPExprTreeWithParams(h, nil, context, globals, nil)
 	if err != nil {
 		return err
@@ -27,6 +27,15 @@ func (md *ModelCore) writeV2Expr(out io.Writer, h ast.ASTHandle, context *uparam
 		return err
 	}
 	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
+	if indent > 0 {
+		// mk_pp(h, m, indent) wraps the format in mk_indent.
+		if format, err = md.manager.FormatIndent(indent, format); err != nil {
+			return err
+		}
+		if err = formats.SetRef(ref, format); err != nil {
+			return err
+		}
+	}
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: md.manager.Budget()})
 	if err != nil {
 		return err
@@ -74,7 +83,8 @@ func (md *ModelCore) WriteV2(out io.Writer, context *uparams.ParamsContext, glob
 		if err != nil {
 			return err
 		}
-		if err = md.writeV2Expr(out, value, context, globals); err != nil {
+		// indent = len(name) + strlen(" -> ").
+		if err = md.writeV2Expr(out, value, context, globals, uint32(len(name)+4)); err != nil {
 			return err
 		}
 		if err = write("\n"); err != nil {
@@ -104,7 +114,7 @@ func (md *ModelCore) WriteV2(out io.Writer, context *uparams.ParamsContext, glob
 				return err
 			}
 			for _, arg := range entry.args {
-				if err = md.writeV2Expr(out, arg, context, globals); err != nil {
+				if err = md.writeV2Expr(out, arg, context, globals, 0); err != nil {
 					return err
 				}
 				if err = write(" "); err != nil {
@@ -114,7 +124,7 @@ func (md *ModelCore) WriteV2(out io.Writer, context *uparams.ParamsContext, glob
 			if err = write("-> "); err != nil {
 				return err
 			}
-			if err = md.writeV2Expr(out, entry.result, context, globals); err != nil {
+			if err = md.writeV2Expr(out, entry.result, context, globals, 0); err != nil {
 				return err
 			}
 			if err = write("\n"); err != nil {
@@ -132,7 +142,7 @@ func (md *ModelCore) WriteV2(out io.Writer, context *uparams.ParamsContext, glob
 			if err = write("#unspecified"); err != nil {
 				return err
 			}
-		} else if err = md.writeV2Expr(out, g.fallback, context, globals); err != nil {
+		} else if err = md.writeV2Expr(out, g.fallback, context, globals, uint32(len(elsePrefix))); err != nil {
 			return err
 		}
 		if err = write("\n}\n"); err != nil {

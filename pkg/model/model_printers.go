@@ -32,6 +32,12 @@ func (p *modelPrinter) indent(n uint32) error {
 }
 
 func (p *modelPrinter) render(h ast.ASTHandle, names []usymbol.Symbol) (text string, result error) {
+	return p.renderIndented(h, names, 0)
+}
+
+// renderIndented is mk_ismt2_pp(h, m, indent): a positive indent wraps the
+// format in mk_indent before printing.
+func (p *modelPrinter) renderIndented(h ast.ASTHandle, names []usymbol.Symbol, indent uint32) (text string, result error) {
 	format, err := p.model.manager.SMT2PPExprTreeWithParams(h, names, p.context, p.globals, nil)
 	if err != nil {
 		return "", err
@@ -45,6 +51,14 @@ func (p *modelPrinter) render(h ast.ASTHandle, names []usymbol.Symbol) (text str
 		return "", err
 	}
 	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
+	if indent > 0 {
+		if format, err = p.model.manager.FormatIndent(indent, format); err != nil {
+			return "", err
+		}
+		if err = formats.SetRef(ref, format); err != nil {
+			return "", err
+		}
+	}
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.model.manager.Budget()})
 	if err != nil {
 		return "", err
@@ -187,7 +201,8 @@ func (md *ModelCore) WriteDebugUniverses(out io.Writer, context *uparams.ParamsC
 		if e != nil {
 			return e
 		}
-		text, e := p.render(value, nil)
+		// model_pp: indent = len(name) + strlen("(define ") + 1.
+		text, e := p.renderIndented(value, nil, uint32(len(name)+len("(define ")+1))
 		if e != nil {
 			return e
 		}
@@ -276,7 +291,7 @@ func (md *ModelCore) WriteDebugUniverses(out io.Writer, context *uparams.ParamsC
 				return e
 			}
 		} else {
-			text, x := p.render(fi.fallback, exprNames)
+			text, x := p.renderIndented(fi.fallback, exprNames, 5)
 			if x != nil {
 				return x
 			}

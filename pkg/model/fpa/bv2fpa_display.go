@@ -32,15 +32,28 @@ func (c *Converter) Display(out io.Writer) error {
 		}
 		return c.manager.Symbols.Display(symbol)
 	}
+	// indent = n.size() + 4, the symbol's own size.
+	indentOf := func(declaration ast.ASTHandle) (uint32, error) {
+		symbol, err := c.manager.GetASTName(declaration)
+		if err != nil {
+			return 0, err
+		}
+		size, err := c.manager.Symbols.Size(symbol)
+		return size + 4, err
+	}
 	expressionEntry := func(declaration, value ast.ASTHandle) error {
 		text, err := name(declaration)
+		if err != nil {
+			return err
+		}
+		indent, err := indentOf(declaration)
 		if err != nil {
 			return err
 		}
 		if err = write("\n  (" + text + " "); err != nil {
 			return err
 		}
-		if err = printer.DisplayExpr(out, value, 0); err != nil {
+		if err = printer.DisplayExpr(out, value, indent); err != nil {
 			return err
 		}
 		return write(")")
@@ -82,16 +95,20 @@ func (c *Converter) Display(out io.Writer) error {
 		if e != nil {
 			return e
 		}
+		indent, e := indentOf(declaration)
+		if e != nil {
+			return e
+		}
 		if e = write("\n  (" + text + " "); e != nil {
 			return e
 		}
-		if e = printer.DisplayExpr(out, values[0], 0); e != nil {
+		if e = printer.DisplayExpr(out, values[0], indent); e != nil {
 			return e
 		}
 		if e = write("; "); e != nil {
 			return e
 		}
-		if e = printer.DisplayExpr(out, values[1], 0); e != nil {
+		if e = printer.DisplayExpr(out, values[1], indent); e != nil {
 			return e
 		}
 		if e = write(")"); e != nil {

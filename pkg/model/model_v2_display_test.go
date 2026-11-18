@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -49,5 +50,34 @@ func TestModelV2DisplayConstantsFunctionsAndPartialElse(t *testing.T) {
 	refused := &refusingModelEvaluatorTraceWriter{}
 	if err := md.Core().WriteV2(refused, context, config.Globals, false); !errors.Is(err, io.ErrClosedPipe) || refused.calls != 1 {
 		t.Fatal("ordinary model display must report its writer refusal", err, refused.calls)
+	}
+}
+
+// AUDIT.md model_01-F9: model_v2_pp prints a constant's value with
+// mk_pp(value, m, len(name)+4), so the continuation lines of a value that
+// does not fit on one line are indented past "name -> ".
+func TestModelV2DisplayIndentsWrappedValues(t *testing.T) {
+	m, md, _, context, _, config := evaluatorFixture(t)
+	var atoms []ast.ASTHandle
+	for i := 0; i < 40; i++ {
+		atoms = append(atoms, goalTestAtom(t, m, "display-wide-atom-"+string(rune('a'+i%26))+string(rune('a'+i/26))))
+	}
+	wide, err := m.MkAndArgs(atoms)
+	astTestMust(t, err)
+	constant := goalTestAtom(t, m, "display-wide")
+	d, err := m.GetDecl(constant)
+	astTestMust(t, err)
+	astTestMust(t, md.Core().RegisterConstant(d, wide))
+	var out bytes.Buffer
+	astTestMust(t, md.Core().WriteV2(&out, context, config.Globals, false))
+	lines := strings.Split(strings.TrimSuffix(out.String(), "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("value did not wrap: %q", out.String())
+	}
+	indent := strings.Repeat(" ", len("display-wide -> "))
+	for _, line := range lines[1:] {
+		if !strings.HasPrefix(line, indent) {
+			t.Fatalf("continuation line not indented past the name: %q", out.String())
+		}
 	}
 }

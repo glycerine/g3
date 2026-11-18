@@ -37,7 +37,8 @@ func TestASTPrinterDefaultIDsAndSimpleSMT2Context(t *testing.T) {
 	}
 	out.Reset()
 	astTestMust(t, p.DisplaySort(&out, b, 2))
-	if out.String() != "  Bool" {
+	// mk_ismt2_pp(s, m, 2): mk_indent indents continuation lines only.
+	if out.String() != "Bool" {
 		t.Fatal("sort display", out.String())
 	}
 	out.Reset()
@@ -47,8 +48,9 @@ func TestASTPrinterDefaultIDsAndSimpleSMT2Context(t *testing.T) {
 	}
 	out.Reset()
 	astTestMust(t, p.DisplayFuncDecl(&out, d, 3))
-	if !strings.HasPrefix(out.String(), "   ") {
-		t.Fatal("declaration indentation", out.String())
+	// simple_ast_printer_context::display(out, f, indent) prints f's name.
+	if out.String() != "printer-x" {
+		t.Fatal("declaration display", out.String())
 	}
 	if err = p.DisplayExprVariables(&out, x, 0, 0, "x", nil); err == nil {
 		t.Fatal("source NOT_IMPLEMENTED_YET branch")

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"strings"
 
 	usmt2 "github.com/glycerine/g3/pkg/util/smt2"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -257,6 +256,16 @@ func (p *SimpleASTPrinterContext) displayFormat(out io.Writer, owner *astPrinter
 		return ErrASTHandle
 	}
 	var err error
+	// mk_ismt2_pp(n, m, indent): a positive indent wraps the format in
+	// mk_indent, which indents the continuation lines only.
+	if indent > 0 {
+		if format, err = p.manager.FormatIndent(indent, format); err != nil {
+			return err
+		}
+		if err = owner.adopt(format, nil); err != nil {
+			return err
+		}
+	}
 	owner.stream, err = utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.manager.BudgetField})
 	if err != nil {
 		return err
@@ -267,9 +276,6 @@ func (p *SimpleASTPrinterContext) displayFormat(out io.Writer, owner *astPrinter
 	text, err := owner.stream.String()
 	if err != nil {
 		return err
-	}
-	if indent != 0 {
-		text = strings.Repeat(" ", int(indent)) + strings.ReplaceAll(text, "\n", "\n"+strings.Repeat(" ", int(indent)))
 	}
 	_, err = io.WriteString(out, text)
 	return err
@@ -324,7 +330,9 @@ func (p *SimpleASTPrinterContext) DisplayFuncDecl(out io.Writer, decl ASTHandle,
 	if err != nil {
 		return err
 	}
-	_, err = io.WriteString(out, strings.Repeat(" ", int(indent))+text)
+	// simple_ast_printer_context::display(out, f, indent) prints the name
+	// only.
+	_, err = io.WriteString(out, text)
 	return err
 }
 
