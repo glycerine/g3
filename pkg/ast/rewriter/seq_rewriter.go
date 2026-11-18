@@ -690,9 +690,6 @@ func (r *SequenceRewriter) RewriteIndex(a, needle, offset ast.ASTHandle, out ast
 	if err != nil || !numeral {
 		return RewriteFailed, err
 	}
-	if position.IsNeg() {
-		return r.assignSmallInteger(-1, out)
-	}
 	base, baseString, err := r.manager.SequenceStringValue(a)
 	if err != nil {
 		return RewriteFailed, err
@@ -701,7 +698,13 @@ func (r *SequenceRewriter) RewriteIndex(a, needle, offset ast.ASTHandle, out ast
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if baseString && patternString {
+	// The literal fold needs r.is_unsigned() (a 32-bit offset); a larger
+	// offset leaves the term alone. A negative offset is checked after it.
+	unsigned, err := q.IsUnsigned(&position)
+	if err != nil {
+		return RewriteFailed, err
+	}
+	if baseString && patternString && unsigned {
 		if err = q.SetUint64(&baseLength, uint64(len(base))); err != nil {
 			return RewriteFailed, err
 		}
@@ -725,6 +728,9 @@ func (r *SequenceRewriter) RewriteIndex(a, needle, offset ast.ASTHandle, out ast
 			return RewriteFailed, err
 		}
 		return r.assignInteger(&position, out)
+	}
+	if position.IsNeg() {
+		return r.assignSmallInteger(-1, out)
 	}
 	empty, err := r.manager.IsSequenceEmpty(needle)
 	if err != nil {

@@ -1,0 +1,5 @@
+(simplify (str.indexof "abc" "b" 4294967296))
+(simplify (str.indexof "abc" "b" 4294967295))
+(simplify (str.indexof "abc" "" 4294967296))
+(simplify (str.indexof "abc" "b" (- 1)))
+(simplify (str.indexof "abc" "c" 1))

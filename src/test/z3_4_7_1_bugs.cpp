@@ -4568,3 +4568,16 @@ void tst_z3_4_7_1_filter_project_clone_leak() {
     std::cout << "filter_project_clone_leak: condition references " << before << " -> " << after << "\n";
     ENSURE(after == before);
 }
+
+// FORK FIX #127: seq_rewriter::mk_re_loop folded any unsigned bound into
+// mk_loop's int parameter, so (re.loop r 2147483648) became the negative
+// loop ((_ re.loop -2147483648) r). Bounds beyond INT_MAX now stay unfolded.
+void tst_z3_4_7_1_re_loop_int_bound() {
+    expect_script_output("re_loop_int_bound",
+        "(simplify (re.loop (str.to.re \"a\") 2147483648))\n"
+        "(simplify (re.loop (str.to.re \"a\") 1 2147483648))\n"
+        "(simplify (re.loop (str.to.re \"a\") 2147483647))\n",
+        "(re.loop (str.to.re \"a\") 2147483648)\n"
+        "(re.loop (str.to.re \"a\") 1 2147483648)\n"
+        "((_ re.loop 2147483647) (str.to.re \"a\"))\n");
+}

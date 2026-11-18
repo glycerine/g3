@@ -1443,18 +1443,23 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_re_loop(unsigned num_args, expr* const* args, expr_ref& result) {
     rational n1, n2;
+    // FORK FIX #127 (g3 audit, see FORK_BUGFIXES.md): mk_loop stores its
+    // bounds in an int parameter, so an unsigned bound of 2^31 or more
+    // became a negative loop bound ((_ re.loop -2147483648) r). Fold only
+    // bounds that fit an int, and leave larger ones as (re.loop r n).
+    rational int_max(INT_MAX);
     switch (num_args) {
     case 1: 
         break;
     case 2:
-        if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned()) {
+        if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned() && n1 <= int_max) {
             result = m_util.re.mk_loop(args[0], n1.get_unsigned());
             return BR_DONE;
         }
         break;
     case 3:
-        if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned() &&
-            m_autil.is_numeral(args[2], n2) && n2.is_unsigned()) {
+        if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned() && n1 <= int_max &&
+            m_autil.is_numeral(args[2], n2) && n2.is_unsigned() && n2 <= int_max) {
             result = m_util.re.mk_loop(args[0], n1.get_unsigned(), n2.get_unsigned());
             return BR_DONE;
         }
