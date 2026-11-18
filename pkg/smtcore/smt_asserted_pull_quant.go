@@ -16,13 +16,19 @@ func (k *SMTKernel) pullPendingNestedQuantifiers() (result error) {
 	if !k.preprocess || !k.preprocessState.PullNestedQuantifiers || !k.assertedHasQuantifiers {
 		return nil
 	}
-	proc, err := normal_forms.NewPullNestedQuantifiers(k.manager)
-	if proc != nil {
-		defer func() { result = errors.Join(result, proc.Close()) }()
+	// m_pull_nested_quantifiers owns its pull_nested_quant for the asserted
+	// formulas' lifetime; its rewriter cache persists across reduce() calls.
+	if k.assertedPullNested == nil {
+		proc, err := normal_forms.NewPullNestedQuantifiers(k.manager)
+		if err != nil {
+			if proc != nil {
+				err = errors.Join(err, proc.Close())
+			}
+			return err
+		}
+		k.assertedPullNested = proc
 	}
-	if err != nil {
-		return err
-	}
+	proc := k.assertedPullNested
 	out, err := k.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err

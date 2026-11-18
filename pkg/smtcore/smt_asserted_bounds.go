@@ -128,13 +128,19 @@ func (k *SMTKernel) eliminatePendingBounds() (result error) {
 	if !k.assertedHasQuantifiers {
 		return nil
 	}
-	proc, err := rewriter.NewElimBounds(k.manager)
-	if proc != nil {
-		defer func() { result = errors.Join(result, proc.Close()) }()
+	// m_cheap_quant_fourier_motzkin owns its elim_bounds_rw for the asserted
+	// formulas' lifetime; its rewriter cache persists across reduce() calls.
+	if k.assertedElimBounds == nil {
+		proc, err := rewriter.NewElimBounds(k.manager)
+		if err != nil {
+			if proc != nil {
+				err = errors.Join(err, proc.Close())
+			}
+			return err
+		}
+		k.assertedElimBounds = proc
 	}
-	if err != nil {
-		return err
-	}
+	proc := k.assertedElimBounds
 	out, err := k.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err

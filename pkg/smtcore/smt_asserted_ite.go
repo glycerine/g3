@@ -34,19 +34,30 @@ func (k *SMTKernel) liftPendingITEs(nonground bool) (result error) {
 	if kind == smtLiftITENone {
 		return nil
 	}
-	var proc *rewriter.PushAppITE
-	var err error
+	// asserted_formulas owns m_lift_ite and m_ng_lift_ite: their rewriter
+	// caches persist across reduce() calls (e.g. each model-checker round of
+	// an auxiliary context), so cached subterms cost no rewriter steps.
+	slot := &k.assertedLiftITE
 	if nonground {
-		proc, err = rewriter.NewNGPushAppITE(k.manager, kind == smtLiftITEConservative)
-	} else {
-		proc, err = rewriter.NewPushAppITE(k.manager, kind == smtLiftITEConservative)
+		slot = &k.assertedNGLiftITE
 	}
-	if proc != nil {
-		defer func() { result = errors.Join(result, proc.Close()) }()
+	if *slot == nil {
+		var proc *rewriter.PushAppITE
+		var err error
+		if nonground {
+			proc, err = rewriter.NewNGPushAppITE(k.manager, kind == smtLiftITEConservative)
+		} else {
+			proc, err = rewriter.NewPushAppITE(k.manager, kind == smtLiftITEConservative)
+		}
+		if err != nil {
+			if proc != nil {
+				err = errors.Join(err, proc.Close())
+			}
+			return err
+		}
+		*slot = proc
 	}
-	if err != nil {
-		return err
-	}
+	proc := *slot
 	out, err := k.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err

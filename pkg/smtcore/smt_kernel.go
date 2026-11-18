@@ -105,23 +105,32 @@ type SMTKernel struct {
 	bvSharing        *rewriter.MaximizeBVSharing
 	// asserted_formulas::m_apply_bit2int owns its bit2int, whose constructor
 	// builds m_bit0; it lives as long as the asserted formulas.
-	assertedBit2Int  *rewriter.Bit2Int
-	assertedMacros   *macros.Manager
-	definedNames     *normal_forms.DefinedNames
-	quantifierCosts  *SMTQICostModel
-	modelCooperation *cooperate.Cooperation
-	paramContext     *uparams.ParamsContext
-	paramGlobals     *uparams.GlobalParamsService
-	smtParams        *SMTParams
-	smtState         SMTParamsState
-	arithState       SMTArithState
-	bvState          SMTBVState
-	preprocessState  SMTPreprocessorState
-	produceModel     bool
-	preprocess       bool
-	timerClock       func() (uint64, error)
-	closing          bool
-	closed           bool
+	assertedBit2Int *rewriter.Bit2Int
+	// The lift_ite, ng_lift_ite, cheap_quant_fourier_motzkin and
+	// pull_nested_quantifiers members of asserted_formulas own their
+	// rewriters, whose caches persist for the asserted formulas' lifetime.
+	// They are built on first use; the lift-ite conservative flag is read
+	// then, as the source reads it in the asserted_formulas constructor.
+	assertedLiftITE    *rewriter.PushAppITE
+	assertedNGLiftITE  *rewriter.PushAppITE
+	assertedElimBounds *rewriter.ElimBounds
+	assertedPullNested *normal_forms.PullNestedQuantifiers
+	assertedMacros     *macros.Manager
+	definedNames       *normal_forms.DefinedNames
+	quantifierCosts    *SMTQICostModel
+	modelCooperation   *cooperate.Cooperation
+	paramContext       *uparams.ParamsContext
+	paramGlobals       *uparams.GlobalParamsService
+	smtParams          *SMTParams
+	smtState           SMTParamsState
+	arithState         SMTArithState
+	bvState            SMTBVState
+	preprocessState    SMTPreprocessorState
+	produceModel       bool
+	preprocess         bool
+	timerClock         func() (uint64, error)
+	closing            bool
+	closed             bool
 
 	// Source m_has_quantifiers is sticky, including across scope pops.
 	assertedHasQuantifiers   bool
@@ -2010,11 +2019,37 @@ func (k *SMTKernel) Close() error {
 	// ~asserted_formulas destroys its simplify_fmls members (declared last)
 	// in reverse order before the macro manager: m_apply_bit2int is
 	// declared after m_pattern_inference, so it dies first.
+	// m_ng_lift_ite and m_lift_ite are declared after m_apply_bit2int;
+	// m_cheap_quant_fourier_motzkin and m_pull_nested_quantifiers before it.
+	if k.assertedNGLiftITE != nil {
+		if err := k.assertedNGLiftITE.Close(); err != nil {
+			return err
+		}
+		k.assertedNGLiftITE = nil
+	}
+	if k.assertedLiftITE != nil {
+		if err := k.assertedLiftITE.Close(); err != nil {
+			return err
+		}
+		k.assertedLiftITE = nil
+	}
 	if k.assertedBit2Int != nil {
 		if err := k.assertedBit2Int.Close(); err != nil {
 			return err
 		}
 		k.assertedBit2Int = nil
+	}
+	if k.assertedElimBounds != nil {
+		if err := k.assertedElimBounds.Close(); err != nil {
+			return err
+		}
+		k.assertedElimBounds = nil
+	}
+	if k.assertedPullNested != nil {
+		if err := k.assertedPullNested.Close(); err != nil {
+			return err
+		}
+		k.assertedPullNested = nil
 	}
 	if k.patternInference != nil {
 		if err := k.patternInference.Close(); err != nil {
