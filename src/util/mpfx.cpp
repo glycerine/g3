@@ -482,6 +482,15 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
             for (unsigned i = m_total_sz; i < q_sz; i++)
                 if (w_q[i] != 0)
                     throw overflow_exception();
+            // FORK FIX #123 (g3 audit, see FORK_BUGFIXES.md): the rounding
+            // below increments m_total_sz words of w_q, but only q_sz of them
+            // are copied when q_sz < m_total_sz, so a carry out of the q_sz
+            // words landed in a stale buffer word and was lost (the quotient
+            // became epsilon). Clear those words and copy them all.
+            for (unsigned i = q_sz; i < m_total_sz; i++)
+                w_q[i] = 0;
+            if (q_sz < m_total_sz)
+                q_sz = m_total_sz;
             if  (((c.m_sign == 1) != m_to_plus_inf) && !::is_zero(r_sz, w_r)) {
                 // round the result
                 if (!::inc(m_total_sz, w_q))

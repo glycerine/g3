@@ -404,6 +404,7 @@ Abstract:
 #include "opt/opt_context.h"
 #include "opt/opt_parse.h"
 #include "opt/opt_cmds.h"
+#include "util/mpfx.h"
 #include <fstream>
 #include <cstdio>
 #include "api/z3_replayer.h"
@@ -4453,4 +4454,25 @@ void tst_z3_4_7_1_solver_translate_reset() {
     Z3_solver_dec_ref(c, s);
     Z3_del_context(d);
     Z3_del_context(c);
+}
+
+// FORK FIX #123: mpfx_manager::div rounds the quotient by incrementing
+// m_total_sz words of its buffer but copies only q_sz of them when
+// q_sz < m_total_sz, so a carry out of the q_sz words is lost in a stale
+// buffer word and the quotient collapses to epsilon. Here
+// (2^64 - 2^-32) / 2^32 rounded toward +oo in a 2+1-word manager must be
+// 2^32, not 1/2^32.
+void tst_z3_4_7_1_mpfx_div_carry() {
+    mpfx_manager m(2, 1);
+    unsynch_mpq_manager qm;
+    scoped_mpq q(qm);
+    qm.set(q, "79228162514264337593543950335/4294967296");
+    scoped_mpfx a(m), b(m), c(m);
+    m.set(a, qm, q);
+    m.set(b, static_cast<uint64_t>(1) << 32);
+    m.round_to_plus_inf();
+    m.div(a, b, c);
+    std::string r = m.to_string(c);
+    std::cout << "mpfx_div_carry: " << m.to_string(a) << " / " << m.to_string(b) << " = " << r << "\n";
+    ENSURE(r == "4294967296");
 }
