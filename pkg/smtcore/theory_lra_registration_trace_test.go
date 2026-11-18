@@ -139,7 +139,7 @@ func TestSMTLRARegistrationTraceBadbitStillEvaluatesNumericPrinter(t *testing.T)
 	if !ok {
 		t.Fatal("invalid test coefficient")
 	}
-	coefficient := f.pin(f.m.ArithmeticNumeralRat(large, false))
+	coefficient := f.pin(bigTestArithNumeral(f.m, large, false))
 	term := f.app(smtArithOpAdd, f.app(smtArithOpMul, coefficient, x), y, f.number(-5))
 	f.assert(f.app(smtArithOpGE, term, f.number(2)), true)
 	astTestMust(t, f.s.propagateTheoryRelevancy())

@@ -265,9 +265,9 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 
 	// Normalized integer transition heads keep y while projecting x; the
 	// second step requires recovering x=1, rather than the default x=0.
-	zero := pin(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-	one := pin(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
-	two := pin(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
+	zero := pin(bigTestArithNumeral(m, big.NewRat(0, 1), true))
+	one := pin(bigTestArithNumeral(m, big.NewRat(1, 1), true))
+	two := pin(bigTestArithNumeral(m, big.NewRat(2, 1), true))
 	integer := pin(m.GetSort(zero))
 	old, next := pin(m.MkVar(1, integer)), pin(m.MkVar(0, integer))
 	rn, err := m.Symbols.Intern("proof-Reach")
@@ -339,7 +339,7 @@ func TestDualityBackgroundProofExplicitConjunctPremises(t *testing.T) {
 		refs = append(refs, r)
 		return h
 	}
-	seven := pin(m.ArithmeticNumeralRat(big.NewRat(7, 1), true))
+	seven := pin(bigTestArithNumeral(m, big.NewRat(7, 1), true))
 	integer := pin(m.GetSort(seven))
 	boolean := pin(m.MkBoolSort())
 	kn, err := m.Symbols.Intern("background-proof-k")

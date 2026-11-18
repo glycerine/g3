@@ -21,13 +21,13 @@ func TestSMTUTVPINumeralsAndConcreteTermAliases(t *testing.T) {
 			astTestMust(t, err)
 			astTestMust(t, state.RegisterTheory(theory))
 
-			sourceZero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
+			sourceZero, err := bigTestArithNumeral(m, new(big.Rat), true)
 			astTestMust(t, err)
 			zeroNode := state.context.enodes.get(sourceZero)
 			if zeroNode == nil || zeroNode.TheoryVar(family) != theory.zero || theory.zero != 0 {
 				t.Fatal("source zero variable was not initialized once", theory.zero)
 			}
-			zero, err := m.ArithmeticNumeralRat(new(big.Rat), integer)
+			zero, err := bigTestArithNumeral(m, new(big.Rat), integer)
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(zero, false))
 			baseEdges, baseVariables := 0, 1
@@ -40,7 +40,7 @@ func TestSMTUTVPINumeralsAndConcreteTermAliases(t *testing.T) {
 				t.Fatal("typed zero alias graph state", len(theory.graph.graph.edges), len(theory.graph.integer))
 			}
 
-			seven, err := m.ArithmeticNumeralRat(big.NewRat(7, 1), integer)
+			seven, err := bigTestArithNumeral(m, big.NewRat(7, 1), integer)
 			astTestMust(t, err)
 			astTestMust(t, state.Internalize(seven, false))
 			sevenVar := state.context.enodes.get(seven).TheoryVar(family)

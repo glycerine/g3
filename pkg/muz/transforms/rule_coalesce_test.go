@@ -16,11 +16,11 @@ func TestRuleCoalesceMergesSharedBodyConstraints(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
-	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 	coneMust(t, err)
-	one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(f.manager, big.NewRat(1, 1), true)
 	coneMust(t, err)
-	two, err := f.manager.ArithmeticNumeralRat(big.NewRat(2, 1), true)
+	two, err := bigTestArithNumeral(f.manager, big.NewRat(2, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(zero)
 	coneMust(t, err)
@@ -90,9 +90,9 @@ func TestRuleCoalesceDerivesMergedProofFromBothClauses(t *testing.T) {
 	}
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
-	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 	coneMust(t, err)
-	one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(f.manager, big.NewRat(1, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(zero)
 	coneMust(t, err)
@@ -200,7 +200,7 @@ func TestRuleCoalesceEmitsHeadsInGroupedOrder(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
-	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(zero)
 	coneMust(t, err)
@@ -273,7 +273,7 @@ func TestRuleCoalesceSimplifiesGuardWithBoolRewriter(t *testing.T) {
 		check func(t *testing.T, f *coneFixture, guard ast.ASTHandle)
 	}{
 		{name: "empty-conjunction-absorbs", guard: func(f *coneFixture, v ast.ASTHandle) [2][]ast.ASTHandle {
-			one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+			one, err := bigTestArithNumeral(f.manager, big.NewRat(1, 1), true)
 			coneMust(t, err)
 			bound, err := f.manager.MkArithmeticGT(v, one)
 			coneMust(t, err)
@@ -286,7 +286,7 @@ func TestRuleCoalesceSimplifiesGuardWithBoolRewriter(t *testing.T) {
 		{name: "single-conjuncts", guard: func(f *coneFixture, v ast.ASTHandle) [2][]ast.ASTHandle {
 			var eqs [2][]ast.ASTHandle
 			for i := range eqs {
-				value, err := f.manager.ArithmeticNumeralRat(big.NewRat(int64(i+1), 1), true)
+				value, err := bigTestArithNumeral(f.manager, big.NewRat(int64(i+1), 1), true)
 				coneMust(t, err)
 				eq, err := f.manager.MkEq(v, value)
 				coneMust(t, err)
@@ -316,7 +316,7 @@ func TestRuleCoalesceSimplifiesGuardWithBoolRewriter(t *testing.T) {
 			f := newConeFixture(t)
 			boolean, err := f.manager.MkBoolSort()
 			coneMust(t, err)
-			zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+			zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 			coneMust(t, err)
 			integer, err := f.manager.GetSort(zero)
 			coneMust(t, err)

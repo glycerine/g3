@@ -53,7 +53,7 @@ func (f *lraFrontendFixture) variable(name string) ast.ASTHandle {
 }
 func (f *lraFrontendFixture) number(n int64) ast.ASTHandle {
 	f.t.Helper()
-	return f.pin(f.m.ArithmeticNumeralRat(big.NewRat(n, 1), false))
+	return f.pin(bigTestArithNumeral(f.m, big.NewRat(n, 1), false))
 }
 func (f *lraFrontendFixture) app(op int32, args ...ast.ASTHandle) ast.ASTHandle {
 	f.t.Helper()

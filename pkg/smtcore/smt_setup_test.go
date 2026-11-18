@@ -254,7 +254,7 @@ func TestSMTUnknownLogicSetupInstallsMixedArithmetic(t *testing.T) {
 			astTestMust(t, err)
 			x, err := m.MkConst(astTestSymbol(t, m, "unknown-setup-x-"+test.logic), arithmeticSort)
 			astTestMust(t, err)
-			zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), test.integer)
+			zero, err := bigTestArithNumeral(m, big.NewRat(0, 1), test.integer)
 			astTestMust(t, err)
 			product, err := m.MkFamilyApp(arithmeticFamily, smtArithOpMul, nil, []ast.ASTHandle{x, x})
 			astTestMust(t, err)

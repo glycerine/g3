@@ -25,7 +25,7 @@ func TestSMTUTVPIDisplayAtomsGraphAssignmentsAndGuards(t *testing.T) {
 	astTestMust(t, err)
 	x, err := m.MkConst(astTestSymbol(t, m, "utvpi-display-x"), sort)
 	astTestMust(t, err)
-	seven, err := m.ArithmeticNumeralRat(big.NewRat(7, 1), true)
+	seven, err := bigTestArithNumeral(m, big.NewRat(7, 1), true)
 	astTestMust(t, err)
 	bound, err := m.MkFamilyApp(family, smtArithOpLE, nil, []ast.ASTHandle{x, seven})
 	astTestMust(t, err)

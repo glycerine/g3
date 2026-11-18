@@ -46,7 +46,7 @@ func TestSMTBasicArithmeticModesBeforeFirstBoundary(t *testing.T) {
 						op    int32
 						value *big.Rat
 					}{{smtArithOpGE, lower}, {smtArithOpLE, upper}} {
-						n, err := m.ArithmeticNumeralRat(bound.value, !real)
+						n, err := bigTestArithNumeral(m, bound.value, !real)
 						astTestMust(t, err)
 						formula, err := m.MkFamilyApp(family, bound.op, nil, []ast.ASTHandle{x, n})
 						astTestMust(t, err)
@@ -132,7 +132,7 @@ func TestSMTBasicArithmeticModesBeforeFirstBoundary(t *testing.T) {
 						t.Fatal("basic backend published an invalid typed model", text, integer)
 					}
 					astTestMust(t, solver.Push())
-					zero, err := m.ArithmeticNumeralRat(new(big.Rat), !real)
+					zero, err := bigTestArithNumeral(m, new(big.Rat), !real)
 					astTestMust(t, err)
 					conflict, err := m.MkFamilyApp(family, smtArithOpLE, nil, []ast.ASTHandle{x, zero})
 					astTestMust(t, err)

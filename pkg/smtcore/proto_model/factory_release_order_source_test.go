@@ -116,7 +116,7 @@ func TestFactorySourceForwardReferenceDestruction(t *testing.T) {
 				case "user":
 					value, err = m.MkModelValue(uint32(n), sort)
 				case "arith":
-					value, err = m.ArithmeticNumeralRat(big.NewRat(int64(n), 2), false)
+					value, err = bigTestArithNumeral(m, big.NewRat(int64(n), 2), false)
 				case "array":
 					number, e := m.BitVectorNumeralUint64(n, 8)
 					protoMust(t, e)

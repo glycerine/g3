@@ -56,7 +56,7 @@ func TestFloatingPointFactoryNumericZeroOneAndNoRetainedValues(t *testing.T) {
 			protoMust(t, err)
 			bias := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(e-1)), big.NewInt(1))
 			expectedBits := new(big.Int).Lsh(bias, uint(s-1))
-			want, err := m.BitVectorNumeralRat(new(big.Rat).SetInt(expectedBits), e+s)
+			want, err := bigTestBVNumeral(m, new(big.Rat).SetInt(expectedBits), e+s)
 			protoMust(t, err)
 			if !found || encoded != want {
 				t.Fatal("one IEEE encoding", format, found, encoded, want)

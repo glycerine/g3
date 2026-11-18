@@ -20,7 +20,7 @@ func TestSMTTheoryConflictParametersFollowNestedScopeLifetime(t *testing.T) {
 	baseline := m.Stats()
 	for round := 0; round < 3; round++ {
 		astTestMust(t, state.PushScope())
-		parameter, err := m.NewParameterRat(big.NewRat(int64(round+2), 3))
+		parameter, err := bigTestParameter(m, big.NewRat(int64(round+2), 3))
 		astTestMust(t, err)
 		astTestMust(t, state.SetTheoryConflict(f.family, []SMTLiteral{literal}, parameter))
 		// The caller releases its parameter. The scoped justification owns a copy.
@@ -34,7 +34,7 @@ func TestSMTTheoryConflictParametersFollowNestedScopeLifetime(t *testing.T) {
 		if !ok || len(owner.Parameters()) != 1 {
 			t.Fatal("owned parameter missing")
 		}
-		expected, err := m.NewParameterRat(big.NewRat(int64(round+2), 3))
+		expected, err := bigTestParameter(m, big.NewRat(int64(round+2), 3))
 		astTestMust(t, err)
 		equal, err := m.ParameterEqual(owner.Parameters()[0], expected)
 		astTestMust(t, err)
@@ -46,7 +46,7 @@ func TestSMTTheoryConflictParametersFollowNestedScopeLifetime(t *testing.T) {
 		// Source keeps the first conflict. A redundant report must neither replace
 		// its parameters nor publish another scoped owner.
 		count := len(state.ownedJustifications)
-		other, err := m.NewParameterRat(big.NewRat(99, 1))
+		other, err := bigTestParameter(m, big.NewRat(99, 1))
 		astTestMust(t, err)
 		astTestMust(t, state.SetTheoryConflict(f.family, []SMTLiteral{literal}, other))
 		astTestMust(t, m.DelParameter(&other))
@@ -76,7 +76,7 @@ func TestSMTTheoryConflictRejectsPartialParameterCopies(t *testing.T) {
 			baseline := m.Stats()
 			parameters := []ast.ASTParameter{}
 			for _, n := range []int64{2, 5, 11} {
-				p, err := m.NewParameterRat(big.NewRat(n, 7))
+				p, err := bigTestParameter(m, big.NewRat(n, 7))
 				astTestMust(t, err)
 				parameters = append(parameters, p)
 			}

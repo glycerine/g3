@@ -31,7 +31,7 @@ func TestSMTUTVPIContextConflictsProofsAndScopes(t *testing.T) {
 					theory, err := NewSMTUTVPITheory(family)
 					astTestMust(t, err)
 					astTestMust(t, state.RegisterTheory(theory))
-					zero, err := m.ArithmeticNumeralRat(new(big.Rat), integer)
+					zero, err := bigTestArithNumeral(m, new(big.Rat), integer)
 					astTestMust(t, err)
 					sort, err := m.GetSort(zero)
 					astTestMust(t, err)
@@ -46,7 +46,7 @@ func TestSMTUTVPIContextConflictsProofsAndScopes(t *testing.T) {
 						return result
 					}
 					assert := func(op int32, left ast.ASTHandle, value int64) {
-						n, err := m.ArithmeticNumeralRat(big.NewRat(value, 1), integer)
+						n, err := bigTestArithNumeral(m, big.NewRat(value, 1), integer)
 						astTestMust(t, err)
 						formula := app(op, left, n)
 						astTestMust(t, state.Internalize(formula, true))
@@ -130,7 +130,7 @@ func TestSMTUTVPIContextConflictsProofsAndScopes(t *testing.T) {
 							if int64(theory.graph.coefficients[edge]) != coefficient {
 								t.Fatal("source explanation factor", edge)
 							}
-							want, err := m.NewParameterRat(big.NewRat(coefficient, 1))
+							want, err := bigTestParameter(m, big.NewRat(coefficient, 1))
 							astTestMust(t, err)
 							equal, err := m.ParameterEqual(parameters[i+1], want)
 							astTestMust(t, err)
@@ -193,7 +193,7 @@ func TestSMTUTVPIContextShortcutConflictProof(t *testing.T) {
 	assert := func(source, target int, weight int64) SMTLiteral {
 		difference, err := m.MkFamilyApp(family, smtArithOpSub, nil, []ast.ASTHandle{variables[target], variables[source]})
 		astTestMust(t, err)
-		n, err := m.ArithmeticNumeralRat(big.NewRat(weight, 1), true)
+		n, err := bigTestArithNumeral(m, big.NewRat(weight, 1), true)
 		astTestMust(t, err)
 		formula, err := m.MkFamilyApp(family, smtArithOpLE, nil, []ast.ASTHandle{difference, n})
 		astTestMust(t, err)
@@ -238,7 +238,7 @@ func TestSMTUTVPIContextShortcutConflictProof(t *testing.T) {
 		t.Fatal("shortened proof retained obsolete parent-edge coefficients", len(parameters))
 	}
 	for _, parameter := range parameters[1:] {
-		want, err := m.NewParameterRat(big.NewRat(1, 1))
+		want, err := bigTestParameter(m, big.NewRat(1, 1))
 		astTestMust(t, err)
 		equal, err := m.ParameterEqual(parameter, want)
 		astTestMust(t, err)
@@ -296,7 +296,7 @@ func TestSMTUTVPIMixedBridgeAndSumModelRefusal(t *testing.T) {
 				return e
 			}
 			bound := func(op int32, expression ast.ASTHandle, value *big.Rat, integer bool) {
-				n, err := m.ArithmeticNumeralRat(value, integer)
+				n, err := bigTestArithNumeral(m, value, integer)
 				astTestMust(t, err)
 				astTestMust(t, solver.Assert(app(op, expression, n)))
 			}
@@ -333,7 +333,7 @@ func TestSMTUTVPIEqualityEventsAndScopedFragmentRefusal(t *testing.T) {
 			theory, err := NewSMTUTVPITheory(family)
 			astTestMust(t, err)
 			astTestMust(t, state.RegisterTheory(theory))
-			zero, err := m.ArithmeticNumeralRat(new(big.Rat), integer)
+			zero, err := bigTestArithNumeral(m, new(big.Rat), integer)
 			astTestMust(t, err)
 			sort, err := m.GetSort(zero)
 			astTestMust(t, err)

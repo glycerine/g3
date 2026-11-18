@@ -32,7 +32,7 @@ func TestQueryNullaryPredicateUsesContextQuery(t *testing.T) {
 	queryMust(t, f.engine.Close())
 	f.engine = engine
 	queryMust(t, f.engine.SelectEngine("pdr"))
-	zero := f.pin(f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true))
+	zero := f.pin(bigTestArithNumeral(f.manager, big.NewRat(0, 1), true))
 	integer := f.pin(f.manager.GetSort(zero))
 	r, _ := f.predicate("nullary-context-r", integer)
 	s, _ := f.predicate("nullary-context-s", integer)

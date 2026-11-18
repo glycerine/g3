@@ -74,7 +74,7 @@ func TestQuantifiedLinearTraceFactLevel(t *testing.T) {
 			must(err)
 			tDecl, err := m.GetDecl(index)
 			must(err)
-			level, err := m.BitVectorNumeralRat(big.NewRat(tc.level, 1), 4)
+			level, err := bigTestBVNumeral(m, big.NewRat(tc.level, 1), 4)
 			must(err)
 			if !tc.noIndex {
 				must(md.Core().RegisterConstant(tDecl, level))

@@ -66,8 +66,8 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 				refs = append(refs, ref)
 				return h
 			}
-			zero := pin(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
-			one := pin(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+			zero := pin(bigTestArithNumeral(m, big.NewRat(0, 1), true))
+			one := pin(bigTestArithNumeral(m, big.NewRat(1, 1), true))
 			integer, err := m.GetSort(zero)
 			must(err)
 			boolean, err := m.MkBoolSort()

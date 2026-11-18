@@ -31,7 +31,7 @@ func TestBMCRelationQueryUsesSourceVariableOrder(t *testing.T) {
 			fragmentMust(t, engine.SelectEngine(test.backend))
 			boolean, err := manager.MkBoolSort()
 			fragmentMust(t, err)
-			zero, err := manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+			zero, err := bigTestArithNumeral(manager, big.NewRat(0, 1), true)
 			fragmentMust(t, err)
 			integer, err := manager.GetSort(zero)
 			fragmentMust(t, err)

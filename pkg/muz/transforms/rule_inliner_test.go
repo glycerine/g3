@@ -189,9 +189,9 @@ func TestRuleInlinerOrientedEagerUsesUniqueUnifyingDefinition(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
-	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 	coneMust(t, err)
-	one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(f.manager, big.NewRat(1, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(zero)
 	coneMust(t, err)
@@ -253,9 +253,9 @@ func TestRuleInlinerDropsResolvedFalseInterpretedTail(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
-	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 	coneMust(t, err)
-	one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(f.manager, big.NewRat(1, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(zero)
 	coneMust(t, err)
@@ -405,7 +405,7 @@ func testRuleInlinerVariableBanks(t *testing.T, proofs bool) {
 	}
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
-	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(zero)
 	coneMust(t, err)
@@ -505,7 +505,7 @@ func TestRuleInlinerContractsUniqueLinearGroundChain(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
-	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(zero)
 	coneMust(t, err)
@@ -525,7 +525,7 @@ func TestRuleInlinerContractsUniqueLinearGroundChain(t *testing.T) {
 		if index == 0 {
 			values[index] = zero
 		} else {
-			values[index], err = f.manager.ArithmeticNumeralRat(big.NewRat(int64(index), 1), true)
+			values[index], err = bigTestArithNumeral(f.manager, big.NewRat(int64(index), 1), true)
 			coneMust(t, err)
 		}
 		applications[index], err = f.manager.MkApp(predicate, []ast.ASTHandle{values[index]})

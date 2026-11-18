@@ -34,7 +34,7 @@ func TestSMTFarkasSignConsequenceSourceOracle(t *testing.T) {
 						astTestMust(t, err)
 					}
 					x := smtFarkasConst(t, m, "sign-oracle-x", sort)
-					zero, err := m.ArithmeticNumeralRat(new(big.Rat), !real)
+					zero, err := bigTestArithNumeral(m, new(big.Rat), !real)
 					astTestMust(t, err)
 					var bound ast.ASTHandle
 					if rel.name == "eq" {

@@ -44,7 +44,7 @@ func TestSMTUnknownStaticSetupClassifiesLinearArithmetic(t *testing.T) {
 			}
 			sum, err := m.MkFamilyApp(family, smtArithOpAdd, nil, []ast.ASTHandle{term, y})
 			astTestMust(t, err)
-			zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), test.integer)
+			zero, err := bigTestArithNumeral(m, big.NewRat(0, 1), test.integer)
 			astTestMust(t, err)
 			bound, err := m.MkFamilyApp(family, smtArithOpGE, nil, []ast.ASTHandle{sum, zero})
 			astTestMust(t, err)

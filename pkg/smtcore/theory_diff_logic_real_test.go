@@ -37,7 +37,7 @@ func newSMTRealDiffFixture(t *testing.T) smtRealDiffFixture {
 
 func (f smtRealDiffFixture) numeral(t *testing.T, numerator, denominator int64) ast.ASTHandle {
 	t.Helper()
-	numeral, err := f.manager.ArithmeticNumeralRat(big.NewRat(numerator, denominator), false)
+	numeral, err := bigTestArithNumeral(f.manager, big.NewRat(numerator, denominator), false)
 	astTestMust(t, err)
 	return numeral
 }

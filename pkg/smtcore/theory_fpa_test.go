@@ -290,7 +290,7 @@ func TestSMTFloatingPointModelCanonicalizesFPTripleRoot(t *testing.T) {
 	astTestMust(t, err)
 	rounding, err := m.MkConst(astTestSymbol(t, m, "smt-fpa-triple-rm"), roundingSort)
 	astTestMust(t, err)
-	zero, err := m.ArithmeticNumeralRat(new(big.Rat), false)
+	zero, err := bigTestArithNumeral(m, new(big.Rat), false)
 	astTestMust(t, err)
 	eParam, err := m.NewParameterInt(2)
 	astTestMust(t, err)

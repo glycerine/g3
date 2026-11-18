@@ -24,7 +24,7 @@ func TestSMTInternalizerCloseAfterNativeLRAPopFailure(t *testing.T) {
 			if !ok {
 				t.Fatal("invalid large bound fixture")
 			}
-			bound := f.pin(f.m.ArithmeticNumeralRat(huge, false))
+			bound := f.pin(bigTestArithNumeral(f.m, huge, false))
 			f.assert(f.app(smtArithOpGE, x, bound), true)
 			f.propagate(true)
 			astTestMust(t, f.s.PushScope())

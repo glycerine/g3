@@ -487,7 +487,7 @@ func (s *stringByteTestSolver) eval(h, x ast.ASTHandle, v uint64) (uint64, error
 	case m.IsFalse(h):
 		return 0, nil
 	}
-	if value, _, matched, err := m.BitVectorNumeralBigInt(h); err != nil || matched {
+	if value, _, matched, err := bigTestBVValue(m, h); err != nil || matched {
 		if err != nil {
 			return 0, err
 		}

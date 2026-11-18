@@ -814,7 +814,7 @@ func TestSMTSolverDerivesArithmeticConsequences(t *testing.T) {
 	if _, err := m.RegisterArithmeticPlugin(); err != nil {
 		t.Fatal(err)
 	}
-	three, err := m.ArithmeticNumeralRat(big.NewRat(3, 1), true)
+	three, err := bigTestArithNumeral(m, big.NewRat(3, 1), true)
 	astTestMust(t, err)
 	integer, err := m.GetSort(three)
 	astTestMust(t, err)
@@ -830,7 +830,7 @@ func TestSMTSolverDerivesArithmeticConsequences(t *testing.T) {
 	astTestMust(t, err)
 	conditional, err := m.MkImplies(a, equality)
 	astTestMust(t, err)
-	four, err := m.ArithmeticNumeralRat(big.NewRat(4, 1), true)
+	four, err := bigTestArithNumeral(m, big.NewRat(4, 1), true)
 	astTestMust(t, err)
 	yEquality, err := m.MkEq(y, four)
 	astTestMust(t, err)
@@ -2047,7 +2047,7 @@ func TestSMTSolverSetupUsesPartialLinearIntegerArithmetic(t *testing.T) {
 			astTestMust(t, err)
 			y, err := m.MkConst(astTestSymbol(t, m, "linear-lia-y"), integer)
 			astTestMust(t, err)
-			one, err := m.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+			one, err := bigTestArithNumeral(m, big.NewRat(1, 1), true)
 			astTestMust(t, err)
 			params, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
 			astTestMust(t, err)

@@ -53,7 +53,7 @@ func TestSMTUTVPITranslationPreservesInstalledPluginAndIndependentState(t *testi
 					op    int32
 					value int64
 				}{{smtArithOpGE, 1}, {smtArithOpLE, 2}} {
-					n, err := m.ArithmeticNumeralRat(big.NewRat(bound.value, 1), true)
+					n, err := bigTestArithNumeral(m, big.NewRat(bound.value, 1), true)
 					astTestMust(t, err)
 					formula, err := m.MkFamilyApp(family, bound.op, nil, []ast.ASTHandle{x, n})
 					astTestMust(t, err)
@@ -93,7 +93,7 @@ func TestSMTUTVPITranslationPreservesInstalledPluginAndIndependentState(t *testi
 					astTestMust(t, err)
 				}
 				astTestMust(t, translated.Push())
-				zero, err := target.ArithmeticNumeralRat(new(big.Rat), true)
+				zero, err := bigTestArithNumeral(target, new(big.Rat), true)
 				astTestMust(t, err)
 				conflict, err := target.MkFamilyApp(targetFamily, smtArithOpLE, nil, []ast.ASTHandle{targetX, zero})
 				astTestMust(t, err)

@@ -126,7 +126,7 @@ func TestSMTLRABasicExternalReasonKeepsFarkasWithoutProofs(t *testing.T) {
 				t.Fatal(name)
 			}
 			for _, p := range parameters[1:] {
-				one, err := f.m.NewParameterRat(big.NewRat(1, 1))
+				one, err := bigTestParameter(f.m, big.NewRat(1, 1))
 				astTestMust(t, err)
 				equal, err := f.m.ParameterEqual(p, one)
 				astTestMust(t, err)
@@ -199,7 +199,7 @@ func TestSMTLRABasicNoProofParameterRefusalKeepsOwners(t *testing.T) {
 	// must cross a real physical frontier rather than an already warm page.
 	f.m.Budget().FailAfter(0)
 	for i := 0; i < 8192; i++ {
-		p, err := f.m.NewParameterRat(big.NewRat(1, 1))
+		p, err := bigTestParameter(f.m, big.NewRat(1, 1))
 		if err != nil {
 			if !errors.Is(err, arena.ErrInjectedFailure) {
 				t.Fatal(err)

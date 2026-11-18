@@ -20,7 +20,7 @@ func TestSMTBoundedWeightedDisequalitiesModel(t *testing.T) {
 	sort, err := m.MkFamilySort(family, 1, nil)
 	astTestMust(t, err)
 	num := func(v int64) ast.ASTHandle {
-		h, err := m.ArithmeticNumeralRat(big.NewRat(v, 1), true)
+		h, err := bigTestArithNumeral(m, big.NewRat(v, 1), true)
 		astTestMust(t, err)
 		return h
 	}

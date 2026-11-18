@@ -41,7 +41,7 @@ func TestSMTLRAPublicSetupLogicAutoAndFirstPush(t *testing.T) {
 					}
 					x := pin(m.MkConst(astTestSymbol(t, m, "public-lra-x"), sort))
 					y := pin(m.MkConst(astTestSymbol(t, m, "public-lra-y"), sort))
-					number := func(n int64) ast.ASTHandle { return pin(m.ArithmeticNumeralRat(big.NewRat(n, 1), false)) }
+					number := func(n int64) ast.ASTHandle { return pin(bigTestArithNumeral(m, big.NewRat(n, 1), false)) }
 					app := func(op int32, args ...ast.ASTHandle) ast.ASTHandle { return pin(m.MkFamilyApp(family, op, nil, args)) }
 					// Late context LP parameters must be read at source plugin initialization.
 					key = "simplex_strategy"
@@ -171,7 +171,7 @@ func TestSMTLRAPublicSetupProofAndTrackedConflict(t *testing.T) {
 		return h
 	}
 	x, y := pin(m.MkConst(astTestSymbol(t, m, "proof-lra-x"), sort)), pin(m.MkConst(astTestSymbol(t, m, "proof-lra-y"), sort))
-	number := func(n int64) ast.ASTHandle { return pin(m.ArithmeticNumeralRat(big.NewRat(n, 1), false)) }
+	number := func(n int64) ast.ASTHandle { return pin(bigTestArithNumeral(m, big.NewRat(n, 1), false)) }
 	app := func(op int32, args ...ast.ASTHandle) ast.ASTHandle { return pin(m.MkFamilyApp(family, op, nil, args)) }
 	boolean, err := m.MkBoolSort()
 	astTestMust(t, err)

@@ -46,7 +46,7 @@ func TestSMTSolverArithmeticStateOverrideSelectsBackendAndFreezesAtSetup(t *test
 	astTestMust(t, err)
 	x, err := manager.MkConst(astTestSymbol(t, manager, "state-override-x"), sort)
 	astTestMust(t, err)
-	zero, err := manager.ArithmeticNumeralRat(new(big.Rat), true)
+	zero, err := bigTestArithNumeral(manager, new(big.Rat), true)
 	astTestMust(t, err)
 	bound, err := manager.MkFamilyApp(family, smtArithOpGE, nil, []ast.ASTHandle{x, zero})
 	astTestMust(t, err)

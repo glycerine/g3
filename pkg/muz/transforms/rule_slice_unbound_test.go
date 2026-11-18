@@ -19,7 +19,7 @@ func TestRuleSliceReducesUnboundConstraints(t *testing.T) {
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
 	number := func(n int64) ast.ASTHandle {
-		value, makeErr := f.manager.ArithmeticNumeralRat(big.NewRat(n, 1), true)
+		value, makeErr := bigTestArithNumeral(f.manager, big.NewRat(n, 1), true)
 		coneMust(t, makeErr)
 		return value
 	}

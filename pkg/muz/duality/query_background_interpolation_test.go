@@ -44,7 +44,7 @@ func TestDualityBackgroundConstrainsInterpolationAndSafeModel(t *testing.T) {
 		return h
 	}
 
-	seven := pin(m.ArithmeticNumeralRat(big.NewRat(7, 1), true))
+	seven := pin(bigTestArithNumeral(m, big.NewRat(7, 1), true))
 	integer := pin(m.GetSort(seven))
 	boolean := pin(m.MkBoolSort())
 	kName, err := m.Symbols.Intern("background-interpolation-k")

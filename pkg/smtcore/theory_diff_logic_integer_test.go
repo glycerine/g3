@@ -50,7 +50,7 @@ func newSMTIntegerDiffFixture(t *testing.T) smtIntegerDiffFixture {
 
 func (f smtIntegerDiffFixture) numeral(t *testing.T, value int64) ast.ASTHandle {
 	t.Helper()
-	n, err := f.manager.ArithmeticNumeralRat(big.NewRat(value, 1), true)
+	n, err := bigTestArithNumeral(f.manager, big.NewRat(value, 1), true)
 	astTestMust(t, err)
 	return n
 }

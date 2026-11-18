@@ -37,7 +37,7 @@ func renderDatatypeFactoryProfile(t *testing.T, m *ast.ASTManager, h ast.ASTHand
 func TestDatatypeFactoryPrinterProfileDecimalAndPrecision(t *testing.T) {
 	var trace bytes.Buffer
 	m, _, _, _, _ := datatypeFactoryTraceFixture(t, &trace)
-	literal, err := m.ArithmeticNumeralRat(big.NewRat(1, 3), false)
+	literal, err := bigTestArithNumeral(m, big.NewRat(1, 3), false)
 	protoMust(t, err)
 	protoPin(t, m, literal)
 	g := uparams.BorrowProcessGlobalParamsService()
@@ -61,7 +61,7 @@ func TestDatatypeFactoryPrinterProfileDecimalAndPrecision(t *testing.T) {
 func TestDatatypeFactoryPrinterProfileFlatAssociative(t *testing.T) {
 	var trace bytes.Buffer
 	m, _, _, _, _ := datatypeFactoryTraceFixture(t, &trace)
-	realLiteral, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), false)
+	realLiteral, err := bigTestArithNumeral(m, big.NewRat(0, 1), false)
 	protoMust(t, err)
 	realSort, err := m.GetSort(realLiteral)
 	protoMust(t, err)
@@ -102,7 +102,7 @@ func TestDatatypeFactoryPrinterProfileFlatAssociative(t *testing.T) {
 func TestDatatypeFactoryPrinterProfileMinimumAliasSize(t *testing.T) {
 	var trace bytes.Buffer
 	m, _, _, _, _ := datatypeFactoryTraceFixture(t, &trace)
-	one, err := m.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(m, big.NewRat(1, 1), true)
 	protoMust(t, err)
 	integerSort, err := m.GetSort(one)
 	protoMust(t, err)

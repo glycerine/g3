@@ -103,13 +103,13 @@ func TestSMTDenseDifferenceForcesDifferenceEqualityWithNumeral(t *testing.T) {
 	for _, integer := range []bool{false, true} {
 		t.Run(fmt.Sprint(integer), func(t *testing.T) {
 			f := newSMTDenseEqualityFixture(t, integer, SMTArithState{})
-			minusOne, err := f.manager.ArithmeticNumeralRat(big.NewRat(-1, 1), integer)
+			minusOne, err := bigTestArithNumeral(f.manager, big.NewRat(-1, 1), integer)
 			astTestMust(t, err)
 			negativeY, err := f.manager.MkFamilyApp(f.family, smtArithOpMul, nil, []ast.ASTHandle{minusOne, f.y})
 			astTestMust(t, err)
 			difference, err := f.manager.MkFamilyApp(f.family, smtArithOpAdd, nil, []ast.ASTHandle{f.x, negativeY})
 			astTestMust(t, err)
-			two, err := f.manager.ArithmeticNumeralRat(big.NewRat(2, 1), integer)
+			two, err := bigTestArithNumeral(f.manager, big.NewRat(2, 1), integer)
 			astTestMust(t, err)
 			f.equality(t, difference, two)
 			if len(f.theory.atoms) != 2 || len(f.state.testClauses()) != 3 || f.theory.adapter.NumAxioms() != 1 {
@@ -197,11 +197,11 @@ func TestSMTDenseDifferenceEqualityRestartRecreatesEagerDisabledAxioms(t *testin
 func TestSMTDenseDifferenceAtomAcceptsAttachedOffsetTerm(t *testing.T) {
 	f := newSMTDenseEqualityFixture(t, true, SMTArithState{})
 	m := f.manager
-	one, err := m.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(m, big.NewRat(1, 1), true)
 	astTestMust(t, err)
-	minusOne, err := m.ArithmeticNumeralRat(big.NewRat(-1, 1), true)
+	minusOne, err := bigTestArithNumeral(m, big.NewRat(-1, 1), true)
 	astTestMust(t, err)
-	zero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
+	zero, err := bigTestArithNumeral(m, new(big.Rat), true)
 	astTestMust(t, err)
 	offset, err := m.MkFamilyApp(f.family, smtArithOpAdd, nil, []ast.ASTHandle{one, f.x})
 	astTestMust(t, err)
@@ -251,13 +251,13 @@ func TestSMTDenseDifferenceRelationEventOrdersPairByOwnerID(t *testing.T) {
 	if got := len(f.state.boolExpr) - before; got != 3 {
 		t.Fatal("expected the equality and the two bound atoms", got)
 	}
-	minusOne, err := m.ArithmeticNumeralRat(big.NewRat(-1, 1), true)
+	minusOne, err := bigTestArithNumeral(m, big.NewRat(-1, 1), true)
 	astTestMust(t, err)
 	negativeY, err := m.MkFamilyApp(f.family, smtArithOpMul, nil, []ast.ASTHandle{minusOne, f.y})
 	astTestMust(t, err)
 	difference, err := m.MkFamilyApp(f.family, smtArithOpAdd, nil, []ast.ASTHandle{f.x, negativeY})
 	astTestMust(t, err)
-	zero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
+	zero, err := bigTestArithNumeral(m, new(big.Rat), true)
 	astTestMust(t, err)
 	lower, err := m.MkFamilyApp(f.family, smtArithOpLE, nil, []ast.ASTHandle{difference, zero})
 	astTestMust(t, err)

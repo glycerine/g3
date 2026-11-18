@@ -31,9 +31,9 @@ func newCompoundSliceFailureFixture(t *testing.T, inputIndex int) (*coneFixture,
 	m := f.manager
 	boolean, err := m.MkBoolSort()
 	coneMust(t, err)
-	zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(m, big.NewRat(0, 1), true)
 	coneMust(t, err)
-	one, err := m.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(m, big.NewRat(1, 1), true)
 	coneMust(t, err)
 	integer, err := m.GetSort(zero)
 	coneMust(t, err)
@@ -392,7 +392,7 @@ func groundCompoundSliceCondition(t *testing.T, m *ast.ASTManager, condition ast
 			// Validate the witness independently of converter substitution metadata.
 			v1, e := m.MkVar(1, integer)
 			coneMust(t, e)
-			one, e := m.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+			one, e := bigTestArithNumeral(m, big.NewRat(1, 1), true)
 			coneMust(t, e)
 			witness, e := m.MkArithmeticAdd(v1, one)
 			coneMust(t, e)

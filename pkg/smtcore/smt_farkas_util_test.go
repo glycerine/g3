@@ -36,7 +36,7 @@ func smtFarkasFixture(t *testing.T) (*ast.ASTManager, *SMTFarkasUtil, ast.Family
 
 func smtFarkasInt(t *testing.T, m *ast.ASTManager, value int64) ast.ASTHandle {
 	t.Helper()
-	result, err := m.ArithmeticNumeralRat(big.NewRat(value, 1), true)
+	result, err := bigTestArithNumeral(m, big.NewRat(value, 1), true)
 	astTestMust(t, err)
 	return result
 }

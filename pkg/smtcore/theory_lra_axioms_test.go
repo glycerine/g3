@@ -39,7 +39,7 @@ func TestSMTLRABoundAxiomsKindsAndIntegerAdjacency(t *testing.T) {
 						f.sort, err = f.m.MkFamilySort(f.a.FamilyID(), 1, nil)
 						astTestMust(t, err)
 					}
-					number := func(n int64) ast.ASTHandle { return f.pin(f.m.ArithmeticNumeralRat(big.NewRat(n, 1), integer)) }
+					number := func(n int64) ast.ASTHandle { return f.pin(bigTestArithNumeral(f.m, big.NewRat(n, 1), integer)) }
 					x := f.variable("lra-bound-kinds-x")
 					h1, h2 := f.app(test.first, x, number(test.k1)), f.app(test.second, x, number(test.k2))
 					f.s.searching = !deferred
@@ -309,7 +309,7 @@ func TestSMTLRAAxiomProofOwnershipAndPhase(t *testing.T) {
 				t.Fatal(name)
 			}
 			for _, p := range parameters[1:] {
-				one, err := f.m.NewParameterRat(big.NewRat(1, 1))
+				one, err := bigTestParameter(f.m, big.NewRat(1, 1))
 				astTestMust(t, err)
 				equal, err := f.m.ParameterEqual(p, one)
 				astTestMust(t, err)

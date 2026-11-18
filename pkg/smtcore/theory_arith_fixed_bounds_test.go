@@ -54,7 +54,7 @@ func TestSMTSharedArithmeticFixedRowsScopedProofs(t *testing.T) {
 					astTestMust(t, err)
 					different, err := m.MkNot(equality)
 					astTestMust(t, err)
-					value, err := m.ArithmeticNumeralRat(point, integer)
+					value, err := bigTestArithNumeral(m, point, integer)
 					astTestMust(t, err)
 					app := func(op int32, args ...ast.ASTHandle) ast.ASTHandle {
 						h, err := m.MkFamilyApp(family, op, nil, args)
@@ -69,7 +69,7 @@ func TestSMTSharedArithmeticFixedRowsScopedProofs(t *testing.T) {
 						astTestMust(t, s.Assert(formula))
 					}
 					sum := app(smtArithOpAdd, x, y)
-					twice, err := m.ArithmeticNumeralRat(new(big.Rat).Mul(point, big.NewRat(2, 1)), integer)
+					twice, err := bigTestArithNumeral(m, new(big.Rat).Mul(point, big.NewRat(2, 1)), integer)
 					astTestMust(t, err)
 					fixed := app(smtArithOpLE, sum, twice)
 					ref, err := m.NewRef(fixed)
@@ -107,7 +107,7 @@ func TestSMTSharedArithmeticFixedRowsScopedProofs(t *testing.T) {
 						}
 						astTestMust(t, s.Pop(1))
 						astTestMust(t, s.Push())
-						next, err := m.ArithmeticNumeralRat(new(big.Rat).Add(point, big.NewRat(1, 1)), integer)
+						next, err := bigTestArithNumeral(m, new(big.Rat).Add(point, big.NewRat(1, 1)), integer)
 						astTestMust(t, err)
 						for _, pair := range [][2]ast.ASTHandle{{x, value}, {y, next}} {
 							equality, err := m.MkEq(pair[0], pair[1])

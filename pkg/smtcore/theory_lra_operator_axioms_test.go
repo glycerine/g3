@@ -155,7 +155,7 @@ func TestSMTLRAOperatorIntegerDivisionRemainderClauseShapes(t *testing.T) {
 		h := f.app(op, x, y)
 		astTestMust(t, f.s.Internalize(h, false))
 		astTestMust(t, f.s.markRelevant(h))
-		zero := f.pin(f.m.ArithmeticNumeralRat(new(big.Rat), true))
+		zero := f.pin(bigTestArithNumeral(f.m, new(big.Rat), true))
 		mod := f.app(smtArithOpMod, x, y)
 		literal := func(h ast.ASTHandle) SMTLiteral { l, err := f.s.Literal(h); astTestMust(t, err); return l }
 		equality := func(a, b ast.ASTHandle) SMTLiteral { return literal(f.pin(f.s.mkEqualityAtom(a, b))) }
@@ -252,7 +252,7 @@ func TestSMTLRAOperatorZeroModAndNoDirectIDivCallback(t *testing.T) {
 	f.sort, err = f.m.MkFamilySort(f.a.FamilyID(), 1, nil)
 	astTestMust(t, err)
 	x, y := f.variable("lra-zero-mod-x"), f.variable("lra-idiv-y")
-	zero := f.pin(f.m.ArithmeticNumeralRat(new(big.Rat), true))
+	zero := f.pin(bigTestArithNumeral(f.m, new(big.Rat), true))
 	for _, h := range []ast.ASTHandle{f.app(smtArithOpMod, x, zero), f.app(smtArithOpIDiv, x, y)} {
 		astTestMust(t, f.s.Internalize(h, false))
 		before := len(f.s.Clauses())

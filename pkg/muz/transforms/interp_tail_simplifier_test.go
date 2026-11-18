@@ -60,7 +60,7 @@ func (f *interpTailFixture) predicate(t *testing.T, name string, domain []ast.AS
 
 func TestInterpTailSimplifierPropagatesEqualityAndRemovesTruth(t *testing.T) {
 	f := newInterpTailFixture(t)
-	one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(f.manager, big.NewRat(1, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(one)
 	coneMust(t, err)
@@ -290,7 +290,7 @@ func TestInterpTailSimplifierRecognizesPairedClauseEquivalence(t *testing.T) {
 func TestInterpTailSimplifierPreservesRewriteProof(t *testing.T) {
 	f := newInterpTailFixture(t)
 	m := f.manager
-	one, err := m.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(m, big.NewRat(1, 1), true)
 	coneMust(t, err)
 	integer, err := m.GetSort(one)
 	coneMust(t, err)

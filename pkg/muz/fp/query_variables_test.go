@@ -16,7 +16,7 @@ func TestCompactQueryVariablesPreservesSortsAndBoundVariables(t *testing.T) {
 	defer func() { fragmentMust(t, engine.Close()) }()
 	boolean, err := m.MkBoolSort()
 	fragmentMust(t, err)
-	zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(m, big.NewRat(0, 1), true)
 	fragmentMust(t, err)
 	integer, err := m.GetSort(zero)
 	fragmentMust(t, err)

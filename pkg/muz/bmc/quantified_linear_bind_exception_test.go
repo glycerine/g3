@@ -81,7 +81,7 @@ func TestBMCQuantifiedLinearBindingEvaluatorException(t *testing.T) {
 	must(err)
 	arg, err := m.MkFuncDecl(argName, []ast.ASTHandle{indexSort}, integer, ast.ASTFuncDeclInfo{})
 	must(err)
-	index, err := m.BitVectorNumeralRat(big.NewRat(1, 1), 4)
+	index, err := bigTestBVNumeral(m, big.NewRat(1, 1), 4)
 	must(err)
 	term, err := m.MkApp(arg, []ast.ASTHandle{index})
 	must(err)

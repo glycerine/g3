@@ -105,7 +105,7 @@ func TestStoredFactFormulasPreservePredicateAndTableOrder(t *testing.T) {
 		fragmentMust(t, cause)
 		argument, cause := m.GetArg(application, 0)
 		fragmentMust(t, cause)
-		value, width, matched, cause := m.BitVectorNumeralBigInt(argument)
+		value, width, matched, cause := bigTestBVValue(m, argument)
 		fragmentMust(t, cause)
 		if d != expected[i].declaration || !matched || width != 4 || value.Uint64() != expected[i].value {
 			t.Fatal("stored output order/value", i, value, expected[i].value)

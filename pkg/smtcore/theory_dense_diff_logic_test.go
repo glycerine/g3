@@ -138,7 +138,7 @@ func TestSMTDenseTheoryPropagationConflictAndScope(t *testing.T) {
 func TestSMTDenseDifferenceNonDiffLogicVerboseLine(t *testing.T) {
 	f := newSMTDenseEqualityFixture(t, true, SMTArithState{})
 	out := smtAssertedVerboseFixture(t, 0)
-	two, err := f.manager.ArithmeticNumeralRat(big.NewRat(2, 1), true)
+	two, err := bigTestArithNumeral(f.manager, big.NewRat(2, 1), true)
 	astTestMust(t, err)
 	product, err := f.manager.MkFamilyApp(f.family, smtArithOpMul, nil, []ast.ASTHandle{two, f.x})
 	astTestMust(t, err)

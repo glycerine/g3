@@ -11,9 +11,9 @@ import (
 
 func TestRuleUnifierModelProofSubstitutionsAndReset(t *testing.T) {
 	f := newConeFixture(t)
-	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	zero, err := bigTestArithNumeral(f.manager, big.NewRat(0, 1), true)
 	coneMust(t, err)
-	one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one, err := bigTestArithNumeral(f.manager, big.NewRat(1, 1), true)
 	coneMust(t, err)
 	integer, err := f.manager.GetSort(zero)
 	coneMust(t, err)

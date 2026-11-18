@@ -38,13 +38,13 @@ func TestSMTDifferenceContextShortcutConflictProof(t *testing.T) {
 				variables = append(variables, x)
 			}
 			assert := func(source, target int, weight int64) SMTLiteral {
-				minusOne, err := m.ArithmeticNumeralRat(big.NewRat(-1, 1), integer)
+				minusOne, err := bigTestArithNumeral(m, big.NewRat(-1, 1), integer)
 				astTestMust(t, err)
 				negative, err := m.MkFamilyApp(family, smtArithOpMul, nil, []ast.ASTHandle{minusOne, variables[source]})
 				astTestMust(t, err)
 				difference, err := m.MkFamilyApp(family, smtArithOpAdd, nil, []ast.ASTHandle{variables[target], negative})
 				astTestMust(t, err)
-				n, err := m.ArithmeticNumeralRat(big.NewRat(weight, 1), integer)
+				n, err := bigTestArithNumeral(m, big.NewRat(weight, 1), integer)
 				astTestMust(t, err)
 				formula, err := m.MkFamilyApp(family, smtArithOpLE, nil, []ast.ASTHandle{difference, n})
 				astTestMust(t, err)
@@ -85,7 +85,7 @@ func TestSMTDifferenceContextShortcutConflictProof(t *testing.T) {
 				t.Fatal("shortened proof retained obsolete parent-edge coefficients", len(parameters))
 			}
 			for _, parameter := range parameters[1:] {
-				want, err := m.NewParameterRat(big.NewRat(1, 1))
+				want, err := bigTestParameter(m, big.NewRat(1, 1))
 				astTestMust(t, err)
 				equal, err := m.ParameterEqual(parameter, want)
 				astTestMust(t, err)
@@ -173,7 +173,7 @@ func TestSMTUTVPIConflictParametersFollowScopeLifetime(t *testing.T) {
 	astTestMust(t, err)
 	literals := []SMTLiteral{}
 	for i, op := range []int32{smtArithOpLE, smtArithOpGE} {
-		n, err := m.ArithmeticNumeralRat(big.NewRat(int64(i), 1), false)
+		n, err := bigTestArithNumeral(m, big.NewRat(int64(i), 1), false)
 		astTestMust(t, err)
 		formula, err := m.MkFamilyApp(family, op, nil, []ast.ASTHandle{x, n})
 		astTestMust(t, err)
@@ -236,13 +236,13 @@ func TestSMTDifferenceConflictDumpsLemma(t *testing.T) {
 				variables = append(variables, x)
 			}
 			assert := func(source, target int, weight int64) {
-				minusOne, err := m.ArithmeticNumeralRat(big.NewRat(-1, 1), integer)
+				minusOne, err := bigTestArithNumeral(m, big.NewRat(-1, 1), integer)
 				astTestMust(t, err)
 				negative, err := m.MkFamilyApp(family, smtArithOpMul, nil, []ast.ASTHandle{minusOne, variables[source]})
 				astTestMust(t, err)
 				difference, err := m.MkFamilyApp(family, smtArithOpAdd, nil, []ast.ASTHandle{variables[target], negative})
 				astTestMust(t, err)
-				n, err := m.ArithmeticNumeralRat(big.NewRat(weight, 1), integer)
+				n, err := bigTestArithNumeral(m, big.NewRat(weight, 1), integer)
 				astTestMust(t, err)
 				formula, err := m.MkFamilyApp(family, smtArithOpLE, nil, []ast.ASTHandle{difference, n})
 				astTestMust(t, err)

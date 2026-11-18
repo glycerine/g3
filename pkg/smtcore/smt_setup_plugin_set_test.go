@@ -44,7 +44,7 @@ func smtSetupPluginSolver(t *testing.T, logic string, autoConfig bool) (*SMTSolv
 	t.Cleanup(func() { astTestMust(t, s.Close()) })
 	family, err := m.ArithmeticFamilyID()
 	astTestMust(t, err)
-	n, err := m.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	n, err := bigTestArithNumeral(m, big.NewRat(1, 1), true)
 	astTestMust(t, err)
 	sort, err := m.GetSort(n)
 	astTestMust(t, err)

@@ -118,7 +118,7 @@ func TestBMCQuantifiedLinearCompilationLevels(t *testing.T) {
 	defer func() { must(sub.Close()) }()
 	var levels []ast.ASTHandle
 	for _, value := range []int64{0, 1} {
-		n, e := m.BitVectorNumeralRat(big.NewRat(value, 1), 4)
+		n, e := bigTestBVNumeral(m, big.NewRat(value, 1), 4)
 		must(e)
 		ref, e := m.NewRef(n)
 		must(e)
@@ -343,7 +343,7 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	if value.IsNull() {
 		t.Fatal("winning model lost its index after solver pop")
 	}
-	level, bits, numeral, err := m.BitVectorNumeralBigInt(value)
+	level, bits, numeral, err := bigTestBVValue(m, value)
 	must(err)
 	if !numeral || bits != width || level.Cmp(big.NewInt(2)) < 0 {
 		t.Fatal("recursive query chose an index below its derivation depth", level, bits)
