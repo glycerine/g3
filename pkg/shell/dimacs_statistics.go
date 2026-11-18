@@ -12,6 +12,8 @@ func (f *DIMACSFrontend) writeStatistics(s *sat.Solver) error {
 	if err := s.CollectStatistics(st); err != nil {
 		return err
 	}
-	st.UpdateDouble("total time", float64(time.Since(f.start).Milliseconds()/10)/100)
+	// st.update("total time", seconds): statistics::update drops only an
+	// exact 0.0, and display_smt2 does the two-decimal formatting.
+	st.UpdateDouble("total time", time.Since(f.start).Seconds())
 	return st.DisplaySMT2(f.output)
 }

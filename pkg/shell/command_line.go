@@ -118,6 +118,12 @@ func (c *CommandLine) Parse(args []string) error {
 			if len(name) != 0 && name[0] == '-' {
 				name = name[1:]
 			}
+			// strchr(arg, ':') then *colon = 0 cuts arg itself, so the
+			// invalid-option message shows only the part before the colon.
+			truncated := arg
+			if colon := strings.IndexByte(arg, ':'); colon >= 0 {
+				truncated = arg[:colon]
+			}
 			var value *string
 			if colon := strings.IndexByte(name, ':'); colon >= 0 {
 				v := name[colon+1:]
@@ -212,7 +218,7 @@ func (c *CommandLine) Parse(args []string) error {
 				return nil
 			case "tr":
 				if !shellTraceOptions {
-					return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+arg)
+					return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+truncated)
 				}
 				if value == nil {
 					return sourceCommandLineError(ErrShellOptionArgument, "option argument (-tr:tag) is missing.")
@@ -223,7 +229,7 @@ func (c *CommandLine) Parse(args []string) error {
 				c.Trace.Enable(*value)
 			case "dbg":
 				if !shellDebugOptions {
-					return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+arg)
+					return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+truncated)
 				}
 				if value == nil {
 					return sourceCommandLineError(ErrShellOptionArgument, "option argument (-dbg:tag) is missing.")
@@ -235,7 +241,7 @@ func (c *CommandLine) Parse(args []string) error {
 					return err
 				}
 			default:
-				return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+arg)
+				return sourceCommandLineError(ErrShellCommandLine, "invalid command line option: "+truncated)
 			}
 			continue
 		}
