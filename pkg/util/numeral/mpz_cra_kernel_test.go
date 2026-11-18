@@ -10,6 +10,9 @@ import (
 // against the source mul, mul, add, mod, gt, sub sequence on the same
 // manager: same value and same inline/big representation.
 func TestIntegerCRACoefficientMatchesSourceOperations(t *testing.T) {
+	if !smallFastBuild() {
+		t.Skip("direct kernels are off in trace and debug builds")
+	}
 	m, _ := integerManager(t)
 	rng := rand.New(rand.NewSource(0x637261))
 	random := func(bitsMax int) string {
@@ -76,6 +79,9 @@ func TestIntegerCRACoefficientMatchesSourceOperations(t *testing.T) {
 // its word path) against mpzzp addmul/submul in Z mode and for inline,
 // word and big moduli: same value and same inline/big representation.
 func TestModularDirectMulAddMatchesSourceOperations(t *testing.T) {
+	if !smallFastBuild() {
+		t.Skip("direct kernels are off in trace and debug builds")
+	}
 	m, _ := integerManager(t)
 	z, e := NewIntegerModularManager(m)
 	if e != nil {
