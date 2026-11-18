@@ -19,402 +19,6 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-// parseTactic returns one counted reference, including on the one-child
-// combinator paths where the native factory returns its child unchanged.
-func (p *commandParser) parseTactic() (result tactic.Tactic, err error) {
-	if p.token == SymbolToken {
-		// sexpr2tactic reports an unknown tactic at the symbol's own
-		// sexpr position (tactic_cmds.cpp), not at the following token.
-		line, column := p.scanner.Line(), p.scanner.Position()
-		name, e := p.symbol()
-		if e != nil {
-			return nil, e
-		}
-		if !cmd_context.IsBuiltinTactic(name) {
-			if body, found := p.context.UserTacticBody(name); found {
-				return p.parseDeclaredTactic(name, body)
-			}
-		}
-		result, err = p.context.NewBuiltinTacticWithOutput(name, p.out)
-		if err != nil {
-			if strings.HasPrefix(err.Error(), "invalid tactic, unknown tactic ") {
-				return nil, &ScannerError{Message: err.Error(), Line: line, Column: column}
-			}
-			return nil, err
-		}
-		if err = result.IncRef(); err != nil {
-			return nil, err
-		}
-		return result, nil
-	}
-	if err = p.expect(LeftParenToken); err != nil {
-		return nil, fmt.Errorf("invalid tactic, symbol or combinator expected")
-	}
-	name, err := p.symbol()
-	if err != nil {
-		return nil, err
-	}
-	var children []tactic.Tactic
-	defer func() {
-		for _, child := range children {
-			err = errors.Join(err, child.DecRef())
-		}
-	}()
-	child := func() error {
-		value, e := p.parseTactic()
-		if e != nil {
-			return e
-		}
-		children = append(children, value)
-		return nil
-	}
-	switch name {
-	case "and-then", "then", "or-else":
-		for p.token != RightParenToken && p.token != EOFToken {
-			if err = child(); err != nil {
-				return nil, err
-			}
-		}
-		if len(children) == 0 {
-			return nil, fmt.Errorf("invalid %s combinator, at least one argument expected", name)
-		}
-		if err = p.expect(RightParenToken); err != nil {
-			return nil, err
-		}
-		if name == "or-else" {
-			if len(children) == 1 {
-				result = children[0]
-			} else {
-				result, err = tactic.NewOrElseTactic(children...)
-			}
-		} else {
-			result, err = tactic.NewAndThenTactic(children...)
-		}
-	case "par", "par-or", "par-then":
-		for p.token != RightParenToken && p.token != EOFToken {
-			if err = child(); err != nil {
-				return nil, err
-			}
-		}
-		if len(children) == 0 {
-			return nil, fmt.Errorf("invalid %s combinator, at least one argument expected", name)
-		}
-		if err = p.expect(RightParenToken); err != nil {
-			return nil, err
-		}
-		if len(children) == 1 {
-			result = children[0]
-		} else if name == "par-then" {
-			result, err = tactic.NewParAndThenTactic(children...)
-		} else {
-			result, err = tactic.NewParTactic(children...)
-		}
-	case "if", "ite", "cond", "when", "fail-if":
-		probe, e := p.parseProbe()
-		if e != nil {
-			return nil, e
-		}
-		defer func() { err = errors.Join(err, probe.DecRef()) }()
-		if name == "fail-if" {
-			if err = p.expect(RightParenToken); err != nil {
-				return nil, err
-			}
-			result, err = tactic.NewFailIfTactic(probe)
-		} else {
-			if err = child(); err != nil {
-				return nil, err
-			}
-			if name == "when" {
-				if err = p.expect(RightParenToken); err != nil {
-					return nil, err
-				}
-				result, err = tactic.NewWhenTactic(probe, children[0])
-			} else {
-				if err = child(); err != nil {
-					return nil, err
-				}
-				if err = p.expect(RightParenToken); err != nil {
-					return nil, err
-				}
-				result, err = tactic.NewCondTactic(probe, children[0], children[1])
-			}
-		}
-	case "if-no-proofs", "if-no-models", "if-no-unsat-cores":
-		if err = child(); err != nil {
-			return nil, err
-		}
-		if err = p.expect(RightParenToken); err != nil {
-			return nil, err
-		}
-		switch name {
-		case "if-no-proofs":
-			result, err = tactic.NewIfNoProofsTactic(children[0])
-		case "if-no-models":
-			result, err = tactic.NewIfNoModelsTactic(children[0])
-		default:
-			result, err = tactic.NewIfNoUnsatCoresTactic(children[0])
-		}
-	case "echo":
-		var steps []tactic.Tactic
-		defer func() {
-			for _, step := range steps {
-				err = errors.Join(err, step.DecRef())
-			}
-		}()
-		for p.token != RightParenToken && p.token != EOFToken {
-			last := p.scanner
-			var step tactic.Tactic
-			if p.token == StringToken {
-				message := last.String()
-				if err = p.advance(); err != nil {
-					return nil, err
-				}
-				step, err = cmd_context.NewEchoTactic(p.context, message, p.token == RightParenToken)
-			} else {
-				probe, e := p.parseProbe()
-				if e != nil {
-					return nil, e
-				}
-				step, err = cmd_context.NewProbeValueTactic(p.context, nil, probe, p.token == RightParenToken)
-				err = errors.Join(err, probe.DecRef())
-			}
-			if err != nil {
-				return nil, err
-			}
-			if err = step.IncRef(); err != nil {
-				return nil, err
-			}
-			steps = append(steps, step)
-		}
-		if len(steps) == 0 {
-			return nil, fmt.Errorf("invalid echo tactic, must have at least one argument")
-		}
-		if err = p.expect(RightParenToken); err != nil {
-			return nil, err
-		}
-		if len(steps) == 1 {
-			result = steps[0]
-		} else {
-			result, err = tactic.NewAndThenTactic(steps...)
-		}
-	case "using-params", "with", "!":
-		if err = child(); err != nil {
-			return nil, err
-		}
-		if p.token == RightParenToken {
-			if err = p.expect(RightParenToken); err != nil {
-				return nil, err
-			}
-			result = children[0]
-			break
-		}
-		globals, e := p.context.GlobalParameters()
-		if e != nil {
-			return nil, e
-		}
-		c := globals.Context
-		settings, e := c.NewValue()
-		if e != nil {
-			return nil, e
-		}
-		defer func() { err = errors.Join(err, c.Del(&settings)) }()
-		m, e := p.astManager()
-		if e != nil {
-			return nil, e
-		}
-		descriptions, e := uparams.NewParamDescrs(m.Symbols, uparams.ParamDescrsConfig{Budget: m.Budget()})
-		if e != nil {
-			return nil, e
-		}
-		defer func() { err = errors.Join(err, descriptions.Close()) }()
-		if e = children[0].CollectParamDescrs(descriptions); e != nil {
-			return nil, e
-		}
-		for p.token != RightParenToken && p.token != EOFToken {
-			if p.token != KeywordToken {
-				return nil, fmt.Errorf("invalid using-params combinator, keyword expected")
-			}
-			key := strings.TrimPrefix(p.scanner.ID(), ":")
-			key = uparams.NormParamName(&key)
-			if err = p.advance(); err != nil {
-				return nil, err
-			}
-			symbol, e := m.Symbols.Intern(key)
-			if e != nil {
-				return nil, e
-			}
-			kind, e := descriptions.KindInModule(&symbol)
-			if e != nil {
-				return nil, e
-			}
-			key, e = m.Symbols.String(symbol)
-			if e != nil {
-				return nil, e
-			}
-			if kind == uparams.ParamInvalid {
-				return nil, fmt.Errorf("invalid using-params combinator, unknown parameter %s", key)
-			}
-			if err = p.tacticParameter(c, &settings, key, kind); err != nil {
-				return nil, err
-			}
-		}
-		if err = p.expect(RightParenToken); err != nil {
-			return nil, err
-		}
-		result, err = tactic.NewUsingParamsTactic(c, children[0], &settings)
-	case "repeat", "try-for", "fail-if-branching":
-		if err = child(); err != nil {
-			return nil, err
-		}
-		n := ^uint32(0)
-		if name == "fail-if-branching" {
-			n = 1
-		}
-		if p.token != RightParenToken || name == "try-for" {
-			if n, err = p.unsigned(); err != nil {
-				return nil, err
-			}
-		}
-		if err = p.expect(RightParenToken); err != nil {
-			return nil, err
-		}
-		switch name {
-		case "repeat":
-			result, err = tactic.NewRepeatTactic(children[0], n)
-		case "try-for":
-			result, err = tactic.NewTryForTactic(children[0], n)
-		default:
-			result, err = tactic.NewFailIfBranchingTactic(children[0], n)
-		}
-	case "skip-if-failed":
-		if err = child(); err != nil {
-			return nil, err
-		}
-		if err = p.expect(RightParenToken); err != nil {
-			return nil, err
-		}
-		result, err = tactic.NewSkipIfFailedTactic(children[0])
-	default:
-		return nil, fmt.Errorf("invalid tactic combinator %s", name)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err = result.IncRef(); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (p *commandParser) parseProbe() (result tactic.ProbeEvaluator, err error) {
-	manager, err := p.astManager()
-	if err != nil {
-		return nil, err
-	}
-	if p.token == IntegerToken || p.token == DecimalToken {
-		q, n := p.scanner.Numbers(), p.scanner.Number()
-		fits, e := q.IsInt32(n)
-		if e != nil {
-			return nil, e
-		}
-		if !fits {
-			return nil, fmt.Errorf("invalid probe, constant is too big to fit in a fixed size integer")
-		}
-		value, e := q.Int64(n)
-		if e != nil {
-			return nil, e
-		}
-		if err = p.advance(); err != nil {
-			return nil, err
-		}
-		result, err = tactic.NewProbe(manager.Budget(), tactic.ProbeConstant, float64(value))
-	} else if p.token == SymbolToken {
-		name, e := p.symbol()
-		if e != nil {
-			return nil, e
-		}
-		result, err = p.sourceBuiltinProbe(name, manager)
-		if err != nil {
-			return nil, err
-		}
-		if result == nil {
-			return nil, fmt.Errorf("invalid probe, unknown builtin probe %s", name)
-		}
-	} else if p.token == LeftParenToken {
-		if err = p.advance(); err != nil {
-			return nil, err
-		}
-		name, e := p.symbol()
-		if e != nil {
-			return nil, e
-		}
-		var arguments []tactic.ProbeEvaluator
-		defer func() {
-			for _, argument := range arguments {
-				err = errors.Join(err, argument.DecRef())
-			}
-		}()
-		for p.token != RightParenToken && p.token != EOFToken {
-			argument, e := p.parseProbe()
-			if e != nil {
-				return nil, e
-			}
-			arguments = append(arguments, argument)
-		}
-		if err = p.expect(RightParenToken); err != nil {
-			return nil, err
-		}
-		if name == "not" {
-			if len(arguments) != 1 {
-				return nil, fmt.Errorf("invalid probe expression, one argument expected")
-			}
-			result, err = tactic.NewNotProbe(manager.Budget(), arguments[0])
-		} else {
-			kind, found := sourceProbeOperator(name)
-			if !found {
-				return nil, fmt.Errorf("invalid probe, unknown probe expression %s", name)
-			}
-			// MK_BIN_PROBE: =, <=, <, >=, >, =>, / and - take exactly two
-			// arguments.
-			binary := kind >= tactic.ProbeEqual && kind <= tactic.ProbeGreater ||
-				kind == tactic.ProbeImplies || kind == tactic.ProbeDivide || kind == tactic.ProbeSubtract
-			if binary {
-				if len(arguments) != 2 {
-					return nil, fmt.Errorf("invalid probe expression, two arguments expected")
-				}
-				result, err = tactic.NewBinaryProbe(manager.Budget(), kind, arguments[0], arguments[1])
-			} else if len(arguments) == 0 {
-				return nil, fmt.Errorf("invalid probe, at least one argument expected")
-			} else if len(arguments) == 1 {
-				result = arguments[0]
-			} else {
-				// MK_NARY_PROBE. z3 4.7.1 bug kept out of g3: the source loop
-				// starts at child 1 again, so (+ a b) is (a + a) + b and
-				// (* a b) is (a * a) * b (tactic_cmds.cpp:746-764; still
-				// present upstream; AUDIT.md parsers_shell_01-F10;
-				// test_vectors/z3_bug_probe_nary_fold.smt2).
-				result = arguments[0]
-				for _, argument := range arguments[1:] {
-					next, e := tactic.NewBinaryProbe(manager.Budget(), kind, result, argument)
-					if e != nil {
-						return nil, e
-					}
-					result = next
-				}
-			}
-		}
-	} else {
-		return nil, fmt.Errorf("invalid probe, unexpected input")
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err = result.IncRef(); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func (p *commandParser) sourceBuiltinProbe(name string, manager *ast.ASTManager) (tactic.ProbeEvaluator, error) {
 	kinds := map[string]tactic.ProbeKind{
 		"memory": tactic.ProbeMemory, "depth": tactic.ProbeDepth, "size": tactic.ProbeSize,
@@ -526,26 +130,32 @@ func (p *commandParser) parseDeclaredTactic(name, body string) (result tactic.Ta
 	return result, nil
 }
 
+// parseTacticDeclaration reads declare-tactic's CPK_SEXPR argument and,
+// as declare_tactic_cmd::execute does, converts it once to check it. The
+// body is kept as its source text.
 func (p *commandParser) parseTacticDeclaration() (selected tactic.Tactic, body string, err error) {
-	if p.token == SymbolToken {
-		body = p.scanner.ID()
-		selected, err = p.parseTactic()
-		return selected, body, err
+	var tree *tacticSExpr
+	if p.token == LeftParenToken {
+		p.scanner.StartCaching()
+		defer func() { p.scanner.StopCaching(); p.scanner.ResetCache() }()
+		if tree, err = p.readTacticSExpr(); err != nil {
+			return nil, "", err
+		}
+		if body, err = p.scanner.CachedString(0, p.cacheEnd); err != nil {
+			return nil, "", errors.Join(err, tree.release())
+		}
+		body = "(" + body
+	} else {
+		if p.token == SymbolToken {
+			body = p.scanner.ID()
+		}
+		if tree, err = p.readTacticSExpr(); err != nil {
+			return nil, "", err
+		}
 	}
-	if p.token != LeftParenToken {
-		return nil, "", fmt.Errorf("invalid tactic, symbol or combinator expected")
-	}
-	p.scanner.StartCaching()
-	defer func() { p.scanner.StopCaching(); p.scanner.ResetCache() }()
-	selected, err = p.parseTactic()
-	if err != nil {
-		return nil, "", err
-	}
-	body, err = p.scanner.CachedString(0, p.cacheEnd)
-	if err != nil {
-		return nil, "", errors.Join(err, selected.DecRef())
-	}
-	return selected, "(" + body, nil
+	defer func() { err = errors.Join(err, tree.release()) }()
+	selected, err = p.sexprToTactic(tree)
+	return selected, body, err
 }
 
 // commandParameter is parse_next_cmd_arg for a parametric command's
@@ -647,11 +257,13 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 	if p.token == RightParenToken {
 		return fmt.Errorf("check-sat-using needs a tactic argument")
 	}
-	selected, err := p.parseTactic()
+	// The tactic is a CPK_SEXPR argument, converted by sexpr2tactic when
+	// the command executes.
+	tree, err := p.readTacticSExpr()
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, selected.DecRef()) }()
+	defer func() { err = errors.Join(err, tree.release()) }()
 	globals, err := p.context.GlobalParameters()
 	if err != nil {
 		return err
@@ -712,6 +324,11 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 	if !execute {
 		return nil
 	}
+	selected, err := p.sexprToTactic(tree)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, selected.DecRef()) }()
 	status, err := p.context.CheckSatUsing(selected, &options)
 	tacticFailure := false
 	if err != nil {

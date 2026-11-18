@@ -320,6 +320,11 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 			if err := p.advance(); err != nil {
 				return ast.ASTHandle{}, "", err
 			}
+			// parse_qualified_name: only (_ ...) and (as ...) qualify a
+			// function, checked before the head is consumed.
+			if p.token != SymbolToken || p.scanner.ID() != "_" && p.scanner.ID() != "as" {
+				return ast.ASTHandle{}, "", fmt.Errorf("invalid qualified/indexed identifier, '_' or 'as' expected")
+			}
 			head, err := p.symbol()
 			if err != nil {
 				return ast.ASTHandle{}, "", err
@@ -334,13 +339,14 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				if err == nil {
 					err = p.expect(RightParenToken)
 				}
-			} else {
-				err = fmt.Errorf("qualified identifier expected")
 			}
 			if err != nil {
 				return ast.ASTHandle{}, "", err
 			}
 		} else {
+			if p.token != SymbolToken {
+				return ast.ASTHandle{}, "", fmt.Errorf("invalid expression, '(' or symbol expected")
+			}
 			name, err = p.symbol()
 			if err != nil {
 				return ast.ASTHandle{}, "", err
@@ -552,9 +558,23 @@ func (p *commandParser) quantifier(forall bool) (value ast.ASTHandle, named stri
 		result = errors.Join(result, p.env.endScopeWithOwningCleanup(), p.locals.shrink(p.manager, oldExprs))
 	}()
 	spec := ast.ASTQuantifierSpec{Forall: forall, Sorts: sorts, Names: names, Weight: 1}
+	// pop_quant_frame needs exactly one body expression when the
+	// quantifier's ')' is reached.
+	const quantifierSyntax = "invalid quantified expression, syntax error: (forall|exists ((<symbol> <sort>)*) <expr>) expected"
+	if p.token == RightParenToken {
+		return ast.ASTHandle{}, "", errors.New(quantifierSyntax)
+	}
 	body, _, err := p.expressionFrame(&spec)
 	if err != nil {
 		return ast.ASTHandle{}, "", err
+	}
+	if p.token != RightParenToken && p.token != EOFToken {
+		for p.token != RightParenToken {
+			if _, _, err = p.expression(); err != nil {
+				return ast.ASTHandle{}, "", err
+			}
+		}
+		return ast.ASTHandle{}, "", errors.New(quantifierSyntax)
 	}
 	spec.Body = body
 	if err = p.validateQuantifierPatterns(&spec); err != nil {

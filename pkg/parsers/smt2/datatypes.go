@@ -327,8 +327,13 @@ func (p *commandParser) declareDatatypes(single bool) error {
 			return err
 		}
 	}
-	if err = p.requireEnd(); err != nil {
-		return err
+	// check_rparen after the bodies: parse_declare_datatype's and
+	// parse_declare_datatypes' own texts.
+	if p.token != RightParenToken {
+		if single {
+			return fmt.Errorf("invalid end of datatype declaration, ')' expected")
+		}
+		return fmt.Errorf("invalid datatype declaration")
 	}
 	indices := make(map[string]uint32)
 	for i, d := range definitions {

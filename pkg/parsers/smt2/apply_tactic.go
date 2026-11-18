@@ -28,11 +28,13 @@ func (p *commandParser) applyTactic(execute bool) (err error) {
 	if p.token == RightParenToken {
 		return fmt.Errorf("apply needs a tactic argument")
 	}
-	selected, err := p.parseTactic()
+	// The tactic is a CPK_SEXPR argument, converted by sexpr2tactic when
+	// the command executes.
+	tree, err := p.readTacticSExpr()
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, selected.DecRef()) }()
+	defer func() { err = errors.Join(err, tree.release()) }()
 	globals, err := p.context.GlobalParameters()
 	if err != nil {
 		return err
@@ -65,6 +67,11 @@ func (p *commandParser) applyTactic(execute bool) (err error) {
 	if !execute {
 		return nil
 	}
+	selected, err := p.sexprToTactic(tree)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, selected.DecRef()) }()
 	if err = p.context.ApplyTactic(p.out, selected, &options); err != nil {
 		var failure cmd_context.TacticCommandFailure
 		if errors.As(err, &failure) {

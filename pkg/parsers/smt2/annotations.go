@@ -191,12 +191,20 @@ func (p *commandParser) pattern() (result ast.ASTHandle, resultErr error) {
 			}
 			arguments = append(arguments, term)
 		}
+		// push_app_frame: the frame's ')' with no argument is
+		// pop_app_frame's error, even for a bound variable.
+		if len(arguments) == 0 {
+			return ast.ASTHandle{}, &ScannerError{Message: "invalid function application, arguments missing", Line: p.scanner.Line(), Column: p.scanner.Position()}
+		}
 		term, err := p.indexedApplication(name, nil, arguments, ast.ASTHandle{})
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		terms = append(terms, term)
 	} else {
+		if p.token != LeftParenToken {
+			return ast.ASTHandle{}, fmt.Errorf("invalid pattern, '(' or identifier expected")
+		}
 		for p.token != RightParenToken {
 			term, _, err := p.expression()
 			if err != nil {
