@@ -81,12 +81,14 @@ func (md *Model) Translate(translation *ast.ASTTranslation) (result *Model, err 
 		}
 	}()
 	for _, entry := range md.CoreField.constantEntries() {
-		declaration := entry.declaration
-		translatedDeclaration, e := translation.Translate(declaration)
+		// register_decl(translator(m_key), translator(m_value)): the
+		// release build (GCC, right-to-left arguments) translates the
+		// value first.
+		translatedValue, e := translation.Translate(entry.value)
 		if e != nil {
 			return nil, e
 		}
-		translatedValue, e := translation.Translate(entry.value)
+		translatedDeclaration, e := translation.Translate(entry.declaration)
 		if e != nil {
 			return nil, e
 		}
@@ -95,14 +97,14 @@ func (md *Model) Translate(translation *ast.ASTTranslation) (result *Model, err 
 		}
 	}
 	for _, entry := range md.CoreField.functionEntries() {
-		declaration := entry.declaration
-		translatedDeclaration, e := translation.Translate(declaration)
-		if e != nil {
-			return nil, e
-		}
+		// fi->translate(translator) runs before translator(m_key).
 		translatedFunction, e := entry.function.Translate(translation)
 		if e != nil {
 			return nil, e
+		}
+		translatedDeclaration, e := translation.Translate(entry.declaration)
+		if e != nil {
+			return nil, errors.Join(e, translatedFunction.Close())
 		}
 		if e = result.Core().RegisterFunction(translatedDeclaration, translatedFunction); e != nil {
 			return nil, errors.Join(e, translatedFunction.Close())
@@ -110,16 +112,18 @@ func (md *Model) Translate(translation *ast.ASTTranslation) (result *Model, err 
 	}
 	for _, sort := range md.universeSorts() {
 		universe, _ := md.Universes.Get2(sort)
-		translatedSort, e := translation.Translate(sort)
-		if e != nil {
-			return nil, e
-		}
+		// new_universe is built before translator(it3->m_key).
 		values := make([]ast.ASTHandle, len(universe.values))
+		var e error
 		for n, value := range universe.values {
 			values[n], e = translation.Translate(value)
 			if e != nil {
 				return nil, e
 			}
+		}
+		translatedSort, e := translation.Translate(sort)
+		if e != nil {
+			return nil, e
 		}
 		if e = result.RegisterUniverse(translatedSort, values); e != nil {
 			return nil, e
