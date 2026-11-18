@@ -19,6 +19,10 @@ func (c *Context) DeclareMap(name string, indices []ast.ASTHandle, function ast.
 	if err != nil {
 		return result, err
 	}
+	// execute: find_psort_decl(Array) fails when the logic hides arrays.
+	if !c.BuiltinSortAvailable("Array") {
+		return result, fmt.Errorf("Array sort is not available")
+	}
 	arity, err := m.GetArity(function)
 	if err != nil {
 		return result, err
@@ -56,7 +60,7 @@ func (c *Context) DeclareMap(name string, indices []ast.ASTHandle, function ast.
 	}
 	declaration, err := m.MkFamilyFuncDecl(family, ast.ASTArrayOpMap, []ast.ASTParameter{parameter}, domain, rangeSort)
 	if err != nil {
-		return result, fmt.Errorf("invalid array map operator: %w", err)
+		return result, fmt.Errorf("invalid array map operator")
 	}
 	return c.publishFunctionDeclaration(name, declaration)
 }

@@ -734,6 +734,11 @@ func (p *commandParser) command() (bool, error) {
 		if err = p.advance(); err != nil {
 			return false, err
 		}
+		// declare_map_cmd::set_next_arg(sorts) runs once the sort list is
+		// consumed, before the function reference is parsed.
+		if len(indices) == 0 {
+			return false, fmt.Errorf("invalid map declaration, empty sort list")
+		}
 		function, err := p.functionDeclarationReference()
 		if err != nil {
 			return false, err

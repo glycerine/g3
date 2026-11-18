@@ -336,6 +336,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_01-F11: declare_map_cmd's own checks and texts.
+	"declare_map_errors.smt2": "(error \"line 2 column 43: Array sort is not available\")\n(error \"line 3 column 18: invalid map declaration, empty sort list\")\ndone\n",
 	// AUDIT.md cmd_context_01-F10: a popped macro name keeps its m_macros entry.
 	"macro_name_survives_pop.smt2": "(error \"line 5 column 21: invalid function declaration reference, named expressions (aka macros) cannot be referenced g\")\nok\n",
 	// AUDIT.md cmd_context_01-F12: stream_ref::set's message carries no OS error.
@@ -2383,6 +2385,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"declare_map_errors.smt2": true,
 	"macro_name_survives_pop.smt2": true,
 	"output_channel_open_failure.smt2": true,
 	"get_unsat_core_disabled.smt2": true,
