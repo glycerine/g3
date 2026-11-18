@@ -10,7 +10,10 @@ func z3LogCString(value string) string {
 }
 
 // z3LogEscape is ll_escaped from z3_logger.h. Escaped bytes use three
-// decimal digits because the replay scanner deliberately does the same.
+// decimal digits of the unsigned byte, which the replay scanner reads back.
+// z3 4.7.1 computes them from a signed char, so a byte >= 0x80 came out
+// as e.g. "\0*/" and its own replayer rejected the log; the fork takes the
+// unsigned byte as g3 does (FORK FIX #130, AUDIT.md api_03-F10).
 func z3LogEscape(value string) string {
 	value = z3LogCString(value)
 	var result strings.Builder

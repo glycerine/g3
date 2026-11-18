@@ -1,6 +1,9 @@
 package api
 
-import "strconv"
+import (
+	"math"
+	"strconv"
+)
 
 func (log *Z3LogWriter) ResetArguments() error { return log.writeRecord("R\n") }
 
@@ -17,8 +20,24 @@ func (log *Z3LogWriter) Uint64(value uint64) error {
 }
 
 func (log *Z3LogWriter) Double(value float64) error {
-	// std::ostream's default precision is six significant digits.
-	return log.writeRecord("D " + strconv.FormatFloat(value, 'g', 6, 64) + "\n")
+	return log.writeRecord("D " + z3LogDouble(value) + "\n")
+}
+
+// z3LogDouble is std::ostream << double: six significant digits, and
+// glibc's inf, -inf, nan and -nan for the non-finite values.
+func z3LogDouble(value float64) string {
+	switch {
+	case math.IsInf(value, 1):
+		return "inf"
+	case math.IsInf(value, -1):
+		return "-inf"
+	case math.IsNaN(value):
+		if math.Signbit(value) {
+			return "-nan"
+		}
+		return "nan"
+	}
+	return strconv.FormatFloat(value, 'g', 6, 64)
 }
 
 func (log *Z3LogWriter) String(value string) error {
