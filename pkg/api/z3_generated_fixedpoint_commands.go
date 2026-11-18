@@ -147,7 +147,7 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		}
 		// Replay symbols are already values: N, # and $ distinguish null,
 		// numerical and string symbols, including an interned empty string.
-		label, e := replayFixedpointRuleSymbol(owner, name)
+		label, e := replaySymbolValue(owner, name)
 		if e != nil {
 			return e
 		}

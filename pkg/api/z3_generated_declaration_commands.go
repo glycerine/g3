@@ -43,7 +43,10 @@ func replaySymbolValue(owner *replayContextOwner, v z3ReplayValue) (usymbol.Symb
 	if v.numericSymbol {
 		return usymbol.Numerical(uint32(v.u)), nil
 	}
-	return owner.context.StringSymbol(v.s)
+	// z3_replayer.cpp read_quoted_symbol: a serialized $ || is
+	// symbol(""), the interned empty string, not symbol::null (only N is
+	// null); Z3_mk_string_symbol's "" to null rule does not apply here.
+	return owner.results.manager.Symbols.Intern(v.s)
 }
 func replayUninterpretedSort(r *Z3Replayer) error {
 	owner, err := replayContext(r, 0)
