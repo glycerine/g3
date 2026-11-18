@@ -1297,24 +1297,39 @@ func (m *IntegerManager) ensureTmpWithPNReceipt(idx int, size uint32, pn *intege
 	return m.ensureTmpWithAllocationContext(idx, size, pnContextRef(pn))
 }
 func (m *IntegerManager) ensureTmpWithAllocationContext(idx int, size uint32, context *integerAllocationInvocationContext) error {
-	if idx < 0 || idx >= len(m.Tmp) || m.Tmp[idx] == 0 {
+	if idx < 0 || idx >= len(m.Tmp) {
 		return arena.ErrInvalidSlot
 	}
-	// Source: src/util/mpz.h:156-162. A returning release guard can follow
-	// physical consumption before replacement publication. The retained token
-	// still owns its descriptor for disposal, but cannot name readable scratch.
-	// Refuse the failed lifetime before the capacity shortcut, without repair.
-	if !ValidNumericRef(m.Cells, m.Tmp[idx]) || m.Cell(m.Tmp[idx]).Released {
+	// Source: src/util/mpz.h:156-162. A replacement whose allocation was
+	// refused leaves a hole (Tmp[idx] == 0) where z3 keeps a dangling
+	// m_tmp[IDX]; g3 refuses that hole deterministically (no repair).
+	if m.Tmp[idx] == 0 {
 		return arena.ErrInvalidSlot
 	}
-	if m.Cell(m.Tmp[idx]).Capacity >= size {
+	ref := m.Tmp[idx]
+	if !ValidNumericRef(m.Cells, ref) {
+		return arena.ErrInvalidSlot
+	}
+	// A replacement whose release of the old scratch stopped on a native
+	// accounting failure keeps that cell, released or with its release
+	// pending. z3's deallocate cannot fail. DELIBERATE DIVERGENCE: the next
+	// ensure_tmp finishes that release and allocates fresh scratch, so the
+	// manager's later arithmetic works once memory is available again.
+	c := m.Cell(ref)
+	repair := c.Released || c.CleanupPending
+	if !repair && c.Capacity >= size {
 		return nil
 	}
-	if e := m.free(m.Tmp[idx]); e != nil {
+	if e := m.free(ref); e != nil {
 		return e
 	}
-	m.Tmp[idx] = 0                // source leaves a dangling pointer; Go keeps a guarded hole
+	m.Tmp[idx] = 0
 	capacity := (3*size + 1) >> 1 // actual unsigned32 source arithmetic
+	if repair && capacity < 6 {
+		// A repaired hole for a small request gets the constructor's
+		// allocate(m_init_cell_capacity) scratch.
+		capacity = 6
+	}
 	ref, e := m.allocateWithSourceContext(capacity, 0, nil, context)
 	if e != nil {
 		return e

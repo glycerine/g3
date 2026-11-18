@@ -108,10 +108,6 @@ func TestUPolynomialFactorFrontendActualOuterVectorSourceStop(t *testing.T) {
 	if oldTmp == 0 || !z.Integers().Cell(oldTmp).Released {
 		t.Fatal("actual physically consumed descriptor frontier", oldTmp)
 	}
-	beforeGuard := rt.State()
-	if e = z.Integers().WithAllocationContext(integerAllocationContextRef((integerAllocationInvocationContext{})).utility(z.Integers())).EnsureTmp(0, z.Integers().Cell(oldTmp).Capacity); !errors.Is(e, arena.ErrInvalidSlot) || z.Integers().Tmp[0] != oldTmp || rt.State() != beforeGuard {
-		t.Fatal("released scratch capacity reuse changed retained disposal token", e)
-	}
 	for i, ref := range z.Integers().Tmp {
 		if ref != 0 {
 			c := z.Integers().Cell(ref)
@@ -141,10 +137,11 @@ func TestUPolynomialFactorFrontendActualOuterVectorSourceStop(t *testing.T) {
 	primeTrialPhysicalAuditAll(t, z, s, []*UPolynomialFactors{fs}, []umemory.Block{bodyRecovery}, roots...)
 	oldHistory := *receipt.history
 	serviceMust(t, fs.Reset())
-	// The failed scratch lifetime is a guarded hole, never an implicit repair.
+	// The scratch whose release stopped is finished and replaced by the next
+	// ensure_tmp once memory is back (z3's deallocate cannot fail).
 	_, laterBIG := s.Factor(m.stateView(&input), fs, DefaultUPolynomialFactorParams())
-	if !errors.Is(laterBIG, arena.ErrInvalidSlot) {
-		t.Fatal("repeated BIG use did not refuse the actual failed scratch", laterBIG)
+	if laterBIG != nil || z.Integers().Tmp[0] == oldTmp {
+		t.Fatal("repeated BIG use did not repair the stopped scratch release", laterBIG)
 	}
 	serviceMust(t, s.CleanupRetained())
 	serviceMust(t, fs.Reset())
