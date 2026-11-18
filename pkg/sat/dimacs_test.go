@@ -99,3 +99,26 @@ func TestParseDIMACSOwnerAndClosedSolver(t *testing.T) {
 		t.Fatal("closed solver accepted")
 	}
 }
+
+// TestParseDIMACSLiteralWrapsAt32Bits pins audit sat_01-F4 and FORK FIX #125:
+// literals accumulate in 32-bit unsigned arithmetic, so 4294967298 wraps to
+// 2 and -4294967298 to -2, as in z3's release build, instead of g3 creating
+// billions of variables. The diagnostic text is parse_int's (sat_01-F3).
+func TestParseDIMACSLiteralWrapsAt32Bits(t *testing.T) {
+	solver, _, _ := satSolverCheckFixture(t)
+	if err := ParseDIMACS(strings.NewReader("1 4294967298 0\n-4294967298 3 0\n"), solver); err != nil {
+		t.Fatal(err)
+	}
+	if got, e := solver.sourceNumVars(); e != nil || got != 4 {
+		t.Fatal("variables", got, e)
+	}
+	if got, e := solver.numClauses(); e != nil || got != 2 {
+		t.Fatal("clauses", got, e)
+	}
+	bad, _, _ := satSolverCheckFixture(t)
+	err := ParseDIMACS(strings.NewReader("2 x 0\n"), bad)
+	var exit *DIMACSParseExit
+	if !errors.As(err, &exit) || err.Error() != `(error, "unexpected char: 120")` {
+		t.Fatal("diagnostic", err)
+	}
+}

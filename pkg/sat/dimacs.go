@@ -11,6 +11,15 @@ import (
 
 var ErrDIMACSUnexpectedChar = errors.New("sat: DIMACS unexpected character")
 
+// DIMACSParseExit is parse_int's malformed-input diagnostic: the source
+// prints Error() to stderr and calls exit(3).
+type DIMACSParseExit struct{ Char int }
+
+func (e *DIMACSParseExit) Error() string {
+	return fmt.Sprintf("(error, \"unexpected char: %d\")", e.Char)
+}
+func (e *DIMACSParseExit) Unwrap() error { return ErrDIMACSUnexpectedChar }
+
 // dimacsStreamBuffer is the source one-character lookahead buffer. Any stream
 // failure has the same observable effect as std::istream::get returning EOF.
 type dimacsStreamBuffer struct {
@@ -49,7 +58,7 @@ func (b *dimacsStreamBuffer) skipLine() {
 	}
 }
 
-func (b *dimacsStreamBuffer) parseInt() (int, error) {
+func (b *dimacsStreamBuffer) parseInt() (int32, error) {
 	b.skipWhitespace()
 	negative := false
 	switch b.value {
@@ -60,17 +69,20 @@ func (b *dimacsStreamBuffer) parseInt() (int, error) {
 		b.advance()
 	}
 	if b.value < '0' || b.value > '9' {
-		return 0, fmt.Errorf("%w: %d", ErrDIMACSUnexpectedChar, b.value)
+		return 0, &DIMACSParseExit{Char: b.value}
 	}
-	value := 0
+	// The source accumulates in a 32-bit int; its signed overflow is UB.
+	// FORK FIX #125 accumulates in unsigned (the wraparound the release
+	// build shows), and g3 does the same.
+	var value uint32
 	for b.value >= '0' && b.value <= '9' {
-		value = value*10 + b.value - '0'
+		value = value*10 + uint32(b.value-'0')
 		b.advance()
 	}
 	if negative {
-		return -value, nil
+		value = -value
 	}
-	return value, nil
+	return int32(value), nil
 }
 
 func (b *dimacsStreamBuffer) readClause(solver *Solver, literals []Literal) ([]Literal, error) {
@@ -83,8 +95,10 @@ func (b *dimacsStreamBuffer) readClause(solver *Solver, literals []Literal) ([]L
 		if parsed == 0 {
 			return literals, nil
 		}
-		variable := parsed
-		if variable < 0 {
+		// abs(parsed_lit) as an unsigned value: FORK FIX #125 (abs of
+		// INT_MIN is UB in the source).
+		variable := uint32(parsed)
+		if parsed < 0 {
 			variable = -variable
 		}
 		// The source deliberately uses the absolute DIMACS number as its SAT
@@ -93,7 +107,7 @@ func (b *dimacsStreamBuffer) readClause(solver *Solver, literals []Literal) ([]L
 		if err != nil {
 			return literals, err
 		}
-		for uint64(variable) >= uint64(n) {
+		for variable >= uint32(n) {
 			if _, err = solver.MkVar(false, true); err != nil {
 				return literals, err
 			}

@@ -406,6 +406,8 @@ Abstract:
 #include "opt/opt_cmds.h"
 #include "util/mpfx.h"
 #include "math/hilbert/hilbert_basis.h"
+#include "sat/dimacs.h"
+#include "sat/sat_solver.h"
 #include <fstream>
 #include <cstdio>
 #include "api/z3_replayer.h"
@@ -4506,4 +4508,20 @@ void tst_z3_4_7_1_hilbert_int64_min() {
     bool le = z3_4_7_1_hilbert_overflows(2);
     std::cout << "hilbert_int64_min: add_ge " << ge << " add_eq " << eq << " add_le " << le << "\n";
     ENSURE(ge && eq && le);
+}
+
+// FORK FIX #125: dimacs parse_int accumulated a literal in a signed int, so
+// a literal beyond 32 bits overflowed (UB), and read_clause took abs() of
+// it. The fork accumulates and takes the magnitude in unsigned arithmetic,
+// which gives the wraparound the release build showed with defined
+// behavior: 4294967298 wraps to 2 and -4294967298 to -2.
+void tst_z3_4_7_1_dimacs_wrap() {
+    params_ref p;
+    reslimit rl;
+    sat::solver s(p, rl, nullptr);
+    std::istringstream in("1 4294967298 0\n-4294967298 3 0\n");
+    parse_dimacs(in, s);
+    std::cout << "dimacs_wrap: num_vars " << s.num_vars() << " num_clauses " << s.num_clauses() << "\n";
+    ENSURE(s.num_vars() == 4);
+    ENSURE(s.num_clauses() == 2);
 }

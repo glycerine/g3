@@ -63,7 +63,11 @@ void skip_line(Buffer & in) {
 
 template<typename Buffer>
 int parse_int(Buffer & in) {
-    int     val = 0;
+    // FORK FIX #125 (g3 audit, see FORK_BUGFIXES.md): accumulate in
+    // unsigned. The signed int accumulation overflowed (UB) on literals
+    // beyond 32 bits; unsigned arithmetic gives the same wraparound the
+    // release build showed, with defined behavior.
+    unsigned val = 0;
     bool    neg = false;
     skip_whitespace(in);
 
@@ -82,17 +86,17 @@ int parse_int(Buffer & in) {
     }
 
     while (*in >= '0' && *in <= '9') {
-        val = val*10 + (*in - '0');
+        val = val*10 + static_cast<unsigned>(*in - '0');
         ++in;
     }
 
-    return neg ? -val : val; 
+    return static_cast<int>(neg ? 0u - val : val);
 }
 
 template<typename Buffer>
 void read_clause(Buffer & in, sat::solver & solver, sat::literal_vector & lits) {
-    int     parsed_lit;
-    int     var;
+    int      parsed_lit;
+    unsigned var;
     
     lits.reset();
 
@@ -100,9 +104,10 @@ void read_clause(Buffer & in, sat::solver & solver, sat::literal_vector & lits) 
         parsed_lit = parse_int(in);
         if (parsed_lit == 0)
             break;
-        var = abs(parsed_lit);
+        // FORK FIX #125: abs(INT_MIN) is UB; take the magnitude unsigned.
+        var = parsed_lit < 0 ? 0u - static_cast<unsigned>(parsed_lit) : static_cast<unsigned>(parsed_lit);
         SASSERT(var > 0);
-        while (static_cast<unsigned>(var) >= solver.num_vars())
+        while (var >= solver.num_vars())
             solver.mk_var();
         lits.push_back(sat::literal(var, parsed_lit < 0));
     }

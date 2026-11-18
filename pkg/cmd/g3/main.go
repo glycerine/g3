@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
+	"github.com/glycerine/g3/pkg/sat"
 	"github.com/glycerine/g3/pkg/shell"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/z3exception"
@@ -266,6 +267,12 @@ func main() {
 		if errors.As(err, &replayExit) {
 			// default_error_handler already printed "Error: ..." and exited.
 			os.Exit(replayExit.Status)
+		}
+		var dimacsParseExit *sat.DIMACSParseExit
+		if errors.As(err, &dimacsParseExit) {
+			// dimacs.cpp parse_int: std::cerr << "(error, \"unexpected char: ..."; exit(3).
+			fmt.Fprintln(os.Stderr, dimacsParseExit.Error())
+			os.Exit(3)
 		}
 		var inputParseExit *opt.InputParseExit
 		if errors.As(err, &inputParseExit) {
