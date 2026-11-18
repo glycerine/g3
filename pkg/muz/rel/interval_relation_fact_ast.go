@@ -10,14 +10,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-// Arity returns the concrete vector-relation column count.
-func (r *IntervalRelation) Arity() (uint32, error) {
-	if r == nil || r.values == nil {
-		return 0, ast.ErrASTDomain
-	}
-	return uint32(len(r.values.columns)), nil
-}
-
 // AddFactExpressions constructs the source full interval tuple, filters each
 // column by its AST equality, then unions that abstraction into the receiver.
 func (r *IntervalRelation) AddFactExpressions(manager *ast.ASTManager, sorts, values []ast.ASTHandle) (resultErr error) {

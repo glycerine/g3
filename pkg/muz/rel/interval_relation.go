@@ -23,20 +23,6 @@ func NewIntervalFull(arity uint32) *IntervalRelation {
 }
 func (r *IntervalRelation) Empty() bool { return r == nil || r.values == nil || r.values.empty }
 
-// IsFull mirrors vector_relation::is_full for interval columns.
-func (r *IntervalRelation) IsFull() bool {
-	if r == nil || r.values == nil {
-		return false
-	}
-	for i := range r.values.columns {
-		lower, _, upper, _ := r.values.columns[r.values.find(uint32(i))].Bounds()
-		if lower != nil || upper != nil {
-			return false
-		}
-	}
-	return true
-}
-
 // Clone copies the relation using vector_relation::copy semantics. The source
 // copy operation copies each representative's interval and does not recreate
 // the equality classes, so the clone has independent columns.
@@ -91,15 +77,6 @@ func intervalRelationString(value smtcore.RelationInterval) string {
 	return left + lowerText + ", " + upperText + right
 }
 
-// Bounds returns copies of the column's endpoints; nil denotes infinity.
-func (r *IntervalRelation) Bounds(column uint32) (*big.Rat, bool, *big.Rat, bool, error) {
-	if r == nil || r.values == nil || uint64(column) >= uint64(len(r.values.columns)) {
-		return nil, false, nil, false, ast.ErrASTDomain
-	}
-	lo, loOpen, hi, hiOpen := r.values.columns[r.values.find(column)].Bounds()
-	return lo, loOpen, hi, hiOpen, nil
-}
-
 func (r *IntervalRelation) FilterEqual(column uint32, value *big.Rat) error {
 	if r == nil || r.values == nil || value == nil {
 		return ast.ErrASTDomain
@@ -107,46 +84,11 @@ func (r *IntervalRelation) FilterEqual(column uint32, value *big.Rat) error {
 	return r.values.intersect(column, smtcore.NewRelationInterval(value, false, value, false))
 }
 
-func (r *IntervalRelation) FilterIdentical(first, second uint32) error {
-	return r.FilterIdenticalColumns([]uint32{first, second})
-}
-
 func (r *IntervalRelation) FilterInterpreted(manager *ast.ASTManager, condition ast.ASTHandle) error {
 	if r == nil || r.values == nil || manager == nil {
 		return ast.ErrASTDomain
 	}
 	return r.values.filterInterpreted(manager, condition)
-}
-
-// AddFact joins a concrete rational tuple into the interval abstraction.
-func (r *IntervalRelation) AddFact(values []*big.Rat) error {
-	if r == nil || r.values == nil || len(values) != len(r.values.columns) {
-		return ast.ErrASTDomain
-	}
-	fact := newIntervalColumns(len(values), false)
-	for i, value := range values {
-		if value == nil {
-			return ast.ErrASTDomain
-		}
-		fact.columns[i] = smtcore.NewRelationInterval(value, false, value, false)
-	}
-	_, err := unionIntervalColumns(r.values, fact, false)
-	return err
-}
-
-func (r *IntervalRelation) ContainsFact(values []*big.Rat) bool {
-	if r == nil || r.values == nil || len(values) != len(r.values.columns) {
-		return false
-	}
-	// The C++ contains_fact path reads reset column payloads even when the
-	// relation's empty flag is set, so do not short-circuit on r.Empty().
-	for i, value := range values {
-		root := r.values.find(uint32(i))
-		if value == nil || values[root] == nil || value.Cmp(values[root]) != 0 || !r.values.columns[root].Contains(value) {
-			return false
-		}
-	}
-	return true
 }
 
 func (r *IntervalRelation) Union(source *IntervalRelation, widen bool) (bool, error) {

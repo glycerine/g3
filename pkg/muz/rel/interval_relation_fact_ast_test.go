@@ -1,6 +1,7 @@
 package rel
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -21,7 +22,7 @@ func TestIntervalRelationASTFactMembership(t *testing.T) {
 	one, two, three := own(m.ArithmeticRealNumeralText("1")), own(m.ArithmeticRealNumeralText("2")), own(m.ArithmeticRealNumeralText("3"))
 	x, y := own(m.MkVar(0, real)), own(m.MkVar(1, real))
 	r := NewIntervalFull(2)
-	astTestMust(t, r.FilterEqualExpression(m, 0, two))
+	astTestMust(t, r.FilterEqual(0, big.NewRat(2, 1)))
 	astTestMust(t, r.FilterIdenticalColumns([]uint32{0, 1}))
 	for _, tc := range []struct {
 		name   string
