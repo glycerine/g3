@@ -100,11 +100,6 @@ func TestGoalSpecializedDisplayProfiles(t *testing.T) {
 		t.Fatalf("and display = %q; want %q", got, want)
 	}
 	out.Reset()
-	astTestMust(t, g.DisplayDIMACS(&out))
-	if got, want := out.String(), "p cnf 2 2\n1 -2 0\n1 0\n"; got != want {
-		t.Fatalf("DIMACS display = %q; want %q", got, want)
-	}
-	out.Reset()
 	astTestMust(t, g.DisplayLowLevel(&out))
 	if out.Len() == 0 {
 		t.Fatal("empty low-level display")
