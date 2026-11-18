@@ -196,11 +196,11 @@ func (p *DirectProofInterpolator) arithmeticRewriteCoefficient(inequality, posit
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	value, numeral, err := p.base.manager.Numeral(coefficient)
+	value, numeral, err := p.base.manager.NumeralInt64(coefficient)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	if numeral && value.IsInt() && value.Num().Int64() == 1 {
+	if numeral && value == 1 {
 		return innerCoefficient, term, adjustedPosition, nil
 	}
 	coefficient, err = p.base.manager.Make(OperatorTimes, coefficient, innerCoefficient)

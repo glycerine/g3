@@ -2,7 +2,6 @@ package interp
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -80,7 +79,7 @@ func TestInterpolationManagerIntegerDivisionDecomposition(t *testing.T) {
 	interpMust(t, err)
 	term = interpPin(t, m, term)
 
-	resultRef, err := w.MakeIDivRational(term, big.NewRat(3, 1))
+	resultRef, err := w.MakeIDivRational(term, interpSmall(3, 1))
 	interpMust(t, err)
 	defer func() { interpMust(t, m.DelRef(&resultRef)) }()
 	result, err := m.RefGet(resultRef)
@@ -95,7 +94,7 @@ func TestInterpolationManagerIntegerDivisionDecomposition(t *testing.T) {
 		t.Fatal("fractional part", found, e)
 	}
 
-	oneRef, err := w.MakeIDivRational(term, big.NewRat(1, 1))
+	oneRef, err := w.MakeIDivRational(term, interpSmall(1, 1))
 	interpMust(t, err)
 	defer func() { interpMust(t, m.DelRef(&oneRef)) }()
 	oneResult, err := m.RefGet(oneRef)
@@ -103,7 +102,7 @@ func TestInterpolationManagerIntegerDivisionDecomposition(t *testing.T) {
 	if op, e := w.Operator(oneResult); e != nil || op != OperatorPlus {
 		t.Fatal("unit divisor simplification", op, e)
 	}
-	if _, err = w.MakeIDivRational(term, big.NewRat(1, 2)); !errors.Is(err, ast.ErrASTDomain) {
+	if _, err = w.MakeIDivRational(term, interpSmall(1, 2)); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("fractional divisor", err)
 	}
 }

@@ -4,9 +4,9 @@ package interp
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -322,49 +322,117 @@ func (m *Manager) StringOfSymbol(declaration ast.ASTHandle) (string, error) {
 	return m.ast.Symbols.String(name)
 }
 
-func (m *Manager) Numeral(h ast.ASTHandle) (*big.Rat, bool, error) {
+// Rationals is the rational manager of iZ3's `rational` values (the AST
+// manager's NumeralService().Manager).
+func (m *Manager) Rationals() *unumeral.RationalManager { return m.ast.NumeralService().Manager }
+
+// newRationals returns n zero rationals; releaseRationals destroys them.
+func newRationals(n int) []unumeral.Rational {
+	out := make([]unumeral.Rational, n)
+	for i := range out {
+		out[i] = unumeral.NewRational()
+	}
+	return out
+}
+
+func (m *Manager) releaseRationals(values []unumeral.Rational) (err error) {
+	q := m.Rationals()
+	for i := range values {
+		err = errors.Join(err, q.Del(&values[i]))
+	}
+	return err
+}
+
+// withRational runs body with a fresh rational and destroys it.
+func (m *Manager) withRational(body func(r *unumeral.Rational) error) error {
+	r := unumeral.NewRational()
+	err := body(&r)
+	return errors.Join(err, m.Rationals().Del(&r))
+}
+
+// Numeral is is_numeral(h, out): out is a rational of Rationals().
+func (m *Manager) Numeral(h ast.ASTHandle, out *unumeral.Rational) (bool, error) {
 	if err := m.open(); err != nil {
-		return nil, false, err
+		return false, err
 	}
-	text, _, matched, err := m.ast.ArithmeticNumeralText(h)
-	if err != nil || !matched {
-		return nil, matched, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, NewError("invalid arithmetic numeral text")
-	}
-	return value, true, nil
+	_, matched, err := m.ast.ArithmeticNumeralRational(h, out)
+	return err == nil && matched, err
 }
 
-func (m *Manager) StringOfNumeral(h ast.ASTHandle) (string, error) {
-	value, matched, err := m.Numeral(h)
-	if err != nil {
-		return "", err
-	}
-	if !matched {
-		return "", ast.ErrASTDomain
-	}
-	return value.RatString(), nil
+// NumeralIsOne is is_numeral(h, r) && r == 1.
+func (m *Manager) NumeralIsOne(h ast.ASTHandle) (one bool, err error) {
+	err = m.withRational(func(r *unumeral.Rational) error {
+		numeral, e := m.Numeral(h, r)
+		one = numeral && r.IsOne()
+		return e
+	})
+	return one, err
 }
 
-func (m *Manager) Coefficient(h ast.ASTHandle) (*big.Rat, error) {
+// NumeralIsZero is is_numeral(h, r) && r.is_zero().
+func (m *Manager) NumeralIsZero(h ast.ASTHandle) (bool, error) {
+	if err := m.open(); err != nil {
+		return false, err
+	}
+	return m.ast.ArithmeticNumeralIsZero(h)
+}
+
+// NumeralInt64 is is_numeral(h, r) with r an int64 integer.
+func (m *Manager) NumeralInt64(h ast.ASTHandle) (value int64, ok bool, err error) {
+	err = m.withRational(func(r *unumeral.Rational) error {
+		numeral, e := m.Numeral(h, r)
+		if e != nil || !numeral || !r.IsInt() {
+			return e
+		}
+		if ok, e = m.Rationals().IsInt64(r); e != nil || !ok {
+			return e
+		}
+		value, e = m.Rationals().Int64(r)
+		ok = e == nil
+		return e
+	})
+	return value, ok, err
+}
+
+// IsNumeral is is_numeral(h).
+func (m *Manager) IsNumeral(h ast.ASTHandle) (bool, error) {
+	if err := m.open(); err != nil {
+		return false, err
+	}
+	return m.ast.IsArithmeticNumeral(h)
+}
+
+func (m *Manager) StringOfNumeral(h ast.ASTHandle) (text string, err error) {
+	err = m.withRational(func(r *unumeral.Rational) error {
+		matched, e := m.Numeral(h, r)
+		if e != nil {
+			return e
+		}
+		if !matched {
+			return ast.ErrASTDomain
+		}
+		text, e = m.Rationals().String(r)
+		return e
+	})
+	return text, err
+}
+
+// Coefficient is get_coeff(h) into out.
+func (m *Manager) Coefficient(h ast.ASTHandle, out *unumeral.Rational) error {
 	op, err := m.Operator(h)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if op == OperatorTimes {
 		first, e := m.Arg(h, 0)
 		if e != nil {
-			return nil, e
+			return e
 		}
-		if value, matched, e := m.Numeral(first); e != nil {
-			return nil, e
-		} else if matched {
-			return value, nil
+		if matched, e := m.Numeral(first, out); e != nil || matched {
+			return e
 		}
 	}
-	return new(big.Rat).SetInt64(1), nil
+	return m.Rationals().SetInt32(out, 1)
 }
 
 func (m *Manager) LinearVariable(h ast.ASTHandle) (ast.ASTHandle, error) {
@@ -377,7 +445,7 @@ func (m *Manager) LinearVariable(h ast.ASTHandle) (ast.ASTHandle, error) {
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if _, matched, e := m.Numeral(first); e != nil {
+		if matched, e := m.IsNumeral(first); e != nil {
 			return ast.ASTHandle{}, e
 		} else if matched {
 			return m.Arg(h, 1)
@@ -584,18 +652,20 @@ func (m *Manager) MakeRealText(text string) (ast.ASTHandle, error) {
 	return m.ast.ArithmeticRealNumeralText(text)
 }
 
-func (m *Manager) MakeInt(value *big.Rat) (ast.ASTHandle, error) {
+// MakeInt is make_int(value) for a rational of Rationals().
+func (m *Manager) MakeInt(value *unumeral.Rational) (ast.ASTHandle, error) {
 	if err := m.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return m.ast.ArithmeticNumeralRat(value, true)
+	return m.ast.ArithmeticNumeralFromRational(value, true)
 }
 
-func (m *Manager) MakeReal(value *big.Rat) (ast.ASTHandle, error) {
+// MakeReal is make_real(value) for a rational of Rationals().
+func (m *Manager) MakeReal(value *unumeral.Rational) (ast.ASTHandle, error) {
 	if err := m.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return m.ast.ArithmeticNumeralRat(value, false)
+	return m.ast.ArithmeticNumeralFromRational(value, false)
 }
 
 func (m *Manager) FreshConstant(prefix string, sort ast.ASTHandle) (ast.ASTHandle, error) {

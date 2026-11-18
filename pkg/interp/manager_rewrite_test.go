@@ -1,6 +1,7 @@
 package interp
 
 import (
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestFullTranslationArithmeticHelpers(t *testing.T) {
 	interpMust(t, err)
 	normalizedRight, err := manager.Arg(normalized, 1)
 	interpMust(t, err)
-	value, numeral, err := manager.Numeral(normalizedRight)
+	value, numeral, err := interpNumeral(manager, normalizedRight)
 	if err != nil || !numeral || value.Cmp(new(big.Rat).SetInt64(3)) != 0 {
 		t.Fatal("normalized affine right side", value, numeral, err)
 	}
@@ -55,7 +56,7 @@ func TestFullTranslationArithmeticHelpers(t *testing.T) {
 	interpMust(t, err)
 	gcd, err := translation.GCDOfCoefficients(affine)
 	interpMust(t, err)
-	if value, numeral, e := manager.Numeral(gcd); e != nil || !numeral || value.Cmp(big.NewRat(2, 1)) != 0 {
+	if value, numeral, e := interpNumeral(manager, gcd); e != nil || !numeral || value.Cmp(big.NewRat(2, 1)) != 0 {
 		t.Fatal("coefficient gcd", value, numeral, e)
 	}
 	boundInequality, err := manager.Make(OperatorLE, x, three)
@@ -64,13 +65,14 @@ func TestFullTranslationArithmeticHelpers(t *testing.T) {
 	if err != nil || bound != x || lower {
 		t.Fatal("bounded variable", bound, lower, err)
 	}
-	coefficient, err := translation.TermCoefficient(normalized, x)
-	if err != nil || coefficient.Cmp(big.NewRat(1, 1)) != 0 {
+	coefficient := unumeral.NewRational()
+	err = translation.TermCoefficient(normalized, x, &coefficient)
+	if err != nil || !coefficient.IsOne() {
 		t.Fatal("term coefficient", coefficient, err)
 	}
 	ratio, err := translation.DivideInequalities(normalized, normalized)
 	interpMust(t, err)
-	if value, numeral, e := manager.Numeral(ratio); e != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
+	if value, numeral, e := interpNumeral(manager, ratio); e != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
 		t.Fatal("inequality ratio", value, numeral, e)
 	}
 }

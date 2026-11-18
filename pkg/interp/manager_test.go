@@ -38,7 +38,7 @@ func TestInterpolationManagerNumeralsTypesQuantifiersAndClone(t *testing.T) {
 		t.Fatal(yes, e)
 	}
 
-	three, err := w.MakeInt(new(big.Rat).SetInt64(3))
+	three, err := w.MakeInt(interpSmall(3, 1))
 	interpMust(t, err)
 	three = interpPin(t, m, three)
 	half, err := w.MakeRealText("1/2")
@@ -53,7 +53,7 @@ func TestInterpolationManagerNumeralsTypesQuantifiersAndClone(t *testing.T) {
 	product, err := w.Make(OperatorTimes, three, x)
 	interpMust(t, err)
 	product = interpPin(t, m, product)
-	if coefficient, e := w.Coefficient(product); e != nil || coefficient.Cmp(big.NewRat(3, 1)) != 0 {
+	if coefficient, e := interpCoefficient(w, product); e != nil || coefficient.Cmp(big.NewRat(3, 1)) != 0 {
 		t.Fatal(coefficient, e)
 	}
 	if variable, e := w.LinearVariable(product); e != nil || variable != x {

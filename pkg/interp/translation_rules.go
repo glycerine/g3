@@ -5,10 +5,10 @@ package interp
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type UnsupportedProofError struct{ Proof ast.ASTHandle }
@@ -617,17 +617,23 @@ func (t *FullTranslation) translateTheoryLemma(proof, conclusion ast.ASTHandle, 
 	}
 }
 
-func (t *FullTranslation) gcdToDivisionRule(proof ast.ASTHandle, positive bool, coefficients []*big.Rat, premises []ast.ASTHandle, direct *DirectProofInterpolator) (ast.ASTHandle, ast.ASTHandle, error) {
+func (t *FullTranslation) gcdToDivisionRule(proof ast.ASTHandle, positive bool, coefficients []unumeral.Rational, premises []ast.ASTHandle, direct *DirectProofInterpolator) (_ ast.ASTHandle, _ ast.ASTHandle, resultErr error) {
+	q := t.base.manager.Rationals()
+	valueStorage := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&valueStorage)) }()
+	value := &valueStorage
 	var selectedProofs, selectedCoefficients, selectedConclusions []ast.ASTHandle
 	start := 0
 	if !positive {
 		start = 1
 	}
 	for i := start; i < len(coefficients); i += 2 {
-		coefficient := coefficients[i]
+		coefficient := &coefficients[i]
 		selected := i
-		value := new(big.Rat).Set(coefficient)
-		if coefficient.Sign() < 0 {
+		if err := q.Copy(value, coefficient); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		if coefficient.IsNeg() {
 			if i%2 == 0 {
 				selected = i + 1
 			} else {
@@ -636,9 +642,11 @@ func (t *FullTranslation) gcdToDivisionRule(proof ast.ASTHandle, positive bool, 
 			if selected < 0 || selected >= len(coefficients) {
 				return ast.ASTHandle{}, ast.ASTHandle{}, ProofError{}
 			}
-			value.Neg(coefficients[selected])
+			if err := errors.Join(q.Copy(value, &coefficients[selected]), q.Neg(value)); err != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, err
+			}
 		}
-		if coefficient.Sign() == 0 {
+		if coefficient.IsZero() {
 			continue
 		}
 		selectedPremise, err := t.base.manager.Premise(proof, uint32(selected))
@@ -661,7 +669,7 @@ func (t *FullTranslation) gcdToDivisionRule(proof ast.ASTHandle, positive bool, 
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	if len(coefficients) != 0 && coefficients[0].Sign() == 0 {
+	if len(coefficients) != 0 && coefficients[0].IsZero() {
 		if len(premises) < 2 {
 			return ast.ASTHandle{}, ast.ASTHandle{}, ProofError{}
 		}
@@ -677,15 +685,16 @@ func (t *FullTranslation) gcdToDivisionRule(proof ast.ASTHandle, positive bool, 
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, e
 		}
-		value, e := t.TermCoefficient(combined, variable)
-		if e != nil {
+		if e := t.TermCoefficient(combined, variable, value); e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, e
 		}
 		extra := 0
-		if (value.Sign() > 0) != lower {
+		if value.IsPos() != lower {
 			extra = 1
 		}
-		value.Abs(value)
+		if e := q.Abs(value); e != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, e
+		}
 		term, e := t.base.manager.MakeInt(value)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, e
@@ -774,11 +783,12 @@ func (t *FullTranslation) gcdToDivisionRule(proof ast.ASTHandle, positive bool, 
 	return interpolation, cutConclusion, err
 }
 
-func (t *FullTranslation) translateGCDTest(proof ast.ASTHandle, premises []ast.ASTHandle, direct *DirectProofInterpolator) (ast.ASTHandle, error) {
+func (t *FullTranslation) translateGCDTest(proof ast.ASTHandle, premises []ast.ASTHandle, direct *DirectProofInterpolator) (_ ast.ASTHandle, err error) {
 	coefficients, err := t.base.manager.BrokenGCDTestCoefficients(proof)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	defer func() { err = errors.Join(err, t.base.manager.releaseRationals(coefficients)) }()
 	if len(coefficients) != len(premises) {
 		return ast.ASTHandle{}, UnsupportedProofError{Proof: proof}
 	}

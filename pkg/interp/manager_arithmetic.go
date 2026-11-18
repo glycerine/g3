@@ -4,9 +4,9 @@ package interp
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (m *Manager) SimplifyInequality(inequality ast.ASTHandle) (result ast.ASTHandle, resultErr error) {
@@ -118,11 +118,15 @@ func (m *Manager) LinearCombination(p, coefficient, q ast.ASTHandle, roundOff bo
 		}
 		roundOff = sort == integer
 	}
-	coefficientValue, coefficientIsNumeral, err := m.Numeral(coefficient)
+	var coefficientIsOne bool
+	err = m.withRational(func(r *unumeral.Rational) error {
+		numeral, e := m.Numeral(coefficient, r)
+		coefficientIsOne = numeral && r.IsOne()
+		return e
+	})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	coefficientIsOne := coefficientIsNumeral && coefficientValue.Cmp(big.NewRat(1, 1)) == 0
 	if qStrict && roundOff && (pStrict || !coefficientIsOne) {
 		one, e := m.MakeIntText("1")
 		if e != nil {
@@ -178,7 +182,8 @@ func (m *Manager) SumInequalities(coefficients, inequalities []ast.ASTHandle, ro
 	return m.SimplifyInequality(result)
 }
 
-func (m *Manager) splitIntegerDivision(term ast.ASTHandle, divisor *big.Int, whole, fraction ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, error) {
+// splitIntegerDivision's divisor is an integral rational of Rationals().
+func (m *Manager) splitIntegerDivision(term ast.ASTHandle, divisor *unumeral.Rational, whole, fraction ast.ASTHandle) (_ ast.ASTHandle, _ ast.ASTHandle, resultErr error) {
 	op, err := m.Operator(term)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
@@ -205,17 +210,26 @@ func (m *Manager) splitIntegerDivision(term ast.ASTHandle, divisor *big.Int, who
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, e
 		}
-		coefficient, matched, e := m.Numeral(coefficientTerm)
+		// rational coeff; gcd(coeff, d) == abs(d)
+		q := m.Rationals()
+		values := newRationals(3)
+		defer func() { resultErr = errors.Join(resultErr, m.releaseRationals(values)) }()
+		coefficient, gcd, absoluteDivisor := &values[0], &values[1], &values[2]
+		matched, e := m.Numeral(coefficientTerm, coefficient)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, e
 		}
 		if matched && coefficient.IsInt() {
-			numerator := coefficient.Num()
-			gcd := new(big.Int).GCD(nil, nil, numerator, divisor)
-			absoluteDivisor := new(big.Int).Abs(new(big.Int).Set(divisor))
-			if gcd.Cmp(absoluteDivisor) == 0 {
-				quotient := new(big.Int).Quo(new(big.Int).Set(numerator), divisor)
-				quotientTerm, e := m.MakeInt(new(big.Rat).SetInt(quotient))
+			if e = errors.Join(q.GCD(coefficient, divisor, gcd), q.Copy(absoluteDivisor, divisor), q.Abs(absoluteDivisor)); e != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, e
+			}
+			if equal, e := q.Equal(gcd, absoluteDivisor); e != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, e
+			} else if equal {
+				if e = q.Div(coefficient, divisor, coefficient); e != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, e
+				}
+				quotientTerm, e := m.MakeInt(coefficient)
 				if e != nil {
 					return ast.ASTHandle{}, ast.ASTHandle{}, e
 				}
@@ -236,15 +250,16 @@ func (m *Manager) splitIntegerDivision(term ast.ASTHandle, divisor *big.Int, who
 	return whole, fraction, err
 }
 
-func (m *Manager) MakeIDivRational(term ast.ASTHandle, divisor *big.Rat) (result ast.ASTRef, resultErr error) {
-	if divisor == nil || divisor.Sign() == 0 || !divisor.IsInt() {
+// MakeIDivRational's divisor is an integral rational of Rationals().
+func (m *Manager) MakeIDivRational(term ast.ASTHandle, divisor *unumeral.Rational) (result ast.ASTRef, resultErr error) {
+	if divisor == nil || divisor.IsZero() || !divisor.IsInt() {
 		return ast.ASTRef{}, ast.ErrASTDomain
 	}
 	simplified, err := m.Simplify(term)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	if divisor.Cmp(big.NewRat(1, 1)) == 0 {
+	if divisor.IsOne() {
 		return simplified, nil
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.ast.DelRef(&simplified)) }()
@@ -256,7 +271,7 @@ func (m *Manager) MakeIDivRational(term ast.ASTHandle, divisor *big.Rat) (result
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	whole, fraction, err := m.splitIntegerDivision(term, divisor.Num(), zero, zero)
+	whole, fraction, err := m.splitIntegerDivision(term, divisor, zero, zero)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -284,13 +299,15 @@ func (m *Manager) MakeIDivRational(term ast.ASTHandle, divisor *big.Rat) (result
 	return m.Simplify(sum)
 }
 
-func (m *Manager) MakeIDiv(term, divisor ast.ASTHandle) (ast.ASTRef, error) {
-	value, matched, err := m.Numeral(divisor)
+func (m *Manager) MakeIDiv(term, divisor ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	value := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, m.Rationals().Del(&value)) }()
+	matched, err := m.Numeral(divisor, &value)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
 	if matched {
-		return m.MakeIDivRational(term, value)
+		return m.MakeIDivRational(term, &value)
 	}
 	division, err := m.Make(OperatorIDiv, term, divisor)
 	if err != nil {

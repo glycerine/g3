@@ -158,16 +158,16 @@ func (p *DirectProofInterpolator) positionIndex(position ast.ASTHandle) (int64, 
 	if err != nil {
 		return 0, ast.ASTHandle{}, err
 	}
-	index, matched, err := p.base.manager.Numeral(indexTerm)
+	index, matched, err := p.base.manager.NumeralInt64(indexTerm)
 	if err != nil {
 		return 0, ast.ASTHandle{}, err
 	}
-	if !matched || !index.IsInt() || !index.Num().IsInt64() {
+	if !matched {
 		// pos_arg
 		return 0, ast.ASTHandle{}, iz3Exception("bad position!")
 	}
 	rest, err := p.base.manager.Arg(position, 1)
-	return index.Num().Int64(), rest, err
+	return index, rest, err
 }
 
 func (p *DirectProofInterpolator) positionDifference(first, second ast.ASTHandle) (int, ast.ASTHandle, error) {
@@ -872,11 +872,11 @@ func (p *DirectProofInterpolator) simplifyCongruence(args []ast.ASTHandle) (ast.
 	if len(args) != 3 {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	position, matched, err := p.base.manager.Numeral(args[1])
+	position, matched, err := p.base.manager.NumeralInt64(args[1])
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if !matched || !position.IsInt() || !position.Num().IsInt64() || position.Sign() < 0 {
+	if !matched || position < 0 {
 		return ast.ASTHandle{}, iz3Exception("bad cong")
 	}
 	aProof, err := p.base.manager.Make(OperatorTrue)
@@ -888,7 +888,7 @@ func (p *DirectProofInterpolator) simplifyCongruence(args []ast.ASTHandle) (ast.
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	positiveChain, err = p.chainPositionAdd(position.Num().Int64(), positiveChain)
+	positiveChain, err = p.chainPositionAdd(position, positiveChain)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -927,8 +927,8 @@ func (p *DirectProofInterpolator) simplifyRotatedCongruence(placeholder ast.ASTH
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	position, matched, err := p.base.manager.Numeral(positionTerm)
-	if err != nil || !matched || !position.IsInt() || !position.Num().IsInt64() || position.Sign() < 0 {
+	position, matched, err := p.base.manager.NumeralInt64(positionTerm)
+	if err != nil || !matched || position < 0 {
 		return ast.ASTHandle{}, ProofError{}
 	}
 	condition, err := p.base.manager.Make(OperatorTrue)
@@ -939,7 +939,7 @@ func (p *DirectProofInterpolator) simplifyRotatedCongruence(placeholder ast.ASTH
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	chain, err = p.chainPositionAdd(position.Num().Int64(), chain)
+	chain, err = p.chainPositionAdd(position, chain)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

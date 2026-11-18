@@ -1682,7 +1682,7 @@ func TestDirectProofIdivNormal(t *testing.T) {
 	}
 	right, err := manager.Arg(body, 1)
 	interpMust(t, err)
-	if value, numeral, e := manager.Numeral(right); e != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
+	if value, numeral, e := interpNumeral(manager, right); e != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
 		t.Fatal("idiv bound", value, numeral, e)
 	}
 	greater, err := manager.Make(OperatorGE, x, three)
@@ -1870,7 +1870,7 @@ func TestDirectProofMixedCongruenceLastPosition(t *testing.T) {
 	}
 	position, err := manager.Arg(congruence, 1)
 	interpMust(t, err)
-	value, numeral, err := manager.Numeral(position)
+	value, numeral, err := interpNumeral(manager, position)
 	if err != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
 		t.Fatal("@cong position is not the last match", value, numeral, err)
 	}

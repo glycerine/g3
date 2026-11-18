@@ -5,9 +5,9 @@ package interp
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *FullTranslation) ownedSimplify(term ast.ASTHandle) (ast.ASTHandle, error) {
@@ -36,7 +36,8 @@ func (t *FullTranslation) ownedIntegerDivision(left, right ast.ASTHandle) (ast.A
 	return result, nil
 }
 
-func (t *FullTranslation) linearCoefficients(term ast.ASTHandle) ([]*big.Rat, error) {
+// linearCoefficients returns rationals the caller releases.
+func (t *FullTranslation) linearCoefficients(term ast.ASTHandle) (_ []unumeral.Rational, resultErr error) {
 	op, err := t.base.manager.Operator(term)
 	if err != nil {
 		return nil, err
@@ -48,25 +49,29 @@ func (t *FullTranslation) linearCoefficients(term ast.ASTHandle) ([]*big.Rat, er
 			return nil, err
 		}
 	}
-	result := make([]*big.Rat, 0, len(terms))
-	for _, value := range terms {
-		coefficient, e := t.base.manager.Coefficient(value)
-		if e != nil {
-			return nil, e
+	result := newRationals(len(terms))
+	for i, value := range terms {
+		if e := t.base.manager.Coefficient(value, &result[i]); e != nil {
+			return nil, errors.Join(e, t.base.manager.releaseRationals(result))
 		}
-		result = append(result, coefficient)
 	}
 	return result, nil
 }
 
-func rationalGCD(first, second *big.Rat) *big.Rat {
-	a := new(big.Int).Abs(new(big.Int).Set(first.Num()))
-	b := new(big.Int).Abs(new(big.Int).Set(second.Num()))
-	numerator := new(big.Int).GCD(nil, nil, a, b)
-	denominatorGCD := new(big.Int).GCD(nil, nil, first.Denom(), second.Denom())
-	denominator := new(big.Int).Mul(first.Denom(), second.Denom())
-	denominator.Quo(denominator, denominatorGCD)
-	return new(big.Rat).SetFrac(numerator, denominator)
+// rationalGCD sets value to gcd(value, other): the gcd of the numerators'
+// absolute values over the lcm of the denominators.
+func (t *FullTranslation) rationalGCD(value, other *unumeral.Rational) (err error) {
+	q := t.base.manager.Rationals()
+	parts := newRationals(3)
+	defer func() { err = errors.Join(err, t.base.manager.releaseRationals(parts)) }()
+	numerator, otherPart, denominator := &parts[0], &parts[1], &parts[2]
+	err = errors.Join(q.NumeratorRational(value, numerator), q.NumeratorRational(other, otherPart),
+		q.GCD(numerator, otherPart, numerator), q.Abs(numerator))
+	if err == nil {
+		err = errors.Join(q.DenominatorRational(value, denominator), q.DenominatorRational(other, otherPart),
+			q.LCM(denominator, otherPart, denominator), q.Div(numerator, denominator, value))
+	}
+	return err
 }
 
 func (t *FullTranslation) GCDOfCoefficients(term ast.ASTHandle) (ast.ASTHandle, error) {
@@ -77,14 +82,27 @@ func (t *FullTranslation) GCDOfCoefficients(term ast.ASTHandle) (ast.ASTHandle, 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	value := new(big.Rat).SetInt64(1)
-	if len(coefficients) != 0 {
-		value.Abs(coefficients[0])
-		for _, coefficient := range coefficients[1:] {
-			value = rationalGCD(value, coefficient)
+	var result ast.ASTHandle
+	err = t.base.manager.withRational(func(value *unumeral.Rational) error {
+		q := t.base.manager.Rationals()
+		if err := q.SetInt32(value, 1); err != nil {
+			return err
 		}
-	}
-	return t.base.manager.MakeInt(value)
+		if len(coefficients) != 0 {
+			if err := errors.Join(q.Copy(value, &coefficients[0]), q.Abs(value)); err != nil {
+				return err
+			}
+			for i := 1; i < len(coefficients); i++ {
+				if err := t.rationalGCD(value, &coefficients[i]); err != nil {
+					return err
+				}
+			}
+		}
+		var err error
+		result, err = t.base.manager.MakeInt(value)
+		return err
+	})
+	return result, errors.Join(err, t.base.manager.releaseRationals(coefficients))
 }
 
 func (t *FullTranslation) BoundedVariable(inequality ast.ASTHandle) (variable ast.ASTHandle, lower bool, err error) {
@@ -110,15 +128,22 @@ func (t *FullTranslation) BoundedVariable(inequality ast.ASTHandle) (variable as
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	coefficient, numeral, err := t.base.manager.Numeral(coefficientTerm)
+	var one, minusOne bool
+	numeral := false
+	err = t.base.manager.withRational(func(coefficient *unumeral.Rational) error {
+		var e error
+		numeral, e = t.base.manager.Numeral(coefficientTerm, coefficient)
+		one, minusOne = coefficient.IsOne(), coefficient.IsMinusOne()
+		return e
+	})
 	if err != nil || !numeral {
 		return ast.ASTHandle{}, false, ProofError{}
 	}
-	switch coefficient.Cmp(new(big.Rat).SetInt64(1)) {
-	case 0:
+	switch {
+	case one:
 		lower = false
 	default:
-		if coefficient.Cmp(new(big.Rat).SetInt64(-1)) != 0 {
+		if !minusOne {
 			return ast.ASTHandle{}, false, ProofError{}
 		}
 		lower = true
@@ -127,75 +152,80 @@ func (t *FullTranslation) BoundedVariable(inequality ast.ASTHandle) (variable as
 	return variable, lower, err
 }
 
-func (t *FullTranslation) TermCoefficient(inequality, variable ast.ASTHandle) (*big.Rat, error) {
+// TermCoefficient is get_term_coefficient into out (a rational of
+// Rationals()).
+func (t *FullTranslation) TermCoefficient(inequality, variable ast.ASTHandle, out *unumeral.Rational) error {
 	normalized, err := t.NormalizeInequality(inequality)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	left, err := t.base.manager.Arg(normalized, 0)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	terms := []ast.ASTHandle{left}
 	if op, e := t.base.manager.Operator(left); e != nil {
-		return nil, e
+		return e
 	} else if op == OperatorPlus {
 		terms, err = t.base.manager.Args(left)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	for _, term := range terms {
 		candidate, e := t.base.manager.LinearVariable(term)
 		if e != nil {
-			return nil, e
+			return e
 		}
 		if candidate == variable {
-			return t.base.manager.Coefficient(term)
+			return t.base.manager.Coefficient(term, out)
 		}
 	}
-	return new(big.Rat), nil
+	return t.base.manager.Rationals().SetInt32(out, 0)
 }
 
-func (t *FullTranslation) firstCoefficient(term ast.ASTHandle) (*big.Rat, ast.ASTHandle, error) {
+// firstCoefficient writes the coefficient into coefficient (zero when the
+// term has no variable).
+func (t *FullTranslation) firstCoefficient(term ast.ASTHandle, coefficient *unumeral.Rational) (ast.ASTHandle, error) {
 	terms := []ast.ASTHandle{term}
 	if op, err := t.base.manager.Operator(term); err != nil {
-		return nil, ast.ASTHandle{}, err
+		return ast.ASTHandle{}, err
 	} else if op == OperatorPlus {
 		terms, err = t.base.manager.Args(term)
 		if err != nil {
-			return nil, ast.ASTHandle{}, err
+			return ast.ASTHandle{}, err
 		}
 	}
 	var best ast.ASTHandle
 	var bestID uint64 = ^uint64(0)
-	coefficient := new(big.Rat)
+	if err := t.base.manager.Rationals().SetInt32(coefficient, 0); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	for _, value := range terms {
-		if _, numeral, err := t.base.manager.Numeral(value); err != nil {
-			return nil, ast.ASTHandle{}, err
+		if numeral, err := t.base.manager.IsNumeral(value); err != nil {
+			return ast.ASTHandle{}, err
 		} else if numeral {
 			continue
 		}
 		variable, err := t.base.manager.LinearVariable(value)
 		if err != nil {
-			return nil, ast.ASTHandle{}, err
+			return ast.ASTHandle{}, err
 		}
 		id, err := t.base.manager.ASTID(variable)
 		if err != nil {
-			return nil, ast.ASTHandle{}, err
+			return ast.ASTHandle{}, err
 		}
 		if uint64(id) < bestID {
 			best, bestID = variable, uint64(id)
-			coefficient, err = t.base.manager.Coefficient(value)
-			if err != nil {
-				return nil, ast.ASTHandle{}, err
+			if err = t.base.manager.Coefficient(value, coefficient); err != nil {
+				return ast.ASTHandle{}, err
 			}
 		}
 	}
-	return coefficient, best, nil
+	return best, nil
 }
 
-func (t *FullTranslation) DivideInequalities(first, second ast.ASTHandle) (ast.ASTHandle, error) {
+func (t *FullTranslation) DivideInequalities(first, second ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
 	firstLeft, err := t.base.manager.Arg(first, 0)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -204,22 +234,28 @@ func (t *FullTranslation) DivideInequalities(first, second ast.ASTHandle) (ast.A
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	firstCoefficient, firstVariable, err := t.firstCoefficient(firstLeft)
+	// rational coeff1, coeff2, ratio
+	values := newRationals(2)
+	defer func() { resultErr = errors.Join(resultErr, t.base.manager.releaseRationals(values)) }()
+	firstCoefficient, secondCoefficient := &values[0], &values[1]
+	firstVariable, err := t.firstCoefficient(firstLeft, firstCoefficient)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	secondCoefficient, secondVariable, err := t.firstCoefficient(secondLeft)
+	secondVariable, err := t.firstCoefficient(secondLeft, secondCoefficient)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if firstCoefficient.Sign() == 0 || secondCoefficient.Sign() == 0 || firstVariable != secondVariable {
+	if firstCoefficient.IsZero() || secondCoefficient.IsZero() || firstVariable != secondVariable {
 		return ast.ASTHandle{}, ProofError{}
 	}
-	ratio := new(big.Rat).Quo(firstCoefficient, secondCoefficient)
-	if !ratio.IsInt() {
+	if err = t.base.manager.Rationals().Div(firstCoefficient, secondCoefficient, firstCoefficient); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !firstCoefficient.IsInt() {
 		return ast.ASTHandle{}, ProofError{}
 	}
-	return t.base.manager.MakeInt(ratio)
+	return t.base.manager.MakeInt(firstCoefficient)
 }
 
 func (t *FullTranslation) RHSNormalizeInequality(inequality ast.ASTHandle) (ast.ASTHandle, error) {
@@ -277,8 +313,7 @@ func (t *FullTranslation) CheckFarkas(premises []ast.ASTHandle, conclusion ast.A
 	if err != nil {
 		return false, err
 	}
-	value, numeral, err := t.base.manager.Numeral(right)
-	return numeral && value.Sign() == 0, err
+	return t.base.manager.NumeralIsZero(right)
 }
 
 func (t *FullTranslation) NormalizeInequality(inequality ast.ASTHandle) (ast.ASTHandle, error) {
@@ -301,7 +336,7 @@ func (t *FullTranslation) NormalizeInequality(inequality ast.ASTHandle) (ast.AST
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	_, numeral, err := t.base.manager.Numeral(right)
+	numeral, err := t.base.manager.IsNumeral(right)
 	if err != nil || numeral {
 		return result, err
 	}
@@ -321,7 +356,7 @@ func (t *FullTranslation) NormalizeInequality(inequality ast.ASTHandle) (ast.AST
 		constant := zero
 		firstNonconstant := 0
 		if len(arguments) != 0 {
-			if _, matched, e := t.base.manager.Numeral(arguments[0]); e != nil {
+			if matched, e := t.base.manager.IsNumeral(arguments[0]); e != nil {
 				return ast.ASTHandle{}, e
 			} else if matched {
 				constant = arguments[0]

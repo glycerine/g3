@@ -110,11 +110,11 @@ func TestInterpolationManagerTheoryCoefficientNormalization(t *testing.T) {
 			}
 		}
 	}
-	farkas, err := w.FarkasCoefficients(lemma)
+	farkas, err := interpRats(t, w)(w.FarkasCoefficients(lemma))
 	check("farkas", farkas, err, []string{"2", "3", "20"})
-	gomory, err := w.GomoryCutCoefficients(lemma)
+	gomory, err := interpRats(t, w)(w.GomoryCutCoefficients(lemma))
 	check("gomory", gomory, err, []string{"2", "3", "20"})
-	brokenGCD, err := w.BrokenGCDTestCoefficients(lemma)
+	brokenGCD, err := interpRats(t, w)(w.BrokenGCDTestCoefficients(lemma))
 	check("broken gcd", brokenGCD, err, []string{"-2", "3", "-20"})
 }
 
@@ -175,7 +175,7 @@ func TestInterpolationManagerAssignBoundsAndCoefficientTerms(t *testing.T) {
 	interpMust(t, err)
 
 	axiom := interpTheoryLemma(t, m, arithmetic, "assign-bounds", clause, nil, "-1/2")
-	coefficients, err := w.AssignBoundsCoefficients(axiom)
+	coefficients, err := interpRats(t, w)(w.AssignBoundsCoefficients(axiom))
 	interpMust(t, err)
 	if len(coefficients) != 2 || coefficients[0].RatString() != "2" || coefficients[1].RatString() != "1" {
 		t.Fatal("assign-bounds axiom coefficients", coefficients)
@@ -195,7 +195,7 @@ func TestInterpolationManagerAssignBoundsAndCoefficientTerms(t *testing.T) {
 	interpMust(t, err)
 	premise = interpPin(t, m, premise)
 	rule := interpTheoryLemma(t, m, arithmetic, "assign-bounds", clause, []ast.ASTHandle{premise}, "-1/2")
-	coefficients, err = w.AssignBoundsRuleCoefficients(rule)
+	coefficients, err = interpRats(t, w)(w.AssignBoundsRuleCoefficients(rule))
 	interpMust(t, err)
 	if len(coefficients) != 2 || coefficients[0].RatString() != "2" || coefficients[1].RatString() != "1" {
 		t.Fatal("assign-bounds rule coefficients", coefficients)

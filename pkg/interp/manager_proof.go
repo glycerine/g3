@@ -4,9 +4,9 @@ package interp
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // LemmaTheory identifies the theory recorded on a theory-lemma proof.
@@ -191,77 +191,87 @@ func errBadFarkasCoefficient() error { return iz3Exception("Bad Farkas coefficie
 
 func badFarkasCoefficientFailure() error { return NewError("Bad Farkas coefficient") }
 
-func (m *Manager) rationalParameter(parameter ast.ASTParameter, failure func() error) (result *big.Rat, err error) {
+// rationalParameter copies a rational parameter into out (a rational of
+// Rationals()).
+func (m *Manager) rationalParameter(parameter ast.ASTParameter, out *unumeral.Rational, failure func() error) (err error) {
 	service := m.ast.NumeralService()
 	value, err := service.NewValue()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() { err = errors.Join(err, service.Del(&value)) }()
 	matched, err := m.ast.ParameterRationalCopy(parameter, &value)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !matched {
-		return nil, failure()
+		return failure()
 	}
-	text, err := service.Display(&value)
-	if err != nil {
-		return nil, err
-	}
-	result, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, failure()
-	}
-	return result, nil
+	return service.Manager.Copy(out, &value.Raw)
 }
 
-func normalizeCoefficientDenominators(values []*big.Rat) {
-	lcm := big.NewInt(1)
-	for _, value := range values {
-		denominator := value.Denom()
-		gcd := new(big.Int).GCD(nil, nil, lcm, denominator)
-		lcm.Mul(lcm, denominator)
-		lcm.Quo(lcm, gcd)
+// normalizeCoefficientDenominators multiplies values by the lcm of their
+// denominators.
+func (m *Manager) normalizeCoefficientDenominators(values []unumeral.Rational) (err error) {
+	q := m.Rationals()
+	lcm, d := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&lcm), q.Del(&d)) }()
+	if err = q.SetInt32(&lcm, 1); err != nil {
+		return err
 	}
-	factor := new(big.Rat).SetInt(lcm)
-	for _, value := range values {
-		value.Mul(value, factor)
+	for i := range values {
+		if err = errors.Join(q.DenominatorRational(&values[i], &d), q.LCM(&lcm, &d, &lcm)); err != nil {
+			return err
+		}
 	}
+	for i := range values {
+		if err = q.Mul(&values[i], &lcm, &values[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (m *Manager) theoryLemmaCoefficients(proof ast.ASTHandle, absolute bool, failure func() error) (result []*big.Rat, err error) {
+// theoryLemmaCoefficients returns rationals the caller releases
+// (releaseRationals).
+func (m *Manager) theoryLemmaCoefficients(proof ast.ASTHandle, absolute bool, failure func() error) (result []unumeral.Rational, err error) {
 	parameters, err := m.proofParameters(proof)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Join(err, m.releaseParameters(parameters)) }()
+	defer func() {
+		err = errors.Join(err, m.releaseParameters(parameters))
+		if err != nil && result != nil {
+			err = errors.Join(err, m.releaseRationals(result))
+			result = nil
+		}
+	}()
 	if len(parameters) < 2 {
 		return nil, failure()
 	}
-	result = make([]*big.Rat, len(parameters)-2)
+	result = newRationals(len(parameters) - 2)
 	for i := range result {
-		result[i], err = m.rationalParameter(parameters[i+2], failure)
-		if err != nil {
-			return nil, err
+		if err = m.rationalParameter(parameters[i+2], &result[i], failure); err != nil {
+			return result, err
 		}
-		if absolute && result[i].Sign() < 0 {
-			result[i].Neg(result[i])
+		if absolute && result[i].IsNeg() {
+			if err = m.Rationals().Neg(&result[i]); err != nil {
+				return result, err
+			}
 		}
 	}
-	normalizeCoefficientDenominators(result)
-	return result, nil
+	return result, m.normalizeCoefficientDenominators(result)
 }
 
-func (m *Manager) FarkasCoefficients(proof ast.ASTHandle) ([]*big.Rat, error) {
+func (m *Manager) FarkasCoefficients(proof ast.ASTHandle) ([]unumeral.Rational, error) {
 	return m.theoryLemmaCoefficients(proof, true, errBadFarkasCoefficient)
 }
 
-func (m *Manager) BrokenGCDTestCoefficients(proof ast.ASTHandle) ([]*big.Rat, error) {
+func (m *Manager) BrokenGCDTestCoefficients(proof ast.ASTHandle) ([]unumeral.Rational, error) {
 	return m.theoryLemmaCoefficients(proof, false, badFarkasCoefficientFailure)
 }
 
-func (m *Manager) GomoryCutCoefficients(proof ast.ASTHandle) ([]*big.Rat, error) {
+func (m *Manager) GomoryCutCoefficients(proof ast.ASTHandle) ([]unumeral.Rational, error) {
 	return m.theoryLemmaCoefficients(proof, true, badFarkasCoefficientFailure)
 }
 
@@ -284,12 +294,18 @@ func (m *Manager) inequalityHasNegativeOrientation(inequality ast.ASTHandle) (bo
 	return op == OperatorGE || op == OperatorGT, nil
 }
 
-func (m *Manager) assignBoundsCoefficients(proof ast.ASTHandle, rule bool) (result []*big.Rat, err error) {
+func (m *Manager) assignBoundsCoefficients(proof ast.ASTHandle, rule bool) (result []unumeral.Rational, err error) {
 	parameters, err := m.proofParameters(proof)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Join(err, m.releaseParameters(parameters)) }()
+	defer func() {
+		err = errors.Join(err, m.releaseParameters(parameters))
+		if err != nil && result != nil {
+			err = errors.Join(err, m.releaseRationals(result))
+			result = nil
+		}
+	}()
 	if len(parameters) < 2 {
 		return nil, errBadFarkasCoefficient()
 	}
@@ -305,57 +321,65 @@ func (m *Manager) assignBoundsCoefficients(proof ast.ASTHandle, rule bool) (resu
 	if err != nil {
 		return nil, err
 	}
-	result = make([]*big.Rat, len(parameters)-1)
-	result[0] = new(big.Rat).SetInt64(1)
+	q := m.Rationals()
+	result = newRationals(len(parameters) - 1)
+	if err = q.SetInt32(&result[0], 1); err != nil {
+		return result, err
+	}
 	for i := 2; i < len(parameters); i++ {
-		value, e := m.rationalParameter(parameters[i], errBadFarkasCoefficient)
-		if e != nil {
-			return nil, e
+		value := &result[i-1]
+		if e := m.rationalParameter(parameters[i], value, errBadFarkasCoefficient); e != nil {
+			return result, e
 		}
 		var inequality ast.ASTHandle
 		if rule {
 			premise, e := m.Premise(proof, uint32(i-2))
 			if e != nil {
-				return nil, e
+				return result, e
 			}
 			inequality, e = m.Conclusion(premise)
 			if e != nil {
-				return nil, e
+				return result, e
 			}
 		} else {
+			var e error
 			inequality, e = m.Arg(conclusion, uint32(i-1))
 			if e != nil {
-				return nil, e
+				return result, e
 			}
 		}
 		negative, e := m.inequalityHasNegativeOrientation(inequality)
 		if e != nil {
-			return nil, e
+			return result, e
 		}
 		if negative != consequenceNegative {
-			value.Neg(value)
+			if e = q.Neg(value); e != nil {
+				return result, e
+			}
 		}
-		if value.Sign() < 0 {
-			value.Neg(value)
+		if value.IsNeg() {
+			if e = q.Neg(value); e != nil {
+				return result, e
+			}
 		}
-		result[i-1] = value
 	}
-	normalizeCoefficientDenominators(result)
-	return result, nil
+	return result, m.normalizeCoefficientDenominators(result)
 }
 
-func (m *Manager) AssignBoundsCoefficients(proof ast.ASTHandle) ([]*big.Rat, error) {
+func (m *Manager) AssignBoundsCoefficients(proof ast.ASTHandle) ([]unumeral.Rational, error) {
 	return m.assignBoundsCoefficients(proof, false)
 }
 
-func (m *Manager) AssignBoundsRuleCoefficients(proof ast.ASTHandle) ([]*big.Rat, error) {
+func (m *Manager) AssignBoundsRuleCoefficients(proof ast.ASTHandle) ([]unumeral.Rational, error) {
 	return m.assignBoundsCoefficients(proof, true)
 }
 
-func (m *Manager) coefficientTerms(values []*big.Rat) ([]ast.ASTHandle, error) {
-	result := make([]ast.ASTHandle, len(values))
-	for i, value := range values {
-		term, err := m.MakeInt(value)
+// coefficientTerms makes the values' int numerals and releases the values.
+func (m *Manager) coefficientTerms(values []unumeral.Rational) (result []ast.ASTHandle, err error) {
+	defer func() { err = errors.Join(err, m.releaseRationals(values)) }()
+	result = make([]ast.ASTHandle, len(values))
+	for i := range values {
+		term, err := m.MakeInt(&values[i])
 		if err != nil {
 			return nil, err
 		}
@@ -406,9 +430,12 @@ func (m *Manager) IsFarkasCoefficientNegative(proof ast.ASTHandle, index uint32)
 	if parameterIndex >= len(parameters) {
 		return false, ast.ErrASTDomain
 	}
-	value, err := m.rationalParameter(parameters[parameterIndex], errBadFarkasCoefficient)
-	if err != nil {
-		return false, err
-	}
-	return value.Sign() < 0, nil
+	err = m.withRational(func(value *unumeral.Rational) error {
+		if e := m.rationalParameter(parameters[parameterIndex], value, errBadFarkasCoefficient); e != nil {
+			return e
+		}
+		result = value.IsNeg()
+		return nil
+	})
+	return result, err
 }

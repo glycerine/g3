@@ -5,10 +5,10 @@ package interp
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *FullTranslation) sortSum(term ast.ASTHandle) (ast.ASTHandle, error) {
@@ -39,7 +39,8 @@ func (t *FullTranslation) sortSum(term ast.ASTHandle) (ast.ASTHandle, error) {
 	return t.base.manager.Make(OperatorPlus, arguments...)
 }
 
-func (t *FullTranslation) sumVector(term ast.ASTHandle, coefficients *[]*big.Rat, variables *[]ast.ASTHandle) error {
+// sumVector appends rationals the caller releases.
+func (t *FullTranslation) sumVector(term ast.ASTHandle, coefficients *[]unumeral.Rational, variables *[]ast.ASTHandle) error {
 	op, err := t.base.manager.Operator(term)
 	if err != nil {
 		return err
@@ -56,15 +57,14 @@ func (t *FullTranslation) sumVector(term ast.ASTHandle, coefficients *[]*big.Rat
 		}
 		return nil
 	}
-	coefficient, err := t.base.manager.Coefficient(term)
-	if err != nil {
+	*coefficients = append(*coefficients, unumeral.NewRational())
+	if err = t.base.manager.Coefficient(term, &(*coefficients)[len(*coefficients)-1]); err != nil {
 		return err
 	}
 	variable, err := t.base.manager.LinearVariable(term)
 	if err != nil {
 		return err
 	}
-	*coefficients = append(*coefficients, coefficient)
 	*variables = append(*variables, variable)
 	return nil
 }
@@ -323,14 +323,20 @@ func (t *FullTranslation) reconstructFarkasFromProof(sourcePremises, translatedP
 	return result, err == nil, err
 }
 
-func rationalDenominatorLCM(values []*big.Rat) *big.Int {
-	result := big.NewInt(1)
-	for _, value := range values {
-		gcd := new(big.Int).GCD(nil, nil, result, value.Denom())
-		result.Mul(result, value.Denom())
-		result.Quo(result, gcd)
-	}
-	return result
+// rationalDenominatorLCM sets out to the lcm of the values' denominators.
+func (t *FullTranslation) rationalDenominatorLCM(values []unumeral.Rational, out *unumeral.Rational) error {
+	q := t.base.manager.Rationals()
+	return t.base.manager.withRational(func(d *unumeral.Rational) error {
+		if err := q.SetInt32(out, 1); err != nil {
+			return err
+		}
+		for i := range values {
+			if err := errors.Join(q.DenominatorRational(&values[i], d), q.LCM(out, d, out)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPremises []ast.ASTHandle, conclusion ast.ASTHandle, direct *DirectProofInterpolator) (result ast.ASTHandle, resultErr error) {
@@ -400,7 +406,7 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	zero, err := t.base.manager.MakeReal(new(big.Rat))
+	zero, err := t.base.manager.MakeRealText("0")
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -428,39 +434,47 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		var values []*big.Rat
+		// std::vector<rational> coeffs, destroyed with the iteration.
+		var values []unumeral.Rational
 		var variables []ast.ASTHandle
-		if e = t.sumVector(left, &values, &variables); e != nil {
-			return ast.ASTHandle{}, e
-		}
-		for i, variable := range variables {
-			slot, found := dual[variable]
-			if !found {
-				if slot, e = pin(zero); e != nil {
-					return ast.ASTHandle{}, e
+		e = t.sumVector(left, &values, &variables)
+		if e == nil {
+			e = func() error {
+				for i, variable := range variables {
+					slot, found := dual[variable]
+					if !found {
+						var e error
+						if slot, e = pin(zero); e != nil {
+							return e
+						}
+						dual[variable] = slot
+						variablesSeen = append(variablesSeen, variable)
+					}
+					current, e := t.base.manager.ast.RefGet(slot)
+					if e != nil {
+						return e
+					}
+					factor, e := t.base.manager.MakeReal(&values[i])
+					if e != nil {
+						return e
+					}
+					product, e := t.base.manager.Make(OperatorTimes, factor, coefficient)
+					if e != nil {
+						return e
+					}
+					current, e = t.base.manager.Make(OperatorPlus, current, product)
+					if e != nil {
+						return e
+					}
+					if e = t.base.manager.ast.SetRef(slot, current); e != nil {
+						return e
+					}
 				}
-				dual[variable] = slot
-				variablesSeen = append(variablesSeen, variable)
-			}
-			current, e := t.base.manager.ast.RefGet(slot)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			factor, e := t.base.manager.MakeReal(values[i])
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			product, e := t.base.manager.Make(OperatorTimes, factor, coefficient)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			current, e = t.base.manager.Make(OperatorPlus, current, product)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			if e = t.base.manager.ast.SetRef(slot, current); e != nil {
-				return ast.ASTHandle{}, e
-			}
+				return nil
+			}()
+		}
+		if e = errors.Join(e, t.base.manager.releaseRationals(values)); e != nil {
+			return ast.ASTHandle{}, e
 		}
 		right, e := t.base.manager.Arg(inequality, 1)
 		if e != nil {
@@ -515,7 +529,7 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 			return ast.ASTHandle{}, e
 		}
 	}
-	one, err := t.base.manager.MakeReal(big.NewRat(1, 1))
+	one, err := t.base.manager.MakeRealText("1")
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -551,28 +565,35 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 	if !model.Satisfiable() || len(model.Values) != len(coefficients) {
 		return ast.ASTHandle{}, iz3Exception("Proof error!")
 	}
-	values := make([]*big.Rat, len(model.Values))
+	// std::vector<rational> vals; rational lcd
+	all := newRationals(len(model.Values) + 2)
+	defer func() { resultErr = errors.Join(resultErr, t.base.manager.releaseRationals(all)) }()
+	values := all[:len(model.Values)]
+	lcm, scaled := &all[len(model.Values)], &all[len(model.Values)+1]
 	for i := range model.Values {
 		value, e := t.base.manager.ast.RefGet(model.Values[i])
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		var numeral bool
-		values[i], numeral, e = t.base.manager.Numeral(value)
-		if e != nil || !numeral || values[i] == nil {
+		numeral, e := t.base.manager.Numeral(value, &values[i])
+		if e != nil || !numeral {
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
 			return ast.ASTHandle{}, iz3Exception("Proof error!")
 		}
 	}
-	lcm := rationalDenominatorLCM(values)
+	if err = t.rationalDenominatorLCM(values, lcm); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	farkasCoefficients := make([]ast.ASTHandle, 0, len(values))
 	proofs := make([]ast.ASTHandle, 0, len(values))
 	conclusions := make([]ast.ASTHandle, 0, len(values))
 	for i := range sourcePremises {
-		scaled := new(big.Rat).Mul(values[i], new(big.Rat).SetInt(lcm))
-		if scaled.Sign() == 0 {
+		if e := t.base.manager.Rationals().Mul(&values[i], lcm, scaled); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if scaled.IsZero() {
 			continue
 		}
 		coefficient, e := t.base.manager.MakeInt(scaled)
@@ -587,7 +608,7 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 		proofs = append(proofs, translatedPremises[i])
 		conclusions = append(conclusions, premiseConclusion)
 	}
-	lastCoefficient, err := t.base.manager.MakeInt(new(big.Rat).SetInt(lcm))
+	lastCoefficient, err := t.base.manager.MakeInt(lcm)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

@@ -5,7 +5,6 @@ package interp
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -157,11 +156,11 @@ func (p *DirectProofInterpolator) simplifySum(args []ast.ASTHandle) (ast.ASTHand
 	if len(args) != 3 {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	coefficient, numeral, err := p.base.manager.Numeral(args[1])
+	one, err := p.base.manager.NumeralIsOne(args[1])
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if !numeral || coefficient.Cmp(big.NewRat(1, 1)) != 0 {
+	if !one {
 		thirdOp, e := p.base.manager.Operator(args[2])
 		if e != nil {
 			return ast.ASTHandle{}, e
@@ -279,15 +278,15 @@ func (p *DirectProofInterpolator) distributeSumCoefficient(coefficient, expressi
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		leftValue, leftNumeral, e := p.base.manager.Numeral(left)
+		leftZero, e := p.base.manager.NumeralIsZero(left)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		rightValue, rightNumeral, e := p.base.manager.Numeral(right)
+		rightZero, e := p.base.manager.NumeralIsZero(right)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if leftNumeral && rightNumeral && leftValue.Sign() == 0 && rightValue.Sign() == 0 {
+		if leftZero && rightZero {
 			return expression, nil
 		}
 	}
@@ -700,7 +699,7 @@ func (p *DirectProofInterpolator) simplifyRotatedLeqToEq(placeholder, negativeEq
 		}
 		return p.chainCons(chain, secondRewrite)
 	}
-	yValue, yNumeral, err := p.base.manager.Numeral(y)
+	yZero, err := p.base.manager.NumeralIsZero(y)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -708,7 +707,7 @@ func (p *DirectProofInterpolator) simplifyRotatedLeqToEq(placeholder, negativeEq
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if yNumeral && yValue.Sign() == 0 && xOp == OperatorPlus {
+	if yZero && xOp == OperatorPlus {
 		xArgs, e := p.base.manager.Args(x)
 		if e != nil {
 			return ast.ASTHandle{}, e
