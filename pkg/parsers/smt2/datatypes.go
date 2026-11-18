@@ -181,10 +181,26 @@ func (p *commandParser) declareDatatypes(single bool) error {
 			if e := p.expect(LeftParenToken); e != nil {
 				return e
 			}
-			p.datatypeHeaders[name] = uint32(len(parameterNames))
+			if expectedArity < 0 {
+				p.datatypeHeaders[name] = uint32(len(parameterNames))
+			}
 		}
-		if expectedArity >= 0 && uint32(expectedArity) != uint32(len(parameterNames)) {
+		// The source never compares a header's arity with the par binder:
+		// mk_pdatatype_decl(m_dt_name2arity.find(dt_name), ...) gives the
+		// datatype the header's parameter count, and a binder shorter than
+		// it leaves the trailing parameters unused. Those get formals whose
+		// names no SMT-LIB symbol can spell. A longer binder indexes past
+		// the parameters and crashes z3 4.7.1, so g3 keeps an error there
+		// (AUDIT.md parsers_shell_01-F11).
+		if expectedArity >= 0 && uint32(expectedArity) < uint32(len(parameterNames)) {
 			return fmt.Errorf("datatype sort %s declares arity %d but defines %d parameters", name, expectedArity, len(parameterNames))
+		}
+		if expectedArity >= 0 && uint32(expectedArity) > uint32(len(parameterNames)) {
+			padded := append([]string(nil), parameterNames...)
+			for i := len(padded); i < int(expectedArity); i++ {
+				padded = append(padded, fmt.Sprintf("|%d", i))
+			}
+			parameterNames = padded
 		}
 		parameters, localParams, e := p.datatypeFormalParameters(parameterNames)
 		if e != nil {

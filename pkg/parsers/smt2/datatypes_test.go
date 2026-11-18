@@ -49,7 +49,9 @@ func TestSMT2DatatypeRefusalsBeforeDeclarationPublication(t *testing.T) {
 		"(declare-datatype D ((make)) extra)",
 		"(declare-datatypes ((D 0) (E 0)) (((make))))",
 		"(declare-datatypes ((D 0)) (((make)) ((other))))",
-		"(declare-datatypes ((D 2)) ((par (T) ((make (field T))))))",
+		// A header arity above the par binder's count is accepted
+		// (AUDIT.md parsers_shell_01-F11); one below it crashes z3 4.7.1.
+		"(declare-datatypes ((D 0)) ((par (T) ((make (field T))))))",
 	} {
 		t.Run(declaration, func(t *testing.T) {
 			context, err := cmd_context.NewStandaloneContext()

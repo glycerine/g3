@@ -1,0 +1,8 @@
+(declare-datatypes ((A 1)) (((a))))
+(declare-const x (A Int))
+(declare-datatypes ((L 2)) ((par (T) ((nil) (cons (hd T) (tl (L T Int)))))))
+(declare-const l (L Int Real))
+(assert ((_ is cons) l))
+(assert (= x (as a (A Int))))
+(check-sat)
+(get-model)

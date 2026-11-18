@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F11: the header arity is not checked
+	// against the par binder.
+	"datatype_header_arity_unchecked.smt2": "sat\n(model \n  (define-fun l () (L Int Real)\n    (cons 0 nil))\n  (define-fun x () (A Int)\n    a)\n)\n",
 	"macro_manager_destroy_order.smt2":    "sat\n",
 	"macro_expand_rewriter_lifetime.smt2": "sat\n",
 	"idl_dense_big_constants.smt2":        "sat\n(((- x y) 4000000001)\n ((- y z) 0)\n ((- x z) 4000000001))\nsat\n",
