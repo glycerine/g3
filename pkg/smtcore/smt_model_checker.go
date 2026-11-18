@@ -601,12 +601,18 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 			}
 			return false, err
 		}
-		if inserted {
-			found = true
+		if !inserted {
+			// add_instance failed on a value private to the model: the
+			// source breaks before counting it or building a blocking clause.
+			if cex != complete {
+				if err = cex.DecRef(); err != nil {
+					return false, err
+				}
+			}
+			break
 		}
-		if !c.exhausted {
-			*remaining--
-		}
+		found = true
+		*remaining--
 		if *remaining != 0 {
 			if err = c.addAuxiliaryBlockingClause(auxiliary, skolems, raw); err != nil {
 				if cex != complete {
@@ -619,9 +625,6 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 			if err = cex.DecRef(); err != nil {
 				return false, err
 			}
-		}
-		if c.exhausted {
-			break
 		}
 	}
 	if useInverse && !found && *remaining != 0 {
