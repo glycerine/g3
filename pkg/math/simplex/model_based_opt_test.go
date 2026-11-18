@@ -1,6 +1,7 @@
 package simplex
 
 import (
+	"strings"
 	"sync"
 	"testing"
 
@@ -336,5 +337,24 @@ func TestModelBasedOptIntegerOppositeSignResolveNormalizes(t *testing.T) {
 	}
 	if len(coeffs) != 2 || coeffs[y] != -1 || coeffs[z] != 1 || optSign(&row.Constant) != 0 || row.Relation != LessEqual {
 		t.Fatalf("resolvent = %+v, want z - y <= 0", row)
+	}
+}
+
+// AUDIT.md math_misc_02-F4: model_based_opt::display spells rows as the
+// source does; the dummy objective row is a t_le row.
+func TestModelBasedOptDisplayRowSourceSpelling(t *testing.T) {
+	opt := NewModelBasedOpt(optQ())
+	x := addOptVar(t, opt, -3, true)
+	addOptConstraint(t, opt, []LinearTerm{optTerm(x, 2)}, 5, LessEqual)
+	if err := opt.AddDivides([]LinearTerm{optTerm(x, 1)}, optRat(0), optRat(3)); err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if err := opt.Display(&out); err != nil {
+		t.Fatal(err)
+	}
+	want := "-  <=  0; value: 0\n+ 2* v0  + 5  <=  0; value: -1\n+ 1* v0  mod  3 = 0; value: -3\n0: 1 2 \n"
+	if out.String() != want {
+		t.Fatalf("%q", out.String())
 	}
 }

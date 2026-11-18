@@ -83,7 +83,8 @@ type OptRow struct {
 }
 
 func newOptRow() OptRow {
-	return OptRow{Constant: numeral.NewRational(), Modulus: numeral.NewRational(), Value: numeral.NewRational()}
+	// row(): m_type(t_le), m_value(0), m_alive(false) (AUDIT.md math_misc_02-F4).
+	return OptRow{Constant: numeral.NewRational(), Modulus: numeral.NewRational(), Value: numeral.NewRational(), Relation: LessEqual}
 }
 
 // Del frees the row's rationals (~row).
@@ -392,8 +393,18 @@ func (m *ModelBasedOpt) retire(id uint32) {
 }
 
 func (m *ModelBasedOpt) combine(dst uint32, c *numeral.Rational, src uint32, sameSign bool) error {
+	// mul_add: if (c.is_zero()) return;
+	if m.c.sign(c) == 0 {
+		return nil
+	}
 	a := &m.rows[dst]
 	b := &m.rows[src]
+	// mul_add records row_id1 in m_var2row_ids only for the variables of
+	// row2 that row1 did not have (AUDIT.md math_misc_02-F4).
+	present := make(map[uint32]bool, len(a.Terms))
+	for _, t := range a.Terms {
+		present[t.Variable] = true
+	}
 	canonical, err := m.canonical(a.Terms, b.Terms, c)
 	if err != nil {
 		return err
@@ -408,7 +419,9 @@ func (m *ModelBasedOpt) combine(dst uint32, c *numeral.Rational, src uint32, sam
 	}
 	if dst != 0 {
 		for _, t := range b.Terms {
-			m.incidence[t.Variable] = append(m.incidence[t.Variable], dst)
+			if !present[t.Variable] {
+				m.incidence[t.Variable] = append(m.incidence[t.Variable], dst)
+			}
 		}
 	}
 	return m.checkRow(dst)
@@ -1106,12 +1119,12 @@ func (m *ModelBasedOpt) displayRow(w io.Writer, row *OptRow) error {
 				return err
 			}
 		}
-		if _, err := fmt.Fprintf(w, "%s*v%d ", m.c.text(&row.Terms[i].Coefficient), row.Terms[i].Variable); err != nil {
+		if _, err := fmt.Fprintf(w, "%s* v%d ", m.c.text(&row.Terms[i].Coefficient), row.Terms[i].Variable); err != nil {
 			return err
 		}
 	}
 	if s := m.c.sign(&row.Constant); s > 0 {
-		if _, err := fmt.Fprintf(w, "+ %s ", m.c.text(&row.Constant)); err != nil {
+		if _, err := fmt.Fprintf(w, " + %s ", m.c.text(&row.Constant)); err != nil {
 			return err
 		}
 	} else if s < 0 {
@@ -1119,11 +1132,14 @@ func (m *ModelBasedOpt) displayRow(w io.Writer, row *OptRow) error {
 			return err
 		}
 	}
+	// operator<<(ineq_type) pads the relation with spaces (AUDIT.md
+	// math_misc_02-F4).
+	relation := map[Relation]string{Equal: " = ", Less: " < ", LessEqual: " <= ", Divides: " mod "}[row.Relation]
 	if row.Relation == Divides {
-		_, err := fmt.Fprintf(w, "mod %s = 0; value: %s\n", m.c.text(&row.Modulus), m.c.text(&row.Value))
+		_, err := fmt.Fprintf(w, "%s %s = 0; value: %s\n", relation, m.c.text(&row.Modulus), m.c.text(&row.Value))
 		return err
 	}
-	_, err := fmt.Fprintf(w, "%s 0; value: %s\n", row.Relation, m.c.text(&row.Value))
+	_, err := fmt.Fprintf(w, "%s 0; value: %s\n", relation, m.c.text(&row.Value))
 	return err
 }
 
