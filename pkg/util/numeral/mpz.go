@@ -670,6 +670,27 @@ func (m *IntegerManager) free(ref NumericCellRef) error {
 	}
 	return m.Cells.Recycle(NumericSlot(ref))
 }
+
+// resumeStoppedRelease finishes the release of a's cell when an earlier
+// growth stopped after starting it (the cell is released or its release is
+// pending): the value was being overwritten, so a becomes 0 and the caller
+// sets it. A cell whose release fails again stays with a.
+// DELIBERATE DIVERGENCE: z3's big_set cannot fail between deallocate and
+// allocate; g3 resumes instead of leaving a dead cell in the destination.
+func (m *IntegerManager) resumeStoppedRelease(a *Int) error {
+	if a == nil || a.Cell == 0 || m.FailedRef != 0 && (a.Cell == m.FailedRef || a.Cell == m.FailedNullRef) || !ValidNumericRef(m.Cells, a.Cell) {
+		return nil
+	}
+	if c := m.Cell(a.Cell); !c.Released && !c.CleanupPending {
+		return nil
+	}
+	if e := m.free(a.Cell); e != nil {
+		return e
+	}
+	a.Cell, a.Val = 0, 0
+	return nil
+}
+
 func (m *IntegerManager) Close() {
 	if e := m.CloseChecked(); e != nil {
 		panic(m)
@@ -1057,6 +1078,9 @@ func (m *IntegerManager) copyFromOwnerWithPhysicalAllocationContext(dst *Int, so
 	return m.copyFromOwnerWithPhysicalFloatCaller(dst, sourceManager, src, receipt, context, receiver, nil)
 }
 func (m *IntegerManager) copyFromOwnerWithPhysicalFloatCaller(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context *integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver, caller *arbitraryFloatCopyBinding) error {
+	if e := m.resumeStoppedRelease(dst); e != nil {
+		return e
+	}
 	if e := m.check(dst); e != nil {
 		return e
 	}
