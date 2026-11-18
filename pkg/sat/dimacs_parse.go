@@ -1,67 +1,51 @@
 package sat
 
-// Source: src/sat/dimacs.cpp:25-132.
+// Source: src/sat/dimacs.cpp:64-127 (parse_dimacs_core, read_clause,
+// parse_int), reading clauses for Z3_solver_from_file's .dimacs path.
 
 import (
-	"bufio"
 	"errors"
-	"fmt"
 	"io"
-	"strconv"
-	"strings"
 )
 
+// ReadDIMACSCNF scans input with the source's one-character lookahead
+// (AUDIT.md sat_01-F6): a number ends at the first non-digit, so "1-2 0" is
+// the clause {1, -2}, and values wrap at 32 bits as FORK FIX #125 does. A
+// malformed character is reported as a DIMACSParseExit joined with
+// ErrDIMACSParse.
 func ReadDIMACSCNF(input io.Reader) (DIMACSCNF, error) {
 	if input == nil {
 		return DIMACSCNF{}, errors.Join(ErrDIMACSParse, io.ErrUnexpectedEOF)
 	}
-	reader := bufio.NewReader(input)
+	buffer := newDIMACSStreamBuffer(input)
 	var result DIMACSCNF
-	var clause []DIMACSLiteral
-	lineNumber := 0
 	for {
-		line, readErr := reader.ReadString('\n')
-		if len(line) != 0 {
-			lineNumber++
-			fields := strings.Fields(line)
-			if len(fields) != 0 && (fields[0][0] == 'c' || fields[0][0] == 'p') {
-				if len(clause) != 0 {
-					return DIMACSCNF{}, fmt.Errorf("%w at line %d: directive inside clause", ErrDIMACSParse, lineNumber)
+		buffer.skipWhitespace()
+		switch buffer.value {
+		case -1:
+			return result, nil
+		case 'c', 'p':
+			buffer.skipLine()
+		default:
+			var clause []DIMACSLiteral
+			for {
+				parsed, err := buffer.parseInt()
+				if err != nil {
+					return DIMACSCNF{}, errors.Join(ErrDIMACSParse, err)
 				}
-			} else {
-				for _, field := range fields {
-					if len(clause) == 0 && (field[0] == 'c' || field[0] == 'p') {
-						break
-					}
-					value, err := strconv.ParseInt(field, 10, 32)
-					if err != nil {
-						return DIMACSCNF{}, fmt.Errorf("%w at line %d: %q", ErrDIMACSParse, lineNumber, field)
-					}
-					if value == 0 {
-						result.Clauses = append(result.Clauses, clause)
-						clause = nil
-						continue
-					}
-					magnitude := value
-					if magnitude < 0 {
-						magnitude = -magnitude
-					}
-					if uint32(magnitude) > result.VariableCount {
-						result.VariableCount = uint32(magnitude)
-					}
-					clause = append(clause, DIMACSLiteral(value))
+				if parsed == 0 {
+					break
 				}
+				magnitude := uint32(parsed)
+				if parsed < 0 {
+					magnitude = -magnitude
+				}
+				if magnitude > result.VariableCount {
+					result.VariableCount = magnitude
+				}
+				clause = append(clause, DIMACSLiteral(parsed))
 			}
-		}
-		if readErr != nil {
-			if !errors.Is(readErr, io.EOF) {
-				return DIMACSCNF{}, readErr
-			}
-			break
+			result.Clauses = append(result.Clauses, clause)
 		}
 	}
-	if len(clause) != 0 {
-		return DIMACSCNF{}, fmt.Errorf("%w: unterminated clause", ErrDIMACSParse)
-	}
-	return result, nil
 }
