@@ -111,7 +111,10 @@ func (l *legacyLinearLiteral) Close() error {
 func (p *legacyArithmeticProjection) q() *unumeral.RationalManager { return p.syntax.q() }
 
 // sign is r's sign.
-func (p *legacyArithmeticProjection) sign(r *unumeral.Rational) (int32, error) { return p.q().Sign(r) }
+func (p *legacyArithmeticProjection) sign(r *unumeral.Rational) (int32, error) {
+	// r.is_pos()/r.is_neg(): RationalManager.Sign returns the raw small value.
+	return int32(r.Sign()), nil
+}
 
 // multiplyLegacyAbs is mk_mul(abs(r), term).
 func (p *legacyArithmeticProjection) multiplyLegacyAbs(r *unumeral.Rational, term ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {

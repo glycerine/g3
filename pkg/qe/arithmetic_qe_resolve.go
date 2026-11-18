@@ -25,14 +25,9 @@ func (u *ArithmeticQETermUtil) ResolveUnitOrReal(variable ast.ASTHandle, strict 
 		return result, false, ast.ErrASTDomain
 	}
 	q := u.q()
-	aSign, err := q.Sign(a)
-	if err != nil {
-		return result, false, err
-	}
-	bSign, err := q.Sign(b)
-	if err != nil {
-		return result, false, err
-	}
+	// RationalManager.Sign returns the raw small value; compare normalized
+	// signs (a.is_pos() == b.is_pos()).
+	aSign, bSign := a.Sign(), b.Sign()
 	if aSign == 0 || bSign == 0 || aSign == bSign {
 		return result, false, ast.ErrASTDomain
 	}
@@ -40,7 +35,7 @@ func (u *ArithmeticQETermUtil) ResolveUnitOrReal(variable ast.ASTHandle, strict 
 	// rational abs_a(abs(a)), abs_b(abs(b));
 	absA, absB := unumeral.NewRational(), unumeral.NewRational()
 	defer func() { resultErr = errors.Join(resultErr, q.Del(&absA), q.Del(&absB)) }()
-	if err = errors.Join(q.Copy(&absA, a), q.Abs(&absA), q.Copy(&absB, b), q.Abs(&absB)); err != nil {
+	if err := errors.Join(q.Copy(&absA, a), q.Abs(&absA), q.Copy(&absB, b), q.Abs(&absB)); err != nil {
 		return result, false, err
 	}
 	integer, err := u.isInteger(variable)
