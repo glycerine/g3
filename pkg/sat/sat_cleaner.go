@@ -158,12 +158,10 @@ func (c *satCleaner) cleanup() error {
 		if err != nil {
 			return err
 		}
-		if err = extension.ClausesModified(); err != nil {
-			return err
-		}
-		if err = extension.Simplify(); err != nil {
-			return err
-		}
+		// solver::cleanup: if (m_cleaner() && m_ext) m_ext->clauses_modifed();
+		// m_ext->simplify() runs only at the end of simplify_problem
+		// (AUDIT.md sat_01-F5).
+		return extension.ClausesModified()
 	}
 	return nil
 }
