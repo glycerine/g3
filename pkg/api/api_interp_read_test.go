@@ -84,6 +84,15 @@ func TestInterpolationReadProblemSourceQuirks(t *testing.T) {
 	if err != nil || len(problem.Constraints) != 2 {
 		t.Fatal("single assertion", len(problem.Constraints), err)
 	}
+	// FORK FIX #137: a single quantified assertion is kept as the one
+	// assertion (tst_z3_4_7_1_interp_read_single_quantifier).
+	problem, err = f.c.ReadInterpolationProblem(strings.NewReader("(declare-fun p (Int) Bool)\n(assert (forall ((x Int)) (p x)))\n"), false)
+	if err != nil || len(problem.Constraints) != 1 {
+		t.Fatal("single quantifier", len(problem.Constraints), err)
+	}
+	if kind, err := f.m.GetKind(problem.Constraints[0]); err != nil || kind != ast.ASTQuantifier {
+		t.Fatal("single quantifier kind", kind, err)
+	}
 	problem, err = f.c.ReadInterpolationProblem(strings.NewReader(";! THEORY=7 THEORY=1x\n(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)(assert a)(assert b)(assert c)\n"), false)
 	if err != nil || len(problem.Theory) != 1 || len(problem.Constraints) != 2 {
 		t.Fatal("THEORY=1x", len(problem.Theory), len(problem.Constraints), err)

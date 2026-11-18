@@ -142,9 +142,9 @@ func interpolationAtoi(text string) int32 {
 // api::context::mk_and of the assertions, which is true for none and the
 // assertion itself for one, and the arguments of that application are the
 // assertions. So a single assertion (or a b) yields a and b (z3 4.7.1's
-// behavior, kept). A single quantified assertion is not an application,
-// and the source's Z3_to_app on it is undefined; g3 keeps it as one
-// assertion.
+// behavior, kept). A single quantified assertion is not an application:
+// z3 4.7.1's Z3_to_app on it was undefined, and FORK FIX #137 keeps it as
+// the one assertion, as here.
 func interpolationConjuncts(manager *ast.ASTManager, expression ast.ASTHandle) ([]ast.ASTHandle, error) {
 	kind, err := manager.GetKind(expression)
 	if err != nil {

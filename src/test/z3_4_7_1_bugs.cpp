@@ -4837,3 +4837,33 @@ void tst_z3_4_7_1_datatype_par_beyond_header() {
            "after\n");
 #endif
 }
+
+// FORK FIX #137: iZ3_parse (Z3_read_interpolation_problem) takes the
+// arguments of Z3_parse_smtlib2_file's result as the assertions. That result
+// is api::context::mk_and of the assertions, so a single assertion is the
+// formula itself, and Z3_to_app on a quantified one reinterprets the
+// quantifier as an application (UB: the argument count and arguments are
+// read from the quantifier's own fields). The fork keeps a non-application
+// result as the one assertion.
+void tst_z3_4_7_1_interp_read_single_quantifier() {
+    char const* file_name = "z3_4_7_1_interp_read_single_quantifier.smt2";
+    {
+        std::ofstream out(file_name);
+        out << "(declare-fun p (Int) Bool)\n(assert (forall ((x Int)) (p x)))\n";
+    }
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    unsigned num = 0, num_theory = 0;
+    Z3_ast* cnsts = nullptr;
+    Z3_ast* theory = nullptr;
+    Z3_string error = nullptr;
+    int ok = Z3_read_interpolation_problem(ctx, &num, &cnsts, nullptr, file_name, &error, &num_theory, &theory);
+    std::string first = (ok && num > 0) ? Z3_ast_to_string(ctx, cnsts[0]) : std::string();
+    std::cout << "interp_read_single_quantifier: ok " << ok << " num " << num << " first " << first
+              << " error " << (ok || !error ? "" : error) << "\n";
+    bool quantifier = ok && num == 1 && Z3_get_ast_kind(ctx, cnsts[0]) == Z3_QUANTIFIER_AST;
+    Z3_del_context(ctx);
+    std::remove(file_name);
+    ENSURE(quantifier);
+}

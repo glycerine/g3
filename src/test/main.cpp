@@ -339,6 +339,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_opt_parse_int_wrap);
     TST(z3_4_7_1_replayer_int64_wrap);
     TST(z3_4_7_1_datatype_par_beyond_header);
+    TST(z3_4_7_1_interp_read_single_quantifier);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

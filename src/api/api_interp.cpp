@@ -511,11 +511,21 @@ extern "C" {
         try {
             std::string foo(filename);
             Z3_ast assrts = Z3_parse_smtlib2_file(ctx, filename, 0, nullptr, nullptr, 0, nullptr, nullptr);
-            Z3_app app = Z3_to_app(ctx, assrts);
-            int nconjs = Z3_get_app_num_args(ctx, app);
-            assertions.resize(nconjs);
-            for (int k = 0; k < nconjs; k++)
-                assertions[k] = Z3_get_app_arg(ctx, app, k);
+            // FORK FIX #137 (g3 audit, see FORK_BUGFIXES.md): the result is
+            // mk_and of the assertions, so a single assertion is the formula
+            // itself. Z3_to_app on a quantified one read the quantifier as an
+            // application (UB); keep a non-application as the one assertion.
+            if (!Z3_is_app(ctx, assrts)) {
+                assertions.resize(1);
+                assertions[0] = assrts;
+            }
+            else {
+                Z3_app app = Z3_to_app(ctx, assrts);
+                int nconjs = Z3_get_app_num_args(ctx, app);
+                assertions.resize(nconjs);
+                for (int k = 0; k < nconjs; k++)
+                    assertions[k] = Z3_get_app_arg(ctx, app, k);
+            }
         }
         catch (...) {
             read_error << "SMTLIB parse error: " << Z3_get_parser_error(ctx);
