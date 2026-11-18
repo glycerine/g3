@@ -280,3 +280,104 @@ func TestCheckerRejectsTrueProofAndNonRationalFarkas(t *testing.T) {
 	must(t, m.DelParameter(&farkas))
 	check(t, c, lemma, false)
 }
+
+// SAME_OP compares basic-family equivalences: arith <= shares OP_EQ's kind
+// number but is no equivalence premise for monotonicity (ast_sub_03-F2).
+func TestCheckerMonotonicityRejectsNonEquivalencePremise(t *testing.T) {
+	m := fixture(t)
+	c, err := proofs.NewChecker(m)
+	must(t, err)
+	must(t, m.RegisterDeclarationPlugins())
+	arithName, err := m.Symbols.Intern("arith")
+	must(t, err)
+	arith, err := m.FamilyIDForSymbol(arithName)
+	must(t, err)
+	intSort, err := m.MkFamilySort(arith, 1, nil)
+	must(t, err)
+	constant := func(name string) ast.ASTHandle {
+		sym, e := m.Symbols.Intern(name)
+		must(t, e)
+		h, e := m.MkConst(sym, intSort)
+		must(t, e)
+		return h
+	}
+	x, y := constant("mono-x"), constant("mono-y")
+	fName, err := m.Symbols.Intern("mono-f")
+	must(t, err)
+	f, err := m.MkFuncDecl(fName, []ast.ASTHandle{intSort}, intSort, ast.ASTFuncDeclInfo{})
+	must(t, err)
+	fx, err := m.MkApp(f, []ast.ASTHandle{x})
+	must(t, err)
+	fy, err := m.MkApp(f, []ast.ASTHandle{y})
+	must(t, err)
+	// arith OP_LE has the same kind number as basic OP_EQ.
+	le, err := m.MkFamilyApp(arith, 2, nil, []ast.ASTHandle{x, y})
+	must(t, err)
+	premise, err := m.MkProofAsserted(le)
+	must(t, err)
+	eq, err := m.MkEq(fx, fy)
+	must(t, err)
+	eqDecl, err := m.GetDecl(eq)
+	must(t, err)
+	mono, err := m.MkProofMonotonicity(eqDecl, fx, fy, []ast.ASTHandle{premise})
+	must(t, err)
+	check(t, c, mono, false)
+	xy, err := m.MkEq(x, y)
+	must(t, err)
+	good, err := m.MkProofAsserted(xy)
+	must(t, err)
+	mono, err = m.MkProofMonotonicity(eqDecl, fx, fy, []ast.ASTHandle{good})
+	must(t, err)
+	check(t, c, mono, true)
+}
+
+// PR_QUANT_INTRO needs iff or ~ on both sides, with m.is_oeq agreeing
+// (ast_sub_03-F3).
+func TestCheckerQuantIntroOperatorMustAgree(t *testing.T) {
+	m := fixture(t)
+	c, err := proofs.NewChecker(m)
+	must(t, err)
+	b, err := m.MkBoolSort()
+	must(t, err)
+	v0, err := m.MkVar(0, b)
+	must(t, err)
+	pName, err := m.Symbols.Intern("qi-p")
+	must(t, err)
+	pDecl, err := m.MkFuncDecl(pName, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+	must(t, err)
+	qName, err := m.Symbols.Intern("qi-q")
+	must(t, err)
+	qDecl, err := m.MkFuncDecl(qName, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+	must(t, err)
+	pv, err := m.MkApp(pDecl, []ast.ASTHandle{v0})
+	must(t, err)
+	qv, err := m.MkApp(qDecl, []ast.ASTHandle{v0})
+	must(t, err)
+	forall := func(body ast.ASTHandle) ast.ASTHandle {
+		h, e := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{usymbol.Numerical(1)}, Body: body})
+		must(t, e)
+		return h
+	}
+	fp, fq := forall(pv), forall(qv)
+	iff, err := m.MkIff(pv, qv)
+	must(t, err)
+	iffProof, err := m.MkProofAsserted(iff)
+	must(t, err)
+	oeq, err := m.MkOEq(pv, qv)
+	must(t, err)
+	oeqProof, err := m.MkProofAsserted(oeq)
+	must(t, err)
+	// The source-debug factory asserts the premise shape; the release
+	// factory builds the mixed step, which the checker must refuse.
+	if !ast.ASTSourceDebug {
+		mixed, err := m.MkProofOEqQuantIntro(fp, fq, iffProof)
+		must(t, err)
+		check(t, c, mixed, false)
+	}
+	control, err := m.MkProofOEqQuantIntro(fp, fq, oeqProof)
+	must(t, err)
+	check(t, c, control, true)
+	plain, err := m.MkProofQuantIntro(fp, fq, iffProof)
+	must(t, err)
+	check(t, c, plain, true)
+}

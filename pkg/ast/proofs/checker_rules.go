@@ -58,7 +58,9 @@ func (c *Checker) checkQuantIntro(fact ast.ASTHandle, has bool, ps []ast.ASTHand
 	if !has || len(ps) != 1 {
 		return false, nil, nil
 	}
-	a, b, yes, err := c.equiv(fact)
+	// PR_QUANT_INTRO: both the fact and the premise are iff or ~ (not =),
+	// and m.is_oeq(fact) == m.is_oeq(premise).
+	a, b, factOEq, yes, err := c.iffOrOEq(fact)
 	if err != nil || !yes {
 		return invalid(err)
 	}
@@ -66,9 +68,12 @@ func (c *Checker) checkQuantIntro(fact ast.ASTHandle, has bool, ps []ast.ASTHand
 	if err != nil || !y {
 		return invalid(err)
 	}
-	x, z, y, err := c.equiv(f)
+	x, z, premiseOEq, y, err := c.iffOrOEq(f)
 	if err != nil || !y {
 		return invalid(err)
+	}
+	if factOEq != premiseOEq {
+		return false, nil, nil
 	}
 	ka, err := c.manager.GetKind(a)
 	if err != nil {

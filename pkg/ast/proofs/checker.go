@@ -195,16 +195,38 @@ func sameEquivalence(c *Checker, a, b ast.ASTHandle) (bool, error) {
 	if a == b {
 		return true, nil
 	}
-	ka, err := c.manager.GetDeclKind(a)
-	if err != nil {
+	// SAME_OP: IS_EQUIV is m.is_eq || m.is_iff, i.e. basic-family OP_EQ
+	// or OP_IFF; another family's kind number is not an equivalence.
+	is := func(d ast.ASTHandle) (bool, error) {
+		fid, err := c.manager.GetFamilyID(d)
+		if err != nil || fid != c.manager.BasicFamilyID() {
+			return false, err
+		}
+		k, err := c.manager.GetDeclKind(d)
+		return err == nil && (k == ast.ASTOpEq || k == ast.ASTOpIff), err
+	}
+	ea, err := is(a)
+	if err != nil || !ea {
 		return false, err
 	}
-	kb, err := c.manager.GetDeclKind(b)
-	if err != nil {
-		return false, err
+	return is(b)
+}
+
+// iffOrOEq is match_iff(e, t1, t2) || match_oeq(e, t1, t2); oeq reports
+// which one matched.
+func (c *Checker) iffOrOEq(e ast.ASTHandle) (t1, t2 ast.ASTHandle, oeq, matched bool, err error) {
+	args, yes, err := c.op(e, ast.ASTOpIff, 2)
+	if err != nil || yes {
+		if yes {
+			return args[0], args[1], false, true, nil
+		}
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, false, err
 	}
-	is := func(k int32) bool { return k == ast.ASTOpEq || k == ast.ASTOpIff }
-	return is(ka) && is(kb), nil
+	args, yes, err = c.op(e, ast.ASTOpOEq, 2)
+	if err != nil || !yes {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, false, err
+	}
+	return args[0], args[1], true, true, nil
 }
 
 func (c *Checker) sideOr(fact ast.ASTHandle, parents []ast.ASTHandle) (ast.ASTHandle, error) {
