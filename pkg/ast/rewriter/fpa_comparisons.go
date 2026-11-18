@@ -39,16 +39,19 @@ func (r *FPARewriter) fpaNotEqNaN(h ast.ASTHandle) (ast.ASTHandle, error) {
 	return r.manager.MkNot(eq)
 }
 
+// fpaInfinityLessRewrite is mk_and(mk_not(mk_eq(other, inf)),
+// mk_neq_nan(other)). The reference GCC build evaluates mk_and's arguments
+// right to left, so the NaN disequality is built first.
 func (r *FPARewriter) fpaInfinityLessRewrite(other, infinity ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+	neqNaN, err := r.fpaNotEqNaN(other)
+	if err != nil {
+		return RewriteFailed, err
+	}
 	eq, err := r.manager.MkEq(other, infinity)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	neqInf, err := r.manager.MkNot(eq)
-	if err != nil {
-		return RewriteFailed, err
-	}
-	neqNaN, err := r.fpaNotEqNaN(other)
 	if err != nil {
 		return RewriteFailed, err
 	}

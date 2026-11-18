@@ -81,3 +81,50 @@ func TestFPAOrderedComparisonSourceSpecialAndNumericBranches(t *testing.T) {
 	astTestMust(t, err)
 	check(ast.FPAOpGe, pzero, pinf, Rewrite1, ge)
 }
+
+// fpa_rewriter::mk_lt(-oo, x) is mk_and(mk_not(mk_eq(x, -oo)),
+// mk_neq_nan(x)); GCC evaluates the arguments right to left, so the NaN
+// equality is created before the infinity equality.
+func TestFPALessInfinityConstructionOrder(t *testing.T) {
+	m := astTestManager(t)
+	_, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	_, err = m.RegisterBitVectorPlugin()
+	astTestMust(t, err)
+	rw, err := NewFPARewriter(m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, rw.Close()) }()
+	sort, err := m.MkFamilySort(rw.family, 3, nil)
+	astTestMust(t, err)
+	parameter, err := m.NewParameterAST(sort)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelParameter(&parameter)) }()
+	ninf, err := m.MkFamilyApp(rw.family, 7, []ast.ASTParameter{parameter}, nil)
+	astTestMust(t, err)
+	astTestPin(t, m, ninf)
+	variable, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	astTestPin(t, m, variable)
+	out := astTestPin(t, m, ast.ASTHandle{})
+	decl, err := m.MkFamilyFuncDecl(rw.family, ast.FPAOpLt, nil, []ast.ASTHandle{sort, sort}, ast.ASTHandle{})
+	astTestMust(t, err)
+	astTestPin(t, m, decl)
+	if _, err = rw.MkAppCore(decl, ast.SliceArguments([]ast.ASTHandle{ninf, variable}), out); err != nil {
+		t.Fatal(err)
+	}
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	id := func(h ast.ASTHandle, path ...uint32) uint32 {
+		t.Helper()
+		for _, i := range path {
+			h, err = m.GetArg(h, i)
+			astTestMust(t, err)
+		}
+		v, e := m.GetASTID(h)
+		astTestMust(t, e)
+		return v
+	}
+	if nanEq, infEq := id(got, 1, 0), id(got, 0, 0); nanEq >= infEq {
+		t.Fatal("NaN equality must precede the infinity equality", nanEq, infEq)
+	}
+}
