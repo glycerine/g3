@@ -422,6 +422,7 @@ Abstract:
 #include "util/mpq.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/proofs/proof_checker.h"
 #include "muz/base/dl_util.h"
 #include "muz/fp/datalog_parser.h"
 #include "util/warning.h"
@@ -4612,4 +4613,29 @@ void tst_z3_4_7_1_opb_constraint_without_relation() {
               << " signal " << (WIFSIGNALED(status) ? WTERMSIG(status) : 0) << "\n";
     ENSURE(WIFEXITED(status) && WEXITSTATUS(status) == 3);
 #endif
+}
+
+// FORK FIX #129: proof_checker reached UNREACHABLE() (__builtin_unreachable()
+// in the release build) on every rejection, e.g. for a PR_TRUE proof and for
+// a non-rational farkas coefficient. They now return false.
+void tst_z3_4_7_1_proof_checker_rejects() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    bool true_ok, farkas_ok;
+    {
+        proof_checker pc(m);
+        expr_ref_vector side(m);
+        proof_ref pr(m.mk_true_proof(), m);
+        true_ok = pc.check(pr, side);
+    }
+    {
+        proof_checker pc(m);
+        expr_ref_vector side(m);
+        parameter params[3] = { parameter(symbol("arith")), parameter(symbol("farkas")), parameter(symbol("not-a-coefficient")) };
+        proof_ref pr(m.mk_th_lemma(a.get_family_id(), m.mk_false(), 0, nullptr, 3, params), m);
+        farkas_ok = pc.check(pr, side);
+    }
+    std::cout << "proof_checker_rejects: true-axiom " << true_ok << " farkas symbol " << farkas_ok << "\n";
+    ENSURE(!true_ok && !farkas_ok);
 }

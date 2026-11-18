@@ -22,6 +22,10 @@ const (
 // parameterSymbolsAndCoefficients returns the coefficients as rationals of
 // the AST manager's NumeralService().Manager owned by the caller
 // (releaseCoefficients).
+// errNonRationalCoefficient marks a th-lemma parameter after the second
+// that is not a rational.
+var errNonRationalCoefficient = errors.New("proof checker: non-rational th-lemma coefficient")
+
 func (c *Checker) parameterSymbolsAndCoefficients(p ast.ASTHandle) (first, second string, coeffs []unumeral.Rational, result error) {
 	d, err := c.manager.GetDecl(p)
 	if err != nil {
@@ -66,7 +70,11 @@ func (c *Checker) parameterSymbolsAndCoefficients(p ast.ASTHandle) (first, secon
 		}
 		matched, e := c.manager.ParameterRationalCopy(params[i], &q)
 		if e != nil || !matched {
-			return "", "", nil, errors.Join(e, service.Del(&q))
+			e = errors.Join(e, service.Del(&q), c.releaseCoefficients(coeffs))
+			if e == nil {
+				e = errNonRationalCoefficient
+			}
+			return first, second, nil, e
 		}
 		coeffs = append(coeffs, unumeral.NewRational())
 		e = errors.Join(service.Manager.Copy(&coeffs[len(coeffs)-1], &q.Raw), service.Del(&q))
@@ -286,6 +294,12 @@ func (c *Checker) checkArithLiteral(arith ast.FamilyID, isPositive bool, literal
 
 func (c *Checker) checkTheoryLemma(p ast.ASTHandle) (valid bool, side []ast.ASTHandle, result error) {
 	first, second, coeffs, err := c.parameterSymbolsAndCoefficients(p)
+	if errors.Is(err, errNonRationalCoefficient) {
+		// check_arith_proof: a farkas parameter that is not rational is
+		// UNREACHABLE(); return false; (__builtin_unreachable() in the release
+		// build). g3 rejects the lemma; other th-lemmas are accepted unread.
+		return first != "arith" || second != "farkas", nil, nil
+	}
 	if err != nil {
 		return false, nil, err
 	}

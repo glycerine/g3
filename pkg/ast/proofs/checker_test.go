@@ -233,3 +233,35 @@ func TestCheckerArithmeticFarkasLemma(t *testing.T) {
 	must(t, m.DelParameter(&farkas))
 	check(t, c, lemma, true)
 }
+
+// check1_basic has no PR_TRUE case and check_arith_proof refuses a farkas
+// parameter that is not rational: both reach UNREACHABLE(); return false.
+func TestCheckerRejectsTrueProofAndNonRationalFarkas(t *testing.T) {
+	m := fixture(t)
+	c, err := proofs.NewChecker(m)
+	must(t, err)
+	must(t, m.RegisterDeclarationPlugins())
+	truth, err := m.MkProofTrue()
+	must(t, err)
+	check(t, c, truth, false)
+
+	arithName, err := m.Symbols.Intern("arith")
+	must(t, err)
+	arith, err := m.FamilyIDForSymbol(arithName)
+	must(t, err)
+	falseExpr, err := m.MkFalse()
+	must(t, err)
+	farkasName, err := m.Symbols.Intern("farkas")
+	must(t, err)
+	farkas, err := m.NewParameterSymbol(farkasName)
+	must(t, err)
+	oddName, err := m.Symbols.Intern("not-a-coefficient")
+	must(t, err)
+	odd, err := m.NewParameterSymbol(oddName)
+	must(t, err)
+	lemma, err := m.MkProofTheoryLemma(arith, falseExpr, nil, []ast.ASTParameter{farkas, odd})
+	must(t, err)
+	must(t, m.DelParameter(&odd))
+	must(t, m.DelParameter(&farkas))
+	check(t, c, lemma, false)
+}

@@ -25,7 +25,10 @@ func (c *Checker) checkBasic(p ast.ASTHandle, ps []ast.ASTHandle) (bool, []ast.A
 		return c.fact(ps[i])
 	}
 	switch k {
-	case ast.ASTPrUndef, ast.ASTPrAsserted, ast.ASTPrGoal, ast.ASTPrTrue:
+	// PR_TRUE has no case in check1_basic: it reaches the default
+	// (UNREACHABLE(); return false;), which the release build compiles to
+	// __builtin_unreachable(). g3 rejects it (fork fix candidate).
+	case ast.ASTPrUndef, ast.ASTPrAsserted, ast.ASTPrGoal:
 		return true, nil, nil
 	case ast.ASTPrModusPonens, ast.ASTPrModusPonensOEq:
 		if !hasFact || len(ps) != 2 {

@@ -12,6 +12,18 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 
+// FORK FIX #129 (g3 audit, see FORK_BUGFIXES.md): every rejection path in
+// the checker (an unhandled rule such as PR_TRUE, a non-rational farkas
+// coefficient, a failed premise check, and check() after any failed step)
+// calls UNREACHABLE() before returning false or reporting the failure. In
+// the release build UNREACHABLE() is __builtin_unreachable(), so rejecting
+// a proof was undefined behavior. Outside debug builds it is a no-op here,
+// so the checker returns false as written.
+#ifndef Z3DEBUG
+#undef UNREACHABLE
+#define UNREACHABLE() ((void)0)
+#endif
+
 #define IS_EQUIV(_e_) (m.is_eq(_e_) || m.is_iff(_e_))
 
 #define SAME_OP(_d1_, _d2_) ((_d1_ == _d2_) || (IS_EQUIV(_d1_) && IS_EQUIV(_d2_)))
