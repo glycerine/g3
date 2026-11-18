@@ -3,7 +3,6 @@ package qe_test
 // Source: src/qe/qe_arith_plugin.cpp mk_resolve/mk_atom.
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -11,7 +10,7 @@ import (
 
 func TestArithmeticQEResolveUnitRealAndIntegerGate(t *testing.T) {
 	f := newArithmeticQEFixture(t)
-	resolved, handled, err := f.util.ResolveUnitOrReal(f.rx, false, big.NewRat(2, 1), f.ry, big.NewRat(-3, 1), f.rx)
+	resolved, handled, err := f.util.ResolveUnitOrReal(f.rx, false, smallRat(2, 1), f.ry, smallRat(-3, 1), f.rx)
 	pluginMust(t, err)
 	if !handled {
 		t.Fatal("real nonunit resolution refused")
@@ -22,12 +21,12 @@ func TestArithmeticQEResolveUnitRealAndIntegerGate(t *testing.T) {
 		t.Fatal("resolved real bound kind", kind, err)
 	}
 	pluginMust(t, f.manager.DelRef(&resolved))
-	resolved, handled, err = f.util.ResolveUnitOrReal(f.x, false, big.NewRat(4, 1), f.y, big.NewRat(-5, 1), f.x)
+	resolved, handled, err = f.util.ResolveUnitOrReal(f.x, false, smallRat(4, 1), f.y, smallRat(-5, 1), f.x)
 	pluginMust(t, err)
 	if handled || resolved != (ast.ASTRef{}) {
 		t.Fatal("nonunit integer resolution bypassed Cooper gate")
 	}
-	resolved, handled, err = f.util.ResolveUnitOrReal(f.x, true, big.NewRat(1, 1), f.y, big.NewRat(-1, 1), f.x)
+	resolved, handled, err = f.util.ResolveUnitOrReal(f.x, true, smallRat(1, 1), f.y, smallRat(-1, 1), f.x)
 	pluginMust(t, err)
 	if !handled {
 		t.Fatal("unit strict integer resolution refused")

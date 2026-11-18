@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -24,14 +23,14 @@ func TestExprQEBranchLimitRestrictsArithmeticProxy(t *testing.T) {
 	defer func() { fmMust(t, root.Close()) }()
 	fmMust(t, root.initialize(truth))
 	fmMust(t, vars.consume(root))
-	fmMust(t, constrainExprQEBranch(root, vars, solver, variable, big.NewRat(3, 1)))
+	fmMust(t, constrainExprQEBranch(root, vars, solver, variable, qeSmallRat(3, 1)))
 	proxy, err := vars.branch(variable)
 	fmMust(t, err)
 	for _, tc := range []struct {
 		n    int64
 		want lbool.LBool
 	}{{2, lbool.True}, {3, lbool.False}} {
-		eq, e := exprQEBranchEquality(m, proxy, big.NewRat(tc.n, 1))
+		eq, e := exprQEBranchEquality(m, proxy, qeSmallRat(tc.n, 1))
 		fmMust(t, e)
 		h, e := m.RefGet(eq)
 		fmMust(t, e)

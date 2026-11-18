@@ -5,11 +5,11 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // arith_decl_plugin.h decl kinds and sort kinds read by is_pure_proc.
@@ -110,15 +110,19 @@ func (c *nlqPureCheck) app(n ast.ASTHandle) error {
 				if err != nil {
 					return err
 				}
-				text, numeral, err := c.isNumeral(exponent)
-				if err != nil {
+				// a.is_numeral(n2, r) && r.is_unsigned()
+				q := m.NumeralService().Manager
+				r := unumeral.NewRational()
+				_, numeral, err := m.ArithmeticNumeralRational(exponent, &r)
+				unsigned := false
+				if err == nil && numeral {
+					unsigned, err = q.IsUnsigned(&r)
+				}
+				if err = errors.Join(err, q.Del(&r)); err != nil {
 					return err
 				}
-				if numeral {
-					value, valid := new(big.Rat).SetString(text)
-					if valid && value.IsInt() && value.Sign() >= 0 && value.Num().IsUint64() && value.Num().Uint64() <= 0xffffffff {
-						return nil
-					}
+				if unsigned {
+					return nil
 				}
 			}
 		}
@@ -230,13 +234,17 @@ func (c *nlqDivisionConfiguration) ReduceApp(decl ast.ASTHandle, args ast.AppArg
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
-	text, _, numeral, err := c.manager.ArithmeticNumeralText(denominator)
+	// a.is_numeral(den, r) && !r.is_zero()
+	numeral, err := c.manager.IsArithmeticNumeral(denominator)
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
 	if numeral {
-		value, valid := new(big.Rat).SetString(text)
-		if valid && value.Sign() != 0 {
+		zero, err := c.manager.ArithmeticNumeralIsZero(denominator)
+		if err != nil {
+			return rewriter.RewriteFailed, err
+		}
+		if !zero {
 			return rewriter.RewriteFailed, nil
 		}
 	}

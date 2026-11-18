@@ -4,7 +4,6 @@ package qe
 // arith_project_util::is_linear.
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -26,7 +25,7 @@ func TestLegacyArithmeticProjectionClassifiesLinearLiterals(t *testing.T) {
 	literal := f.own(m.MkNot(closed))
 	classified, err := p.linearLiteral(x, literal)
 	fmMust(t, err)
-	if classified == nil || !classified.strict || classified.equality || classified.disequality || classified.coefficient.Cmp(big.NewRat(-2, 1)) != 0 {
+	if classified == nil || !classified.strict || classified.equality || classified.disequality || !qeRatIs(p.syntax.manager, &classified.coefficient, -2, 1) {
 		t.Fatal("legacy linear classification", classified)
 	}
 	md, err := model.NewModel(m)
@@ -74,7 +73,7 @@ func TestLegacyArithmeticProjectionClassifiesEqualities(t *testing.T) {
 	equality := f.own(m.MkEq(x, one))
 	classified, err := p.linearLiteral(x, equality)
 	fmMust(t, err)
-	if classified == nil || !classified.equality || classified.disequality || classified.strict || classified.coefficient.Cmp(big.NewRat(1, 1)) != 0 {
+	if classified == nil || !classified.equality || classified.disequality || classified.strict || !qeRatIs(p.syntax.manager, &classified.coefficient, 1, 1) {
 		t.Fatal("legacy equality classification", classified)
 	}
 	fmMust(t, classified.Close())
@@ -94,7 +93,7 @@ func TestLegacyArithmeticProjectionClassifiesEqualities(t *testing.T) {
 	divides := f.own(m.MkEq(modulus, zero))
 	classified, err = p.linearLiteral(x, divides)
 	fmMust(t, err)
-	if classified == nil || classified.equality || classified.disequality || classified.divisor.Cmp(big.NewRat(3, 1)) != 0 || classified.coefficient.Cmp(big.NewRat(2, 1)) != 0 {
+	if classified == nil || classified.equality || classified.disequality || !qeRatIs(p.syntax.manager, &classified.divisor, 3, 1) || !qeRatIs(p.syntax.manager, &classified.coefficient, 2, 1) {
 		t.Fatal("legacy divisibility classification", classified)
 	}
 	fmMust(t, classified.Close())
@@ -120,7 +119,7 @@ func TestLegacyArithmeticLinearTermShapes(t *testing.T) {
 	mod := f.own(m.MkFamilyApp(p.syntax.family, 13, nil, []ast.ASTHandle{f.own(m.MkArithmeticAdd(x, y)), three}))
 	divisible, err := p.linearLiteral(x, f.own(m.MkEq(mod, zero)))
 	fmMust(t, err)
-	if divisible == nil || divisible.divisor.Cmp(big.NewRat(3, 1)) != 0 {
+	if divisible == nil || !qeRatIs(p.syntax.manager, &divisible.divisor, 3, 1) {
 		t.Fatal("divisibility literal", divisible)
 	}
 	term, err := m.RefGet(divisible.term)
@@ -141,7 +140,7 @@ func TestLegacyArithmeticLinearTermShapes(t *testing.T) {
 	}
 	fmMust(t, bound.Close())
 
-	unit, err := p.multiplyLegacy(big.NewRat(1, 1), y)
+	unit, err := p.multiplyLegacy(qeSmallRat(1, 1), y)
 	fmMust(t, err)
 	one := f.own(m.ArithmeticIntegerNumeralText("1"))
 	if unit != f.own(m.MkArithmeticMul(one, y)) {

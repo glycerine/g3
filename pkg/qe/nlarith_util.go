@@ -4,11 +4,11 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type NonlinearArithmeticUtil struct {
@@ -53,14 +53,14 @@ func NewNonlinearArithmeticUtilConfig(manager *ast.ASTManager, config Config) (_
 			err = errors.Join(err, u.Close())
 		}
 	}()
-	zero, err := manager.ArithmeticNumeralRat(big.NewRat(0, 1), false)
+	zero, err := manager.ArithmeticRealNumeralText("0")
 	if err != nil {
 		return nil, err
 	}
 	if u.zero, err = manager.NewRef(zero); err != nil {
 		return nil, err
 	}
-	one, err := manager.ArithmeticNumeralRat(big.NewRat(1, 1), false)
+	one, err := manager.ArithmeticRealNumeralText("1")
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +125,8 @@ func (u *NonlinearArithmeticUtil) Close() error {
 	}
 	return err
 }
-func (u *NonlinearArithmeticUtil) numeral(h ast.ASTHandle) (*big.Rat, bool, error) {
-	return u.term.numeral(h)
+
+// numeral is A.is_numeral(h, n).
+func (u *NonlinearArithmeticUtil) numeral(h ast.ASTHandle, n *unumeral.Rational) (bool, error) {
+	return u.term.numeral(h, n)
 }

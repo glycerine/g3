@@ -5,22 +5,35 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func legacyIntegerMod(value, modulus *big.Rat) (*big.Rat, error) {
-	if value == nil || modulus == nil || !value.IsInt() || !modulus.IsInt() || modulus.Sign() == 0 {
-		return nil, ast.ErrASTDomain
+// legacyIntegerMod is out = mod(value, abs(modulus)) of integer rationals.
+func legacyIntegerMod(q *unumeral.RationalManager, value, modulus, out *unumeral.Rational) (resultErr error) {
+	if value == nil || modulus == nil {
+		return ast.ErrASTDomain
 	}
-	m := new(big.Int).Abs(modulus.Num())
-	return new(big.Rat).SetInt(new(big.Int).Mod(value.Num(), m)), nil
+	for _, v := range []*unumeral.Rational{value, modulus} {
+		if isInt, err := q.IsInt(v); err != nil || !isInt {
+			return errors.Join(err, ast.ErrASTDomain)
+		}
+	}
+	if zero, err := q.IsZero(modulus); err != nil || zero {
+		return errors.Join(err, ast.ErrASTDomain)
+	}
+	m := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&m)) }()
+	if err := errors.Join(q.Copy(&m, modulus), q.Abs(&m)); err != nil {
+		return err
+	}
+	return q.Mod(value, &m, out)
 }
 
-func (p *legacyArithmeticProjection) integerDivisibility(term ast.ASTHandle, divisor *big.Rat) (ast.ASTRef, error) {
-	modulus, err := p.syntax.manager.ArithmeticNumeralRat(divisor, true)
+func (p *legacyArithmeticProjection) integerDivisibility(term ast.ASTHandle, divisor *unumeral.Rational) (ast.ASTRef, error) {
+	modulus, err := p.syntax.manager.ArithmeticNumeralFromRational(divisor, true)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -68,8 +81,13 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 	if err = evaluator.SetModelCompletion(true); err != nil {
 		return nil, false, err
 	}
-	variableValue, err := p.evaluateRat(evaluator, variable)
-	if err != nil {
+	// rational values of the projection.
+	q := p.q()
+	variableValue, value, lcmCoefficients, lcmDivisors, xValue := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() {
+		resultErr = errors.Join(resultErr, q.Del(&variableValue), q.Del(&value), q.Del(&lcmCoefficients), q.Del(&lcmDivisors), q.Del(&xValue))
+	}()
+	if err = p.evaluateRat(evaluator, variable, &variableValue); err != nil {
 		return nil, false, err
 	}
 	literals := make([]*legacyLinearLiteral, 0, len(inputs))
@@ -96,7 +114,9 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 		// model evaluation and normalization can fail.
 		literals = append(literals, literal)
 		originals = append(originals, input)
-		if literal.coefficient.Sign() == 0 {
+		if zero, err := q.IsZero(&literal.coefficient); err != nil {
+			return nil, false, err
+		} else if zero {
 			if err = literal.Close(); err != nil {
 				return nil, false, err
 			}
@@ -108,7 +128,7 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 		if err != nil {
 			return nil, false, err
 		}
-		coefficientTerm, err := p.multiplyLegacy(literal.coefficient, variable)
+		coefficientTerm, err := p.multiplyLegacy(&literal.coefficient, variable)
 		if err != nil {
 			return nil, false, err
 		}
@@ -116,32 +136,45 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 		if err != nil {
 			return nil, false, err
 		}
-		value, err := p.evaluateRat(evaluator, sum)
+		if err = p.evaluateRat(evaluator, sum, &value); err != nil {
+			return nil, false, err
+		}
+		valueSign, err := q.Sign(&value)
 		if err != nil {
 			return nil, false, err
 		}
 		if literal.equality {
-			if equalityIndex < 0 && value.Sign() == 0 {
+			if equalityIndex < 0 && valueSign == 0 {
 				equalityIndex = len(literals) - 1
 			}
 		} else {
 			if literal.disequality {
-				if value.Sign() > 0 {
-					literal.coefficient.Neg(literal.coefficient)
-					negated, err := p.multiplyLegacy(big.NewRat(-1, 1), term)
+				if valueSign > 0 {
+					if err = q.Neg(&literal.coefficient); err != nil {
+						return nil, false, err
+					}
+					negated, err := p.multiplyLegacyInt(-1, term)
 					if err != nil {
 						return nil, false, err
 					}
 					if err = p.replaceLegacyTerm(literal, negated); err != nil {
 						return nil, false, err
 					}
-					value.Neg(value)
+					valueSign = -valueSign
 				}
 				literal.strict = true
 				literal.disequality = false
 			}
-			if literal.divisor.Sign() == 0 && (value.Sign() < 0 || (!literal.strict && value.Sign() == 0)) {
-				if literal.coefficient.Sign() > 0 {
+			divisorZero, err := q.IsZero(&literal.divisor)
+			if err != nil {
+				return nil, false, err
+			}
+			if divisorZero && (valueSign < 0 || (!literal.strict && valueSign == 0)) {
+				coefficientSign, err := p.sign(&literal.coefficient)
+				if err != nil {
+					return nil, false, err
+				}
+				if coefficientSign > 0 {
 					positive++
 				} else {
 					negative++
@@ -152,15 +185,14 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 	if len(literals) == 0 {
 		return &legacyRealProjection{manager: p.syntax.manager}, true, nil
 	}
-	lcmCoefficients, lcmDivisors, err := p.normalizeIntegers(literals)
-	if err != nil {
+	if err = p.normalizeIntegers(literals, &lcmCoefficients, &lcmDivisors); err != nil {
 		return nil, false, err
 	}
 	attachDivisibility := func(result *legacyRealProjection, xTerm ast.ASTHandle) error {
-		if lcmCoefficients.Cmp(big.NewRat(1, 1)) == 0 {
-			return nil
+		if one, err := q.IsOne(&lcmCoefficients); err != nil || one {
+			return err
 		}
-		constraint, err := p.integerDivisibility(xTerm, lcmCoefficients)
+		constraint, err := p.integerDivisibility(xTerm, &lcmCoefficients)
 		if err == nil {
 			result.divisibility = constraint
 		}
@@ -172,7 +204,9 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 		if err != nil {
 			return nil, false, err
 		}
-		if literal.coefficient.Sign() > 0 {
+		if positive, e := q.IsPos(&literal.coefficient); e != nil {
+			return nil, false, e
+		} else if positive {
 			xTerm, err = p.syntax.manager.MkArithmeticNeg(xTerm)
 			if err != nil {
 				return nil, false, err
@@ -201,25 +235,36 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 		return result, true, nil
 	}
 	if positive == 0 || negative == 0 {
-		xValue := new(big.Rat).Mul(lcmCoefficients, variableValue)
-		xValue, err = legacyIntegerMod(xValue, lcmDivisors)
-		if err != nil {
+		if err = q.Mul(&lcmCoefficients, &variableValue, &xValue); err != nil {
 			return nil, false, err
 		}
-		xTerm, err := p.syntax.manager.ArithmeticNumeralRat(xValue, true)
+		if err = legacyIntegerMod(q, &xValue, &lcmDivisors, &xValue); err != nil {
+			return nil, false, err
+		}
+		xTerm, err := p.syntax.manager.ArithmeticNumeralFromRational(&xValue, true)
 		if err != nil {
 			return nil, false, err
 		}
 		result = &legacyRealProjection{manager: p.syntax.manager}
 		for index, literal := range literals {
 			var replacement ast.ASTRef
-			if literal.divisor.Sign() != 0 {
+			divisorZero, err := q.IsZero(&literal.divisor)
+			if err != nil {
+				_ = result.Close()
+				return nil, false, err
+			}
+			coefficientSign, err := p.sign(&literal.coefficient)
+			if err != nil {
+				_ = result.Close()
+				return nil, false, err
+			}
+			if !divisorZero {
 				term, err := p.syntax.manager.RefGet(literal.term)
 				if err != nil {
 					_ = result.Close()
 					return nil, false, err
 				}
-				if literal.coefficient.Sign() > 0 {
+				if coefficientSign > 0 {
 					term, err = p.syntax.manager.MkArithmeticAdd(term, xTerm)
 				} else {
 					negated, negateErr := p.syntax.manager.MkArithmeticNeg(xTerm)
@@ -236,14 +281,14 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 						term, err = p.syntax.manager.RefGet(rewritten)
 					}
 					if err == nil {
-						replacement, err = p.integerDivisibility(term, literal.divisor)
+						replacement, err = p.integerDivisibility(term, &literal.divisor)
 					}
 					if rewritten != (ast.ASTRef{}) {
 						err = errors.Join(err, p.syntax.manager.DelRef(&rewritten))
 					}
 				}
 			} else {
-				value := !(literal.equality || (positive == 0 && literal.coefficient.Sign() > 0) || (negative == 0 && literal.coefficient.Sign() < 0))
+				value := !(literal.equality || (positive == 0 && coefficientSign > 0) || (negative == 0 && coefficientSign < 0))
 				replacement, err = p.constantLegacy(value)
 			}
 			if err != nil {
@@ -263,7 +308,7 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 	if err != nil {
 		return nil, false, err
 	}
-	coefficientTerm, err := p.multiplyLegacy(literals[selected].coefficient, variable)
+	coefficientTerm, err := p.multiplyLegacy(&literals[selected].coefficient, variable)
 	if err != nil {
 		return nil, false, err
 	}
@@ -271,19 +316,23 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 	if err != nil {
 		return nil, false, err
 	}
-	value, err := p.evaluateRat(evaluator, sum)
-	if err != nil {
+	if err = p.evaluateRat(evaluator, sum, &value); err != nil {
 		return nil, false, err
 	}
-	offset := new(big.Rat).Abs(value)
+	// offset = abs(value) (- 1 when strict) mod m_lcm_divs
+	offset := &value
+	if err = q.Abs(offset); err != nil {
+		return nil, false, err
+	}
 	if literals[selected].strict {
-		offset.Sub(offset, big.NewRat(1, 1))
+		if err = q.Dec(offset); err != nil {
+			return nil, false, err
+		}
 	}
-	offset, err = legacyIntegerMod(offset, lcmDivisors)
-	if err != nil {
+	if err = legacyIntegerMod(q, offset, &lcmDivisors, offset); err != nil {
 		return nil, false, err
 	}
-	offsetTerm, err := p.syntax.manager.ArithmeticNumeralRat(offset, true)
+	offsetTerm, err := p.syntax.manager.ArithmeticNumeralFromRational(offset, true)
 	if err != nil {
 		return nil, false, err
 	}
@@ -296,7 +345,11 @@ func (p *legacyArithmeticProjection) projectInteger(md *model.ModelCore, variabl
 			err = oneErr
 		}
 	}
-	if err == nil && literals[selected].coefficient.Sign() > 0 {
+	selectedPositive := false
+	if err == nil {
+		selectedPositive, err = q.IsPos(&literals[selected].coefficient)
+	}
+	if err == nil && selectedPositive {
 		xTerm, err = p.syntax.manager.MkArithmeticNeg(xTerm)
 	}
 	if err != nil {

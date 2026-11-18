@@ -39,7 +39,7 @@ func TestExprQETreeChooseBranchSelectsAndPublishes(t *testing.T) {
 	}()
 	found, err := chooseExprQETreeBranch(root, variables, context, solver, &free)
 	fmMust(t, err)
-	if !found || root.selected == (ast.ASTRef{}) || root.branches.RatString() != "2" || len(root.variables) != 0 || len(free) != 0 {
+	if !found || root.selected == (ast.ASTRef{}) || qeRatText(root.manager, &root.branches) != "2" || len(root.variables) != 0 || len(free) != 0 {
 		t.Fatal("Boolean branch was not selected and constrained")
 	}
 	selected, err := m.RefGet(root.selected)

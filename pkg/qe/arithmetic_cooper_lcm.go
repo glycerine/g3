@@ -1,35 +1,50 @@
 package qe
 
-import (
-	"math/big"
+// Source: src/qe/qe_arith_plugin.cpp bounds_proc::div_z (m_d = lcm(...)).
 
+import (
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func cooperLCM(values []*ArithmeticDivisibility) (*big.Int, error) {
-	result := big.NewInt(1)
-	for _, v := range values {
-		if v == nil || v.Divisor == nil || !v.Divisor.IsInt() {
-			return nil, ast.ErrASTDomain
-		}
-		n := new(big.Int).Abs(v.Divisor.Num())
-		if n.Sign() == 0 {
-			return nil, ast.ErrASTDomain
-		}
-		g := new(big.Int).GCD(nil, nil, result, n)
-		result.Mul(new(big.Int).Quo(result, g), n)
+// cooperLCM is div_z's m_d = rational(1); m_d = lcm(divisor, m_d) over the
+// divisors, written into out (a rational of q).
+func cooperLCM(q *unumeral.RationalManager, values []*ArithmeticDivisibility, out *unumeral.Rational) error {
+	if err := q.SetInt32(out, 1); err != nil {
+		return err
 	}
-	return result, nil
+	for _, v := range values {
+		if v == nil {
+			return ast.ErrASTDomain
+		}
+		isInt, err := q.IsInt(&v.Divisor)
+		if err != nil {
+			return err
+		}
+		zero, err := q.IsZero(&v.Divisor)
+		if err != nil {
+			return err
+		}
+		if !isInt || zero {
+			return ast.ErrASTDomain
+		}
+		if err = q.LCM(&v.Divisor, out, out); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func ArithmeticCooperDivisor(processor *ArithmeticBoundsProcessor) (*big.Int, bool, error) {
+// ArithmeticCooperDivisor is the lcm of all of processor's divisors, written
+// into out (a rational of the manager's NumeralService().Manager).
+func ArithmeticCooperDivisor(processor *ArithmeticBoundsProcessor, out *unumeral.Rational) (bool, error) {
 	if processor == nil {
-		return nil, false, ast.ErrASTHandle
+		return false, ast.ErrASTHandle
 	}
 	values := append(processor.Divisibilities(false), processor.Divisibilities(true)...)
 	if len(values) == 0 {
-		return nil, false, nil
+		return false, nil
 	}
-	value, err := cooperLCM(values)
-	return value, err == nil, err
+	err := cooperLCM(processor.util.q(), values, out)
+	return err == nil, err
 }

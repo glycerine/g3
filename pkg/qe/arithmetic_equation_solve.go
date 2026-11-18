@@ -8,10 +8,10 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const (
@@ -186,7 +186,7 @@ func (p *ArithmeticPlugin) mulLtKey(n ast.ASTHandle) (uint32, error) {
 		return 0, err
 	}
 	if ok {
-		if _, numeral, e := p.util.numeral(x); e != nil {
+		if numeral, e := p.util.isNumeral(x); e != nil {
 			return 0, e
 		} else if numeral {
 			n = y
@@ -255,9 +255,9 @@ func (p *ArithmeticPlugin) reduceEquations(eqs []ast.ASTRef, formula ast.ASTHand
 
 // reduceEquation is arith_qe_util::reduce_equation.
 func (p *ArithmeticPlugin) reduceEquation(eq, formula ast.ASTHandle) (bool, error) {
-	if k, numeral, err := p.util.numeral(eq); err != nil {
+	if zero, err := p.manager.ArithmeticNumeralIsZero(eq); err != nil {
 		return false, err
-	} else if numeral && k.Sign() == 0 {
+	} else if zero {
 		return false, nil
 	}
 	solved, err := p.solveSingular(eq, formula)
@@ -282,12 +282,13 @@ func (p *ArithmeticPlugin) solveSingular(eq, formula ast.ASTHandle) (bool, error
 	return false, nil
 }
 
-// isolateX is arith_qe_util::isolate_x.
-func (p *ArithmeticPlugin) isolateX(poly, x ast.ASTHandle, contains *ast.ContainsApp) (*big.Rat, bool, error) {
+// isolateX is arith_qe_util::isolate_x(p, x, contains_x, coeff): coeff is
+// a rational of the manager's NumeralService().Manager.
+func (p *ArithmeticPlugin) isolateX(poly, x ast.ASTHandle, contains *ast.ContainsApp, coeff *unumeral.Rational) (_ bool, resultErr error) {
 	for {
 		args, isAdd, err := p.arithApp(poly, arithOpAdd)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if !isAdd {
 			break
@@ -297,39 +298,43 @@ func (p *ArithmeticPlugin) isolateX(poly, x ast.ASTHandle, contains *ast.Contain
 		for _, arg := range args {
 			has, err := contains.Check(arg)
 			if err != nil {
-				return nil, false, err
+				return false, err
 			}
 			if has {
 				if found {
-					return nil, false, nil
+					return false, nil
 				}
 				found = true
 				next = arg
 			}
 		}
 		if next.IsNull() {
-			return nil, false, nil
+			return false, nil
 		}
 		poly = next
 	}
+	q := p.util.q()
 	if poly == x {
-		return big.NewRat(1, 1), true, nil
+		return true, q.SetInt32(coeff, 1)
 	}
 	e1, e2, ok, err := p.binaryMul(poly)
 	if err != nil || !ok {
-		return nil, false, err
+		return false, err
 	}
-	if k, numeral, err := p.util.numeral(e1); err != nil {
-		return nil, false, err
+	// numeral k;
+	k := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&k)) }()
+	if numeral, err := p.util.numeral(e1, &k); err != nil {
+		return false, err
 	} else if numeral && e2 == x {
-		return k, true, nil
+		return true, q.Copy(coeff, &k)
 	}
-	if k, numeral, err := p.util.numeral(e2); err != nil {
-		return nil, false, err
+	if numeral, err := p.util.numeral(e2, &k); err != nil {
+		return false, err
 	} else if numeral && e1 == x {
-		return k, true, nil
+		return true, q.Copy(coeff, &k)
 	}
-	return nil, false, nil
+	return false, nil
 }
 
 // solveSingularAt is arith_qe_util::solve_singular(var_idx, p, fml).
@@ -343,7 +348,12 @@ func (p *ArithmeticPlugin) solveSingularAt(index uint32, poly, formula ast.ASTHa
 	if err != nil {
 		return false, err
 	}
-	k, isolated, err := p.isolateX(poly, x, contains)
+	// rational k;
+	q := p.util.q()
+	kValue := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&kValue)) }()
+	k := &kValue
+	isolated, err := p.isolateX(poly, x, contains, k)
 	if err != nil || !isolated {
 		return false, err
 	}
@@ -351,7 +361,13 @@ func (p *ArithmeticPlugin) solveSingularAt(index uint32, poly, formula ast.ASTHa
 	if err != nil {
 		return false, err
 	}
-	unit := new(big.Rat).Abs(k).Cmp(big.NewRat(1, 1)) == 0
+	unit, err := q.IsOne(k)
+	if err == nil && !unit {
+		unit, err = q.IsMinusOne(k)
+	}
+	if err != nil {
+		return false, err
+	}
 	if integer && !unit {
 		return false, nil
 	}
@@ -367,14 +383,22 @@ func (p *ArithmeticPlugin) solveSingularAt(index uint32, poly, formula ast.ASTHa
 	defer func() { err = errors.Join(err, m.DelRef(&tmp)) }()
 	var value ast.ASTHandle
 	if unit {
-		if k.Sign() < 0 {
+		negative, cause := q.IsNeg(k)
+		if cause != nil {
+			return false, cause
+		}
+		if negative {
 			value, err = m.MkArithmeticAdd(poly, x)
 		} else {
 			value, err = m.MkArithmeticSub(x, poly)
 		}
 	} else {
 		//    p = p' + k*x = 0  =>  x = (p - k*x)/ -k
-		ke, cause := m.ArithmeticNumeralRat(new(big.Rat).Neg(k), false)
+		cause := q.Neg(k)
+		var ke ast.ASTHandle
+		if cause == nil {
+			ke, cause = m.ArithmeticNumeralFromRational(k, false)
+		}
 		var t ast.ASTHandle
 		if cause == nil {
 			t, cause = m.MkArithmeticMul(ke, x)
@@ -429,7 +453,7 @@ func (p *ArithmeticPlugin) substituteAndEliminate(index uint32, x, definition, f
 }
 
 // findVariable is arith_qe_util::find_variable.
-func (p *ArithmeticPlugin) findVariable(e ast.ASTHandle, vars []ast.ASTHandle, values []*big.Rat, k *big.Rat) (bool, error) {
+func (p *ArithmeticPlugin) findVariable(e ast.ASTHandle, vars []ast.ASTHandle, values []unumeral.Rational, k *unumeral.Rational) (bool, error) {
 	kind, err := p.manager.GetKind(e)
 	if err != nil {
 		return false, err
@@ -443,30 +467,29 @@ func (p *ArithmeticPlugin) findVariable(e ast.ASTHandle, vars []ast.ASTHandle, v
 	}
 	for i, v := range vars {
 		if e == v {
-			values[i].Add(values[i], k)
-			return true, nil
+			return true, p.util.q().Add(&values[i], k, &values[i])
 		}
 	}
 	return false, nil
 }
 
-// isLinear is arith_qe_util::is_linear. The numeral k is shared by every
-// match attempt, as in the source.
-func (p *ArithmeticPlugin) isLinear(poly ast.ASTHandle, vars []ast.ASTHandle) ([]*big.Rat, bool, error) {
+// isLinear is arith_qe_util::is_linear(p, num_vars, vars, values): values
+// (rationals of the manager's NumeralService().Manager, owned by the caller
+// and released also on failure) receives the constant and the variables'
+// coefficients. The numeral k is shared by every match attempt, as in the
+// source.
+func (p *ArithmeticPlugin) isLinear(poly ast.ASTHandle, vars []ast.ASTHandle, values *[]unumeral.Rational) (_ bool, resultErr error) {
 	if len(vars) == 0 {
-		return nil, false, nil
+		return false, nil
 	}
-	values := make([]*big.Rat, len(vars)+1)
-	for i := range values {
-		values[i] = new(big.Rat)
+	for range len(vars) + 1 {
+		*values = append(*values, unumeral.NewRational())
 	}
-	k := new(big.Rat)
+	q := p.util.q()
+	k := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&k)) }()
 	numeral := func(e ast.ASTHandle) (bool, error) {
-		v, ok, err := p.util.numeral(e)
-		if err == nil && ok {
-			k.Set(v)
-		}
-		return ok, err
+		return p.util.numeral(e, &k)
 	}
 	todo := []ast.ASTHandle{poly}
 	for len(todo) > 0 {
@@ -474,7 +497,7 @@ func (p *ArithmeticPlugin) isLinear(poly ast.ASTHandle, vars []ast.ASTHandle) ([
 		todo = todo[:len(todo)-1]
 		args, isAdd, err := p.arithApp(e, arithOpAdd)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if isAdd {
 			todo = append(todo, args...)
@@ -482,48 +505,50 @@ func (p *ArithmeticPlugin) isLinear(poly ast.ASTHandle, vars []ast.ASTHandle) ([
 		}
 		e1, e2, isMul, err := p.binaryMul(e)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if isMul {
 			ok, err := numeral(e1)
 			if err == nil && ok {
-				ok, err = p.findVariable(e2, vars, values[1:], k)
+				ok, err = p.findVariable(e2, vars, (*values)[1:], &k)
 			}
 			if err != nil {
-				return nil, false, err
+				return false, err
 			}
 			if ok {
 				continue
 			}
 			ok, err = numeral(e2)
 			if err == nil && ok {
-				ok, err = p.findVariable(e1, vars, values[1:], k)
+				ok, err = p.findVariable(e1, vars, (*values)[1:], &k)
 			}
 			if err != nil {
-				return nil, false, err
+				return false, err
 			}
 			if ok {
 				continue
 			}
 		}
-		ok, err := p.findVariable(e, vars, values[1:], k)
+		ok, err := p.findVariable(e, vars, (*values)[1:], &k)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if ok {
 			continue
 		}
 		ok, err = numeral(e)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if ok {
-			values[0].Add(values[0], k)
+			if err = q.Add(&(*values)[0], &k, &(*values)[0]); err != nil {
+				return false, err
+			}
 			continue
 		}
-		return nil, false, nil
+		return false, nil
 	}
-	return values, true, nil
+	return true, nil
 }
 
 // solveLinear is arith_qe_util::solve_linear.
@@ -539,19 +564,25 @@ func (p *ArithmeticPlugin) solveLinear(poly, formula ast.ASTHandle) (solved bool
 			return false, err
 		}
 	}
-	values, linear, err := p.isLinear(poly, vars)
+	// vector<numeral> values;
+	q := p.util.q()
+	var row []unumeral.Rational
+	defer func() {
+		for i := range row {
+			err = errors.Join(err, q.Del(&row[i]))
+		}
+	}()
+	linear, err := p.isLinear(poly, vars, &row)
 	if err != nil || !linear {
 		return false, err
 	}
-	row := make([]*big.Int, len(values))
-	for i, v := range values {
-		if !v.IsInt() {
-			return false, nil
+	for i := range row {
+		if isInt, e := q.IsInt(&row[i]); e != nil || !isInt {
+			return false, e
 		}
-		row[i] = new(big.Int).Set(v.Num())
 	}
 	// VERIFY(m_arith_solver.solve_integer_equation(values, index, is_aux)).
-	index, isAux, satisfiable, err := solveArithmeticIntegerRow(row)
+	index, isAux, satisfiable, err := solveArithmeticIntegerRow(q, row)
 	if err != nil || !satisfiable {
 		return false, err
 	}
@@ -573,8 +604,8 @@ func (p *ArithmeticPlugin) solveLinear(poly, formula ast.ASTHandle) (solved bool
 		return false, err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&p1)) }()
-	intNumeral := func(v *big.Int) (ast.ASTHandle, error) {
-		return m.ArithmeticNumeralRat(new(big.Rat).SetInt(v), true)
+	intNumeral := func(v *unumeral.Rational) (ast.ASTHandle, error) {
+		return m.ArithmeticNumeralFromRational(v, true)
 	}
 	var acc ast.ASTHandle
 	if isAux {
@@ -592,7 +623,7 @@ func (p *ArithmeticPlugin) solveLinear(poly, formula ast.ASTHandle) (solved bool
 		}
 		var coeff ast.ASTHandle
 		if e == nil {
-			coeff, e = intNumeral(row[index])
+			coeff, e = intNumeral(&row[index])
 		}
 		if e == nil {
 			acc, e = m.MkArithmeticMul(coeff, fresh)
@@ -600,17 +631,21 @@ func (p *ArithmeticPlugin) solveLinear(poly, formula ast.ASTHandle) (solved bool
 		if e != nil {
 			return false, e
 		}
-	} else if acc, err = intNumeral(new(big.Int)); err != nil {
+	} else if acc, err = m.ArithmeticIntegerNumeralText("0"); err != nil {
 		return false, err
 	}
 	if err = m.SetRef(p1, acc); err != nil {
 		return false, err
 	}
 	for i := 1; i <= len(vars); i++ {
-		if row[i].Sign() == 0 || i == index {
+		zero, e := q.IsZero(&row[i])
+		if e != nil {
+			return false, e
+		}
+		if zero || i == index {
 			continue
 		}
-		coeff, e := intNumeral(row[i])
+		coeff, e := intNumeral(&row[i])
 		var term ast.ASTHandle
 		if e == nil {
 			term, e = m.MkArithmeticMul(coeff, vars[i-1])
@@ -625,7 +660,7 @@ func (p *ArithmeticPlugin) solveLinear(poly, formula ast.ASTHandle) (solved bool
 			return false, e
 		}
 	}
-	constant, err := intNumeral(row[0])
+	constant, err := intNumeral(&row[0])
 	if err == nil {
 		acc, err = m.MkArithmeticAdd(acc, constant)
 	}

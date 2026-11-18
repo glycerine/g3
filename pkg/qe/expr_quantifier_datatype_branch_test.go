@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -291,8 +290,8 @@ func TestExprQEDatatypeBranchPropagatesAndSubstitutes(t *testing.T) {
 			defer func() { fmMust(t, root.Close()) }()
 			fmMust(t, root.initialize(formula))
 			fmMust(t, variables.consume(root))
-			fmMust(t, root.selectVariable(x, big.NewRat(2, 1)))
-			branch := big.NewRat(0, 1)
+			fmMust(t, root.selectVariable(x, qeSmallRat(2, 1)))
+			branch := qeSmallRat(0, 1)
 			child, status, err := stepExprQEScalarBranch(root, variables, plugin, branch, f.r.config, rw, nnf, solver, true)
 			fmMust(t, err)
 			if status != exprQENeedPropagation || child.formula != (ast.ASTRef{}) {

@@ -4,16 +4,16 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // stepExprQEScalarBranch first records an assignment, then substitutes its
 // concrete branch on the next visit.
-func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables, plugin SolverPlugin, branch *big.Rat, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer, solver *smtcore.SMTSolver, withDefinitions bool) (child *exprQETree, status exprQETreeStatus, err error) {
+func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables, plugin SolverPlugin, branch *unumeral.Rational, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer, solver *smtcore.SMTSolver, withDefinitions bool) (child *exprQETree, status exprQETreeStatus, err error) {
 	if parent == nil || parent.manager == nil || variables == nil || variables.manager != parent.manager || plugin == nil || branch == nil || rw == nil || nnf == nil || parent.selected == (ast.ASTRef{}) {
 		return nil, status, ast.ErrASTHandle
 	}
@@ -50,10 +50,14 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 		return nil, status, err
 	}
 	defer func() { err = errors.Join(err, m.NumeralService().Del(&n)) }()
-	if err = m.NumeralService().SetString(&n, branch.RatString()); err != nil {
+	if err = m.NumeralService().Manager.Copy(&n.Raw, branch); err != nil {
 		return nil, status, err
 	}
-	index, exists := parent.branchIndex[branch.RatString()]
+	key, err := m.NumeralService().Manager.String(branch)
+	if err != nil {
+		return nil, status, err
+	}
+	index, exists := parent.branchIndex[key]
 	if !exists {
 		proxy, e := variables.branch(variable)
 		if e != nil {

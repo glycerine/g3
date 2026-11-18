@@ -4,11 +4,11 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // ArithmeticQETermUtil is the dependency-closed arithmetic term and bound
@@ -125,16 +125,21 @@ func (u *ArithmeticQETermUtil) operation(expression ast.ASTHandle, family ast.Fa
 	return args, true, nil
 }
 
-func (u *ArithmeticQETermUtil) numeral(expression ast.ASTHandle) (*big.Rat, bool, error) {
-	text, _, matched, err := u.manager.ArithmeticNumeralText(expression)
-	if err != nil || !matched {
-		return nil, matched, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
-	}
-	return value, true, nil
+// q is rational's mpq manager: the AST manager's NumeralService().Manager.
+func (u *ArithmeticQETermUtil) q() *unumeral.RationalManager {
+	return u.manager.NumeralService().Manager
+}
+
+// numeral is m_arith.is_numeral(e, r): on a match the value is copied into
+// out, a rational of q().
+func (u *ArithmeticQETermUtil) numeral(expression ast.ASTHandle, out *unumeral.Rational) (bool, error) {
+	_, matched, err := u.manager.ArithmeticNumeralRational(expression, out)
+	return matched && err == nil, err
+}
+
+// isNumeral is m_arith.is_numeral(e).
+func (u *ArithmeticQETermUtil) isNumeral(expression ast.ASTHandle) (bool, error) {
+	return u.manager.IsArithmeticNumeral(expression)
 }
 
 func (u *ArithmeticQETermUtil) isInteger(expression ast.ASTHandle) (bool, error) {
@@ -161,7 +166,8 @@ func (u *ArithmeticQETermUtil) zero(expression ast.ASTHandle) (ast.ASTHandle, er
 	return u.manager.ArithmeticRealNumeralText("0")
 }
 
-func (u *ArithmeticQETermUtil) numeralFor(value *big.Rat, expression ast.ASTHandle) (ast.ASTHandle, error) {
+// numeralFor is m_arith.mk_numeral(value, is_int(expression)).
+func (u *ArithmeticQETermUtil) numeralFor(value *unumeral.Rational, expression ast.ASTHandle) (ast.ASTHandle, error) {
 	if value == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
 	}
@@ -170,12 +176,26 @@ func (u *ArithmeticQETermUtil) numeralFor(value *big.Rat, expression ast.ASTHand
 		return ast.ASTHandle{}, err
 	}
 	if integer {
-		if !value.IsInt() {
+		isInt, err := u.q().IsInt(value)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if !isInt {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
-		return u.manager.ArithmeticIntegerNumeralText(value.RatString())
 	}
-	return u.manager.ArithmeticRealNumeralText(value.RatString())
+	return u.manager.ArithmeticNumeralFromRational(value, integer)
+}
+
+// numeralForInt is numeralFor of the small integer n.
+func (u *ArithmeticQETermUtil) numeralForInt(n int32, expression ast.ASTHandle) (result ast.ASTHandle, resultErr error) {
+	q := u.q()
+	value := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&value)) }()
+	if err := q.SetInt32(&value, n); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return u.numeralFor(&value, expression)
 }
 
 func (u *ArithmeticQETermUtil) sum(terms []ast.ASTHandle, sortWitness ast.ASTHandle) (result ast.ASTRef, err error) {
@@ -198,18 +218,20 @@ func (u *ArithmeticQETermUtil) sum(terms []ast.ASTHandle, sortWitness ast.ASTHan
 	return u.manager.NewRef(sum)
 }
 
-// Coefficient matches p = k*x + rest using the source LIFO flattening order.
+// Coefficient is get_coeff: it matches p = k*x + rest using the source LIFO
+// flattening order, writing k into coefficient (a rational of q(); like the
+// source's k reference it may be written even when there is no match).
 // Rest is an owning reference when matched.
-func (u *ArithmeticQETermUtil) Coefficient(variable *ast.ContainsApp, polynomial ast.ASTHandle) (coefficient *big.Rat, rest ast.ASTRef, matched bool, err error) {
+func (u *ArithmeticQETermUtil) Coefficient(variable *ast.ContainsApp, polynomial ast.ASTHandle, coefficient *unumeral.Rational) (rest ast.ASTRef, matched bool, err error) {
 	if err = u.open(); err != nil {
-		return nil, rest, false, err
+		return rest, false, err
 	}
-	if variable == nil {
-		return nil, rest, false, ast.ErrASTHandle
+	if variable == nil || coefficient == nil {
+		return rest, false, ast.ErrASTHandle
 	}
 	target, err := variable.Target()
 	if err != nil {
-		return nil, rest, false, err
+		return rest, false, err
 	}
 	todo := []ast.ASTHandle{polynomial}
 	remainder := make([]ast.ASTHandle, 0, 4)
@@ -217,34 +239,36 @@ func (u *ArithmeticQETermUtil) Coefficient(variable *ast.ContainsApp, polynomial
 		expression := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
 		if args, add, cause := u.operation(expression, u.family, 6); cause != nil {
-			return nil, rest, false, cause
+			return rest, false, cause
 		} else if add {
 			todo = append(todo, args...)
 			continue
 		}
 		if expression == target {
-			coefficient = big.NewRat(1, 1)
+			if err = u.q().SetInt32(coefficient, 1); err != nil {
+				return rest, false, err
+			}
 			matched = true
 			break
 		}
 		args, multiply, cause := u.operation(expression, u.family, 9)
 		if cause != nil {
-			return nil, rest, false, cause
+			return rest, false, cause
 		}
 		if multiply && len(args) == 2 {
 			if args[0] == target {
-				if value, numeral, cause := u.numeral(args[1]); cause != nil {
-					return nil, rest, false, cause
+				if numeral, cause := u.numeral(args[1], coefficient); cause != nil {
+					return rest, false, cause
 				} else if numeral {
-					coefficient, matched = value, true
+					matched = true
 					break
 				}
 			}
 			if args[1] == target {
-				if value, numeral, cause := u.numeral(args[0]); cause != nil {
-					return nil, rest, false, cause
+				if numeral, cause := u.numeral(args[0], coefficient); cause != nil {
+					return rest, false, cause
 				} else if numeral {
-					coefficient, matched = value, true
+					matched = true
 					break
 				}
 			}
@@ -252,7 +276,7 @@ func (u *ArithmeticQETermUtil) Coefficient(variable *ast.ContainsApp, polynomial
 		remainder = append(remainder, expression)
 	}
 	if !matched {
-		return nil, rest, false, nil
+		return rest, false, nil
 	}
 	for len(todo) != 0 {
 		remainder = append(remainder, todo[len(todo)-1])
@@ -260,42 +284,44 @@ func (u *ArithmeticQETermUtil) Coefficient(variable *ast.ContainsApp, polynomial
 	}
 	rest, err = u.sum(remainder, target)
 	if err != nil {
-		return nil, rest, false, err
+		return rest, false, err
 	}
 	restHandle, err := u.manager.RefGet(rest)
 	if err != nil {
-		return nil, rest, false, errors.Join(err, u.manager.DelRef(&rest))
+		return rest, false, errors.Join(err, u.manager.DelRef(&rest))
 	}
 	contains, err := variable.Check(restHandle)
 	if err != nil || contains {
-		return nil, rest, false, errors.Join(err, u.manager.DelRef(&rest))
+		return rest, false, errors.Join(err, u.manager.DelRef(&rest))
 	}
-	return coefficient, rest, true, nil
+	return rest, true, nil
 }
 
-// Constant extracts the first numeral in source LIFO order and owns rest.
-func (u *ArithmeticQETermUtil) Constant(polynomial ast.ASTHandle) (constant *big.Rat, rest ast.ASTRef, err error) {
+// Constant extracts the first numeral in source LIFO order into constant (a
+// rational of q(), zero when there is none) and owns rest.
+func (u *ArithmeticQETermUtil) Constant(polynomial ast.ASTHandle, constant *unumeral.Rational) (rest ast.ASTRef, err error) {
 	if err = u.open(); err != nil {
-		return nil, rest, err
+		return rest, err
 	}
 	todo := []ast.ASTHandle{polynomial}
 	remainder := make([]ast.ASTHandle, 0, 4)
-	constant = new(big.Rat)
+	if err = u.q().SetInt32(constant, 0); err != nil {
+		return rest, err
+	}
 	for len(todo) != 0 {
 		expression := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
 		if args, add, cause := u.operation(expression, u.family, 6); cause != nil {
-			return nil, rest, cause
+			return rest, cause
 		} else if add {
 			todo = append(todo, args...)
 			continue
 		}
-		value, numeral, cause := u.numeral(expression)
+		numeral, cause := u.numeral(expression, constant)
 		if cause != nil {
-			return nil, rest, cause
+			return rest, cause
 		}
 		if numeral {
-			constant.Set(value)
 			break
 		}
 		remainder = append(remainder, expression)
@@ -305,5 +331,5 @@ func (u *ArithmeticQETermUtil) Constant(polynomial ast.ASTHandle) (constant *big
 		todo = todo[:len(todo)-1]
 	}
 	rest, err = u.sum(remainder, polynomial)
-	return constant, rest, err
+	return rest, err
 }

@@ -4,9 +4,9 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (u *ArithmeticQETermUtil) Negated(expression ast.ASTHandle) (ast.ASTHandle, bool, error) {
@@ -44,9 +44,9 @@ func (u *ArithmeticQETermUtil) comparisonPolynomial(expression ast.ASTHandle, wa
 	if kind == 2 && !wantLE || kind == 3 && wantLE {
 		polynomial, other = right, left
 	}
-	if value, numeral, cause := u.numeral(other); cause != nil {
+	if zero, cause := u.manager.ArithmeticNumeralIsZero(other); cause != nil {
 		return result, false, cause
-	} else if numeral && value.Sign() == 0 {
+	} else if zero {
 		result, cause = u.manager.NewRef(polynomial)
 		if cause == nil && u.theory != nil {
 			cause = u.theory.Rewrite(polynomial, result)
@@ -105,9 +105,9 @@ func (u *ArithmeticQETermUtil) MatchLT(expression ast.ASTHandle) (result ast.AST
 	if kind == 5 {
 		left, right = right, left
 	}
-	if value, numeral, cause := u.numeral(right); cause != nil {
+	if zero, cause := u.manager.ArithmeticNumeralIsZero(right); cause != nil {
 		return result, false, cause
-	} else if numeral && value.Sign() == 0 {
+	} else if zero {
 		result, cause = u.manager.NewRef(left)
 		if cause == nil && u.theory != nil {
 			cause = u.theory.Rewrite(left, result)
@@ -132,18 +132,20 @@ func (u *ArithmeticQETermUtil) MatchLT(expression ast.ASTHandle) (result ast.AST
 	return result, err == nil, err
 }
 
-func (u *ArithmeticQETermUtil) dividesSide(zero, modular ast.ASTHandle) (divisor *big.Rat, term ast.ASTHandle, matched bool, err error) {
-	value, numeral, err := u.numeral(zero)
-	if err != nil || !numeral || value.Sign() != 0 {
-		return nil, term, false, err
+// dividesSide matches zero = (mod term k), writing |k| into divisor (a
+// rational of q()).
+func (u *ArithmeticQETermUtil) dividesSide(zero, modular ast.ASTHandle, divisor *unumeral.Rational) (term ast.ASTHandle, matched bool, err error) {
+	isZero, err := u.manager.ArithmeticNumeralIsZero(zero)
+	if err != nil || !isZero {
+		return term, false, err
 	}
 	args, mod, err := u.operation(modular, u.family, 13)
 	if err != nil || !mod || len(args) != 2 {
-		return nil, term, false, err
+		return term, false, err
 	}
-	divisor, numeral, err = u.numeral(args[1])
+	numeral, err := u.numeral(args[1], divisor)
 	if err != nil || !numeral {
-		return nil, term, false, err
+		return term, false, err
 	}
 	// z3 4.7.1 bug kept out of g3: is_divides accepts k = 0 and keeps a
 	// negative k, and div_z then folds them into a zero or negative lcm,
@@ -151,32 +153,36 @@ func (u *ArithmeticQETermUtil) dividesSide(zero, modular ast.ASTHandle) (divisor
 	// (mod p 0) is no divisibility constraint (AUDIT.md qe_01-F3;
 	// test_vectors/z3_bug_qe_mod_zero_divisor.smt2,
 	// z3_bug_qe_mod_negative_divisor.smt2).
-	if divisor.Sign() == 0 {
-		return nil, term, false, nil
+	if isZero, err = u.q().IsZero(divisor); err != nil || isZero {
+		return term, false, err
 	}
-	return new(big.Rat).Abs(divisor), args[0], true, nil
+	if err = u.q().Abs(divisor); err != nil {
+		return term, false, err
+	}
+	return args[0], true, nil
 }
 
-// MatchDivides recognizes 0 = p mod k in either equality orientation.
-func (u *ArithmeticQETermUtil) MatchDivides(expression ast.ASTHandle) (*big.Rat, ast.ASTHandle, bool, error) {
+// MatchDivides recognizes 0 = p mod k in either equality orientation; |k|
+// is written into divisor (a rational of q()).
+func (u *ArithmeticQETermUtil) MatchDivides(expression ast.ASTHandle, divisor *unumeral.Rational) (ast.ASTHandle, bool, error) {
 	if err := u.open(); err != nil {
-		return nil, ast.ASTHandle{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	args, equality, err := u.operation(expression, u.manager.BasicFamilyID(), ast.ASTOpEq)
 	if err != nil || !equality || len(args) != 2 {
-		return nil, ast.ASTHandle{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
-	if divisor, term, matched, cause := u.dividesSide(args[0], args[1]); cause != nil || matched {
-		return divisor, term, matched, cause
+	if term, matched, cause := u.dividesSide(args[0], args[1], divisor); cause != nil || matched {
+		return term, matched, cause
 	}
-	return u.dividesSide(args[1], args[0])
+	return u.dividesSide(args[1], args[0], divisor)
 }
 
-func (u *ArithmeticQETermUtil) MatchNotDivides(expression ast.ASTHandle) (atom ast.ASTHandle, divisor *big.Rat, term ast.ASTHandle, matched bool, err error) {
+func (u *ArithmeticQETermUtil) MatchNotDivides(expression ast.ASTHandle, divisor *unumeral.Rational) (atom ast.ASTHandle, term ast.ASTHandle, matched bool, err error) {
 	inner, negative, err := u.Negated(expression)
 	if err != nil || !negative {
-		return atom, nil, term, false, err
+		return atom, term, false, err
 	}
-	divisor, term, matched, err = u.MatchDivides(inner)
-	return inner, divisor, term, matched, err
+	term, matched, err = u.MatchDivides(inner, divisor)
+	return inner, term, matched, err
 }

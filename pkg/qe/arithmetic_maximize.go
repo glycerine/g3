@@ -3,12 +3,13 @@ package qe
 // Source: src/qe/qe_arith.cpp imp::maximize/validate_model.
 
 import (
+	"errors"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (p *ArithmeticProjection) Maximize(md *model.ModelCore, forms []ast.ASTRef, objective ast.ASTHandle, ge, gt ast.ASTRef) (value simplex.Optimum, err error) {
@@ -41,16 +42,22 @@ func (p *ArithmeticProjection) Maximize(md *model.ModelCore, forms []ast.ASTRef,
 	if err = c.startEvaluator(md); err != nil {
 		return value, err
 	}
-	constant := new(big.Rat)
+	// rational c(0), mul(1); obj_map<expr, rational> ts;
+	q := p.q()
+	constant, mul := unumeral.NewRational(), unumeral.NewRational()
 	terms := projectionTerms(c.owner.manager)
-	if err = c.linearizeTerm(big.NewRat(1, 1), objective, constant, local, terms); err != nil {
-		return value, err
+	err = q.SetInt32(&mul, 1)
+	if err == nil {
+		err = c.linearizeTerm(&mul, objective, &constant, local, terms)
 	}
-	coeffs, err := c.coefficients(terms)
-	if err != nil {
-		return value, err
+	var coeffs []simplex.LinearTerm
+	if err == nil {
+		coeffs, err = c.coefficients(terms)
 	}
-	if err = c.mbo.SetObjective(coeffs, constant); err != nil {
+	if err == nil {
+		err = mboSetObjective(c.mbo, coeffs, q, &constant)
+	}
+	if err = errors.Join(err, terms.release(), q.Del(&mul), q.Del(&constant)); err != nil {
 		return value, err
 	}
 	if ast.ASTSourceDebug {

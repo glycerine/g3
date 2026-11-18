@@ -5,10 +5,10 @@ package qe
 import (
 	"errors"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/numeral"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func exprQEPluginWeight(plugin SolverPlugin, variable *ast.ContainsApp, formula ast.ASTHandle, atoms *BoolAtomIndex) (uint32, error) {
@@ -67,29 +67,31 @@ func exprQEPluginBranches(plugin SolverPlugin, variable *ast.ContainsApp, formul
 
 // selectExprQEVariable borrows plugins and appends owned unsupported variables
 // to freeVariables. It preserves the source scan's last eligible index.
-func selectExprQEVariable(node *exprQETree, variables *exprQEBranchVariables, context *SolverContext, atoms *BoolAtomIndex, freeVariables *[]ast.ASTRef) (selected ast.ASTHandle, count big.Rat, found bool, err error) {
+// count (a rational of the manager's NumeralService().Manager) receives the
+// selected variable's number of branches.
+func selectExprQEVariable(node *exprQETree, variables *exprQEBranchVariables, context *SolverContext, atoms *BoolAtomIndex, freeVariables *[]ast.ASTRef, count *unumeral.Rational) (selected ast.ASTHandle, found bool, err error) {
 	if node == nil || node.manager == nil || variables == nil || variables.manager != node.manager || context == nil || atoms == nil || freeVariables == nil || node.selected != (ast.ASTRef{}) {
-		return selected, count, false, ast.ErrASTHandle
+		return selected, false, ast.ErrASTHandle
 	}
 	m := node.manager
 	if atoms.manager != m {
-		return selected, count, false, ast.ErrASTHandle
+		return selected, false, ast.ErrASTHandle
 	}
 	positive, err := atoms.positiveTable()
 	if err != nil {
-		return selected, count, false, err
+		return selected, false, err
 	}
 	negative, err := atoms.negativeTable()
 	if err != nil {
-		return selected, count, false, err
+		return selected, false, err
 	}
 	formula, err := m.RefGet(node.formula)
 	if err != nil {
-		return selected, count, false, err
+		return selected, false, err
 	}
 	rational, err := m.NumeralService().NewValue()
 	if err != nil {
-		return selected, count, false, err
+		return selected, false, err
 	}
 	defer func() { err = errors.Join(err, m.NumeralService().Del(&rational)) }()
 	for len(node.variables) > 0 {
@@ -97,26 +99,26 @@ func selectExprQEVariable(node *exprQETree, variables *exprQEBranchVariables, co
 		for i, ref := range node.variables {
 			v, e := m.RefGet(ref)
 			if e != nil {
-				return selected, count, false, e
+				return selected, false, e
 			}
 			has, e := context.HasPlugin(v)
 			if e != nil {
-				return selected, count, false, e
+				return selected, false, e
 			}
 			if !has {
 				break
 			}
 			plugin, e := context.PluginFor(v)
 			if e != nil {
-				return selected, count, false, e
+				return selected, false, e
 			}
 			entry, ok := variables.index[v]
 			if !ok {
-				return selected, count, false, ast.ErrASTDomain
+				return selected, false, ast.ErrASTDomain
 			}
 			weight, e := exprQEPluginWeight(plugin, variables.entries[entry].contains, formula, atoms)
 			if e != nil {
-				return selected, count, false, e
+				return selected, false, e
 			}
 			if weight < math.MaxUint32 {
 				index = i
@@ -124,44 +126,40 @@ func selectExprQEVariable(node *exprQETree, variables *exprQEBranchVariables, co
 		}
 		v, e := m.RefGet(node.variables[index])
 		if e != nil {
-			return selected, count, false, e
+			return selected, false, e
 		}
 		has, e := context.HasPlugin(v)
 		if e != nil {
-			return selected, count, false, e
+			return selected, false, e
 		}
 		if has {
 			plugin, e := context.PluginFor(v)
 			if e != nil {
-				return selected, count, false, e
+				return selected, false, e
 			}
 			entry, ok := variables.index[v]
 			if !ok {
-				return selected, count, false, ast.ErrASTDomain
+				return selected, false, ast.ErrASTDomain
 			}
 			ok, e = exprQEPluginBranches(plugin, variables.entries[entry].contains, formula, positive, negative, &rational)
 			if e != nil {
-				return selected, count, false, e
+				return selected, false, e
 			}
 			if ok {
-				text, e := m.NumeralService().String(&rational)
-				if e != nil {
-					return selected, count, false, e
+				if e = m.NumeralService().Manager.Copy(count, &rational.Raw); e != nil {
+					return selected, false, e
 				}
-				if _, ok = count.SetString(text); !ok {
-					return selected, count, false, ast.ErrASTDomain
-				}
-				return v, count, true, nil
+				return v, true, nil
 			}
 		}
 		ref, e := m.NewRef(v)
 		if e != nil {
-			return selected, count, false, e
+			return selected, false, e
 		}
 		if e = node.deleteVariable(v); e != nil {
-			return selected, count, false, errors.Join(e, m.DelRef(&ref))
+			return selected, false, errors.Join(e, m.DelRef(&ref))
 		}
 		*freeVariables = append(*freeVariables, ref)
 	}
-	return selected, count, false, nil
+	return selected, false, nil
 }

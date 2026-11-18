@@ -4,17 +4,25 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func constrainExprQEBranch(node *exprQETree, variables *exprQEBranchVariables, solver *smtcore.SMTSolver, variable ast.ASTHandle, count *big.Rat) (err error) {
-	if node == nil || node.manager == nil || variables == nil || variables.manager != node.manager || solver == nil || count == nil || !count.IsInt() || count.Sign() <= 0 {
+// count is a rational of the manager's NumeralService().Manager.
+func constrainExprQEBranch(node *exprQETree, variables *exprQEBranchVariables, solver *smtcore.SMTSolver, variable ast.ASTHandle, count *unumeral.Rational) (err error) {
+	if node == nil || node.manager == nil || variables == nil || variables.manager != node.manager || solver == nil || count == nil {
 		return ast.ErrASTDomain
 	}
 	m := node.manager
+	q := m.NumeralService().Manager
+	if isInt, e := q.IsInt(count); e != nil || !isInt {
+		return errors.Join(e, ast.ErrASTDomain)
+	}
+	if positive, e := q.IsPos(count); e != nil || !positive {
+		return errors.Join(e, ast.ErrASTDomain)
+	}
 	branch, err := variables.branch(variable)
 	if err != nil {
 		return err
@@ -38,8 +46,14 @@ func constrainExprQEBranch(node *exprQETree, variables *exprQEBranchVariables, s
 		return err
 	}
 	if sort == boolean {
-		if count.Cmp(big.NewRat(2, 1)) > 0 {
+		// SASSERT(num_branches <= rational(2))
+		if small, e := q.IsInt32(count); e != nil {
+			return e
+		} else if !small {
 			return ast.ErrASTDomain
+		}
+		if v, e := q.Int32(count); e != nil || v > 2 {
+			return errors.Join(e, ast.ErrASTDomain)
 		}
 		return nil
 	}
@@ -47,9 +61,14 @@ func constrainExprQEBranch(node *exprQETree, variables *exprQEBranchVariables, s
 	if err != nil {
 		return err
 	}
-	max := new(big.Rat).Sub(count, big.NewRat(1, 1))
-	n, err := m.BitVectorNumeralRat(max, width)
-	if err != nil {
+	// expr_ref max_val(m_bv.mk_numeral(num_branches - rational::one(), sz), m)
+	maxValue := unumeral.NewRational()
+	err = errors.Join(q.Copy(&maxValue, count), q.Dec(&maxValue))
+	var n ast.ASTHandle
+	if err == nil {
+		n, err = m.BitVectorNumeralFromRational(&maxValue, width)
+	}
+	if err = errors.Join(err, q.Del(&maxValue)); err != nil {
 		return err
 	}
 	nRef, err := m.NewRef(n)

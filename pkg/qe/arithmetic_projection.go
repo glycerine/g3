@@ -5,7 +5,6 @@ package qe
 import (
 	"errors"
 	"io"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -14,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/memory"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/insdict"
 )
 
@@ -101,17 +101,29 @@ func projectionHandleHash(h ast.ASTHandle) uint64 {
 // projectionTermMap is linearize's obj_map<expr, rational> ts:
 // extract_coefficients walks it in hash-table order, which fixes the order
 // in which mbo variables are created and coefficients are listed.
+// The values are rationals of the manager's NumeralService().Manager owned
+// by the map (release destroys them, as the obj_map's destructor does).
 type projectionTermMap struct {
+	q      *unumeral.RationalManager
 	table  *ast.ObjMap
-	values []*big.Rat
+	values []*unumeral.Rational
 }
 
 func projectionTerms(m *ast.ASTManager) *projectionTermMap {
-	return &projectionTermMap{table: ast.NewObjMap(m)}
+	return &projectionTermMap{q: m.NumeralService().Manager, table: ast.NewObjMap(m)}
 }
 
-// get is ts.find(x, w).
-func (t *projectionTermMap) get(h ast.ASTHandle) (*big.Rat, bool, error) {
+// release destroys the map's rationals.
+func (t *projectionTermMap) release() (err error) {
+	for _, v := range t.values {
+		err = errors.Join(err, t.q.Del(v))
+	}
+	t.values = nil
+	return err
+}
+
+// get is ts.find(x, w): the stored rational itself.
+func (t *projectionTermMap) get(h ast.ASTHandle) (*unumeral.Rational, bool, error) {
 	i, ok, err := t.table.FindNum(h)
 	if err != nil || !ok {
 		return nil, false, err
@@ -119,23 +131,27 @@ func (t *projectionTermMap) get(h ast.ASTHandle) (*big.Rat, bool, error) {
 	return t.values[i], true, nil
 }
 
-// set is ts.insert(x, v): an existing key keeps its slot.
-func (t *projectionTermMap) set(h ast.ASTHandle, v *big.Rat) error {
+// set is ts.insert(x, v): an existing key keeps its slot; v is copied.
+func (t *projectionTermMap) set(h ast.ASTHandle, v *unumeral.Rational) error {
 	if i, ok, err := t.table.FindNum(h); err != nil {
 		return err
 	} else if ok {
-		t.values[i] = v
-		return nil
+		return t.q.Copy(t.values[i], v)
 	}
-	t.values = append(t.values, v)
+	stored := new(unumeral.Rational)
+	*stored = unumeral.NewRational()
+	if err := t.q.Copy(stored, v); err != nil {
+		return errors.Join(err, t.q.Del(stored))
+	}
+	t.values = append(t.values, stored)
 	return t.table.InsertNum(h, uint64(len(t.values)-1))
 }
 
 // entries lists (key, value) in table order.
-func (t *projectionTermMap) entries() ([]ast.ASTHandle, []*big.Rat) {
+func (t *projectionTermMap) entries() ([]ast.ASTHandle, []*unumeral.Rational) {
 	es := t.table.Entries()
 	keys := make([]ast.ASTHandle, len(es))
-	values := make([]*big.Rat, len(es))
+	values := make([]*unumeral.Rational, len(es))
 	for i, e := range es {
 		keys[i], values[i] = e.Key, t.values[e.Num]
 	}
@@ -359,63 +375,73 @@ func (c *arithmeticProjectionCall) eval(h ast.ASTHandle) (ast.ASTHandle, error) 
 	}
 	return c.owner.manager.RefGet(r)
 }
-func (p *ArithmeticProjection) numeral(h ast.ASTHandle) (*big.Rat, bool, error) {
-	s, _, ok, err := p.manager.ArithmeticNumeralText(h)
-	if err != nil || !ok {
-		return nil, false, err
-	}
-	q, ok := new(big.Rat).SetString(s)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
-	}
-	return q, true, nil
+
+// q is rational's mpq manager: the AST manager's NumeralService().Manager.
+func (p *ArithmeticProjection) q() *unumeral.RationalManager {
+	return p.manager.NumeralService().Manager
+}
+
+// numeral is a.is_numeral(h, out).
+func (p *ArithmeticProjection) numeral(h ast.ASTHandle, out *unumeral.Rational) (bool, error) {
+	_, ok, err := p.manager.ArithmeticNumeralRational(h, out)
+	return ok && err == nil, err
 }
 
 // Source's syntactic numeral recognizer includes products, sums, unary minus
-// and binary subtraction; division and coercions remain ordinary terms.
-func (p *ArithmeticProjection) numeralExpression(h ast.ASTHandle) (*big.Rat, bool, error) {
-	q, ok, err := p.numeral(h)
+// and binary subtraction; division and coercions remain ordinary terms. The
+// value is written into out (a rational of q()).
+func (p *ArithmeticProjection) numeralExpression(h ast.ASTHandle, out *unumeral.Rational) (_ bool, resultErr error) {
+	ok, err := p.numeral(h, out)
 	if err != nil || ok {
-		return q, ok, err
+		return ok, err
 	}
+	q := p.q()
 	for _, op := range []int32{8, 9, 6, 7} {
 		args, matched, err := p.operation(h, p.family, op)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if !matched {
 			continue
 		}
 		if (op == 8 && len(args) != 1) || (op == 7 && len(args) != 2) {
-			return nil, false, nil
+			return false, nil
 		}
-		q = new(big.Rat)
+		v := unumeral.NewRational()
+		defer func() { resultErr = errors.Join(resultErr, q.Del(&v)) }()
+		start := int32(0)
 		if op == 9 {
-			q.SetInt64(1)
+			start = 1
+		}
+		if err = q.SetInt32(out, start); err != nil {
+			return false, err
 		}
 		for i, arg := range args {
-			v, ok, err := p.numeralExpression(arg)
+			ok, err := p.numeralExpression(arg, &v)
 			if err != nil || !ok {
-				return nil, false, err
+				return false, err
 			}
 			switch op {
 			case 8:
-				q.Neg(v)
+				err = errors.Join(q.Copy(out, &v), q.Neg(out))
 			case 9:
-				q.Mul(q, v)
+				err = q.Mul(out, &v, out)
 			case 6:
-				q.Add(q, v)
+				err = q.Add(out, &v, out)
 			case 7:
 				if i == 0 {
-					q.Set(v)
+					err = q.Copy(out, &v)
 				} else {
-					q.Sub(q, v)
+					err = q.Sub(out, &v, out)
 				}
 			}
+			if err != nil {
+				return false, err
+			}
 		}
-		return q, true, nil
+		return true, nil
 	}
-	return nil, false, nil
+	return false, nil
 }
 func (c *arithmeticProjectionCall) id(h ast.ASTHandle) (uint32, error) {
 	return c.idTrace(h, nil)
@@ -441,13 +467,20 @@ func (c *arithmeticProjectionCall) idTrace(h ast.ASTHandle, trace func(value ast
 	if err != nil {
 		return 0, err
 	}
-	q, ok, err := c.owner.numeral(v)
+	// rational r;
+	qm := c.owner.q()
+	r := unumeral.NewRational()
+	defer func() { err = errors.Join(err, qm.Del(&r)) }()
+	ok, err := c.owner.numeral(v, &r)
 	if err != nil {
 		return 0, err
 	}
 	if !ok {
-		q = new(big.Rat)
-	} // source leaves the default rational at zero
+		// source leaves the default rational at zero
+		if err = qm.SetInt32(&r, 0); err != nil {
+			return 0, err
+		}
+	}
 	if trace != nil {
 		if err = trace(v); err != nil {
 			return 0, err
@@ -457,7 +490,9 @@ func (c *arithmeticProjectionCall) idTrace(h ast.ASTHandle, trace func(value ast
 	if err != nil {
 		return 0, err
 	}
-	id = c.mbo.AddVariable(q, integer)
+	if id, err = mboAddVariable(c.mbo, qm, &r, integer); err != nil {
+		return 0, err
+	}
 	c.ids.Set(h, id)
 	return id, nil
 }
@@ -468,13 +503,20 @@ func (c *arithmeticProjectionCall) coefficients(terms *projectionTermMap) ([]sim
 	var result []simplex.LinearTerm
 	keys, values := terms.entries()
 	for i, h := range keys {
-		q := values[i]
 		id, err := c.id(h)
 		if err != nil {
 			return nil, err
 		}
-		if q.Sign() != 0 {
-			result = append(result, simplex.NewLinearTerm(id, q))
+		zero, err := terms.q.IsZero(values[i])
+		if err != nil {
+			return nil, err
+		}
+		if !zero {
+			term, err := mboLinearTerm(terms.q, id, values[i])
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, term)
 		} else {
 			if err := c.owner.emit("extract_coefficients", 520, func(w io.Writer) error {
 				if e := writeExpression(c.owner.manager, c.owner.config, w, h); e != nil {

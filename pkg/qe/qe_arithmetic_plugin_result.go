@@ -2,9 +2,9 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // ArithmeticPluginBranch is the m_subst branch_formula entry: the branch
@@ -12,7 +12,7 @@ import (
 // and the selection get_def reads when subst asks for a definition.
 type ArithmeticPluginBranch struct {
 	Result      ast.ASTRef
-	Coefficient *big.Rat
+	Coefficient unumeral.Rational // branch_formula's x_t coefficient
 	Term        ast.ASTRef
 	Selection   ArithmeticBranchSelection
 	Fresh       []ast.ASTRef
@@ -27,7 +27,7 @@ func (b *ArithmeticPluginBranch) substitution(m *ast.ASTManager) (*arithmeticBra
 	if err != nil {
 		return nil, err
 	}
-	return &arithmeticBranchSubstitution{coefficient: new(big.Rat).Set(b.Coefficient), term: term}, nil
+	return newArithmeticBranchSubstitution(m.NumeralService().Manager, &b.Coefficient, term)
 }
 
 // close releases the fresh-variable copies; Result and Term are owned by
@@ -41,7 +41,7 @@ func (b *ArithmeticPluginBranch) close(m *ast.ASTManager) error {
 		definitionErr = errors.Join(definitionErr, m.DelRef(&b.Fresh[i]))
 	}
 	b.Fresh = nil
-	return definitionErr
+	return errors.Join(definitionErr, m.NumeralService().Manager.Del(&b.Coefficient))
 }
 
 func (p *ArithmeticPlugin) storeBranch(key ArithmeticBranchKey, result ast.ASTRef, substitution *arithmeticBranchSubstitution, selection ArithmeticBranchSelection, fresh []ast.ASTRef) (err error) {
@@ -57,12 +57,22 @@ func (p *ArithmeticPlugin) storeBranch(key ArithmeticBranchKey, result ast.ASTRe
 			}
 		}
 	}()
-	coefficient := big.NewRat(1, 1)
+	q := p.util.q()
+	coefficient := unumeral.NewRational()
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, q.Del(&coefficient))
+		}
+	}()
 	if substitution != nil {
-		coefficient = new(big.Rat).Set(substitution.coefficient)
+		if err = q.Copy(&coefficient, &substitution.coefficient); err != nil {
+			return err
+		}
 		if term, err = p.manager.NewRef(substitution.term); err != nil {
 			return err
 		}
+	} else if err = q.SetInt32(&coefficient, 1); err != nil {
+		return err
 	}
 	for _, ref := range fresh {
 		h, cause := p.manager.RefGet(ref)
@@ -117,26 +127,11 @@ func (p *ArithmeticPlugin) replayBranch(branch *ArithmeticPluginBranch) (err err
 	return nil
 }
 
-func (p *ArithmeticPlugin) branch(variable ast.ASTHandle, formula ast.ASTHandle, value *big.Rat) (*ArithmeticPluginBranch, error) {
-	branch, err := arithmeticBranchUnsigned(value)
-	if err != nil {
-		return nil, err
-	}
+func (p *ArithmeticPlugin) branch(variable ast.ASTHandle, formula ast.ASTHandle, branch uint32) (*ArithmeticPluginBranch, error) {
 	key := ArithmeticBranchKey{Formula: formula, Variable: variable, Branch: branch}
 	b := p.branches[key]
 	if b == nil {
 		return nil, ast.ErrASTDomain
 	}
 	return b, nil
-}
-
-func arithmeticBranchUnsigned(value *big.Rat) (uint32, error) {
-	if value == nil || !value.IsInt() || value.Sign() < 0 || !value.Num().IsUint64() {
-		return 0, ast.ErrASTDomain
-	}
-	v := value.Num().Uint64()
-	if v > uint64(^uint32(0)) {
-		return 0, ast.ErrASTDomain
-	}
-	return uint32(v), nil
 }

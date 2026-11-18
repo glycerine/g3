@@ -3,10 +3,9 @@ package qe
 // Source: src/qe/qe.cpp, update_current with apply=false.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type exprQETreeStatus uint8
@@ -16,11 +15,14 @@ const (
 	exprQENeedPropagation
 )
 
-func seekExprQETree(root *exprQETree, variables *exprQEBranchVariables, evaluator *model.ModelEvaluator) (current *exprQETree, status exprQETreeStatus, branch big.Rat, err error) {
+// seekExprQETree writes the branch number into branch (a rational of the
+// manager's NumeralService().Manager owned by the caller).
+func seekExprQETree(root *exprQETree, variables *exprQEBranchVariables, evaluator *model.ModelEvaluator, branch *unumeral.Rational) (current *exprQETree, status exprQETreeStatus, err error) {
 	if root == nil || root.manager == nil || root.parent != nil || variables == nil || variables.manager != root.manager || evaluator == nil {
-		return nil, status, branch, ast.ErrASTHandle
+		return nil, status, ast.ErrASTHandle
 	}
 	m := root.manager
+	q := m.NumeralService().Manager
 	current = root
 	for {
 		if current.isUnit() {
@@ -28,30 +30,44 @@ func seekExprQETree(root *exprQETree, variables *exprQEBranchVariables, evaluato
 			continue
 		}
 		if current.selected == (ast.ASTRef{}) {
-			return current, exprQEChooseVariable, branch, nil
+			return current, exprQEChooseVariable, nil
 		}
 		variable, e := m.RefGet(current.selected)
 		if e != nil {
-			return nil, status, branch, e
+			return nil, status, e
 		}
 		proxy, e := variables.branch(variable)
 		if e != nil {
-			return nil, status, branch, e
+			return nil, status, e
 		}
-		branch, found, e := exprQEEvalBranch(m, evaluator, proxy)
+		found, e := exprQEEvalBranch(m, evaluator, proxy, branch)
 		if e != nil {
-			return nil, status, branch, e
+			return nil, status, e
 		}
-		if !found || branch.Cmp(&current.branches) >= 0 {
-			branch.SetInt64(0)
+		outside := !found
+		if found {
+			c, e := q.Compare(branch, &current.branches)
+			if e != nil {
+				return nil, status, e
+			}
+			outside = c >= 0
 		}
-		index, ok := current.branchIndex[branch.RatString()]
+		if outside {
+			if e = q.SetInt32(branch, 0); e != nil {
+				return nil, status, e
+			}
+		}
+		key, e := q.String(branch)
+		if e != nil {
+			return nil, status, e
+		}
+		index, ok := current.branchIndex[key]
 		if !ok {
-			return current, exprQENeedPropagation, branch, nil
+			return current, exprQENeedPropagation, nil
 		}
 		current = current.children[index]
 		if current.formula == (ast.ASTRef{}) {
-			return current, exprQEChooseVariable, branch, nil
+			return current, exprQEChooseVariable, nil
 		}
 	}
 }

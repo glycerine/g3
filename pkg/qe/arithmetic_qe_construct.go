@@ -4,16 +4,19 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (u *ArithmeticQETermUtil) scale(value *big.Rat, term ast.ASTHandle) (ast.ASTRef, error) {
+// scale is arith_qe_util::mk_mul(k, e): e itself for a unit k.
+func (u *ArithmeticQETermUtil) scale(value *unumeral.Rational, term ast.ASTHandle) (ast.ASTRef, error) {
 	if value == nil {
 		return ast.ASTRef{}, ast.ErrASTHandle
 	}
-	if value.Cmp(big.NewRat(1, 1)) == 0 {
+	if one, err := u.q().IsOne(value); err != nil {
+		return ast.ASTRef{}, err
+	} else if one {
 		return u.manager.NewRef(term)
 	}
 	numeral, err := u.numeralFor(value, term)
@@ -70,10 +73,16 @@ func (u *ArithmeticQETermUtil) mkLt(expression ast.ASTHandle) (result ast.ASTRef
 	}
 	m := u.manager
 	var value ast.ASTHandle
-	if r, numeral, e := u.numeral(expression); e != nil {
+	// rational r;
+	r := unumeral.NewRational()
+	defer func() { err = errors.Join(err, u.q().Del(&r)) }()
+	if numeral, e := u.numeral(expression, &r); e != nil {
 		return result, e
 	} else if numeral {
-		value, err = m.MkBoolVal(r.Sign() < 0)
+		var negative bool
+		if negative, err = u.q().IsNeg(&r); err == nil {
+			value, err = m.MkBoolVal(negative)
+		}
 	} else if integer, e := u.isInteger(expression); e != nil {
 		return result, e
 	} else if integer {
@@ -103,20 +112,37 @@ func (u *ArithmeticQETermUtil) mkLt(expression ast.ASTHandle) (result ast.ASTRef
 }
 
 // MakeBound constructs b*t <= a*s. Strict integer bounds use e+1 <= 0.
-func (u *ArithmeticQETermUtil) MakeBound(a *big.Rat, t ast.ASTHandle, b *big.Rat, s ast.ASTHandle, strict bool) (result ast.ASTRef, resultErr error) {
+func (u *ArithmeticQETermUtil) MakeBound(a *unumeral.Rational, t ast.ASTHandle, b *unumeral.Rational, s ast.ASTHandle, strict bool) (result ast.ASTRef, resultErr error) {
 	if resultErr = u.open(); resultErr != nil {
 		return result, resultErr
 	}
-	if a == nil || b == nil || a.Sign() != b.Sign() {
+	if a == nil || b == nil {
 		return result, ast.ErrASTDomain
 	}
-	absA, absB := new(big.Rat).Abs(a), new(big.Rat).Abs(b)
-	ss, err := u.scale(absA, s)
+	q := u.q()
+	aNegative, err := q.IsNeg(a)
+	if err != nil {
+		return result, err
+	}
+	bNegative, err := q.IsNeg(b)
+	if err != nil {
+		return result, err
+	}
+	if aNegative != bNegative {
+		return result, ast.ErrASTDomain
+	}
+	// rational abs_a(a); rational abs_b(b);
+	absA, absB := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&absA), q.Del(&absB)) }()
+	if err = errors.Join(q.Copy(&absA, a), q.Copy(&absB, b), q.Abs(&absA), q.Abs(&absB)); err != nil {
+		return result, err
+	}
+	ss, err := u.scale(&absA, s)
 	if err != nil {
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, u.manager.DelRef(&ss)) }()
-	tt, err := u.scale(absB, t)
+	tt, err := u.scale(&absB, t)
 	if err != nil {
 		return result, err
 	}
@@ -130,7 +156,7 @@ func (u *ArithmeticQETermUtil) MakeBound(a *big.Rat, t ast.ASTHandle, b *big.Rat
 		return result, err
 	}
 	left, right := sh, th
-	if a.Sign() < 0 {
+	if aNegative {
 		left, right = th, sh
 	}
 	difference, err := u.manager.MkArithmeticSub(left, right)
@@ -186,10 +212,15 @@ func (u *ArithmeticQETermUtil) MakeAbs(expression ast.ASTHandle) (result ast.AST
 	if resultErr = u.open(); resultErr != nil {
 		return result, resultErr
 	}
-	if value, numeral, err := u.numeral(expression); err != nil {
+	// rational val;
+	value := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, u.q().Del(&value)) }()
+	if numeral, err := u.numeral(expression, &value); err != nil {
 		return result, err
 	} else if numeral {
-		if value.Sign() >= 0 {
+		if nonnegative, err := u.q().IsNonNeg(&value); err != nil {
+			return result, err
+		} else if nonnegative {
 			return u.manager.NewRef(expression)
 		}
 		negative, err := u.manager.MkArithmeticNeg(expression)
@@ -266,7 +297,7 @@ func (u *ArithmeticQETermUtil) MakeMin(arguments []ast.ASTHandle) (ast.ASTRef, e
 }
 
 // MakeDivides is arith_qe_util::mk_divides: 0 = (mod simplify(e) n).
-func (u *ArithmeticQETermUtil) MakeDivides(divisor *big.Rat, expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+func (u *ArithmeticQETermUtil) MakeDivides(divisor *unumeral.Rational, expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if resultErr = u.open(); resultErr != nil {
 		return result, resultErr
 	}
@@ -281,9 +312,12 @@ func (u *ArithmeticQETermUtil) MakeDivides(divisor *big.Rat, expression ast.ASTH
 
 // makeDividesInto is mk_divides(n, e, result) assigning the caller's
 // expr_ref result while mk_divides' tmp1 and tmp2 are still alive.
-func (u *ArithmeticQETermUtil) makeDividesInto(divisor *big.Rat, expression ast.ASTHandle, result ast.ASTRef) (resultErr error) {
-	if divisor == nil || !divisor.IsInt() {
+func (u *ArithmeticQETermUtil) makeDividesInto(divisor *unumeral.Rational, expression ast.ASTHandle, result ast.ASTRef) (resultErr error) {
+	if divisor == nil {
 		return ast.ErrASTDomain
+	}
+	if isInt, err := u.q().IsInt(divisor); err != nil || !isInt {
+		return errors.Join(err, ast.ErrASTDomain)
 	}
 	if u.theory == nil || u.arith == nil || u.boolRw == nil {
 		return ast.ErrASTHandle
@@ -301,7 +335,7 @@ func (u *ArithmeticQETermUtil) makeDividesInto(divisor *big.Rat, expression ast.
 	if err != nil {
 		return err
 	}
-	n, err := m.ArithmeticNumeralRat(divisor, true)
+	n, err := m.ArithmeticNumeralFromRational(divisor, true)
 	if err != nil {
 		return err
 	}
@@ -314,7 +348,7 @@ func (u *ArithmeticQETermUtil) makeDividesInto(divisor *big.Rat, expression ast.
 	if err != nil {
 		return err
 	}
-	zero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
+	zero, err := m.ArithmeticIntegerNumeralText("0")
 	if err != nil {
 		return err
 	}

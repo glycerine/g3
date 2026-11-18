@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -25,15 +24,15 @@ func TestExprQETreeBranchesPurityAndLeaves(t *testing.T) {
 	if first != y {
 		t.Fatal("variables were not consumed in reverse")
 	}
-	fmMust(t, root.selectVariable(x, big.NewRat(2, 1)))
-	a, err := root.addBranch(f.r.config, big.NewRat(0, 1), truth)
+	fmMust(t, root.selectVariable(x, qeSmallRat(2, 1)))
+	a, err := root.addBranch(f.r.config, qeSmallRat(0, 1), truth)
 	fmMust(t, err)
-	b, err := root.addBranch(f.r.config, big.NewRat(1, 1), truth)
+	b, err := root.addBranch(f.r.config, qeSmallRat(1, 1), truth)
 	fmMust(t, err)
-	if _, err = root.addBranch(f.r.config, big.NewRat(1, 1), truth); err == nil {
+	if _, err = root.addBranch(f.r.config, qeSmallRat(1, 1), truth); err == nil {
 		t.Fatal("duplicate branch accepted")
 	}
-	if _, err = root.addBranch(f.r.config, big.NewRat(2, 1), truth); err == nil {
+	if _, err = root.addBranch(f.r.config, qeSmallRat(2, 1), truth); err == nil {
 		t.Fatal("out-of-range branch accepted")
 	}
 	fmMust(t, a.initialize(p))

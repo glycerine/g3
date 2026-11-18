@@ -2,7 +2,6 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -23,10 +22,8 @@ type ArithmeticBranchSelection struct {
 	Bound *ArithmeticBound
 }
 
-func (p *ArithmeticPlugin) SelectBranch(variable *ast.ContainsApp, formula ast.ASTHandle, value *big.Rat) (ArithmeticBranchSelection, error) {
-	if value == nil || !value.IsInt() || value.Sign() < 0 || !value.Num().IsUint64() {
-		return ArithmeticBranchSelection{}, ast.ErrASTDomain
-	}
+// SelectBranch picks the branch for vl.get_unsigned() == value.
+func (p *ArithmeticPlugin) SelectBranch(variable *ast.ContainsApp, formula ast.ASTHandle, value uint32) (ArithmeticBranchSelection, error) {
 	e, target, err := p.entry(variable, formula)
 	if err != nil {
 		return ArithmeticBranchSelection{}, err
@@ -35,7 +32,7 @@ func (p *ArithmeticPlugin) SelectBranch(variable *ast.ContainsApp, formula ast.A
 	if err != nil {
 		return ArithmeticBranchSelection{}, err
 	}
-	v := value.Num().Uint64()
+	v := uint64(value)
 	if v == 0 {
 		return ArithmeticBranchSelection{Kind: ArithmeticInfinityBranch, Lower: policy.Lower}, nil
 	}

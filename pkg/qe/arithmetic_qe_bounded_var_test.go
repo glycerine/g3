@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -17,7 +16,7 @@ func TestArithmeticQEBoundedVarWidths(t *testing.T) {
 		n     int64
 		width uint32
 	}{{0, 1}, {1, 1}, {2, 2}, {3, 2}, {4, 3}, {7, 3}, {8, 4}, {12, 4}} {
-		z, err := u.mkBoundedVar(big.NewRat(c.n, 1))
+		z, err := u.mkBoundedVar(qeSmallRat(c.n, 1))
 		fmMust(t, err)
 		ref, err := m.NewRef(z)
 		fmMust(t, err)

@@ -5,10 +5,10 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type legacyLiteralReplacement struct {
@@ -97,6 +97,9 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 	literals := make([]*legacyLinearLiteral, 0, len(inputs))
 	originals := make([]ast.ASTHandle, 0, len(inputs))
 	defer func() { resultErr = errors.Join(resultErr, closeLegacyLinearLiterals(literals...)) }()
+	q := p.q()
+	value, inverse := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&value), q.Del(&inverse)) }()
 	equalityIndex := -1
 	positive, negative := 0, 0
 	for _, input := range inputs {
@@ -122,7 +125,9 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 		// classified literal immediately rather than only after evaluation.
 		literals = append(literals, literal)
 		originals = append(originals, input)
-		if literal.coefficient.Sign() == 0 {
+		if zero, err := q.IsZero(&literal.coefficient); err != nil {
+			return nil, false, err
+		} else if zero {
 			if err = literal.Close(); err != nil {
 				return nil, false, err
 			}
@@ -134,7 +139,7 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 		if err != nil {
 			return nil, false, err
 		}
-		cx, err := p.multiplyLegacy(literal.coefficient, variable)
+		cx, err := p.multiplyLegacy(&literal.coefficient, variable)
 		if err != nil {
 			return nil, false, err
 		}
@@ -142,19 +147,24 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 		if err != nil {
 			return nil, false, err
 		}
-		value, err := p.evaluateRat(evaluator, cxt)
+		if err = p.evaluateRat(evaluator, cxt, &value); err != nil {
+			return nil, false, err
+		}
+		valueSign, err := q.Sign(&value)
 		if err != nil {
 			return nil, false, err
 		}
 		if literal.equality {
-			if equalityIndex < 0 && value.Sign() == 0 {
+			if equalityIndex < 0 && valueSign == 0 {
 				equalityIndex = len(literals) - 1
 			}
 		} else {
 			if literal.disequality {
-				if value.Sign() > 0 {
-					literal.coefficient.Neg(literal.coefficient)
-					negated, err := p.multiplyLegacy(big.NewRat(-1, 1), term)
+				if valueSign > 0 {
+					if err = q.Neg(&literal.coefficient); err != nil {
+						return nil, false, err
+					}
+					negated, err := p.multiplyLegacyInt(-1, term)
 					if err != nil {
 						return nil, false, err
 					}
@@ -167,14 +177,16 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 						return nil, false, err
 					}
 					literal.term = newTerm
-					value.Neg(value)
+					valueSign = -valueSign
 				}
 				literal.strict = true
 				literal.disequality = false
 			}
-			trueInModel := value.Sign() < 0 || (!literal.strict && value.Sign() == 0)
+			trueInModel := valueSign < 0 || (!literal.strict && valueSign == 0)
 			if trueInModel {
-				if literal.coefficient.Sign() > 0 {
+				if pos, err := q.IsPos(&literal.coefficient); err != nil {
+					return nil, false, err
+				} else if pos {
 					positive++
 				} else {
 					negative++
@@ -191,7 +203,11 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 		if err != nil {
 			return nil, false, err
 		}
-		substitution, err := p.multiplyLegacy(new(big.Rat).Neg(new(big.Rat).Inv(literal.coefficient)), term)
+		// -1/m_coeffs[i]
+		if err = errors.Join(q.Inv(&literal.coefficient, &inverse), q.Neg(&inverse)); err != nil {
+			return nil, false, err
+		}
+		substitution, err := p.multiplyLegacy(&inverse, term)
 		if err != nil {
 			return nil, false, err
 		}
@@ -200,7 +216,11 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 	}
 	if positive == 0 || negative == 0 {
 		for index, literal := range literals {
-			value := !(literal.equality || (positive == 0 && literal.coefficient.Sign() > 0) || (negative == 0 && literal.coefficient.Sign() < 0))
+			sign, err := p.sign(&literal.coefficient)
+			if err != nil {
+				return nil, false, err
+			}
+			value := !(literal.equality || (positive == 0 && sign > 0) || (negative == 0 && sign < 0))
 			replacement, err := p.constantLegacy(value)
 			if err != nil {
 				return nil, false, err
@@ -216,6 +236,10 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 	}
 	for index, literal := range literals {
 		var replacement ast.ASTRef
+		sign, err := p.sign(&literal.coefficient)
+		if err != nil {
+			return nil, false, err
+		}
 		switch {
 		case index == selected:
 			replacement, err = p.constantLegacy(true)
@@ -223,7 +247,7 @@ func (p *legacyArithmeticProjection) projectReal(md *model.ModelCore, variable a
 			replacement, err = p.equalityAtBound(literal, literals[selected])
 		case literal.equality:
 			replacement, err = p.constantLegacy(false)
-		case (literal.coefficient.Sign() > 0) == usePositive:
+		case (sign > 0) == usePositive:
 			replacement, err = p.sameBound(literal, literals[selected])
 		default:
 			replacement, err = p.oppositeBound(literal, literals[selected])

@@ -2,24 +2,31 @@ package qe
 
 import (
 	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (p *ArithmeticPlugin) adjustDefinition(t ast.ASTHandle, a *big.Rat, s *arithmeticBranchSubstitution) (ast.ASTHandle, *big.Rat, error) {
+// adjustDefinition is get_def's x_t adjustment: t = t + a*m_t and
+// out = a * m_coeff (a itself without a substitution).
+func (p *ArithmeticPlugin) adjustDefinition(t ast.ASTHandle, a *unumeral.Rational, s *arithmeticBranchSubstitution, out *unumeral.Rational) (ast.ASTHandle, error) {
+	q := p.util.q()
 	if s == nil {
-		return t, new(big.Rat).Set(a), nil
+		return t, q.Copy(out, a)
 	}
 	r, e := p.util.scale(a, s.term)
 	if e != nil {
-		return ast.ASTHandle{}, nil, e
+		return ast.ASTHandle{}, e
 	}
 	h, e := p.manager.RefGet(r)
 	if e != nil {
 		_ = p.manager.DelRef(&r)
-		return ast.ASTHandle{}, nil, e
+		return ast.ASTHandle{}, e
 	}
 	v, e := p.manager.MkArithmeticAdd(t, h)
 	e = errors.Join(e, p.manager.DelRef(&r))
-	return v, new(big.Rat).Mul(a, s.coefficient), e
+	if e != nil {
+		return v, e
+	}
+	return v, q.Mul(a, &s.coefficient, out)
 }

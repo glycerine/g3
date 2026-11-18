@@ -1,7 +1,7 @@
 package qe_test
 
 import (
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -30,9 +30,10 @@ func TestArithmeticCooperDivisorCombinesDirectAndNested(t *testing.T) {
 	if handled, cause := processor.Add(contains, nested); cause != nil || !handled {
 		t.Fatal("nested", handled, cause)
 	}
-	divisor, found, err := qe.ArithmeticCooperDivisor(processor)
+	divisor := unumeral.NewRational()
+	found, err := qe.ArithmeticCooperDivisor(processor, &divisor)
 	pluginMust(t, err)
-	if !found || divisor.Cmp(big.NewInt(35)) != 0 {
-		t.Fatal("common divisor", found, divisor)
+	if !found || !isSmallRat(&divisor, 35, 1) {
+		t.Fatal("common divisor", found)
 	}
 }

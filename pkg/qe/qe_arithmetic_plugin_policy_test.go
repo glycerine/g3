@@ -1,7 +1,6 @@
 package qe_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -34,9 +33,9 @@ func newArithmeticPluginFixture(t *testing.T, real bool) *arithmeticPluginFixtur
 	return f
 }
 
-func (f *arithmeticPluginFixture) numeral(t *testing.T, value uint32) *big.Rat {
+func (f *arithmeticPluginFixture) numeral(t *testing.T, value uint32) uint32 {
 	t.Helper()
-	return new(big.Rat).SetInt64(int64(value))
+	return value
 }
 
 func TestArithmeticPluginIntegerBranchPolicyAndSourceIndexing(t *testing.T) {

@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -22,8 +21,8 @@ func TestExprQETreeConstraintUsesSelectedAncestry(t *testing.T) {
 	defer func() { fmMust(t, root.Close()) }()
 	fmMust(t, root.initialize(truth))
 	fmMust(t, root.consumeVariables([]ast.ASTHandle{p}))
-	fmMust(t, root.selectVariable(p, big.NewRat(2, 1)))
-	child, err := root.addBranch(f.r.config, big.NewRat(0, 1), p)
+	fmMust(t, root.selectVariable(p, qeSmallRat(2, 1)))
+	child, err := root.addBranch(f.r.config, qeSmallRat(0, 1), p)
 	fmMust(t, err)
 	notQ := f.own(m.MkNot(q))
 	notP := f.own(m.MkNot(p))

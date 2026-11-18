@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -44,11 +43,10 @@ func arithmeticCase(t *testing.T, mode string) *arithmeticProjectionCase {
 	x, y, z := f.constant("x", sort), f.constant("y", sort), f.constant("z", sort)
 	b := f.constant("b", f.boolean)
 	number := func(s string) ast.ASTHandle {
-		q, ok := new(big.Rat).SetString(s)
-		if !ok {
-			t.Fatal(s)
+		if integer {
+			return f.own(m.ArithmeticIntegerNumeralText(s))
 		}
-		return f.own(m.ArithmeticNumeralRat(q, integer))
+		return f.own(m.ArithmeticRealNumeralText(s))
 	}
 	xv, yv, zv := "2", "3", "1"
 	if strings.HasPrefix(mode, "integer-equality") {

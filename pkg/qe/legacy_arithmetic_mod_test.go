@@ -48,9 +48,9 @@ func TestLegacyArithmeticProjectionRewritesModEquality(t *testing.T) {
 	if !matched || len(mod) != 2 {
 		t.Fatal("missing top-level divisibility modulus")
 	}
-	zero, numeral, err := p.syntax.numeral(args[1])
+	zero, err := p.syntax.manager.ArithmeticNumeralIsZero(args[1])
 	fmMust(t, err)
-	if !numeral || zero.Sign() != 0 {
+	if !zero {
 		t.Fatal("divisibility right side is not zero")
 	}
 }

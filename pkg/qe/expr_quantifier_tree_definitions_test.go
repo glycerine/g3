@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -22,10 +21,10 @@ func TestExprQETreeGuardedLeavesComposeDefinitions(t *testing.T) {
 	fmMust(t, root.initialize(truth))
 	fmMust(t, root.addDefinition(x, y))
 	fmMust(t, root.consumeVariables([]ast.ASTHandle{branch}))
-	fmMust(t, root.selectVariable(branch, big.NewRat(2, 1)))
-	a, err := root.addBranch(f.r.config, big.NewRat(0, 1), truth)
+	fmMust(t, root.selectVariable(branch, qeSmallRat(2, 1)))
+	a, err := root.addBranch(f.r.config, qeSmallRat(0, 1), truth)
 	fmMust(t, err)
-	b, err := root.addBranch(f.r.config, big.NewRat(1, 1), truth)
+	b, err := root.addBranch(f.r.config, qeSmallRat(1, 1), truth)
 	fmMust(t, err)
 	fmMust(t, a.initialize(guard))
 	fmMust(t, a.addDefinition(y, truth))

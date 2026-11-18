@@ -1,6 +1,7 @@
 package qe
 
 import (
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -41,10 +42,11 @@ func TestExprQEVariableSelectionSourceOrderAndUnsupported(t *testing.T) {
 			fmMust(t, m.DelRef(&free[i]))
 		}
 	}()
-	selected, count, found, err := selectExprQEVariable(root, variables, context, atoms, &free)
+	count := unumeral.NewRational()
+	selected, found, err := selectExprQEVariable(root, variables, context, atoms, &free, &count)
 	fmMust(t, err)
-	if !found || selected != bv || count.RatString() != "16" {
-		t.Fatal("source weight scan order", selected, count.RatString())
+	if !found || selected != bv || qeRatText(m, &count) != "16" {
+		t.Fatal("source weight scan order", selected, qeRatText(m, &count))
 	}
 	sym, err := m.Symbols.Intern("select-unsupported-sort")
 	fmMust(t, err)
@@ -61,10 +63,10 @@ func TestExprQEVariableSelectionSourceOrderAndUnsupported(t *testing.T) {
 	defer func() { fmMust(t, second.Close()) }()
 	fmMust(t, second.initialize(truth))
 	fmMust(t, other.consume(second))
-	selected, count, found, err = selectExprQEVariable(second, other, context, atoms, &free)
+	selected, found, err = selectExprQEVariable(second, other, context, atoms, &free, &count)
 	fmMust(t, err)
-	if !found || selected != p || count.RatString() != "2" || len(free) != 1 || second.isPure() {
-		t.Fatal("unsupported variable was not released", selected, count.RatString())
+	if !found || selected != p || qeRatText(m, &count) != "2" || len(free) != 1 || second.isPure() {
+		t.Fatal("unsupported variable was not released", selected, qeRatText(m, &count))
 	}
 	freed, err := m.RefGet(free[0])
 	fmMust(t, err)
@@ -108,10 +110,11 @@ func TestExprQEDatatypeBranchesPrepareSolverAtoms(t *testing.T) {
 			fmMust(t, m.DelRef(&free[i]))
 		}
 	}()
-	selected, branchCount, found, err := selectExprQEVariable(root, variables, context, atoms, &free)
+	branchCount := unumeral.NewRational()
+	selected, found, err := selectExprQEVariable(root, variables, context, atoms, &free, &branchCount)
 	fmMust(t, err)
-	if !found || selected != x || branchCount.RatString() != "2" || len(free) != 0 {
-		t.Fatal("recursive variable was not selected", found, branchCount.RatString(), len(free))
+	if !found || selected != x || qeRatText(m, &branchCount) != "2" || len(free) != 0 {
+		t.Fatal("recursive variable was not selected", found, qeRatText(m, &branchCount), len(free))
 	}
 	count, err := m.NumeralService().NewValue()
 	fmMust(t, err)

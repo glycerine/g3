@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"strconv"
 	"testing"
 
@@ -26,7 +25,7 @@ func TestArithmeticQECooperResolutionMatchesSolver(t *testing.T) {
 			fmMust(t, err)
 			defer func() { fmMust(t, th.Close()) }()
 			u.context = th.context
-			result, handled, err := u.ResolveUnitOrReal(x, false, big.NewRat(coefficients[0], 1), left, big.NewRat(coefficients[1], 1), right)
+			result, handled, err := u.ResolveUnitOrReal(x, false, qeSmallRat(coefficients[0], 1), left, qeSmallRat(coefficients[1], 1), right)
 			fmMust(t, err)
 			if !handled {
 				t.Fatal("Cooper resolution was not handled")

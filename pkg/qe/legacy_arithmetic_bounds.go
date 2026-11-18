@@ -5,32 +5,34 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (p *legacyArithmeticProjection) evaluateRat(evaluator *model.ModelEvaluator, expression ast.ASTHandle) (_ *big.Rat, resultErr error) {
+// evaluateRat evaluates expression to a numeral and writes its value into
+// out (a rational of q()).
+func (p *legacyArithmeticProjection) evaluateRat(evaluator *model.ModelEvaluator, expression ast.ASTHandle, out *unumeral.Rational) (resultErr error) {
 	value, err := evaluator.EvaluateValue(expression)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() {
 		resultErr = errors.Join(resultErr, p.syntax.manager.DelRef(&value))
 	}()
 	handle, err := p.syntax.manager.RefGet(value)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	rational, numeral, err := p.syntax.numeral(handle)
+	numeral, err := p.syntax.numeral(handle, out)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !numeral {
-		return nil, ast.ErrASTDomain
+		return ast.ErrASTDomain
 	}
-	return rational, nil
+	return nil
 }
 
 func (p *legacyArithmeticProjection) findMax(md *model.ModelCore, variable ast.ASTHandle, literals []*legacyLinearLiteral, positive bool) (_ int, resultErr error) {
@@ -53,39 +55,69 @@ func (p *legacyArithmeticProjection) findMax(md *model.ModelCore, variable ast.A
 	if err = evaluator.SetModelCompletion(true); err != nil {
 		return -1, err
 	}
-	variableValue, err := p.evaluateRat(evaluator, variable)
-	if err != nil {
+	q := p.q()
+	variableValue, foundValue, value, abs, atModel := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() {
+		resultErr = errors.Join(resultErr, q.Del(&variableValue), q.Del(&foundValue), q.Del(&value), q.Del(&abs), q.Del(&atModel))
+	}()
+	if err = p.evaluateRat(evaluator, variable, &variableValue); err != nil {
 		return -1, err
 	}
 	found := -1
 	foundStrict := false
-	var foundValue *big.Rat
 	for index, literal := range literals {
-		if literal == nil || literal.manager != p.syntax.manager || literal.equality || literal.coefficient.Sign() == 0 || (literal.coefficient.Sign() > 0) != positive {
+		if literal == nil || literal.manager != p.syntax.manager || literal.equality {
+			continue
+		}
+		sign, err := p.sign(&literal.coefficient)
+		if err != nil {
+			return -1, err
+		}
+		if sign == 0 || (sign > 0) != positive {
 			continue
 		}
 		term, err := p.syntax.manager.RefGet(literal.term)
 		if err != nil {
 			return -1, err
 		}
-		value, err := p.evaluateRat(evaluator, term)
+		if err = p.evaluateRat(evaluator, term, &value); err != nil {
+			return -1, err
+		}
+		if err = errors.Join(q.Copy(&abs, &literal.coefficient), q.Abs(&abs)); err != nil {
+			return -1, err
+		}
+		if err = q.Div(&value, &abs, &value); err != nil {
+			return -1, err
+		}
+		if positive {
+			err = q.Add(&value, &variableValue, &atModel)
+		} else {
+			err = q.Sub(&value, &variableValue, &atModel)
+		}
 		if err != nil {
 			return -1, err
 		}
-		value.Quo(value, new(big.Rat).Abs(literal.coefficient))
-		atModel := new(big.Rat).Set(value)
-		if positive {
-			atModel.Add(atModel, variableValue)
-		} else {
-			atModel.Sub(atModel, variableValue)
+		atSign, err := q.Sign(&atModel)
+		if err != nil {
+			return -1, err
 		}
-		trueInModel := atModel.Sign() < 0 || (!literal.strict && atModel.Sign() == 0)
+		trueInModel := atSign < 0 || (!literal.strict && atSign == 0)
 		if !trueInModel {
 			continue
 		}
-		if found < 0 || value.Cmp(foundValue) > 0 || (value.Cmp(foundValue) == 0 && !foundStrict && literal.strict) {
+		better := found < 0
+		if !better {
+			c, err := q.Compare(&value, &foundValue)
+			if err != nil {
+				return -1, err
+			}
+			better = c > 0 || (c == 0 && !foundStrict && literal.strict)
+		}
+		if better {
 			found = index
-			foundValue = new(big.Rat).Set(value)
+			if err = q.Copy(&foundValue, &value); err != nil {
+				return -1, err
+			}
 			foundStrict = literal.strict
 		}
 	}

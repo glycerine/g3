@@ -4,9 +4,9 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // ArithmeticDivisibility owns Term, Atom and, for a nested modulo term, Z:
@@ -17,8 +17,8 @@ type ArithmeticDivisibility struct {
 	Term        ast.ASTRef
 	Atom        ast.ASTRef
 	Z           ast.ASTRef
-	Coefficient *big.Rat
-	Divisor     *big.Rat
+	Coefficient unumeral.Rational // m_div_coeffs entry
+	Divisor     unumeral.Rational // m_div_divisors entry
 	Negated     bool
 	Nested      bool
 }
@@ -31,7 +31,8 @@ func (d *ArithmeticDivisibility) Close() error {
 	if d.Z != (ast.ASTRef{}) {
 		err = d.manager.DelRef(&d.Z)
 	}
-	err = errors.Join(err, d.manager.DelRef(&d.Atom), d.manager.DelRef(&d.Term))
+	q := d.manager.NumeralService().Manager
+	err = errors.Join(err, d.manager.DelRef(&d.Atom), d.manager.DelRef(&d.Term), q.Del(&d.Coefficient), q.Del(&d.Divisor))
 	if err == nil {
 		d.manager = nil
 	}

@@ -2,7 +2,6 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -28,8 +27,7 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 		return p.replayBranch(cached)
 	}
 	freshStart := len(p.pendingFresh)
-	v := new(big.Rat).SetInt64(int64(branchNumber))
-	selection, err := p.SelectBranch(variable, formula, v)
+	selection, err := p.SelectBranch(variable, formula, branchNumber)
 	if err != nil {
 		return err
 	}
@@ -46,6 +44,8 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 	if err != nil {
 		return err
 	}
+	// x_subst x_t dies at the end of assign.
+	defer func() { resultErr = errors.Join(resultErr, substitution.release(p.util.q())) }()
 	if selection.Kind == ArithmeticInfinityBranch {
 		err = p.rewriteInfinity(e, selection.Lower, result)
 	} else {

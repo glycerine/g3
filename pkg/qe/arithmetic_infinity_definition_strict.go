@@ -2,7 +2,6 @@ package qe
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
 )
 
 func (p *ArithmeticPlugin) infinityStrict(b *ArithmeticBound, target ast.ASTHandle, lower bool) (ast.ASTHandle, error) {
@@ -10,7 +9,7 @@ func (p *ArithmeticPlugin) infinityStrict(b *ArithmeticBound, target ast.ASTHand
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	one, e := p.util.numeralFor(big.NewRat(1, 1), target)
+	one, e := p.util.numeralForInt(1, target)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}

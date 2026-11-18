@@ -1,7 +1,7 @@
 package qe
 
 import (
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -31,13 +31,14 @@ func TestExprQEBranchValuesAndEquality(t *testing.T) {
 		variable ast.ASTHandle
 		expected string
 	}{{p, "1"}, {b, "13"}} {
-		value, ok, e := exprQEEvalBranch(m, eval, tc.variable)
+		value := unumeral.NewRational()
+		ok, e := exprQEEvalBranch(m, eval, tc.variable, &value)
 		fmMust(t, e)
-		if !ok || value.RatString() != tc.expected {
-			t.Fatal("model branch value", value.RatString())
+		if !ok || qeRatText(m, &value) != tc.expected {
+			t.Fatal("model branch value", qeRatText(m, &value))
 		}
 	}
-	zero, err := exprQEBranchEquality(m, p, big.NewRat(0, 1))
+	zero, err := exprQEBranchEquality(m, p, qeSmallRat(0, 1))
 	fmMust(t, err)
 	defer func() { fmMust(t, m.DelRef(&zero)) }()
 	h, err := m.RefGet(zero)
@@ -47,7 +48,7 @@ func TestExprQEBranchValuesAndEquality(t *testing.T) {
 	if !isNot || arg != p {
 		t.Fatal("false Boolean branch")
 	}
-	one, err := exprQEBranchEquality(m, p, big.NewRat(1, 1))
+	one, err := exprQEBranchEquality(m, p, qeSmallRat(1, 1))
 	fmMust(t, err)
 	defer func() { fmMust(t, m.DelRef(&one)) }()
 	h, err = m.RefGet(one)
@@ -55,13 +56,13 @@ func TestExprQEBranchValuesAndEquality(t *testing.T) {
 	if h != p {
 		t.Fatal("true Boolean branch")
 	}
-	eq, err := exprQEBranchEquality(m, b, big.NewRat(13, 1))
+	eq, err := exprQEBranchEquality(m, b, qeSmallRat(13, 1))
 	fmMust(t, err)
 	defer func() { fmMust(t, m.DelRef(&eq)) }()
 	h, err = m.RefGet(eq)
 	fmMust(t, err)
 	_ = h
-	if _, err = exprQEBranchEquality(m, p, big.NewRat(2, 1)); err == nil {
+	if _, err = exprQEBranchEquality(m, p, qeSmallRat(2, 1)); err == nil {
 		t.Fatal("invalid Boolean value accepted")
 	}
 }

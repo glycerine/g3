@@ -3,7 +3,7 @@ package qe
 // Source: src/qe/qe_bv_plugin.cpp assign/get_num_branches.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -24,8 +24,14 @@ func (p *BitVectorPlugin) GetNumBranches(variable *ast.ContainsApp, formula ast.
 	if err != nil {
 		return false, err
 	}
-	count := new(big.Int).Lsh(big.NewInt(1), uint(width))
-	if err = p.manager.NumeralService().SetString(branches, count.String()); err != nil {
+	// num_branches = rational::power_of_two(sz)
+	q := p.manager.NumeralService().Manager
+	two := numeral.NewRational()
+	err = q.SetInt32(&two, 2)
+	if err == nil {
+		err = q.Power(&two, width, &branches.Raw)
+	}
+	if err = errors.Join(err, q.Del(&two)); err != nil {
 		return false, err
 	}
 	return true, nil

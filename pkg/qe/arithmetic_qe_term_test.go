@@ -4,7 +4,7 @@ package qe_test
 
 import (
 	"errors"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -84,10 +84,11 @@ func TestArithmeticQECoefficientAndConstantSourceOrder(t *testing.T) {
 	contains, err := ast.NewContainsApp(f.manager, f.x)
 	arithmeticQEMust(t, err)
 	defer func() { arithmeticQEMust(t, contains.Close()) }()
-	coefficient, rest, matched, err := f.util.Coefficient(contains, polynomial)
+	coefficient := unumeral.NewRational()
+	rest, matched, err := f.util.Coefficient(contains, polynomial, &coefficient)
 	arithmeticQEMust(t, err)
-	if !matched || coefficient.Cmp(big.NewRat(2, 1)) != 0 {
-		t.Fatal("coefficient match", matched, coefficient)
+	if !matched || !isSmallRat(&coefficient, 2, 1) {
+		t.Fatal("coefficient match", matched)
 	}
 	restHandle, err := f.manager.RefGet(rest)
 	arithmeticQEMust(t, err)
@@ -97,7 +98,7 @@ func TestArithmeticQECoefficientAndConstantSourceOrder(t *testing.T) {
 	arithmeticQEMust(t, f.manager.DelRef(&rest))
 
 	repeated := f.pin(f.manager.MkArithmeticAdd(f.x, f.x))
-	_, rest, matched, err = f.util.Coefficient(contains, repeated)
+	rest, matched, err = f.util.Coefficient(contains, repeated, &coefficient)
 	arithmeticQEMust(t, err)
 	if matched || rest != (ast.ASTRef{}) {
 		t.Fatal("nonlinear repeated variable accepted")
@@ -105,10 +106,11 @@ func TestArithmeticQECoefficientAndConstantSourceOrder(t *testing.T) {
 
 	inner := f.pin(f.manager.MkArithmeticAdd(three, f.x))
 	withConstant := f.pin(f.manager.MkArithmeticAdd(f.y, inner))
-	constant, rest, err := f.util.Constant(withConstant)
+	constant := unumeral.NewRational()
+	rest, err = f.util.Constant(withConstant, &constant)
 	arithmeticQEMust(t, err)
-	if constant.Cmp(big.NewRat(3, 1)) != 0 {
-		t.Fatal("constant extraction", constant)
+	if !isSmallRat(&constant, 3, 1) {
+		t.Fatal("constant extraction")
 	}
 	restHandle, err = f.manager.RefGet(rest)
 	arithmeticQEMust(t, err)
@@ -132,10 +134,11 @@ func TestCoefficientRestIsNaryAdd(t *testing.T) {
 	contains, err := ast.NewContainsApp(f.manager, f.x)
 	arithmeticQEMust(t, err)
 	defer func() { arithmeticQEMust(t, contains.Close()) }()
-	coefficient, rest, matched, err := f.util.Coefficient(contains, polynomial)
+	coefficient := unumeral.NewRational()
+	rest, matched, err := f.util.Coefficient(contains, polynomial, &coefficient)
 	arithmeticQEMust(t, err)
-	if !matched || coefficient.Cmp(big.NewRat(2, 1)) != 0 {
-		t.Fatal("coefficient match", matched, coefficient)
+	if !matched || !isSmallRat(&coefficient, 2, 1) {
+		t.Fatal("coefficient match", matched)
 	}
 	defer func() { arithmeticQEMust(t, f.manager.DelRef(&rest)) }()
 	restHandle, err := f.manager.RefGet(rest)
@@ -176,20 +179,21 @@ func TestArithmeticQERelationAndDivisibilityMatching(t *testing.T) {
 	}
 	arithmeticQEMust(t, f.manager.DelRef(&polynomial))
 
-	divides, err := f.util.MakeDivides(big.NewRat(7, 1), f.x)
+	divides, err := f.util.MakeDivides(smallRat(7, 1), f.x)
 	arithmeticQEMust(t, err)
 	dividesHandle, err := f.manager.RefGet(divides)
 	arithmeticQEMust(t, err)
-	divisor, term, matched, err := f.util.MatchDivides(dividesHandle)
+	divisor := unumeral.NewRational()
+	term, matched, err := f.util.MatchDivides(dividesHandle, &divisor)
 	arithmeticQEMust(t, err)
-	if !matched || divisor.Cmp(big.NewRat(7, 1)) != 0 || term != f.x {
-		t.Fatal("divides round trip", matched, divisor, term)
+	if !matched || !isSmallRat(&divisor, 7, 1) || term != f.x {
+		t.Fatal("divides round trip", matched, term)
 	}
 	negative, err := f.manager.MkNot(dividesHandle)
 	arithmeticQEMust(t, err)
-	atom, divisor, term, matched, err := f.util.MatchNotDivides(negative)
+	atom, term, matched, err := f.util.MatchNotDivides(negative, &divisor)
 	arithmeticQEMust(t, err)
-	if !matched || atom != dividesHandle || divisor.Cmp(big.NewRat(7, 1)) != 0 || term != f.x {
+	if !matched || atom != dividesHandle || !isSmallRat(&divisor, 7, 1) || term != f.x {
 		t.Fatal("not-divides round trip")
 	}
 	arithmeticQEMust(t, f.manager.DelRef(&divides))
@@ -197,7 +201,7 @@ func TestArithmeticQERelationAndDivisibilityMatching(t *testing.T) {
 
 func TestArithmeticQEBoundsAbsMinMaxAndFlattening(t *testing.T) {
 	f := newArithmeticQEFixture(t)
-	bound, err := f.util.MakeBound(big.NewRat(2, 1), f.x, big.NewRat(3, 1), f.y, false)
+	bound, err := f.util.MakeBound(smallRat(2, 1), f.x, smallRat(3, 1), f.y, false)
 	arithmeticQEMust(t, err)
 	h, err := f.manager.RefGet(bound)
 	arithmeticQEMust(t, err)
@@ -205,7 +209,7 @@ func TestArithmeticQEBoundsAbsMinMaxAndFlattening(t *testing.T) {
 		t.Fatal("integer bound kind", kind, err)
 	}
 	arithmeticQEMust(t, f.manager.DelRef(&bound))
-	strict, err := f.util.MakeBound(big.NewRat(1, 1), f.rx, big.NewRat(1, 1), f.ry, true)
+	strict, err := f.util.MakeBound(smallRat(1, 1), f.rx, smallRat(1, 1), f.ry, true)
 	arithmeticQEMust(t, err)
 	h, err = f.manager.RefGet(strict)
 	arithmeticQEMust(t, err)
@@ -253,7 +257,8 @@ func TestArithmeticQEBoundsAbsMinMaxAndFlattening(t *testing.T) {
 	arithmeticQEMust(t, f.manager.DelRef(&flat))
 
 	copyOwner := *f.util
-	if _, _, _, err = copyOwner.MatchDivides(h); err == nil {
+	divisor := unumeral.NewRational()
+	if _, _, err = copyOwner.MatchDivides(h, &divisor); err == nil {
 		t.Fatal("copied arithmetic QE utility accepted")
 	}
 	arithmeticQEMust(t, f.util.Close())

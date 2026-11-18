@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -34,7 +33,7 @@ func TestExprQEArithmeticBranchTransfersConstraintsAndDefinition(t *testing.T) {
 	defer func() { fmMust(t, root.Close()) }()
 	fmMust(t, root.initialize(formula))
 	fmMust(t, vars.consume(root))
-	fmMust(t, root.selectVariable(f.x, big.NewRat(2, 1)))
+	fmMust(t, root.selectVariable(f.x, qeSmallRat(2, 1)))
 	ctx, err := NewSolverContext(m, nil)
 	fmMust(t, err)
 	defer func() { fmMust(t, ctx.Close()) }()
@@ -47,7 +46,7 @@ func TestExprQEArithmeticBranchTransfersConstraintsAndDefinition(t *testing.T) {
 	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
 	fmMust(t, err)
 	defer func() { fmMust(t, rw.Close()) }()
-	child, status, err := stepExprQEScalarBranch(root, vars, f.plugin, big.NewRat(1, 1), f.r.config, rw, nnf, solver, true)
+	child, status, err := stepExprQEScalarBranch(root, vars, f.plugin, qeSmallRat(1, 1), f.r.config, rw, nnf, solver, true)
 	fmMust(t, err)
 	if status != exprQENeedPropagation || child.formula != (ast.ASTRef{}) {
 		t.Fatal("arithmetic branch propagation")
@@ -57,7 +56,7 @@ func TestExprQEArithmeticBranchTransfersConstraintsAndDefinition(t *testing.T) {
 	if assertions == 0 {
 		t.Fatal("arithmetic constraints were not asserted")
 	}
-	child, status, err = stepExprQEScalarBranch(root, vars, f.plugin, big.NewRat(1, 1), f.r.config, rw, nnf, solver, true)
+	child, status, err = stepExprQEScalarBranch(root, vars, f.plugin, qeSmallRat(1, 1), f.r.config, rw, nnf, solver, true)
 	fmMust(t, err)
 	if status != exprQEChooseVariable {
 		t.Fatal("arithmetic branch substitution")
@@ -107,7 +106,7 @@ func TestExprQEArithmeticBranchTransfersFreshVariables(t *testing.T) {
 	defer func() { fmMust(t, root.Close()) }()
 	fmMust(t, root.initialize(formula))
 	fmMust(t, vars.consume(root))
-	fmMust(t, root.selectVariable(f.x, big.NewRat(2, 1)))
+	fmMust(t, root.selectVariable(f.x, qeSmallRat(2, 1)))
 	ctx, err := NewSolverContext(m, nil)
 	fmMust(t, err)
 	defer func() { fmMust(t, ctx.Close()) }()
@@ -120,7 +119,7 @@ func TestExprQEArithmeticBranchTransfersFreshVariables(t *testing.T) {
 	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
 	fmMust(t, err)
 	defer func() { fmMust(t, rw.Close()) }()
-	child, status, err := stepExprQEScalarBranch(root, vars, f.plugin, big.NewRat(0, 1), f.r.config, rw, nnf, solver, false)
+	child, status, err := stepExprQEScalarBranch(root, vars, f.plugin, qeSmallRat(0, 1), f.r.config, rw, nnf, solver, false)
 	fmMust(t, err)
 	if status != exprQENeedPropagation || len(child.variables) != 1 || len(vars.pending) != 0 {
 		t.Fatal("fresh Cooper variable was not added to child")

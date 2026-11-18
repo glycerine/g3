@@ -3,10 +3,10 @@ package qe
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (p *ArithmeticPlugin) finiteBranchDefinition(x ArithmeticBranchSelection, s *arithmeticBranchSubstitution) (ast.ASTRef, error) {
+func (p *ArithmeticPlugin) finiteBranchDefinition(x ArithmeticBranchSelection, s *arithmeticBranchSubstitution) (_ ast.ASTRef, resultErr error) {
 	if x.Bound == nil {
 		return ast.ASTRef{}, ast.ErrASTDomain
 	}
@@ -14,16 +14,20 @@ func (p *ArithmeticPlugin) finiteBranchDefinition(x ArithmeticBranchSelection, s
 	if e != nil {
 		return ast.ASTRef{}, e
 	}
-	t, a, e := p.adjustDefinition(t, x.Bound.Coefficient, s)
+	// rational a = ...
+	q := p.util.q()
+	a := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&a)) }()
+	t, e = p.adjustDefinition(t, &x.Bound.Coefficient, s, &a)
 	if e != nil {
 		return ast.ASTRef{}, e
 	}
-	d, e := p.definitionDivision(t, a)
+	d, e := p.definitionDivision(t, &a)
 	if e != nil {
 		return ast.ASTRef{}, e
 	}
 	if x.Kind == ArithmeticStrictBranch {
-		o, e := p.util.numeralFor(big.NewRat(1, 1), d)
+		o, e := p.util.numeralForInt(1, d)
 		if e != nil {
 			return ast.ASTRef{}, e
 		}
@@ -33,7 +37,7 @@ func (p *ArithmeticPlugin) finiteBranchDefinition(x ArithmeticBranchSelection, s
 		}
 	}
 	if s != nil {
-		scaled, cause := p.util.scale(s.coefficient, d)
+		scaled, cause := p.util.scale(&s.coefficient, d)
 		if cause != nil {
 			return ast.ASTRef{}, cause
 		}

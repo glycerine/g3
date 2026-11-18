@@ -5,16 +5,23 @@ package qe
 import (
 	"errors"
 	"io"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTHandle, constant *big.Rat, forms *[]ast.ASTRef, terms *projectionTermMap) (err error) {
+// linearizeTerm is imp::linearize(mbo, model, mul, t, c, fmls, ts, tids):
+// multiplier and constant are rationals of the manager's
+// NumeralService().Manager.
+func (c *arithmeticProjectionCall) linearizeTerm(multiplier *unumeral.Rational, h ast.ASTHandle, constant *unumeral.Rational, forms *[]ast.ASTRef, terms *projectionTermMap) (err error) {
 	p := c.owner
 	m := p.manager
+	q := p.q()
+	// rational mul1;
+	mul1, product := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&mul1), q.Del(&product)) }()
 	// expr_ref val(m): assigned by the ite and mod cases, it dies when this
 	// call returns.
 	var val ast.ASTRef
@@ -29,12 +36,15 @@ func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTH
 	}
 	if mul && len(args) == 2 {
 		for i, arg := range args {
-			v, ok, err := p.numeralExpression(arg)
+			ok, err := p.numeralExpression(arg, &mul1)
 			if err != nil {
 				return err
 			}
 			if ok {
-				return c.linearizeTerm(new(big.Rat).Mul(multiplier, v), args[1-i], constant, forms, terms)
+				if err = q.Mul(multiplier, &mul1, &product); err != nil {
+					return err
+				}
+				return c.linearizeTerm(&product, args[1-i], constant, forms, terms)
 			}
 		}
 	}
@@ -58,22 +68,31 @@ func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTH
 		if err = c.linearizeTerm(multiplier, args[0], constant, forms, terms); err != nil {
 			return err
 		}
-		return c.linearizeTerm(new(big.Rat).Neg(multiplier), args[1], constant, forms, terms)
+		if err = errors.Join(q.Copy(&product, multiplier), q.Neg(&product)); err != nil {
+			return err
+		}
+		return c.linearizeTerm(&product, args[1], constant, forms, terms)
 	}
 	args, neg, err := p.operation(h, p.family, 8)
 	if err != nil {
 		return err
 	}
 	if neg && len(args) == 1 {
-		return c.linearizeTerm(new(big.Rat).Neg(multiplier), args[0], constant, forms, terms)
+		if err = errors.Join(q.Copy(&product, multiplier), q.Neg(&product)); err != nil {
+			return err
+		}
+		return c.linearizeTerm(&product, args[0], constant, forms, terms)
 	}
-	v, ok, err := p.numeral(h)
+	ok, err := p.numeral(h, &mul1)
 	if err != nil {
 		return err
 	}
 	if ok {
-		constant.Add(constant, new(big.Rat).Mul(multiplier, v))
-		return nil
+		// c += mul*mul1;
+		if err = q.Mul(multiplier, &mul1, &product); err != nil {
+			return err
+		}
+		return q.Add(constant, &product, constant)
 	}
 	args, ite, err := p.operation(h, m.BasicFamilyID(), ast.ASTOpIte)
 	if err != nil {
@@ -122,54 +141,102 @@ func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTH
 		return err
 	}
 	if mod && len(args) == 2 {
-		modulus, ok, err := p.numeralExpression(args[1])
+		ok, err := p.numeralExpression(args[1], &mul1)
 		if err != nil {
 			return err
 		}
-		if ok && modulus.Sign() != 0 {
-			var value ast.ASTHandle
-			val, value, err = c.evalLocal(h)
+		nonzero := false
+		if ok {
+			zero, err := q.IsZero(&mul1)
 			if err != nil {
 				return err
 			}
-			r, ok, err := p.numeral(value)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				return ast.ErrASTDomain
-			}
-			constant.Add(constant, new(big.Rat).Mul(multiplier, r))
-			residue := new(big.Rat).Neg(r)
-			nested := projectionTerms(m)
-			if err = c.linearizeTerm(big.NewRat(1, 1), args[0], residue, forms, nested); err != nil {
-				return err
-			}
-			coeffs, err := c.coefficients(nested)
-			if err != nil {
-				return err
-			}
-			return c.mbo.AddDivides(coeffs, residue, modulus)
+			nonzero = !zero
+		}
+		if nonzero {
+			return c.linearizeMod(multiplier, h, args[0], &mul1, constant, forms, &val)
 		}
 	}
+	return c.insertMul(h, multiplier, terms)
+}
+
+// linearizeMod is linearize's (mod t1 mul1) case: val = eval(t) is the
+// caller's expr_ref.
+func (c *arithmeticProjectionCall) linearizeMod(multiplier *unumeral.Rational, h, t1 ast.ASTHandle, mul1, constant *unumeral.Rational, forms *[]ast.ASTRef, val *ast.ASTRef) (err error) {
+	p := c.owner
+	m := p.manager
+	q := p.q()
+	// rational r; ... rational c0(-r), mul0(1); obj_map<expr, rational> ts0;
+	r, product, c0, mul0 := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	nested := projectionTerms(m)
+	defer func() {
+		err = errors.Join(err, nested.release(), q.Del(&mul0), q.Del(&c0), q.Del(&product), q.Del(&r))
+	}()
+	var value ast.ASTHandle
+	*val, value, err = c.evalLocal(h)
+	if err != nil {
+		return err
+	}
+	ok, err := p.numeral(value, &r)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ast.ErrASTDomain
+	}
+	// c += mul*r;
+	if err = q.Mul(multiplier, &r, &product); err != nil {
+		return err
+	}
+	if err = q.Add(constant, &product, constant); err != nil {
+		return err
+	}
+	if err = errors.Join(q.Copy(&c0, &r), q.Neg(&c0), q.SetInt32(&mul0, 1)); err != nil {
+		return err
+	}
+	if err = c.linearizeTerm(&mul0, t1, &c0, forms, nested); err != nil {
+		return err
+	}
+	coeffs, err := c.coefficients(nested)
+	if err != nil {
+		return err
+	}
+	return mboAddDivides(c.mbo, coeffs, q, &c0, mul1)
+}
+
+// insertMul is imp::insert_mul(x, v, ts).
+func (c *arithmeticProjectionCall) insertMul(h ast.ASTHandle, multiplier *unumeral.Rational, terms *projectionTermMap) (err error) {
+	p := c.owner
+	m := p.manager
+	q := p.q()
 	if err = p.emit("insert_mul", 42, func(w io.Writer) error {
+		text, e := q.String(multiplier)
+		if e != nil {
+			return e
+		}
 		_, _ = io.WriteString(w, "Adding variable ")
 		if e := writeExpression(m, p.config, w, h); e != nil {
 			return e
 		}
-		_, _ = io.WriteString(w, " "+multiplier.RatString()+"\n")
+		_, _ = io.WriteString(w, " "+text+"\n")
 		return nil
 	}); err != nil {
 		return err
 	}
+	// rational w;
+	w := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&w)) }()
 	old, ok, err := terms.get(h)
 	if err != nil {
 		return err
 	}
 	if ok {
-		return terms.set(h, new(big.Rat).Add(old, multiplier))
+		if err = q.Add(old, multiplier, &w); err != nil {
+			return err
+		}
+		return terms.set(h, &w)
 	}
-	return terms.set(h, new(big.Rat).Set(multiplier))
+	return terms.set(h, multiplier)
 }
 
 func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]ast.ASTRef) (_ bool, err error) {
@@ -230,12 +297,22 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 			return false, ast.ErrASTDomain
 		}
 	}
-	mul := big.NewRat(1, 1)
-	if negative {
-		mul.Neg(mul)
-	}
+	// rational mul(1), c(0); obj_map<expr, rational> ts;
+	q := p.q()
+	mulValue, constantValue, negMul := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
 	terms := projectionTerms(m)
-	constant := new(big.Rat)
+	defer func() {
+		err = errors.Join(err, terms.release(), q.Del(&negMul), q.Del(&constantValue), q.Del(&mulValue))
+	}()
+	mul, constant := &mulValue, &constantValue
+	if err = q.SetInt32(mul, 1); err != nil {
+		return false, err
+	}
+	if negative {
+		if err = q.Neg(mul); err != nil {
+			return false, err
+		}
+	}
 	relation := simplex.LessEqual
 	var left, right ast.ASTHandle
 	matched := false
@@ -282,18 +359,23 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 						return false, err
 					}
 					locals = append(locals, rr)
-					l, ok, err := p.numeral(lv)
-					if err != nil || !ok {
+					// rational r1, r2;
+					l, r := unumeral.NewRational(), unumeral.NewRational()
+					ok, err := p.numeral(lv, &l)
+					if err == nil && ok {
+						ok, err = p.numeral(rv, &r)
+					}
+					cmp := 0
+					if err == nil && ok {
+						cmp, err = q.Compare(&l, &r)
+					}
+					if err = errors.Join(err, q.Del(&l), q.Del(&r)); err != nil || !ok {
 						return false, err
 					}
-					r, ok, err := p.numeral(rv)
-					if err != nil || !ok {
-						return false, err
-					}
-					if ast.ASTSourceDebug && l.Cmp(r) == 0 {
+					if ast.ASTSourceDebug && cmp == 0 {
 						return false, ast.ErrASTDomain
 					}
-					if l.Cmp(r) < 0 {
+					if cmp < 0 {
 						left, right = right, left
 					}
 					relation = simplex.Less
@@ -315,9 +397,14 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 				if !negative {
 					type entry struct {
 						h     ast.ASTHandle
-						value *big.Rat
+						value unumeral.Rational
 					}
-					values := make([]entry, 0, len(args))
+					values := make([]*entry, 0, len(args))
+					defer func() {
+						for _, v := range values {
+							err = errors.Join(err, q.Del(&v.value))
+						}
+					}()
 					for _, arg := range args {
 						// val = eval(arg): the new value replaces the old.
 						r, v, e := c.evalLocal(arg)
@@ -328,16 +415,31 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 							return false, errors.Join(e, m.DelRef(&r))
 						}
 						locals = append(locals, r)
-						q, ok, e := p.numeral(v)
+						value := &entry{h: arg, value: unumeral.NewRational()}
+						values = append(values, value)
+						ok, e := p.numeral(v, &value.value)
 						if e != nil || !ok {
 							return false, e
 						}
-						values = append(values, entry{arg, q})
 					}
-					sort.Slice(values, func(i, j int) bool { return values[i].value.Cmp(values[j].value) < 0 })
+					var cmpErr error
+					sort.Slice(values, func(i, j int) bool {
+						c, e := q.Compare(&values[i].value, &values[j].value)
+						cmpErr = errors.Join(cmpErr, e)
+						return c < 0
+					})
+					if cmpErr != nil {
+						return false, cmpErr
+					}
 					for i := 0; i+1 < len(values); i++ {
-						if ast.ASTSourceDebug && values[i].value.Cmp(values[i+1].value) >= 0 {
-							return false, ast.ErrASTDomain
+						if ast.ASTSourceDebug {
+							c, e := q.Compare(&values[i].value, &values[i+1].value)
+							if e != nil {
+								return false, e
+							}
+							if c >= 0 {
+								return false, ast.ErrASTDomain
+							}
 						}
 						// expr_ref fml(a.mk_lt(...)) dies after each iteration.
 						h, e := m.MkFamilyApp(p.family, 4, nil, []ast.ASTHandle{values[i].h, values[i+1].h})
@@ -367,17 +469,22 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 						return false, e
 					}
 					locals = append(locals, r)
-					q, ok, e := p.numeral(v)
-					if e != nil || !ok {
+					num := unumeral.NewRational()
+					ok, e := p.numeral(v, &num)
+					var key string
+					if e == nil && ok {
+						key, e = q.String(&num)
+					}
+					if e = errors.Join(e, q.Del(&num)); e != nil || !ok {
 						return false, e
 					}
-					if other, ok := values[q.RatString()]; ok {
+					if other, ok := values[key]; ok {
 						left, right = arg, other
 						matched = true
 						relation = simplex.Equal
 						break
 					}
-					values[q.RatString()] = arg
+					values[key] = arg
 				}
 				if !matched {
 					if ast.ASTSourceDebug {
@@ -387,7 +494,7 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 					if e != nil {
 						return false, e
 					}
-					return true, c.mbo.AddConstraint(coeffs, constant, simplex.Equal)
+					return true, mboAddConstraint(c.mbo, coeffs, q, constant, simplex.Equal)
 				}
 			}
 		}
@@ -406,7 +513,10 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 	if err = c.linearizeTerm(mul, left, constant, forms, terms); err != nil {
 		return false, err
 	}
-	if err = c.linearizeTerm(new(big.Rat).Neg(mul), right, constant, forms, terms); err != nil {
+	if err = errors.Join(q.Copy(&negMul, mul), q.Neg(&negMul)); err != nil {
+		return false, err
+	}
+	if err = c.linearizeTerm(&negMul, right, constant, forms, terms); err != nil {
 		return false, err
 	}
 	if err = release(); err != nil {
@@ -416,5 +526,5 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 	if err != nil {
 		return false, err
 	}
-	return true, c.mbo.AddConstraint(coeffs, constant, relation)
+	return true, mboAddConstraint(c.mbo, coeffs, q, constant, relation)
 }

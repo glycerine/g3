@@ -1,9 +1,8 @@
 package qe
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (c *arithmeticModelProjectCall) evaluate(expression ast.ASTHandle) (ast.ASTHandle, error) {
@@ -18,17 +17,19 @@ func (c *arithmeticModelProjectCall) truth(expression ast.ASTHandle) (bool, erro
 	return err == nil && c.plugin.manager.IsTrue(value), err
 }
 
-func (c *arithmeticModelProjectCall) numeral(expression ast.ASTHandle) (*big.Rat, error) {
+// numeral is eval(e, vl); VERIFY(m_arith.is_numeral(vl, num)), writing num
+// (a rational of the manager's NumeralService().Manager).
+func (c *arithmeticModelProjectCall) numeral(expression ast.ASTHandle, num *unumeral.Rational) error {
 	value, err := c.evaluate(expression)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	number, matched, err := c.plugin.util.numeral(value)
+	matched, err := c.plugin.util.numeral(value, num)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !matched {
-		return nil, ast.ErrASTDomain
+		return ast.ErrASTDomain
 	}
-	return number, nil
+	return nil
 }

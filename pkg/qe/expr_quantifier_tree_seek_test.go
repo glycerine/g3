@@ -1,7 +1,7 @@
 package qe
 
 import (
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -31,15 +31,16 @@ func TestExprQETreeSeekUsesModelAndUnitBranches(t *testing.T) {
 	defer func() { fmMust(t, root.Close()) }()
 	fmMust(t, root.initialize(truth))
 	fmMust(t, vars.consume(root))
-	fmMust(t, root.selectVariable(p, big.NewRat(2, 1)))
-	current, status, branch, err := seekExprQETree(root, vars, eval)
+	fmMust(t, root.selectVariable(p, qeSmallRat(2, 1)))
+	branch := unumeral.NewRational()
+	current, status, err := seekExprQETree(root, vars, eval, &branch)
 	fmMust(t, err)
-	if current != root || status != exprQENeedPropagation || branch.RatString() != "1" {
+	if current != root || status != exprQENeedPropagation || qeRatText(m, &branch) != "1" {
 		t.Fatal("missing model branch")
 	}
-	child, err := root.addBranch(f.r.config, big.NewRat(1, 1), p)
+	child, err := root.addBranch(f.r.config, qeSmallRat(1, 1), p)
 	fmMust(t, err)
-	current, status, _, err = seekExprQETree(root, vars, eval)
+	current, status, err = seekExprQETree(root, vars, eval, &branch)
 	fmMust(t, err)
 	if current != child || status != exprQEChooseVariable {
 		t.Fatal("uninitialized child not selected")
@@ -47,7 +48,7 @@ func TestExprQETreeSeekUsesModelAndUnitBranches(t *testing.T) {
 	fmMust(t, child.initialize(truth))
 	unit, err := child.addUnit(f.r.config, truth)
 	fmMust(t, err)
-	current, status, _, err = seekExprQETree(root, vars, eval)
+	current, status, err = seekExprQETree(root, vars, eval, &branch)
 	fmMust(t, err)
 	if current != unit || status != exprQEChooseVariable {
 		t.Fatal("unit branch was not traversed")
@@ -57,10 +58,10 @@ func TestExprQETreeSeekUsesModelAndUnitBranches(t *testing.T) {
 	defer func() { fmMust(t, limited.Close()) }()
 	fmMust(t, limited.initialize(truth))
 	fmMust(t, limited.consumeVariables([]ast.ASTHandle{p}))
-	fmMust(t, limited.selectVariable(p, big.NewRat(1, 1)))
-	_, status, branch, err = seekExprQETree(limited, vars, eval)
+	fmMust(t, limited.selectVariable(p, qeSmallRat(1, 1)))
+	_, status, err = seekExprQETree(limited, vars, eval, &branch)
 	fmMust(t, err)
-	if status != exprQENeedPropagation || branch.Sign() != 0 {
+	if status != exprQENeedPropagation || !qeRatIs(m, &branch, 0, 1) {
 		t.Fatal("out-of-range model branch did not default to zero")
 	}
 }

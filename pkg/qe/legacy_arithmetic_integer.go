@@ -5,24 +5,39 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func legacyIntegerLCM(left, right *big.Rat) (*big.Rat, error) {
-	if left == nil || right == nil || !left.IsInt() || !right.IsInt() {
-		return nil, ast.ErrASTDomain
+// legacyIntegerLCM is out = lcm(abs(left), abs(right)) of integer
+// rationals (zero when either is zero).
+func legacyIntegerLCM(q *unumeral.RationalManager, left, right, out *unumeral.Rational) (resultErr error) {
+	if left == nil || right == nil {
+		return ast.ErrASTDomain
 	}
-	a := new(big.Int).Abs(left.Num())
-	b := new(big.Int).Abs(right.Num())
-	if a.Sign() == 0 || b.Sign() == 0 {
-		return new(big.Rat), nil
+	for _, v := range []*unumeral.Rational{left, right} {
+		if isInt, err := q.IsInt(v); err != nil || !isInt {
+			return errors.Join(err, ast.ErrASTDomain)
+		}
 	}
-	gcd := new(big.Int).GCD(nil, nil, a, b)
-	value := new(big.Int).Quo(a, gcd)
-	value.Mul(value, b)
-	return new(big.Rat).SetInt(value), nil
+	a, b := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&a), q.Del(&b)) }()
+	if err := errors.Join(q.Copy(&a, left), q.Abs(&a), q.Copy(&b, right), q.Abs(&b)); err != nil {
+		return err
+	}
+	aZero, err := q.IsZero(&a)
+	if err != nil {
+		return err
+	}
+	bZero, err := q.IsZero(&b)
+	if err != nil {
+		return err
+	}
+	if aZero || bZero {
+		return q.SetInt32(out, 0)
+	}
+	return q.LCM(&a, &b, out)
 }
 
 func (p *legacyArithmeticProjection) replaceLegacyTerm(literal *legacyLinearLiteral, term ast.ASTHandle) error {
@@ -38,62 +53,100 @@ func (p *legacyArithmeticProjection) replaceLegacyTerm(literal *legacyLinearLite
 	return nil
 }
 
-func (p *legacyArithmeticProjection) normalizeIntegers(literals []*legacyLinearLiteral) (lcmCoefficients, lcmDivisors *big.Rat, resultErr error) {
+// normalizeIntegers computes m_lcm_coeffs and m_lcm_divs into
+// lcmCoefficients and lcmDivisors (rationals of q()) and normalizes the
+// literals' coefficients, divisors and terms.
+func (p *legacyArithmeticProjection) normalizeIntegers(literals []*legacyLinearLiteral, lcmCoefficients, lcmDivisors *unumeral.Rational) (resultErr error) {
 	if p == nil || p.syntax == nil {
-		return nil, nil, ast.ErrASTHandle
+		return ast.ErrASTHandle
 	}
-	lcmCoefficients = big.NewRat(1, 1)
+	q := p.q()
+	if err := q.SetInt32(lcmCoefficients, 1); err != nil {
+		return err
+	}
 	for _, literal := range literals {
-		if literal == nil || literal.manager != p.syntax.manager || literal.coefficient.Sign() == 0 || !literal.coefficient.IsInt() {
-			return nil, nil, ast.ErrASTDomain
+		if literal == nil || literal.manager != p.syntax.manager {
+			return ast.ErrASTDomain
 		}
-		lcmCoefficients, resultErr = legacyIntegerLCM(lcmCoefficients, literal.coefficient)
-		if resultErr != nil {
-			return nil, nil, resultErr
+		zero, err := q.IsZero(&literal.coefficient)
+		if err != nil {
+			return err
+		}
+		isInt, err := q.IsInt(&literal.coefficient)
+		if err != nil {
+			return err
+		}
+		if zero || !isInt {
+			return ast.ErrASTDomain
+		}
+		if err = legacyIntegerLCM(q, lcmCoefficients, &literal.coefficient, lcmCoefficients); err != nil {
+			return err
 		}
 	}
-	lcmDivisors = big.NewRat(1, 1)
+	if err := q.SetInt32(lcmDivisors, 1); err != nil {
+		return err
+	}
+	// rational k = m_lcm_coeffs / abs(a);
+	factor := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&factor)) }()
 	for _, literal := range literals {
-		factor := new(big.Rat).Quo(lcmCoefficients, new(big.Rat).Abs(literal.coefficient))
-		if factor.Cmp(big.NewRat(1, 1)) != 0 {
+		if err := errors.Join(q.Copy(&factor, &literal.coefficient), q.Abs(&factor)); err != nil {
+			return err
+		}
+		if err := q.Div(lcmCoefficients, &factor, &factor); err != nil {
+			return err
+		}
+		one, err := q.IsOne(&factor)
+		if err != nil {
+			return err
+		}
+		if !one {
 			term, err := p.syntax.manager.RefGet(literal.term)
 			if err != nil {
-				return nil, nil, err
+				return err
 			}
 			// if (!factor.is_one () && !a.is_zero (m_terms.get (i)))
 			// (AUDIT.md qe_02-F7).
-			value, numeral, err := p.syntax.numeral(term)
+			zero, err := p.syntax.manager.ArithmeticNumeralIsZero(term)
 			if err != nil {
-				return nil, nil, err
+				return err
 			}
-			if !numeral || value.Sign() != 0 {
-				scaled, err := p.multiplyLegacy(factor, term)
+			if !zero {
+				scaled, err := p.multiplyLegacy(&factor, term)
 				if err != nil {
-					return nil, nil, err
+					return err
 				}
 				if err = p.replaceLegacyTerm(literal, scaled); err != nil {
-					return nil, nil, err
+					return err
 				}
 			}
 		}
-		if literal.coefficient.Sign() > 0 {
-			literal.coefficient.Set(lcmCoefficients)
-		} else {
-			literal.coefficient.Neg(lcmCoefficients)
+		positive, err := q.IsPos(&literal.coefficient)
+		if err != nil {
+			return err
 		}
-		if literal.divisor.Sign() != 0 {
-			literal.divisor.Mul(literal.divisor, factor)
-			lcmDivisors, resultErr = legacyIntegerLCM(lcmDivisors, literal.divisor)
-			if resultErr != nil {
-				return nil, nil, resultErr
+		if err = q.Copy(&literal.coefficient, lcmCoefficients); err != nil {
+			return err
+		}
+		if !positive {
+			if err = q.Neg(&literal.coefficient); err != nil {
+				return err
+			}
+		}
+		divisorZero, err := q.IsZero(&literal.divisor)
+		if err != nil {
+			return err
+		}
+		if !divisorZero {
+			if err = q.Mul(&literal.divisor, &factor, &literal.divisor); err != nil {
+				return err
+			}
+			if err = legacyIntegerLCM(q, lcmDivisors, &literal.divisor, lcmDivisors); err != nil {
+				return err
 			}
 		}
 	}
-	lcmDivisors, resultErr = legacyIntegerLCM(lcmDivisors, lcmCoefficients)
-	if resultErr != nil {
-		return nil, nil, resultErr
-	}
-	return lcmCoefficients, lcmDivisors, nil
+	return legacyIntegerLCM(q, lcmDivisors, lcmCoefficients, lcmDivisors)
 }
 
 func (p *legacyArithmeticProjection) substituteIntegerLiterals(literals []*legacyLinearLiteral, originals []ast.ASTHandle, xTerm ast.ASTHandle, selected int) (_ *legacyRealProjection, resultErr error) {
@@ -127,7 +180,11 @@ func (p *legacyArithmeticProjection) substituteIntegerLiterals(literals []*legac
 			return nil, err
 		}
 		var combined ast.ASTHandle
-		if literal.coefficient.Sign() < 0 {
+		negative, err := p.q().IsNeg(&literal.coefficient)
+		if err != nil {
+			return nil, err
+		}
+		if negative {
 			combined, err = p.syntax.manager.MkArithmeticSub(term, xTerm)
 		} else {
 			combined, err = p.syntax.manager.MkArithmeticAdd(term, xTerm)
@@ -136,7 +193,11 @@ func (p *legacyArithmeticProjection) substituteIntegerLiterals(literals []*legac
 			return nil, err
 		}
 		var replacement ast.ASTRef
-		if literal.divisor.Sign() == 0 {
+		divisorZero, err := p.q().IsZero(&literal.divisor)
+		if err != nil {
+			return nil, err
+		}
+		if divisorZero {
 			var expression ast.ASTHandle
 			switch {
 			case literal.equality:
@@ -159,7 +220,7 @@ func (p *legacyArithmeticProjection) substituteIntegerLiterals(literals []*legac
 				_ = p.syntax.manager.DelRef(&rewritten)
 				return nil, rewriteErr
 			}
-			modulus, rewriteErr := p.syntax.manager.ArithmeticNumeralRat(literal.divisor, true)
+			modulus, rewriteErr := p.syntax.manager.ArithmeticNumeralFromRational(&literal.divisor, true)
 			if rewriteErr == nil {
 				var modular ast.ASTHandle
 				modular, rewriteErr = p.syntax.manager.MkFamilyApp(p.syntax.family, 13, nil, []ast.ASTHandle{rewrittenHandle, modulus})

@@ -4,9 +4,9 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type exprQETree struct {
@@ -22,7 +22,7 @@ type exprQETree struct {
 	// literals is the owning quant_elim_plugin's m_literals, shared by
 	// every node; nil for trees built outside a plugin.
 	literals *exprQELiterals
-	branches big.Rat
+	branches unumeral.Rational // m_num_branches
 	pure     bool
 }
 
@@ -30,7 +30,7 @@ func newExprQETree(m *ast.ASTManager, config Config, parent *exprQETree, assignm
 	if m == nil || assignment.IsNull() {
 		return nil, ast.ErrASTHandle
 	}
-	result = &exprQETree{manager: m, parent: parent, pure: true, branchIndex: make(map[string]int)}
+	result = &exprQETree{manager: m, parent: parent, pure: true, branchIndex: make(map[string]int), branches: unumeral.NewRational()}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, result.Close())
@@ -93,9 +93,16 @@ func (s *exprQETree) variableIndex(variable ast.ASTHandle) (int, error) {
 	}
 	return -1, nil
 }
-func (s *exprQETree) selectVariable(variable ast.ASTHandle, branches *big.Rat) error {
-	if s == nil || s.manager == nil || branches == nil || branches.Sign() < 0 || s.selected != (ast.ASTRef{}) {
+
+// selectVariable is set_var(x, num_branches); branches is a rational of the
+// manager's NumeralService().Manager.
+func (s *exprQETree) selectVariable(variable ast.ASTHandle, branches *unumeral.Rational) error {
+	if s == nil || s.manager == nil || branches == nil || s.selected != (ast.ASTRef{}) {
 		return ast.ErrASTDomain
+	}
+	q := s.manager.NumeralService().Manager
+	if negative, err := q.IsNeg(branches); err != nil || negative {
+		return errors.Join(err, ast.ErrASTDomain)
 	}
 	i, err := s.variableIndex(variable)
 	if err != nil {
@@ -107,8 +114,7 @@ func (s *exprQETree) selectVariable(variable ast.ASTHandle, branches *big.Rat) e
 	s.selected = s.variables[i]
 	copy(s.variables[i:], s.variables[i+1:])
 	s.variables = s.variables[:len(s.variables)-1]
-	s.branches.Set(branches)
-	return nil
+	return q.Copy(&s.branches, branches)
 }
 func (s *exprQETree) deleteVariable(variable ast.ASTHandle) error {
 	if s == nil || s.manager == nil || len(s.children) != 0 {
@@ -174,15 +180,30 @@ func (s *exprQETree) addUnit(config Config, formula ast.ASTHandle) (*exprQETree,
 	if err = child.initialize(formula); err != nil {
 		return nil, errors.Join(err, child.Close())
 	}
-	s.branches.SetInt64(1)
+	if err = s.manager.NumeralService().Manager.SetInt32(&s.branches, 1); err != nil {
+		return nil, errors.Join(err, child.Close())
+	}
 	s.children = append(s.children, child)
 	return child, nil
 }
-func (s *exprQETree) addBranch(config Config, id *big.Rat, assignment ast.ASTHandle) (*exprQETree, error) {
-	if s == nil || s.manager == nil || id == nil || id.Sign() < 0 || s.selected == (ast.ASTRef{}) || id.Cmp(&s.branches) >= 0 {
+
+// addBranch is add_child(branch_id, assignment); id is a rational of the
+// manager's NumeralService().Manager.
+func (s *exprQETree) addBranch(config Config, id *unumeral.Rational, assignment ast.ASTHandle) (*exprQETree, error) {
+	if s == nil || s.manager == nil || id == nil || s.selected == (ast.ASTRef{}) {
 		return nil, ast.ErrASTDomain
 	}
-	key := id.RatString()
+	q := s.manager.NumeralService().Manager
+	if negative, err := q.IsNeg(id); err != nil || negative {
+		return nil, errors.Join(err, ast.ErrASTDomain)
+	}
+	if c, err := q.Compare(id, &s.branches); err != nil || c >= 0 {
+		return nil, errors.Join(err, ast.ErrASTDomain)
+	}
+	key, err := q.String(id)
+	if err != nil {
+		return nil, err
+	}
 	if _, exists := s.branchIndex[key]; exists {
 		return nil, ast.ErrASTDomain
 	}
@@ -261,6 +282,9 @@ func (s *exprQETree) Close() error {
 				return err
 			}
 		}
+	}
+	if err := s.manager.NumeralService().Manager.Del(&s.branches); err != nil {
+		return err
 	}
 	s.manager = nil
 	return nil

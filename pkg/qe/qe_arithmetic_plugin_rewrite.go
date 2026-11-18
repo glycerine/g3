@@ -2,9 +2,9 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // errArithmeticBranchUnsupported reports an arithmetic branch whose bound
@@ -126,14 +126,21 @@ func (p *ArithmeticPlugin) rewriteFinite(entry *arithmeticPluginBounds, target a
 		}
 	}
 	// t = x_t.mk_term(a, t); a = x_t.mk_coeff(a);
-	term, err := xt.mkTerm(p, selected.Coefficient, selectedTerm)
+	term, err := xt.mkTerm(p, &selected.Coefficient, selectedTerm)
 	if err != nil {
 		return err
 	}
 	if err = m.SetRef(t, term); err != nil {
 		return err
 	}
-	a := xt.mkCoeff(selected.Coefficient)
+	// rational a = x_t.mk_coeff(a);
+	q := p.util.q()
+	aValue := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&aValue)) }()
+	if err = xt.mkCoeff(q, &selected.Coefficient, &aValue); err != nil {
+		return err
+	}
+	a := &aValue
 	strictReal := !isEqCtx && real && !isStrictCtx
 	for _, strict := range []bool{true, false} {
 		if err = p.mkResolve(entry, target, xt, strict || isStrictCtx || strictReal, strict, opposite, a, term, result); err != nil {
@@ -188,7 +195,7 @@ func (p *ArithmeticPlugin) boundOne(x ast.ASTHandle, i uint32, current *Arithmet
 	defer func() { err = errors.Join(err, m.DelRef(&s)) }()
 	if sameStrict && i == selection.Index {
 		if nonStrictReal {
-			h, err := p.mkEqBound(selected.Coefficient, x, t)
+			h, err := p.mkEqBound(&selected.Coefficient, x, t)
 			if err == nil {
 				err = m.SetRef(eq, h)
 			}
@@ -216,7 +223,7 @@ func (p *ArithmeticPlugin) boundOne(x ast.ASTHandle, i uint32, current *Arithmet
 		return err
 	}
 	resultStrict := (nonStrictReal && isEqCtx && isStrict) || (sameStrict && i < selection.Index)
-	if err = p.mkBound(resultStrict, selection.Lower, selected.Coefficient, t, current.Coefficient, sh, tmp); err != nil {
+	if err = p.mkBound(resultStrict, selection.Lower, &selected.Coefficient, t, &current.Coefficient, sh, tmp); err != nil {
 		return err
 	}
 	h, err := m.RefGet(tmp)
@@ -247,7 +254,7 @@ func (p *ArithmeticPlugin) appendConstraintNot(useVariable bool, a ast.ASTHandle
 
 // mkBound is arith_plugin::mk_bound: the strict or non-strict bound with
 // the lower-bound arguments swapped, then m_util.simplify(result).
-func (p *ArithmeticPlugin) mkBound(strict, lower bool, a *big.Rat, t ast.ASTHandle, b *big.Rat, s ast.ASTHandle, result ast.ASTRef) error {
+func (p *ArithmeticPlugin) mkBound(strict, lower bool, a *unumeral.Rational, t ast.ASTHandle, b *unumeral.Rational, s ast.ASTHandle, result ast.ASTRef) error {
 	var bound ast.ASTRef
 	var err error
 	if lower {
@@ -267,10 +274,14 @@ func (p *ArithmeticPlugin) mkBound(strict, lower bool, a *big.Rat, t ast.ASTHand
 
 // mkEqBound is arith_qe_util::mk_eq: mk_eq(mk_add(mk_mul(a, x), t), 0),
 // where mk_mul returns x for a unit a.
-func (p *ArithmeticPlugin) mkEqBound(a *big.Rat, x, t ast.ASTHandle) (ast.ASTHandle, error) {
+func (p *ArithmeticPlugin) mkEqBound(a *unumeral.Rational, x, t ast.ASTHandle) (ast.ASTHandle, error) {
 	m := p.manager
 	ax := x
-	if a.Cmp(big.NewRat(1, 1)) != 0 {
+	one, err := p.util.q().IsOne(a)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !one {
 		k, err := p.util.numeralFor(a, x)
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -292,7 +303,7 @@ func (p *ArithmeticPlugin) mkEqBound(a *big.Rat, x, t ast.ASTHandle) (ast.ASTHan
 
 // mkResolve is arith_plugin::mk_resolve for one strictness of the opposite
 // side.
-func (p *ArithmeticPlugin) mkResolve(entry *arithmeticPluginBounds, x ast.ASTHandle, xt *arithmeticBranchSubstitution, strictResolve, isStrict bool, opposite ArithmeticBoundDirection, a *big.Rat, t ast.ASTHandle, result ast.ASTRef) (err error) {
+func (p *ArithmeticPlugin) mkResolve(entry *arithmeticPluginBounds, x ast.ASTHandle, xt *arithmeticBranchSubstitution, strictResolve, isStrict bool, opposite ArithmeticBoundDirection, a *unumeral.Rational, t ast.ASTHandle, result ast.ASTRef) (err error) {
 	m := p.manager
 	tmp, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
@@ -311,7 +322,7 @@ func (p *ArithmeticPlugin) mkResolve(entry *arithmeticPluginBounds, x ast.ASTHan
 // s = x_t.mk_term(b, s); b = x_t.mk_coeff(b); m_util.mk_resolve(..., tmp);
 // expr_ref save_result(result); the substitution of e by tmp and the
 // constraint (not e) or tmp. save_result and then s die at its end.
-func (p *ArithmeticPlugin) resolveOne(x ast.ASTHandle, xt *arithmeticBranchSubstitution, strictResolve bool, a *big.Rat, t ast.ASTHandle, current *ArithmeticBound, tmp, result ast.ASTRef) (err error) {
+func (p *ArithmeticPlugin) resolveOne(x ast.ASTHandle, xt *arithmeticBranchSubstitution, strictResolve bool, a *unumeral.Rational, t ast.ASTHandle, current *ArithmeticBound, tmp, result ast.ASTRef) (err error) {
 	m := p.manager
 	e, err := m.RefGet(current.Atom)
 	if err != nil {
@@ -326,15 +337,21 @@ func (p *ArithmeticPlugin) resolveOne(x ast.ASTHandle, xt *arithmeticBranchSubst
 		return err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&s)) }()
-	term, err := xt.mkTerm(p, current.Coefficient, s0)
+	term, err := xt.mkTerm(p, &current.Coefficient, s0)
 	if err != nil {
 		return err
 	}
 	if err = m.SetRef(s, term); err != nil {
 		return err
 	}
-	b := xt.mkCoeff(current.Coefficient)
-	replacement, handled, err := p.util.ResolveUnitOrReal(x, strictResolve, a, t, b, term)
+	// rational b = x_t.mk_coeff(b);
+	q := p.util.q()
+	b := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&b)) }()
+	if err = xt.mkCoeff(q, &current.Coefficient, &b); err != nil {
+		return err
+	}
+	replacement, handled, err := p.util.ResolveUnitOrReal(x, strictResolve, a, t, &b, term)
 	if err != nil {
 		return err
 	}

@@ -4,10 +4,10 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type ArithmeticBoundsProcessor struct {
@@ -20,7 +20,7 @@ type ArithmeticBoundsProcessor struct {
 	// divZ and divD are m_div_z and m_d: the common Cooper residue, made on
 	// the first div_z call and shared by every branch of this (x, fml).
 	divZ   ast.ASTRef
-	divD   *big.Rat
+	divD   unumeral.Rational // m_d
 	closed bool
 }
 
@@ -31,7 +31,7 @@ func NewArithmeticBoundsProcessor(util *ArithmeticQETermUtil) (*ArithmeticBounds
 	if err := util.open(); err != nil {
 		return nil, err
 	}
-	p := &ArithmeticBoundsProcessor{util: util, manager: util.manager, marked: make(map[ast.ASTHandle]bool)}
+	p := &ArithmeticBoundsProcessor{util: util, manager: util.manager, marked: make(map[ast.ASTHandle]bool), divD: unumeral.NewRational()}
 	p.self = p
 	return p, nil
 }
@@ -59,7 +59,7 @@ func (p *ArithmeticBoundsProcessor) Reset() (result error) {
 	if p.divZ != (ast.ASTRef{}) {
 		result = errors.Join(result, p.manager.DelRef(&p.divZ))
 	}
-	p.divD = nil
+	result = errors.Join(result, p.util.q().Del(&p.divD))
 	p.bounds = nil
 	p.divisibilities = nil
 	p.marked = make(map[ast.ASTHandle]bool)
@@ -144,30 +144,32 @@ func (p *ArithmeticBoundsProcessor) Add(variable *ast.ContainsApp, atom ast.ASTH
 // commonDivisor is bounds_proc::div_z: the residue z = (bv2int z_bv) with
 // 0 <= z < d for d the lcm of all divisors, made once. ok is false when
 // there are no divisibility constraints or d is one.
-func (p *ArithmeticBoundsProcessor) commonDivisor() (d *big.Rat, z ast.ASTHandle, ok bool, err error) {
+// d receives m_d (a rational of the manager's NumeralService().Manager).
+func (p *ArithmeticBoundsProcessor) commonDivisor(d *unumeral.Rational) (z ast.ASTHandle, ok bool, err error) {
 	if err = p.open(); err != nil {
-		return nil, z, false, err
+		return z, false, err
 	}
+	q := p.util.q()
 	if p.divZ != (ast.ASTRef{}) {
-		z, err = p.manager.RefGet(p.divZ)
-		return new(big.Rat).Set(p.divD), z, err == nil, err
+		if z, err = p.manager.RefGet(p.divZ); err != nil {
+			return z, false, err
+		}
+		return z, true, q.Copy(d, &p.divD)
 	}
 	if len(p.divisibilities) == 0 {
-		return nil, z, false, nil
+		return z, false, nil
 	}
-	common, err := cooperLCM(p.divisibilities)
-	if err != nil {
-		return nil, z, false, err
+	if err = cooperLCM(q, p.divisibilities, &p.divD); err != nil {
+		return z, false, err
 	}
-	p.divD = new(big.Rat).SetInt(common)
-	if common.Cmp(big.NewInt(1)) == 0 {
-		return nil, z, false, nil
+	if one, cause := q.IsOne(&p.divD); cause != nil || one {
+		return z, false, cause
 	}
-	if z, err = p.util.mkBoundedVar(p.divD); err != nil {
-		return nil, z, false, err
+	if z, err = p.util.mkBoundedVar(&p.divD); err != nil {
+		return z, false, err
 	}
 	if p.divZ, err = p.manager.NewRef(z); err != nil {
-		return nil, z, false, err
+		return z, false, err
 	}
-	return new(big.Rat).Set(p.divD), z, true, nil
+	return z, true, q.Copy(d, &p.divD)
 }

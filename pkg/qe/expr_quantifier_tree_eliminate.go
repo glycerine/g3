@@ -5,11 +5,12 @@ package qe
 // solve_vars.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // exprQETreeContext is the part of quant_elim_plugin a solver plugin reaches
@@ -54,7 +55,14 @@ func (t *exprQETreeContext) eliminate(index uint32, formula, definition ast.ASTH
 	if err != nil {
 		return err
 	}
-	if err = node.selectVariable(variable, big.NewRat(1, 1)); err != nil {
+	// m_current->set_var(x, rational(1))
+	q := node.manager.NumeralService().Manager
+	one := unumeral.NewRational()
+	err = q.SetInt32(&one, 1)
+	if err == nil {
+		err = node.selectVariable(variable, &one)
+	}
+	if err = errors.Join(err, q.Del(&one)); err != nil {
 		return err
 	}
 	child, err := node.addUnit(t.config, formula)

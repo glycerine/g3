@@ -4,12 +4,13 @@ package qe
 // array_project_selects_util.
 
 import (
-	"math/big"
+	"errors"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type legacyArraySelectProjection struct {
@@ -152,8 +153,17 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 		representative ast.ASTHandle
 		value          ast.ASTRef
 		constant       ast.ASTHandle
-		number         *big.Rat
+		number         *unumeral.Rational
 	}
+	// The classes' index values (rationals of the manager's
+	// NumeralService().Manager), destroyed when the projection returns.
+	q := p.syntax.manager.NumeralService().Manager
+	var numbers []*unumeral.Rational
+	defer func() {
+		for _, n := range numbers {
+			resultErr = errors.Join(resultErr, q.Del(n))
+		}
+	}()
 	for _, entry := range selectTable.Entries() {
 		variable := entry.Key
 		terms := selected[variable]
@@ -254,7 +264,10 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 				if err != nil {
 					return nil, err
 				}
-				text, _, numeral, err := p.syntax.manager.ArithmeticNumeralText(value)
+				number := new(unumeral.Rational)
+				*number = unumeral.NewRational()
+				numbers = append(numbers, number)
+				_, numeral, err := p.syntax.manager.ArithmeticNumeralRational(value, number)
 				if err != nil {
 					return nil, err
 				}
@@ -262,10 +275,7 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 					numeric = false
 					break
 				}
-				classes[i].number, numeral = new(big.Rat).SetString(text)
-				if !numeral {
-					return nil, ast.ErrASTDomain
-				}
+				classes[i].number = number
 			}
 		}
 		if !numeric {
@@ -288,7 +298,15 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 			}
 			continue
 		}
-		sort.SliceStable(classes, func(left, right int) bool { return classes[left].number.Cmp(classes[right].number) < 0 })
+		var cmpErr error
+		sort.SliceStable(classes, func(left, right int) bool {
+			c, e := q.Compare(classes[left].number, classes[right].number)
+			cmpErr = errors.Join(cmpErr, e)
+			return c < 0
+		})
+		if cmpErr != nil {
+			return nil, cmpErr
+		}
 		arithmetic, err := p.syntax.manager.ArithmeticFamilyID()
 		if err != nil {
 			return nil, err

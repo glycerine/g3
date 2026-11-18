@@ -5,9 +5,9 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // applyCooper runs assign_nested_divs then assign_divs on result. The
@@ -33,26 +33,27 @@ func (p *ArithmeticPlugin) addVar(v ast.ASTHandle) error {
 // divZRefs is `app_ref z(m), z_bv(m); bounds.div_z(d, z_bv, z)`: the
 // locals hold the shared residue and its bit-vector for the caller's scope.
 // The returned release drops z_bv and then z.
-func (p *ArithmeticPlugin) divZRefs(processor *ArithmeticBoundsProcessor) (d *big.Rat, z, zBV ast.ASTHandle, ok bool, release func() error, err error) {
+// d receives the rational d.
+func (p *ArithmeticPlugin) divZRefs(processor *ArithmeticBoundsProcessor, d *unumeral.Rational) (z, zBV ast.ASTHandle, ok bool, release func() error, err error) {
 	m := p.manager
 	release = func() error { return nil }
-	d, z, ok, err = processor.commonDivisor()
+	z, ok, err = processor.commonDivisor(d)
 	if err != nil || !ok {
-		return d, z, zBV, ok, release, err
+		return z, zBV, ok, release, err
 	}
 	if zBV, err = m.GetArg(z, 0); err != nil {
-		return d, z, zBV, false, release, err
+		return z, zBV, false, release, err
 	}
 	zRef, err := m.NewRef(z)
 	if err != nil {
-		return d, z, zBV, false, release, err
+		return z, zBV, false, release, err
 	}
 	zBVRef, err := m.NewRef(zBV)
 	if err != nil {
-		return d, z, zBV, false, release, errors.Join(err, m.DelRef(&zRef))
+		return z, zBV, false, release, errors.Join(err, m.DelRef(&zRef))
 	}
 	release = func() error { return errors.Join(m.DelRef(&zBVRef), m.DelRef(&zRef)) }
-	return d, z, zBV, true, release, nil
+	return z, zBV, true, release, nil
 }
 
 func (p *ArithmeticPlugin) assignNestedDivs(processor *ArithmeticBoundsProcessor, result ast.ASTRef) (err error) {
@@ -60,7 +61,11 @@ func (p *ArithmeticPlugin) assignNestedDivs(processor *ArithmeticBoundsProcessor
 	if len(nested) == 0 {
 		return nil
 	}
-	_, z, _, ok, release, err := p.divZRefs(processor)
+	// rational d;
+	q := p.util.q()
+	d := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&d)) }()
+	z, _, ok, release, err := p.divZRefs(processor, &d)
 	defer func() { err = errors.Join(err, release()) }()
 	if err != nil {
 		return err
@@ -97,8 +102,17 @@ func (p *ArithmeticPlugin) assignNestedDiv(constraint *ArithmeticDivisibility, z
 		return err
 	}
 	// z1 <= k - 1
-	upper, err := m.ArithmeticNumeralRat(new(big.Rat).Sub(constraint.Divisor, big.NewRat(1, 1)), true)
-	if err != nil {
+	q := p.util.q()
+	k1 := unumeral.NewRational()
+	err = q.Copy(&k1, &constraint.Divisor)
+	if err == nil {
+		err = q.Dec(&k1)
+	}
+	var upper ast.ASTHandle
+	if err == nil {
+		upper, err = m.ArithmeticNumeralFromRational(&k1, true)
+	}
+	if err = errors.Join(err, q.Del(&k1)); err != nil {
 		return err
 	}
 	zLtK, err := m.MkArithmeticLE(z1, upper)
@@ -168,7 +182,7 @@ func (p *ArithmeticPlugin) assignNestedDiv(constraint *ArithmeticDivisibility, z
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&tmp2)) }()
 
-	coefficient, err := m.ArithmeticNumeralRat(constraint.Coefficient, true)
+	coefficient, err := m.ArithmeticNumeralFromRational(&constraint.Coefficient, true)
 	if err != nil {
 		return err
 	}
@@ -237,7 +251,11 @@ func (p *ArithmeticPlugin) assignNestedDiv(constraint *ArithmeticDivisibility, z
 }
 
 func (p *ArithmeticPlugin) assignDivs(x ast.ASTHandle, processor *ArithmeticBoundsProcessor, result ast.ASTRef) (substitution *arithmeticBranchSubstitution, applied bool, err error) {
-	d, z, zBV, ok, release, err := p.divZRefs(processor)
+	// rational d;
+	q := p.util.q()
+	d, d1 := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&d1), q.Del(&d)) }()
+	z, zBV, ok, release, err := p.divZRefs(processor, &d)
 	defer func() { err = errors.Join(err, release()) }()
 	if err != nil || !ok {
 		return nil, false, err
@@ -246,9 +264,12 @@ func (p *ArithmeticPlugin) assignDivs(x ast.ASTHandle, processor *ArithmeticBoun
 	if err = p.addVar(zBV); err != nil {
 		return nil, false, err
 	}
-	d1 := new(big.Rat).Sub(d, big.NewRat(1, 1))
+	// rational d1 = d - rational(1);
+	if err = errors.Join(q.Copy(&d1, &d), q.Dec(&d1)); err != nil {
+		return nil, false, err
+	}
 	// z < d
-	upper, err := m.ArithmeticNumeralRat(d1, true)
+	upper, err := m.ArithmeticNumeralFromRational(&d1, true)
 	if err != nil {
 		return nil, false, err
 	}
@@ -291,7 +312,7 @@ func (p *ArithmeticPlugin) assignDivs(x ast.ASTHandle, processor *ArithmeticBoun
 		return nil, false, err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&newAtom)) }()
-	if err = p.util.makeDividesInto(d, difference, newAtom); err != nil {
+	if err = p.util.makeDividesInto(&d, difference, newAtom); err != nil {
 		return nil, false, err
 	}
 	atom, err := m.RefGet(newAtom)
@@ -305,7 +326,10 @@ func (p *ArithmeticPlugin) assignDivs(x ast.ASTHandle, processor *ArithmeticBoun
 		return nil, false, err
 	}
 	// x_t maps x |-> d*x + z.
-	return &arithmeticBranchSubstitution{coefficient: d, term: z}, true, nil
+	if substitution, err = newArithmeticBranchSubstitution(q, &d, z); err != nil {
+		return nil, false, err
+	}
+	return substitution, true, nil
 }
 
 // mkDivEquivs is mk_div_equivs: (c | ax + t <-> c | az + t) for each
@@ -334,8 +358,12 @@ func (p *ArithmeticPlugin) mkDivEquivs(processor *ArithmeticBoundsProcessor, z a
 		}
 		// mk_mul(coeff, z) returns z for a unit coefficient.
 		scaled := z
-		if constraint.Coefficient.Cmp(big.NewRat(1, 1)) != 0 {
-			coefficient, err := m.ArithmeticNumeralRat(constraint.Coefficient, true)
+		one, err := p.util.q().IsOne(&constraint.Coefficient)
+		if err != nil {
+			return err
+		}
+		if !one {
+			coefficient, err := m.ArithmeticNumeralFromRational(&constraint.Coefficient, true)
 			if err != nil {
 				return err
 			}
@@ -350,7 +378,7 @@ func (p *ArithmeticPlugin) mkDivEquivs(processor *ArithmeticBoundsProcessor, z a
 		if err = m.SetRef(t1, sum); err != nil {
 			return err
 		}
-		if err = p.util.makeDividesInto(constraint.Divisor, sum, newAtom); err != nil {
+		if err = p.util.makeDividesInto(&constraint.Divisor, sum, newAtom); err != nil {
 			return err
 		}
 		h, err := m.RefGet(newAtom)

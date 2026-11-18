@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // Fresh arithmetic, bit-vector, datatype, and finite-domain variables use the
@@ -142,7 +143,10 @@ search:
 				}
 				if e == nil {
 					var selected *exprQETree
-					selected, _, _, e = seekExprQETree(root, variables, eval)
+					q := root.manager.NumeralService().Manager
+					branch := unumeral.NewRational()
+					selected, _, e = seekExprQETree(root, variables, eval, &branch)
+					e = errors.Join(e, q.Del(&branch))
 					if e == nil && selected != current {
 						continue finalCheck
 					}

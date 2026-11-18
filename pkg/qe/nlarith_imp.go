@@ -13,9 +13,9 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // nlComp is nlarith's comp.
@@ -115,17 +115,30 @@ func (u *NonlinearArithmeticUtil) resetTrail() (result error) {
 func (u *NonlinearArithmeticUtil) z() (ast.ASTHandle, error)   { return u.manager.RefGet(u.zero) }
 func (u *NonlinearArithmeticUtil) one() (ast.ASTHandle, error) { return u.manager.RefGet(u.unit) }
 
-// num is imp::num(i): a real numeral.
-func (u *NonlinearArithmeticUtil) num(v *big.Rat) (ast.ASTHandle, error) {
-	h, err := u.manager.ArithmeticNumeralRat(v, false)
+// num is A.mk_numeral(v, false): a real numeral of a rational of the
+// manager's NumeralService().Manager.
+func (u *NonlinearArithmeticUtil) num(v *unumeral.Rational) (ast.ASTHandle, error) {
+	h, err := u.manager.ArithmeticNumeralFromRational(v, false)
 	if err != nil {
 		return h, err
 	}
 	return u.track(h)
 }
 
+// numFraction is num(rational(n, d)).
+func (u *NonlinearArithmeticUtil) numFraction(n int64, d uint64) (_ ast.ASTHandle, resultErr error) {
+	q := u.term.q()
+	v := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&v)) }()
+	if err := q.SetFraction(&v, n, d); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return u.num(&v)
+}
+
+// numInt is imp::num(i).
 func (u *NonlinearArithmeticUtil) numInt(i int64) (ast.ASTHandle, error) {
-	return u.num(big.NewRat(i, 1))
+	return u.numFraction(i, 1)
 }
 
 func (u *NonlinearArithmeticUtil) mkLt(p ast.ASTHandle) (ast.ASTHandle, error) {
@@ -364,82 +377,93 @@ func (u *NonlinearArithmeticUtil) isLinearPolys(ps []nlPoly) (bool, error) {
 			return false, nil
 		}
 		if len(ps[i]) == 2 {
-			n, ok, err := u.isNumeralFold(ps[i][1])
-			if err != nil {
+			// rational n;
+			q := u.term.q()
+			n := unumeral.NewRational()
+			ok, err := u.isNumeralFold(ps[i][1], &n)
+			if err == nil && ok {
+				ps[i][1], err = u.num(&n)
+			}
+			if err = errors.Join(err, q.Del(&n)); err != nil {
 				return false, err
 			}
 			if !ok {
 				return false, nil
-			}
-			if ps[i][1], err = u.num(n); err != nil {
-				return false, err
 			}
 		}
 	}
 	return true, nil
 }
 
-// isNumeralFold is imp::is_numeral: constant folding over +, *, -, unary -.
-func (u *NonlinearArithmeticUtil) isNumeralFold(t ast.ASTHandle) (*big.Rat, bool, error) {
+// isNumeralFold is imp::is_numeral(t, n): constant folding over +, *, -,
+// unary -, writing n (a rational of the manager's NumeralService().Manager).
+func (u *NonlinearArithmeticUtil) isNumeralFold(t ast.ASTHandle, n *unumeral.Rational) (_ bool, resultErr error) {
 	kindOf, err := u.manager.GetKind(t)
 	if err != nil || kindOf != ast.ASTApp {
-		return nil, false, err
+		return false, err
 	}
 	family, err := u.manager.GetFamilyID(t)
 	if err != nil || family != u.family {
-		return nil, false, err
+		return false, err
 	}
 	kind, err := u.manager.GetDeclKind(t)
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
+	q := u.term.q()
+	// rational m;
+	m := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&m)) }()
 	switch kind {
 	case 6, 9, 7: // OP_ADD, OP_MUL, OP_SUB: MK_AOP
 		count, err := u.manager.GetNumArgs(t)
 		if err != nil || count == 0 {
-			return nil, false, err
+			return false, err
 		}
 		first, err := u.manager.GetArg(t, 0)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
-		n, ok, err := u.isNumeralFold(first)
+		ok, err := u.isNumeralFold(first, n)
 		if err != nil || !ok {
-			return nil, false, err
+			return false, err
 		}
 		for i := uint32(1); i < count; i++ {
 			arg, err := u.manager.GetArg(t, i)
 			if err != nil {
-				return nil, false, err
+				return false, err
 			}
-			v, ok, err := u.isNumeralFold(arg)
+			ok, err := u.isNumeralFold(arg, &m)
 			if err != nil || !ok {
-				return nil, false, err
+				return false, err
 			}
 			switch kind {
 			case 6:
-				n.Add(n, v)
+				err = q.Add(n, &m, n)
 			case 9:
-				n.Mul(n, v)
+				err = q.Mul(n, &m, n)
 			default:
-				n.Sub(n, v)
+				err = q.Sub(n, &m, n)
+			}
+			if err != nil {
+				return false, err
 			}
 		}
-		return n, true, nil
+		return true, nil
 	case 8: // OP_UMINUS
 		arg, err := u.manager.GetArg(t, 0)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
-		n, ok, err := u.isNumeralFold(arg)
+		ok, err := u.isNumeralFold(arg, n)
 		if err != nil || !ok {
-			return nil, false, err
+			return false, err
 		}
-		return n.Neg(n), true, nil
+		return true, q.Neg(n)
 	case 0: // OP_NUM
-		return u.numeral(t)
+		return u.numeral(t, n)
 	}
-	return nil, false, nil
+	return false, nil
 }
 
 func nlHasSingleDegree2(ps []nlPoly, comps []nlComp) (uint32, bool) {
@@ -1123,11 +1147,11 @@ func (u *NonlinearArithmeticUtil) mkSubst(c1 nlComp, p nlPoly, c nlComp, e *nlSq
 // definitions and branches
 
 func (u *NonlinearArithmeticUtil) mkEpsilon() (ast.ASTHandle, error) {
-	return u.num(big.NewRat(1, 10000))
+	return u.numFraction(1, 10000)
 }
 
 func (u *NonlinearArithmeticUtil) mkInf() (ast.ASTHandle, error) {
-	return u.num(big.NewRat(-10000, 1))
+	return u.numFraction(-10000, 1)
 }
 
 // mkAbs is imp::mk_abs: m().mk_ite(mk_lt(e), mk_uminus(e), e).
@@ -1156,7 +1180,7 @@ func (u *NonlinearArithmeticUtil) toExpr(s *nlSqrtForm) (ast.ASTHandle, error) {
 	if s.c == zero || s.b == 0 {
 		return u.rawApp(10, s.a, s.d) // A.mk_div
 	}
-	half, err := u.num(big.NewRat(1, 2))
+	half, err := u.numFraction(1, 2)
 	if err != nil {
 		return half, err
 	}

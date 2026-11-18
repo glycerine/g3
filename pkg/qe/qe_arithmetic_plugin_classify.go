@@ -60,7 +60,7 @@ func (p *ArithmeticPlugin) IsUninterpreted(application ast.ASTHandle) (bool, err
 		if err != nil {
 			return false, err
 		}
-		_, numeral, err := p.util.numeral(d)
+		numeral, err := p.util.isNumeral(d)
 		return !numeral, err
 	case 9:
 		// a.is_mul(f, m, n) matches binary products only (MATCH_BINARY);
@@ -80,11 +80,11 @@ func (p *ArithmeticPlugin) IsUninterpreted(application ast.ASTHandle) (bool, err
 		if err != nil {
 			return false, err
 		}
-		_, an, err := p.util.numeral(a)
+		an, err := p.util.isNumeral(a)
 		if err != nil {
 			return false, err
 		}
-		_, bn, err := p.util.numeral(b)
+		bn, err := p.util.isNumeral(b)
 		return !(an || bn), err
 	default:
 		return true, nil

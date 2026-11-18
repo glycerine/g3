@@ -5,11 +5,11 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/memory"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type legacyArithmeticProjection struct {
@@ -20,8 +20,8 @@ type legacyArithmeticProjection struct {
 type legacyLinearLiteral struct {
 	manager     *ast.ASTManager
 	term        ast.ASTRef
-	coefficient *big.Rat
-	divisor     *big.Rat
+	coefficient unumeral.Rational // m_coeffs entry
+	divisor     unumeral.Rational // m_divs entry (zero: no divisibility)
 	strict      bool
 	equality    bool
 	disequality bool
@@ -99,11 +99,40 @@ func (l *legacyLinearLiteral) Close() error {
 	if l == nil || l.manager == nil {
 		return ast.ErrASTHandle
 	}
-	err := l.manager.DelRef(&l.term)
+	q := l.manager.NumeralService().Manager
+	err := errors.Join(l.manager.DelRef(&l.term), q.Del(&l.coefficient), q.Del(&l.divisor))
 	if err == nil {
 		l.manager = nil
 	}
 	return err
+}
+
+// q is rational's mpq manager: the AST manager's NumeralService().Manager.
+func (p *legacyArithmeticProjection) q() *unumeral.RationalManager { return p.syntax.q() }
+
+// sign is r's sign.
+func (p *legacyArithmeticProjection) sign(r *unumeral.Rational) (int32, error) { return p.q().Sign(r) }
+
+// multiplyLegacyAbs is mk_mul(abs(r), term).
+func (p *legacyArithmeticProjection) multiplyLegacyAbs(r *unumeral.Rational, term ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
+	q := p.q()
+	abs := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&abs)) }()
+	if err := errors.Join(q.Copy(&abs, r), q.Abs(&abs)); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return p.multiplyLegacy(&abs, term)
+}
+
+// multiplyLegacyInt is mk_mul(rational(n), term).
+func (p *legacyArithmeticProjection) multiplyLegacyInt(n int32, term ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
+	q := p.q()
+	r := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&r)) }()
+	if err := q.SetInt32(&r, n); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return p.multiplyLegacy(&r, term)
 }
 
 func (p *legacyArithmeticProjection) contains(root, variable ast.ASTHandle) (bool, error) {
@@ -142,34 +171,45 @@ func (p *legacyArithmeticProjection) contains(root, variable ast.ASTHandle) (boo
 	return false, nil
 }
 
-func (p *legacyArithmeticProjection) scaledTerm(multiplier *big.Rat, term ast.ASTHandle, integer bool) (ast.ASTHandle, error) {
-	if multiplier.Cmp(big.NewRat(1, 1)) == 0 {
+func (p *legacyArithmeticProjection) scaledTerm(multiplier *unumeral.Rational, term ast.ASTHandle, integer bool) (ast.ASTHandle, error) {
+	if one, err := p.q().IsOne(multiplier); err != nil {
+		return ast.ASTHandle{}, err
+	} else if one {
 		return term, nil
 	}
-	numeral, err := p.syntax.manager.ArithmeticNumeralRat(multiplier, integer)
+	numeral, err := p.syntax.manager.ArithmeticNumeralFromRational(multiplier, integer)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return p.syntax.manager.MkArithmeticMul(numeral, term)
 }
 
-func (p *legacyArithmeticProjection) linearTerm(multiplier *big.Rat, root, variable ast.ASTHandle, coefficient *big.Rat, terms *[]ast.ASTHandle, integer bool) (bool, error) {
+// linearTerm is arith_project_util::is_linear(mul, t, c, ts): multiplier and
+// coefficient are rationals of q().
+func (p *legacyArithmeticProjection) linearTerm(multiplier *unumeral.Rational, root, variable ast.ASTHandle, coefficient *unumeral.Rational, terms *[]ast.ASTHandle, integer bool) (_ bool, resultErr error) {
+	q := p.q()
 	if root == variable {
-		coefficient.Add(coefficient, multiplier)
-		return true, nil
+		// c += mul;
+		return true, q.Add(coefficient, multiplier, coefficient)
 	}
+	// rational mul1;
+	mul1, product := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&mul1), q.Del(&product)) }()
 	args, matched, err := p.syntax.operation(root, p.syntax.family, 9)
 	if err != nil {
 		return false, err
 	}
 	if matched && len(args) == 2 {
 		for index, argument := range args {
-			value, numeral, err := p.syntax.numeral(argument)
+			numeral, err := p.syntax.numeral(argument, &mul1)
 			if err != nil {
 				return false, err
 			}
 			if numeral {
-				return p.linearTerm(new(big.Rat).Mul(multiplier, value), args[1-index], variable, coefficient, terms, integer)
+				if err = q.Mul(multiplier, &mul1, &product); err != nil {
+					return false, err
+				}
+				return p.linearTerm(&product, args[1-index], variable, coefficient, terms, integer)
 			}
 		}
 	}
@@ -195,21 +235,30 @@ func (p *legacyArithmeticProjection) linearTerm(multiplier *big.Rat, root, varia
 		if err != nil || !ok {
 			return ok, err
 		}
-		return p.linearTerm(new(big.Rat).Neg(multiplier), args[1], variable, coefficient, terms, integer)
+		if err = errors.Join(q.Copy(&product, multiplier), q.Neg(&product)); err != nil {
+			return false, err
+		}
+		return p.linearTerm(&product, args[1], variable, coefficient, terms, integer)
 	}
 	args, matched, err = p.syntax.operation(root, p.syntax.family, 8)
 	if err != nil {
 		return false, err
 	}
 	if matched && len(args) == 1 {
-		return p.linearTerm(new(big.Rat).Neg(multiplier), args[0], variable, coefficient, terms, integer)
+		if err = errors.Join(q.Copy(&product, multiplier), q.Neg(&product)); err != nil {
+			return false, err
+		}
+		return p.linearTerm(&product, args[0], variable, coefficient, terms, integer)
 	}
-	value, numeral, err := p.syntax.numeral(root)
+	numeral, err := p.syntax.numeral(root, &mul1)
 	if err != nil {
 		return false, err
 	}
 	if numeral {
-		term, err := p.syntax.manager.ArithmeticNumeralRat(new(big.Rat).Mul(multiplier, value), integer)
+		if err = q.Mul(multiplier, &mul1, &product); err != nil {
+			return false, err
+		}
+		term, err := p.syntax.manager.ArithmeticNumeralFromRational(&product, integer)
 		if err != nil {
 			return false, err
 		}
@@ -246,11 +295,25 @@ func (p *legacyArithmeticProjection) linearLiteral(variable, literal ast.ASTHand
 	if negative {
 		literal = inner
 	}
-	multiplier := big.NewRat(1, 1)
-	if negative {
-		multiplier.Neg(multiplier)
+	q := p.q()
+	// rational mul(1);
+	multiplier, negMultiplier, divisor := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&multiplier), q.Del(&negMultiplier), q.Del(&divisor)) }()
+	if err = q.SetInt32(&multiplier, 1); err != nil {
+		return nil, err
 	}
-	result := &legacyLinearLiteral{manager: p.syntax.manager, coefficient: new(big.Rat), divisor: new(big.Rat)}
+	if negative {
+		if err = q.Neg(&multiplier); err != nil {
+			return nil, err
+		}
+	}
+	result := &legacyLinearLiteral{manager: p.syntax.manager, coefficient: unumeral.NewRational(), divisor: unumeral.NewRational()}
+	// The result owns its rationals from here; a nil return releases them.
+	defer func() {
+		if result != nil && (resultErr != nil || result.term == (ast.ASTRef{})) {
+			resultErr = errors.Join(resultErr, q.Del(&result.coefficient), q.Del(&result.divisor))
+		}
+	}()
 	var left, right ast.ASTHandle
 	matched := false
 	// A divisibility literal (= (mod t k) 0) runs is_linear on t only
@@ -283,22 +346,30 @@ func (p *legacyArithmeticProjection) linearLiteral(variable, literal ast.ASTHand
 				if err != nil {
 					return nil, err
 				}
-				zero, numeral, err := p.syntax.numeral(args[1-index])
+				zero, err := p.syntax.manager.ArithmeticNumeralIsZero(args[1-index])
 				if err != nil {
 					return nil, err
 				}
-				if !modular || len(mod) != 2 || !numeral || zero.Sign() != 0 {
+				if !modular || len(mod) != 2 || !zero {
 					continue
 				}
-				divisor, numeral, err := p.syntax.numeral(mod[1])
+				numeral, err := p.syntax.numeral(mod[1], &divisor)
 				if err != nil {
 					return nil, err
 				}
-				if !numeral || divisor.Sign() == 0 {
+				divisorZero := false
+				if numeral {
+					if divisorZero, err = q.IsZero(&divisor); err != nil {
+						return nil, err
+					}
+				}
+				if !numeral || divisorZero {
 					return nil, nil
 				}
 				left, right = mod[0], args[1-index]
-				result.divisor.Set(divisor)
+				if err = q.Copy(&result.divisor, &divisor); err != nil {
+					return nil, err
+				}
 				matched = true
 				divisibility = true
 			}
@@ -320,9 +391,11 @@ func (p *legacyArithmeticProjection) linearLiteral(variable, literal ast.ASTHand
 		return nil, nil
 	}
 	terms := make([]ast.ASTHandle, 0, 4)
-	ok, err := p.linearTerm(multiplier, left, variable, result.coefficient, &terms, integer)
+	ok, err := p.linearTerm(&multiplier, left, variable, &result.coefficient, &terms, integer)
 	if err == nil && ok && !divisibility {
-		ok, err = p.linearTerm(new(big.Rat).Neg(multiplier), right, variable, result.coefficient, &terms, integer)
+		if err = errors.Join(q.Copy(&negMultiplier, &multiplier), q.Neg(&negMultiplier)); err == nil {
+			ok, err = p.linearTerm(&negMultiplier, right, variable, &result.coefficient, &terms, integer)
+		}
 	}
 	if err != nil || !ok {
 		return nil, err
@@ -330,7 +403,11 @@ func (p *legacyArithmeticProjection) linearLiteral(variable, literal ast.ASTHand
 	var term ast.ASTHandle
 	switch len(terms) {
 	case 0:
-		term, err = p.syntax.manager.ArithmeticNumeralRat(new(big.Rat), integer)
+		if integer {
+			term, err = p.syntax.manager.ArithmeticIntegerNumeralText("0")
+		} else {
+			term, err = p.syntax.manager.ArithmeticRealNumeralText("0")
+		}
 	case 1:
 		term = terms[0]
 	default:

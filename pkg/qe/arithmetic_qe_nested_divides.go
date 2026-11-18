@@ -6,9 +6,14 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (p *ArithmeticBoundsProcessor) addNestedDivides(variable *ast.ContainsApp, expression ast.ASTHandle) (bool, error) {
+func (p *ArithmeticBoundsProcessor) addNestedDivides(variable *ast.ContainsApp, expression ast.ASTHandle) (_ bool, resultErr error) {
+	// rational k1, k2;
+	q := p.util.q()
+	divisor, coefficient := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&divisor), q.Del(&coefficient)) }()
 	target, err := variable.Target()
 	if err != nil {
 		return false, err
@@ -41,21 +46,27 @@ func (p *ArithmeticBoundsProcessor) addNestedDivides(variable *ast.ContainsApp, 
 			return false, cause
 		}
 		if modular && len(args) == 2 {
-			divisor, numeral, cause := p.util.numeral(args[1])
+			numeral, cause := p.util.numeral(args[1], &divisor)
 			if cause != nil {
 				return false, cause
+			}
+			positive := false
+			if numeral {
+				if positive, cause = q.IsPos(&divisor); cause != nil {
+					return false, cause
+				}
 			}
 			// z3 4.7.1 also takes a zero or negative k here; its residue
 			// variable then has no values and the result is false. Only a
 			// positive k is a nested divisibility (AUDIT.md qe_01-F3).
-			if numeral && divisor.Sign() > 0 {
-				coefficient, rest, found, cause := p.util.Coefficient(variable, args[0])
+			if numeral && positive {
+				rest, found, cause := p.util.Coefficient(variable, args[0], &coefficient)
 				if cause != nil {
 					return false, cause
 				}
 				if found {
 					// m_util.mk_bounded_var(k1, z_bv, z) before the pushes.
-					z, cause := p.util.mkBoundedVar(divisor)
+					z, cause := p.util.mkBoundedVar(&divisor)
 					var zRef ast.ASTRef
 					if cause == nil {
 						zRef, cause = p.manager.NewRef(z)
@@ -63,7 +74,7 @@ func (p *ArithmeticBoundsProcessor) addNestedDivides(variable *ast.ContainsApp, 
 					if cause != nil {
 						return false, errors.Join(cause, p.manager.DelRef(&rest))
 					}
-					if cause = p.appendDivisibility(current, rest, coefficient, divisor, false, true, zRef); cause != nil {
+					if cause = p.appendDivisibility(current, rest, &coefficient, &divisor, false, true, zRef); cause != nil {
 						return false, cause
 					}
 					continue

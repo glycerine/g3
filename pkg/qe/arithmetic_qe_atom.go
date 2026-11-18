@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (u *ArithmeticQETermUtil) relation(expression ast.ASTHandle) (kind int32, left, right ast.ASTHandle, arithmetic bool, err error) {
@@ -38,7 +39,9 @@ func (u *ArithmeticQETermUtil) NormalizeAtom(expression ast.ASTHandle, positive 
 	if resultErr = u.open(); resultErr != nil {
 		return result, false, resultErr
 	}
-	if _, _, divides, err := u.MatchDivides(expression); err != nil {
+	divisor := unumeral.NewRational()
+	_, divides, err := u.MatchDivides(expression, &divisor)
+	if err = errors.Join(err, u.q().Del(&divisor)); err != nil {
 		return result, false, err
 	} else if divides {
 		if positive {

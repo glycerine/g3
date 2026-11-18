@@ -4,11 +4,11 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type arithmeticPluginKey struct{ variable, formula ast.ASTHandle }
@@ -67,7 +67,14 @@ func NewArithmeticPlugin(context *SolverContext, config Config) (*ArithmeticPlug
 		value   int64
 		integer bool
 	}{{0, true}, {1, true}, {-1, true}, {0, false}, {1, false}} {
-		h, e := m.ArithmeticNumeralRat(big.NewRat(n.value, 1), n.integer)
+		q := m.NumeralService().Manager
+		v := unumeral.NewRational()
+		e := q.SetInt64(&v, n.value)
+		var h ast.ASTHandle
+		if e == nil {
+			h, e = m.ArithmeticNumeralFromRational(&v, n.integer)
+		}
+		e = errors.Join(e, q.Del(&v))
 		var ref ast.ASTRef
 		if e == nil {
 			ref, e = m.NewRef(h)

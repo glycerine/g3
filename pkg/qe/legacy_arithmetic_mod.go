@@ -4,15 +4,20 @@ package qe
 // arith_project_util::mod2div.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (p *legacyArithmeticProjection) modToDivisibility(formula ast.ASTHandle) (ast.ASTRef, error) {
+func (p *legacyArithmeticProjection) modToDivisibility(formula ast.ASTHandle) (_ ast.ASTRef, resultErr error) {
 	if p == nil || p.syntax == nil {
 		return ast.ASTRef{}, ast.ErrASTHandle
 	}
+	// rational val;
+	q := p.q()
+	divisor := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&divisor)) }()
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
 	var rewrite func(ast.ASTHandle) (ast.ASTHandle, error)
 	rewrite = func(current ast.ASTHandle) (ast.ASTHandle, error) {
@@ -36,7 +41,7 @@ func (p *legacyArithmeticProjection) modToDivisibility(formula ast.ASTHandle) (a
 				if !modular || len(mod) != 2 {
 					continue
 				}
-				divisor, numeral, err := p.syntax.numeral(mod[1])
+				numeral, err := p.syntax.numeral(mod[1], &divisor)
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
@@ -59,9 +64,9 @@ func (p *legacyArithmeticProjection) modToDivisibility(formula ast.ASTHandle) (a
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
-				if value, isNumeral, err := p.syntax.numeral(right); err != nil {
+				if isZero, err := p.syntax.manager.ArithmeticNumeralIsZero(right); err != nil {
 					return ast.ASTHandle{}, err
-				} else if isNumeral && value.Sign() == 0 {
+				} else if isZero {
 					modulus, err := p.syntax.manager.MkFamilyApp(p.syntax.family, 13, nil, []ast.ASTHandle{left, mod[1]})
 					if err != nil {
 						return ast.ASTHandle{}, err
@@ -88,7 +93,11 @@ func (p *legacyArithmeticProjection) modToDivisibility(formula ast.ASTHandle) (a
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
-				absolute, err := p.syntax.manager.ArithmeticNumeralRat(new(big.Rat).Abs(divisor), true)
+				err = q.Abs(&divisor)
+				var absolute ast.ASTHandle
+				if err == nil {
+					absolute, err = p.syntax.manager.ArithmeticNumeralFromRational(&divisor, true)
+				}
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}

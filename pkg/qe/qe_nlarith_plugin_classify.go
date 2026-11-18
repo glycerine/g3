@@ -44,7 +44,7 @@ func (p *NonlinearArithmeticPlugin) IsUninterpreted(application ast.ASTHandle) (
 			if cause != nil {
 				return false, cause
 			}
-			_, numeral, cause := p.util.term.numeral(a)
+			numeral, cause := p.util.term.isNumeral(a)
 			if cause != nil {
 				return false, cause
 			}

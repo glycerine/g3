@@ -4,49 +4,59 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func exprQEEvalBranch(m *ast.ASTManager, eval *model.ModelEvaluator, variable ast.ASTHandle) (value big.Rat, found bool, err error) {
+// exprQEEvalBranch is quant_elim_plugin::eval: value (a rational of the
+// manager's NumeralService().Manager) receives the branch number.
+func exprQEEvalBranch(m *ast.ASTManager, eval *model.ModelEvaluator, variable ast.ASTHandle, value *unumeral.Rational) (found bool, err error) {
 	if m == nil || eval == nil {
-		return value, false, ast.ErrASTHandle
+		return false, ast.ErrASTHandle
 	}
 	ref, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return value, false, err
+		return false, err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
 	if err = eval.Evaluate(variable, ref); err != nil {
-		return value, false, err
+		return false, err
 	}
 	h, err := m.RefGet(ref)
 	if err != nil {
-		return value, false, err
+		return false, err
 	}
+	q := m.NumeralService().Manager
 	if m.IsTrue(h) {
-		value.SetInt64(1)
-		return value, true, nil
+		return true, q.SetInt32(value, 1)
 	}
 	if m.IsFalse(h) {
-		value.SetInt64(0)
-		return value, true, nil
+		return true, q.SetInt32(value, 0)
 	}
-	n, _, ok, err := m.BitVectorNumeralBigInt(h)
+	_, ok, err := m.BitVectorNumeralRational(h, value)
 	if err != nil {
-		return value, false, err
+		return false, err
 	}
-	if ok {
-		value.SetInt(n)
-		return value, true, nil
-	}
-	return value, false, nil
+	return ok, nil
 }
 
-func exprQEBranchEquality(m *ast.ASTManager, variable ast.ASTHandle, value *big.Rat) (result ast.ASTRef, err error) {
-	if m == nil || value == nil || !value.IsInt() || value.Sign() < 0 {
+// exprQEBranchEquality is quant_elim_plugin::mk_eq_value(b, vl).
+func exprQEBranchEquality(m *ast.ASTManager, variable ast.ASTHandle, value *unumeral.Rational) (result ast.ASTRef, err error) {
+	if m == nil || value == nil {
+		return result, ast.ErrASTDomain
+	}
+	q := m.NumeralService().Manager
+	isInt, err := q.IsInt(value)
+	if err != nil {
+		return result, err
+	}
+	sign, err := q.Sign(value)
+	if err != nil {
+		return result, err
+	}
+	if !isInt || sign < 0 {
 		return result, ast.ErrASTDomain
 	}
 	sort, err := m.GetSort(variable)
@@ -58,14 +68,16 @@ func exprQEBranchEquality(m *ast.ASTManager, variable ast.ASTHandle, value *big.
 		return result, err
 	}
 	if sort == boolean {
-		if value.Sign() == 0 {
+		if sign == 0 {
 			h, e := m.MkNotSimplified(variable)
 			if e != nil {
 				return result, e
 			}
 			return m.NewRef(h)
 		}
-		if value.Cmp(big.NewRat(1, 1)) == 0 {
+		if one, e := q.IsOne(value); e != nil {
+			return result, e
+		} else if one {
 			return m.NewRef(variable)
 		}
 		return result, ast.ErrASTDomain
@@ -74,7 +86,7 @@ func exprQEBranchEquality(m *ast.ASTManager, variable ast.ASTHandle, value *big.
 	if err != nil {
 		return result, err
 	}
-	n, err := m.BitVectorNumeralRat(value, width)
+	n, err := m.BitVectorNumeralFromRational(value, width)
 	if err != nil {
 		return result, err
 	}

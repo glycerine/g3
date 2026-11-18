@@ -10,5 +10,5 @@ func (p *ArithmeticPlugin) infinityNonStrict(b *ArithmeticBound) (ast.ASTHandle,
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	return p.definitionDivision(t, b.Coefficient)
+	return p.definitionDivision(t, &b.Coefficient)
 }

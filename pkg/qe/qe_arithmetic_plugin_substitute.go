@@ -2,7 +2,6 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -30,8 +29,7 @@ func (p *ArithmeticPlugin) Substitute(variable *ast.ContainsApp, value *numeral.
 	if err != nil {
 		return err
 	}
-	v := new(big.Rat).SetInt64(int64(branchNumber))
-	b, err := p.branch(target, root, v)
+	b, err := p.branch(target, root, branchNumber)
 	if err != nil {
 		return err
 	}
@@ -42,7 +40,7 @@ func (p *ArithmeticPlugin) Substitute(variable *ast.ContainsApp, value *numeral.
 			return err
 		}
 		d, err := p.branchDefinition(b.Selection, s)
-		if err != nil {
+		if err = errors.Join(err, s.release(p.util.q())); err != nil {
 			return err
 		}
 		h := ast.ASTHandle{}

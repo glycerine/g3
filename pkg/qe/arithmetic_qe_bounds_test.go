@@ -3,7 +3,6 @@ package qe_test
 // Source: src/qe/qe_arith_plugin.cpp bounds_proc.
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -37,7 +36,7 @@ func TestArithmeticQEBoundsCollectDirectionsStrictnessAndReset(t *testing.T) {
 		t.Fatal("upper bound not collected")
 	}
 	upperBounds := processor.Bounds(false, qe.ArithmeticUpperBound)
-	if len(upperBounds) != 1 || upperBounds[0].Coefficient.Cmp(big.NewRat(2, 1)) != 0 {
+	if len(upperBounds) != 1 || !isSmallRat(&upperBounds[0].Coefficient, 2, 1) {
 		t.Fatal("upper bound coefficient", len(upperBounds), upperBounds[0].Coefficient)
 	}
 	term, err := f.manager.RefGet(upperBounds[0].Term)
@@ -70,7 +69,7 @@ func TestArithmeticQEBoundsCollectDirectionsStrictnessAndReset(t *testing.T) {
 	handled, err = processor.Add(containsReal, strict)
 	pluginMust(t, err)
 	strictBounds := processor.Bounds(true, qe.ArithmeticUpperBound)
-	if !handled || len(strictBounds) != 1 || strictBounds[0].Coefficient.Cmp(big.NewRat(1, 1)) != 0 {
+	if !handled || len(strictBounds) != 1 || !isSmallRat(&strictBounds[0].Coefficient, 1, 1) {
 		t.Fatal("strict real bound", handled, len(strictBounds))
 	}
 
@@ -104,7 +103,7 @@ func TestArithmeticQEBoundsDirectNegatedAndNestedDivisibility(t *testing.T) {
 	handled, err := processor.Add(contains, divides)
 	pluginMust(t, err)
 	direct := processor.Divisibilities(false)
-	if !handled || len(direct) != 1 || direct[0].Coefficient.Cmp(big.NewRat(2, 1)) != 0 || direct[0].Divisor.Cmp(big.NewRat(7, 1)) != 0 || direct[0].Negated {
+	if !handled || len(direct) != 1 || !isSmallRat(&direct[0].Coefficient, 2, 1) || !isSmallRat(&direct[0].Divisor, 7, 1) || direct[0].Negated {
 		t.Fatal("direct divisibility collection")
 	}
 	negative := f.pin(f.manager.MkNot(divides))
@@ -118,7 +117,7 @@ func TestArithmeticQEBoundsDirectNegatedAndNestedDivisibility(t *testing.T) {
 	handled, err = processor.Add(contains, nestedAtom)
 	pluginMust(t, err)
 	nested := processor.Divisibilities(true)
-	if !handled || len(nested) != 1 || nested[0].Coefficient.Cmp(big.NewRat(2, 1)) != 0 {
+	if !handled || len(nested) != 1 || !isSmallRat(&nested[0].Coefficient, 2, 1) {
 		t.Fatal("nested divisibility collection", handled, len(nested))
 	}
 }

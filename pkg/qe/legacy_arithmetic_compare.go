@@ -5,9 +5,9 @@ package qe
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (p *legacyArithmeticProjection) rewriteLegacy(expression ast.ASTHandle) (_ ast.ASTRef, resultErr error) {
@@ -24,7 +24,7 @@ func (p *legacyArithmeticProjection) rewriteLegacy(expression ast.ASTHandle) (_ 
 	return result, nil
 }
 
-func (p *legacyArithmeticProjection) multiplyLegacy(coefficient *big.Rat, term ast.ASTHandle) (ast.ASTHandle, error) {
+func (p *legacyArithmeticProjection) multiplyLegacy(coefficient *unumeral.Rational, term ast.ASTHandle) (ast.ASTHandle, error) {
 	integer, arithmetic, err := p.syntax.arithmetic(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -34,7 +34,7 @@ func (p *legacyArithmeticProjection) multiplyLegacy(coefficient *big.Rat, term a
 	}
 	// arith_project_util::mk_mul always builds (* r t), even for r = 1
 	// (AUDIT.md qe_02-F7).
-	numeral, err := p.syntax.manager.ArithmeticNumeralRat(coefficient, integer)
+	numeral, err := p.syntax.manager.ArithmeticNumeralFromRational(coefficient, integer)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -44,8 +44,11 @@ func (p *legacyArithmeticProjection) multiplyLegacy(coefficient *big.Rat, term a
 // oppositeBound eliminates x from bounds whose coefficients have opposite
 // signs. Strictness is inherited from either input bound.
 func (p *legacyArithmeticProjection) oppositeBound(left, right *legacyLinearLiteral) (ast.ASTRef, error) {
-	if left == nil || right == nil || left.manager != p.syntax.manager || right.manager != p.syntax.manager || left.coefficient.Sign()*right.coefficient.Sign() >= 0 {
+	if left == nil || right == nil || left.manager != p.syntax.manager || right.manager != p.syntax.manager {
 		return ast.ASTRef{}, ast.ErrASTDomain
+	}
+	if ls, rs, err := p.signs(left, right); err != nil || ls*rs >= 0 {
+		return ast.ASTRef{}, errors.Join(err, ast.ErrASTDomain)
 	}
 	leftTerm, err := p.syntax.manager.RefGet(left.term)
 	if err != nil {
@@ -55,11 +58,11 @@ func (p *legacyArithmeticProjection) oppositeBound(left, right *legacyLinearLite
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	weightedLeft, err := p.multiplyLegacy(new(big.Rat).Abs(right.coefficient), leftTerm)
+	weightedLeft, err := p.multiplyLegacyAbs(&right.coefficient, leftTerm)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	weightedRight, err := p.multiplyLegacy(new(big.Rat).Abs(left.coefficient), rightTerm)
+	weightedRight, err := p.multiplyLegacyAbs(&left.coefficient, rightTerm)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -71,7 +74,12 @@ func (p *legacyArithmeticProjection) oppositeBound(left, right *legacyLinearLite
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	zero, err := p.syntax.manager.ArithmeticNumeralRat(new(big.Rat), integer)
+	var zero ast.ASTHandle
+	if integer {
+		zero, err = p.syntax.manager.ArithmeticIntegerNumeralText("0")
+	} else {
+		zero, err = p.syntax.manager.ArithmeticRealNumeralText("0")
+	}
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -90,8 +98,11 @@ func (p *legacyArithmeticProjection) oppositeBound(left, right *legacyLinearLite
 // sameBound orders two bounds from the same side. It is strict exactly when
 // the left bound is strict and the selected right bound is not.
 func (p *legacyArithmeticProjection) sameBound(left, right *legacyLinearLiteral) (ast.ASTRef, error) {
-	if left == nil || right == nil || left.manager != p.syntax.manager || right.manager != p.syntax.manager || left.coefficient.Sign() == 0 || left.coefficient.Sign()*right.coefficient.Sign() <= 0 {
+	if left == nil || right == nil || left.manager != p.syntax.manager || right.manager != p.syntax.manager {
 		return ast.ASTRef{}, ast.ErrASTDomain
+	}
+	if ls, rs, err := p.signs(left, right); err != nil || ls == 0 || ls*rs <= 0 {
+		return ast.ASTRef{}, errors.Join(err, ast.ErrASTDomain)
 	}
 	leftTerm, err := p.syntax.manager.RefGet(left.term)
 	if err != nil {
@@ -101,11 +112,11 @@ func (p *legacyArithmeticProjection) sameBound(left, right *legacyLinearLiteral)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	weightedLeft, err := p.multiplyLegacy(new(big.Rat).Abs(right.coefficient), leftTerm)
+	weightedLeft, err := p.multiplyLegacyAbs(&right.coefficient, leftTerm)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	weightedRight, err := p.multiplyLegacy(new(big.Rat).Abs(left.coefficient), rightTerm)
+	weightedRight, err := p.multiplyLegacyAbs(&left.coefficient, rightTerm)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -122,8 +133,11 @@ func (p *legacyArithmeticProjection) sameBound(left, right *legacyLinearLiteral)
 }
 
 func (p *legacyArithmeticProjection) equalityAtBound(equality, bound *legacyLinearLiteral) (ast.ASTRef, error) {
-	if equality == nil || bound == nil || equality.manager != p.syntax.manager || bound.manager != p.syntax.manager || equality.coefficient.Sign() == 0 || bound.coefficient.Sign() == 0 {
+	if equality == nil || bound == nil || equality.manager != p.syntax.manager || bound.manager != p.syntax.manager {
 		return ast.ASTRef{}, ast.ErrASTDomain
+	}
+	if es, bs, err := p.signs(equality, bound); err != nil || es == 0 || bs == 0 {
+		return ast.ASTRef{}, errors.Join(err, ast.ErrASTDomain)
 	}
 	equalityTerm, err := p.syntax.manager.RefGet(equality.term)
 	if err != nil {
@@ -133,11 +147,11 @@ func (p *legacyArithmeticProjection) equalityAtBound(equality, bound *legacyLine
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	left, err := p.multiplyLegacy(equality.coefficient, boundTerm)
+	left, err := p.multiplyLegacy(&equality.coefficient, boundTerm)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	right, err := p.multiplyLegacy(bound.coefficient, equalityTerm)
+	right, err := p.multiplyLegacy(&bound.coefficient, equalityTerm)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -146,4 +160,14 @@ func (p *legacyArithmeticProjection) equalityAtBound(equality, bound *legacyLine
 		return ast.ASTRef{}, err
 	}
 	return p.rewriteLegacy(result)
+}
+
+// signs are the coefficient signs of two literals.
+func (p *legacyArithmeticProjection) signs(left, right *legacyLinearLiteral) (int32, int32, error) {
+	ls, err := p.sign(&left.coefficient)
+	if err != nil {
+		return 0, 0, err
+	}
+	rs, err := p.sign(&right.coefficient)
+	return ls, rs, err
 }

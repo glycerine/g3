@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -40,13 +39,13 @@ func TestExprQEBoolBranchPropagatesThenSubstitutes(t *testing.T) {
 	formula := f.own(m.MkOr(p, q))
 	fmMust(t, root.initialize(formula))
 	fmMust(t, variables.consume(root))
-	fmMust(t, root.selectVariable(p, big.NewRat(2, 1)))
-	child, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(1, 1), f.r.config, rw, nnf, nil, true)
+	fmMust(t, root.selectVariable(p, qeSmallRat(2, 1)))
+	child, status, err := stepExprQEScalarBranch(root, variables, plugin, qeSmallRat(1, 1), f.r.config, rw, nnf, nil, true)
 	fmMust(t, err)
 	if status != exprQENeedPropagation || child.formula != (ast.ASTRef{}) {
 		t.Fatal("new branch was not left for propagation")
 	}
-	child2, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(1, 1), f.r.config, rw, nnf, nil, true)
+	child2, status, err := stepExprQEScalarBranch(root, variables, plugin, qeSmallRat(1, 1), f.r.config, rw, nnf, nil, true)
 	fmMust(t, err)
 	if child2 != child || status != exprQEChooseVariable {
 		t.Fatal("existing branch not initialized")
@@ -103,13 +102,13 @@ func TestExprQEBVBranchPropagatesThenSubstitutes(t *testing.T) {
 	formula := f.own(m.MkEq(x, two))
 	fmMust(t, root.initialize(formula))
 	fmMust(t, variables.consume(root))
-	fmMust(t, root.selectVariable(x, big.NewRat(4, 1)))
-	child, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(2, 1), f.r.config, rw, nnf, nil, true)
+	fmMust(t, root.selectVariable(x, qeSmallRat(4, 1)))
+	child, status, err := stepExprQEScalarBranch(root, variables, plugin, qeSmallRat(2, 1), f.r.config, rw, nnf, nil, true)
 	fmMust(t, err)
 	if status != exprQENeedPropagation || child.formula != (ast.ASTRef{}) {
 		t.Fatal("missing propagation step")
 	}
-	child, status, err = stepExprQEScalarBranch(root, variables, plugin, big.NewRat(2, 1), f.r.config, rw, nnf, nil, true)
+	child, status, err = stepExprQEScalarBranch(root, variables, plugin, qeSmallRat(2, 1), f.r.config, rw, nnf, nil, true)
 	fmMust(t, err)
 	if status != exprQEChooseVariable {
 		t.Fatal("missing substitution step")

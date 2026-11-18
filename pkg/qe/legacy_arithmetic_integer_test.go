@@ -4,7 +4,7 @@ package qe
 // arith_project_util::project, integer coefficient/divisor normalization.
 
 import (
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -38,16 +38,17 @@ func TestLegacyArithmeticProjectionNormalizesIntegerCoefficients(t *testing.T) {
 		t.Fatal("unclassified integer normalization input")
 	}
 	defer func() { fmMust(t, closeLegacyLinearLiterals(divLiteral, boundLiteral)) }()
-	lcmCoefficients, lcmDivisors, err := p.normalizeIntegers([]*legacyLinearLiteral{divLiteral, boundLiteral})
+	lcmCoefficients, lcmDivisors := unumeral.NewRational(), unumeral.NewRational()
+	err = p.normalizeIntegers([]*legacyLinearLiteral{divLiteral, boundLiteral}, &lcmCoefficients, &lcmDivisors)
 	fmMust(t, err)
-	if lcmCoefficients.Cmp(big.NewRat(6, 1)) != 0 || lcmDivisors.Cmp(big.NewRat(12, 1)) != 0 {
-		t.Fatal("integer normalization LCMs", lcmCoefficients, lcmDivisors)
+	if !qeRatIs(p.syntax.manager, &lcmCoefficients, 6, 1) || !qeRatIs(p.syntax.manager, &lcmDivisors, 12, 1) {
+		t.Fatal("integer normalization LCMs", qeRatText(p.syntax.manager, &lcmCoefficients), qeRatText(p.syntax.manager, &lcmDivisors))
 	}
-	if divLiteral.coefficient.Cmp(big.NewRat(6, 1)) != 0 || divLiteral.divisor.Cmp(big.NewRat(12, 1)) != 0 {
-		t.Fatal("normalized divisibility literal", divLiteral.coefficient, divLiteral.divisor)
+	if !qeRatIs(p.syntax.manager, &divLiteral.coefficient, 6, 1) || !qeRatIs(p.syntax.manager, &divLiteral.divisor, 12, 1) {
+		t.Fatal("normalized divisibility literal")
 	}
-	if boundLiteral.coefficient.Cmp(big.NewRat(-6, 1)) != 0 || boundLiteral.divisor.Sign() != 0 {
-		t.Fatal("normalized inequality literal", boundLiteral.coefficient, boundLiteral.divisor)
+	if !qeRatIs(p.syntax.manager, &boundLiteral.coefficient, -6, 1) || !qeRatIs(p.syntax.manager, &boundLiteral.divisor, 0, 1) {
+		t.Fatal("normalized inequality literal")
 	}
 	replacements, err := p.substituteIntegerLiterals(
 		[]*legacyLinearLiteral{divLiteral, boundLiteral},

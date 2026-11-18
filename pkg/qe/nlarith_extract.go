@@ -50,7 +50,7 @@ func (u *NonlinearArithmeticUtil) isNonlinearMul(h ast.ASTHandle) (bool, error) 
 		if cause != nil {
 			return false, cause
 		}
-		_, numeral, cause := u.term.numeral(a)
+		numeral, cause := u.term.isNumeral(a)
 		if cause != nil {
 			return false, cause
 		}
