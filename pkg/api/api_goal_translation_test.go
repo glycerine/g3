@@ -1,10 +1,7 @@
 package api
 
 import (
-	"errors"
 	"testing"
-
-	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestAPIGoalTranslationOwnsTargetFormulas(t *testing.T) {
@@ -33,7 +30,25 @@ func TestAPIGoalTranslationOwnsTargetFormulas(t *testing.T) {
 	if source.m.IsLiveHandle(handle) {
 		t.Fatal("translated formula provenance")
 	}
-	if _, err = goal.Translate(source.c); !errors.Is(err, ast.ErrASTDomain) {
-		t.Fatal("same-context translation", err)
+}
+
+// AUDIT.md api_01-F8: Z3_goal_translate into the same context copies the
+// goal.
+func TestGoalTranslateSameContext(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	goal, err := f.c.NewGoal(false, false, false)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, goal.Close()) })
+	boolean := f.pin(f.c.BoolSort())
+	astTestMust(t, goal.Assert(f.pin(f.c.Constant("p", boolean))))
+	copied, err := goal.Translate(f.c)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, copied.Close()) })
+	original, err := goal.String()
+	astTestMust(t, err)
+	text, err := copied.String()
+	astTestMust(t, err)
+	if text != original {
+		t.Fatalf("copy %q, original %q", text, original)
 	}
 }
