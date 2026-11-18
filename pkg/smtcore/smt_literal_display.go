@@ -34,6 +34,19 @@ func (l SMTLiteral) Display(out io.Writer, manager *ast.ASTManager, expressions 
 	if err != nil {
 		return err
 	}
+	// The fork's literal::display prints #id under Z3_TRACE_NO_PP, for
+	// every caller.
+	if traceNoPP() {
+		id, err := manager.GetASTID(expression)
+		if err != nil {
+			return err
+		}
+		text := "#" + strconv.FormatUint(uint64(id), 10)
+		if l.Sign() {
+			text = "(not " + text + ")"
+		}
+		return smtWriteTheoryText(out, text)
+	}
 	out = smtContextDisplayWriter{out}
 	printer, err := ast.NewSimpleASTPrinterContext(manager, out, out)
 	if err != nil {

@@ -53,3 +53,25 @@ func TestSMTLiteralASTAwareDisplayGuardsAndWriterErrors(t *testing.T) {
 		t.Fatal("nil writer", err)
 	}
 }
+
+// AUDIT.md smtcore_04-F6: literal::display honors Z3_TRACE_NO_PP itself, so
+// every caller prints #id instead of mk_pp.
+func TestSMTLiteralDisplayHonorsTraceNoPP(t *testing.T) {
+	manager := astTestManager(t)
+	boolean, err := manager.MkBoolSort()
+	astTestMust(t, err)
+	declaration, err := manager.MkFuncDecl(symbol.Numerical(2402), nil, boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	atom, err := manager.MkApp(declaration, nil)
+	astTestMust(t, err)
+	id, err := manager.GetASTID(atom)
+	astTestMust(t, err)
+	previous := traceNoPPSet
+	traceNoPPSet = true
+	t.Cleanup(func() { traceNoPPSet = previous })
+	var out bytes.Buffer
+	astTestMust(t, DisplaySMTLiteralsVerbose(&out, manager, []SMTLiteral{NewSMTLiteral(1, true), NewSMTLiteral(1, false)}, []ast.ASTHandle{{}, atom}, " "))
+	if want := fmt.Sprintf("(not #%d) #%d", id, id); out.String() != want {
+		t.Fatal(out.String(), want)
+	}
+}
