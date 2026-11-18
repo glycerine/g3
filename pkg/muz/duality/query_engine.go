@@ -8,7 +8,6 @@ import (
 	"os"
 
 	graph "github.com/glycerine/g3/pkg/duality"
-	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -136,25 +135,21 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
-	// Every attempted query invalidates publication, including setup failures.
-	e.status = lbool.Undef
-	// The source swaps the published counterexample back into the old solver
-	// before constructing the replacement problem. Rotate the Go wrapper at the
-	// same boundary: the borrowed view is invalidated, while LearnFrom can still
-	// consume the old solver's derivation as a replay guide.
-	if e.active != nil {
-		if err := e.active.engine.InvalidateCounterexampleView(); err != nil {
-			return lbool.Undef, err
-		}
-	}
 	if prepared == nil {
-		return lbool.Undef, graph.ErrWrapperOwner
+		return lbool.Undef, errors.Join(graph.ErrWrapperOwner, e.invalidatePublication())
 	}
-	// A previous attempt may still own a refused background-scope Pop.
-	// Drain it before either borrowed solver is used by another query.
-	if err := e.reap(); err != nil {
+	next := prepared.run
+	if next != nil {
+		// Backend.PrepareQuery started the query and asserted its axioms.
+		if prepared.owner != e || next.graph != nil || !e.ownsRun(next) {
+			return lbool.Undef, graph.ErrWrapperOwner
+		}
+		prepared.run = nil
+	} else if err := e.startQuery(); err != nil {
 		return lbool.Undef, err
 	}
+	// Every attempted query invalidates publication, including setup failures.
+	e.status = lbool.Undef
 	manager, err := e.context.Manager()
 	if err != nil {
 		return lbool.Undef, err
@@ -171,13 +166,15 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 			e.forgetActive()
 		}
 	}()
-	e.status = lbool.Undef
-	nextGraph, err := prepared.BuildGraph(e.context, e.config.Simplifier, e.config.Quantifiers)
-	if err != nil {
-		return lbool.Undef, err
+	config := e.config
+	legacy := next == nil
+	if legacy {
+		next = &queryRun{}
+		e.runs = append(e.runs, next)
+	} else {
+		config.Theory = prepared.theory
+		prepared.theory = nil
 	}
-	next := &queryRun{graph: nextGraph}
-	e.runs = append(e.runs, next)
 	defer func() {
 		result = errors.Join(result, next.closeScopes())
 		if result == nil {
@@ -194,51 +191,35 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 			e.status = lbool.Undef
 		}
 	}()
-	config := e.config
-	config.Theory = append([]*graph.Expr(nil), config.Theory...)
-	for _, ref := range prepared.background {
-		h, err := manager.RefGet(ref)
-		if err != nil {
-			return lbool.Undef, err
-		}
-		axiom, err := graph.NewExpr(e.context, h)
-		if err != nil {
-			return lbool.Undef, err
-		}
-		next.background = append(next.background, axiom)
-		config.Theory = append(config.Theory, axiom)
+	nextGraph, err := prepared.BuildGraph(e.context, e.config.Simplifier, e.config.Quantifiers)
+	if err != nil {
+		return lbool.Undef, err
 	}
-	// RPFP::AssertAxiom -> iZ3LogicSolver::assert_axiom converts each axiom
-	// once; the converted term is asserted and kept as the theory
-	// (get_axioms), while the raw axiom stays for printing.
-	for i, axiom := range config.Theory {
-		converted, changed, err := graph.InterpolationAxiom(e.context, axiom)
-		if err != nil {
-			return lbool.Undef, err
-		}
-		if changed {
-			next.converted = append(next.converted, converted)
-			config.Theory[i] = converted
-		}
-	}
-	// interpolating_solver::AssertInterpolationAxiom adds the axiom to the
-	// interpolating solver only; LogicSolver::aux_solver (Auxiliary, used by
-	// Transformer::SubsetEq covering checks) never sees it.
-	if len(config.Theory) > 0 {
-		for _, native := range []solver.Solver{config.Native} {
-			if err := next.pushScope(native); err != nil {
+	next.graph = nextGraph
+	if legacy {
+		// A query prepared without the engine (PrepareQuery and
+		// AddBackground) asserts its axioms here.
+		theory := make([]*graph.Expr, 0, len(config.Theory)+len(prepared.background))
+		for _, axiom := range config.Theory {
+			if err := e.assertAxiom(next, &theory, axiom); err != nil {
 				return lbool.Undef, err
 			}
-			for _, axiom := range config.Theory {
-				h, err := axiom.Raw()
-				if err != nil {
-					return lbool.Undef, err
-				}
-				if err := native.Assert(h); err != nil {
-					return lbool.Undef, err
-				}
+		}
+		for _, ref := range prepared.background {
+			h, err := manager.RefGet(ref)
+			if err != nil {
+				return lbool.Undef, err
+			}
+			axiom, err := graph.NewExpr(e.context, h)
+			if err != nil {
+				return lbool.Undef, err
+			}
+			next.background = append(next.background, axiom)
+			if err := e.assertAxiom(next, &theory, axiom); err != nil {
+				return lbool.Undef, err
 			}
 		}
+		config.Theory = theory
 	}
 	next.engine, err = graph.NewEngine(nextGraph, config)
 	if err != nil {

@@ -148,5 +148,9 @@ func (e *PropositionalEngine) prepareDualityTransformedQuery(query ast.ASTHandle
 			return nil, err
 		}
 	}
-	return duality.PrepareQuery(e.manager, forms, bounds, derivedQuery, predicates, bound)
+	background, err := e.dualityBackground()
+	if err != nil {
+		return nil, err
+	}
+	return e.duality.PrepareQuery(forms, bounds, derivedQuery, background, predicates, bound)
 }

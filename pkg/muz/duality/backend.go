@@ -90,6 +90,20 @@ func (b *Backend) SetOptions(options QueryOptions) error {
 	}
 	return b.queries.SetOptions(options)
 }
+
+// PrepareQuery prepares the clauses as dl_interface::query does, and
+// converts the background axioms with this backend's context (AssertAxiom)
+// between the query clause and the head-completion clauses.
+func (b *Backend) PrepareQuery(rules []ast.ASTHandle, bounds []uint32, query ast.ASTHandle, background []ast.ASTHandle, predicates []ast.ASTHandle, recursionBound uint32) (*PreparedQuery, error) {
+	if err := b.open(); err != nil {
+		return nil, err
+	}
+	manager, err := b.context.Manager()
+	if err != nil {
+		return nil, err
+	}
+	return prepareQuery(manager, b.queries, rules, bounds, query, background, predicates, recursionBound)
+}
 func (b *Backend) Query(prepared *PreparedQuery) (lbool.LBool, error) {
 	if err := b.open(); err != nil {
 		return lbool.Undef, err

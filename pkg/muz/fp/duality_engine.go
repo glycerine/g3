@@ -160,32 +160,31 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 				return lbool.Undef, err
 			}
 		}
-		prepared, err = duality.PrepareQuery(e.manager, handles, bounds, query, e.predicateOrder, bound)
+		background, err := e.dualityBackground()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		prepared, err = e.duality.PrepareQuery(handles, bounds, query, background, e.predicateOrder, bound)
 		if err != nil {
 			return lbool.Undef, err
 		}
 	}
 	defer func() { result = errors.Join(result, prepared.Close()) }()
-	background, err := e.manager.RefGet(e.background)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if !e.manager.IsTrue(background) {
-		if err := prepared.AddBackground(background); err != nil {
-			return lbool.Undef, err
-		}
-	}
+	return e.duality.Query(prepared)
+}
+
+// dualityBackground lists the context's assertions, m_background, that
+// dl_interface::query asserts one by one (get_assertion(i)) as background
+// axioms, true included. The conjunction get_background_assertion (the
+// engine's background, which PDR and Spacer take) is not one of them.
+func (e *PropositionalEngine) dualityBackground() ([]ast.ASTHandle, error) {
+	axioms := make([]ast.ASTHandle, 0, len(e.assertions))
 	for _, ref := range e.assertions {
 		h, err := e.manager.RefGet(ref)
 		if err != nil {
-			return lbool.Undef, err
+			return nil, err
 		}
-		if e.manager.IsTrue(h) {
-			continue
-		}
-		if err := prepared.AddBackground(h); err != nil {
-			return lbool.Undef, err
-		}
+		axioms = append(axioms, h)
 	}
-	return e.duality.Query(prepared)
+	return axioms, nil
 }

@@ -87,7 +87,12 @@ func missingHeadClause(m *ast.ASTManager, predicate ast.ASTHandle) (result ast.A
 	}
 	refs := make([]ast.ASTRef, 0, arity+1)
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
+		// The clause c dies first (its operator= in make_quant), then
+		// std::vector<expr> args destroys its X constants in order.
+		for i := len(refs) - 1; i >= int(arity); i-- {
+			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
+		}
+		for i := 0; i < len(refs) && i < int(arity); i++ {
 			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
 		}
 		if resultErr != nil && result != (ast.ASTRef{}) {
