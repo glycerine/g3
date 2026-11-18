@@ -212,7 +212,9 @@ func (s *PsortASTNetwork) eq(full bool, k, n uint32, p psortASTPointer) (result 
 	if e != nil {
 		return result, e
 	}
-	return s.minimum(a, b)
+	// ctx.mk_min(out[k-1], ctx.mk_not(out[k])): the context directly, not
+	// psort_nw::mk_min (no a == b shortcut, no compiled-variable count).
+	return s.context.Min(a, b)
 }
 func (s *PsortASTNetwork) dualize(k *uint32, n uint32, p psortASTPointer, in *ASTLiteralVector) (bool, error) {
 	on, e := s.assertions()
