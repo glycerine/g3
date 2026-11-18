@@ -29,13 +29,19 @@ func (p *BVPolynomialRewriter) RewriteMultiplicationEquality(lhs, rhs ast.ASTHan
 		return RewriteFailed, e
 	}
 	p.running = true
-	st = RewriteFailed
 	defer func() {
 		p.running = false
 		if err != nil {
 			p.fail(err)
 		}
 	}()
+	return p.rewriteMultiplicationEqualityBody(lhs, rhs, out)
+}
+
+// rewriteMultiplicationEqualityBody is RewriteMultiplicationEquality while
+// running; its own function so the caller's defer stays open-coded.
+func (p *BVPolynomialRewriter) rewriteMultiplicationEqualityBody(lhs, rhs ast.ASTHandle, out ast.ASTRef) (st RewriteStatus, err error) {
+	st = RewriteFailed
 	m := p.manager
 	// mk_mul_eq only does numeral work when lhs is (bvmul c x) with c a
 	// numeral, or lhs is a numeral; otherwise it returns BR_FAILED having

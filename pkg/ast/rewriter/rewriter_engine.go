@@ -852,47 +852,55 @@ func (r *rewriterEngine) processApp() (err error) {
 	case 1:
 		return r.rewritten(fr, false)
 	case 2:
-		tmp, e := m.NewRef(ast.ASTHandle{})
-		if e != nil {
+		return r.processAppMacroEnd(fr, n)
+	default:
+		return ast.ErrASTDomain // Source REWRITE_RULE is NOT_IMPLEMENTED_YET.
+	}
+}
+
+// processAppMacroEnd is process_app's state 2 (a macro body was rewritten).
+// It is its own function so processApp keeps no defer.
+func (r *rewriterEngine) processAppMacroEnd(fr rewriterFrame, n uint32) (err error) {
+	c := &r.core
+	m := c.manager
+	tmp, e := m.NewRef(ast.ASTHandle{})
+	if e != nil {
+		return e
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&tmp)) }()
+	if n > uint32(len(r.bindings)) || n > uint32(len(r.shifts)) {
+		return ast.ErrASTDomain
+	}
+	r.bindings = r.bindings[:uint32(len(r.bindings))-n]
+	r.shifts = r.shifts[:uint32(len(r.shifts))-n]
+	c.numQVars -= n
+	if e = c.endScope(); e != nil {
+		return e
+	}
+	h, e := c.resultBack()
+	if e != nil {
+		return e
+	}
+	if e = m.SetRefHeld(r.r, h); e != nil {
+		return e
+	}
+	ground, e := m.IsGround(h)
+	if e != nil {
+		return e
+	}
+	if !ground {
+		if e = r.invShifter.InverseShift(h, n, tmp); e != nil {
 			return e
 		}
-		defer func() { err = errors.Join(err, m.DelRef(&tmp)) }()
-		if n > uint32(len(r.bindings)) || n > uint32(len(r.shifts)) {
-			return ast.ErrASTDomain
-		}
-		r.bindings = r.bindings[:uint32(len(r.bindings))-n]
-		r.shifts = r.shifts[:uint32(len(r.shifts))-n]
-		c.numQVars -= n
-		if e = c.endScope(); e != nil {
-			return e
-		}
-		h, e := c.resultBack()
+		h, e = m.RefGet(tmp)
 		if e != nil {
 			return e
 		}
 		if e = m.SetRefHeld(r.r, h); e != nil {
 			return e
 		}
-		ground, e := m.IsGround(h)
-		if e != nil {
-			return e
-		}
-		if !ground {
-			if e = r.invShifter.InverseShift(h, n, tmp); e != nil {
-				return e
-			}
-			h, e = m.RefGet(tmp)
-			if e != nil {
-				return e
-			}
-			if e = m.SetRefHeld(r.r, h); e != nil {
-				return e
-			}
-		}
-		return r.finish(fr, true, false)
-	default:
-		return ast.ErrASTDomain // Source REWRITE_RULE is NOT_IMPLEMENTED_YET.
 	}
+	return r.finish(fr, true, false)
 }
 
 func (r *rewriterEngine) processQuantifier() (err error) {

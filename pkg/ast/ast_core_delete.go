@@ -63,9 +63,10 @@ func (m *ASTManager) deleteNode(first astNodeRef) error {
 }
 
 func (m *ASTManager) deleteNodeWorklist(stack []astNodeRef, resumed astNodeRef) error {
-	var firstErr error
 	parent, previousHead := m.deletionCurrent, m.deletionHead
 	complete := false
+	// One return keeps this defer open-coded; the worklist's many returns
+	// live in deleteNodeWorklistBody.
 	defer func() {
 		if !complete {
 			m.pendingDeletionCurrent = m.deletionCurrent
@@ -74,6 +75,13 @@ func (m *ASTManager) deleteNodeWorklist(stack []astNodeRef, resumed astNodeRef) 
 		m.deletionCurrent = parent
 		m.deletionHead = previousHead
 	}()
+	return m.deleteNodeWorklistBody(stack, resumed, parent, &complete)
+}
+
+// deleteNodeWorklistBody is deleteNodeWorklist's loop; it sets *complete
+// when the worklist is exhausted.
+func (m *ASTManager) deleteNodeWorklistBody(stack []astNodeRef, resumed, parent astNodeRef, complete *bool) error {
+	var firstErr error
 	note := func(e error) {
 		if e != nil && firstErr == nil {
 			firstErr = e
@@ -221,6 +229,6 @@ func (m *ASTManager) deleteNodeWorklist(stack []astNodeRef, resumed astNodeRef) 
 			m.deletionHead = stack[len(stack)-1]
 		}
 	}
-	complete = true
+	*complete = true
 	return firstErr
 }

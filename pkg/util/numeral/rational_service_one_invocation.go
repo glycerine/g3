@@ -11,6 +11,12 @@ func (s *RationalService) CopyOneWithInvocation(dst *OwnedRational, c *RationalS
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.copyOneWithInvocationLocked(dst, c)
+}
+
+// copyOneWithInvocationLocked is CopyOneWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) copyOneWithInvocationLocked(dst *OwnedRational, c *RationalServiceInvocation) (e error) {
 	if e = s.rationalScalarOwner(dst); e != nil {
 		return e
 	}

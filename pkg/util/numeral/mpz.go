@@ -1099,7 +1099,6 @@ func (m *IntegerManager) copyFromOwnerWithPhysicalFloatCaller(dst *Int, sourceMa
 	if dst == src {
 		return nil
 	}
-	var owned *integerCopyAllocationScope
 	if src.IsSmall() {
 		v := src.Val
 		delError := m.Del(dst)
@@ -1118,6 +1117,13 @@ func (m *IntegerManager) copyFromOwnerWithPhysicalFloatCaller(dst *Int, sourceMa
 		}
 		return nil
 	}
+	return m.copyFromOwnerBig(dst, sourceManager, src, receipt, context, receiver, caller)
+}
+
+// copyFromOwnerBig is copyFromOwnerWithPhysicalFloatCaller for a big
+// source. Split out so the small-value path carries no defer frame.
+func (m *IntegerManager) copyFromOwnerBig(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context *integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver, caller *arbitraryFloatCopyBinding) error {
+	var owned *integerCopyAllocationScope
 	source := sourceManager.Cell(src.Cell)
 	dst.Val = src.Val // big_set publishes sign before allocation/free
 	if e := receiver.publishValue(dst); e != nil {

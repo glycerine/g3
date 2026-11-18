@@ -337,6 +337,12 @@ func (s *RationalService) CopyWithInvocation(dst, src *OwnedRational, c *Rationa
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.copyWithInvocationLocked(dst, src, c)
+}
+
+// copyWithInvocationLocked is CopyWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) copyWithInvocationLocked(dst, src *OwnedRational, c *RationalServiceInvocation) (e error) {
 	if e = s.rationalScalarOwner(dst); e != nil {
 		return e
 	}
@@ -365,6 +371,12 @@ func (s *RationalService) NegAssignWithInvocation(a *OwnedRational, c *RationalS
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.negAssignWithInvocationLocked(a, c)
+}
+
+// negAssignWithInvocationLocked is NegAssignWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) negAssignWithInvocationLocked(a *OwnedRational, c *RationalServiceInvocation) (e error) {
 	if e = s.rationalScalarOwner(a); e != nil {
 		return e
 	}
@@ -397,9 +409,15 @@ func (s *RationalService) MulAssignWithInvocation(a, b *OwnedRational, c *Ration
 }
 func (s *RationalService) compoundWithInvocation(a, b *OwnedRational, c *RationalServiceInvocation, op rationalFacadeBinaryOp) (e error) {
 	if e = s.lock(); e != nil {
-		return
+		return e
 	}
 	defer s.mu.Unlock()
+	return s.compoundWithInvocationLocked(a, b, c, op)
+}
+
+// compoundWithInvocationLocked is compoundWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) compoundWithInvocationLocked(a, b *OwnedRational, c *RationalServiceInvocation, op rationalFacadeBinaryOp) (e error) {
 	if e = s.prepareLexicalInvocation(c); e != nil {
 		return
 	}
@@ -450,6 +468,12 @@ func (s *RationalService) SetIntegerFromOwnerWithInvocation(out *OwnedRational, 
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.setIntegerFromOwnerWithInvocationLocked(out, source, n, c)
+}
+
+// setIntegerFromOwnerWithInvocationLocked is SetIntegerFromOwnerWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) setIntegerFromOwnerWithInvocationLocked(out *OwnedRational, source *IntegerManager, n *Int, c *RationalServiceInvocation) (e error) {
 	if e = s.rationalScalarOwner(out); e != nil {
 		return e
 	}
@@ -498,6 +522,12 @@ func (s *RationalService) SetInt64WithInvocation(out *OwnedRational, n int64, c 
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.setInt64WithInvocationLocked(out, n, c)
+}
+
+// setInt64WithInvocationLocked is SetInt64WithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) setInt64WithInvocationLocked(out *OwnedRational, n int64, c *RationalServiceInvocation) (e error) {
 	if e = s.rationalScalarOwner(out); e != nil {
 		return e
 	}
@@ -520,6 +550,12 @@ func (s *RationalService) SetUnsignedWithInvocation(out *OwnedRational, n uint32
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.setUnsignedWithInvocationLocked(out, n, c)
+}
+
+// setUnsignedWithInvocationLocked is SetUnsignedWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) setUnsignedWithInvocationLocked(out *OwnedRational, n uint32, c *RationalServiceInvocation) (e error) {
 	if e = s.rationalScalarOwner(out); e != nil {
 		return e
 	}
@@ -542,6 +578,12 @@ func (s *RationalService) SetUint64WithInvocation(out *OwnedRational, n uint64, 
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.setUint64WithInvocationLocked(out, n, c)
+}
+
+// setUint64WithInvocationLocked is SetUint64WithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) setUint64WithInvocationLocked(out *OwnedRational, n uint64, c *RationalServiceInvocation) (e error) {
 	if e = s.rationalScalarOwner(out); e != nil {
 		return e
 	}
@@ -566,6 +608,12 @@ func (s *RationalService) ModIntoWithInvocation(a, b, out *OwnedRational, c *Rat
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.modIntoWithInvocationLocked(a, b, out, c)
+}
+
+// modIntoWithInvocationLocked is ModIntoWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) modIntoWithInvocationLocked(a, b, out *OwnedRational, c *RationalServiceInvocation) (e error) {
 	for _, value := range []*OwnedRational{a, b, out} {
 		if e = s.rationalScalarOwner(value); e != nil {
 			return e
@@ -599,6 +647,12 @@ func (s *RationalService) IDivIntoWithInvocation(a, b, out *OwnedRational, c *Ra
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.iDivIntoWithInvocationLocked(a, b, out, c)
+}
+
+// iDivIntoWithInvocationLocked is IDivIntoWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) iDivIntoWithInvocationLocked(a, b, out *OwnedRational, c *RationalServiceInvocation) (e error) {
 	for _, value := range []*OwnedRational{a, b, out} {
 		if e = s.rationalScalarOwner(value); e != nil {
 			return e
@@ -662,6 +716,12 @@ func (s *RationalService) RemAssignWithInvocation(a, b *OwnedRational, c *Ration
 		return e
 	}
 	defer s.mu.Unlock()
+	return s.remAssignWithInvocationLocked(a, b, c)
+}
+
+// remAssignWithInvocationLocked is RemAssignWithInvocation after the service lock is taken; split out so both
+// functions keep open-coded defers.
+func (s *RationalService) remAssignWithInvocationLocked(a, b *OwnedRational, c *RationalServiceInvocation) (e error) {
 	for _, value := range []*OwnedRational{a, b} {
 		if e = s.rationalScalarOwner(value); e != nil {
 			return e

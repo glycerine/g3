@@ -27,11 +27,14 @@ type boolRewriter struct {
 	localActive                         bool
 	andArgs                             [][]ast.ASTHandle
 	andDepth                            uint32
-	// nflatNeg/nflatPos are mk_nflat_*_core's expr_fast_mark1/2 (neg_lits,
-	// pos_lits), keyed by node; nflatBuffer backs its ptr_buffer, used as
-	// a stack because local-context simplification can re-enter.
-	nflatNeg, nflatPos map[uint64]bool
-	nflatBuffer        []ast.ASTHandle
+	// nflatMarks holds mk_nflat_*_core's expr_fast_mark1/2 (neg_lits,
+	// pos_lits), keyed by node, as bits 1 (neg) and 2 (pos); argument
+	// lists of at most boolRewriterNFlatSmall use nflatSmall, a linear
+	// list, instead. nflatBuffer backs its ptr_buffer, used as a stack
+	// because local-context simplification can re-enter.
+	nflatMarks  map[uint64]uint8
+	nflatSmall  []boolRewriterNFlatMark
+	nflatBuffer []ast.ASTHandle
 }
 
 func boolRewriterMarkKey(h ast.ASTHandle) uint64 {
@@ -56,21 +59,62 @@ func (rw *boolRewriter) mkNFlatOrCore(args []ast.ASTHandle, out ast.ASTRef) (brS
 // The two original loops are dual except for OR's optional local-context call.
 // Keep that source branch after mark reset and before the changed-result test.
 func (rw *boolRewriter) mkNFlatCore(args ast.AppArguments, out ast.ASTRef, disjunction bool) (status brStatus, err error) {
-	m := rw.manager
-	if rw.nflatNeg == nil {
-		rw.nflatNeg, rw.nflatPos = make(map[uint64]bool), make(map[uint64]bool)
-	}
-	neg, pos := rw.nflatNeg, rw.nflatPos
-	// The marks are reset on every exit, as the source's fast marks are.
-	defer func() {
-		clear(neg)
-		clear(pos)
-	}()
 	base := len(rw.nflatBuffer)
+	// The marks are reset on every exit, as the source's fast marks are.
+	// The body is its own function so this defer stays open-coded.
 	defer func() {
+		rw.clearNFlatMarks()
 		clear(rw.nflatBuffer[base:])
 		rw.nflatBuffer = rw.nflatBuffer[:base]
 	}()
+	return rw.mkNFlatBody(args, out, disjunction, base)
+}
+
+// boolRewriterNFlatMark is one node's neg/pos marks (bits 1 and 2).
+type boolRewriterNFlatMark struct {
+	key   uint64
+	marks uint8
+}
+
+const boolRewriterNFlatSmall = 16
+
+func (rw *boolRewriter) clearNFlatMarks() {
+	rw.nflatSmall = rw.nflatSmall[:0]
+	clear(rw.nflatMarks)
+}
+
+func (rw *boolRewriter) mkNFlatBody(args ast.AppArguments, out ast.ASTRef, disjunction bool, base int) (status brStatus, err error) {
+	m := rw.manager
+	small := args.Count() <= boolRewriterNFlatSmall
+	// get/set read and write the marks of key in the list or the map.
+	get := func(key uint64) uint8 {
+		if small {
+			for i := range rw.nflatSmall {
+				if rw.nflatSmall[i].key == key {
+					return rw.nflatSmall[i].marks
+				}
+			}
+			return 0
+		}
+		return rw.nflatMarks[key]
+	}
+	set := func(key uint64, bit uint8) {
+		if small {
+			for i := range rw.nflatSmall {
+				if rw.nflatSmall[i].key == key {
+					rw.nflatSmall[i].marks |= bit
+					return
+				}
+			}
+			rw.nflatSmall = append(rw.nflatSmall, boolRewriterNFlatMark{key: key, marks: bit})
+			return
+		}
+		if rw.nflatMarks == nil {
+			rw.nflatMarks = make(map[uint64]uint8)
+		}
+		rw.nflatMarks[key] |= bit
+	}
+	const negBit, posBit = 1, 2
 	unit, e := m.MkBoolVal(!disjunction)
 	if e != nil {
 		return brFailed, e
@@ -98,24 +142,26 @@ func (rw *boolRewriter) mkNFlatCore(args ast.AppArguments, out ast.ASTRef, disju
 		}
 		if negative {
 			key := boolRewriterMarkKey(atom)
-			if neg[key] {
+			marks := get(key)
+			if marks&negBit != 0 {
 				changed = true
 				continue
 			}
-			if pos[key] {
+			if marks&posBit != 0 {
 				return brDone, m.SetRef(out, absorb)
 			}
-			neg[key] = true
+			set(key, negBit)
 		} else {
 			key := boolRewriterMarkKey(arg)
-			if pos[key] {
+			marks := get(key)
+			if marks&posBit != 0 {
 				changed = true
 				continue
 			}
-			if neg[key] {
+			if marks&negBit != 0 {
 				return brDone, m.SetRef(out, absorb)
 			}
-			pos[key] = true
+			set(key, posBit)
 		}
 		rw.nflatBuffer = append(rw.nflatBuffer, arg)
 	}
@@ -127,8 +173,7 @@ func (rw *boolRewriter) mkNFlatCore(args ast.AppArguments, out ast.ASTRef, disju
 		return brDone, m.SetRef(out, remaining[0])
 	}
 	if disjunction && rw.localContext && rw.localContextCost <= rw.localContextLimit {
-		clear(neg)
-		clear(pos)
+		rw.clearNFlatMarks()
 		simplified, e := rw.localContextSimplify(remaining, out)
 		if e != nil {
 			return brFailed, e
