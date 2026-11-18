@@ -28,14 +28,28 @@ type BitVectorLEComparisonNumerals struct {
 }
 
 func NewBitVectorLEComparisonNumerals(m *ASTManager) (*BitVectorLEComparisonNumerals, error) {
+	return ReuseBitVectorLEComparisonNumerals(m, nil)
+}
+
+var bitVectorLEComparisonNumeralsBytes = uint64(reflect.TypeOf(BitVectorLEComparisonNumerals{}).Size())
+
+// ReuseBitVectorLEComparisonNumerals is NewBitVectorLEComparisonNumerals on
+// the storage of spare when spare belongs to m and closed cleanly; the
+// source's mk_leq_core keeps these rationals on its stack, so one rewriter
+// call's storage can serve the next. The budget reservation is unchanged.
+func ReuseBitVectorLEComparisonNumerals(m *ASTManager, spare *BitVectorLEComparisonNumerals) (*BitVectorLEComparisonNumerals, error) {
 	if _, e := m.ProofsEnabled(); e != nil {
 		return nil, e
 	}
-	bytes := uint64(reflect.TypeOf(BitVectorLEComparisonNumerals{}).Size())
+	bytes := bitVectorLEComparisonNumeralsBytes
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return nil, e
 	}
-	n := &BitVectorLEComparisonNumerals{manager: m, header: bytes}
+	n := spare
+	if n == nil || n.self != n || n.manager != m || !n.closed {
+		n = new(BitVectorLEComparisonNumerals)
+	}
+	*n = BitVectorLEComparisonNumerals{manager: m, header: bytes}
 	n.self = n
 	for i := 0; i < 3; i++ {
 		v, e := m.numerals.NewValue()

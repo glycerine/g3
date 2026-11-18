@@ -15,6 +15,8 @@ type bvLEInvocation struct {
 	header   uint64
 }
 
+var bvLEInvocationBytes = uint64(reflect.TypeOf(bvLEInvocation{}).Size())
+
 func (v *bvLEInvocation) close(m *ast.ASTManager) error {
 	if e := m.CleanupBitVectorNumeralInvocation(&v.zeroBit); e != nil {
 		return e
@@ -39,14 +41,22 @@ func (p *BVRewriter) RewriteLE(signed bool, a, b ast.ASTHandle, out ast.ASTRef) 
 }
 func (p *BVRewriter) rewriteLE(signed bool, a, b ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
 	m := p.manager
-	bytes := uint64(reflect.TypeOf(bvLEInvocation{}).Size())
+	bytes := bvLEInvocationBytes
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return RewriteFailed, e
 	}
-	v := &bvLEInvocation{header: bytes}
+	// A cleanly closed previous invocation lends its storage (the source
+	// keeps these locals on mk_leq_core's stack).
+	v := p.leqSpare
+	p.leqSpare = nil
+	if v == nil {
+		v = new(bvLEInvocation)
+	}
+	*v = bvLEInvocation{header: bytes}
 	p.leq = v
 	var e error
-	v.numerals, e = ast.NewBitVectorLEComparisonNumerals(m)
+	v.numerals, e = ast.ReuseBitVectorLEComparisonNumerals(m, p.leqNumeralsSpare)
+	p.leqNumeralsSpare = nil
 	if e != nil {
 		return RewriteFailed, e
 	}
@@ -65,10 +75,12 @@ func (p *BVRewriter) rewriteLE(signed bool, a, b ast.ASTHandle, out ast.ASTRef) 
 	if e = v.numerals.SourceEnd(); e != nil {
 		return st, e
 	}
+	numerals := v.numerals
 	if e = v.close(m); e != nil {
 		return st, e
 	}
 	p.leq = nil
+	p.leqSpare, p.leqNumeralsSpare = v, numerals
 	return st, nil
 }
 func (p *BVRewriter) leBody(v *bvLEInvocation, signed bool, a, b ast.ASTHandle, out ast.ASTRef) (ast.ASTHandle, RewriteStatus, bool, error) {

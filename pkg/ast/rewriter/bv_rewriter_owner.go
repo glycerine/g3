@@ -28,6 +28,8 @@ type BVRewriter struct {
 	leConcat              *bvLEConcatInvocation
 	leOverflow            *bvLEOverflowInvocation
 	leq                   *bvLEInvocation
+	leqSpare              *bvLEInvocation
+	leqNumeralsSpare      *ast.BitVectorLEComparisonNumerals
 	propagation           *bvExtractPropagation
 	signExtension         *bvSignExtensionInvocation
 	trailing              *BVTrailing

@@ -33,6 +33,7 @@ type BVPolynomialRewriter struct {
 	concatEquality           *bvConcatEqualityInvocation
 	isolation                *bvIsolationInvocation
 	mulEquality              *ast.BitVectorMulEqualityNumerals
+	mulEqualitySpare         *ast.BitVectorMulEqualityNumerals
 	multiplicationConcat     [2]ast.ASTHandle
 	pair                     [2]ast.ASTHandle
 	header                   uint64

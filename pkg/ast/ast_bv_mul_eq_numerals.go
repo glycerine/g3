@@ -23,14 +23,28 @@ type BitVectorMulEqualityNumerals struct {
 }
 
 func NewBitVectorMulEqualityNumerals(m *ASTManager) (*BitVectorMulEqualityNumerals, error) {
+	return ReuseBitVectorMulEqualityNumerals(m, nil)
+}
+
+var bitVectorMulEqualityNumeralsBytes = uint64(reflect.TypeOf(BitVectorMulEqualityNumerals{}).Size())
+
+// ReuseBitVectorMulEqualityNumerals is NewBitVectorMulEqualityNumerals on
+// the storage of spare when spare belongs to m and closed cleanly; the
+// source's mk_mul_eq keeps these rationals on its stack, so one rewriter
+// call's storage can serve the next. The budget reservation is unchanged.
+func ReuseBitVectorMulEqualityNumerals(m *ASTManager, spare *BitVectorMulEqualityNumerals) (*BitVectorMulEqualityNumerals, error) {
 	if _, e := m.ProofsEnabled(); e != nil {
 		return nil, e
 	}
-	bytes := uint64(reflect.TypeOf(BitVectorMulEqualityNumerals{}).Size())
+	bytes := bitVectorMulEqualityNumeralsBytes
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return nil, e
 	}
-	n := &BitVectorMulEqualityNumerals{manager: m, header: bytes}
+	n := spare
+	if n == nil || n.self != n || n.manager != m || !n.closed {
+		n = new(BitVectorMulEqualityNumerals)
+	}
+	*n = BitVectorMulEqualityNumerals{manager: m, header: bytes}
 	n.self = n
 	for _, i := range []int{0, 1} {
 		if e := n.Place(i); e != nil {

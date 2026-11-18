@@ -37,7 +37,8 @@ func (p *BVPolynomialRewriter) RewriteMultiplicationEquality(lhs, rhs ast.ASTHan
 		}
 	}()
 	m := p.manager
-	n, e := ast.NewBitVectorMulEqualityNumerals(m)
+	n, e := ast.ReuseBitVectorMulEqualityNumerals(m, p.mulEqualitySpare)
+	p.mulEqualitySpare = nil
 	p.mulEquality = n
 	if e != nil {
 		return st, e
@@ -50,6 +51,7 @@ func (p *BVPolynomialRewriter) RewriteMultiplicationEquality(lhs, rhs ast.ASTHan
 			return st, e
 		}
 		p.mulEquality = nil
+		p.mulEqualitySpare = n
 		return st, nil
 	}
 	assign := func(left, right ast.ASTHandle, status RewriteStatus) error {
