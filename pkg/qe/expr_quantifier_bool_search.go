@@ -162,16 +162,13 @@ search:
 		}
 		if e == nil && step == exprQEChooseVariable {
 			var outcome exprQEPopStatus
-			current, outcome, e = popExprQEBoolTree(current, variables, context, plugin, partitioner, solver, eval, md, config, rw, nnf, free, false)
+			var part *exprQETreePartition
+			current, part, outcome, e = popExprQEBoolTree(current, variables, context, plugin, partitioner, solver, eval, md, config, rw, nnf, free, false)
 			if e == nil && outcome == exprQEPopNeedsPartition {
-				part, cause := partitionExprQETree(current, variables, partitioner)
-				if cause == nil {
-					var done bool
-					done, cause = processExprQEScalarPartition(current, part, context, solver, config)
-					cause = errors.Join(cause, part.Close())
-					if cause == nil && !done {
-						outcome = exprQEPopNoBranch
-					}
+				done, cause := processExprQEScalarPartition(current, part, context, solver, config)
+				cause = errors.Join(cause, part.Close())
+				if cause == nil && !done {
+					outcome = exprQEPopNoBranch
 				}
 				e = cause
 			}
