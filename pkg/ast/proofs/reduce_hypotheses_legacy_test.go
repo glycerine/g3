@@ -125,3 +125,42 @@ func TestReduceHypothesesLegacyShortCircuitsReducedFalse(t *testing.T) {
 		t.Fatal("legacy false short circuit", result, fact)
 	}
 }
+
+// m_units is an obj_map: inserting a second hypothesis-free proof of the
+// same fact replaces the first (AUDIT ast_sub_03-F1).
+func TestReduceHypothesesLegacyLastUnitWins(t *testing.T) {
+	m := proofManager(t)
+	proofMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	a, b := legacyBoolAtom(t, m, 2111), legacyBoolAtom(t, m, 2112)
+	fact, err := m.MkIff(a, b)
+	proofMust(t, err)
+	hypothesis, err := m.MkProofHypothesis(fact)
+	proofMust(t, err)
+	hypothesis = proofPin(t, m, hypothesis)
+	first, err := m.MkProofAsserted(fact)
+	proofMust(t, err)
+	first = proofPin(t, m, first)
+	c := legacyBoolAtom(t, m, 2113)
+	assertedC, err := m.MkProofAsserted(c)
+	proofMust(t, err)
+	rewrite, err := m.MkProofRewrite(c, fact)
+	proofMust(t, err)
+	second, err := m.MkProofModusPonens(assertedC, rewrite)
+	proofMust(t, err)
+	second = proofPin(t, m, second)
+	// Reverse-parent DFS visits hypothesis, second, then first: first is the
+	// last unit inserted for the fact.
+	root, err := m.MkProofHyperResolve([]ast.ASTHandle{first, second, hypothesis}, fact, nil, [][]ast.ASTHandle{nil})
+	proofMust(t, err)
+	root = proofPin(t, m, root)
+	ref, err := m.NewRef(root)
+	proofMust(t, err)
+	defer func() { proofMust(t, m.DelRef(&ref)) }()
+	proofMust(t, ReduceHypothesesLegacy(m, ref))
+	result, err := m.RefGet(ref)
+	proofMust(t, err)
+	parents, _, _ := proofHyperRead(t, m, result)
+	if len(parents) != 3 || parents[2] != first {
+		t.Fatal("hypothesis must be replaced by the last unit inserted", parents, first, second)
+	}
+}

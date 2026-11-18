@@ -33,11 +33,13 @@ func (r *legacyHypothesisReducer) pin(h ast.ASTHandle) error {
 	return err
 }
 
+// insertUnit is m_units.insert(fact, proof): obj_map::insert replaces the
+// value of a present key, so the last proof wins. unitOrder keeps the
+// first-discovery iteration order.
 func (r *legacyHypothesisReducer) insertUnit(fact, proof ast.ASTHandle) {
-	if _, found := r.units[fact]; found {
-		return
+	if _, found := r.units[fact]; !found {
+		r.unitOrder = append(r.unitOrder, fact)
 	}
-	r.unitOrder = append(r.unitOrder, fact)
 	r.units[fact] = proof
 }
 
