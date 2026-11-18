@@ -21,6 +21,8 @@ func TestOPBFrontendSourceReader(t *testing.T) {
 		{"opb_coefficientless.opb", "sat\n   3\n", ""},
 		{"opb_interleaved_objectives.opb", "sat\n   0\n   3\n", ""},
 		{"opb_unexpected_char.opb", "", `(error line 1 "unexpected char: y" expected "x")`},
+		// z3 4.7.1 crashes here; FORK FIX #128 reports the truncation.
+		{"opb_constraint_without_relation.opb", "", `(error line 2 "unexpected end of input" expected ">=", "=" or "<=")`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join("test_vectors", tc.name)

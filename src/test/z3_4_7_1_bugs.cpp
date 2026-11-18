@@ -433,6 +433,7 @@ void register_z3_replayer_cmds(z3_replayer & in);
 #include <unistd.h>
 #include <cstdlib>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #endif
 
 namespace {
@@ -4580,4 +4581,35 @@ void tst_z3_4_7_1_re_loop_int_bound() {
         "(re.loop (str.to.re \"a\") 2147483648)\n"
         "(re.loop (str.to.re \"a\") 1 2147483648)\n"
         "((_ re.loop 2147483647) (str.to.re \"a\"))\n");
+}
+
+// FORK FIX #128: opb::parse_constraint adds the term itself as a hard
+// constraint when the input ends before ">=", "=" or "<=". The term is an
+// Int-sorted sum of ites, so optimize() crashed (SIGSEGV). The fork
+// reports the truncated constraint like the reader's other errors:
+// (error line N "unexpected end of input" expected ">=", "=" or "<=")
+// and exit(3). The reader exits, so the check runs in a child process.
+void tst_z3_4_7_1_opb_constraint_without_relation() {
+#ifndef _WINDOWS
+    std::cout.flush();
+    std::cerr.flush();
+    pid_t pid = fork();
+    ENSURE(pid >= 0);
+    if (pid == 0) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        opt::context opt(m);
+        unsigned_vector handles;
+        std::istringstream in("1 x1 >= 1 ;\n1 x2\n");
+        parse_opb(opt, in, handles);
+        opt.optimize();
+        _exit(0);
+    }
+    int status = 0;
+    ENSURE(waitpid(pid, &status, 0) == pid);
+    std::cout << "opb_constraint_without_relation: exited " << WIFEXITED(status)
+              << " status " << (WIFEXITED(status) ? WEXITSTATUS(status) : -1)
+              << " signal " << (WIFSIGNALED(status) ? WTERMSIG(status) : 0) << "\n";
+    ENSURE(WIFEXITED(status) && WEXITSTATUS(status) == 3);
+#endif
 }

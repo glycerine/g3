@@ -255,24 +255,35 @@ class opb {
 
     void parse_constraint() {
         app_ref t = parse_term();
+        bool related = false;
         while (!in.eof()) {
             if (in.parse_token(">=")) {    
                 t = arith.mk_ge(t, parse_coeff());
                 in.parse_token(";");
+                related = true;
                 break;
             }
             if (in.parse_token("=")) {
                 t = m.mk_eq(t, parse_coeff());
                 in.parse_token(";");
+                related = true;
                 break;
             }            
             if (in.parse_token("<=")) {
                 t = arith.mk_le(t, parse_coeff());
                 in.parse_token(";");
+                related = true;
                 break;
             }            
             t = arith.mk_add(t, parse_term());
         }        
+        // FORK FIX #128 (g3 audit, see FORK_BUGFIXES.md): input that ends
+        // before the relation left the Int-sorted sum as a "hard constraint",
+        // and optimize() crashed. Report it like the reader's other errors.
+        if (!related) {
+            std::cerr << "(error line " << in.line() << " \"unexpected end of input\" expected \">=\", \"=\" or \"<=\")\n";
+            exit(3);
+        }
         opt.add_hard_constraint(t);
     }
 public:
