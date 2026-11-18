@@ -12,6 +12,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 const (
@@ -177,19 +178,19 @@ func (r *PseudoBooleanRewriter) MakeValidationFormula(original, rewritten ast.AS
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		positive, negated, e := r.negated(literal)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if !negated {
-			positive = literal
-		}
-		if r.manager.IsTrue(positive) {
-			variables[positive] = one
+		// mk_validate_rewrite tests true/false on the literal itself and keeps
+		// an existing entry for them; other atoms are stripped of one not and
+		// vars.insert overwrites, so the last occurrence wins.
+		if r.manager.IsTrue(literal) {
+			if _, exists := variables[literal]; !exists {
+				variables[literal] = one
+			}
 			continue
 		}
-		if r.manager.IsFalse(positive) {
-			variables[positive] = zero
+		if r.manager.IsFalse(literal) {
+			if _, exists := variables[literal]; !exists {
+				variables[literal] = zero
+			}
 			continue
 		}
 		name, e := r.manager.Symbols.Intern("x" + strconv.FormatUint(uint64(i), 10))
@@ -200,9 +201,14 @@ func (r *PseudoBooleanRewriter) MakeValidationFormula(original, rewritten ast.AS
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if _, exists := variables[positive]; !exists {
-			variables[positive] = x
+		positive, negated, e := r.negated(literal)
+		if e != nil {
+			return ast.ASTHandle{}, e
 		}
+		if !negated {
+			positive = literal
+		}
+		variables[positive] = x
 		lower, e := r.arithmeticApp(pbArithLE, zero, x)
 		if e != nil {
 			return ast.ASTHandle{}, e
@@ -297,18 +303,19 @@ func (r *PseudoBooleanRewriter) traceRewrite(decl ast.ASTHandle, arguments ast.A
 		if err != nil {
 			return err
 		}
-		printer, err := ast.NewLegacySMTPrinter(r.manager)
-		if err != nil {
-			return err
+		// tout << expr_ref is mk_ismt2_pp (ast_smt2_pp.cpp operator<<).
+		globals := uparams.BorrowProcessGlobalParamsService()
+		if globals == nil || globals.Context == nil {
+			return nil
 		}
 		if err = tags.EmitConditional("pb", "mk_app_core", "src/ast/rewriter/pb_rewriter.cpp", 280, func() bool { return true }, func(w io.Writer) error {
-			if e := printer.DisplayExpr(w, original, nil); e != nil {
+			if e := writeBVTraceSMT2(r.manager, w, original, globals); e != nil {
 				return e
 			}
 			if _, e := io.WriteString(w, "\n"); e != nil {
 				return e
 			}
-			if e := printer.DisplayExpr(w, rewritten, nil); e != nil {
+			if e := writeBVTraceSMT2(r.manager, w, rewritten, globals); e != nil {
 				return e
 			}
 			_, e := io.WriteString(w, "\n")

@@ -267,3 +267,47 @@ func TestPseudoBooleanRewriterAuxiliaryRefusalAndEquality(t *testing.T) {
 		t.Fatal("equality result", yes, err)
 	}
 }
+
+// mk_validate_rewrite's vars.insert(e, x) overwrites, so the last
+// occurrence of a repeated atom names its integer variable.
+func TestPseudoBooleanValidationLastOccurrenceWins(t *testing.T) {
+	m := astTestManager(t)
+	r, err := NewPseudoBooleanRewriter(m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+	b, err := m.MkBoolSort()
+	astTestMust(t, err)
+	a, err := m.MkConst(astTestSymbol(t, m, "pb-last-a"), b)
+	astTestMust(t, err)
+	astTestPin(t, m, a)
+	original, err := m.MkPseudoBooleanAtLeast([]ast.ASTHandle{a, a}, 1)
+	astTestMust(t, err)
+	astTestPin(t, m, original)
+	validation, err := r.MakeValidationFormula(original, a)
+	astTestMust(t, err)
+	astTestPin(t, m, validation)
+	n, err := m.GetNumArgs(validation)
+	astTestMust(t, err)
+	different, err := m.GetArg(validation, n-1)
+	astTestMust(t, err)
+	equal, err := m.GetArg(different, 0)
+	astTestMust(t, err)
+	left, err := m.GetArg(equal, 0)
+	astTestMust(t, err)
+	// (>= (to_real (+ x1 x1)) 1.0)
+	toReal, err := m.GetArg(left, 0)
+	astTestMust(t, err)
+	sum, err := m.GetArg(toReal, 0)
+	astTestMust(t, err)
+	arithmetic, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := m.MkFamilySort(arithmetic, 1, nil)
+	astTestMust(t, err)
+	x1, err := m.MkConst(astTestSymbol(t, m, "x1"), integer)
+	astTestMust(t, err)
+	for i := uint32(0); i < 2; i++ {
+		if arg, e := m.GetArg(sum, i); e != nil || arg != x1 {
+			t.Fatal("repeated atom must map to the last variable x1", i, arg, x1, e)
+		}
+	}
+}
