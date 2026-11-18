@@ -2,7 +2,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -25,14 +24,13 @@ func TestSMTPBDebugWatchAndAssignmentValidators(t *testing.T) {
 	smtPBWatchAssign(t, s, atom)
 	c := pb.constraints[0]
 	astTestMust(t, pb.validateWatch(c))
-	sum := new(big.Rat).Set(&c.watchSum)
-	c.watchSum.Add(&c.watchSum, big.NewRat(1, 1))
+	z := pb.q().Integers()
+	astTestMust(t, z.Inc(&c.watchSum))
 	smtPBExpectDebugGuard(t, pb.validateWatch(c))
-	c.watchSum.Set(sum)
-	maximum := new(big.Rat).Set(&c.maxWatch)
-	c.maxWatch.Add(&c.maxWatch, big.NewRat(1, 1))
+	astTestMust(t, z.Dec(&c.watchSum))
+	astTestMust(t, z.Inc(&c.maxWatch))
 	smtPBExpectDebugGuard(t, pb.validateWatch(c))
-	c.maxWatch.Set(maximum)
+	astTestMust(t, z.Dec(&c.maxWatch))
 	astTestMust(t, s.AssignLiteral(inputs[0].Negated(), NewSMTBooleanAxiom()))
 	premises := []SMTLiteral{inputs[0].Negated(), atom}
 	astTestMust(t, pb.validateAssign(c, premises, inputs[1]))
@@ -63,12 +61,13 @@ func TestSMTPBDebugVariableSumsAndFinalCheckRelevance(t *testing.T) {
 			astTestMust(t, s.SetAssignment(l.Var(), lbool.True))
 		}
 		astTestMust(t, pb.validateVariableSums(c)) // delayed counters are conservative
-		c.minSum.SetInt64(3)
+		z := pb.q().Integers()
+		astTestMust(t, z.SetInt64(&c.minSum, 3))
 		smtPBExpectDebugGuard(t, pb.validateVariableSums(c))
-		c.minSum.SetInt64(0)
-		c.maxSum.SetInt64(1)
+		astTestMust(t, z.SetInt64(&c.minSum, 0))
+		astTestMust(t, z.SetInt64(&c.maxSum, 1))
 		smtPBExpectDebugGuard(t, pb.validateVariableSums(c))
-		c.maxSum.SetInt64(2)
+		astTestMust(t, z.SetInt64(&c.maxSum, 2))
 		_, err = pb.FinalCheck()
 		astTestMust(t, err)
 		astTestMust(t, s.SetAssignment(atom.Var(), lbool.False))
@@ -87,21 +86,24 @@ func TestSMTPBDebugVariableSumsAndFinalCheckRelevance(t *testing.T) {
 func TestSMTPBDebugNormalizedArgumentContract(t *testing.T) {
 	_, _, pb, _, _ := smtPBWatchFixture(t, []int64{4, 3, 2, 2, 1}, 6, false)
 	original := &pb.constraints[0].args[0]
-	astTestMust(t, original.validateWellFormed())
+	q := pb.q()
+	astTestMust(t, original.validateWellFormed(q))
 	for _, mutate := range []func(*smtPBArgs){
-		func(a *smtPBArgs) { a.bound.SetInt64(0) },
-		func(a *smtPBArgs) { a.terms[0].coeff.SetFrac64(1, 2) },
-		func(a *smtPBArgs) { a.terms[0].coeff.SetInt64(7) },
+		func(a *smtPBArgs) { astTestMust(t, q.SetInt64(&a.bound, 0)) },
+		func(a *smtPBArgs) { astTestMust(t, q.SetFraction(&a.terms[0].coeff, 1, 2)) },
+		func(a *smtPBArgs) { astTestMust(t, q.SetInt64(&a.terms[0].coeff, 7)) },
 		func(a *smtPBArgs) { a.terms[0].literal = SMTTrueLiteral },
 		func(a *smtPBArgs) { a.terms[1].literal = a.terms[0].literal.Negated() },
-		func(a *smtPBArgs) { a.bound.SetInt64(13) },
+		func(a *smtPBArgs) { astTestMust(t, q.SetInt64(&a.bound, 13)) },
 	} {
-		a := original.copy()
+		a, err := original.copy(q)
+		astTestMust(t, err)
 		mutate(&a)
-		smtPBExpectDebugGuard(t, a.validateWellFormed())
+		smtPBExpectDebugGuard(t, a.validateWellFormed(q))
+		astTestMust(t, a.del(q))
 	}
 	if !smtcoreSourceDebug {
 		var absent *smtPBArgs
-		astTestMust(t, absent.validateWellFormed())
+		astTestMust(t, absent.validateWellFormed(q))
 	}
 }

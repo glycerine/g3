@@ -77,14 +77,14 @@ func TestSMTPBAssignmentContinuesVariableWatchesAfterLiteralConflict(t *testing.
 	value, err := s.Assignment(b)
 	astTestMust(t, err)
 	other := pb.info(b.Var()).constraint
-	if !s.Inconsistent() || value != lbool.False || other.fixed != 2 || other.maxSum.RatString() != "1" {
-		t.Fatal("literal conflict skipped source variable-watch continuation", value, other.fixed, other.maxSum.RatString())
+	if !s.Inconsistent() || value != lbool.False || other.fixed != 2 || pbZText(pb.q(), &other.maxSum) != "1" {
+		t.Fatal("literal conflict skipped source variable-watch continuation", value, other.fixed, pbZText(pb.q(), &other.maxSum))
 	}
 	astTestMust(t, s.PopScopes(1))
 	value, err = s.Assignment(b)
 	astTestMust(t, err)
-	if s.Inconsistent() || value != lbool.Undef || other.fixed != 0 || other.maxSum.RatString() != "3" {
-		t.Fatal("continued variable-watch trail did not restore its parent", value, other.fixed, other.maxSum.RatString())
+	if s.Inconsistent() || value != lbool.Undef || other.fixed != 0 || pbZText(pb.q(), &other.maxSum) != "3" {
+		t.Fatal("continued variable-watch trail did not restore its parent", value, other.fixed, pbZText(pb.q(), &other.maxSum))
 	}
 }
 

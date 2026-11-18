@@ -3,7 +3,6 @@ package smtcore
 import (
 	"bytes"
 	"fmt"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -139,29 +138,29 @@ func TestSMTPBResolutionCoefficientAlignmentAndComplementControls(t *testing.T) 
 	for _, l := range []SMTLiteral{atom, inputs[0], inputs[1].Negated(), zl} {
 		astTestMust(t, s.AssignLiteral(l, NewSMTBooleanAxiom()))
 	}
+	q := pb.q()
 	r := smtPBResolution{theory: pb, base: 0, level: 1, marks: map[int32]int{zl.Var(): 0}, numMarks: 1}
-	r.lemma.terms = []smtPBTerm{{literal: zl.Negated(), coeff: *big.NewRat(2, 1)}}
-	r.lemma.bound.SetInt64(1)
-	coefficient := big.NewRat(2, 1)
-	astTestMust(t, r.inequality(pb.constraints[0], inputs[0], coefficient))
-	if coefficient.RatString() != "2" || r.lemma.bound.RatString() != "2" || len(r.lemma.terms) != 2 || r.lemma.terms[0].coeff.RatString() != "4" || r.lemma.terms[1].coeff.RatString() != "3" || r.numMarks != 2 {
+	r.lemma = pbArgsOf(t, q, "1", []SMTLiteral{zl.Negated()}, []string{"2"})
+	coefficient := pbRat(t, q, "2")
+	astTestMust(t, r.inequality(pb.constraints[0], inputs[0], &coefficient))
+	if pbText(q, &coefficient) != "2" || pbText(q, &r.lemma.bound) != "2" || len(r.lemma.terms) != 2 || pbText(q, &r.lemma.terms[0].coeff) != "4" || pbText(q, &r.lemma.terms[1].coeff) != "3" || r.numMarks != 2 {
 		t.Fatal("LCM alignment or weakening differs from source", r.lemma, r.numMarks)
 	}
 	expectSMTRawCore(t, r.guards, []SMTLiteral{atom})
 	for _, enabled := range []bool{false, true} {
 		pb.controls.LearnComplements = enabled
 		r = smtPBResolution{theory: pb, base: 0, level: 1, marks: map[int32]int{inputs[0].Var(): 0}, numMarks: 1}
-		r.lemma.terms = []smtPBTerm{{literal: inputs[0].Negated(), coeff: *big.NewRat(3, 1)}}
-		r.lemma.bound.SetInt64(4)
-		astTestMust(t, r.antecedent(inputs[0], big.NewRat(2, 1)))
+		r.lemma = pbArgsOf(t, q, "4", []SMTLiteral{inputs[0].Negated()}, []string{"3"})
+		two := smtQInt(2)
+		astTestMust(t, r.antecedent(inputs[0], &two))
 		want := "3"
 		if enabled {
 			want = "1"
 		}
-		if r.lemma.terms[0].coeff.RatString() != want || r.lemma.bound.RatString() != "2" {
+		if pbText(q, &r.lemma.terms[0].coeff) != want || pbText(q, &r.lemma.bound) != "2" {
 			t.Fatal("complement-learning control ignored", enabled, r.lemma)
 		}
-		astTestMust(t, r.antecedent(inputs[0], big.NewRat(2, 1)))
+		astTestMust(t, r.antecedent(inputs[0], &two))
 		if enabled && (len(r.lemma.terms) != 0 || len(r.marks) != 0 || r.numMarks != 0) {
 			t.Fatal("complement cancellation did not remove mark")
 		}
@@ -189,7 +188,7 @@ func TestSMTPBResolutionResidualPredicateRetainsScopedFalsePremises(t *testing.T
 		t.Fatal("residual predicate folded scoped false inputs into an axiom")
 	}
 	residual := pb.constraints[1]
-	if len(residual.current().terms) != 2 || residual.current().bound.RatString() != "2" {
+	if len(residual.current().terms) != 2 || pbText(pb.q(), &residual.current().bound) != "2" {
 		t.Fatal("wrong residual cardinality")
 	}
 	astTestMust(t, pb.Assign(residual.literal.Var(), true))

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -89,8 +88,9 @@ func TestSMTPBResolutionVerboseTagIndependentAndMarkPrefix(t *testing.T) {
 	tags := diagnostic.NewTraceTagsWithWriter(&output)
 	tags.Enable("pb_verbose")
 	pb.trace = tags
-	r := smtPBResolution{theory: pb, base: 0, level: 1, marks: make(map[int32]int)}
-	astTestMust(t, r.antecedent(inputs[0], big.NewRat(3, 1)))
+	r := smtPBResolution{theory: pb, base: 0, level: 1, marks: make(map[int32]int), lemma: newSMTPBArgs()}
+	three := smtQInt(3)
+	astTestMust(t, r.antecedent(inputs[0], &three))
 	if tags.ShouldTrace("pb_verbose") {
 		want := fmt.Sprintf("-------- [pb_verbose] process_antecedent src/smt/theory_pb.cpp:1535 ---------\nante: p%d*3 1\n------------------------------------------------\n", inputs[0].Var())
 		if output.String() != want {
@@ -109,8 +109,7 @@ func TestSMTPBResolvedLemmaDisplayAndVerboseGate(t *testing.T) {
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(inputs[0].Negated(), NewSMTBooleanAxiom()))
 	r := smtPBResolution{theory: pb, base: 0, level: 1, marks: map[int32]int{inputs[0].Var(): 0}, numMarks: 1}
-	r.lemma.terms = []smtPBTerm{{literal: inputs[0], coeff: *big.NewRat(3, 1)}}
-	r.lemma.bound.SetInt64(2)
+	r.lemma = pbArgsOf(t, pb.q(), "2", []SMTLiteral{inputs[0]}, []string{"3"})
 	var output bytes.Buffer
 	astTestMust(t, r.displayResolvedLemma(&output))
 	want := fmt.Sprintf("num marks: 1\nconflict level: 1\n(not p%d)@ 1 m\nskipped: (not p%d):0\n3*p%d@(l_false:1) ~ 2\np%d@1 m l_false\nnum conflicts: 1\n", inputs[0].Var(), inputs[0].Var(), inputs[0].Var(), inputs[0].Var())

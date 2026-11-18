@@ -12,11 +12,14 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
+// smtPBSimplexRow is row_info; m_bound is a rational of the AST manager's
+// rational manager, freed when the row info is erased.
 type smtPBSimplexRow struct {
 	slack          uint32
-	bound          big.Rat
+	bound          numeral.Rational
 	representative string
 }
 
@@ -104,7 +107,7 @@ func (t *SMTPseudoBooleanTheory) simplexUpdateBound(v uint32, explain SMTLiteral
 	return err == nil, err
 }
 
-func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) error {
+func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) (err error) {
 	if !t.controls.EnableSimplex {
 		return nil
 	}
@@ -122,18 +125,32 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) error {
 			return nil
 		}
 	}
-	rep := c.args[0].copy()
+	// arg_t rep(c->args()); rep.remove_negations(); rep dies on return.
+	q := t.q()
+	rep, err := c.args[0].copy(q)
+	defer func() { err = smtErrJoin(err, rep.del(q)) }()
+	if err != nil {
+		return err
+	}
 	var key strings.Builder
 	for i := range rep.terms {
 		term := &rep.terms[i]
 		if term.literal.Sign() {
 			term.literal = term.literal.Negated()
-			term.coeff.Neg(&term.coeff)
-			rep.bound.Add(&rep.bound, &term.coeff)
+			if err = q.Neg(&term.coeff); err != nil {
+				return err
+			}
+			if err = q.Add(&rep.bound, &term.coeff, &rep.bound); err != nil {
+				return err
+			}
+		}
+		text, err := q.String(&term.coeff)
+		if err != nil {
+			return err
 		}
 		key.WriteString(strconv.FormatInt(int64(term.literal.Var()), 10))
 		key.WriteByte(':')
-		key.WriteString(term.coeff.RatString())
+		key.WriteString(text)
 		key.WriteByte(';')
 	}
 	representative := key.String()
@@ -148,7 +165,15 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) error {
 		slack = uint32(owner)
 		if err := t.emitPB("internalize_atom", 558, func(out io.Writer) error {
 			info := s.rows[owner]
-			_, _ = fmt.Fprintf(out, "Old row: %d |-> %d %s vs. %s\n", c.literal.Var(), owner, info.bound.RatString(), rep.bound.RatString())
+			old, err := q.String(&info.bound)
+			if err != nil {
+				return err
+			}
+			bound, err := q.String(&rep.bound)
+			if err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(out, "Old row: %d |-> %d %s vs. %s\n", c.literal.Var(), owner, old, bound)
 			return t.displayPBArgs(out, &rep, false)
 		}); err != nil {
 			return err
@@ -199,8 +224,14 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) error {
 			if !term.coeff.IsInt() {
 				return ast.ErrASTDomain
 			}
+			// The simplex solver takes math/big rows until it moves to
+			// mpq_inf numerals.
+			b, err := smtQBig(q, &term.coeff)
+			if err != nil {
+				return err
+			}
 			var coefficient big.Int
-			coefficient.Set(term.coeff.Num())
+			coefficient.Set(b.Num())
 			coefficients = append(coefficients, coefficient)
 		}
 		s.solver.EnsureVariable(slack)
@@ -210,14 +241,20 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) error {
 			return err
 		}
 		if err := t.emitPB("internalize_atom", 597, func(out io.Writer) error {
-			_, _ = fmt.Fprintf(out, "New row: %d %s\n", c.literal.Var(), rep.bound.RatString())
+			bound, err := q.String(&rep.bound)
+			if err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(out, "New row: %d %s\n", c.literal.Var(), bound)
 			return t.displayPBArgs(out, &rep, false)
 		}); err != nil {
 			return err
 		}
 	}
-	var bound big.Rat
-	bound.Set(&rep.bound)
+	bound := smtQZero()
+	if err = q.Copy(&bound, &rep.bound); err != nil {
+		return err
+	}
 	s.rows[c.literal.Var()] = smtPBSimplexRow{slack, bound, representative}
 	return nil
 }
@@ -305,7 +342,11 @@ func (t *SMTPseudoBooleanTheory) simplexAssignPredicate(c *smtPBConstraint, isTr
 	if !found {
 		return false, ast.ErrASTDomain
 	}
-	bound := simplex.RationalInfinitesimal(&info.bound)
+	main, err := smtQBig(t.q(), &info.bound)
+	if err != nil {
+		return false, err
+	}
+	bound := simplex.RationalInfinitesimal(main)
 	explain := NewSMTLiteral(c.literal.Var(), !isTrue)
 	if isTrue {
 		if _, err := t.simplexUpdateBound(info.slack, explain, true, bound); err != nil {
@@ -340,6 +381,9 @@ func (t *SMTPseudoBooleanTheory) simplexRemove(c *smtPBConstraint) error {
 		return ast.ErrASTDomain
 	}
 	delete(s.rows, c.literal.Var())
+	if err := smtQDel(t.q(), &info.bound); err != nil {
+		return err
+	}
 	if owner == c.literal.Var() {
 		if err := s.solver.DeleteRow(info.slack); err != nil {
 			return err

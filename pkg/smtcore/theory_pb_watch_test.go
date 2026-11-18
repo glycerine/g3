@@ -2,7 +2,6 @@ package smtcore
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -74,13 +73,13 @@ func TestSMTPBWeightedWatchReplacementJustificationAndRollback(t *testing.T) {
 		smtPBWatchAssign(t, s, atom)
 		// Source watch permutations persist across pop; only the first
 		// activation has the original literal ordering.
-		if !c.active || attempt == 0 && (c.watchSize != 4 || c.watchSum.RatString() != "11") || c.watchSum.Cmp(big.NewRat(10, 1)) < 0 || c.maxWatch.RatString() != "4" {
-			t.Fatal("initial weighted watch prefix", c.watchSize, &c.watchSum, &c.maxWatch, &c.current().bound)
+		if !c.active || attempt == 0 && (c.watchSize != 4 || pbZText(pb.q(), &c.watchSum) != "11") || pbZInt(pb.q(), &c.watchSum) < 10 || pbZText(pb.q(), &c.maxWatch) != "4" {
+			t.Fatal("initial weighted watch prefix", c.watchSize, pbZText(pb.q(), &c.watchSum), pbZText(pb.q(), &c.maxWatch), pbText(pb.q(), &c.current().bound))
 		}
 		smtPBWatchAssign(t, s, ls[0].Negated())
 		value, err := s.Assignment(ls[1])
 		astTestMust(t, err)
-		if value != lbool.True || c.watchSize != 4 || c.watchSum.RatString() != "8" || c.maxWatch.RatString() != "3" {
+		if value != lbool.True || c.watchSize != 4 || pbZText(pb.q(), &c.watchSum) != "8" || pbZText(pb.q(), &c.maxWatch) != "3" {
 			t.Fatal("failed watch replacement/weighted propagation", value, c.watchSize, &c.watchSum, &c.maxWatch)
 		}
 		data, err := s.BooleanData(ls[1].Var())
@@ -98,11 +97,11 @@ func TestSMTPBWeightedWatchReplacementJustificationAndRollback(t *testing.T) {
 				t.Fatal("weighted deficit did not force remaining inputs", l, value)
 			}
 		}
-		if len(s.testClauses()) != 0 || c.watchSum.RatString() != "6" {
+		if len(s.testClauses()) != 0 || pbZText(pb.q(), &c.watchSum) != "6" {
 			t.Fatal("propagation used encoding clauses or incorrect watch sum")
 		}
 		astTestMust(t, s.PopScopes(1))
-		if c.active || c.negative || c.watchSize != 0 || c.fixed != 0 || c.maxSum.RatString() != "12" || c.minSum.Sign() != 0 {
+		if c.active || c.negative || c.watchSize != 0 || c.fixed != 0 || pbZText(pb.q(), &c.maxSum) != "12" || pbZInt(pb.q(), &c.minSum) != 0 {
 			t.Fatal("PB scope trail did not restore variable-watch mode")
 		}
 		for _, l := range ls {
@@ -113,7 +112,7 @@ func TestSMTPBWeightedWatchReplacementJustificationAndRollback(t *testing.T) {
 	}
 	astTestMust(t, s.PushScope())
 	smtPBWatchAssign(t, s, atom.Negated())
-	if !c.negative || c.current().bound.RatString() != "7" {
+	if !c.negative || pbText(pb.q(), &c.current().bound) != "7" {
 		t.Fatal("negative atom did not select normalized complement")
 	}
 	astTestMust(t, s.PopScopes(1))

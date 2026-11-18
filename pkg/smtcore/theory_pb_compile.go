@@ -6,20 +6,24 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTPseudoBooleanTheory) initCompilation(c *smtPBConstraint) {
 	c.compiled = lbool.False
 	c.compilationThreshold = math.MaxUint32
-	if !t.controls.EnableCompilation || c.equality || c.args[0].bound.Cmp(big.NewRat(1, 1)) == 0 {
+	if !t.controls.EnableCompilation || c.equality || c.args[0].bound.IsOne() {
 		return
 	}
-	for _, term := range c.args[0].terms {
-		if term.coeff.Cmp(big.NewRat(8, 1)) > 0 {
+	// args[i].second <= m_max_compiled_coeff (rational(8))
+	maxCompiled := smtQInt(8)
+	for i := range c.args[0].terms {
+		cmp, err := t.q().Compare(&c.args[0].terms[i].coeff, &maxCompiled)
+		t.keep(err)
+		if cmp > 0 {
 			return
 		}
 	}
@@ -81,16 +85,29 @@ func (t *SMTPseudoBooleanTheory) compileInequality(c *smtPBConstraint) error {
 		base = s.searchUserBaseLevel
 	}
 	a := c.current()
-	if !a.bound.IsInt() || !a.bound.Num().IsUint64() || a.bound.Num().BitLen() > 32 {
-		return ast.ErrASTDomain
-	}
-	k := uint32(a.bound.Num().Uint64())
-	var in []SMTLiteral
-	for _, term := range a.terms {
-		if !term.coeff.IsInt() || !term.coeff.Num().IsUint64() || term.coeff.Num().BitLen() > 32 {
-			return ast.ErrASTDomain
+	q := t.q()
+	// c.k().get_unsigned() and c.coeff(i).get_unsigned()
+	unsigned := func(r *numeral.Rational) (uint32, error) {
+		ok, err := q.IsUnsigned(r)
+		if err != nil {
+			return 0, err
 		}
-		m := uint32(term.coeff.Num().Uint64())
+		if !ok {
+			return 0, ast.ErrASTDomain
+		}
+		return q.Unsigned(r)
+	}
+	k, err := unsigned(&a.bound)
+	if err != nil {
+		return err
+	}
+	var in []SMTLiteral
+	for i := range a.terms {
+		term := &a.terms[i]
+		m, err := unsigned(&term.coeff)
+		if err != nil {
+			return err
+		}
 		value, err := s.Assignment(term.literal)
 		if err != nil {
 			return err

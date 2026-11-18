@@ -5,7 +5,6 @@ package smtcore
 import (
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
@@ -104,8 +103,12 @@ func (t *SMTPseudoBooleanTheory) traceReason(function string, line int, c *smtPB
 
 func (t *SMTPseudoBooleanTheory) displayPBArgs(out io.Writer, a *smtPBArgs, values bool) error {
 	for i, term := range a.terms {
-		if term.coeff.Cmp(big.NewRat(1, 1)) != 0 {
-			if _, err := fmt.Fprintf(out, "%s*", term.coeff.RatString()); err != nil {
+		if !term.coeff.IsOne() {
+			text, err := t.q().String(&term.coeff)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "%s*", text); err != nil {
 				return err
 			}
 		}
@@ -123,6 +126,10 @@ func (t *SMTPseudoBooleanTheory) displayPBArgs(out io.Writer, a *smtPBArgs, valu
 			}
 		}
 	}
-	_, err := fmt.Fprintf(out, " ~ %s\n", a.bound.RatString())
+	bound, err := t.q().String(&a.bound)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, " ~ %s\n", bound)
 	return err
 }

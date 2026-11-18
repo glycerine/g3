@@ -16,6 +16,7 @@ package smtcore
 // 0): initialize with smtQZero / init before use.
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"math/big"
 
@@ -439,4 +440,24 @@ func smtMkArithNumeralInt(m *ast.ASTManager, v int64, integer bool) (ast.ASTHand
 		err = e
 	}
 	return h, err
+}
+
+// smtErrJoin is errors.Join that returns a lone failure itself, so a
+// sentinel such as ast.ErrASTDomain keeps its identity past a deferred
+// numeral release that succeeded.
+func smtErrJoin(errs ...error) error {
+	var first error
+	n := 0
+	for _, e := range errs {
+		if e != nil {
+			if n == 0 {
+				first = e
+			}
+			n++
+		}
+	}
+	if n <= 1 {
+		return first
+	}
+	return errors.Join(errs...)
 }

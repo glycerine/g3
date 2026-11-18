@@ -1,7 +1,7 @@
 package smtcore
 
 import (
-	"math/big"
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -9,12 +9,9 @@ import (
 
 func TestSMTPBComplementVerifyRetainsNormalizationPrefix(t *testing.T) {
 	for _, bound := range []int64{0, 3} {
-		var args smtPBArgs
-		args.bound.SetInt64(bound)
-		for _, v := range []int32{1, 2} {
-			args.terms = append(args.terms, smtPBTerm{NewSMTLiteral(v, false), *big.NewRat(1, 1)})
-		}
-		err := args.negate()
+		q := testQ()
+		args := pbArgsOf(t, q, fmt.Sprint(bound), []SMTLiteral{NewSMTLiteral(1, false), NewSMTLiteral(2, false)}, []string{"1", "1"})
+		err := args.negate(q)
 		if smtcoreSourceDebug {
 			if err != ast.ErrASTDomain {
 				t.Fatal("source VERIFY did not check the normalization result", bound, err)
@@ -28,8 +25,8 @@ func TestSMTPBComplementVerifyRetainsNormalizationPrefix(t *testing.T) {
 		if bound == 3 {
 			want = 0
 		}
-		if len(args.terms) != 0 || args.bound.Cmp(big.NewRat(want, 1)) != 0 {
-			t.Fatal("source normalization prefix was lost", bound, args.bound.String(), len(args.terms))
+		if len(args.terms) != 0 || pbText(q, &args.bound) != fmt.Sprint(want) {
+			t.Fatal("source normalization prefix was lost", bound, pbText(q, &args.bound), len(args.terms))
 		}
 	}
 }

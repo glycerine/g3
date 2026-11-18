@@ -4,10 +4,8 @@ package smtcore
 // pseudo-Boolean atom semantics.
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/backtrack"
@@ -40,6 +38,7 @@ type SMTPseudoBooleanTheory struct {
 	parameterOwner *SMTPBParams // borrowed only until the source setup boundary
 	simplex        *smtPBSimplex
 	trace          *diagnostic.TraceTags // optional borrowed stream; nil uses source process tags
+	qErr           error                 // first numeral failure of a step that cannot return it
 }
 
 func NewSMTPseudoBooleanTheory(family ast.FamilyID) (*SMTPseudoBooleanTheory, error) {
@@ -63,25 +62,20 @@ func (t *SMTPseudoBooleanTheory) operation(expression ast.ASTHandle) (int32, boo
 	return op, err == nil, err
 }
 
-func smtPseudoBooleanRational(manager *ast.ASTManager, value unumeral.OwnedRational) (*big.Rat, error) {
+// smtPseudoBooleanRational moves a pb_util rational (owned by the AST
+// manager's numeral service) into out, a rational of the same manager, and
+// frees the service value.
+func smtPseudoBooleanRational(manager *ast.ASTManager, value unumeral.OwnedRational, out *unumeral.Rational) error {
 	service := manager.NumeralService()
-	text, textErr := service.String(&value)
-	err := errors.Join(textErr, service.Del(&value))
-	if err != nil {
-		return nil, err
-	}
-	result, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, ast.ErrASTDomain
-	}
-	return result, nil
+	err := service.Manager.Copy(out, &value.Raw)
+	return smtErrJoin(err, service.Del(&value))
 }
 
 func (t *SMTPseudoBooleanTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool, error) {
 	return t.internalizeAtom(expression, false)
 }
 
-func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retainAssignments bool) (bool, error) {
+func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retainAssignments bool) (_ bool, err error) {
 	if err := t.Setup(); err != nil {
 		return false, err
 	}
@@ -104,16 +98,22 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 	if op == ast.ASTPBOpAuxBool {
 		return true, nil
 	}
-	c := &smtPBConstraint{literal: NewSMTLiteral(variable, false), equality: op == ast.ASTPBOpEQ}
+	c := newSMTPBConstraint(NewSMTLiteral(variable, false), op == ast.ASTPBOpEQ)
+	q := t.q()
+	// c is freed unless it is retained (m_var_infos[abv].m_ineq = c).
+	retained := false
+	defer func() {
+		if !retained {
+			err = smtErrJoin(err, c.del(q))
+		}
+	}()
 	bound, err := state.manager.PseudoBooleanBound(expression)
 	if err != nil {
 		return false, err
 	}
-	k, err := smtPseudoBooleanRational(state.manager, bound)
-	if err != nil {
+	if err = smtPseudoBooleanRational(state.manager, bound, &c.args[0].bound); err != nil {
 		return false, err
 	}
-	c.args[0].bound.Set(k)
 	count, err := state.manager.GetNumArgs(expression)
 	if err != nil {
 		return false, err
@@ -127,17 +127,18 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 		if err != nil {
 			return false, err
 		}
-		coefficient, err := state.manager.PseudoBooleanCoefficient(expression, i)
+		owned, err := state.manager.PseudoBooleanCoefficient(expression, i)
 		if err != nil {
 			return false, err
 		}
-		q, err := smtPseudoBooleanRational(state.manager, coefficient)
-		if err != nil {
-			return false, err
+		// numeral c = m_util.get_coeff(atom, i), destroyed each iteration.
+		coefficient := smtQZero()
+		if err = smtPseudoBooleanRational(state.manager, owned, &coefficient); err != nil {
+			return false, smtErrJoin(err, smtQDel(q, &coefficient))
 		}
 		value, err := state.Assignment(literal)
 		if err != nil {
-			return false, err
+			return false, smtErrJoin(err, smtQDel(q, &coefficient))
 		}
 		// A strengthened consequence must keep its scoped false inputs in
 		// the definition. Folding them into an axiom can erase assumption
@@ -147,23 +148,38 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 		}
 		switch value {
 		case lbool.True:
-			c.args[0].bound.Sub(&c.args[0].bound, q)
+			err = q.Sub(&c.args[0].bound, &coefficient, &c.args[0].bound)
 		case lbool.Undef:
-			c.args[0].terms = append(c.args[0].terms, smtPBTerm{literal, *q})
+			err = c.args[0].pushBack(q, literal, &coefficient)
+		}
+		if e := smtQDel(q, &coefficient); e != nil && err == nil {
+			err = e
+		}
+		if err != nil {
+			return false, err
 		}
 	}
 	a := &c.args[0]
 	if op == ast.ASTPBOpAtMost || op == ast.ASTPBOpLE {
-		a.bound.Neg(&a.bound)
 		for i := range a.terms {
-			a.terms[i].coeff.Neg(&a.terms[i].coeff)
+			if err = q.Neg(&a.terms[i].coeff); err != nil {
+				return false, err
+			}
+		}
+		if err = q.Neg(&a.bound); err != nil {
+			return false, err
 		}
 	}
 	if err = t.traceConstraint("internalize_atom", 470, c, true); err != nil {
 		return false, err
 	}
-	a.unique()
-	truth := a.normalize(c.equality)
+	if err = a.unique(q); err != nil {
+		return false, err
+	}
+	truth, err := a.normalize(q, c.equality)
+	if err != nil {
+		return false, err
+	}
 	// z3 4.7.1 bug (fork fix in theory_pb::internalize_atom): an equality
 	// whose arguments were all assigned keeps none and a negative bound;
 	// normalize leaves it undecided, but a constraint with no arguments is
@@ -172,26 +188,39 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 	if truth == lbool.Undef && c.equality && len(a.terms) == 0 {
 		truth = lbool.False
 	}
-	a.prune(c.equality)
+	if err = a.prune(q, c.equality); err != nil {
+		return false, err
+	}
 	if truth == lbool.Undef && !c.equality {
-		if err = a.negate(); err != nil {
+		if err = a.negate(q); err != nil {
 			return false, err
 		}
-		if err = a.negate(); err != nil {
+		if err = a.negate(q); err != nil {
 			return false, err
 		}
-		c.args[1] = a.copy()
-		if err = c.args[1].negate(); err != nil {
+		// m_args[1].reset(); m_args[1].m_k = m_args[0].m_k; append; negate
+		if err = c.args[1].reset(q); err != nil {
+			return false, err
+		}
+		if err = q.Copy(&c.args[1].bound, &a.bound); err != nil {
+			return false, err
+		}
+		for i := range a.terms {
+			if err = c.args[1].pushBack(q, a.terms[i].literal, &a.terms[i].coeff); err != nil {
+				return false, err
+			}
+		}
+		if err = c.args[1].negate(q); err != nil {
 			return false, err
 		}
 		if smtcoreSourceDebug {
 			if len(a.terms) != len(c.args[1].terms) {
 				return false, ast.ErrASTDomain
 			}
-			if err = a.validateWellFormed(); err != nil {
+			if err = a.validateWellFormed(t.q()); err != nil {
 				return false, err
 			}
-			if err = c.args[1].validateWellFormed(); err != nil {
+			if err = c.args[1].validateWellFormed(t.q()); err != nil {
 				return false, err
 			}
 		}
@@ -217,10 +246,12 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 		return true, state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{lit})
 	}
 	if !c.equality {
-		if a.bound.Cmp(big.NewRat(1, 1)) == 0 && !t.controls.EnableSimplex {
+		// The source does not dealloc c on this path (4.7.1 leaks it); the
+		// deferred del frees it.
+		if a.bound.IsOne() && !t.controls.EnableSimplex {
 			literals := []SMTLiteral{c.literal.Negated()}
 			for _, term := range a.terms {
-				if smtcoreSourceDebug && term.coeff.Cmp(big.NewRat(1, 1)) != 0 {
+				if smtcoreSourceDebug && !term.coeff.IsOne() {
 					return false, ast.ErrASTDomain
 				}
 				literals = append(literals, term.literal)
@@ -247,8 +278,12 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 		}
 	}
 	t.initVariableWatch(c)
+	if err = t.takeQErr(nil); err != nil {
+		return false, err
+	}
 	t.info(variable).constraint = c
 	t.constraints = append(t.constraints, c)
+	retained = true
 	if err = t.simplexInternalize(c); err != nil {
 		return false, err
 	}
@@ -317,6 +352,9 @@ func (t *SMTPseudoBooleanTheory) PopScopes(count uint32) error {
 			return err
 		}
 		t.toCompile = smtPBRemove(t.toCompile, c)
+		if err := c.del(t.q()); err != nil {
+			return err
+		}
 	}
 	clear(t.constraints[limit:])
 	t.constraints = t.constraints[:limit]
@@ -330,6 +368,23 @@ func (t *SMTPseudoBooleanTheory) Close() error {
 	}
 	if err := t.trail.Reset(); err != nil {
 		return err
+	}
+	// reset_eh: m_var_infos[i].reset() deallocs each retained ineq.
+	if t.state != nil && t.state.manager != nil && t.state.manager.NumeralService() != nil {
+		for _, c := range t.constraints {
+			if err := c.del(t.q()); err != nil {
+				return err
+			}
+		}
+		// m_ineq_row_info's row bounds die with the theory.
+		if t.simplex != nil {
+			for v, info := range t.simplex.rows {
+				if err := smtQDel(t.q(), &info.bound); err != nil {
+					return err
+				}
+				delete(t.simplex.rows, v)
+			}
+		}
 	}
 	t.watches = nil
 	t.constraints = nil

@@ -5,13 +5,46 @@ package smtcore
 import (
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (a *smtPBArgs) validateWellFormed() error {
+// smtPBRationalSum is a debug-validation numeral sum with sticky failures.
+type smtPBRationalSum struct {
+	q   *numeral.RationalManager
+	err error
+}
+
+func (v *smtPBRationalSum) add(a, b, out *numeral.Rational) {
+	if v.err == nil {
+		v.err = v.q.Add(a, b, out)
+	}
+}
+func (v *smtPBRationalSum) cmp(a, b *numeral.Rational) int {
+	if v.err != nil {
+		return 0
+	}
+	c, err := v.q.Compare(a, b)
+	v.err = err
+	return c
+}
+func (v *smtPBRationalSum) zadd(a, b, out *numeral.Int) {
+	if v.err == nil {
+		v.err = v.q.Integers().Add(a, b, out)
+	}
+}
+func (v *smtPBRationalSum) zcmp(a, b *numeral.Int) int {
+	if v.err != nil {
+		return 0
+	}
+	c, err := v.q.Integers().Compare(a, b)
+	v.err = err
+	return c
+}
+
+func (a *smtPBArgs) validateWellFormed(q *numeral.RationalManager) (err error) {
 	if !smtcoreSourceDebug {
 		return nil
 	}
@@ -19,18 +52,21 @@ func (a *smtPBArgs) validateWellFormed() error {
 		return ast.ErrASTDomain
 	}
 	seen := make(map[int32]bool)
-	var sum big.Rat
-	for _, term := range a.terms {
-		if term.coeff.Cmp(&a.bound) > 0 || term.coeff.Cmp(big.NewRat(1, 1)) < 0 || term.literal == SMTTrueLiteral || term.literal == SMTFalseLiteral || term.literal == SMTNullLiteral || seen[term.literal.Var()] {
-			return ast.ErrASTDomain
+	v := smtPBRationalSum{q: q}
+	sum, one := smtQZero(), smtQInt(1)
+	defer func() { err = smtErrJoin(err, smtQDel(q, &sum)) }()
+	for i := range a.terms {
+		term := &a.terms[i]
+		if v.cmp(&term.coeff, &a.bound) > 0 || v.cmp(&term.coeff, &one) < 0 || term.literal == SMTTrueLiteral || term.literal == SMTFalseLiteral || term.literal == SMTNullLiteral || seen[term.literal.Var()] {
+			return smtErrJoin(v.err, ast.ErrASTDomain)
 		}
 		seen[term.literal.Var()] = true
-		sum.Add(&sum, &term.coeff)
+		v.add(&sum, &term.coeff, &sum)
 	}
-	if sum.Cmp(&a.bound) < 0 {
-		return ast.ErrASTDomain
+	if v.cmp(&sum, &a.bound) < 0 {
+		return smtErrJoin(v.err, ast.ErrASTDomain)
 	}
-	return nil
+	return v.err
 }
 
 func (t *SMTPseudoBooleanTheory) validateWatch(c *smtPBConstraint) error {
@@ -41,17 +77,22 @@ func (t *SMTPseudoBooleanTheory) validateWatch(c *smtPBConstraint) error {
 	if c.watchSize < 0 || c.watchSize > len(a.terms) {
 		return ast.ErrASTDomain
 	}
-	var sum, maximum big.Rat
-	for _, term := range a.terms[:c.watchSize] {
-		sum.Add(&sum, &term.coeff)
-		if term.coeff.Cmp(&maximum) > 0 {
-			maximum.Set(&term.coeff)
+	// scoped_mpz sum, max
+	v := smtPBRationalSum{q: t.q()}
+	z := v.q.Integers()
+	var sum, maximum numeral.Int
+	defer func() { t.keep(smtErrJoin(z.Del(&sum), z.Del(&maximum))) }()
+	for i := range a.terms[:c.watchSize] {
+		n := &a.terms[i].coeff.Num
+		v.zadd(&sum, n, &sum)
+		if v.zcmp(n, &maximum) > 0 && v.err == nil {
+			v.err = z.Copy(&maximum, n)
 		}
 	}
-	if c.watchSum.Cmp(&sum) != 0 || sum.Cmp(&a.bound) < 0 || c.maxWatch.Cmp(&maximum) != 0 {
-		return ast.ErrASTDomain
+	if v.zcmp(&c.watchSum, &sum) != 0 || v.zcmp(&sum, &a.bound.Num) < 0 || v.zcmp(&c.maxWatch, &maximum) != 0 {
+		return smtErrJoin(v.err, ast.ErrASTDomain)
 	}
-	return nil
+	return v.err
 }
 
 func (t *SMTPseudoBooleanTheory) validateAssign(c *smtPBConstraint, premises []SMTLiteral, consequent SMTLiteral) error {
@@ -84,13 +125,21 @@ func (t *SMTPseudoBooleanTheory) validateAssign(c *smtPBConstraint, premises []S
 		return ast.ErrASTDomain
 	}
 	blocked[consequent] = true
-	var sum big.Rat
-	for _, term := range c.current().terms {
+	// numeral sum
+	v := smtPBRationalSum{q: t.q()}
+	sum := smtQZero()
+	defer func() { t.keep(smtQDel(v.q, &sum)) }()
+	for i := range c.current().terms {
+		term := &c.current().terms[i]
 		if !blocked[term.literal] {
-			sum.Add(&sum, &term.coeff)
+			v.add(&sum, &term.coeff, &sum)
 		}
 	}
-	if sum.Cmp(&c.current().bound) >= 0 {
+	cmp := v.cmp(&sum, &c.current().bound)
+	if v.err != nil {
+		return v.err
+	}
+	if cmp >= 0 {
 		if err = t.emitPB("validate_assign", 1879, func(out io.Writer) error {
 			_, _ = io.WriteString(out, "invalid assign")
 			if err := t.displayInequality(out, c, true); err != nil {
@@ -117,28 +166,33 @@ func (t *SMTPseudoBooleanTheory) validateVariableSums(c *smtPBConstraint) error 
 	if !smtcoreSourceDebug {
 		return nil
 	}
-	var sum, maximum big.Rat
-	for _, term := range c.current().terms {
+	// scoped_mpz sum, maxs
+	v := smtPBRationalSum{q: t.q()}
+	z := v.q.Integers()
+	var sum, maximum, zero numeral.Int
+	defer func() { t.keep(smtErrJoin(z.Del(&sum), z.Del(&maximum))) }()
+	for i := range c.current().terms {
+		term := &c.current().terms[i]
 		value, err := t.state.Assignment(term.literal)
 		if err != nil {
 			return err
 		}
 		if value == lbool.True {
-			sum.Add(&sum, &term.coeff)
+			v.zadd(&sum, &term.coeff.Num, &sum)
 		}
 		if value != lbool.False {
-			maximum.Add(&maximum, &term.coeff)
+			v.zadd(&maximum, &term.coeff.Num, &maximum)
 		}
 	}
-	if maximum.Cmp(&c.maxSum) > 0 {
+	if v.zcmp(&maximum, &c.maxSum) > 0 {
 		if err := t.traceConstraint("assign_watch", 1036, c, true); err != nil {
 			return err
 		}
 	}
-	if c.minSum.Cmp(&sum) > 0 || sum.Cmp(&maximum) > 0 || maximum.Cmp(&c.maxSum) > 0 || c.minSum.Cmp(&c.maxSum) > 0 || c.minSum.Sign() < 0 {
-		return ast.ErrASTDomain
+	if v.zcmp(&c.minSum, &sum) > 0 || v.zcmp(&sum, &maximum) > 0 || v.zcmp(&maximum, &c.maxSum) > 0 || v.zcmp(&c.minSum, &c.maxSum) > 0 || v.zcmp(&c.minSum, &zero) < 0 {
+		return smtErrJoin(v.err, ast.ErrASTDomain)
 	}
-	return nil
+	return v.err
 }
 
 func (t *SMTPseudoBooleanTheory) validateFinalConstraint(c *smtPBConstraint) error {
@@ -159,18 +213,24 @@ func (t *SMTPseudoBooleanTheory) validateFinalConstraint(c *smtPBConstraint) err
 	if !t.state.isRelevant(expression) {
 		return nil
 	}
-	var sum, maximum big.Rat
-	for _, term := range c.current().terms {
+	vs := smtPBRationalSum{q: t.q()}
+	sum, maximum := smtQZero(), smtQZero()
+	defer func() { t.keep(smtErrJoin(smtQDel(vs.q, &sum), smtQDel(vs.q, &maximum))) }()
+	for i := range c.current().terms {
+		term := &c.current().terms[i]
 		v, err := t.state.Assignment(term.literal)
 		if err != nil {
 			return err
 		}
 		if v == lbool.True {
-			sum.Add(&sum, &term.coeff)
+			vs.add(&sum, &term.coeff, &sum)
 		}
 		if v != lbool.False {
-			maximum.Add(&maximum, &term.coeff)
+			vs.add(&maximum, &term.coeff, &maximum)
 		}
+	}
+	if vs.err != nil {
+		return vs.err
 	}
 	k := &c.current().bound
 	if err = t.emitPB("validate_final_check", 1918, func(out io.Writer) error {
@@ -178,20 +238,28 @@ func (t *SMTPseudoBooleanTheory) validateFinalConstraint(c *smtPBConstraint) err
 		if err := t.displayInequality(out, c, true); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(out, "sum: %s %s %s\n", sum.RatString(), maximum.RatString(), value.String())
+		sumText, err := vs.q.String(&sum)
+		if err != nil {
+			return err
+		}
+		maxText, err := vs.q.String(&maximum)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(out, "sum: %s %s %s\n", sumText, maxText, value.String())
 		return err
 	}); err != nil {
 		return err
 	}
-	if sum.Cmp(&maximum) > 0 {
-		return ast.ErrASTDomain
+	if vs.cmp(&sum, &maximum) > 0 {
+		return smtErrJoin(vs.err, ast.ErrASTDomain)
 	}
 	if !c.equality {
-		if (sum.Cmp(k) >= 0) != (value == lbool.True) || (maximum.Cmp(k) < 0) != (value == lbool.False) {
-			return ast.ErrASTDomain
+		if (vs.cmp(&sum, k) >= 0) != (value == lbool.True) || (vs.cmp(&maximum, k) < 0) != (value == lbool.False) {
+			return smtErrJoin(vs.err, ast.ErrASTDomain)
 		}
-	} else if (sum.Cmp(k) == 0) != (value == lbool.True) {
-		return ast.ErrASTDomain
+	} else if (vs.cmp(&sum, k) == 0) != (value == lbool.True) {
+		return smtErrJoin(vs.err, ast.ErrASTDomain)
 	}
-	return nil
+	return vs.err
 }

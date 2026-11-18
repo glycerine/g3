@@ -5,12 +5,12 @@ package smtcore
 
 import (
 	"io"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTPseudoBooleanTheory) compileArgument(expression ast.ASTHandle) (SMTLiteral, error) {
@@ -99,17 +99,81 @@ func (t *SMTPseudoBooleanTheory) compileArgument(expression ast.ASTHandle) (SMTL
 	return literal, nil
 }
 
+// smtPBConstraint is ineq. The watch sums are scoped_mpz values; the source
+// keeps them on the theory's private mpz manager, here they live on the AST
+// manager's integer manager with the coefficients' numerators (ncoeff) and
+// k's numerator (mpz_k) they are compared with.
 type smtPBConstraint struct {
 	literal                            SMTLiteral
 	equality                           bool
 	args                               [2]smtPBArgs
 	negative, active                   bool
 	watchSize                          int
-	watchSum, maxWatch, minSum, maxSum big.Rat
+	watchSum, maxWatch, minSum, maxSum numeral.Int
 	fixed                              int
 	propagations                       uint32
 	compilationThreshold               uint32
 	compiled                           lbool.LBool
+}
+
+// newSMTPBConstraint is alloc(ineq, ...): empty arguments, zero sums.
+func newSMTPBConstraint(literal SMTLiteral, equality bool) *smtPBConstraint {
+	return &smtPBConstraint{literal: literal, equality: equality, args: [2]smtPBArgs{newSMTPBArgs(), newSMTPBArgs()}}
+}
+
+// del is dealloc(c): ~ineq frees both arg_t and the scoped_mpz sums.
+func (c *smtPBConstraint) del(q *numeral.RationalManager) error {
+	z := q.Integers()
+	err := smtErrJoin(c.args[0].del(q), c.args[1].del(q))
+	for _, n := range []*numeral.Int{&c.watchSum, &c.maxWatch, &c.minSum, &c.maxSum} {
+		err = smtErrJoin(err, z.Del(n))
+	}
+	return err
+}
+
+// q is the AST manager's rational manager (rational's manager).
+func (t *SMTPseudoBooleanTheory) q() *numeral.RationalManager {
+	return t.state.manager.NumeralService().Manager
+}
+
+// keep records the first numeral failure of a step that cannot return it.
+func (t *SMTPseudoBooleanTheory) keep(err error) {
+	if err != nil && t.qErr == nil {
+		t.qErr = err
+	}
+}
+
+// takeQErr returns err, else a failure kept since the last call.
+func (t *SMTPseudoBooleanTheory) takeQErr(err error) error {
+	if err == nil {
+		err = t.qErr
+	}
+	t.qErr = nil
+	return err
+}
+
+// zcmp is an mpz comparison whose failure is kept.
+func (t *SMTPseudoBooleanTheory) zcmp(a, b *numeral.Int) int {
+	c, err := t.q().Integers().Compare(a, b)
+	t.keep(err)
+	return c
+}
+
+// zsum sets out = a + b, keeping a failure.
+func (t *SMTPseudoBooleanTheory) zsum(a, b, out *numeral.Int) {
+	t.keep(t.q().Integers().Add(a, b, out))
+}
+
+// zsave is a copy of n for a value_trail; the undo restores and frees it.
+func (t *SMTPseudoBooleanTheory) zsave(n *numeral.Int) (numeral.Int, error) {
+	var out numeral.Int
+	return out, t.q().Integers().Copy(&out, n)
+}
+
+func (t *SMTPseudoBooleanTheory) zrestore(n, saved *numeral.Int) {
+	z := t.q().Integers()
+	t.keep(z.Copy(n, saved))
+	t.keep(z.Del(saved))
 }
 
 func (c *smtPBConstraint) current() *smtPBArgs {
@@ -183,33 +247,36 @@ func (t *SMTPseudoBooleanTheory) clearWatch(c *smtPBConstraint) {
 		sign := smtPBSign(term.literal)
 		i.literals[sign] = smtPBRemove(i.literals[sign], c)
 	}
+	z := t.q().Integers()
 	c.watchSize = 0
-	c.watchSum.SetInt64(0)
-	c.maxWatch.SetInt64(0)
-	c.minSum.SetInt64(0)
-	c.maxSum.SetInt64(0)
+	t.keep(z.Reset(&c.watchSum))
+	t.keep(z.Reset(&c.maxWatch))
+	t.keep(z.Reset(&c.minSum))
+	t.keep(z.Reset(&c.maxSum))
 	c.fixed = 0
 }
 
 func (t *SMTPseudoBooleanTheory) initVariableWatch(c *smtPBConstraint) {
-	c.minSum.SetInt64(0)
-	c.maxSum.SetInt64(0)
+	z := t.q().Integers()
+	t.keep(z.Reset(&c.minSum))
+	t.keep(z.Reset(&c.maxSum))
 	c.fixed = 0
-	for _, term := range c.current().terms {
-		i := t.info(term.literal.Var())
-		i.variables = append(i.variables, c)
-		c.maxSum.Add(&c.maxSum, &term.coeff)
+	a := c.current()
+	for i := range a.terms {
+		info := t.info(a.terms[i].literal.Var())
+		info.variables = append(info.variables, c)
+		t.zsum(&c.maxSum, &a.terms[i].coeff.Num, &c.maxSum)
 	}
 }
 
 func (t *SMTPseudoBooleanTheory) addWatch(c *smtPBConstraint, index int) {
 	a := c.current()
-	term := a.terms[index]
-	c.watchSum.Add(&c.watchSum, &term.coeff)
+	t.zsum(&c.watchSum, &a.terms[index].coeff.Num, &c.watchSum)
 	a.terms[index], a.terms[c.watchSize] = a.terms[c.watchSize], a.terms[index]
+	term := &a.terms[c.watchSize]
 	c.watchSize++
-	if term.coeff.Cmp(&c.maxWatch) > 0 {
-		c.maxWatch.Set(&term.coeff)
+	if t.zcmp(&term.coeff.Num, &c.maxWatch) > 0 {
+		t.keep(t.q().Integers().Copy(&c.maxWatch, &term.coeff.Num))
 	}
 	i := t.info(term.literal.Var())
 	sign := smtPBSign(term.literal)
@@ -220,9 +287,12 @@ func (t *SMTPseudoBooleanTheory) initLiteralWatch(c *smtPBConstraint) error {
 	if smtcoreSourceDebug && c.equality {
 		return ast.ErrASTDomain
 	}
+	z := t.q().Integers()
 	c.watchSize = 0
-	c.watchSum.SetInt64(0)
-	c.maxWatch.SetInt64(0)
+	t.keep(z.Reset(&c.watchSum))
+	t.keep(z.Reset(&c.maxWatch))
+	var limit numeral.Int // mpz_k() + max_watch()
+	defer func() { t.keep(z.Del(&limit)) }()
 	for i := 0; i < len(c.current().terms); i++ {
 		value, err := t.state.Assignment(c.current().terms[i].literal)
 		if err != nil {
@@ -230,19 +300,22 @@ func (t *SMTPseudoBooleanTheory) initLiteralWatch(c *smtPBConstraint) error {
 		}
 		if value != lbool.False {
 			t.addWatch(c, i)
-			if c.watchSum.Cmp(new(big.Rat).Add(&c.current().bound, &c.maxWatch)) >= 0 {
+			t.zsum(&c.current().bound.Num, &c.maxWatch, &limit)
+			if t.zcmp(&c.watchSum, &limit) >= 0 {
 				break
 			}
 		}
 	}
-	return nil
+	return t.takeQErr(nil)
 }
 
 func (t *SMTPseudoBooleanTheory) helpful(c *smtPBConstraint, negate bool) ([]SMTLiteral, error) {
 	var out []SMTLiteral
-	sum := new(big.Rat)
-	for _, term := range c.current().terms {
-		if sum.Cmp(&c.current().bound) >= 0 {
+	var sum numeral.Int
+	defer func() { t.keep(t.q().Integers().Del(&sum)) }()
+	for i := range c.current().terms {
+		term := &c.current().terms[i]
+		if t.zcmp(&sum, &c.current().bound.Num) >= 0 {
 			break
 		}
 		v, err := t.state.Assignment(term.literal)
@@ -255,13 +328,13 @@ func (t *SMTPseudoBooleanTheory) helpful(c *smtPBConstraint, negate bool) ([]SMT
 				l = l.Negated()
 			}
 			out = append(out, l)
-			sum.Add(sum, &term.coeff)
+			t.zsum(&sum, &term.coeff.Num, &sum)
 		}
 	}
-	if smtcoreSourceDebug && sum.Cmp(&c.current().bound) < 0 {
+	if smtcoreSourceDebug && t.zcmp(&sum, &c.current().bound.Num) < 0 {
 		return nil, ast.ErrASTDomain
 	}
-	return out, nil
+	return out, t.takeQErr(nil)
 }
 
 func (t *SMTPseudoBooleanTheory) unhelpful(c *smtPBConstraint, negate bool) ([]SMTLiteral, error) {
@@ -356,8 +429,8 @@ func (t *SMTPseudoBooleanTheory) assignVariable(v int32, isTrue bool, c *smtPBCo
 		return err
 	}
 	a := c.current()
-	if c.maxSum.Cmp(&a.bound) < 0 && asgn == lbool.False || !c.equality && c.minSum.Cmp(&a.bound) >= 0 && asgn == lbool.True {
-		return nil
+	if t.zcmp(&c.maxSum, &a.bound.Num) < 0 && asgn == lbool.False || !c.equality && t.zcmp(&c.minSum, &a.bound.Num) >= 0 && asgn == lbool.True {
+		return t.takeQErr(nil)
 	}
 	index := -1
 	for i, term := range a.terms {
@@ -379,13 +452,30 @@ func (t *SMTPseudoBooleanTheory) assignVariable(v int32, isTrue bool, c *smtPBCo
 	if index < 0 {
 		return ast.ErrASTDomain
 	}
-	oldMin, oldMax, oldFixed := new(big.Rat).Set(&c.minSum), new(big.Rat).Set(&c.maxSum), c.fixed
-	_ = t.trail.PushUndo(func() { c.minSum.Set(oldMin); c.maxSum.Set(oldMax); c.fixed = oldFixed })
+	z := t.q().Integers()
+	// value_trail<scoped_mpz> for the sum that changes, then m_nfixed.
 	if a.terms[index].literal.Sign() == isTrue {
-		c.maxSum.Sub(&c.maxSum, &a.terms[index].coeff)
+		oldMax, err := t.zsave(&c.maxSum)
+		if err != nil {
+			return err
+		}
+		_ = t.trail.PushUndo(func() { t.zrestore(&c.maxSum, &oldMax) })
+		err = z.Sub(&c.maxSum, &a.terms[index].coeff.Num, &c.maxSum)
+		if err != nil {
+			return err
+		}
 	} else {
-		c.minSum.Add(&c.minSum, &a.terms[index].coeff)
+		oldMin, err := t.zsave(&c.minSum)
+		if err != nil {
+			return err
+		}
+		_ = t.trail.PushUndo(func() { t.zrestore(&c.minSum, &oldMin) })
+		if err = z.Add(&c.minSum, &a.terms[index].coeff.Num, &c.minSum); err != nil {
+			return err
+		}
 	}
+	oldFixed := c.fixed
+	_ = t.trail.PushUndo(func() { c.fixed = oldFixed })
 	if err = t.validateVariableSums(c); err != nil {
 		return err
 	}
@@ -393,7 +483,7 @@ func (t *SMTPseudoBooleanTheory) assignVariable(v int32, isTrue bool, c *smtPBCo
 	if smtcoreSourceDebug && c.fixed > len(a.terms) {
 		return ast.ErrASTDomain
 	}
-	if !c.equality && c.minSum.Cmp(&a.bound) >= 0 && asgn != lbool.True {
+	if !c.equality && t.zcmp(&c.minSum, &a.bound.Num) >= 0 && asgn != lbool.True {
 		if err = t.traceAssignment("assign_watch", 1047, "Set ", c.lit(), c, true); err != nil {
 			return err
 		}
@@ -403,7 +493,7 @@ func (t *SMTPseudoBooleanTheory) assignVariable(v int32, isTrue bool, c *smtPBCo
 		}
 		return t.addAssign(c, ls, c.lit())
 	}
-	if c.maxSum.Cmp(&a.bound) < 0 && asgn != lbool.False {
+	if t.zcmp(&c.maxSum, &a.bound.Num) < 0 && asgn != lbool.False {
 		if err = t.traceAssignment("assign_watch", 1051, "Set ", c.lit().Negated(), c, true); err != nil {
 			return err
 		}
@@ -414,7 +504,7 @@ func (t *SMTPseudoBooleanTheory) assignVariable(v int32, isTrue bool, c *smtPBCo
 		return t.addAssign(c, ls, c.lit().Negated())
 	}
 	if c.equality && c.fixed == len(a.terms) {
-		holds := c.minSum.Cmp(&a.bound) == 0
+		holds := t.zcmp(&c.minSum, &a.bound.Num) == 0
 		if holds && asgn != lbool.True || !holds && asgn != lbool.False {
 			line := 1055
 			literal := c.lit()
@@ -451,37 +541,52 @@ func (t *SMTPseudoBooleanTheory) assignInequality(c *smtPBConstraint, isTrue boo
 	if c.equality || c.active {
 		return nil
 	}
-	oldMin, oldMax, oldFixed := new(big.Rat).Set(&c.minSum), new(big.Rat).Set(&c.maxSum), c.fixed
+	z := t.q().Integers()
+	oldMax, err := t.zsave(&c.maxSum)
+	if err != nil {
+		return err
+	}
+	oldMin, err := t.zsave(&c.minSum)
+	if err != nil {
+		return smtErrJoin(err, z.Del(&oldMax))
+	}
+	oldFixed := c.fixed
 	oldNegative := c.negative
 	_ = t.trail.PushUndo(func() {
 		t.clearWatch(c)
 		c.negative = oldNegative
 		c.active = false
 		t.initVariableWatch(c)
-		c.minSum.Set(oldMin)
-		c.maxSum.Set(oldMax)
+		t.zrestore(&c.minSum, &oldMin)
+		t.zrestore(&c.maxSum, &oldMax)
 		c.fixed = oldFixed
 	})
 	t.clearWatch(c)
 	c.negative = !isTrue
 	c.active = true
-	maxsum, mininc := new(big.Rat), new(big.Rat)
-	for _, term := range c.current().terms {
+	// scoped_mpz maxsum, mininc
+	var maxsum, mininc, rest numeral.Int
+	defer func() { t.keep(smtErrJoin(z.Del(&rest), z.Del(&mininc), z.Del(&maxsum))) }()
+	for i := range c.current().terms {
+		term := &c.current().terms[i]
 		v, err := t.state.Assignment(term.literal)
 		if err != nil {
 			return err
 		}
 		if v != lbool.False {
-			maxsum.Add(maxsum, &term.coeff)
+			t.zsum(&maxsum, &term.coeff.Num, &maxsum)
 		}
-		if v == lbool.Undef && (mininc.Sign() == 0 || mininc.Cmp(&term.coeff) > 0) {
-			mininc.Set(&term.coeff)
+		if v == lbool.Undef && (mininc.IsSmall() && mininc.Val == 0 || t.zcmp(&mininc, &term.coeff.Num) > 0) {
+			t.keep(z.Copy(&mininc, &term.coeff.Num))
 		}
+	}
+	if err := t.takeQErr(nil); err != nil {
+		return err
 	}
 	if err := t.traceAssignment("assign_ineq", 949, "assign: ", c.lit(), c, false); err != nil {
 		return err
 	}
-	if maxsum.Cmp(&c.current().bound) < 0 {
+	if t.zcmp(&maxsum, &c.current().bound.Num) < 0 {
 		ls, err := t.unhelpful(c, false)
 		if err != nil {
 			return err
@@ -494,7 +599,10 @@ func (t *SMTPseudoBooleanTheory) assignInequality(c *smtPBConstraint, isTrue boo
 	if err := t.validateWatch(c); err != nil {
 		return err
 	}
-	if new(big.Rat).Sub(maxsum, mininc).Cmp(&c.current().bound) < 0 {
+	if err := z.Sub(&maxsum, &mininc, &rest); err != nil {
+		return err
+	}
+	if t.zcmp(&rest, &c.current().bound.Num) < 0 {
 		ls, err := t.unhelpful(c, true)
 		if err != nil {
 			return err
@@ -542,8 +650,16 @@ func (t *SMTPseudoBooleanTheory) assignLiteralWatch(v int32, isTrue bool, c *smt
 			return false, ast.ErrASTDomain
 		}
 	}
-	kCoeff := new(big.Rat).Add(&a.bound, &a.terms[w].coeff)
-	for i := c.watchSize; c.watchSum.Cmp(new(big.Rat).Add(kCoeff, &c.maxWatch)) < 0 && i < len(a.terms); i++ {
+	// scoped_mpz k_coeff = k + ncoeff(w); limit is k_coeff + max_watch().
+	z := t.q().Integers()
+	var kCoeff, limit, deficit numeral.Int
+	defer func() { t.keep(smtErrJoin(z.Del(&deficit), z.Del(&limit), z.Del(&kCoeff))) }()
+	t.zsum(&a.bound.Num, &a.terms[w].coeff.Num, &kCoeff)
+	addMore := func() bool {
+		t.zsum(&kCoeff, &c.maxWatch, &limit)
+		return t.zcmp(&c.watchSum, &limit) < 0
+	}
+	for i := c.watchSize; addMore() && i < len(a.terms); i++ {
 		value, err := t.state.Assignment(a.terms[i].literal)
 		if err != nil {
 			return false, err
@@ -552,7 +668,10 @@ func (t *SMTPseudoBooleanTheory) assignLiteralWatch(v int32, isTrue bool, c *smt
 			t.addWatch(c, i)
 		}
 	}
-	if c.watchSum.Cmp(kCoeff) < 0 {
+	if err := t.takeQErr(nil); err != nil {
+		return false, err
+	}
+	if t.zcmp(&c.watchSum, &kCoeff) < 0 {
 		ls, err := t.unhelpful(c, false)
 		if err != nil {
 			return false, err
@@ -562,7 +681,7 @@ func (t *SMTPseudoBooleanTheory) assignLiteralWatch(v int32, isTrue bool, c *smt
 		}
 		return false, t.traceAssignment("assign_watch_ge", 1157, "assign: ", NewSMTLiteral(v, !isTrue), c, false)
 	}
-	term := a.terms[w]
+	term := a.terms[w] // the moved slot keeps the coefficient
 	info := t.info(v)
 	sign := 0
 	if isTrue {
@@ -574,31 +693,38 @@ func (t *SMTPseudoBooleanTheory) assignLiteralWatch(v int32, isTrue bool, c *smt
 	info.literals[sign] = list[:len(list)-1]
 	a.terms[w], a.terms[c.watchSize-1] = a.terms[c.watchSize-1], a.terms[w]
 	c.watchSize--
-	c.watchSum.Sub(&c.watchSum, &term.coeff)
-	if term.coeff.Cmp(&c.maxWatch) == 0 {
-		c.maxWatch.SetInt64(0)
+	t.keep(z.Sub(&c.watchSum, &term.coeff.Num, &c.watchSum))
+	if t.zcmp(&term.coeff.Num, &c.maxWatch) == 0 {
+		t.keep(z.Reset(&c.maxWatch))
 		for i := 0; i < c.watchSize; i++ {
-			if a.terms[i].coeff.Cmp(&c.maxWatch) > 0 {
-				c.maxWatch.Set(&a.terms[i].coeff)
+			if t.zcmp(&a.terms[i].coeff.Num, &c.maxWatch) > 0 {
+				t.keep(z.Copy(&c.maxWatch, &a.terms[i].coeff.Num))
 			}
 		}
 	}
-	if smtcoreSourceDebug && c.watchSum.Cmp(&a.bound) < 0 {
+	if err := t.takeQErr(nil); err != nil {
+		return true, err
+	}
+	if smtcoreSourceDebug && t.zcmp(&c.watchSum, &a.bound.Num) < 0 {
 		return true, ast.ErrASTDomain
 	}
-	if c.watchSum.Cmp(new(big.Rat).Add(&a.bound, &c.maxWatch)) < 0 {
+	t.zsum(&a.bound.Num, &c.maxWatch, &limit)
+	if t.zcmp(&c.watchSum, &limit) < 0 {
 		ls, err := t.unhelpful(c, true)
 		if err != nil {
 			return true, err
 		}
 		ls = append(ls, c.lit())
-		deficit := new(big.Rat).Sub(&c.watchSum, &a.bound)
-		for _, term := range a.terms {
+		if err := z.Sub(&c.watchSum, &a.bound.Num, &deficit); err != nil {
+			return true, err
+		}
+		for i := range a.terms {
+			term := &a.terms[i]
 			value, err := t.state.Assignment(term.literal)
 			if err != nil {
 				return true, err
 			}
-			if value == lbool.Undef && deficit.Cmp(&term.coeff) < 0 {
+			if value == lbool.Undef && t.zcmp(&deficit, &term.coeff.Num) < 0 {
 				if err = t.validateAssign(c, ls, term.literal); err != nil {
 					return true, err
 				}

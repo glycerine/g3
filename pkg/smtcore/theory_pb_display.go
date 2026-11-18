@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
@@ -105,8 +105,12 @@ func (t *SMTPseudoBooleanTheory) displayInequality(out io.Writer, c *smtPBConstr
 	}
 	a := c.current()
 	for i, term := range a.terms {
-		if term.coeff.Cmp(big.NewRat(1, 1)) != 0 {
-			if _, err := fmt.Fprintf(out, "%s*", term.coeff.RatString()); err != nil {
+		if !term.coeff.IsOne() {
+			text, err := t.q().String(&term.coeff)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "%s*", text); err != nil {
 				return err
 			}
 		}
@@ -133,16 +137,35 @@ func (t *SMTPseudoBooleanTheory) displayInequality(out io.Writer, c *smtPBConstr
 	if c.equality {
 		op = " = "
 	}
-	if _, err := fmt.Fprintf(out, "%s%s\n", op, a.bound.RatString()); err != nil {
+	bound, err := t.q().String(&a.bound)
+	if err != nil {
 		return err
+	}
+	if _, err := fmt.Fprintf(out, "%s%s\n", op, bound); err != nil {
+		return err
+	}
+	z := t.q().Integers()
+	zsign := func(n *numeral.Int) int {
+		s, e := z.Sign(n)
+		if e != nil && err == nil {
+			err = e
+		}
+		return int(s)
+	}
+	ztext := func(n *numeral.Int) string {
+		s, e := z.String(n)
+		if e != nil && err == nil {
+			err = e
+		}
+		return s
 	}
 	if c.propagations != 0 {
 		if _, err := fmt.Fprintf(out, "propagations: %d ", c.propagations); err != nil {
 			return err
 		}
 	}
-	if c.maxWatch.Sign() > 0 {
-		if _, err := fmt.Fprintf(out, "max_watch: %s ", c.maxWatch.RatString()); err != nil {
+	if zsign(&c.maxWatch) > 0 {
+		if _, err := fmt.Fprintf(out, "max_watch: %s ", ztext(&c.maxWatch)); err != nil {
 			return err
 		}
 	}
@@ -151,21 +174,22 @@ func (t *SMTPseudoBooleanTheory) displayInequality(out io.Writer, c *smtPBConstr
 			return err
 		}
 	}
-	if c.watchSum.Sign() > 0 {
-		if _, err := fmt.Fprintf(out, "watch-sum: %s ", c.watchSum.RatString()); err != nil {
+	if zsign(&c.watchSum) > 0 {
+		if _, err := fmt.Fprintf(out, "watch-sum: %s ", ztext(&c.watchSum)); err != nil {
 			return err
 		}
 	}
-	if c.maxSum.Sign() != 0 {
-		if _, err := fmt.Fprintf(out, "sum: [%s:%s] ", c.minSum.RatString(), c.maxSum.RatString()); err != nil {
+	if zsign(&c.maxSum) != 0 {
+		if _, err := fmt.Fprintf(out, "sum: [%s:%s] ", ztext(&c.minSum), ztext(&c.maxSum)); err != nil {
 			return err
 		}
 	}
-	if c.propagations != 0 || c.maxWatch.Sign() > 0 || c.watchSize != 0 || c.watchSum.Sign() > 0 || c.maxSum.Sign() != 0 {
-		_, err := io.WriteString(out, "\n")
-		return err
+	if c.propagations != 0 || zsign(&c.maxWatch) > 0 || c.watchSize != 0 || zsign(&c.watchSum) > 0 || zsign(&c.maxSum) != 0 {
+		if _, e := io.WriteString(out, "\n"); e != nil {
+			return e
+		}
 	}
-	return nil
+	return err
 }
 
 func smtPBDisplayWatch(out io.Writer, variable int32, sign bool, list []*smtPBConstraint, variableWatch bool) error {

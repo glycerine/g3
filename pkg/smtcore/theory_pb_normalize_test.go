@@ -1,7 +1,7 @@
 package smtcore
 
 import (
-	"math/big"
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -22,16 +22,24 @@ func smtPBTestValue(l SMTLiteral, bits uint32) bool {
 }
 
 func smtPBTestHolds(a *smtPBArgs, bits uint32, equality bool) bool {
-	sum := new(big.Rat)
-	for _, term := range a.terms {
-		if smtPBTestValue(term.literal, bits) {
-			sum.Add(sum, &term.coeff)
+	q := testQ()
+	sum := smtQZero()
+	defer smtQDel(q, &sum)
+	for i := range a.terms {
+		if smtPBTestValue(a.terms[i].literal, bits) {
+			if err := q.Add(&sum, &a.terms[i].coeff, &sum); err != nil {
+				panic(err)
+			}
 		}
 	}
-	if equality {
-		return sum.Cmp(&a.bound) == 0
+	c, err := q.Compare(&sum, &a.bound)
+	if err != nil {
+		panic(err)
 	}
-	return sum.Cmp(&a.bound) >= 0
+	if equality {
+		return c == 0
+	}
+	return c >= 0
 }
 
 func TestSMTPBLiteralNormalizationIndependentValuationOracle(t *testing.T) {
@@ -47,19 +55,14 @@ func TestSMTPBLiteralNormalizationIndependentValuationOracle(t *testing.T) {
 			{[]SMTLiteral{a, a.Negated(), b}, []string{"2", "2", "0"}},
 		} {
 			for k := int64(-5); k <= 12; k++ {
-				var original smtPBArgs
-				original.bound.SetFrac64(k, 2)
-				for i, l := range test.literals {
-					q, ok := new(big.Rat).SetString(test.coefficients[i])
-					if !ok {
-						t.Fatal("bad fixture rational")
-					}
-					original.terms = append(original.terms, smtPBTerm{l, *q})
-				}
-				normal := original.copy()
-				normal.unique()
-				truth := normal.normalize(eq)
-				normal.prune(eq)
+				q := testQ()
+				original := pbArgsOf(t, q, fmt.Sprintf("%d/2", k), test.literals, test.coefficients)
+				normal, err := original.copy(q)
+				astTestMust(t, err)
+				astTestMust(t, normal.unique(q))
+				truth, err := normal.normalize(q, eq)
+				astTestMust(t, err)
+				astTestMust(t, normal.prune(q, eq))
 				for bits := uint32(0); bits < 8; bits++ {
 					want := smtPBTestHolds(&original, bits, eq)
 					got := smtPBTestHolds(&normal, bits, eq)
@@ -70,12 +73,13 @@ func TestSMTPBLiteralNormalizationIndependentValuationOracle(t *testing.T) {
 						got = false
 					}
 					if got != want {
-						t.Fatalf("normalization changed valuation: eq=%v coeff=%v bound=%v bits=%d truth=%v", eq, test.coefficients, &original.bound, bits, truth)
+						t.Fatalf("normalization changed valuation: eq=%v coeff=%v bound=%v bits=%d truth=%v", eq, test.coefficients, pbText(q, &original.bound), bits, truth)
 					}
 				}
 				if !eq && truth == lbool.Undef && len(normal.terms) > 0 {
-					complement := normal.copy()
-					astTestMust(t, complement.negate())
+					complement, err := normal.copy(q)
+					astTestMust(t, err)
+					astTestMust(t, complement.negate(q))
 					for bits := uint32(0); bits < 8; bits++ {
 						if smtPBTestHolds(&complement, bits, false) == smtPBTestHolds(&original, bits, false) {
 							t.Fatal("strict integer complement lost polarity")

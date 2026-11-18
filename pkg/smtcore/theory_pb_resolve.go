@@ -4,10 +4,8 @@ package smtcore
 // hoist_maximal_values/remove_from_lemma. All state belongs to one resolution.
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -23,20 +21,31 @@ type smtPBResolution struct {
 	guards      []SMTLiteral
 }
 
-func (r *smtPBResolution) remove(index int) {
+// remove is remove_from_lemma: m_lemma[idx] = m_lemma[last] copies, then
+// pop_back destroys the last coefficient.
+func (r *smtPBResolution) remove(index int) error {
+	q := r.theory.q()
 	v := r.lemma.terms[index].literal.Var()
 	last := len(r.lemma.terms) - 1
 	if index != last {
-		r.lemma.terms[index] = r.lemma.terms[last]
+		r.lemma.terms[index].literal = r.lemma.terms[last].literal
+		if err := q.Copy(&r.lemma.terms[index].coeff, &r.lemma.terms[last].coeff); err != nil {
+			return err
+		}
 		r.marks[r.lemma.terms[index].literal.Var()] = index
 	}
-	r.lemma.terms = r.lemma.terms[:last]
+	if err := r.lemma.popBack(q); err != nil {
+		return err
+	}
 	delete(r.marks, v)
 	r.numMarks--
+	return nil
 }
 
-func (r *smtPBResolution) antecedent(literal SMTLiteral, coefficient *big.Rat) error {
+// antecedent is process_antecedent(l, coeff); coeff is the caller's value.
+func (r *smtPBResolution) antecedent(literal SMTLiteral, coefficient *numeral.Rational) error {
 	s := r.theory.state
+	q := r.theory.q()
 	value, err := s.Assignment(literal)
 	if err != nil {
 		return err
@@ -44,20 +53,28 @@ func (r *smtPBResolution) antecedent(literal SMTLiteral, coefficient *big.Rat) e
 	v := literal.Var()
 	level := s.booleanData[v].ScopeLevel
 	if value != lbool.False {
-		r.lemma.bound.Sub(&r.lemma.bound, coefficient)
+		if err = q.Sub(&r.lemma.bound, coefficient, &r.lemma.bound); err != nil {
+			return err
+		}
 		if index, marked := r.marks[v]; marked && r.theory.controls.LearnComplements {
 			if smtcoreSourceDebug && value != lbool.True {
 				return ast.ErrASTDomain
 			}
 			c := &r.lemma.terms[index].coeff
-			c.Sub(c, coefficient)
+			if err = q.Sub(c, coefficient, c); err != nil {
+				return err
+			}
 			if c.Sign() <= 0 {
-				r.remove(index)
+				if err = r.remove(index); err != nil {
+					return err
+				}
 			}
 		}
 	} else if level > r.base {
 		if index, marked := r.marks[v]; marked {
-			r.lemma.terms[index].coeff.Add(&r.lemma.terms[index].coeff, coefficient)
+			if err = q.Add(&r.lemma.terms[index].coeff, coefficient, &r.lemma.terms[index].coeff); err != nil {
+				return err
+			}
 			if smtcoreSourceDebug && r.lemma.terms[index].coeff.Sign() <= 0 {
 				return ast.ErrASTDomain
 			}
@@ -68,7 +85,11 @@ func (r *smtPBResolution) antecedent(literal SMTLiteral, coefficient *big.Rat) e
 					if err := smtPBWriteLiteral(out, literal); err != nil {
 						return err
 					}
-					_, err := fmt.Fprintf(out, " %s\n", coefficient.RatString())
+					text, err := q.String(coefficient)
+					if err != nil {
+						return err
+					}
+					_, err = fmt.Fprintf(out, " %s\n", text)
 					return err
 				}); err != nil {
 					return err
@@ -76,9 +97,9 @@ func (r *smtPBResolution) antecedent(literal SMTLiteral, coefficient *big.Rat) e
 				r.numMarks++
 			}
 			r.marks[v] = len(r.lemma.terms)
-			var c big.Rat
-			c.Set(coefficient)
-			r.lemma.terms = append(r.lemma.terms, smtPBTerm{literal, c})
+			if err = r.lemma.pushBack(q, literal, coefficient); err != nil {
+				return err
+			}
 		}
 		if err := r.theory.emitPBTag("pb_verbose", "process_antecedent", 1535, func(out io.Writer) error {
 			term := r.lemma.terms[r.marks[v]]
@@ -86,7 +107,11 @@ func (r *smtPBResolution) antecedent(literal SMTLiteral, coefficient *big.Rat) e
 			if err := smtPBWriteLiteral(out, term.literal); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintf(out, "*%s %d\n", term.coeff.RatString(), level)
+			text, err := q.String(&term.coeff)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(out, "*%s %d\n", text, level)
 			return err
 		}); err != nil {
 			return err
@@ -95,14 +120,26 @@ func (r *smtPBResolution) antecedent(literal SMTLiteral, coefficient *big.Rat) e
 	return nil
 }
 
-func (r *smtPBResolution) inequality(c *smtPBConstraint, consequent SMTLiteral, coefficient *big.Rat) error {
-	other := new(big.Rat)
+// inequality is process_ineq(c, conseq, coeff1).
+func (r *smtPBResolution) inequality(c *smtPBConstraint, consequent SMTLiteral, coefficient *numeral.Rational) (err error) {
+	q := r.theory.q()
+	// numeral coeff2, lc, g and the g*c.coeff(i) argument temporaries.
+	other, lc, g, product := smtQZero(), smtQZero(), smtQZero(), smtQZero()
+	defer func() {
+		for _, x := range []*numeral.Rational{&product, &g, &lc, &other} {
+			err = smtErrJoin(err, smtQDel(q, x))
+		}
+	}()
 	if consequent == SMTNullLiteral {
-		other.SetInt64(1)
+		if err = q.SetInt64(&other, 1); err != nil {
+			return err
+		}
 	} else {
-		for _, term := range c.current().terms {
-			if term.literal == consequent {
-				other.Set(&term.coeff)
+		for i := range c.current().terms {
+			if c.current().terms[i].literal == consequent {
+				if err = q.Copy(&other, &c.current().terms[i].coeff); err != nil {
+					return err
+				}
 				break
 			}
 		}
@@ -110,18 +147,34 @@ func (r *smtPBResolution) inequality(c *smtPBConstraint, consequent SMTLiteral, 
 	if other.Sign() <= 0 || coefficient.Sign() <= 0 || !other.IsInt() || !coefficient.IsInt() {
 		return ast.ErrASTDomain
 	}
-	lcm := new(big.Rat).SetInt(smtPBLCM(coefficient.Num(), other.Num()))
-	scale := new(big.Rat).Quo(lcm, coefficient)
-	if scale.Cmp(big.NewRat(1, 1)) > 0 {
-		for i := range r.lemma.terms {
-			r.lemma.terms[i].coeff.Mul(&r.lemma.terms[i].coeff, scale)
-		}
-		r.lemma.bound.Mul(&r.lemma.bound, scale)
+	if err = q.LCM(coefficient, &other, &lc); err != nil {
+		return err
 	}
-	scale.Quo(lcm, other)
-	r.lemma.bound.Add(&r.lemma.bound, new(big.Rat).Mul(scale, &c.current().bound))
-	for _, term := range c.current().terms {
-		if err := r.antecedent(term.literal, new(big.Rat).Mul(scale, &term.coeff)); err != nil {
+	if err = q.Div(&lc, coefficient, &g); err != nil {
+		return err
+	}
+	if g.Sign() > 0 && !g.IsOne() {
+		for i := range r.lemma.terms {
+			if err = q.Mul(&r.lemma.terms[i].coeff, &g, &r.lemma.terms[i].coeff); err != nil {
+				return err
+			}
+		}
+		if err = q.Mul(&r.lemma.bound, &g, &r.lemma.bound); err != nil {
+			return err
+		}
+	}
+	if err = q.Div(&lc, &other, &g); err != nil {
+		return err
+	}
+	if err = q.AddMul(&r.lemma.bound, &g, &c.current().bound, &r.lemma.bound); err != nil {
+		return err
+	}
+	for i := range c.current().terms {
+		term := &c.current().terms[i]
+		if err = q.Mul(&g, &term.coeff, &product); err != nil {
+			return err
+		}
+		if err = r.antecedent(term.literal, &product); err != nil {
 			return err
 		}
 	}
@@ -140,17 +193,26 @@ func (r *smtPBResolution) inequality(c *smtPBConstraint, consequent SMTLiteral, 
 	return nil
 }
 
-func (r *smtPBResolution) hoist() {
+// hoist is hoist_maximal_values.
+func (r *smtPBResolution) hoist() error {
+	q := r.theory.q()
 	for i := 0; i < len(r.lemma.terms); {
-		if r.lemma.terms[i].coeff.Cmp(&r.lemma.bound) >= 0 {
+		cmp, err := q.Compare(&r.lemma.terms[i].coeff, &r.lemma.bound)
+		if err != nil {
+			return err
+		}
+		if cmp >= 0 {
 			r.guards = append(r.guards, r.lemma.terms[i].literal.Negated())
 			last := len(r.lemma.terms) - 1
-			r.lemma.terms[i] = r.lemma.terms[last]
-			r.lemma.terms = r.lemma.terms[:last]
+			r.lemma.terms[i], r.lemma.terms[last] = r.lemma.terms[last], r.lemma.terms[i]
+			if err = r.lemma.popBack(q); err != nil {
+				return err
+			}
 		} else {
 			i++
 		}
 	}
+	return nil
 }
 
 func (t *SMTPseudoBooleanTheory) resolutionExpression(a *smtPBArgs) (expression ast.ASTHandle, result error) {
@@ -159,21 +221,22 @@ func (t *SMTPseudoBooleanTheory) resolutionExpression(a *smtPBArgs) (expression 
 	var values []numeral.OwnedRational
 	defer func() {
 		for i := range values {
-			result = errors.Join(result, service.Del(&values[i]))
+			result = smtErrJoin(result, service.Del(&values[i]))
 		}
 	}()
-	makeValue := func(q *big.Rat) (numeral.OwnedRational, error) {
+	makeValue := func(q *numeral.Rational) (numeral.OwnedRational, error) {
 		v, err := service.NewValue()
 		if err != nil {
 			return v, err
 		}
 		values = append(values, v)
-		err = service.SetString(&values[len(values)-1], q.RatString())
+		err = service.Manager.Copy(&values[len(values)-1].Raw, q)
 		return values[len(values)-1], err
 	}
 	var coefficients []numeral.OwnedRational
 	var arguments []ast.ASTHandle
-	for _, term := range a.terms {
+	for i := range a.terms {
+		term := &a.terms[i]
 		q, err := makeValue(&term.coeff)
 		if err != nil {
 			return expression, err
@@ -219,7 +282,7 @@ func (t *SMTPseudoBooleanTheory) resolutionClause(literals []SMTLiteral) error {
 	return t.state.addClauseKindWithJustificationAndDeleteHandler(literals, false, SMTClauseAuxLemma, ast.ASTHandle{}, owner, nil)
 }
 
-func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, error) {
+func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (_ bool, err error) {
 	if c.equality {
 		return false, nil
 	}
@@ -231,7 +294,15 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 	if s.searching {
 		base = s.searchUserBaseLevel
 	}
-	r := smtPBResolution{theory: t, base: base, marks: make(map[int32]int)}
+	// m_lemma.reset(); m_lemma.m_k.reset(): the lemma's rationals die when
+	// resolve_conflict's work is done (the source reuses its member).
+	r := smtPBResolution{theory: t, base: base, marks: make(map[int32]int), lemma: newSMTPBArgs()}
+	q := t.q()
+	defer func() {
+		if e := r.lemma.del(q); e != nil && err == nil {
+			err = e
+		}
+	}()
 	for _, term := range c.current().terms {
 		value, err := s.Assignment(term.literal)
 		if err != nil {
@@ -244,7 +315,8 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 	if r.level < s.booleanData[c.lit().Var()].ScopeLevel || r.level == base {
 		return false, nil
 	}
-	if err := r.inequality(c, SMTNullLiteral, big.NewRat(1, 1)); err != nil {
+	one := smtQInt(1)
+	if err := r.inequality(c, SMTNullLiteral, &one); err != nil {
 		return false, err
 	}
 	index := len(s.assignedLiterals) - 1
@@ -255,7 +327,10 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 		if err := r.traceLemma("pb_verbose", 1624, "lemma ", false); err != nil {
 			return false, err
 		}
-		truth := r.lemma.normalize(false)
+		truth, err := r.lemma.normalize(q, false)
+		if err != nil {
+			return false, err
+		}
 		if truth == lbool.False {
 			break
 		}
@@ -271,7 +346,7 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 		if err := r.traceLemma("pb", 1635, "", false); err != nil {
 			return false, err
 		}
-		if err := r.lemma.validateWellFormed(); err != nil {
+		if err := r.lemma.validateWellFormed(t.q()); err != nil {
 			return false, err
 		}
 		var consequent SMTLiteral
@@ -311,8 +386,33 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 		if r.lemma.terms[position].literal != consequent.Negated() {
 			return false, ast.ErrASTDomain
 		}
-		coefficient := new(big.Rat).Set(&r.lemma.terms[position].coeff)
-		r.remove(position)
+		// numeral conseq_coeff = m_lemma.coeff(conseq_index), destroyed at the
+		// end of the iteration.
+		coefficient := smtQZero()
+		if err := q.Copy(&coefficient, &r.lemma.terms[position].coeff); err != nil {
+			return false, err
+		}
+		done, err := t.resolveConsequent(&r, consequent, position, &coefficient)
+		if e := smtQDel(q, &coefficient); e != nil && err == nil {
+			err = e
+		}
+		if err != nil || done {
+			return false, err
+		}
+	}
+	return t.resolveConflictTail(c, &r)
+}
+
+// resolveConsequent resolves the lemma's consequent with its antecedents
+// (resolve_conflict's loop body after conseq_coeff is taken). done reports
+// a return of false from resolve_conflict.
+func (t *SMTPseudoBooleanTheory) resolveConsequent(r *smtPBResolution, consequent SMTLiteral, position int, coefficient *numeral.Rational) (done bool, err error) {
+	s := t.state
+	base := r.base
+	{
+		if err := r.remove(position); err != nil {
+			return false, err
+		}
 		reason := s.booleanData[consequent.Var()].Justification()
 		switch reason.Kind() {
 		case SMTBooleanJustificationClause:
@@ -333,7 +433,7 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 						return false, err
 					}
 					r.guards = append(r.guards, consequent)
-					continue
+					return false, nil
 				}
 			}
 			if len(clause.literals) < 2 {
@@ -414,6 +514,13 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 			return false, ast.ErrASTDomain
 		}
 	}
+	return false, nil
+}
+
+// resolveConflictTail is resolve_conflict after the resolution loop.
+func (t *SMTPseudoBooleanTheory) resolveConflictTail(c *smtPBConstraint, r *smtPBResolution) (bool, error) {
+	s := t.state
+	q := t.q()
 	if err := t.emitPB("resolve_conflict", 1745, func(out io.Writer) error {
 		if err := smtPBWriteLiterals(out, r.guards, true); err != nil {
 			return err
@@ -429,9 +536,16 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 	}); err != nil {
 		return false, err
 	}
-	r.hoist()
-	truth := r.lemma.normalize(false)
-	r.lemma.prune(false)
+	if err := r.hoist(); err != nil {
+		return false, err
+	}
+	truth, err := r.lemma.normalize(q, false)
+	if err != nil {
+		return false, err
+	}
+	if err = r.lemma.prune(q, false); err != nil {
+		return false, err
+	}
 	if err := smtPBVerbose(14, func(out io.Writer) error {
 		_, _ = io.WriteString(out, "lemma2: ")
 		return t.displayPBArgs(out, &r.lemma, false)
