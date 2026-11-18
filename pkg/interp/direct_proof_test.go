@@ -2005,8 +2005,10 @@ func TestDirectProofLocalizeSelectOverMixedArray(t *testing.T) {
 	t.Cleanup(func() { interpMust(t, direct.Close()) })
 	store, err := manager.Make(OperatorStore, a, i, v)
 	interpMust(t, err)
+	store = interpPin(t, m, store)
 	term, err := manager.Make(OperatorSelect, store, j)
 	interpMust(t, err)
+	term = interpPin(t, m, term)
 	_, _, err = direct.localizeTerm(term, DownwardScopeRange(0))
 	interpMust(t, err)
 	// The store's scope is empty, so its arguments are localized to the

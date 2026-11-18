@@ -316,7 +316,7 @@ func (p *DirectProofInterpolator) substituteArgument(position int, term, applica
 	return p.base.manager.Clone(application, args)
 }
 
-func (p *DirectProofInterpolator) MakeCongruences(premiseConclusions []ast.ASTHandle, conclusion ast.ASTHandle, premises []ast.ASTHandle) (ast.ASTHandle, error) {
+func (p *DirectProofInterpolator) MakeCongruences(premiseConclusions []ast.ASTHandle, conclusion ast.ASTHandle, premises []ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
 	if err := p.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -326,7 +326,19 @@ func (p *DirectProofInterpolator) MakeCongruences(premiseConclusions []ast.ASTHa
 	if len(premiseConclusions) == 1 {
 		return p.MakeCongruence(premiseConclusions[0], conclusion, premises[0])
 	}
+	// thing is an ast_r: each reassignment releases the previous value, and
+	// the last one dies when make_congruence returns.
 	thing := conclusion
+	// con is the caller's const ast&: take the caller's reference (kept
+	// until Close, as in MakeModusPonens) so releasing thing never frees it.
+	if err := p.hold(conclusion); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	thingRef, err := p.base.manager.ast.NewRef(thing)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.base.manager.ast.DelRef(&thingRef)) }()
 	truth, err := p.base.manager.Make(OperatorTrue)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -407,6 +419,12 @@ func (p *DirectProofInterpolator) MakeCongruences(premiseConclusions []ast.ASTHa
 		}
 		thing, e = p.base.manager.Make(thingOp, next, thingRight)
 		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if e = p.base.manager.ast.DelRef(&thingRef); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if thingRef, e = p.base.manager.ast.NewRef(thing); e != nil {
 			return ast.ASTHandle{}, e
 		}
 	}

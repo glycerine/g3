@@ -15,6 +15,11 @@ func (p *DirectProofInterpolator) SubstituteProofTerm(variable, replacement, exp
 		return ast.ASTHandle{}, err
 	}
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
+	// subst_term_and_simp clears the member subst_memo; its entries hold
+	// their terms until the next substitution or the destructor.
+	if err := p.substMemoRefs.clear(p.base.manager.ast); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	var substitute func(ast.ASTHandle) (ast.ASTHandle, error)
 	substitute = func(current ast.ASTHandle) (ast.ASTHandle, error) {
 		if current == variable {
@@ -22,6 +27,14 @@ func (p *DirectProofInterpolator) SubstituteProofTerm(variable, replacement, exp
 		}
 		if result, found := memo[current]; found {
 			return result, nil
+		}
+		entry, err := p.substMemoRefs.lookup(p.base.manager.ast, current)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		record := func(result ast.ASTHandle) error {
+			memo[current] = result
+			return p.substMemoRefs.setValue(p.base.manager.ast, entry, 0, result)
 		}
 		op, err := p.base.manager.Operator(current)
 		if err != nil {
@@ -42,8 +55,7 @@ func (p *DirectProofInterpolator) SubstituteProofTerm(variable, replacement, exp
 					return ast.ASTHandle{}, e
 				}
 				if variable == pivotPlaceholder {
-					memo[current] = current
-					return current, nil
+					return current, record(current)
 				}
 				proof, e := p.base.manager.Arg(current, 1)
 				if e != nil {
@@ -57,12 +69,10 @@ func (p *DirectProofInterpolator) SubstituteProofTerm(variable, replacement, exp
 				if e != nil {
 					return ast.ASTHandle{}, e
 				}
-				memo[current] = result
-				return result, nil
+				return result, record(result)
 			}
 			if declaration == p.concat {
-				memo[current] = current
-				return current, nil
+				return current, record(current)
 			}
 		}
 		args, err := p.base.manager.Args(current)
@@ -100,8 +110,7 @@ func (p *DirectProofInterpolator) SubstituteProofTerm(variable, replacement, exp
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		memo[current] = result
-		return result, nil
+		return result, record(result)
 	}
 	result, err := substitute(expression)
 	return p.keep(result, err)

@@ -49,18 +49,40 @@ type DirectProofInterpolator struct {
 	placeholders          map[ast.ASTHandle]ast.ASTHandle
 	localizationVariables []localizationVariable
 	localizationMaps      map[ScopeRange]*localizationMaps
-	owned                 []ast.ASTRef
-	// variables holds the ast members no_proof, epsilon and top_pos in
-	// declaration order; they die after the other members, in reverse.
-	variables [3]ast.ASTRef
-	closed    bool
+	// simplifyMemo is the member simplify_memo: simplify_rec results,
+	// kept for the interpolator's lifetime.
+	simplifyMemo map[ast.ASTHandle]ast.ASTHandle
+	// owned holds g3's own references to returned proof terms, released
+	// first at Close; the source's members below decide when they die.
+	owned []ast.ASTRef
+	// declarations are the symb members contra ... sexists, which
+	// ~iz3proof_itp_impl dec_refs in creation order.
+	declarations []ast.ASTRef
+	// The ast-holding members, in declaration order: placeholders, then
+	// no_proof, epsilon and top_pos (variables), subst_memo,
+	// simplify_memo, localization_vars and localization_maps_per_range.
+	// After the destructor body they die in reverse.
+	placeholderRefs     iz3RefTable
+	variables           [3]ast.ASTRef
+	substMemoRefs       iz3RefTable
+	simplifyMemoRefs    iz3RefTable
+	localizationRefs    []localizationVariableRefs
+	localizationMapRefs iz3RangeTable
+	closed              bool
+}
+
+// localizationVariableRefs is a LocVar's ast members var and term; ~LocVar
+// releases term, then var.
+type localizationVariableRefs struct {
+	variable ast.ASTRef
+	term     ast.ASTRef
 }
 
 func NewDirectProofInterpolator(base *Base, scope ScopeRange, weak bool) (result *DirectProofInterpolator, resultErr error) {
 	if base == nil || base.open() != nil {
 		return nil, ast.ErrASTHandle
 	}
-	p := &DirectProofInterpolator{base: base, scope: scope, placeholders: make(map[ast.ASTHandle]ast.ASTHandle), localizationMaps: make(map[ScopeRange]*localizationMaps)}
+	p := &DirectProofInterpolator{base: base, scope: scope, placeholders: make(map[ast.ASTHandle]ast.ASTHandle), localizationMaps: make(map[ScopeRange]*localizationMaps), simplifyMemo: make(map[ast.ASTHandle]ast.ASTHandle)}
 	p.self = p
 	// The selected source constructor deliberately forces weak=false even when
 	// requested. Preserve that behavior until the disabled weak implementation
@@ -192,9 +214,11 @@ func (p *DirectProofInterpolator) newFunction(name string, domain []ast.ASTHandl
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = p.hold(declaration); err != nil {
+	ref, err := p.base.manager.ast.NewRef(declaration)
+	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	p.declarations = append(p.declarations, ref)
 	return declaration, nil
 }
 
@@ -205,16 +229,32 @@ func (p *DirectProofInterpolator) Close() (result error) {
 	if p.closed {
 		return nil
 	}
+	manager := p.base.manager.ast
 	for i := len(p.owned) - 1; i >= 0; i-- {
-		result = errors.Join(result, p.base.manager.ast.DelRef(&p.owned[i]))
+		result = errors.Join(result, manager.DelRef(&p.owned[i]))
 	}
 	p.owned = nil
+	// ~iz3proof_itp_impl's body, then its members in reverse.
+	for i := range p.declarations {
+		result = errors.Join(result, manager.DelRef(&p.declarations[i]))
+	}
+	p.declarations = nil
+	result = errors.Join(result, p.localizationMapRefs.clear(manager))
+	for i := range p.localizationRefs {
+		result = errors.Join(result, manager.DelRef(&p.localizationRefs[i].term))
+		result = errors.Join(result, manager.DelRef(&p.localizationRefs[i].variable))
+	}
+	p.localizationRefs = nil
+	result = errors.Join(result, p.simplifyMemoRefs.clear(manager))
+	result = errors.Join(result, p.substMemoRefs.clear(manager))
 	for i := len(p.variables) - 1; i >= 0; i-- {
 		if p.variables[i] != (ast.ASTRef{}) {
-			result = errors.Join(result, p.base.manager.ast.DelRef(&p.variables[i]))
+			result = errors.Join(result, manager.DelRef(&p.variables[i]))
 		}
 	}
+	result = errors.Join(result, p.placeholderRefs.clear(manager))
 	p.placeholders = nil
+	p.simplifyMemo = nil
 	p.localizationVariables = nil
 	p.localizationMaps = nil
 	p.closed = true
@@ -246,6 +286,11 @@ func (p *DirectProofInterpolator) placeholder(term ast.ASTHandle) (ast.ASTHandle
 	if result, found := p.placeholders[term]; found {
 		return result, nil
 	}
+	// ast &res = placeholders[t]: the entry exists before the constant.
+	entry, err := p.placeholderRefs.lookup(p.base.manager.ast, term)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
 	sort, err := p.base.manager.Type(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -254,7 +299,7 @@ func (p *DirectProofInterpolator) placeholder(term ast.ASTHandle) (ast.ASTHandle
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = p.hold(result); err != nil {
+	if err = p.placeholderRefs.setValue(p.base.manager.ast, entry, 0, result); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	p.placeholders[term] = result

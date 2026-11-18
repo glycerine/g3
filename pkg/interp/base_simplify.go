@@ -84,6 +84,12 @@ func (b *Base) Simplify(term ast.ASTHandle) (ast.ASTHandle, error) {
 		}
 		return b.manager.MkNot(body)
 	}
+	// simplify_memo.insert((n, ast())): the entry, and its key reference,
+	// exist from here; the value is assigned at the end.
+	memo, err := b.memoRefs.lookup(b.manager.ast, term)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
 	if result, found := b.simplified[term]; found {
 		return result, nil
 	}
@@ -130,7 +136,7 @@ func (b *Base) Simplify(term ast.ASTHandle) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = b.hold(&b.memoRefs, result); err != nil {
+	if err = b.memoRefs.setValue(b.manager.ast, memo, 0, result); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	b.simplified[term] = result

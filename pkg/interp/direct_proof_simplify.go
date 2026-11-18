@@ -23,11 +23,22 @@ func (p *DirectProofInterpolator) isPlaceholder(term ast.ASTHandle) (bool, error
 }
 
 func (p *DirectProofInterpolator) simplifyProofTerm(expression ast.ASTHandle) (ast.ASTHandle, error) {
-	memo := make(map[ast.ASTHandle]ast.ASTHandle)
+	// simplify_memo is a member: results persist across calls.
+	memo := p.simplifyMemo
 	var simplify func(ast.ASTHandle) (ast.ASTHandle, error)
 	simplify = func(current ast.ASTHandle) (ast.ASTHandle, error) {
 		if result, found := memo[current]; found {
 			return result, nil
+		}
+		// simplify_memo.insert((e, ast())) holds e from here; the value is
+		// assigned when the result is.
+		entry, err := p.simplifyMemoRefs.lookup(p.base.manager.ast, current)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		record := func(result ast.ASTHandle) error {
+			memo[current] = result
+			return p.simplifyMemoRefs.setValue(p.base.manager.ast, entry, 0, result)
 		}
 		op, err := p.base.manager.Operator(current)
 		if err != nil {
@@ -40,8 +51,7 @@ func (p *DirectProofInterpolator) simplifyProofTerm(expression ast.ASTHandle) (a
 				return ast.ASTHandle{}, err
 			}
 			if declaration == p.concat {
-				memo[current] = current
-				return current, nil
+				return current, record(current)
 			}
 		}
 		args, err := p.base.manager.Args(current)
@@ -113,8 +123,7 @@ func (p *DirectProofInterpolator) simplifyProofTerm(expression ast.ASTHandle) (a
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		memo[current] = result
-		return result, nil
+		return result, record(result)
 	}
 	result, err := simplify(expression)
 	if err != nil {

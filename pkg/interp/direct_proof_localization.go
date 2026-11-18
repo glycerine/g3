@@ -4,6 +4,7 @@ package interp
 // creation and add_quants active branch.
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -20,14 +21,14 @@ type localizationMaps struct {
 	proofs map[ast.ASTHandle]ast.ASTHandle
 }
 
-func (p *DirectProofInterpolator) mapsForLocalization(scope ScopeRange) (*localizationMaps, error) {
+func (p *DirectProofInterpolator) mapsForLocalization(scope ScopeRange) (*localizationMaps, *iz3LocMaps, error) {
 	contained, err := p.base.scopes.RangeContained(scope, p.scope)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	intersects, err := p.base.scopes.RangesIntersect(scope, p.scope)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !contained && intersects {
 		scope = FullScopeRange()
@@ -37,7 +38,20 @@ func (p *DirectProofInterpolator) mapsForLocalization(scope ScopeRange) (*locali
 		maps = &localizationMaps{terms: make(map[ast.ASTHandle]ast.ASTHandle), proofs: make(map[ast.ASTHandle]ast.ASTHandle)}
 		p.localizationMaps[scope] = maps
 	}
-	return maps, nil
+	return maps, p.localizationMapRefs.lookup(scope), nil
+}
+
+// setLocalization is localization_pf_map[term] = proof (if pf) or
+// localization_map[term] = value, keeping g3's map and the source's
+// references together.
+func (p *DirectProofInterpolator) setLocalization(maps *localizationMaps, refs *iz3LocMaps, pf bool, term, value ast.ASTHandle) error {
+	manager := p.base.manager.ast
+	if pf {
+		maps.proofs[term] = value
+		return refs.proofs.set(manager, term, value)
+	}
+	maps.terms[term] = value
+	return refs.terms.set(manager, term, value)
 }
 
 func (p *DirectProofInterpolator) makeReflexiveInterpolation(term ast.ASTHandle) (ast.ASTHandle, error) {
@@ -52,7 +66,7 @@ func (p *DirectProofInterpolator) makeReflexiveInterpolation(term ast.ASTHandle)
 }
 
 func (p *DirectProofInterpolator) localizeTerm(term ast.ASTHandle, scope ScopeRange) (localized, proof ast.ASTHandle, resultErr error) {
-	maps, err := p.mapsForLocalization(scope)
+	maps, mapRefs, err := p.mapsForLocalization(scope)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
@@ -88,6 +102,10 @@ func (p *DirectProofInterpolator) localizeTerm(term ast.ASTHandle, scope ScopeRa
 		}
 		if useCached {
 			// A cache hit still goes through the range test below.
+			// pf = localization_pf_map[e] is an operator[] lookup.
+			if _, e := mapRefs.proofs.lookup(p.base.manager.ast, term); e != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, e
+			}
 			proof = maps.proofs[term]
 			term = cached
 		}
@@ -186,7 +204,12 @@ func (p *DirectProofInterpolator) localizeTerm(term ast.ASTHandle, scope ScopeRa
 				}
 			}
 		}
-		maps.terms[original], maps.proofs[original] = term, proof
+		if err = p.setLocalization(maps, mapRefs, true, original, proof); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		if err = p.setLocalization(maps, mapRefs, false, original, term); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
 	}
 	termScope, err := p.base.ASTScope(term)
 	if err != nil {
@@ -207,7 +230,9 @@ func (p *DirectProofInterpolator) localizeTerm(term ast.ASTHandle, scope ScopeRa
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	maps.terms[original] = variable
+	if err = p.setLocalization(maps, mapRefs, false, original, variable); err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
 	equivalence, err := p.makeEquivalence(variable, term)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
@@ -220,13 +245,23 @@ func (p *DirectProofInterpolator) localizeTerm(term ast.ASTHandle, scope ScopeRa
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	maps.proofs[original] = proof
+	if err = p.setLocalization(maps, mapRefs, true, original, proof); err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
 	if !scope.IsFull() {
-		full, e := p.mapsForLocalization(FullScopeRange())
-		if e != nil {
+		// localization_maps_per_range[range_full()], taken as is.
+		full := p.localizationMaps[FullScopeRange()]
+		if full == nil {
+			full = &localizationMaps{terms: make(map[ast.ASTHandle]ast.ASTHandle), proofs: make(map[ast.ASTHandle]ast.ASTHandle)}
+			p.localizationMaps[FullScopeRange()] = full
+		}
+		fullRefs := p.localizationMapRefs.lookup(FullScopeRange())
+		if e := p.setLocalization(full, fullRefs, false, original, variable); e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, e
 		}
-		full.terms[original], full.proofs[original] = variable, proof
+		if e := p.setLocalization(full, fullRefs, true, original, proof); e != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, e
+		}
 	}
 	return variable, proof, nil
 }
@@ -292,9 +327,16 @@ func (p *DirectProofInterpolator) freshLocalizationVariable(term ast.ASTHandle, 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = p.hold(variable); err != nil {
+	// localization_vars.push_back(LocVar(var,term,frame)).
+	variableRef, err := p.base.manager.ast.NewRef(variable)
+	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	termRef, err := p.base.manager.ast.NewRef(term)
+	if err != nil {
+		return ast.ASTHandle{}, errors.Join(err, p.base.manager.ast.DelRef(&variableRef))
+	}
+	p.localizationRefs = append(p.localizationRefs, localizationVariableRefs{variable: variableRef, term: termRef})
 	declaration, err := p.base.manager.Symbol(variable)
 	if err != nil {
 		return ast.ASTHandle{}, err
