@@ -419,6 +419,7 @@ func (k *SMTKernel) beginSearch() (*smtSearchSession, error) {
 	if err = k.internalizer.beginSearchPersistence(session.baseLevel, k.smtState); err != nil {
 		return nil, errors.Join(err, timer.Close())
 	}
+	k.internalizer.searchConflictBase = session.conflictBase
 	if k.assumptions != nil {
 		k.internalizer.searchUserBaseLevel--
 	}

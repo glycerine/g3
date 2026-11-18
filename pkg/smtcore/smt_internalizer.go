@@ -1648,6 +1648,12 @@ func (s *SMTInternalizerState) InternalizeInstance(instance *SMTQIInstance) erro
 // those lemmas stay ordinary clauses.
 func (s *SMTInternalizerState) binaryClauseBaseLevel() uint32 { return s.baseLevel }
 
+// numSearchConflicts is context::get_num_conflicts, m_num_conflicts: the
+// conflicts since the last init_search.
+func (s *SMTInternalizerState) numSearchConflicts() uint32 {
+	return s.statistics.NumConflicts - s.searchConflictBase
+}
+
 // pushBaseScope is the m_base_lvl++ and m_search_lvl++ of context::push,
 // after its push_scope.
 func (s *SMTInternalizerState) pushBaseScope() { s.baseLevel++; s.searchLevel++ }

@@ -309,7 +309,10 @@ type SMTInternalizerState struct {
 	// searchLevel is context::m_search_lvl: set by init_assumptions, reset
 	// to the base level by mk_unsat_core, advanced by a user push and
 	// lowered by a pop below the base level. Only display reads it.
-	searchLevel           uint32
+	searchLevel uint32
+	// searchConflictBase is the conflict statistic at init_search, which
+	// resets context::m_num_conflicts; it is kept after the search.
+	searchConflictBase    uint32
 	searchUserBaseLevel   uint32
 	searchAgility         float64
 	searchAgilityFactor   float64

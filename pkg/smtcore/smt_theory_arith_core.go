@@ -189,7 +189,7 @@ func (t *SMTTheoryArith) processAtoms() bool {
 	if !t.adaptive() {
 		return true
 	}
-	totalConflicts := t.state.statistics.NumConflicts
+	totalConflicts := t.state.numSearchConflicts()
 	if totalConflicts < 10 {
 		return true
 	}

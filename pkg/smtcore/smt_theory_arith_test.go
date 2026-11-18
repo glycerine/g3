@@ -240,3 +240,21 @@ func (f *smtTheoryArithFixture) big(r *numeral.Rational) *big.Rat {
 	}
 	return b
 }
+
+// AUDIT.md smtcore_07-F7: process_atoms reads context::get_num_conflicts,
+// the conflicts since init_search, not the cumulative statistic.
+func TestSMTTheoryArithProcessAtomsUsesSearchConflicts(t *testing.T) {
+	f := newSMTTheoryArithFixture(t, false)
+	f.theory.params.Adaptive = true
+	f.theory.params.AdaptiveAssertionThreshold = 0.5
+	f.theory.numConflicts = 0
+	f.state.statistics.NumConflicts = 100
+	f.state.searchConflictBase = 95
+	if !f.theory.processAtoms() {
+		t.Fatal("5 conflicts in this search are below the adaptive minimum of 10")
+	}
+	f.state.searchConflictBase = 0
+	if f.theory.processAtoms() {
+		t.Fatal("100 search conflicts with no arithmetic conflict must skip atoms")
+	}
+}
