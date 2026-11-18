@@ -415,7 +415,8 @@ func (p *commandParser) scannerUnsigned() (uint32, bool, error) {
 // scanner.Numbers()) and advances.
 func (p *commandParser) rational(out *unumeral.Rational) error {
 	if p.token != IntegerToken && p.token != DecimalToken {
-		return fmt.Errorf("rational numeral expected")
+		// assert-soft's :weight is a CPK_NUMERAL argument.
+		return fmt.Errorf("invalid command argument, numeral expected")
 	}
 	if err := p.scanner.Numbers().Copy(out, p.scanner.Number()); err != nil {
 		return err
@@ -514,7 +515,7 @@ func (p *commandParser) fixedpointQuery(declaration ast.ASTHandle) (status lbool
 		if kind == uparams.ParamInvalid {
 			return lbool.Undef, false, false, false, fmt.Errorf("unsupported fixedpoint query parameter :%s", key)
 		}
-		if err = p.tacticParameter(context, options, key, kind); err != nil {
+		if err = p.commandParameter(context, options, key, kind); err != nil {
 			return lbool.Undef, false, false, false, err
 		}
 	}
@@ -1433,7 +1434,7 @@ func (p *commandParser) command() (bool, error) {
 			switch keyword {
 			case "completion", "cache", "array_equalities":
 				if p.token != SymbolToken || p.scanner.ID() != "true" && p.scanner.ID() != "false" {
-					return false, fmt.Errorf("invalid parameter value, true or false expected")
+					return false, fmt.Errorf("invalid command argument, true/false expected")
 				}
 				value := p.scanner.ID() == "true"
 				switch keyword {

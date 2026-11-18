@@ -548,6 +548,26 @@ func (p *commandParser) parseTacticDeclaration() (selected tactic.Tactic, body s
 	return selected, "(" + body, nil
 }
 
+// commandParameter is parse_next_cmd_arg for a parametric command's
+// keyword argument: its own texts for the token checks, then the value.
+func (p *commandParser) commandParameter(c *uparams.ParamsContext, settings *uparams.ParamsRef, key string, kind uparams.ParamKind) error {
+	switch kind {
+	case uparams.ParamBool:
+		if p.token != SymbolToken || p.scanner.ID() != "true" && p.scanner.ID() != "false" {
+			return fmt.Errorf("invalid command argument, true/false expected")
+		}
+	case uparams.ParamUInt:
+		if p.token != IntegerToken {
+			return fmt.Errorf("invalid command argument, unsigned integer expected")
+		}
+	case uparams.ParamNumeral:
+		if p.token != IntegerToken && p.token != DecimalToken {
+			return fmt.Errorf("invalid command argument, numeral expected")
+		}
+	}
+	return p.tacticParameter(c, settings, key, kind)
+}
+
 func (p *commandParser) tacticParameter(c *uparams.ParamsContext, settings *uparams.ParamsRef, key string, kind uparams.ParamKind) (err error) {
 	switch kind {
 	case uparams.ParamBool:
@@ -666,10 +686,7 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 		if err = p.advance(); err != nil {
 			return err
 		}
-		if kind == uparams.ParamUInt && p.token != IntegerToken {
-			return fmt.Errorf("invalid command argument, unsigned integer expected")
-		}
-		if err = p.tacticParameter(c, &options, key, kind); err != nil {
+		if err = p.commandParameter(c, &options, key, kind); err != nil {
 			return err
 		}
 		if kind == uparams.ParamBool {

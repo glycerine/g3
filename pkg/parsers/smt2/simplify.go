@@ -94,7 +94,7 @@ func (p *commandParser) simplifyCommand() (resultErr error) {
 			}
 			continue
 		}
-		if err = p.tacticParameter(globals.Context, &settings, key, kind); err != nil {
+		if err = p.commandParameter(globals.Context, &settings, key, kind); err != nil {
 			return err
 		}
 	}

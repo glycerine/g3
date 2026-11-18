@@ -55,7 +55,7 @@ func (p *commandParser) applyTactic(execute bool) (err error) {
 		if err = p.advance(); err != nil {
 			return err
 		}
-		if err = p.tacticParameter(c, &options, key, kind); err != nil {
+		if err = p.commandParameter(c, &options, key, kind); err != nil {
 			return err
 		}
 	}

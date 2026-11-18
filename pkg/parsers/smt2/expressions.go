@@ -511,6 +511,10 @@ func (p *commandParser) defineFunction(withArguments bool) (result error) {
 		return err
 	}
 	if actual != rangeSort {
+		// parse_define_const has its own text.
+		if !withArguments {
+			return fmt.Errorf("invalid constant definition, sort mismatch")
+		}
 		return fmt.Errorf("invalid function/constant definition, sort mismatch")
 	}
 	// Source parse_define_fun / parse_define_const: m_ctx.insert runs
