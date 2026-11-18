@@ -66,7 +66,7 @@ func (t *NLQSATTactic) TranslateWithServices(m *ast.ASTManager, config Config) (
 			result = nil
 		}
 	}()
-	next, err = newNLQTactic(m, &p, config, t.mode)
+	next, err = newNLQTactic(m, &p, config)
 	if err != nil {
 		return nil, err
 	}

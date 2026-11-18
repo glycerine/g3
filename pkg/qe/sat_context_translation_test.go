@@ -12,7 +12,7 @@ import (
 )
 
 func TestSATContextTranslationModesAndParameters(t *testing.T) {
-	for _, name := range []string{"qe-sat", "qsat", "qe2", "qe_rec", "nlqsat", "nlqe"} {
+	for _, name := range []string{"qe-sat", "qsat", "qe2", "qe_rec", "nlqsat"} {
 		t.Run(name, func(t *testing.T) {
 			source, target := newFMFixture(t), newFMFixture(t)
 			fmMust(t, source.r.manager.RegisterDeclarationPlugins())
@@ -35,8 +35,6 @@ func TestSATContextTranslationModesAndParameters(t *testing.T) {
 				original, err = NewQERecursiveTactic(source.r.manager, &p, source.r.config)
 			case "nlqsat":
 				original, err = NewNLQSATTacticWithParams(source.r.manager, &p, source.r.config)
-			case "nlqe":
-				original, err = NewNLQETacticWithParams(source.r.manager, &p, source.r.config)
 			}
 			fmMust(t, err)
 			fmMust(t, source.r.config.Context.Del(&p))
@@ -75,8 +73,8 @@ func TestSATContextTranslationModesAndParameters(t *testing.T) {
 				targetTactic := copy.(*NLQSATTactic)
 				value, e := target.r.config.Context.GetUIntName(&targetTactic.params, &seed, 0)
 				fmMust(t, e)
-				if targetTactic.mode != item.mode || targetTactic.manager != target.r.manager || value != 17 {
-					t.Fatal("nonlinear mode or parameter snapshot", value)
+				if targetTactic.manager != target.r.manager || value != 17 {
+					t.Fatal("nonlinear parameter snapshot", value)
 				}
 				fmMust(t, item.UpdateParams(nil))
 				value, e = target.r.config.Context.GetUIntName(&targetTactic.params, &seed, 0)

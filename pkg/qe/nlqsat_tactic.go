@@ -27,7 +27,6 @@ type NLQSATTactic struct {
 	self       *NLQSATTactic
 	manager    *ast.ASTManager
 	config     Config
-	mode       qsatMode
 	statistics statistics.Statistics // m_st
 	rounds     uint64                // m_stats.m_num_rounds
 	params     uparams.ParamsRef
@@ -49,29 +48,18 @@ func NewNLQSATTactic(manager *ast.ASTManager, config Config) (*NLQSATTactic, err
 }
 
 func NewNLQSATTacticWithParams(manager *ast.ASTManager, params *uparams.ParamsRef, config Config) (*NLQSATTactic, error) {
-	return newNLQTactic(manager, params, config, qsatSAT)
+	return newNLQTactic(manager, params, config)
 }
 
-func NewNLQETactic(manager *ast.ASTManager, config Config) (*NLQSATTactic, error) {
-	return NewNLQETacticWithParams(manager, nil, config)
-}
-
-func NewNLQETacticWithParams(manager *ast.ASTManager, params *uparams.ParamsRef, config Config) (*NLQSATTactic, error) {
-	return newNLQTactic(manager, params, config, qsatQE)
-}
-
-func newNLQTactic(manager *ast.ASTManager, params *uparams.ParamsRef, config Config, mode qsatMode) (*NLQSATTactic, error) {
+func newNLQTactic(manager *ast.ASTManager, params *uparams.ParamsRef, config Config) (*NLQSATTactic, error) {
 	if manager == nil || config.Context == nil || config.Globals == nil || config.Globals.Context != config.Context || config.Cooperation == nil {
 		return nil, arena.ErrConfig
-	}
-	if mode != qsatSAT && mode != qsatQE {
-		return nil, ast.ErrASTDomain
 	}
 	bytes := uint64(reflect.TypeOf(NLQSATTactic{}).Size())
 	if err := manager.Budget().Reserve(bytes); err != nil {
 		return nil, err
 	}
-	t := &NLQSATTactic{manager: manager, config: config, mode: mode, bytes: bytes}
+	t := &NLQSATTactic{manager: manager, config: config, bytes: bytes}
 	t.self = t
 	value, err := config.Context.NewValue()
 	if err != nil {
@@ -244,12 +232,6 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err != nil {
 		return err
 	}
-	if t.mode == qsatQE {
-		formula, err = t.manager.MkNot(formula)
-		if err != nil {
-			return err
-		}
-	}
 	formulaRef, err := t.manager.NewRef(formula)
 	if err != nil {
 		return err
@@ -260,10 +242,10 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	defer func() { err = errors.Join(err, preparation.Close()) }()
-	if err = preparation.hoistNL(t.mode, formulaRef); err != nil {
+	if err = preparation.hoistNL(qsatSAT, formulaRef); err != nil {
 		return err
 	}
-	if err = preparation.ackermannizeDivisions(t.mode, formulaRef); err != nil {
+	if err = preparation.ackermannizeDivisions(qsatSAT, formulaRef); err != nil {
 		return err
 	}
 	formula, err = t.manager.RefGet(formulaRef)
@@ -390,7 +372,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err = releaseCNF(); err != nil {
 		return err
 	}
-	search, err := newNLQSearchFromCompilerMode(solver, compiler, preparation.variables, truth, t.mode)
+	search, err := newNLQSearchFromCompiler(solver, compiler, preparation.variables, truth)
 	if err != nil {
 		return err
 	}
@@ -403,17 +385,6 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if status == lbool.Undef {
 		return tactic.NewTacticException("search failed")
 	}
-	var answer ast.ASTRef
-	if t.mode == qsatQE {
-		if status != lbool.False {
-			return tactic.NewTacticException("nonlinear elimination search failed")
-		}
-		answer, err = search.answer()
-		if err != nil {
-			return err
-		}
-		defer func() { err = errors.Join(err, t.manager.DelRef(&answer)) }()
-	}
 	// in->reset(); in->inc_depth(); then the answer, false, or the model
 	// (nlqsat.cpp:836-857).
 	if err = goal.Reset(); err != nil {
@@ -422,15 +393,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err = goal.IncDepth(); err != nil {
 		return err
 	}
-	if t.mode == qsatQE {
-		formula, cause := t.manager.RefGet(answer)
-		if cause != nil {
-			return cause
-		}
-		if err = goal.Assert(formula); err != nil {
-			return err
-		}
-	} else if status == lbool.False {
+	if status == lbool.False {
 		falsity, cause := t.manager.MkFalse()
 		if cause != nil {
 			return cause
@@ -506,7 +469,7 @@ func (t *NLQSATTactic) Translate(manager *ast.ASTManager) (tactic.Tactic, error)
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	return newNLQTactic(manager, &t.ctorParams, t.config, t.mode)
+	return newNLQTactic(manager, &t.ctorParams, t.config)
 }
 
 // setCompilerFactor is goal2nlsat::imp::updt_params over m_params:

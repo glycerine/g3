@@ -60,10 +60,6 @@ func initExpr2Var(solver *nlsat.Solver, compiler *nlsattactic.GoalCompiler, bloc
 }
 
 func newNLQSearchFromCompiler(solver *nlsat.Solver, compiler *nlsattactic.GoalCompiler, blocks [][]ast.ASTRef, isTrue ast.ASTHandle) (*nlqSearch, error) {
-	return newNLQSearchFromCompilerMode(solver, compiler, blocks, isTrue, qsatSAT)
-}
-
-func newNLQSearchFromCompilerMode(solver *nlsat.Solver, compiler *nlsattactic.GoalCompiler, blocks [][]ast.ASTRef, isTrue ast.ASTHandle, mode qsatMode) (*nlqSearch, error) {
 	if solver == nil || compiler == nil {
 		return nil, arena.ErrConfig
 	}
@@ -120,14 +116,7 @@ func newNLQSearchFromCompilerMode(solver *nlsat.Solver, compiler *nlsattactic.Go
 	for _, entry := range entries {
 		frontend[sat.BoolVar(entry.Variable)] = true
 	}
-	var converter *nlsattactic.GoalConverter
-	if mode == qsatQE {
-		converter, err = nlsattactic.NewGoalConverter(manager, solver, compiler.AtomMapping(), compiler.TermMapping())
-		if err != nil {
-			return nil, err
-		}
-	}
-	search, err := newNLQSearchMode(solver, truth, realLevels, boundReal, boundBoolean, frontend, mode, manager, converter)
+	search, err := newNLQSearch(solver, truth, realLevels, boundReal, boundBoolean, frontend)
 	if err != nil {
 		return nil, err
 	}

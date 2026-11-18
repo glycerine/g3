@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
-	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	basetactic "github.com/glycerine/g3/pkg/tactic"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -318,188 +317,12 @@ func TestNLQSATTacticParametersAndTranslation(t *testing.T) {
 	}
 }
 
-func TestNLQETacticEliminatesNonlinearExistential(t *testing.T) {
-	f := newFMFixture(t)
-	k := f.constant("nlqe-k", f.real)
-	x := f.variable(0, f.real)
-	square := f.own(f.r.manager.MkArithmeticMul(x, x))
-	body := f.own(f.r.manager.MkEq(square, k))
-	name, err := f.r.manager.Symbols.Intern("nlqe-x")
-	fmMust(t, err)
-	formula := f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{name}, Body: body}))
-	eliminate, err := NewNLQETactic(f.r.manager, f.r.config)
-	fmMust(t, err)
-	t.Cleanup(func() { fmMust(t, eliminate.Close()) })
-	goal := f.goal(false, false)
-	result := f.result()
-	fmMust(t, goal.Assert(formula))
-	fmMust(t, eliminate.Apply(goal, result))
-	if size, cause := goal.Size(); cause != nil || size != 1 {
-		t.Fatal("nonlinear QE result size", size, cause)
-	}
-	projected, err := goal.Form(0)
-	fmMust(t, err)
-	if quantified, cause := f.r.manager.HasQuantifiers(projected); cause != nil || quantified {
-		t.Fatal("nonlinear QE retained a quantifier", quantified, cause)
-	}
-	for _, tc := range []struct {
-		value string
-		sat   bool
-	}{{"-1", false}, {"0", true}, {"2", true}} {
-		t.Run(tc.value, func(t *testing.T) {
-			value := f.own(f.r.manager.ArithmeticRealNumeralText(tc.value))
-			equality := f.own(f.r.manager.MkEq(k, value))
-			checkGoal := f.goal(false, false)
-			checkResult := f.result()
-			fmMust(t, checkGoal.Assert(projected))
-			fmMust(t, checkGoal.Assert(equality))
-			check, cause := NewNLQSATTactic(f.r.manager, f.r.config)
-			fmMust(t, cause)
-			t.Cleanup(func() { fmMust(t, check.Close()) })
-			fmMust(t, check.Apply(checkGoal, checkResult))
-			if tc.sat {
-				if size, cause := checkGoal.Size(); cause != nil || size != 0 {
-					t.Fatal("projected formula rejected witness", size, cause)
-				}
-			} else if !checkGoal.IsDecidedUnsat() {
-				t.Fatal("projected formula admitted impossible value")
-			}
-		})
-	}
-}
-
-func TestNLQETacticEliminatesUniversalAndAlternatingNonlinear(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		build  func(*fmFixture, ast.ASTHandle) ast.ASTHandle
-		values map[string]bool
-	}{
-		{name: "universal", values: map[string]bool{"-1": true, "0": true, "1": false}, build: func(f *fmFixture, k ast.ASTHandle) ast.ASTHandle {
-			x := f.variable(0, f.real)
-			square := f.own(f.r.manager.MkArithmeticMul(x, x))
-			body := f.own(f.r.manager.MkArithmeticGE(square, k))
-			name, err := f.r.manager.Symbols.Intern("nlqe-universal-x")
-			fmMust(t, err)
-			return f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{name}, Body: body}))
-		}},
-		{name: "alternating", values: map[string]bool{"-1": false, "0": true, "1": true}, build: func(f *fmFixture, k ast.ASTHandle) ast.ASTHandle {
-			y, x := f.variable(0, f.real), f.variable(1, f.real)
-			xSquare := f.own(f.r.manager.MkArithmeticMul(x, x))
-			ySquare := f.own(f.r.manager.MkArithmeticMul(y, y))
-			right := f.own(f.r.manager.MkArithmeticAdd(ySquare, k))
-			body := f.own(f.r.manager.MkArithmeticLE(xSquare, right))
-			yName, err := f.r.manager.Symbols.Intern("nlqe-alternating-y")
-			fmMust(t, err)
-			xName, err := f.r.manager.Symbols.Intern("nlqe-alternating-x")
-			fmMust(t, err)
-			inner := f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{yName}, Body: body}))
-			return f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{xName}, Body: inner}))
-		}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			f := newFMFixture(t)
-			k := f.constant("nlqe-parameter", f.real)
-			eliminate, err := NewNLQETactic(f.r.manager, f.r.config)
-			fmMust(t, err)
-			t.Cleanup(func() { fmMust(t, eliminate.Close()) })
-			goal := f.goal(false, false)
-			result := f.result()
-			fmMust(t, goal.Assert(tc.build(f, k)))
-			fmMust(t, eliminate.Apply(goal, result))
-			projected, err := goal.Form(0)
-			fmMust(t, err)
-			if quantified, cause := f.r.manager.HasQuantifiers(projected); cause != nil || quantified {
-				t.Fatal("nonlinear QE retained a quantifier", quantified, cause)
-			}
-			for valueText, expected := range tc.values {
-				valueText, expected := valueText, expected
-				t.Run(valueText, func(t *testing.T) {
-					value := f.own(f.r.manager.ArithmeticRealNumeralText(valueText))
-					equality := f.own(f.r.manager.MkEq(k, value))
-					checkGoal := f.goal(false, false)
-					checkResult := f.result()
-					fmMust(t, checkGoal.Assert(projected))
-					fmMust(t, checkGoal.Assert(equality))
-					check, cause := NewNLQSATTactic(f.r.manager, f.r.config)
-					fmMust(t, cause)
-					t.Cleanup(func() { fmMust(t, check.Close()) })
-					fmMust(t, check.Apply(checkGoal, checkResult))
-					if expected {
-						if size, cause := checkGoal.Size(); cause != nil || size != 0 {
-							t.Fatal("projected formula rejected witness", size, cause)
-						}
-					} else if !checkGoal.IsDecidedUnsat() {
-						t.Fatal("projected formula admitted impossible value")
-					}
-				})
-			}
-		})
-	}
-}
-
-func TestNLQETacticComposesWithNLQSATForFreeParameters(t *testing.T) {
-	f := newFMFixture(t)
-	k := f.constant("nlqe-compose-k", f.real)
-	x := f.variable(0, f.real)
-	square := f.own(f.r.manager.MkArithmeticMul(x, x))
-	body := f.own(f.r.manager.MkEq(square, k))
-	name, err := f.r.manager.Symbols.Intern("nlqe-compose-x")
-	fmMust(t, err)
-	quantified := f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{name}, Body: body}))
-	two := f.own(f.r.manager.ArithmeticRealNumeralText("2"))
-	equality := f.own(f.r.manager.MkEq(k, two))
-	eliminate, err := NewNLQETactic(f.r.manager, f.r.config)
-	fmMust(t, err)
-	check, err := NewNLQSATTactic(f.r.manager, f.r.config)
-	fmMust(t, err)
-	combined, err := basetactic.NewAndThenTactic(eliminate, check)
-	fmMust(t, err)
-	fmMust(t, combined.IncRef())
-	t.Cleanup(func() { fmMust(t, combined.DecRef()) })
-	goal := f.goal(false, false)
-	result := f.result()
-	fmMust(t, goal.Assert(equality))
-	fmMust(t, goal.Assert(quantified))
-	fmMust(t, combined.Apply(goal, result))
-	if !goal.IsDecidedSat() {
-		t.Fatal("composed nonlinear elimination did not decide the projected goal")
-	}
-}
-
-func TestNLQAnswerSimplificationUsesPriorProjectedClauses(t *testing.T) {
-	f := newFMFixture(t)
-	simplifier, err := astrewriter.NewExprSafeReplace(f.r.manager)
-	fmMust(t, err)
-	search := &nlqSearch{manager: f.r.manager, answerSimplify: simplifier}
-	t.Cleanup(func() {
-		for i := len(search.answers) - 1; i >= 0; i-- {
-			fmMust(t, f.r.manager.DelRef(&search.answers[i]))
-		}
-		fmMust(t, simplifier.Close())
-	})
-	p := f.constant("nlqe-answer-p", f.boolean)
-	notP := f.own(f.r.manager.MkNot(p))
-	first, err := f.r.manager.NewRef(notP)
-	fmMust(t, err)
-	fmMust(t, search.addAnswer(&first))
-	second, err := f.r.manager.NewRef(p)
-	fmMust(t, err)
-	fmMust(t, search.addAnswer(&second))
-	rewritten, err := f.r.manager.RefGet(search.answers[1])
-	fmMust(t, err)
-	if !f.r.manager.IsFalse(rewritten) {
-		t.Fatal("prior negative projection did not simplify its atom to false")
-	}
-}
-
 // is_pure_proc (nlqsat.cpp:471-511) rejects a goal outside NRA before any
-// NLSAT state is built: an Int-sorted bound variable in either mode, and a
-// non-numeral division in nlqe (elim_t) mode, where it is not purified.
+// NLSAT state is built: an Int-sorted bound variable.
 func TestNLQSATTacticRejectsGoalsOutsideNRA(t *testing.T) {
 	for _, tc := range []struct {
-		name      string
-		eliminate bool
-		formula   func(*fmFixture) ast.ASTHandle
+		name    string
+		formula func(*fmFixture) ast.ASTHandle
 	}{
 		{name: "nlqsat-integer-variable", formula: func(f *fmFixture) ast.ASTHandle {
 			n := f.variable(0, f.integer)
@@ -508,33 +331,11 @@ func TestNLQSATTacticRejectsGoalsOutsideNRA(t *testing.T) {
 			body := f.own(f.r.manager.MkArithmeticGE(n, n))
 			return f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []usymbol.Symbol{name}, Body: body}))
 		}},
-		{name: "nlqe-integer-variable", eliminate: true, formula: func(f *fmFixture) ast.ASTHandle {
-			n := f.variable(0, f.integer)
-			name, err := f.r.manager.Symbols.Intern("n")
-			fmMust(f.t, err)
-			body := f.own(f.r.manager.MkArithmeticGE(n, n))
-			return f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []usymbol.Symbol{name}, Body: body}))
-		}},
-		{name: "nlqe-symbolic-division", eliminate: true, formula: func(f *fmFixture) ast.ASTHandle {
-			a := f.constant("purity-a", f.real)
-			x := f.variable(0, f.real)
-			name, err := f.r.manager.Symbols.Intern("x")
-			fmMust(f.t, err)
-			quotient := f.own(f.r.manager.MkArithmeticDiv(a, x))
-			body := f.own(f.r.manager.MkEq(quotient, a))
-			return f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{name}, Body: body}))
-		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFMFixture(t)
 			formula := tc.formula(f)
-			var runner *NLQSATTactic
-			var err error
-			if tc.eliminate {
-				runner, err = NewNLQETactic(f.r.manager, f.r.config)
-			} else {
-				runner, err = NewNLQSATTactic(f.r.manager, f.r.config)
-			}
+			runner, err := NewNLQSATTactic(f.r.manager, f.r.config)
 			fmMust(t, err)
 			t.Cleanup(func() { fmMust(t, runner.Close()) })
 			goal := f.goal(false, false)

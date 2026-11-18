@@ -8,9 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
-	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/nlsat"
-	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	"github.com/glycerine/g3/pkg/sat"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -23,12 +21,6 @@ type nlqSearch struct {
 	boundReal       [][]uint32
 	boundBoolean    [][]sat.BoolVar
 	frontendBoolean map[sat.BoolVar]bool
-	mode            qsatMode
-	manager         *ast.ASTManager
-	converter       *nlsattactic.GoalConverter
-	answerSimplify  *astrewriter.ExprSafeReplace
-	assumptionForms map[sat.BoolVar]ast.ASTRef
-	answers         []ast.ASTRef
 	extra           []sat.Literal
 	first, second   *nlsat.LiteralVector
 	held            *nlsat.LiteralVector
@@ -37,21 +29,13 @@ type nlqSearch struct {
 }
 
 func newNLQSearch(solver *nlsat.Solver, isTrue sat.Literal, realLevels []MaxLevel, boundReal [][]uint32, boundBoolean [][]sat.BoolVar, frontendBoolean map[sat.BoolVar]bool) (search *nlqSearch, err error) {
-	return newNLQSearchMode(solver, isTrue, realLevels, boundReal, boundBoolean, frontendBoolean, qsatSAT, nil, nil)
-}
-
-func newNLQSearchMode(solver *nlsat.Solver, isTrue sat.Literal, realLevels []MaxLevel, boundReal [][]uint32, boundBoolean [][]sat.BoolVar, frontendBoolean map[sat.BoolVar]bool, mode qsatMode, manager *ast.ASTManager, converter *nlsattactic.GoalConverter) (search *nlqSearch, err error) {
 	if solver == nil {
-		return nil, arena.ErrConfig
-	}
-	if mode != qsatSAT && mode != qsatQE || mode == qsatQE && (manager == nil || converter == nil) {
 		return nil, arena.ErrConfig
 	}
 	s := &nlqSearch{
 		solver: solver, isTrue: isTrue,
 		boundReal: append([][]uint32(nil), boundReal...), boundBoolean: append([][]sat.BoolVar(nil), boundBoolean...),
 		frontendBoolean: make(map[sat.BoolVar]bool, len(frontendBoolean)),
-		mode:            mode, manager: manager, converter: converter, assumptionForms: make(map[sat.BoolVar]ast.ASTRef),
 	}
 	s.self = s
 	for variable, present := range frontendBoolean {
@@ -65,12 +49,6 @@ func newNLQSearchMode(solver *nlsat.Solver, isTrue sat.Literal, realLevels []Max
 	s.state, err = newNLQState(solver, realLevels)
 	if err != nil {
 		return s, err
-	}
-	if mode == qsatQE {
-		s.answerSimplify, err = astrewriter.NewExprSafeReplace(manager)
-		if err != nil {
-			return s, err
-		}
 	}
 	for level, variables := range boundBoolean {
 		value := EmptyMaxLevel()
@@ -254,180 +232,6 @@ func (s *nlqSearch) releaseHeld() error {
 	return held.Reset()
 }
 
-func (s *nlqSearch) clauseFormula(clause []sat.Literal) (result ast.ASTRef, err error) {
-	refs := make([]ast.ASTRef, 0, len(clause))
-	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			err = errors.Join(err, s.manager.DelRef(&refs[i]))
-		}
-	}()
-	handles := make([]ast.ASTHandle, 0, len(clause))
-	for _, literal := range clause {
-		var ref ast.ASTRef
-		if mapped, found := s.assumptionForms[literal.Variable()]; found {
-			h, cause := s.manager.RefGet(mapped)
-			if cause != nil {
-				return result, cause
-			}
-			if literal.Sign() {
-				h, cause = s.manager.MkNot(h)
-				if cause != nil {
-					return result, cause
-				}
-			}
-			ref, cause = s.manager.NewRef(h)
-			if cause != nil {
-				return result, cause
-			}
-		} else {
-			var cause error
-			ref, cause = s.converter.ConvertLiteral(literal)
-			if cause != nil {
-				return result, cause
-			}
-		}
-		refs = append(refs, ref)
-		h, cause := s.manager.RefGet(ref)
-		if cause != nil {
-			return result, cause
-		}
-		handles = append(handles, h)
-	}
-	formula, err := s.manager.MkOrArray(handles)
-	if err != nil {
-		return result, err
-	}
-	return s.manager.NewRef(formula)
-}
-
-func (s *nlqSearch) projectQE(core []sat.Literal) (err error) {
-	level := s.state.level()
-	if !s.state.validModel {
-		return s.state.pop(1)
-	}
-	projectionLevel := level - 1
-	if projectionLevel < 1 {
-		projectionLevel = 1
-	}
-	dependency, clause, err := s.projectCube(core, projectionLevel)
-	if err != nil {
-		return fmt.Errorf("project cube: %w", err)
-	}
-	formula, err := s.clauseFormula(clause)
-	if err != nil {
-		return fmt.Errorf("convert projected clause: %w", err)
-	}
-	defer func() {
-		if formula != (ast.ASTRef{}) {
-			err = errors.Join(err, s.manager.DelRef(&formula))
-		}
-	}()
-	if level == 1 || dependency.Max() == 0 {
-		variable, cause := s.solver.MkBoolVar()
-		if cause != nil {
-			return fmt.Errorf("create projection assumption: %w", cause)
-		}
-		clause = append(clause, sat.MakeLiteral(variable, true))
-		s.extra = append(s.extra, sat.MakeLiteral(variable, false))
-		if cause = s.state.setLevel(variable, EmptyMaxLevel()); cause != nil {
-			return fmt.Errorf("set projection assumption level: %w", cause)
-		}
-		h, cause := s.manager.RefGet(formula)
-		if cause != nil {
-			return fmt.Errorf("read projected formula: %w", cause)
-		}
-		stored, cause := s.manager.NewRef(h)
-		if cause != nil {
-			return fmt.Errorf("retain projected formula: %w", cause)
-		}
-		s.assumptionForms[variable] = stored
-	} else {
-		clause = s.enforceParity(clause)
-	}
-	if err = s.solver.AddClause(clause, nlsat.Assumption{}); err != nil {
-		return fmt.Errorf("add projected clause: %w", err)
-	}
-	// The source adds only level-1 projections to the answer (nlqsat.cpp:363,
-	// with the comment "is_forall() && clevel.max() == 0"). nlqe is dead code
-	// in z3 4.7.1 (TBD_TACTIC), and that rule is unsound: a clause projected
-	// at a deeper universal level whose literals mention only free variables
-	// also removes a region where the negated input holds, through its
-	// assumption literal, and a final level-0 conflict over that assumption
-	// then leaves the region out of the answer. Such a clause is a conjunct
-	// of the answer as well.
-	if level == 1 || !nlqExists(level) && dependency.Max() == 0 {
-		if err = s.addAnswer(&formula); err != nil {
-			return fmt.Errorf("retain simplified projection answer: %w", err)
-		}
-	}
-	if level == 1 {
-		if err = s.state.pop(1); err != nil {
-			return fmt.Errorf("pop final projection: %w", err)
-		}
-		return s.releaseHeld()
-	}
-	if err = s.state.pop(2); err != nil {
-		return fmt.Errorf("pop projection pair: %w", err)
-	}
-	return s.releaseHeld()
-}
-
-func (s *nlqSearch) answer() (ast.ASTRef, error) {
-	if err := s.open(); err != nil {
-		return ast.ASTRef{}, err
-	}
-	handles := make([]ast.ASTHandle, len(s.answers))
-	for i, ref := range s.answers {
-		h, err := s.manager.RefGet(ref)
-		if err != nil {
-			return ast.ASTRef{}, err
-		}
-		handles[i] = h
-	}
-	formula, err := s.manager.MkAndArray(handles)
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	return s.manager.NewRef(formula)
-}
-
-func (s *nlqSearch) addAnswer(formula *ast.ASTRef) error {
-	if formula == nil || *formula == (ast.ASTRef{}) || s.answerSimplify == nil {
-		return arena.ErrConfig
-	}
-	if err := s.answerSimplify.ApplyRef(*formula); err != nil {
-		return err
-	}
-	h, err := s.manager.RefGet(*formula)
-	if err != nil {
-		return err
-	}
-	negative, inner, err := s.manager.IsNot(h)
-	if err != nil {
-		return err
-	}
-	if negative {
-		falsity, cause := s.manager.MkFalse()
-		if cause != nil {
-			return cause
-		}
-		if err = s.answerSimplify.Insert(inner, falsity); err != nil {
-			return err
-		}
-	} else {
-		truth, cause := s.manager.MkTrue()
-		if cause != nil {
-			return cause
-		}
-		if err = s.answerSimplify.Insert(h, truth); err != nil {
-			return err
-		}
-	}
-	s.answers = append(s.answers, *formula)
-	*formula = ast.ASTRef{}
-	return nil
-}
-
 func (s *nlqSearch) check() (lbool.LBool, error) {
 	if err := s.open(); err != nil {
 		return lbool.Undef, err
@@ -455,15 +259,10 @@ func (s *nlqSearch) check() (lbool.LBool, error) {
 			if s.state.level() == 0 {
 				return lbool.False, nil
 			}
-			if s.state.level() == 1 && s.mode == qsatSAT {
+			if s.state.level() == 1 {
 				return lbool.True, nil
 			}
-			if s.mode == qsatQE {
-				err = s.projectQE(input)
-			} else {
-				err = s.projectConflict(input)
-			}
-			if err != nil {
+			if err = s.projectConflict(input); err != nil {
 				return lbool.Undef, fmt.Errorf("nlqsat project at level %d: %w", s.state.level(), err)
 			}
 		case lbool.Undef:
@@ -490,25 +289,6 @@ func (s *nlqSearch) close() (err error) {
 			return err
 		}
 		s.first = nil
-	}
-	for len(s.answers) != 0 {
-		i := len(s.answers) - 1
-		if err = s.manager.DelRef(&s.answers[i]); err != nil {
-			return err
-		}
-		s.answers = s.answers[:i]
-	}
-	for variable, ref := range s.assumptionForms {
-		if err = s.manager.DelRef(&ref); err != nil {
-			return err
-		}
-		delete(s.assumptionForms, variable)
-	}
-	if s.answerSimplify != nil {
-		if err = s.answerSimplify.Close(); err != nil {
-			return err
-		}
-		s.answerSimplify = nil
 	}
 	if s.state != nil {
 		if err = s.state.close(); err != nil {
