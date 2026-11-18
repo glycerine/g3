@@ -4,8 +4,8 @@ package ast
 // cmap<expr*, expr*, obj_ptr_hash<expr>> table. act_cache::dec_refs walks
 // that table, so the order in which a rewriter cache releases its keys and
 // values (and so the order in which their ids are recycled) is the chained
-// table's slot-and-chain order on the AST hash. Lookups stay in the
-// ActivityCache's dictionary; this table only reproduces the layout.
+// table's slot-and-chain order on the AST hash. Lookups walk the chain like
+// chashtable::find.
 
 const (
 	activityChashInitSlots  = 8 // chashtable::default_init_slots
@@ -120,6 +120,21 @@ func (t *activityChashtable) expandTable() {
 		}
 		newCellar *= 2
 	}
+}
+
+// find is chashtable::find: the entry for key k (whose AST hash is hash),
+// or nil.
+func (t *activityChashtable) find(k ASTHandle, hash uint32) *astActivityEntry {
+	c := int32(hash & uint32(t.slots-1))
+	if t.cells[c].next == activityChashFree {
+		return nil
+	}
+	for ; c != activityChashNil; c = t.cells[c].next {
+		if entry := t.cells[c].entry; entry.key == k {
+			return entry
+		}
+	}
+	return nil
 }
 
 // insert is insert_if_not_there for a key known to be absent: a colliding

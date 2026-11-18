@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
-	"github.com/glycerine/insdict"
 )
 
 // Native entries own the key/value references recorded by their acquisition
@@ -22,7 +21,6 @@ type astActivityEntry struct {
 type ActivityCache struct {
 	self                     *ActivityCache
 	manager                  *ASTManager
-	entries                  insdict.Dict[ASTHandle, *astActivityEntry]
 	table                    activityChashtable
 	queue                    []ASTHandle
 	qhead, unused, maxUnused uint32
@@ -33,10 +31,6 @@ type ActivityCache struct {
 	pending                  bool
 	cause                    error
 	closed                   bool
-}
-
-func activityHandleHash(h ASTHandle) uint64 {
-	return h.origin ^ uint64(h.slot)*0x9e3779b97f4a7c15 ^ uint64(h.generation)*0xbf58476d1ce4e5b9
 }
 
 func NewActivityCache(m *ASTManager, maxUnused *uint32) (*ActivityCache, error) {
@@ -59,7 +53,6 @@ func NewActivityCache(m *ASTManager, maxUnused *uint32) (*ActivityCache, error) 
 		return nil, e
 	}
 	c := &ActivityCache{manager: m, maxUnused: n, header: bytes}
-	c.entries = *insdict.NewDictFunc[ASTHandle, *astActivityEntry](activityHandleHash)
 	c.table = newActivityChashtable()
 	c.self = c
 	return c, nil
@@ -126,15 +119,18 @@ func (c *ActivityCache) deleteUnused() error {
 	for c.qhead < size {
 		k := c.queue[c.qhead]
 		c.qhead++
-		entry, found := c.entries.Get2(k)
-		if !found {
+		hash, e := c.manager.GetHash(k)
+		if e != nil {
+			return e
+		}
+		entry := c.table.find(k, hash)
+		if entry == nil {
 			return ErrASTDomain
 		}
 		if !entry.accessed {
 			c.unused--
 			c.retiring = *entry
 			c.pending = true
-			c.entries.DelPackMaybe(k)
 			c.table.erase(entry)
 			if e := c.finishPending(); e != nil {
 				return e
@@ -184,10 +180,9 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 			return e
 		}
 	}
-	entry, found := c.entries.Get2(k)
-	if !found {
+	entry := c.table.find(k, hash)
+	if entry == nil {
 		entry = &astActivityEntry{key: k, hash: hash, dummy: true}
-		c.entries.Put(k, entry)
 		c.table.insert(entry)
 	}
 	if entry.dummy {
@@ -234,11 +229,12 @@ func (c *ActivityCache) Find(k ASTHandle) (ASTHandle, error) {
 	if k.IsNull() {
 		return ASTHandle{}, ErrASTDomain
 	}
-	if _, e := c.manager.GetHash(k); e != nil {
+	hash, e := c.manager.GetHash(k)
+	if e != nil {
 		return ASTHandle{}, e
 	}
-	entry, found := c.entries.Get2(k)
-	if !found {
+	entry := c.table.find(k, hash)
+	if entry == nil {
 		return ASTHandle{}, nil
 	}
 	if !entry.accessed {
@@ -279,7 +275,6 @@ func (c *ActivityCache) clear(cleanup bool) (err error) {
 	if e := c.decRefs(); e != nil {
 		return e
 	}
-	c.entries.Clear()
 	if cleanup {
 		c.table.finalize()
 	} else {
@@ -301,7 +296,7 @@ func (c *ActivityCache) Size() (uint32, error) {
 	if e := c.open(); e != nil {
 		return 0, e
 	}
-	return uint32(c.entries.Len()), nil
+	return uint32(c.table.size), nil
 }
 func (c *ActivityCache) Empty() (bool, error) {
 	n, e := c.Size()
@@ -317,7 +312,6 @@ func (c *ActivityCache) Close() error {
 	if e := c.decRefs(); e != nil {
 		return e
 	}
-	c.entries = insdict.Dict[ASTHandle, *astActivityEntry]{}
 	c.table = activityChashtable{}
 	c.manager.BudgetField.Release(c.header)
 	c.queue = nil
