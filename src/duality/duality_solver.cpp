@@ -879,6 +879,11 @@ namespace Duality {
             for(unsigned i = 0; i < cand.Children.size(); i++)
                 if(NodePastRecursionBound(cand.Children[i])){
                     timer_stop("CandidateFeasible");
+                    // FORK FIX #131 (g3 audit, see FORK_BUGFIXES.md): pop and free
+                    // the checker as the normal exit does; the early return
+                    // leaked it and its solver scope (AUDIT duality_03-F6).
+                    checker->Pop(1);
+                    delete checker;
                     return false;
                 }
 #endif      
