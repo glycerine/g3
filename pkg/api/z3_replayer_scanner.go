@@ -2,10 +2,9 @@ package api
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
-	"io"
 	"strconv"
-	"strings"
 )
 
 type z3ReplayScanner struct {
@@ -35,7 +34,9 @@ func (s *z3ReplayScanner) blanks() {
 		if s.current == '\n' {
 			s.line++
 			s.next()
-		} else if s.current == ' ' || s.current == '\t' || s.current == '\r' {
+		} else if s.current == ' ' || s.current == '\t' {
+			// skip_blank: '\r' is not blank, so a CRLF log stops at an
+			// unknown log command.
 			s.next()
 		} else {
 			return
@@ -63,11 +64,11 @@ func (s *z3ReplayScanner) quoted(delimiter byte) (string, error) {
 			v := 0
 			for i := 0; i < 3; i++ {
 				if s.eof || s.current < '0' || s.current > '9' {
-					return "", fmt.Errorf("invalid escaped character")
+					return "", fmt.Errorf("invalid scaped character")
 				}
 				v = 10*v + int(s.current-'0')
 				if v > 255 {
-					return "", fmt.Errorf("invalid escaped character")
+					return "", fmt.Errorf("invalid scaped character")
 				}
 				s.next()
 			}
@@ -77,64 +78,79 @@ func (s *z3ReplayScanner) quoted(delimiter byte) (string, error) {
 		value = append(value, c)
 		s.next()
 	}
-	return "", io.ErrUnexpectedEOF
+	return "", fmt.Errorf("unexpected end of file")
 }
 
-func (s *z3ReplayScanner) digits(signed bool) (string, error) {
-	result := make([]byte, 0, 20)
-	if signed && !s.eof && s.current == '-' {
-		result = append(result, '-')
-		s.next()
-	}
-	start := len(result)
-	for !s.eof && s.current >= '0' && s.current <= '9' {
-		result = append(result, s.current)
-		s.next()
-	}
-	if len(result) == start {
-		return "", fmt.Errorf("invalid integer")
-	}
-	return string(result), nil
-}
-
+// uint64 is read_uint64: "invalid unsigned" without a digit, and the value
+// accumulates modulo 2^64 as the source's uint64_t does.
 func (s *z3ReplayScanner) uint64() (uint64, error) {
-	text, err := s.digits(false)
-	if err != nil {
-		return 0, err
+	if s.eof || s.current < '0' || s.current > '9' {
+		return 0, fmt.Errorf("invalid unsigned")
 	}
-	return strconv.ParseUint(text, 10, 64)
+	var v uint64
+	for !s.eof && s.current >= '0' && s.current <= '9' {
+		v = 10*v + uint64(s.current-'0')
+		s.next()
+	}
+	return v, nil
 }
 
+// int64 is read_int64. The source accumulates in int64_t, so a value past
+// INT64_MAX is signed overflow (undefined behavior); the accumulation here
+// wraps modulo 2^64, which is what the release build computes.
 func (s *z3ReplayScanner) int64() (int64, error) {
-	text, err := s.digits(true)
-	if err != nil {
-		return 0, err
+	if s.eof || !(s.current == '-' || s.current >= '0' && s.current <= '9') {
+		return 0, fmt.Errorf("invalid integer")
 	}
-	return strconv.ParseInt(text, 10, 64)
-}
-
-func (s *z3ReplayScanner) hexadecimal() (uint64, error) {
-	text := make([]byte, 0, 16)
-	for !s.eof {
-		c := s.current
-		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (len(text) == 1 && (c == 'x' || c == 'X')) {
-			text = append(text, c)
-			s.next()
-			continue
+	negative := false
+	if s.current == '-' {
+		negative = true
+		s.next()
+		if s.eof || s.current < '0' || s.current > '9' {
+			return 0, fmt.Errorf("invalid integer")
 		}
-		break
 	}
-	if len(text) == 0 {
-		return 0, fmt.Errorf("invalid pointer")
+	var v uint64
+	for !s.eof && s.current >= '0' && s.current <= '9' {
+		v = 10*v + uint64(s.current-'0')
+		s.next()
 	}
-	value := string(text)
-	value = strings.TrimPrefix(strings.TrimPrefix(value, "0x"), "0X")
-	if value == "" {
-		return 0, fmt.Errorf("invalid pointer")
+	if negative {
+		v = -v
 	}
-	return strconv.ParseUint(value, 16, 64)
+	return int64(v), nil
 }
 
+// hexadecimal is read_ptr: the first character must be a hex digit, an x
+// or X is skipped only at position 1, and the value accumulates modulo
+// 2^64.
+func (s *z3ReplayScanner) hexadecimal() (uint64, error) {
+	isHex := func(c byte) bool { return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F' }
+	if s.eof || !isHex(s.current) {
+		return 0, fmt.Errorf("invalid ptr")
+	}
+	var v uint64
+	for pos := 0; !s.eof; pos++ {
+		c := s.current
+		switch {
+		case c >= '0' && c <= '9':
+			v = v*16 + uint64(c-'0')
+		case c >= 'a' && c <= 'f':
+			v = v*16 + 10 + uint64(c-'a')
+		case c >= 'A' && c <= 'F':
+			v = v*16 + 10 + uint64(c-'A')
+		case pos == 1 && (c == 'x' || c == 'X'):
+		default:
+			return v, nil
+		}
+		s.next()
+	}
+	return v, nil
+}
+
+// floating is read_float / read_double: the double characters are
+// collected and strtof/strtod read their longest numeric prefix (0 when
+// there is none); the source ignores the end pointer.
 func (s *z3ReplayScanner) floating(bits int) (float64, error) {
 	text := make([]byte, 0, 24)
 	for !s.eof {
@@ -147,7 +163,16 @@ func (s *z3ReplayScanner) floating(bits int) (float64, error) {
 		}
 	}
 	if len(text) == 0 {
-		return 0, fmt.Errorf("invalid floating point value")
+		if bits == 32 {
+			return 0, fmt.Errorf("invalid float")
+		}
+		return 0, fmt.Errorf("invalid double")
 	}
-	return strconv.ParseFloat(string(text), bits)
+	for n := len(text); n > 0; n-- {
+		v, err := strconv.ParseFloat(string(text[:n]), bits)
+		if err == nil || errors.Is(err, strconv.ErrRange) {
+			return v, nil
+		}
+	}
+	return 0, nil
 }

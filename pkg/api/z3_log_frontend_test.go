@@ -42,7 +42,7 @@ func TestZ3LogFrontendReportsParseFailureAndWriterError(t *testing.T) {
 	if err = ReplayZ3LogStream(r, &output, &diagnostics, memory.NewProcessAccounting(), clock); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(diagnostics.String(), "Error at line 2: ") || output.String() != "max. heap size:     0 Mbytes\ntime:               0\n" {
+	if !strings.HasPrefix(diagnostics.String(), "Error at line 1: ") || output.String() != "max. heap size:     0 Mbytes\ntime:               0\n" {
 		t.Fatal("parse failure reports", diagnostics.String(), output.String())
 	}
 	r2, err := NewZ3Replayer(strings.NewReader(""), io.Discard)

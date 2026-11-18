@@ -3,6 +3,8 @@ package api
 import (
 	"errors"
 	"fmt"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (r *Z3Replayer) Parse() error {
@@ -10,12 +12,34 @@ func (r *Z3Replayer) Parse() error {
 		return ErrZ3ReplayState
 	}
 	s := r.scanner
+	// z3_replayer::parse: IF_VERBOSE(1) counts every loop iteration and
+	// prints a progress line to std::cout each TICK_FREQUENCY of them.
+	var counter uint64
+	var tick uint32
 	for {
+		if replayerVerboseTicks {
+			if on, e := diagnostic.ProcessVerboseEnabled(1); e == nil && on {
+				counter++
+				tick++
+				if tick >= 100000 {
+					if _, e = fmt.Fprintf(r.output, "[replayer] %d operations executed\n", counter); e != nil {
+						return e
+					}
+					tick = 0
+				}
+			}
+		}
 		s.blanks()
 		if s.eof {
 			return nil
 		}
 		command := s.current
+		commandLine := s.line
+		if !z3ReplayCommandByte(command) {
+			// The default case throws before next(): the line is the
+			// command's own.
+			return &Z3ReplayError{Line: commandLine, Message: "unknown log command"}
+		}
 		s.next()
 		s.blanks()
 		var err error
@@ -179,4 +203,12 @@ func (r *Z3Replayer) commandContext() *replayContextOwner {
 		return nil
 	}
 	return r.contexts[r.args[0].u]
+}
+
+func z3ReplayCommandByte(c byte) bool {
+	switch c {
+	case 'V', 'R', 'P', 'S', 'N', '$', '#', 'I', 'U', 'F', 'D', 'p', 's', 'u', 'i', 'C', '=', '*', '@', 'M':
+		return true
+	}
+	return false
 }
