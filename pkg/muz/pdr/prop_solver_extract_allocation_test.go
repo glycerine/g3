@@ -37,7 +37,10 @@ func TestPropSolverBitVectorExpansionReleasesNodesAfterAllocationFailure(t *test
 			value := own(m.BitVectorNumeralUint64(0, 32))
 			sort := own(m.GetSort(value))
 			term := own(m.MkFreshConst("extract-allocation-x", sort))
-			one := own(m.BitVectorNumeralUint64(1, 1))
+			bvFamily, err := m.BitVectorUtilityFamilyID()
+			closureMust(t, err)
+			// OP_BIT1, as pdr_prop_solver.cpp builds it (not the numeral #b1).
+			one := own(m.MkFamilyApp(bvFamily, 1, nil, nil))
 			equality := own(m.MkEq(term, value))
 			// Warm the expansion's shared declarations and slots, then release every
 			// generated application so the targeted node must be constructed anew.
@@ -162,5 +165,54 @@ func TestPropSolverBitVectorExpansionReleasesNodesAfterAllocationFailure(t *test
 			// The fixture closes the solver, source owners and manager to zero budget;
 			// the exact live-count check above detects an orphan before manager teardown.
 		})
+	}
+}
+
+// expand_literals compares each bit with the bit1 constant (OP_BIT1), built
+// after the extract (AUDIT muz_pdr_02-F9).
+func TestExpandEqualitiesUsesBit1Constant(t *testing.T) {
+	m, context, _ := classifierContextFixture(t)
+	var pins []ast.ASTRef
+	t.Cleanup(func() { closureMust(t, closeASTRefs(m, pins)) })
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		closureMust(t, err)
+		ref, err := m.NewRef(h)
+		closureMust(t, err)
+		pins = append(pins, ref)
+		return h
+	}
+	truth := own(m.MkTrue())
+	solver, err := NewPropSolver(m, context.owner.contexts, truth, "expand-bit1")
+	closureMust(t, err)
+	t.Cleanup(func() { closureMust(t, solver.Close()) })
+	value := own(m.BitVectorNumeralUint64(5, 4))
+	sort := own(m.GetSort(value))
+	term := own(m.MkFreshConst("expand-bit1-c", sort))
+	equality := own(m.MkEq(term, value))
+	expanded, references, _, err := solver.expandEqualities([]ast.ASTHandle{equality})
+	closureMust(t, err)
+	t.Cleanup(func() { closureMust(t, closeASTRefs(m, references)) })
+	bvFamily, err := m.BitVectorUtilityFamilyID()
+	closureMust(t, err)
+	if len(expanded) != 4 {
+		t.Fatal("bit literals", len(expanded))
+	}
+	for i, literal := range expanded {
+		bit := literal
+		if i == 1 || i == 3 {
+			// bits 1 and 3 of #x5 are clear: (not (= bit1 extract))
+			bit, err = m.GetArg(literal, 0)
+			closureMust(t, err)
+		}
+		first, err := m.GetArg(bit, 0)
+		closureMust(t, err)
+		family, err := m.GetFamilyID(first)
+		closureMust(t, err)
+		kind, err := m.GetDeclKind(first)
+		closureMust(t, err)
+		if family != bvFamily || kind != 1 {
+			t.Fatal("bit literal does not compare with bit1", i, family, kind)
+		}
 	}
 }

@@ -345,7 +345,15 @@ func TestPropSolverExpandsBitVectorEqualityForSubsetCore(t *testing.T) {
 			pdrMust(t, err)
 			term, err := manager.MkFreshConst("bit-vector-core-value", sort)
 			pdrMust(t, err)
-			one, err := manager.BitVectorNumeralUint64(1, 1)
+			bvFamily, err := manager.BitVectorUtilityFamilyID()
+			if err != nil {
+				t.Fatal(err)
+			}
+			// pdr_prop_solver.cpp compares each bit with OP_BIT1.
+			one, err := manager.MkFamilyApp(bvFamily, 1, nil, nil)
+			pdrMust(t, err)
+			// The bit1 constant has no other owner while the solver runs.
+			oneRef, err := manager.NewRef(one)
 			pdrMust(t, err)
 			extract, err := manager.MkBitVectorExtract(test.bit, test.bit, term)
 			pdrMust(t, err)
@@ -390,6 +398,7 @@ func TestPropSolverExpandsBitVectorEqualityForSubsetCore(t *testing.T) {
 				t.Fatal("expanded bit-vector literal", kind, coreOne, high, low, coreTerm)
 			}
 
+			pdrMust(t, manager.DelRef(&oneRef))
 			pdrMust(t, solver.Close())
 			pdrMust(t, contexts.Close())
 			pdrMust(t, command.Close())

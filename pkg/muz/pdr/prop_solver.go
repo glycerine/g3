@@ -512,11 +512,8 @@ func (p *PropSolver) expandEqualities(atoms []ast.ASTHandle) (result []ast.ASTHa
 			if !bitVector {
 				continue
 			}
-			one, x := p.manager.BitVectorNumeralUint64(1, 1)
+			bvFamily, x := p.manager.BitVectorUtilityFamilyID()
 			if x != nil {
-				return nil, references, generated, x
-			}
-			if x = pin(one, false); x != nil {
 				return nil, references, generated, x
 			}
 			for bitIndex, set := range bits {
@@ -530,6 +527,15 @@ func (p *PropSolver) expandEqualities(atoms []ast.ASTHandle) (result []ast.ASTHa
 					x = errors.Join(x, p.manager.SetRef(extractRef, extract))
 				}
 				if x != nil {
+					return nil, references, generated, x
+				}
+				// m.mk_eq(m.mk_app(bv_fid, OP_BIT1), bv.mk_extract(j, j, c)):
+				// GCC builds the extract, then the bit1 constant (not #b1).
+				one, x := p.manager.MkFamilyApp(bvFamily, 1, nil, nil)
+				if x != nil {
+					return nil, references, generated, x
+				}
+				if x = pin(one, false); x != nil {
 					return nil, references, generated, x
 				}
 				bitEqualityRef, x := p.manager.NewRef(ast.ASTHandle{})

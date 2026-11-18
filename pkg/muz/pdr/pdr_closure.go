@@ -286,18 +286,20 @@ func (c *convexClosure) addVariables(count int, formulas *[]ast.ASTHandle, works
 			}
 			copies[index] = copyVariable
 		}
-		current, x := c.manager.MkApp(newDeclaration, nil)
-		if x != nil {
-			return x
-		}
-		if x = pin(current); x != nil {
-			return x
-		}
+		// m.mk_eq(m.mk_const(fn1), a.mk_add(num_vars, vars)): GCC builds
+		// the sum before the constant.
 		sum, x := c.arithmeticApp(closureArithAdd, copies...)
 		if x != nil {
 			return x
 		}
 		if x = pin(sum); x != nil {
+			return x
+		}
+		current, x := c.manager.MkApp(newDeclaration, nil)
+		if x != nil {
+			return x
+		}
+		if x = pin(current); x != nil {
 			return x
 		}
 		equality, x := c.manager.MkEq(current, sum)
@@ -330,18 +332,19 @@ func (c *convexClosure) addVariables(count int, formulas *[]ast.ASTHandle, works
 		}
 		*formulas = append(*formulas, bound)
 	}
-	one, err := c.manager.ArithmeticRealNumeralText("1")
-	if err != nil {
-		return err
-	}
-	if err = pin(one); err != nil {
-		return err
-	}
+	// m.mk_eq(a.mk_numeral(1), a.mk_add(num_vars, m_sigma)): the sum first.
 	sigmaSum, err := c.arithmeticApp(closureArithAdd, c.sigmas[:count]...)
 	if err != nil {
 		return err
 	}
 	if err = pin(sigmaSum); err != nil {
+		return err
+	}
+	one, err := c.manager.ArithmeticRealNumeralText("1")
+	if err != nil {
+		return err
+	}
+	if err = pin(one); err != nil {
 		return err
 	}
 	normalization, err := c.manager.MkEq(one, sigmaSum)
