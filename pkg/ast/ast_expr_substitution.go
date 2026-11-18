@@ -3,6 +3,7 @@ package ast
 // Concrete expr_substitution: checked scalar owners and native dictionaries.
 
 import (
+	"encoding/binary"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -44,20 +45,29 @@ const astExprSubstBytes uint32 = 16
 const astExprSubstMagic uint32 = 0x45535542
 
 func (m *ASTManager) substState(s ASTExprSubstitution) (uint32, error) {
-	if s.origin != m.origin || m.exprSubstitutions[s.record] == nil {
-		return 0, ErrASTHandle
+	flags, _, e := m.substStateRecord(s)
+	return flags, e
+}
+
+// substStateRecord is substState that also returns s's state, validating
+// the record with one map lookup and one payload view: a live 16-byte
+// record carrying the magic tag.
+func (m *ASTManager) substStateRecord(s ASTExprSubstitution) (uint32, *astExprSubstState, error) {
+	if s.origin != m.origin {
+		return 0, nil, ErrASTHandle
 	}
-	if size, e := m.allocator.Size(s.record); e != nil || size != astExprSubstBytes {
-		return 0, ErrASTHandle
+	state := m.exprSubstitutions[s.record]
+	if state == nil {
+		return 0, nil, ErrASTHandle
 	}
-	tag, e := m.readWord(s.record, 4)
-	if e != nil {
-		return 0, e
+	data, e := m.allocator.View(s.record)
+	if e != nil || uint32(len(data)) != astExprSubstBytes {
+		return 0, nil, ErrASTHandle
 	}
-	if tag != astExprSubstMagic {
-		return 0, ErrASTHandle
+	if binary.LittleEndian.Uint32(data[4:]) != astExprSubstMagic {
+		return 0, nil, ErrASTHandle
 	}
-	return m.readWord(s.record, 0)
+	return binary.LittleEndian.Uint32(data), state, nil
 }
 func (m *ASTManager) substTable(s ASTExprSubstitution, which uint32) (*astExprSubstTable, error) {
 	if _, e := m.substState(s); e != nil {

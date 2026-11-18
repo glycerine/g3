@@ -195,12 +195,11 @@ func (m *ASTManager) substFindOutputs(s ASTExprSubstitution, key astNodeRef, def
 	if def == nil || proof == nil {
 		return false, ErrASTDomain
 	}
-	flags, e := m.substState(s)
+	flags, state, e := m.substStateRecord(s)
 	if e != nil {
 		return false, e
 	}
-	// substState validated s; its tables are read without revalidating.
-	state := m.exprSubstitutions[s.record]
+	// s is validated; its tables are read without revalidating.
 	t := &state.base
 	token, found, e := m.substFind(t, key)
 	if e != nil || !found {
