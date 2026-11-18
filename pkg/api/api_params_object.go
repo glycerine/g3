@@ -200,7 +200,8 @@ func (d *ParameterDescriptions) Kind(name string) (ParameterKind, error) {
 	if err := d.open(); err != nil {
 		return ParameterInvalid, err
 	}
-	name = apiParameterName(name)
+	// param_descrs::get_kind looks the symbol up verbatim; only the
+	// Z3_params_set_* functions normalize the name.
 	kind, err := d.value.KindName(name)
 	return apiParameterKind(kind), err
 }
@@ -227,7 +228,6 @@ func (d *ParameterDescriptions) Documentation(name string) (string, error) {
 	if err := d.open(); err != nil {
 		return "", err
 	}
-	name = apiParameterName(name)
 	text, found, err := d.value.DescriptionName(name)
 	if err != nil {
 		return "", err

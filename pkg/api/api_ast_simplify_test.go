@@ -46,7 +46,7 @@ func TestSMTContextASTSimplifyDescriptionsHelpAndOwnership(t *testing.T) {
 	descriptions, err := f.c.SimplifyParameterDescriptions()
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, descriptions.Close()) })
-	if kind, e := descriptions.Kind("elim-and"); e != nil || kind != ParameterBool {
+	if kind, e := descriptions.Kind("elim_and"); e != nil || kind != ParameterBool {
 		t.Fatal("elim_and description", kind, e)
 	}
 	if documentation, e := descriptions.Documentation("elim_and"); e != nil || documentation == "" {
@@ -65,5 +65,20 @@ func TestSMTContextASTSimplifyDescriptionsHelpAndOwnership(t *testing.T) {
 	value := f.pin(f.c.Bool(true))
 	if _, err = f.c.SimplifyWithParameters(value, foreignParameters); !errors.Is(err, ErrSMTContextOwner) {
 		t.Fatal("foreign parameter owner", err)
+	}
+}
+
+// AUDIT.md api_02-F9: Z3_param_descrs_get_kind / get_documentation look
+// the name up verbatim, so a dash spelling is not found.
+func TestAPIParameterDescriptionsExactNames(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	descriptions, err := f.c.SimplifyParameterDescriptions()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, descriptions.Close()) })
+	if kind, e := descriptions.Kind("elim-and"); e != nil || kind != ParameterInvalid {
+		t.Fatal("elim-and kind", kind, e)
+	}
+	if _, e := descriptions.Documentation("elim-and"); e == nil {
+		t.Fatal("elim-and documentation found")
 	}
 }
