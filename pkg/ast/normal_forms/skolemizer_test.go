@@ -134,3 +134,41 @@ func TestSkolemizerHackPatternAugmentsExistentialBody(t *testing.T) {
 		t.Fatal("proof-disabled output", p, x)
 	}
 }
+
+// skolemizer::process builds mk_skolemization(mk_not(q), mk_not(r)); GCC
+// evaluates the arguments right to left, so (not r) is created first.
+func TestSkolemizerForallProofNegationOrder(t *testing.T) {
+	m := definedNamesManager(t, true)
+	b, e := m.MkBoolSort()
+	definedNamesMust(t, e)
+	pName, e := m.Symbols.Intern("skolem-order-p")
+	definedNamesMust(t, e)
+	pDecl, e := m.MkFuncDecl(pName, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, pDecl)
+	v0, e := m.MkVar(0, b)
+	definedNamesMust(t, e)
+	body, e := m.MkApp(pDecl, []ast.ASTHandle{v0})
+	definedNamesMust(t, e)
+	q, e := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{usymbol.Numerical(12)}, Body: body})
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, q)
+	s, e := NewSkolemizer(m)
+	definedNamesMust(t, e)
+	t.Cleanup(func() { definedNamesMust(t, s.Close()) })
+	out, proof := nameExprOutputs(t, m)
+	definedNamesMust(t, s.Apply(q, out, proof))
+	result, e := m.RefGet(out)
+	definedNamesMust(t, e)
+	notQ, e := m.MkNot(q)
+	definedNamesMust(t, e)
+	notR, e := m.MkNot(result)
+	definedNamesMust(t, e)
+	qID, e := m.GetASTID(notQ)
+	definedNamesMust(t, e)
+	rID, e := m.GetASTID(notR)
+	definedNamesMust(t, e)
+	if rID >= qID {
+		t.Fatal("(not r) must be built before (not q)", rID, qID)
+	}
+}

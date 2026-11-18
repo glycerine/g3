@@ -321,18 +321,20 @@ func (s *Skolemizer) Apply(q ast.ASTHandle, out, proofOut ast.ASTRef) (result er
 		}
 		left, right := q, value
 		if forall {
-			left, x = m.MkNot(q)
-			if x != nil {
-				return x
-			}
-			if x = hold(left); x != nil {
-				return x
-			}
+			// mk_skolemization(mk_not(q), mk_not(r)): GCC evaluates the
+			// arguments right to left, so (not r) is built first.
 			right, x = m.MkNot(value)
 			if x != nil {
 				return x
 			}
 			if x = hold(right); x != nil {
+				return x
+			}
+			left, x = m.MkNot(q)
+			if x != nil {
+				return x
+			}
+			if x = hold(left); x != nil {
 				return x
 			}
 		}

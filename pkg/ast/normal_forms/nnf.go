@@ -631,19 +631,20 @@ func (n *NNF) convertDefault(t ast.ASTHandle, polarity, inQ, proofs bool) (nnfRe
 		}
 	}
 	if !polarity {
-		oldNot, x := n.manager.MkNot(t)
-		if x != nil {
-			return nnfResult{}, x
-		}
-		value, x = n.manager.MkNot(value)
-		if x != nil {
-			return nnfResult{}, x
+		// n2 = m().mk_not(n2) first; mk_not(t) exists only for the proof.
+		value, e = n.manager.MkNot(value)
+		if e != nil {
+			return nnfResult{}, e
 		}
 		if proofs {
+			oldNot, x := n.manager.MkNot(t)
+			if x != nil {
+				return nnfResult{}, x
+			}
 			proof, x = n.manager.MkProofOEqCongruence(oldNot, value, []ast.ASTHandle{proof})
-		}
-		if x != nil {
-			return nnfResult{}, x
+			if x != nil {
+				return nnfResult{}, x
+			}
 		}
 	}
 	return nnfResult{value, proof}, nil
@@ -691,15 +692,17 @@ func (n *NNF) convertLabel(t ast.ASTHandle, polarity, inQ, proofs, positive bool
 	if e != nil {
 		return nnfResult{}, e
 	}
-	p1, e := n.mkProof(polarity, t, aux, []ast.ASTHandle{arg.proof})
-	if e != nil {
-		return nnfResult{}, e
-	}
+	// mk_transitivity(mk_proof(...), mk_iff_oeq(mk_rewrite(aux, r))): GCC
+	// builds the rewrite/iff_oeq argument before mk_proof.
 	p2, e := n.manager.MkProofRewrite(aux, value)
 	if e != nil {
 		return nnfResult{}, e
 	}
 	p2, e = n.manager.MkProofIffOEq(p2)
+	if e != nil {
+		return nnfResult{}, e
+	}
+	p1, e := n.mkProof(polarity, t, aux, []ast.ASTHandle{arg.proof})
 	if e != nil {
 		return nnfResult{}, e
 	}
