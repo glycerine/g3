@@ -187,6 +187,13 @@ var goldenTraceSites = map[string]bool{
 	"simplify simplify_ite src/tactic/core/dom_simplify_tactic.cpp":       true,
 	"simplify simplify_goal src/tactic/core/dom_simplify_tactic.cpp":      true,
 	"simplify compile src/tactic/core/dom_simplify_tactic.cpp":            true,
+	// bvarray2uf (compare with G3_GOLDEN_TAGS=bvarray2uf_rw,
+	// bvarray2uf_rw_q,bvarray2uf G3_GOLDEN_VECTORS=bvarray2uf_shared_store,
+	// bvarray2uf_distinct,z3_bug_bvarray2uf_quantifier).
+	"bvarray2uf_rw mk_uf_for_array src/tactic/bv/bvarray2uf_rewriter.cpp": true,
+	"bvarray2uf_rw reduce_app src/tactic/bv/bvarray2uf_rewriter.cpp":      true,
+	"bvarray2uf_rw_q pre_visit src/tactic/bv/bvarray2uf_rewriter.cpp":     true,
+	"bvarray2uf operator() src/tactic/bv/bvarray2uf_tactic.cpp":           true,
 	// elim-small-bv's rw_cfg (compare with G3_GOLDEN_TAGS=elim_small_bv,
 	// elim_small_bv_app,elim_small_bv_pre G3_GOLDEN_VECTORS=
 	// verbose_progress_elim_small_bv).

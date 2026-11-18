@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	utext "github.com/glycerine/g3/pkg/util/text"
 	"io"
 )
@@ -15,11 +16,13 @@ func (t *BVArray2UFTactic) tags() *diagnostic.TraceTags {
 	return diagnostic.BorrowProcessTraceTags()
 }
 func (t *BVArray2UFTactic) formatArray(h ast.ASTHandle) (text string, result error) {
-	f, e := t.manager.SMT2PPExprTree(h, nil)
-	if e != nil {
-		if k, x := t.manager.GetKind(h); x == nil && k == ast.ASTFuncDecl {
-			f, e = t.manager.SMT2FdeclRef(h)
-		}
+	// mk_ismt2_pp of a func_decl prints its declaration.
+	var f ast.ASTHandle
+	k, e := t.manager.GetKind(h)
+	if e == nil && k == ast.ASTFuncDecl {
+		f, e = t.manager.SMT2PPDeclareFun(h)
+	} else if e == nil {
+		f, e = t.manager.SMT2PPExprTree(h, nil)
 	}
 	if e != nil {
 		return "", e
@@ -64,4 +67,36 @@ func (t *BVArray2UFTactic) traceGoal(label string, line int, g interface{ Displa
 		return err
 	}
 	return nil
+}
+
+// traceRW emits one bvarray2uf_rewriter.cpp record of tag (bvarray2uf_rw
+// or bvarray2uf_rw_q). A part is a string, an ast.ASTHandle printed with
+// mk_ismt2_pp, or a bvArrayName printed as func_decl::get_name().
+type bvArrayName struct{ decl ast.ASTHandle }
+
+func (t *BVArray2UFTactic) traceRW(tag, function string, line int, parts ...any) {
+	tags := t.tags()
+	_ = tags.EmitConditional(tag, function, "src/tactic/bv/bvarray2uf_rewriter.cpp", line, func() bool { return true }, func(w io.Writer) error {
+		for _, p := range parts {
+			var e error
+			switch v := p.(type) {
+			case string:
+				_, e = io.WriteString(w, v)
+			case ast.ASTHandle:
+				var s string
+				if s, e = t.formatArray(v); e == nil {
+					_, e = io.WriteString(w, s)
+				}
+			case bvArrayName:
+				var name usymbol.Symbol
+				if name, e = t.manager.GetASTName(v.decl); e == nil {
+					e = t.manager.Symbols.WriteDisplay(w, name)
+				}
+			}
+			if e != nil {
+				return e
+			}
+		}
+		return nil
+	})
 }

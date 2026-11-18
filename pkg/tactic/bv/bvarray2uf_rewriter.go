@@ -4,6 +4,7 @@ package bv
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -112,11 +113,17 @@ func (r *bvArrayRewriter) rewrite(root ast.ASTHandle) (value, proof ast.ASTHandl
 // PreVisit is bvarray2uf_rewriter_cfg::pre_visit.
 func (r *bvArrayRewriter) PreVisit(t ast.ASTHandle) (bool, error) {
 	m := r.owner.manager
+	r.owner.traceRW("bvarray2uf_rw_q", "pre_visit", 381, "pre_visit: ", t, "\n")
 	k, e := m.GetKind(t)
 	if e != nil {
 		return false, e
 	}
 	if k == ast.ASTQuantifier {
+		if id, x := m.GetASTID(t); x == nil {
+			if body, x := m.GetQuantifierBody(t); x == nil {
+				r.owner.traceRW("bvarray2uf_rw_q", "pre_visit", 385, "pre_visit quantifier [", strconv.FormatUint(uint64(id), 10), "]: ", body, "\n")
+			}
+		}
 		n, e := m.GetNumDeclarations(t)
 		if e != nil {
 			return false, e

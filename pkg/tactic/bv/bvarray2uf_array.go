@@ -16,6 +16,13 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 	// The source's local expr_refs die when reduce_app returns.
 	start := len(r.scratch)
 	defer func() {
+		// CTRACE("bvarray2uf_rw", res == BR_DONE, "result: ...") precedes
+		// the locals' destruction.
+		if err == nil && status == rewriter.RewriteDone {
+			if h, e := m.RefGet(out); e == nil {
+				r.owner.traceRW("bvarray2uf_rw", "reduce_app", 375, "result: ", h, "\n")
+			}
+		}
 		if e := r.release(start); e != nil && err == nil {
 			err = e
 		}
@@ -130,6 +137,7 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 		if e != nil {
 			return rewriter.RewriteFailed, e
 		}
+		r.owner.traceRW("bvarray2uf_rw", "reduce_app", 171, "(ite ", c, ", ", bvArrayName{ft}, ", ", bvArrayName{ff}, ")\n")
 		sort, x, e := r.indexVar(args[1])
 		if e != nil {
 			return rewriter.RewriteFailed, e
@@ -168,6 +176,7 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 			if bvf, e = r.freshFunction(args[1]); e != nil {
 				return rewriter.RewriteFailed, e
 			}
+			r.owner.traceRW("bvarray2uf_rw", "reduce_app", 192, ite, " -> ", bvArrayName{bvf}, "\n")
 			if e = r.register(ite, bvf); e != nil {
 				return rewriter.RewriteFailed, e
 			}
@@ -188,13 +197,19 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 		if e = r.addExtra(q); e != nil {
 			return rewriter.RewriteFailed, e
 		}
-		return done(m.MkAsArray(bvf))
+		result, e := m.MkAsArray(bvf)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		r.owner.traceRW("bvarray2uf_rw", "reduce_app", 212, "result: ", result, ")\n")
+		return done(result, nil)
 	}
 	if basic && rangeArray {
 		// NOT_IMPLEMENTED_YET() in the source.
 		return rewriter.RewriteFailed, z3exception.NewDefaultException(bvArray2UFNotHandled)
 	}
 	if family == ast.NullFamilyID {
+		r.owner.traceRW("bvarray2uf_rw", "reduce_app", 221, "UF APP: ", bvArrayName{f}, "\n")
 		hasArrays := false
 		for _, a := range args {
 			yes, e := r.isBVArray(a)
@@ -223,11 +238,13 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 	if family != r.owner.arrayFamily {
 		return rewriter.RewriteFailed, nil
 	}
+	r.owner.traceRW("bvarray2uf_rw", "reduce_app", 249, "APP: ", bvArrayName{f}, "\n")
 	if op == ast.ASTArrayOpSelect {
 		if num < 2 {
 			return rewriter.RewriteFailed, ast.ErrASTDomain
 		}
 		t, i := args[0], args[1]
+		r.owner.traceRW("bvarray2uf_rw", "reduce_app", 255, "select; array: ", t, " index: ", i, "\n")
 		yes, e := r.isBVArray(t)
 		if e != nil || !yes {
 			return rewriter.RewriteFailed, e
@@ -354,6 +371,7 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 			return rewriter.RewriteFailed, ast.ErrASTDomain
 		}
 		s, i, v := args[0], args[1], args[2]
+		r.owner.traceRW("bvarray2uf_rw", "reduce_app", 333, "store; array: ", s, " index: ", i, " value: ", v, "\n")
 		yes, e := r.isBVArray(s)
 		if e != nil || !yes {
 			return rewriter.RewriteFailed, e
@@ -429,6 +447,7 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 		if e = r.addExtra(ground); e != nil {
 			return rewriter.RewriteFailed, e
 		}
+		r.owner.traceRW("bvarray2uf_rw", "reduce_app", 364, "ground atom: ", ground, "\n")
 		return rewriter.RewriteDone, nil
 	}
 	// NOT_IMPLEMENTED_YET() in the source.
