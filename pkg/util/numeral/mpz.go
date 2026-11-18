@@ -390,6 +390,17 @@ func (m *IntegerManager) Cell(ref NumericCellRef) NumericCell {
 	}
 	return c
 }
+
+// cellSize is Cell(ref).Size without copying the record out (the same
+// lookup, and Cell's panic for a dead ref).
+func (m *IntegerManager) cellSize(ref NumericCellRef) uint32 {
+	if !numericValidateCells {
+		if c := m.Cells.recordPtr(NumericSlot(ref)); c != nil {
+			return c.Size
+		}
+	}
+	return m.Cell(ref).Size
+}
 func (m *IntegerManager) Store(ref NumericCellRef, c NumericCell) {
 	if e := m.Cells.Write(NumericSlot(ref), c); e != nil {
 		panic(e)
@@ -1049,8 +1060,14 @@ func (m *IntegerManager) SetLimbs(a *Int, digits []uint32) error {
 	a.Cell = ref
 	m.PublishCell(ref)
 	m.ResizeCell(ref, size)
-	for i, v := range digits {
-		m.writeDigit(ref, uint32(i), v)
+	// The digits go to the payload resolved once (writeDigit's bounds
+	// panic is kept: a short payload takes the per-digit writes).
+	if d, _, ok := m.digitsDirect(ref); ok && len(d) >= len(digits) {
+		copy(d, digits)
+	} else {
+		for i, v := range digits {
+			m.writeDigit(ref, uint32(i), v)
+		}
 	}
 	a.Cell = ref
 	a.Val = 1
@@ -1279,7 +1296,7 @@ func (m *IntegerManager) signCell(a *Int, idx int) (int32, NumericCellRef, error
 		if e != nil {
 			return 0, 0, e
 		}
-		if enabled && m.Cell(m.Arg[idx]).Size != 1 {
+		if enabled && m.cellSize(m.Arg[idx]) != 1 {
 			if e = diagnostic.DebugAssertionFailure(d, "src/util/mpz.h", 253, "cell->m_size == 1"); e != nil {
 				return 0, 0, e
 			}
@@ -1297,7 +1314,7 @@ func (m *IntegerManager) signCell(a *Int, idx int) (int32, NumericCellRef, error
 func (m *IntegerManager) compareCells(a, b NumericCellRef) int {
 	if da, la, ok := m.digitsDirect(a); ok {
 		if db, lb, ok := m.digitsDirect(b); ok {
-			for i := max(m.Cell(a).Size, m.Cell(b).Size); i > 0; i-- {
+			for i := max(m.cellSize(a), m.cellSize(b)); i > 0; i-- {
 				u, v := directDigit(da, la, i-1), directDigit(db, lb, i-1)
 				if u > v {
 					return 1
@@ -1309,7 +1326,7 @@ func (m *IntegerManager) compareCells(a, b NumericCellRef) int {
 			return 0
 		}
 	}
-	for i := max(m.Cell(a).Size, m.Cell(b).Size); i > 0; i-- {
+	for i := max(m.cellSize(a), m.cellSize(b)); i > 0; i-- {
 		u, v := m.Digit(a, i-1), m.Digit(b, i-1)
 		if u > v {
 			return 1
@@ -1341,6 +1358,13 @@ func (m *IntegerManager) ensureTmpWithAllocationContext(idx int, size uint32, co
 		return arena.ErrInvalidSlot
 	}
 	ref := m.Tmp[idx]
+	// Common case: a live scratch cell that is large enough, read from its
+	// record once (ValidNumericRef and Cell below make the same tests).
+	if !numericValidateCells {
+		if p := m.Cells.recordPtr(NumericSlot(ref)); p != nil && !p.Released && !p.CleanupPending && p.Capacity >= size {
+			return nil
+		}
+	}
 	if !ValidNumericRef(m.Cells, ref) {
 		return arena.ErrInvalidSlot
 	}
@@ -1403,19 +1427,27 @@ func (m *IntegerManager) publishTmpAtWithAllocationContext(idx int, dst *Int, si
 	ref := m.Tmp[idx]
 	// The top-down zero scan reads the payload once (Digit's limits and
 	// bounds panic, without a cell lookup per limb).
+	var low uint32 // Digit(ref, 0), read when size is 1
 	if d, limit, ok := m.digitsDirect(ref); ok {
 		for size > 0 && directDigit(d, limit, size-1) == 0 {
 			size--
 		}
-	}
-	for size > 0 && m.Digit(ref, size-1) == 0 {
-		size--
+		if size == 1 {
+			low = directDigit(d, limit, 0)
+		}
+	} else {
+		for size > 0 && m.Digit(ref, size-1) == 0 {
+			size--
+		}
+		if size == 1 {
+			low = m.Digit(ref, 0)
+		}
 	}
 	if size == 0 {
 		return m.Reset(dst)
 	}
-	if size == 1 && m.Digit(ref, 0) <= math.MaxInt32 {
-		v := int32(m.Digit(ref, 0))
+	if size == 1 && low <= math.MaxInt32 {
+		v := int32(low)
 		if sign < 0 {
 			v = -v
 		}
@@ -1505,7 +1537,7 @@ func (m *IntegerManager) addSubPrechecked(a, b, c *Int, subtract bool, context *
 	if subtract {
 		sb = -sb
 	}
-	na, nb := m.Cell(ca).Size, m.Cell(cb).Size
+	na, nb := m.cellSize(ca), m.cellSize(cb)
 	n := max(na, nb)
 	sign := sa
 	if sa == sb {
@@ -1608,7 +1640,7 @@ func (m *IntegerManager) addSubPrechecked(a, b, c *Int, subtract bool, context *
 	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
 		m.Natural.traceMPNBinaryView(
 			limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: n},
-			limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.Cell(cb).Size}, "-")
+			limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.cellSize(cb)}, "-")
 	}
 	var k uint32
 	if !m.subDigitsDirect(ca, cb, m.Tmp[0], n, &k) {
@@ -1691,7 +1723,7 @@ func (m *IntegerManager) IsUint64(a *Int) (bool, error) {
 	if a.Val < 0 {
 		return false, nil
 	}
-	return a.IsSmall() || m.Cell(a.Cell).Size <= 2, nil
+	return a.IsSmall() || m.cellSize(a.Cell) <= 2, nil
 }
 func (m *IntegerManager) IsInt64(a *Int) (bool, error) {
 	if e := m.check(a); e != nil {
@@ -1700,7 +1732,7 @@ func (m *IntegerManager) IsInt64(a *Int) (bool, error) {
 	if a.IsSmall() {
 		return true, nil
 	}
-	if m.Cell(a.Cell).Size > 2 {
+	if m.cellSize(a.Cell) > 2 {
 		return false, nil
 	}
 	v, e := m.absUint64(a)
@@ -1729,7 +1761,7 @@ func (m *IntegerManager) Uint64(a *Int) (uint64, error) {
 		if e != nil {
 			return 0, e
 		}
-		if enabled && m.Cell(a.Cell).Size == 0 {
+		if enabled && m.cellSize(a.Cell) == 0 {
 			if e = diagnostic.DebugAssertionFailure(d, "src/util/mpz.cpp", 1314, "a.m_ptr->m_size > 0"); e != nil {
 				return 0, e
 			}
@@ -1811,6 +1843,19 @@ func (m *IntegerManager) digitsDirect(ref NumericCellRef) (d []uint32, limit uin
 		return nil, 0, false
 	}
 	return c.Backing.digitsUnchecked(m.Allocator), max(c.Size, c.span), true
+}
+
+// cellPayload is digitsDirect also returning the cell's size, from the same
+// record lookup.
+func (m *IntegerManager) cellPayload(ref NumericCellRef) (d []uint32, limit, size uint32, ok bool) {
+	if numericValidateCells {
+		return nil, 0, 0, false
+	}
+	c := m.Cells.recordPtr(NumericSlot(ref))
+	if c == nil {
+		return nil, 0, 0, false
+	}
+	return c.Backing.digitsUnchecked(m.Allocator), max(c.Size, c.span), c.Size, true
 }
 
 // directDigit is Digit over a digitsDirect payload.

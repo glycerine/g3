@@ -21,19 +21,18 @@ func (m *IntegerManager) lehmerStepWords(a1, b1, t, r, tmp *Int, A, B, C, D int6
 	if a1.Cell == 0 || b1.Cell == 0 || a1.Val < 0 || b1.Val < 0 {
 		return false, nil
 	}
-	ca, la, ok := m.digitsDirect(a1.Cell)
+	// One record lookup per operand for its size and payload.
+	var one [1]uint32
+	opA, ok := m.craOperand(a1, &one)
 	if !ok {
 		return false, nil
 	}
-	cb, lb, ok := m.digitsDirect(b1.Cell)
+	opB, ok := m.craOperand(b1, &one)
 	if !ok {
 		return false, nil
 	}
-	na, nb := m.Cell(a1.Cell).Size, m.Cell(b1.Cell).Size
-	if na > la || nb > lb || int(na) > len(ca) || int(nb) > len(cb) {
-		return false, nil
-	}
-	x, y := ca[:na], cb[:nb]
+	x, y := opA.d, opB.d
+	na := uint32(len(x))
 	// The division scratch digits (contents dead between operations) hold
 	// the two results.
 	n := uint32(na) + 2

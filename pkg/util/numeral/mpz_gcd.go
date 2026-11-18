@@ -307,7 +307,7 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 				return e
 			}
 		}
-		asize, bsize := m.Cell(a1.Cell).Size, m.Cell(b1.Cell).Size
+		asize, bsize := m.cellSize(a1.Cell), m.cellSize(b1.Cell)
 		if sourceGCDDebug {
 			if e = gcdSourceRequireAt(bsize <= asize, 760, "b_sz <= a_sz"); e != nil {
 				return e

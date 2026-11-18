@@ -57,7 +57,7 @@ func (m *IntegerManager) mulPrechecked(a, b, c *Int, context *integerAllocationI
 	if e != nil {
 		return e
 	}
-	size := uint64(m.Cell(ca).Size) + uint64(m.Cell(cb).Size)
+	size := uint64(m.cellSize(ca)) + uint64(m.cellSize(cb))
 	if size > math.MaxUint32 {
 		return arena.ErrBounds
 	}
@@ -69,8 +69,8 @@ func (m *IntegerManager) mulPrechecked(a, b, c *Int, context *integerAllocationI
 	}
 	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
 		m.Natural.traceMPNBinaryView(
-			limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: m.Cell(ca).Size},
-			limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.Cell(cb).Size}, "*")
+			limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: m.cellSize(ca)},
+			limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.cellSize(cb)}, "*")
 	}
 	m.multiplyCells(ca, cb, m.Tmp[0])
 	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
@@ -86,15 +86,16 @@ func (m *IntegerManager) mulPrechecked(a, b, c *Int, context *integerAllocationI
 // multiplyCells is indexed Knuth Algorithm M. Destination must not alias an
 // input; public Mul stages it in source-equivalent owner scratch.
 func (m *IntegerManager) multiplyCells(a, b, c NumericCellRef) {
-	na, nb := m.Cell(a).Size, m.Cell(b).Size
-	if da, la, ok := m.digitsDirect(a); ok {
-		if db, lb, ok := m.digitsDirect(b); ok {
-			if dc, lc, ok := m.digitsDirect(c); ok {
+	// One record lookup per cell for its size and payload.
+	if da, la, na, ok := m.cellPayload(a); ok {
+		if db, lb, nb, ok := m.cellPayload(b); ok {
+			if dc, lc, _, ok := m.cellPayload(c); ok {
 				multiplyDigits(da, la, na, db, lb, nb, dc, lc)
 				return
 			}
 		}
 	}
+	na, nb := m.cellSize(a), m.cellSize(b)
 	for i := uint32(0); i < na; i++ {
 		m.writeDigit(c, i, 0)
 	}

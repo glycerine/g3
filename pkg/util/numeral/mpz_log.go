@@ -61,7 +61,7 @@ func (m *IntegerManager) magnitudeLog2(a *Int) (uint32, error) {
 		}
 		return log2Uint32(uint32(v)), nil
 	}
-	size := m.Cell(a.Cell).Size
+	size := m.cellSize(a.Cell)
 	// Check the source unsigned position computation before narrowing.
 	k := uint64(size-1)*32 + uint64(log2Uint32(m.Digit(a.Cell, size-1)))
 	if k > uint64(^uint32(0)) {

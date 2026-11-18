@@ -47,7 +47,7 @@ func (m *IntegerManager) ensureOwnedCapacityWithAllocationContext(a *Int, capaci
 	old := a.Cell
 	size := uint32(1)
 	if old != 0 {
-		size = m.Cell(old).Size
+		size = m.cellSize(old)
 	}
 	ref, e := m.allocateWithSourceContext(capacity, size, nil, context)
 	if e != nil {
@@ -111,7 +111,7 @@ func (m *IntegerManager) ensureOwnedCapacityWithAllocationContext(a *Int, capaci
 	return nil
 }
 func (m *IntegerManager) normalizeOwned(a *Int) error {
-	size := m.Cell(a.Cell).Size
+	size := m.cellSize(a.Cell)
 	for size > 0 && m.Digit(a.Cell, size-1) == 0 {
 		size--
 	}
@@ -305,7 +305,7 @@ func (m *IntegerManager) IsPowerOfTwo(a *Int) (bool, uint32, error) {
 		}
 		return true, log2Uint32(v), nil
 	}
-	size := m.Cell(a.Cell).Size
+	size := m.cellSize(a.Cell)
 	for i := uint32(0); i < size-1; i++ {
 		if m.Digit(a.Cell, i) != 0 {
 			return false, 0, nil
@@ -376,7 +376,7 @@ func (m *IntegerManager) machineDiv2kCore(a *Int, k uint32) error {
 		return nil
 	}
 	digitShift := k / 32
-	size := m.Cell(a.Cell).Size
+	size := m.cellSize(a.Cell)
 	if digitShift >= size {
 		return m.Reset(a)
 	}
@@ -455,7 +455,7 @@ func (m *IntegerManager) mul2kCoreWithAllocationContext(a *Int, k uint32, contex
 	wordShift, bitShift := k/32, k%32
 	oldSize := uint32(1)
 	if !a.IsSmall() {
-		oldSize = m.Cell(a.Cell).Size
+		oldSize = m.cellSize(a.Cell)
 	}
 	newSize := oldSize + wordShift + 1 // source unsigned32 addition
 	if e := m.ensureOwnedCapacityWithAllocationContext(a, newSize, context); e != nil {
@@ -478,7 +478,7 @@ func (m *IntegerManager) mul2kCoreWithAllocationContext(a *Int, k uint32, contex
 	if a.IsSmall() {
 		return arena.ErrBounds
 	}
-	oldSize = m.Cell(a.Cell).Size
+	oldSize = m.cellSize(a.Cell)
 	cell := m.Cell(a.Cell)
 	// Prepare only the physical digit access span. Retain the source cell size
 	// through zero filling; publish newSize at the actual source statement.

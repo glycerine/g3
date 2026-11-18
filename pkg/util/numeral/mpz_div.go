@@ -282,7 +282,7 @@ func (m *IntegerManager) quotRemWithAllocationContext(a, b, q, r *Int, mode int,
 	if e != nil {
 		return e
 	}
-	na, nb := m.Cell(ca).Size, m.Cell(cb).Size
+	na, nb := m.cellSize(ca), m.cellSize(cb)
 	if nb > na {
 		if mode != quotientOnly {
 			if e := m.copyFromOwnerWithAllocationContext(r, m, a, nil, context); e != nil {

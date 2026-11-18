@@ -99,7 +99,7 @@ func (m *IntegerManager) SizeInfo(a *Int) (uint32, error) {
 	if a.IsSmall() {
 		return 1, nil
 	}
-	return m.Cell(a.Cell).Size + 1, nil
+	return m.cellSize(a.Cell) + 1, nil
 }
 
 // Float64 deliberately retains the source UINT_MAX floating radix and every
@@ -112,7 +112,7 @@ func (m *IntegerManager) Float64(a *Int) (float64, error) {
 		return float64(a.Val), nil
 	}
 	r, d := 0.0, 1.0
-	for i, n := uint32(0), m.Cell(a.Cell).Size; i < n; i++ {
+	for i, n := uint32(0), m.cellSize(a.Cell); i < n; i++ {
 		product := float64(d * float64(m.Digit(a.Cell, i)))
 		r += product
 		d *= float64(^uint32(0))
@@ -133,7 +133,7 @@ func (m *IntegerManager) Hash(a *Int) (uint32, error) {
 	if a.IsSmall() {
 		return uint32(a.Val), nil
 	}
-	size := m.Cell(a.Cell).Size
+	size := m.cellSize(a.Cell)
 	if size == 1 {
 		return m.Digit(a.Cell, 0), nil
 	}
@@ -154,7 +154,7 @@ func (m *IntegerManager) PowerOfTwoMultiple(a *Int) (uint32, error) {
 			return 0, nil
 		}
 	} else {
-		for i, n := uint32(0), m.Cell(a.Cell).Size; i < n; i++ {
+		for i, n := uint32(0), m.cellSize(a.Cell); i < n; i++ {
 			v = int64(m.Digit(a.Cell, i))
 			if v != 0 {
 				break
@@ -190,7 +190,7 @@ func (m *IntegerManager) Decompose(a *Int, dst []uint32) (bool, []uint32, error)
 		}
 		return a.Val < 0, append(dst, uint32(v)), nil
 	}
-	for i, n := uint32(0), m.Cell(a.Cell).Size; i < n; i++ {
+	for i, n := uint32(0), m.cellSize(a.Cell); i < n; i++ {
 		dst = append(dst, m.Digit(a.Cell, i))
 	}
 	return a.Val < 0, dst, nil

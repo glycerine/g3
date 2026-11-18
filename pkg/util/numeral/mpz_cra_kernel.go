@@ -32,11 +32,15 @@ func (m *IntegerManager) craOperand(a *Int, one *[1]uint32) (craDigits, bool) {
 		one[0] = uint32(v)
 		return craDigits{neg: neg, d: one[:]}, true
 	}
-	d, limit, ok := m.digitsDirect(a.Cell)
-	if !ok {
+	if numericValidateCells {
 		return craDigits{}, false
 	}
-	n := m.Cell(a.Cell).Size
+	// One record lookup for the size and the payload (digitsDirect's).
+	c := m.Cells.recordPtr(NumericSlot(a.Cell))
+	if c == nil {
+		return craDigits{}, false
+	}
+	d, limit, n := c.Backing.digitsUnchecked(m.Allocator), max(c.Size, c.span), c.Size
 	if n > limit || int(n) > len(d) || n == 0 || d[n-1] == 0 {
 		return craDigits{}, false
 	}
