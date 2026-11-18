@@ -177,7 +177,10 @@ func (k *SMTKernel) addAssertionSubstitution(assertion SMTKernelAssertion, depth
 				}
 				return k.manager.ScopedExprSubstitutionInsert(k.assertedScopedSubst, right, left, proof, ast.ASTDependency{})
 			}
-			return k.traceAssertedExpression("propagate_values", "update_substitution", 515, "incompatible ", assertion.Formula)
+			// The source only traces here and falls through to n -> true.
+			if err = k.traceAssertedExpression("propagate_values", "update_substitution", 515, "incompatible ", assertion.Formula); err != nil {
+				return err
+			}
 		}
 	}
 	key := assertion.Formula

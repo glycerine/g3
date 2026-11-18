@@ -213,3 +213,22 @@ func TestSMTAssertedSubstitutionAllocationFrontiers(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md smtcore_01-F10: update_substitution only traces "incompatible"
+// for a ground equality neither side of which is greater, then falls
+// through and records n -> true.
+func TestSMTAssertedSubstitutionIncompatibleEqualityFallsThrough(t *testing.T) {
+	m := astTestManager(t)
+	k := smtTestKernel(t, m)
+	a := smtRelevancyBool(t, m, "incompatible-eq-a")
+	eq, err := m.MkEq(a, a)
+	astTestMust(t, err)
+	smtHoldSubstitutionInput(t, m, eq)
+	astTestMust(t, k.addAssertionSubstitution(SMTKernelAssertion{Formula: eq}, map[ast.ASTHandle]uint32{}))
+	var def, proof ast.ASTHandle
+	found, err := m.ExprSubstitutionFindProof(k.assertedSubstitution, eq, &def, &proof)
+	astTestMust(t, err)
+	if !found || !m.IsTrue(def) {
+		t.Fatal("incompatible equality was not recorded as n -> true", found, def)
+	}
+}
