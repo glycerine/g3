@@ -3,8 +3,9 @@ package api
 // Source: src/api/api_arith.cpp:25-132.
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (c *SMTContext) arithmeticManager() (*ast.ASTManager, ast.FamilyID, error) {
@@ -37,7 +38,16 @@ func (c *SMTContext) Real(num, den int64) (ast.ASTHandle, error) {
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	return m.ArithmeticNumeralRat(big.NewRat(num, den), false)
+	// rational n(num); rational d(den); mk_numeral(n/d, false)
+	var result ast.ASTHandle
+	e = withRationals(m, 2, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		err := errors.Join(q.SetInt64(&rs[0], num), q.SetInt64(&rs[1], den), q.Div(&rs[0], &rs[1], &rs[0]))
+		if err == nil {
+			result, err = m.ArithmeticNumeralFromRational(&rs[0], false)
+		}
+		return err
+	})
+	return result, e
 }
 func (c *SMTContext) arithmeticApp(kind int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
 	m, f, e := c.arithmeticManager()

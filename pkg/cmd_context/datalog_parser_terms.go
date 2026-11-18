@@ -6,11 +6,11 @@ package cmd_context
 import (
 	"errors"
 	"math"
-	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (p *datalogParser) parseArg(tok dtoken, s ast.ASTHandle, args []ast.ASTHandle) (dtoken, []ast.ASTHandle, error) {
@@ -59,13 +59,26 @@ func (p *datalogParser) parseArg(tok dtoken, s ast.ASTHandle, args []ast.ASTHand
 		}
 		args = append(args, c)
 	case dtkNum:
-		// rational num(data); num.is_uint64().
-		num, ok := new(big.Int).SetString(p.lexer.tokenData(), 10)
-		if !ok || !num.IsUint64() {
+		// rational num(data); num.is_uint64(); num.get_uint64().
+		q := p.manager.NumeralService().Manager
+		num := unumeral.NewRational()
+		err := q.SetString(&num, p.lexer.tokenData())
+		var ok bool
+		var value uint64
+		if err == nil {
+			ok, err = q.IsUint64(&num)
+		}
+		if err == nil && ok {
+			value, err = q.Uint64(&num)
+		}
+		if err = errors.Join(err, q.Del(&num)); err != nil {
+			return tok, args, err
+		}
+		if !ok {
 			tok, err := p.unexpected(tok, "integer expected")
 			return tok, args, err
 		}
-		numeral, err := p.mkSymbolConst(num.Uint64(), s)
+		numeral, err := p.mkSymbolConst(value, s)
 		if err != nil {
 			return tok, args, err
 		}

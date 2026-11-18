@@ -3,31 +3,14 @@ package api
 // Source: src/api/api_numeral.cpp:241-246; src/util/mpq.cpp display_decimal.
 
 import (
-	"errors"
-	"math/big"
-
-	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func apiRationalDecimalString(manager *ast.ASTManager, text string, precision uint32) (result string, resultErr error) {
-	rational, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return "", ast.ErrASTDomain
+// apiRationalDecimalString is val.display_decimal(buffer, precision) for a
+// rational of q; an integer keeps its exact spelling.
+func apiRationalDecimalString(q *numeral.RationalManager, value *numeral.Rational, precision uint32) (string, error) {
+	if value.IsInt() {
+		return q.String(value)
 	}
-	if rational.IsInt() {
-		return rational.RatString(), nil
-	}
-	service := manager.NumeralService()
-	if service == nil {
-		return "", ast.ErrASTHandle
-	}
-	value, err := service.NewValue()
-	if err != nil {
-		return "", err
-	}
-	defer func() { resultErr = errors.Join(resultErr, service.Del(&value)) }()
-	if err = service.SetString(&value, text); err != nil {
-		return "", err
-	}
-	return service.DecimalString(&value, precision, false)
+	return q.DecimalString(value, precision, false)
 }

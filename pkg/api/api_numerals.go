@@ -5,7 +5,7 @@ package api
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -111,11 +111,25 @@ func (c *SMTContext) Numeral(value string, sort ast.ASTHandle) (result ast.ASTHa
 		return result, ast.ErrASTDomain
 	}
 	if finite, e := m.IsDatalogFiniteSort(sort); e == nil && finite {
-		r, ok := new(big.Rat).SetString(value)
-		if !ok || !r.IsInt() || r.Sign() < 0 || !r.Num().IsUint64() {
-			return result, ast.ErrASTDomain
+		// rational r(value); r.is_uint64(); r.get_uint64()
+		var v uint64
+		e = withRationals(m, 1, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+			if q.SetString(&rs[0], value) != nil {
+				return ast.ErrASTDomain
+			}
+			ok, err := q.IsUint64(&rs[0])
+			if err == nil && !ok {
+				err = ast.ErrASTDomain
+			}
+			if err == nil {
+				v, err = q.Uint64(&rs[0])
+			}
+			return err
+		})
+		if e != nil {
+			return result, e
 		}
-		return m.MkDatalogNumeral(r.Num().Uint64(), sort)
+		return m.MkDatalogNumeral(v, sort)
 	} else if e != nil {
 		return result, e
 	}
@@ -169,72 +183,122 @@ func (c *SMTContext) IsNumeral(value ast.ASTHandle) (bool, error) {
 	}
 	return e == nil, e
 }
-func (c *SMTContext) NumeralRational(value ast.ASTHandle) (*big.Rat, bool, error) {
+
+// NumeralRational is Z3_get_numeral_rational: it writes value's rational
+// into out, a rational of the AST manager's NumeralService().Manager.
+func (c *SMTContext) NumeralRational(value ast.ASTHandle, out *numeral.Rational) (bool, error) {
 	m, e := c.Manager()
 	if e != nil {
-		return nil, false, e
+		return false, e
 	}
-	var text string
 	var yes bool
-	if text, _, yes, e = m.ArithmeticNumeralText(value); e != nil {
-		return nil, false, e
+	if _, yes, e = m.ArithmeticNumeralRational(value, out); e != nil || yes {
+		return yes, e
 	}
-	if !yes {
-		if text, yes, e = m.BitVectorNumeralText(value); e != nil {
-			return nil, false, e
-		}
+	if _, yes, e = m.BitVectorNumeralRational(value, out); e != nil || yes {
+		return yes, e
 	}
-	if !yes {
-		if text, yes, e = m.DatalogNumeralText(value); e != nil {
-			return nil, false, e
-		}
-	}
-	if !yes {
-		return nil, false, nil
-	}
-	r, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
-	}
-	return r, true, nil
-}
-func (c *SMTContext) NumeralInt64(value ast.ASTHandle) (int64, bool, error) {
-	r, yes, e := c.NumeralRational(value)
-	if e != nil || !yes || !r.IsInt() || !r.Num().IsInt64() {
-		return 0, false, e
-	}
-	return r.Num().Int64(), true, nil
-}
-func (c *SMTContext) NumeralUint64(value ast.ASTHandle) (uint64, bool, error) {
-	r, yes, e := c.NumeralRational(value)
-	if e != nil || !yes || !r.IsInt() || !r.Num().IsUint64() {
-		return 0, false, e
-	}
-	return r.Num().Uint64(), true, nil
-}
-func (c *SMTContext) NumeralRationalInt64(value ast.ASTHandle) (num, den int64, matched bool, err error) {
-	r, yes, e := c.NumeralRational(value)
+	v, yes, e := m.DatalogNumeralValue(value)
 	if e != nil || !yes {
-		return 0, 0, false, e
+		return false, e
 	}
-	if !r.Num().IsInt64() || !r.Denom().IsInt64() {
-		return 0, 0, false, nil
+	return true, m.NumeralService().Manager.SetUint64(out, v)
+}
+
+// numeralQuery runs body on Z3_get_numeral_rational's rational r.
+func (c *SMTContext) numeralQuery(value ast.ASTHandle, body func(q *numeral.RationalManager, rs []numeral.Rational) error) (bool, error) {
+	m, e := c.Manager()
+	if e != nil {
+		return false, e
 	}
-	return r.Num().Int64(), r.Denom().Int64(), true, nil
+	var yes bool
+	e = withRationals(m, 2, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		var err error
+		if yes, err = c.NumeralRational(value, &rs[0]); err != nil || !yes {
+			return err
+		}
+		return body(q, rs)
+	})
+	return yes, e
+}
+func (c *SMTContext) NumeralInt64(value ast.ASTHandle) (result int64, matched bool, err error) {
+	yes, err := c.numeralQuery(value, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		ok, e := q.IsInt64(&rs[0])
+		if e == nil && ok {
+			result, e = q.Int64(&rs[0])
+			matched = e == nil
+		}
+		return e
+	})
+	return result, yes && matched, err
+}
+func (c *SMTContext) NumeralUint64(value ast.ASTHandle) (result uint64, matched bool, err error) {
+	yes, err := c.numeralQuery(value, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		ok, e := q.IsUint64(&rs[0])
+		if e == nil && ok {
+			result, e = q.Uint64(&rs[0])
+			matched = e == nil
+		}
+		return e
+	})
+	return result, yes && matched, err
+}
+
+// NumeralRationalInt64 is Z3_get_numeral_rational_int64: numerator(r) and
+// denominator(r) when both are int64.
+func (c *SMTContext) NumeralRationalInt64(value ast.ASTHandle) (num, den int64, matched bool, err error) {
+	yes, err := c.numeralQuery(value, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		if e := q.DenominatorRational(&rs[0], &rs[1]); e != nil {
+			return e
+		}
+		if e := q.NumeratorRational(&rs[0], &rs[0]); e != nil {
+			return e
+		}
+		okN, e := q.IsInt64(&rs[0])
+		if e != nil {
+			return e
+		}
+		okD, e := q.IsInt64(&rs[1])
+		if e != nil || !okN || !okD {
+			return e
+		}
+		if num, e = q.Int64(&rs[0]); e != nil {
+			return e
+		}
+		den, e = q.Int64(&rs[1])
+		matched = e == nil
+		return e
+	})
+	return num, den, yes && matched, err
 }
 func (c *SMTContext) BitVectorNumeral(bits []bool) (ast.ASTHandle, error) {
 	if len(bits) == 0 {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	n := new(big.Int)
-	for i, bit := range bits {
-		if bit {
-			n.SetBit(n, i, 1)
-		}
-	}
 	m, e := c.bitVectorManager()
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	return m.BitVectorNumeralRat(new(big.Rat).SetInt(n), uint32(len(bits)))
+	// rational r(0); rational p(1); r += p for each set bit; p *= 2
+	var result ast.ASTHandle
+	e = withRationals(m, 3, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		r, p, two := &rs[0], &rs[1], &rs[2]
+		if err := errors.Join(q.SetInt32(p, 1), q.SetInt32(two, 2)); err != nil {
+			return err
+		}
+		for _, bit := range bits {
+			if bit {
+				if err := q.Add(r, p, r); err != nil {
+					return err
+				}
+			}
+			if err := q.Mul(p, two, p); err != nil {
+				return err
+			}
+		}
+		var err error
+		result, err = m.BitVectorNumeralFromRational(r, uint32(len(bits)))
+		return err
+	})
+	return result, e
 }

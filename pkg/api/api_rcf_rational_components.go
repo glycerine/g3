@@ -4,7 +4,7 @@ package api
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (c *SMTContext) RCFNumeratorDenominator(value *RCFNumber) (numerator, denominator *RCFNumber, resultErr error) {
@@ -30,15 +30,33 @@ func (c *SMTContext) RCFNumeratorDenominator(value *RCFNumber) (numerator, denom
 	if err != nil {
 		return nil, nil, err
 	}
-	rational, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, nil, ErrRCFNumberOwner
-	}
-	numerator, err = c.RCFRational(rational.Num().String())
+	m, err := c.Manager()
 	if err != nil {
 		return nil, nil, err
 	}
-	denominator, err = c.RCFRational(rational.Denom().String())
+	// numerator(q) and denominator(q) of the rational value.
+	var numeratorText, denominatorText string
+	err = withRationals(m, 2, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		if q.SetString(&rs[0], text) != nil {
+			return ErrRCFNumberOwner
+		}
+		e := errors.Join(q.DenominatorRational(&rs[0], &rs[1]), q.NumeratorRational(&rs[0], &rs[0]))
+		if e == nil {
+			numeratorText, e = q.String(&rs[0])
+		}
+		if e == nil {
+			denominatorText, e = q.String(&rs[1])
+		}
+		return e
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	numerator, err = c.RCFRational(numeratorText)
+	if err != nil {
+		return nil, nil, err
+	}
+	denominator, err = c.RCFRational(denominatorText)
 	if err != nil {
 		_ = numerator.Close()
 		return nil, nil, err

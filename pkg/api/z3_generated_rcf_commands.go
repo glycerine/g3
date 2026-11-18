@@ -6,7 +6,7 @@ package api
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -297,12 +297,23 @@ func replayRCFCommand(r *Z3Replayer, id uint32) (err error) {
 		if e != nil {
 			return e
 		}
-		rational, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return ErrRCFNumberOwner
+		m, e := owner.context.Manager()
+		if e != nil {
+			return e
+		}
+		integer := false
+		e = withRationals(m, 1, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+			if q.SetString(&rs[0], text) != nil {
+				return ErrRCFNumberOwner
+			}
+			integer = rs[0].IsInt()
+			return nil
+		})
+		if e != nil {
+			return e
 		}
 		var numerator, denominator uint64
-		if rational.IsInt() {
+		if integer {
 			if e = replayRetainRCF(r, owner, 1); e != nil {
 				return e
 			}

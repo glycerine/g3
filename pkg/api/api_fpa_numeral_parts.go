@@ -3,7 +3,8 @@ package api
 // Source: src/api/api_fpa.cpp:908-1158.
 
 import (
-	"math/big"
+	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -24,11 +25,26 @@ func (c *SMTContext) FloatingPointNumeralSignificandUint64(value ast.ASTHandle) 
 	if err != nil {
 		return 0, err
 	}
-	n, ok := new(big.Int).SetString(parts.Significand, 10)
-	if !ok || n.Sign() < 0 || !n.IsUint64() {
-		return 0, ast.ErrASTDomain
+	// mpz const & z = mpfm.sig(val); mpzm.is_uint64(z); get_uint64(z)
+	m, err := c.Manager()
+	if err != nil {
+		return 0, err
 	}
-	return n.Uint64(), nil
+	var result uint64
+	err = withRationals(m, 1, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		if q.SetString(&rs[0], parts.Significand) != nil {
+			return ast.ErrASTDomain
+		}
+		ok, e := q.IsUint64(&rs[0])
+		if e == nil && !ok {
+			e = ast.ErrASTDomain
+		}
+		if e == nil {
+			result, e = q.Uint64(&rs[0])
+		}
+		return e
+	})
+	return result, err
 }
 
 func (c *SMTContext) FloatingPointNumeralExponentInt64(value ast.ASTHandle, biased bool) (int64, error) {
@@ -36,32 +52,50 @@ func (c *SMTContext) FloatingPointNumeralExponentInt64(value ast.ASTHandle, bias
 	if err != nil {
 		return 0, err
 	}
-	return floatingPointNumeralExponent(parts, biased)
+	m, err := c.Manager()
+	if err != nil {
+		return 0, err
+	}
+	return floatingPointNumeralExponent(m, parts, biased)
 }
 
 // floatingPointNumeralExponent follows api_fpa.cpp's MPF field access, including
 // its distinct zero, infinity and denormal cases.
-func floatingPointNumeralExponent(parts ast.FPANumeralParts, biased bool) (int64, error) {
+func floatingPointNumeralExponent(m *ast.ASTManager, parts ast.FPANumeralParts, biased bool) (int64, error) {
 	if parts.Zero {
 		return 0, nil
 	}
 	if parts.ExponentBits < 2 {
 		return 0, ast.ErrASTDomain
 	}
-	top := new(big.Int).Lsh(big.NewInt(1), uint(parts.ExponentBits-1))
-	var result *big.Int
-	if parts.Infinite {
-		result = top
-	} else if parts.Denormal && !biased {
-		result = new(big.Int).Sub(big.NewInt(2), top)
-	} else {
-		result = big.NewInt(parts.Exponent)
-		if biased {
-			result.Add(result, new(big.Int).Sub(top, big.NewInt(1)))
+	var value int64
+	err := withRationals(m, 2, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		top, result := &rs[0], &rs[1]
+		if e := powerOfTwo(q, parts.ExponentBits-1, top); e != nil {
+			return e
 		}
-	}
-	if !result.IsInt64() {
-		return 0, ast.ErrASTDomain
-	}
-	return result.Int64(), nil
+		var e error
+		if parts.Infinite {
+			e = q.Copy(result, top)
+		} else if parts.Denormal && !biased {
+			e = errors.Join(q.SetInt32(result, 2), q.Sub(result, top, result))
+		} else {
+			e = q.SetInt64(result, parts.Exponent)
+			if e == nil && biased {
+				e = errors.Join(q.Add(result, top, result), q.Dec(result))
+			}
+		}
+		if e != nil {
+			return e
+		}
+		ok, e := q.IsInt64(result)
+		if e == nil && !ok {
+			e = ast.ErrASTDomain
+		}
+		if e == nil {
+			value, e = q.Int64(result)
+		}
+		return e
+	})
+	return value, err
 }

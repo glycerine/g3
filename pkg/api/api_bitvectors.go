@@ -4,7 +4,7 @@ package api
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -48,7 +48,16 @@ func (c *SMTContext) BitVectorValue(value int64, sort ast.ASTHandle) (ast.ASTHan
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	return m.BitVectorNumeralRat(big.NewRat(value, 1), bits)
+	// mk_numeral(rational(value, rational::i64()), sort)
+	var result ast.ASTHandle
+	e = withRationals(m, 1, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		err := q.SetInt64(&rs[0], value)
+		if err == nil {
+			result, err = m.BitVectorNumeralFromRational(&rs[0], bits)
+		}
+		return err
+	})
+	return result, e
 }
 
 func (c *SMTContext) bitVectorApp(kind int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
@@ -228,7 +237,7 @@ func (c *SMTContext) BitVectorToInt(a ast.ASTHandle, signed ...bool) (ast.ASTHan
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	zero, e := m.BitVectorNumeralRat(big.NewRat(0, 1), bits)
+	zero, e := m.BitVectorNumeralUint64(0, bits)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
@@ -236,8 +245,15 @@ func (c *SMTContext) BitVectorToInt(a ast.ASTHandle, signed ...bool) (ast.ASTHan
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	bound := new(big.Int).Lsh(big.NewInt(1), uint(bits))
-	limit, e := m.ArithmeticIntegerNumeralText(bound.String())
+	// rational max_bound = power(rational(2), sz); mk_numeral(max_bound, true)
+	var limit ast.ASTHandle
+	e = withRationals(m, 1, func(q *numeral.RationalManager, rs []numeral.Rational) error {
+		err := powerOfTwo(q, bits, &rs[0])
+		if err == nil {
+			limit, err = m.ArithmeticNumeralFromRational(&rs[0], true)
+		}
+		return err
+	})
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}

@@ -1,13 +1,15 @@
 package shell
 
 import (
+	"errors"
 	"fmt"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (f *WCNFFrontend) WriteResult() error {
+func (f *WCNFFrontend) WriteResult() (resultErr error) {
 	if f == nil || !f.finished || f.output == nil {
 		return ErrWCNFFrontend
 	}
@@ -36,18 +38,30 @@ func (f *WCNFFrontend) WriteResult() error {
 		}
 	}
 	if !valuesAvailable && f.summary.SoftClauses > 0 {
-		var upper big.Int
+		// The soft weights' sum, a rational of the context's rational
+		// manager.
+		q := f.context.NumeralService().Manager
+		upper, weight := numeral.NewRational(), numeral.NewRational()
+		defer func() { resultErr = errors.Join(resultErr, q.Del(&upper), q.Del(&weight)) }()
 		for _, clause := range f.document.Clauses {
 			if clause.Weight < f.document.TopWeight {
-				upper.Add(&upper, new(big.Int).SetUint64(clause.Weight))
+				if e := errors.Join(q.SetString(&weight, strconv.FormatUint(clause.Weight, 10)), q.Add(&upper, &weight, &upper)); e != nil {
+					return e
+				}
 			}
 		}
-		if upper.Sign() == 0 {
+		if upper.IsZero() {
 			if _, e := fmt.Fprintln(f.output, "   0"); e != nil {
 				return e
 			}
-		} else if _, e := fmt.Fprintf(f.output, "  [0:%s]\n", upper.String()); e != nil {
-			return e
+		} else {
+			text, e := q.String(&upper)
+			if e != nil {
+				return e
+			}
+			if _, e = fmt.Fprintf(f.output, "  [0:%s]\n", text); e != nil {
+				return e
+			}
 		}
 	}
 	return nil

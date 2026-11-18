@@ -44,7 +44,11 @@ func (c *SMTContext) FloatingPointNumeralExponentBitVector(value ast.ASTHandle, 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	exponent, err := floatingPointNumeralExponent(parts, biased)
+	m, err := c.Manager()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	exponent, err := floatingPointNumeralExponent(m, parts, biased)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

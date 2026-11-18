@@ -12,22 +12,22 @@ func TestAPIAlgebraicNumberBoundsRefineWithPrecision(t *testing.T) {
 	hi0 := f.pin(f.c.AlgebraicNumberUpper(root, 0))
 	lo12 := f.pin(f.c.AlgebraicNumberLower(root, 12))
 	hi12 := f.pin(f.c.AlgebraicNumberUpper(root, 12))
-	lo0q, ok, err := f.c.NumeralRational(lo0)
+	lo0q, ok, err := numeralRatOf(f.c, lo0)
 	astTestMust(t, err)
 	if !ok {
 		t.Fatal("coarse lower bound is not rational")
 	}
-	hi0q, ok, err := f.c.NumeralRational(hi0)
+	hi0q, ok, err := numeralRatOf(f.c, hi0)
 	astTestMust(t, err)
 	if !ok {
 		t.Fatal("coarse upper bound is not rational")
 	}
-	lo12q, ok, err := f.c.NumeralRational(lo12)
+	lo12q, ok, err := numeralRatOf(f.c, lo12)
 	astTestMust(t, err)
 	if !ok {
 		t.Fatal("refined lower bound is not rational")
 	}
-	hi12q, ok, err := f.c.NumeralRational(hi12)
+	hi12q, ok, err := numeralRatOf(f.c, hi12)
 	astTestMust(t, err)
 	if !ok {
 		t.Fatal("refined upper bound is not rational")

@@ -19,20 +19,20 @@ func TestNumeralRationalSourceFamiliesAndOwnership(t *testing.T) {
 		{f.pin(f.c.UintNumeral(257, bv)), "1"},
 		{f.pin(f.c.UintNumeral(3, finite)), "3"},
 	} {
-		value, found, err := f.c.NumeralRational(tc.term)
+		value, found, err := numeralRatOf(f.c, tc.term)
 		astTestMust(t, err)
 		if !found || value.RatString() != tc.want {
 			t.Fatalf("numeral: %v, %v, want %s", value, found, tc.want)
 		}
 		value.SetInt64(100)
-		again, found, err := f.c.NumeralRational(tc.term)
+		again, found, err := numeralRatOf(f.c, tc.term)
 		astTestMust(t, err)
 		if !found || again.RatString() != tc.want {
 			t.Fatal("returned rational aliases stored numeral")
 		}
 	}
 	variable := f.arithmeticVariable("rational-source-variable", false)
-	if value, found, err := f.c.NumeralRational(variable); err != nil || found || value != nil {
+	if value, found, err := numeralRatOf(f.c, variable); err != nil || found || value != nil {
 		t.Fatal("nonnumeral", value, found, err)
 	}
 }
