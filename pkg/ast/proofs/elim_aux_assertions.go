@@ -95,7 +95,12 @@ func (s *eliminateAuxState) rebuild(decl ast.ASTHandle, args []ast.ASTHandle) (a
 			}
 		}
 		if len(kept) == 0 {
-			return ast.ASTHandle{}, ast.ErrASTDomain
+			// SASSERT(j >= 1) is debug-only; the release build returns
+			// args.get(0), which is false here.
+			if ast.ASTSourceDebug || len(args) == 0 {
+				return ast.ASTHandle{}, ast.ErrASTDomain
+			}
+			return args[0], nil
 		}
 		if len(kept) == 1 {
 			return kept[0], nil
@@ -210,7 +215,8 @@ func (s *eliminateAuxState) run(root ast.ASTHandle) (ast.ASTHandle, error) {
 					if err != nil {
 						return ast.ASTHandle{}, err
 					}
-					if fact != args[len(args)-1] {
+					// SASSERT(m.get_fact(newp) == args.back()) is debug-only.
+					if ast.ASTSourceDebug && fact != args[len(args)-1] {
 						return ast.ASTHandle{}, ast.ErrASTDomain
 					}
 				}

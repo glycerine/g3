@@ -105,3 +105,37 @@ func TestEliminateAuxAssertionsUsesDefaultBooleanReducer(t *testing.T) {
 		t.Fatal("default Boolean reduction", yes, got, other)
 	}
 }
+
+// mk_or_core's SASSERT(j >= 1) is debug-only: in the release build an or
+// whose disjuncts all became false rebuilds to args.get(0), i.e. false
+// (AUDIT ast_sub_03-F5).
+func TestEliminateAuxAllFalseDisjunction(t *testing.T) {
+	if ast.ASTSourceDebug {
+		t.Skip("the source-debug build asserts j >= 1")
+	}
+	m := proofManager(t)
+	proofMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	b, err := m.MkBoolSort()
+	proofMust(t, err)
+	aux, err := m.MkConst(usymbol.Numerical(2021), b)
+	proofMust(t, err)
+	notAux, err := m.MkNot(aux)
+	proofMust(t, err)
+	fact, err := m.MkOrArgs([]ast.ASTHandle{notAux, notAux})
+	proofMust(t, err)
+	root, err := m.MkProofAsserted(fact)
+	proofMust(t, err)
+	root = proofPin(t, m, root)
+	out, err := m.NewRef(ast.ASTHandle{})
+	proofMust(t, err)
+	defer func() { proofMust(t, m.DelRef(&out)) }()
+	proofMust(t, EliminateAuxAssertions(m, aux, root, out))
+	result, err := m.RefGet(out)
+	proofMust(t, err)
+	var got ast.ASTHandle
+	yes, err := m.MatchProofAsserted(result, &got)
+	proofMust(t, err)
+	if !yes || !m.IsFalse(got) {
+		t.Fatal("all-false disjunction must rebuild to false", yes, got)
+	}
+}
