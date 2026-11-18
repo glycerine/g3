@@ -154,11 +154,10 @@ func (c *Context) restoreMacros(size int) error {
 				return err
 			}
 		}
-		if len(values) == 1 {
-			delete(c.macros, name)
-		} else {
-			c.macros[name] = values[:len(values)-1]
-		}
+		// macro_decls::erase_last pops the body but keeps the (possibly
+		// empty) m_macros entry, so contains_macro(name) stays true;
+		// only reset_macros removes entries.
+		c.macros[name] = values[:len(values)-1]
 		c.macroTrail = c.macroTrail[:i]
 	}
 	return nil

@@ -1,0 +1,6 @@
+(push)
+(define-fun g ((x Bool)) Bool x)
+(pop)
+(declare-fun g (Bool) Bool)
+(declare-map m (Int) g)
+(echo "ok")

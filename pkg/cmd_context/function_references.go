@@ -60,6 +60,11 @@ func (c *Context) FindFunctionDeclaration(name string, indices []uint32, domain 
 		}
 		return declaration, err
 	}
+	// find_func_decl(s): contains_macro(s) is m_macros.contains(s), true
+	// for a name whose bodies were all popped.
+	if _, found := c.macros[name]; found && domain == nil {
+		return declaration, fmt.Errorf("invalid function declaration reference, named expressions (aka macros) cannot be referenced %s", name)
+	}
 	for _, macro := range c.macros[name] {
 		matches := domain == nil
 		if domain != nil && len(macro.domain) == len(domain) {

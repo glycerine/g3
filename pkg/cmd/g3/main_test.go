@@ -336,6 +336,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_01-F10: a popped macro name keeps its m_macros entry.
+	"macro_name_survives_pop.smt2": "(error \"line 5 column 21: invalid function declaration reference, named expressions (aka macros) cannot be referenced g\")\nok\n",
 	// AUDIT.md cmd_context_01-F12: stream_ref::set's message carries no OS error.
 	"output_channel_open_failure.smt2": "(error \"line 1 column 37: failed to set output stream '/nonexistent/dir/x'\")\nafter\n",
 	// AUDIT.md cmd_context_02-F7: produce-unsat-cores is tested first.
@@ -2380,6 +2382,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"macro_name_survives_pop.smt2": true,
 	"output_channel_open_failure.smt2": true,
 	"get_unsat_core_disabled.smt2": true,
 	"sort_constructor_arity_error.smt2": true,
