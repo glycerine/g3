@@ -4,17 +4,17 @@ package bv
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type bvSizeSubstitution struct{ value ast.ASTExprSubstitution }
 type bvSizeReductionImplementation struct {
 	family       ast.FamilyID
-	lower, upper map[ast.ASTHandle]*big.Int
+	lower, upper map[ast.ASTHandle]*unumeral.Rational // rationals of the manager's NumeralService().Manager
 	// m_signed_lowers and m_signed_uppers table orders.
 	lowerOrder, upperOrder *ast.ObjMap
 	keys                   map[ast.ASTHandle]bool
@@ -29,13 +29,44 @@ type bvSizeReductionImplementation struct {
 	ready                  bool
 }
 
-func bvSizeSigned(v *big.Int, width uint32) *big.Int {
-	modulus := new(big.Int).Lsh(big.NewInt(1), uint(width))
-	result := new(big.Int).Mod(v, modulus)
-	if result.Bit(int(width)-1) != 0 {
-		result.Sub(result, modulus)
+// bvSizeSigned is bv_util::norm(v, width, true) into out.
+func bvSizeSigned(q *unumeral.RationalManager, v *unumeral.Rational, width uint32, out *unumeral.Rational) (resultErr error) {
+	two, modulus, half := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&two), q.Del(&modulus), q.Del(&half)) }()
+	if err := errors.Join(q.SetInt32(&two, 2), q.Power(&two, width, &modulus), q.Power(&two, width-1, &half)); err != nil {
+		return err
 	}
-	return result
+	if err := q.Mod(v, &modulus, out); err != nil {
+		return err
+	}
+	if c, err := q.Compare(out, &half); err != nil {
+		return err
+	} else if c >= 0 {
+		return q.Sub(out, &modulus, out)
+	}
+	return nil
+}
+
+// bvSizeNumBits is rational::get_num_bits() of a nonnegative integer.
+func bvSizeNumBits(q *unumeral.RationalManager, v *unumeral.Rational) (uint32, error) {
+	zero, err := q.IsZero(v)
+	if err != nil || zero {
+		return 1, err
+	}
+	return q.Bitsize(v)
+}
+
+func (r *bvSizeReductionImplementation) release(q *unumeral.RationalManager) (err error) {
+	for _, table := range []map[ast.ASTHandle]*unumeral.Rational{r.lower, r.upper} {
+		for h, v := range table {
+			if e := q.Del(v); e != nil {
+				err = errors.Join(err, e)
+				continue
+			}
+			delete(table, h)
+		}
+	}
+	return err
 }
 func (t *BVSizeReductionTactic) retain(r *bvSizeReductionImplementation, h ast.ASTHandle, scratch bool) error {
 	if err := t.manager.IncRef(h); err != nil {
@@ -58,7 +89,7 @@ func (t *BVSizeReductionTactic) releaseScratch(r *bvSizeReductionImplementation,
 	}
 	return nil
 }
-func (t *BVSizeReductionTactic) updateBound(r *bvSizeReductionImplementation, h ast.ASTHandle, v *big.Int, lower bool) error {
+func (t *BVSizeReductionTactic) updateBound(r *bvSizeReductionImplementation, h ast.ASTHandle, v *unumeral.Rational, lower bool) error {
 	if !r.keys[h] {
 		if err := t.retain(r, h, false); err != nil {
 			return err
@@ -73,9 +104,20 @@ func (t *BVSizeReductionTactic) updateBound(r *bvSizeReductionImplementation, h 
 	if _, err := order.InsertIfNotThere(h); err != nil {
 		return err
 	}
+	q := t.manager.NumeralService().Manager
 	old, found := table[h]
-	if !found || (lower && old.Cmp(v) < 0) || (!lower && v.Cmp(old) < 0) {
-		table[h] = new(big.Int).Set(v)
+	if !found {
+		old = new(unumeral.Rational)
+		*old = unumeral.NewRational()
+		table[h] = old
+		return q.Copy(old, v)
+	}
+	c, err := q.Compare(old, v)
+	if err != nil {
+		return err
+	}
+	if lower && c < 0 || !lower && c > 0 {
+		return q.Copy(old, v)
 	}
 	return nil
 }
@@ -91,7 +133,11 @@ func (t *BVSizeReductionTactic) uninterpretedConstant(h ast.ASTHandle) (bool, er
 	n, err := t.manager.GetNumArgs(h)
 	return n == 0, err
 }
-func (t *BVSizeReductionTactic) collectBounds(r *bvSizeReductionImplementation, g *tactic.Goal) error {
+func (t *BVSizeReductionTactic) collectBounds(r *bvSizeReductionImplementation, g *tactic.Goal) (resultErr error) {
+	// numeral val;
+	q := t.manager.NumeralService().Manager
+	value, normalized := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&value), q.Del(&normalized)) }()
 	n, err := g.Size()
 	if err != nil {
 		return err
@@ -136,11 +182,10 @@ func (t *BVSizeReductionTactic) collectBounds(r *bvSizeReductionImplementation, 
 			return err
 		}
 		var variable ast.ASTHandle
-		var text string
 		var found bool
 		lower := false
 		if leftConst {
-			text, found, err = t.manager.BitVectorNumeralText(rhs)
+			_, found, err = t.manager.BitVectorNumeralRational(rhs, &value)
 			if err != nil {
 				return err
 			}
@@ -149,7 +194,7 @@ func (t *BVSizeReductionTactic) collectBounds(r *bvSizeReductionImplementation, 
 			}
 		}
 		if !found && rightConst {
-			text, found, err = t.manager.BitVectorNumeralText(lhs)
+			_, found, err = t.manager.BitVectorNumeralRational(lhs, &value)
 			if err != nil {
 				return err
 			}
@@ -164,47 +209,76 @@ func (t *BVSizeReductionTactic) collectBounds(r *bvSizeReductionImplementation, 
 		if err = t.traceCollected(f, negated, lower); err != nil {
 			return err
 		}
-		value, ok := new(big.Int).SetString(text, 10)
-		if !ok {
-			return ast.ErrASTDomain
+		// val = m_util.norm(val, bv_sz, true);
+		if err = bvSizeSigned(q, &value, width, &value); err != nil {
+			return err
 		}
-		value = bvSizeSigned(value, width)
 		if negated {
 			if lower {
-				value.Sub(value, big.NewInt(1))
+				err = q.Dec(&value)
 			} else {
-				value.Add(value, big.NewInt(1))
+				err = q.Inc(&value)
 			}
-			if bvSizeSigned(value, width).Cmp(value) != 0 {
+			if err != nil {
+				return err
+			}
+			if err = bvSizeSigned(q, &value, width, &normalized); err != nil {
+				return err
+			}
+			if equal, err := q.Equal(&normalized, &value); err != nil {
+				return err
+			} else if !equal {
 				continue
 			} // Source ignores an infeasible extreme bound.
 			lower = !lower
 		}
-		if err = t.updateBound(r, variable, value, lower); err != nil {
+		if err = t.updateBound(r, variable, &value, lower); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *BVSizeReductionTactic) definition(r *bvSizeReductionImplementation, v ast.ASTHandle, l, u *big.Int) (def, fresh ast.ASTHandle, err error) {
+func (t *BVSizeReductionTactic) definition(r *bvSizeReductionImplementation, v ast.ASTHandle, l, u *unumeral.Rational) (def, fresh ast.ASTHandle, err error) {
 	width, err := t.manager.BitVectorSize(v)
 	if err != nil {
 		return def, fresh, err
 	}
-	if l.Cmp(u) == 0 {
-		def, err = t.manager.BitVectorNumeralRat(new(big.Rat).SetInt(l), width)
+	q := t.manager.NumeralService().Manager
+	if equal, e := q.Equal(l, u); e != nil {
+		return def, fresh, e
+	} else if equal {
+		def, err = t.manager.BitVectorNumeralFromRational(l, width)
 		return def, fresh, err
 	}
 	var bits uint32
 	var mode int
-	if l.Sign() < 0 {
-		lowerBits := uint32(new(big.Int).Neg(l).BitLen())
-		if u.Sign() < 0 {
+	lNegative, err := q.IsNeg(l)
+	if err != nil {
+		return def, fresh, err
+	}
+	if lNegative {
+		// unsigned l_nb = (-l).get_num_bits();
+		negL := unumeral.NewRational()
+		err = errors.Join(q.Copy(&negL, l), q.Neg(&negL))
+		var lowerBits uint32
+		if err == nil {
+			lowerBits, err = bvSizeNumBits(q, &negL)
+		}
+		if err = errors.Join(err, q.Del(&negL)); err != nil {
+			return def, fresh, err
+		}
+		uNegative, e := q.IsNeg(u)
+		if e != nil {
+			return def, fresh, e
+		}
+		if uNegative {
 			bits = lowerBits
 			mode = -1
 		} else {
-			bits = uint32(u.BitLen())
+			if bits, err = bvSizeNumBits(q, u); err != nil {
+				return def, fresh, err
+			}
 			if lowerBits > bits {
 				bits = lowerBits
 			}
@@ -212,7 +286,9 @@ func (t *BVSizeReductionTactic) definition(r *bvSizeReductionImplementation, v a
 			mode = 1
 		}
 	} else {
-		bits = uint32(u.BitLen())
+		if bits, err = bvSizeNumBits(q, u); err != nil {
+			return def, fresh, err
+		}
 		mode = 0
 	}
 	if err = t.traceWidth(v, l, u, bits, mode); err != nil {
@@ -317,6 +393,10 @@ func (t *BVSizeReductionTactic) reduce(g *tactic.Goal, result *tactic.TacticResu
 		if err = t.traceBounds(r); err != nil {
 			return 0, false, err
 		}
+		// numeral l, u;
+		q := m.NumeralService().Manager
+		l, u := unumeral.NewRational(), unumeral.NewRational()
+		defer func() { err = errors.Join(err, q.Del(&l), q.Del(&u)) }()
 		for _, slot := range r.lowerOrder.Entries() {
 			variable := slot.Key
 			lo := r.lower[variable]
@@ -328,11 +408,15 @@ func (t *BVSizeReductionTactic) reduce(g *tactic.Goal, result *tactic.TacticResu
 			if !found {
 				continue
 			}
-			l, u := bvSizeSigned(lo, width), bvSizeSigned(up, width)
-			if e = t.traceInterval(variable, l, u); e != nil {
+			if e = errors.Join(bvSizeSigned(q, lo, width, &l), bvSizeSigned(q, up, width, &u)); e != nil {
 				return 0, false, e
 			}
-			if l.Cmp(u) > 0 {
+			if e = t.traceInterval(variable, &l, &u); e != nil {
+				return 0, false, e
+			}
+			if c, e := q.Compare(&l, &u); e != nil {
+				return 0, false, e
+			} else if c > 0 {
 				f, e := m.MkFalse()
 				if e != nil {
 					return 0, false, e
@@ -340,7 +424,7 @@ func (t *BVSizeReductionTactic) reduce(g *tactic.Goal, result *tactic.TacticResu
 				return 0, false, g.Assert(f)
 			}
 			start := len(r.scratch)
-			def, fresh, e := t.definition(r, variable, l, u)
+			def, fresh, e := t.definition(r, variable, &l, &u)
 			if e != nil {
 				return 0, false, e
 			}

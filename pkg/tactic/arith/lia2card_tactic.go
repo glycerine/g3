@@ -5,7 +5,6 @@ package arith
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -13,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -223,6 +223,9 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		return err
 	}
 	zeroOne := make(map[ast.ASTHandle]bool)
+	q := t.manager.NumeralService().Manager
+	lower, upper := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&lower), q.Del(&upper)) }()
 	for _, variable := range variables {
 		sort, e := t.manager.GetSort(variable)
 		if e != nil {
@@ -243,15 +246,25 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		if family != arith || kind != 1 {
 			continue
 		}
-		lower, strictLower, hasLower, e := t.bounds.Lower(variable)
+		// rational lo, hi; bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() && ... hi.is_one()
+		strictLower, hasLower, e := t.bounds.Lower(variable, &lower)
 		if e != nil {
 			return e
 		}
-		upper, strictUpper, hasUpper, e := t.bounds.Upper(variable)
+		strictUpper, hasUpper, e := t.bounds.Upper(variable, &upper)
 		if e != nil {
 			return e
 		}
-		if hasLower && hasUpper && !strictLower && !strictUpper && lower.Sign() == 0 && upper.Cmp(big.NewRat(1, 1)) == 0 {
+		zeroLower, oneUpper := false, false
+		if hasLower && hasUpper {
+			if zeroLower, e = q.IsZero(&lower); e != nil {
+				return e
+			}
+			if oneUpper, e = q.IsOne(&upper); e != nil {
+				return e
+			}
+		}
+		if hasLower && hasUpper && !strictLower && !strictUpper && zeroLower && oneUpper {
 			zeroOne[variable] = true
 			if _, e = t.zeroOneTable.InsertIfNotThere(variable); e != nil { // m_01s->insert(x)
 				return e

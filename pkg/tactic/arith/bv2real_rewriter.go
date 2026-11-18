@@ -5,7 +5,6 @@ package arith
 
 import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -145,10 +144,10 @@ func (r *BV2RealRewriter) MkAppCore(decl ast.ASTHandle, args ast.AppArguments, o
 			if len(values) != 2 {
 				return rewriter.RewriteFailed, ast.ErrASTDomain
 			}
-			if err = c.checkSignature(values[0], values[1], &sig, &divisor, &root); err != nil {
+			if err = c.checkSignature(values[0], values[1], &sig, divisor, root); err != nil {
 				return rewriter.RewriteFailed, err
 			}
-			h = c.reduced(values[0], values[1], &divisor, &root)
+			h = c.reducedOwned(values[0], values[1], divisor, root)
 			status = rewriter.RewriteFull
 		} else {
 			status = rewriter.RewriteFailed
@@ -330,16 +329,16 @@ func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (res
 		return ast.ASTHandle{}, false
 	}
 	gt := c.basic(ast.ASTOpNot, le)
-	nonpos := c.bv(23, b, c.numeral(big.NewRat(0, 1), width))
+	nonpos := c.bv(23, b, c.numeral(0, width))
 	// mk_bv_add(mk_bv_mul(4, s1), mk_bv_mul(5, s2)): the reference build
 	// (GCC) evaluates the arguments right to left.
 	underRight := c.multiplyScalarLiteral(5, b)
 	under := c.add(c.multiplyScalarLiteral(4, a), underRight)
-	z1 := c.numeral(big.NewRat(0, 1), c.width(under))
+	z1 := c.numeral(0, c.width(under))
 	leUnder := c.bv(23, under, z1)
 	overRight := c.multiplyScalarLiteral(3, b)
 	over := c.add(c.multiplyScalarLiteral(2, a), overRight)
-	z2 := c.numeral(big.NewRat(0, 1), c.width(over))
+	z2 := c.numeral(0, c.width(over))
 	leOver := c.bv(23, over, z2)
 	if positive {
 		c.side(c.basic(ast.ASTOpImplies, c.basic(ast.ASTOpAnd, le, nonpos), leUnder))
@@ -377,7 +376,7 @@ func (c *bv2RealCall) le(s, t ast.ASTHandle) (result ast.ASTHandle, matched bool
 	c.assignLocal(mark, &t1, c.sub(c.localValue(t1), c.localValue(s1)))
 	c.assignLocal(mark, &t2, c.sub(c.localValue(t2), c.localValue(s2)))
 	x, y := c.localValue(t1), c.localValue(t2)
-	z1, z2 := c.numeral(big.NewRat(0, 1), c.width(x)), c.numeral(big.NewRat(0, 1), c.width(y))
+	z1, z2 := c.numeral(0, c.width(x)), c.numeral(0, c.width(y))
 	gz1, lz1 := c.bv(23, z1, x), c.bv(23, x, z1)
 	gz2, lz2 := c.bv(23, z2, y), c.bv(23, y, z2)
 	xx := c.mul(x, x)

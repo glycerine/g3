@@ -4,12 +4,12 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -113,18 +113,38 @@ func (p *QuasiPBProbe) Eval(g *tactic.Goal) (result float64, err error) {
 		return 0, err
 	}
 	foundNon01 := false
-	one := big.NewRat(1, 1)
+	// rational l, u;
+	q := bm.q()
+	l, u := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&l), q.Del(&u)) }()
+	zeroOrOne := func(v *unumeral.Rational) (bool, error) {
+		zero, err := q.IsZero(v)
+		if err != nil || zero {
+			return zero, err
+		}
+		return q.IsOne(v)
+	}
 	for _, h := range variables {
-		l, _, hasLower, e := bm.Lower(h)
+		_, hasLower, e := bm.Lower(h, &l)
 		if e != nil {
 			return 0, e
 		}
-		u, _, hasUpper, e := bm.Upper(h)
+		_, hasUpper, e := bm.Upper(h, &u)
 		if e != nil {
 			return 0, e
 		}
-		if hasLower && hasUpper && (l.Sign() == 0 || l.Cmp(one) == 0) && (u.Sign() == 0 || u.Cmp(one) == 0) {
-			continue
+		if hasLower && hasUpper {
+			lOK, e := zeroOrOne(&l)
+			if e != nil {
+				return 0, e
+			}
+			uOK, e := zeroOrOne(&u)
+			if e != nil {
+				return 0, e
+			}
+			if lOK && uOK {
+				continue
+			}
 		}
 		if foundNon01 {
 			return 0, nil

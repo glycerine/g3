@@ -3,7 +3,7 @@ package arith
 import "testing"
 
 func TestFMConstraintSetDensePositions(t *testing.T) {
-	a, b, c := &FMConstraint{ID: 2}, &FMConstraint{ID: 7}, &FMConstraint{ID: 4}
+	a, b, c := &FMConstraint{numerals: fmTestNumerals, ID: 2}, &FMConstraint{numerals: fmTestNumerals, ID: 7}, &FMConstraint{numerals: fmTestNumerals, ID: 4}
 	var s FMConstraintSet
 	s.Insert(a)
 	s.Insert(b)

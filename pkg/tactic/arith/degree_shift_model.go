@@ -56,7 +56,7 @@ func degreeShiftPublishModel(plan *degreeShiftPlan, services model.ModelEvaluato
 		}
 		definition := entry.definition
 		if definition == (ast.ASTRef{}) {
-			definition, e = degreeShiftModelDefinition(m, fresh, entry.degree)
+			definition, e = degreeShiftModelDefinition(m, fresh, &entry.degree)
 			if e != nil {
 				return e
 			}

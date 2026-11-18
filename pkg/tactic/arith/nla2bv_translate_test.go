@@ -59,7 +59,7 @@ func TestNLA2BVTranslationIndependentManagersAndPolicies(t *testing.T) {
 	invocation, err := got.newInvocation()
 	equationMust(t, err)
 	t.Cleanup(func() { equationMust(t, invocation.close()) })
-	root, divisor, _, err := invocation.real.Defaults()
+	root, divisor, _, err := defaultsRat(invocation.real)
 	equationMust(t, err)
 	maxReal, err := invocation.real.MaxNumBits()
 	equationMust(t, err)

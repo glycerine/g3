@@ -3,18 +3,19 @@ package arith
 // Source: src/tactic/arith/bound_manager.cpp/.h.
 
 import (
-	"math/big"
+	"errors"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 type managerBound struct {
-	value      big.Rat
+	value      *unumeral.Rational // a rational of the manager's NumeralService().Manager
 	strict     bool
 	dependency ast.ASTDependency // borrowed, exactly as in the source maps
 }
@@ -84,27 +85,39 @@ func (b *BoundManager) Variables() ([]ast.ASTHandle, error) {
 	}
 	return append([]ast.ASTHandle(nil), b.variables...), nil
 }
-func (b *BoundManager) Lower(term ast.ASTHandle) (value big.Rat, strict, found bool, err error) {
+
+// q is rational's mpq manager: the AST manager's NumeralService().Manager.
+func (b *BoundManager) q() *unumeral.RationalManager { return b.manager.NumeralService().Manager }
+
+// Lower is has_lower(m, l, strict): l is copied into value (a rational of
+// the manager's NumeralService().Manager) when found.
+func (b *BoundManager) Lower(term ast.ASTHandle, value *unumeral.Rational) (strict, found bool, err error) {
 	if err = b.open(); err != nil {
 		return
 	}
 	bound, found := b.lowers[term]
 	if found {
-		value.Set(&bound.value)
+		if err = b.q().Copy(value, bound.value); err != nil {
+			return false, false, err
+		}
 		strict = bound.strict
 	}
-	return value, strict, found, nil
+	return strict, found, nil
 }
-func (b *BoundManager) Upper(term ast.ASTHandle) (value big.Rat, strict, found bool, err error) {
+
+// Upper is has_upper(m, u, strict).
+func (b *BoundManager) Upper(term ast.ASTHandle, value *unumeral.Rational) (strict, found bool, err error) {
 	if err = b.open(); err != nil {
 		return
 	}
 	bound, found := b.uppers[term]
 	if found {
-		value.Set(&bound.value)
+		if err = b.q().Copy(value, bound.value); err != nil {
+			return false, false, err
+		}
 		strict = bound.strict
 	}
-	return value, strict, found, nil
+	return strict, found, nil
 }
 func (b *BoundManager) HasLower(term ast.ASTHandle) (bool, error) {
 	if err := b.open(); err != nil {
@@ -132,14 +145,18 @@ func (b *BoundManager) UpperDependency(term ast.ASTHandle) (ast.ASTDependency, e
 	}
 	return b.uppers[term].dependency, nil
 }
-func (b *BoundManager) insert(term ast.ASTHandle, lower, strict bool, value *big.Rat, dependency ast.ASTDependency) error {
+func (b *BoundManager) insert(term ast.ASTHandle, lower, strict bool, value *unumeral.Rational, dependency ast.ASTDependency) error {
 	bounds, opposite := b.uppers, b.lowers
 	if lower {
 		bounds, opposite = b.lowers, b.uppers
 	}
+	q := b.q()
 	old, found := bounds[term]
 	if found {
-		cmp := value.Cmp(&old.value)
+		cmp, err := q.Compare(value, old.value)
+		if err != nil {
+			return err
+		}
 		if !(lower && cmp > 0 || !lower && cmp < 0 || cmp == 0 && strict && !old.strict) {
 			return nil
 		}
@@ -150,7 +167,18 @@ func (b *BoundManager) insert(term ast.ASTHandle, lower, strict bool, value *big
 		b.variables = append(b.variables, term)
 	}
 	var next managerBound
-	next.value.Set(value)
+	// m_lowers.insert(v, n) overwrites the stored numeral.
+	next.value = old.value
+	if next.value == nil {
+		next.value = new(unumeral.Rational)
+		*next.value = unumeral.NewRational()
+	}
+	if err := q.Copy(next.value, value); err != nil {
+		if old.value == nil {
+			err = errors.Join(err, q.Del(next.value))
+		}
+		return err
+	}
 	next.strict = strict
 	next.dependency = old.dependency
 	if !dependency.IsNull() {
@@ -175,8 +203,15 @@ func (b *BoundManager) Reset() error {
 	}
 	b.variables = nil
 	b.released = 0
-	clear(b.lowers)
-	clear(b.uppers)
+	q := b.q()
+	for _, bounds := range []map[ast.ASTHandle]managerBound{b.lowers, b.uppers} {
+		for term, bound := range bounds {
+			if err := q.Del(bound.value); err != nil {
+				return err
+			}
+			delete(bounds, term)
+		}
+	}
 	b.resetting = false
 	return nil
 }
@@ -226,7 +261,10 @@ func (b *BoundManager) constant(term ast.ASTHandle) (bool, error) {
 	family, _, args, app, err := b.app(term)
 	return app && family == ast.NullFamilyID && len(args) == 0, err
 }
-func (b *BoundManager) numeral(term ast.ASTHandle) (value big.Rat, integer, found bool, err error) {
+
+// numeral is bound_manager::is_numeral(v, n, is_int), writing n (a rational
+// of q()).
+func (b *BoundManager) numeral(term ast.ASTHandle, value *unumeral.Rational) (integer, found bool, err error) {
 	negative := false
 	for {
 		family, op, args, app, e := b.app(term)
@@ -240,17 +278,16 @@ func (b *BoundManager) numeral(term ast.ASTHandle) (value big.Rat, integer, foun
 		negative = !negative
 		term = args[0]
 	}
-	text, integer, found, err := b.manager.ArithmeticNumeralText(term)
+	integer, found, err = b.manager.ArithmeticNumeralRational(term, value)
 	if err != nil || !found {
-		return value, integer, found, err
-	}
-	if _, ok := value.SetString(text); !ok {
-		return value, false, false, ast.ErrASTDomain
+		return integer, found, err
 	}
 	if negative {
-		value.Neg(&value)
+		if err = b.q().Neg(value); err != nil {
+			return false, false, err
+		}
 	}
-	return value, integer, true, nil
+	return integer, true, nil
 }
 func boundSwap(op int32) (int32, error) {
 	switch op {
@@ -278,49 +315,54 @@ func boundNeg(op int32) (int32, error) {
 	}
 	return op, ast.ErrASTDomain
 }
-func boundNormalizeInteger(value *big.Rat, op int32) int32 {
+
+// boundNormalizeInteger is norm(n, k) for an integer bound.
+func boundNormalizeInteger(q *unumeral.RationalManager, value *unumeral.Rational, op int32) (int32, error) {
 	if op == 4 {
-		value.Sub(value, big.NewRat(1, 1))
-		return 2
+		return 2, q.Dec(value)
 	}
 	if op == 5 {
-		value.Add(value, big.NewRat(1, 1))
-		return 3
+		return 3, q.Inc(value)
 	}
-	return op
+	return op, nil
 }
-func (b *BoundManager) equality(form ast.ASTHandle) (variable ast.ASTHandle, value big.Rat, integer, found bool, err error) {
+
+// equality is is_equality(e, x, n, is_int) writing n into value.
+func (b *BoundManager) equality(form ast.ASTHandle, value *unumeral.Rational) (variable ast.ASTHandle, integer, found bool, err error) {
 	family, op, args, app, err := b.app(form)
 	if err != nil || !app || family != b.manager.BasicFamilyID() || op != ast.ASTOpEq {
-		return variable, value, false, false, err
+		return variable, false, false, err
 	}
 	if len(args) != 2 {
-		return variable, value, false, false, ast.ErrASTDomain
+		return variable, false, false, ast.ErrASTDomain
 	}
 	x, y := args[0], args[1]
 	constant, e := b.constant(x)
 	if e != nil {
-		return variable, value, false, false, e
+		return variable, false, false, e
 	}
 	if !constant {
 		x, y = y, x
 	}
 	constant, e = b.constant(x)
 	if e != nil || !constant {
-		return variable, value, false, false, e
+		return variable, false, false, e
 	}
-	value, integer, found, err = b.numeral(y)
-	return x, value, integer, found, err
+	integer, found, err = b.numeral(y, value)
+	return x, integer, found, err
 }
-func (b *BoundManager) disjunction(form ast.ASTHandle, dependency ast.ASTDependency) (bool, error) {
+func (b *BoundManager) disjunction(form ast.ASTHandle, dependency ast.ASTDependency) (_ bool, resultErr error) {
 	family, op, args, app, err := b.app(form)
 	if err != nil || !app || family != b.manager.BasicFamilyID() || op != ast.ASTOpOr || len(args) == 0 {
 		return false, err
 	}
 	var variable ast.ASTHandle
-	var low, high big.Rat
+	// rational lo, hi, n;
+	q := b.q()
+	low, high, n := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&low), q.Del(&high), q.Del(&n)) }()
 	for _, eq := range args {
-		x, n, integer, found, err := b.equality(eq)
+		x, integer, found, err := b.equality(eq, &n)
 		if err != nil || !found || !integer {
 			return false, err
 		}
@@ -329,14 +371,23 @@ func (b *BoundManager) disjunction(form ast.ASTHandle, dependency ast.ASTDepende
 		}
 		if variable.IsNull() {
 			variable = x
-			low.Set(&n)
-			high.Set(&n)
+			if err = errors.Join(q.Copy(&low, &n), q.Copy(&high, &n)); err != nil {
+				return false, err
+			}
 		}
-		if n.Cmp(&low) < 0 {
-			low.Set(&n)
+		if c, err := q.Compare(&n, &low); err != nil {
+			return false, err
+		} else if c < 0 {
+			if err = q.Copy(&low, &n); err != nil {
+				return false, err
+			}
 		}
-		if n.Cmp(&high) > 0 {
-			high.Set(&n)
+		if c, err := q.Compare(&n, &high); err != nil {
+			return false, err
+		} else if c > 0 {
+			if err = q.Copy(&high, &n); err != nil {
+				return false, err
+			}
 		}
 	}
 	if err = b.traceBounds(&low, &high); err != nil {
@@ -347,17 +398,21 @@ func (b *BoundManager) disjunction(form ast.ASTHandle, dependency ast.ASTDepende
 	}
 	return true, b.insert(variable, false, false, &high, dependency)
 }
-func (b *BoundManager) Collect(form ast.ASTHandle, dependency ast.ASTDependency) error {
+func (b *BoundManager) Collect(form ast.ASTHandle, dependency ast.ASTDependency) (resultErr error) {
 	if err := b.open(); err != nil {
 		return err
 	}
+	// numeral n;
+	q := b.q()
+	value := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&value)) }()
 	if err := b.traceProcessing(form); err != nil {
 		return err
 	}
 	if found, err := b.disjunction(form, dependency); err != nil || found {
 		return err
 	}
-	variable, value, _, found, err := b.equality(form)
+	variable, _, found, err := b.equality(form, &value)
 	if err != nil {
 		return err
 	}
@@ -393,7 +448,7 @@ func (b *BoundManager) Collect(form ast.ASTHandle, dependency ast.ASTDependency)
 	}
 	var integer bool
 	if constant {
-		value, integer, found, err = b.numeral(y)
+		integer, found, err = b.numeral(y, &value)
 	}
 	if err != nil {
 		return err
@@ -403,7 +458,7 @@ func (b *BoundManager) Collect(form ast.ASTHandle, dependency ast.ASTDependency)
 		if err != nil || !constant {
 			return err
 		}
-		value, integer, found, err = b.numeral(x)
+		integer, found, err = b.numeral(x, &value)
 		if err != nil || !found {
 			return err
 		}
@@ -420,7 +475,9 @@ func (b *BoundManager) Collect(form ast.ASTHandle, dependency ast.ASTDependency)
 		}
 	}
 	if integer {
-		op = boundNormalizeInteger(&value, op)
+		if op, err = boundNormalizeInteger(q, &value, op); err != nil {
+			return err
+		}
 	}
 	if err = b.traceFound(x); err != nil {
 		return err

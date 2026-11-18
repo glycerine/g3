@@ -4,7 +4,7 @@ package arith
 // src/tactic/arith/bv2int_rewriter.h:29-51.
 
 import (
-	"math/big"
+	"errors"
 	"math/bits"
 	"reflect"
 	"sort"
@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -145,12 +146,27 @@ func (r *BV2IntContext) basic(e ast.ASTHandle, op int32) (bool, error) {
 // CollectPower2 recognizes exactly a disjunction of equalities to consecutive
 // powers 1,2,4,..., in either equality orientation and any disjunct order.
 // Repeated calls replace map entries but retain every old exponent in the trail.
-func (r *BV2IntContext) CollectPower2(g *tactic.Goal) error {
+func (r *BV2IntContext) CollectPower2(g *tactic.Goal) (resultErr error) {
 	if err := r.open(); err != nil {
 		return err
 	}
 	if g == nil {
 		return ast.ErrASTHandle
+	}
+	// vector<rational> bounds; rational power;
+	q := r.manager.NumeralService().Manager
+	var bounds []unumeral.Rational
+	power, two := unumeral.NewRational(), unumeral.NewRational()
+	releaseBounds := func() (err error) {
+		for i := range bounds {
+			err = errors.Join(err, q.Del(&bounds[i]))
+		}
+		bounds = bounds[:0]
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, releaseBounds(), q.Del(&power), q.Del(&two)) }()
+	if err := q.SetInt32(&two, 2); err != nil {
+		return err
 	}
 	count, err := g.Size()
 	if err != nil {
@@ -173,7 +189,9 @@ func (r *BV2IntContext) CollectPower2(g *tactic.Goal) error {
 			return err
 		}
 		var v ast.ASTHandle
-		bounds := make([]big.Rat, 0, n)
+		if err = releaseBounds(); err != nil {
+			return err
+		}
 		ok := true
 		for i := uint32(0); i < n; i++ {
 			e, err := r.manager.GetArg(f, i)
@@ -196,12 +214,14 @@ func (r *BV2IntContext) CollectPower2(g *tactic.Goal) error {
 			if err != nil {
 				return err
 			}
-			text, integer, found, err := r.manager.ArithmeticNumeralText(y)
+			bounds = append(bounds, unumeral.NewRational())
+			value := &bounds[len(bounds)-1]
+			integer, found, err := r.manager.ArithmeticNumeralRational(y, value)
 			if err != nil {
 				return err
 			}
 			if !(found && integer && (v.IsNull() || x == v)) {
-				text, integer, found, err = r.manager.ArithmeticNumeralText(x)
+				integer, found, err = r.manager.ArithmeticNumeralRational(x, value)
 				if err != nil {
 					return err
 				}
@@ -211,12 +231,7 @@ func (r *BV2IntContext) CollectPower2(g *tactic.Goal) error {
 				}
 				x = y
 			}
-			var value big.Rat
-			if _, valid := value.SetString(text); !valid {
-				return ast.ErrASTDomain
-			}
 			v = x
-			bounds = append(bounds, value)
 		}
 		if !ok || v.IsNull() {
 			continue
@@ -224,16 +239,30 @@ func (r *BV2IntContext) CollectPower2(g *tactic.Goal) error {
 		if err = bv2IntSourceAssert(68, "!bounds.empty()", len(bounds) > 0); err != nil {
 			return err
 		}
-		sort.Slice(bounds, func(i, j int) bool { return bounds[i].Cmp(&bounds[j]) < 0 })
-		var power big.Rat
-		power.SetInt64(1)
-		two := big.NewRat(2, 1)
+		var cmpErr error
+		sort.Slice(bounds, func(i, j int) bool {
+			c, e := q.Compare(&bounds[i], &bounds[j])
+			cmpErr = errors.Join(cmpErr, e)
+			return c < 0
+		})
+		if cmpErr != nil {
+			return cmpErr
+		}
+		if err = q.SetInt32(&power, 1); err != nil {
+			return err
+		}
 		for i := range bounds {
-			if power.Cmp(&bounds[i]) != 0 {
+			equal, err := q.Equal(&power, &bounds[i])
+			if err != nil {
+				return err
+			}
+			if !equal {
 				ok = false
 				break
 			}
-			power.Mul(&power, two)
+			if err = q.Mul(&power, &two, &power); err != nil {
+				return err
+			}
 		}
 		if !ok {
 			continue

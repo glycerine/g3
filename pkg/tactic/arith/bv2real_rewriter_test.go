@@ -44,7 +44,7 @@ func bv2RealWantCoefficients(t *testing.T, u *BV2RealUtil, f *bv2IntFixture, h a
 	t.Helper()
 	x, y := bv2RealOut(t, f.m), bv2RealOut(t, f.m)
 	var divisor, radical big.Rat
-	ok, err := u.Match(h, x, y, &divisor, &radical)
+	ok, err := matchRat(u, h, x, y, &divisor, &radical)
 	equationMust(t, err)
 	if !ok || divisor.Cmp(big.NewRat(d, 1)) != 0 || radical.Cmp(big.NewRat(root, 1)) != 0 {
 		t.Fatal("missing encoding or wrong divisor/root", ok, &divisor, &radical)
@@ -433,7 +433,7 @@ func TestBV2RealRewriterConstructionOrder(t *testing.T) {
 	components := func(h ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle) {
 		x, y := bv2RealOut(t, m), bv2RealOut(t, m)
 		var divisor, radical big.Rat
-		ok, err := u.Match(h, x, y, &divisor, &radical)
+		ok, err := matchRat(u, h, x, y, &divisor, &radical)
 		equationMust(t, err)
 		if !ok {
 			t.Fatal("result is not a bv2real term")
@@ -466,7 +466,7 @@ func TestBV2RealRewriterConstructionOrder(t *testing.T) {
 	a := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.signedNumeral(big.NewRat(31, 1)) })
 	b := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.signedNumeral(big.NewRat(37, 1)) })
 	out := bv2RealOut(t, m)
-	equationMust(t, u.MkReduced(a, b, big.NewRat(2, 1), big.NewRat(97, 1), out))
+	equationMust(t, mkReducedRat(u, a, b, big.NewRat(2, 1), big.NewRat(97, 1), out))
 	half, err := m.ArithmeticRealNumeralText("1/2")
 	equationMust(t, err)
 	root, err := m.ArithmeticRealNumeralText("97")

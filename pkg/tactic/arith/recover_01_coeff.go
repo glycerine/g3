@@ -3,13 +3,17 @@ package arith
 // Source: recover_01_tactic.cpp find_zero_cls, find_coeff and process checks.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // recover01Coefficients validates the complete truth table before a caller
 // constructs substitutions. Clause and literal handles are borrowed.
-func recover01Coefficients(m *ast.ASTManager, clauses []ast.ASTHandle) ([]ast.ASTHandle, []big.Rat, bool, error) {
+// The coefficients are rationals of the manager's NumeralService().Manager
+// owned by the caller (recover01Release).
+func recover01Coefficients(m *ast.ASTManager, clauses []ast.ASTHandle) (_ []ast.ASTHandle, _ []unumeral.Rational, _ bool, resultErr error) {
 	if len(clauses) == 0 {
 		return nil, nil, false, nil
 	}
@@ -51,16 +55,13 @@ func recover01Coefficients(m *ast.ASTManager, clauses []ast.ASTHandle) ([]ast.AS
 				if e != nil {
 					return nil, nil, false, e
 				}
-				text, _, num, e := m.ArithmeticNumeralText(b)
+				isZero, e := m.ArithmeticNumeralIsZero(b)
 				if e != nil {
 					return nil, nil, false, e
 				}
-				if constant && num {
-					r, ok := new(big.Rat).SetString(text)
-					if ok && r.Sign() == 0 {
-						zero = c
-						break
-					}
+				if constant && isZero {
+					zero = c
+					break
 				}
 				a, b = b, a
 			}
@@ -92,7 +93,16 @@ func recover01Coefficients(m *ast.ASTManager, clauses []ast.ASTHandle) ([]ast.AS
 	if len(literals) != int(n-1) {
 		return nil, nil, false, nil
 	}
-	values := make([]big.Rat, int(expected))
+	// vector<rational> values; rational value, sum;
+	q := m.NumeralService().Manager
+	values := make([]unumeral.Rational, int(expected))
+	for i := range values {
+		values[i] = unumeral.NewRational()
+	}
+	value, sum := unumeral.NewRational(), unumeral.NewRational()
+	defer func() {
+		resultErr = errors.Join(resultErr, recover01Release(q, values), q.Del(&value), q.Del(&sum))
+	}()
 	found := make([]bool, int(expected))
 	for _, c := range clauses {
 		size, e := m.GetNumArgs(c)
@@ -137,8 +147,8 @@ func recover01Coefficients(m *ast.ASTManager, clauses []ast.ASTHandle) ([]ast.AS
 				return nil, nil, false, nil
 			}
 		}
-		var value *big.Rat
-		for j := uint32(0); j < n && value == nil; j++ {
+		hasValue := false
+		for j := uint32(0); j < n && !hasValue; j++ {
 			lit, e := m.GetArg(c, j)
 			if e != nil {
 				return nil, nil, false, e
@@ -155,39 +165,61 @@ func recover01Coefficients(m *ast.ASTManager, clauses []ast.ASTHandle) ([]ast.AS
 				if e != nil {
 					return nil, nil, false, e
 				}
-				text, _, ok, e := m.ArithmeticNumeralText(a)
+				_, ok, e := m.ArithmeticNumeralRational(a, &value)
 				if e != nil {
 					return nil, nil, false, e
 				}
 				if ok {
-					value, _ = new(big.Rat).SetString(text)
+					hasValue = true
 					break
 				}
 			}
 		}
-		if value == nil || (found[idx] && values[idx].Cmp(value) != 0) {
+		if !hasValue {
 			return nil, nil, false, nil
 		}
+		if found[idx] {
+			if equal, e := q.Equal(&values[idx], &value); e != nil || !equal {
+				return nil, nil, false, e
+			}
+		}
 		found[idx] = true
-		values[idx].Set(value)
+		if e := q.Copy(&values[idx], &value); e != nil {
+			return nil, nil, false, e
+		}
 	}
 	for idx := range values {
 		if !found[idx] {
 			return nil, nil, false, nil
 		}
-		var sum big.Rat
+		if e := q.SetInt32(&sum, 0); e != nil {
+			return nil, nil, false, e
+		}
 		for bit := range literals {
 			if idx&(1<<bit) != 0 {
-				sum.Add(&sum, &values[1<<bit])
+				if e := q.Add(&sum, &values[1<<bit], &sum); e != nil {
+					return nil, nil, false, e
+				}
 			}
 		}
-		if sum.Cmp(&values[idx]) != 0 {
-			return nil, nil, false, nil
+		if equal, e := q.Equal(&sum, &values[idx]); e != nil || !equal {
+			return nil, nil, false, e
 		}
 	}
-	coefficients := make([]big.Rat, len(literals))
+	coefficients := make([]unumeral.Rational, len(literals))
 	for bit := range literals {
-		coefficients[bit].Set(&values[1<<bit])
+		coefficients[bit] = unumeral.NewRational()
+		if e := q.Copy(&coefficients[bit], &values[1<<bit]); e != nil {
+			return nil, nil, false, errors.Join(e, recover01Release(q, coefficients))
+		}
 	}
 	return literals, coefficients, true, nil
+}
+
+// recover01Release destroys a coefficient vector.
+func recover01Release(q *unumeral.RationalManager, values []unumeral.Rational) (err error) {
+	for i := range values {
+		err = errors.Join(err, q.Del(&values[i]))
+	}
+	return err
 }

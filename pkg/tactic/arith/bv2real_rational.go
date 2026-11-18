@@ -4,17 +4,17 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// rational imports a caller-facing value into the concrete project owner.
-func (c *bv2RealCall) rational(q *big.Rat) *unumeral.OwnedRational {
+// rationalFrom copies a rational of the manager's NumeralService().Manager
+// into a project owner of this call.
+func (c *bv2RealCall) rationalFrom(r *unumeral.Rational) *unumeral.OwnedRational {
 	v := c.number()
 	if v != nil {
-		c.err = c.u.manager.NumeralService().SetString(v, q.RatString())
+		c.err = c.u.manager.NumeralService().Manager.Copy(&v.Raw, r)
 	}
 	if c.err != nil {
 		return nil
@@ -39,38 +39,35 @@ func (c *bv2RealCall) takeRational(v unumeral.OwnedRational, err error) *unumera
 	return &v
 }
 
-func (c *bv2RealCall) rationalValue(v *unumeral.OwnedRational) *big.Rat {
+// alignDivisors is align_divisors(s1, s2, t1, t2, d1, d2): d1 and d2 are
+// the caller's rationals, set to lcm(d1, d2).
+func (c *bv2RealCall) alignDivisors(a, b, x, y ast.ASTHandle, d1, d2 *unumeral.OwnedRational) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, ast.ASTHandle) {
 	if c.err != nil {
-		return nil
+		return a, b, x, y
 	}
-	text, err := c.u.manager.NumeralService().String(v)
+	s := c.u.manager.NumeralService()
+	equal, err := s.Equal(d1, d2)
 	if err != nil {
 		c.err = err
-		return nil
-	}
-	q, ok := new(big.Rat).SetString(text)
-	if !ok {
-		c.err = ast.ErrASTDomain
-	}
-	return q
-}
-
-func (c *bv2RealCall) alignDivisors(a, b, x, y ast.ASTHandle, d1, d2 *big.Rat) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, ast.ASTHandle) {
-	if c.err != nil || d1.Cmp(d2) == 0 {
 		return a, b, x, y
 	}
-	if !d1.IsInt() || !d2.IsInt() {
-		c.err = ast.ErrASTDomain
+	if equal {
 		return a, b, x, y
+	}
+	for _, d := range []*unumeral.OwnedRational{d1, d2} {
+		integer, err := s.IsInt(d)
+		if err != nil {
+			c.err = err
+			return a, b, x, y
+		}
+		if !integer {
+			c.err = ast.ErrASTDomain
+			return a, b, x, y
+		}
 	}
 	count := len(c.numbers)
 	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
-	s := c.u.manager.NumeralService()
-	first := c.rational(d1)
-	second := c.rational(d2)
-	if c.err != nil {
-		return a, b, x, y
-	}
+	first, second := d1, d2
 	g := c.takeRational(s.GCD(first, second))
 	if c.err != nil {
 		return a, b, x, y
@@ -87,10 +84,7 @@ func (c *bv2RealCall) alignDivisors(a, b, x, y ast.ASTHandle, d1, d2 *big.Rat) (
 	if c.err != nil {
 		return a, b, x, y
 	}
-	left, right := c.rationalValue(d2g), c.rationalValue(d1g)
-	if c.err != nil {
-		return a, b, x, y
-	}
+	left, right := d2g, d1g
 	// Each expr_ref assignment completes before the next scaling operation.
 	next := c.multiplyScalar(left, a)
 	if c.err != nil {
@@ -113,20 +107,9 @@ func (c *bv2RealCall) alignDivisors(a, b, x, y ast.ASTHandle, d1, d2 *big.Rat) (
 	}
 	y = next
 	// The source copies the common divisor only after all four assignments.
-	if c.err = s.Copy(first, l); c.err != nil {
+	if c.err = s.Copy(d1, l); c.err != nil {
 		return a, b, x, y
 	}
-	common := c.rationalValue(first)
-	if c.err != nil {
-		return a, b, x, y
-	}
-	d1.Set(common)
-	if c.err = s.Copy(second, l); c.err != nil {
-		return a, b, x, y
-	}
-	common = c.rationalValue(second)
-	if c.err == nil {
-		d2.Set(common)
-	}
+	c.err = s.Copy(d2, l)
 	return a, b, x, y
 }

@@ -4,10 +4,10 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type degreeShiftRewriteConfig struct {
@@ -49,26 +49,34 @@ func (c *degreeShiftRewriteConfig) ReduceApp(decl ast.ASTHandle, args ast.AppArg
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
-	text, _, found, err := m.ArithmeticNumeralText(exponent)
+	// rational k; ... rational new_k = div(k, g);
+	q := m.NumeralService().Manager
+	value, quotient := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&value), q.Del(&quotient)) }()
+	_, found, err = m.ArithmeticNumeralRational(exponent, &value)
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
-	value, ok := new(big.Rat).SetString(text)
-	if !found || !ok || !value.IsInt() || value.Sign() <= 0 {
+	if !found || !value.IsInt() || !value.IsPos() {
 		return rewriter.RewriteFailed, ast.ErrASTDomain
 	}
 	entry := c.plan.entries[index]
-	quotient, remainder := new(big.Int).QuoRem(value.Num(), entry.degree, new(big.Int))
-	if remainder.Sign() != 0 {
+	if err = q.Rem(&value, &entry.degree, &quotient); err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	if !quotient.IsZero() {
 		return rewriter.RewriteFailed, ast.ErrASTDomain
+	}
+	if err = q.IDiv(&value, &entry.degree, &quotient); err != nil {
+		return rewriter.RewriteFailed, err
 	}
 	fresh, err := m.RefGet(entry.fresh)
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
 	result := fresh
-	if quotient.Cmp(big.NewInt(1)) != 0 {
-		numeral, e := m.ArithmeticRealNumeralText(quotient.String())
+	if !quotient.IsOne() {
+		numeral, e := m.ArithmeticNumeralFromRational(&quotient, false)
 		if e != nil {
 			return rewriter.RewriteFailed, e
 		}

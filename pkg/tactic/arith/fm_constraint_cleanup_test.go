@@ -5,8 +5,8 @@ import "testing"
 func TestFMConstraintCleanupAndLiveCopy(t *testing.T) {
 	v := NewFMVariableTable()
 	x := v.Add(false, false)
-	live := &FMConstraint{}
-	dead := &FMConstraint{Dead: true}
+	live := &FMConstraint{numerals: fmTestNumerals}
+	dead := &FMConstraint{numerals: fmTestNumerals, Dead: true}
 	v.Index.Lower[x] = []*FMConstraint{dead, live, nil}
 	v.Index.Upper[x] = []*FMConstraint{live, dead}
 	copy := v.LiveBounds(x, true)

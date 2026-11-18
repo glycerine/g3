@@ -149,7 +149,7 @@ func bv2RealSymbolicEncoding(t *testing.T, u *BV2RealUtil, prefix string, width 
 	a := bv2RealSymbolicBV(t, u.manager, prefix+"-a", width)
 	b := bv2RealSymbolicBV(t, u.manager, prefix+"-b", width)
 	out := bv2RealOut(t, u.manager)
-	equationMust(t, u.MkBV2RealC(a, b, big.NewRat(1, 1), big.NewRat(root, 1), out))
+	equationMust(t, mkBV2RealCRat(u, a, b, big.NewRat(1, 1), big.NewRat(root, 1), out))
 	h, err := u.manager.RefGet(out)
 	equationMust(t, err)
 	return h

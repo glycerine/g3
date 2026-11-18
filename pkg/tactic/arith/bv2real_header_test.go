@@ -97,7 +97,7 @@ func TestBV2RealHeaderSignatureFieldsAndCanonicalEquality(t *testing.T) {
 	var decls []ast.ASTHandle
 	for _, key := range keys {
 		a, b := f.bv(t, 1, key.first), f.bv(t, 2, key.second)
-		equationMust(t, u.MkBV2RealC(a, b, big.NewRat(key.divisor, 1), big.NewRat(key.root, 1), out))
+		equationMust(t, mkBV2RealCRat(u, a, b, big.NewRat(key.divisor, 1), big.NewRat(key.root, 1), out))
 		h, err := f.m.RefGet(out)
 		equationMust(t, err)
 		decl, err := f.m.GetDecl(h)
@@ -109,7 +109,7 @@ func TestBV2RealHeaderSignatureFieldsAndCanonicalEquality(t *testing.T) {
 		}
 		decls = append(decls, decl)
 		// Different coefficient values and equal reduced rationals preserve identity.
-		equationMust(t, u.MkBV2RealC(f.bv(t, 0, key.first), f.bv(t, 1, key.second), big.NewRat(2*key.divisor, 2), big.NewRat(3*key.root, 3), out))
+		equationMust(t, mkBV2RealCRat(u, f.bv(t, 0, key.first), f.bv(t, 1, key.second), big.NewRat(2*key.divisor, 2), big.NewRat(3*key.root, 3), out))
 		same, err := f.m.RefGet(out)
 		equationMust(t, err)
 		sameDecl, err := f.m.GetDecl(same)

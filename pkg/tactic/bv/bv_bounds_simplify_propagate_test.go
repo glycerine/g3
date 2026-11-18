@@ -36,7 +36,7 @@ func TestBVBoundsSimplifyNegatedIntersectionPropagatesEquality(t *testing.T) {
 	sharingMust(t, err)
 	n, width, numeral, err := bvBoundsNumeral(f.m, rhs)
 	sharingMust(t, err)
-	if !numeral || width != 8 || n.Int64() != 11 {
+	if !numeral || width != 8 || int64(n) != 11 {
 		t.Fatalf("propagated equality rhs = %v/%d/%v", n, width, numeral)
 	}
 }

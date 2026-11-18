@@ -12,7 +12,7 @@ func TestFMInputParseBuildsAndRegistersConstraint(t *testing.T) {
 	bound := fixDLApp(t, m, 2, x, fixDLNumber(t, m, false, "7/2"))
 	c, registration, matched, e := p.Parse(bound, ast.ASTDependency{})
 	equationMust(t, e)
-	if !matched || registration != FMRegistrationIndexed || c == nil || len(c.Variables) != 1 || c.Constant.RatString() != "7" || c.Coefficients[0].RatString() != "2" {
+	if !matched || registration != FMRegistrationIndexed || c == nil || len(c.Variables) != 1 || fmText(&c.Constant) != "7" || fmText(&c.Coefficients[0]) != "2" {
 		t.Fatalf("parsed constraint = %#v registration=%v matched=%v", c, registration, matched)
 	}
 }

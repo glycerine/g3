@@ -4,7 +4,6 @@ package bv
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
 )
 
 func (s *BVBoundsSimplifier) recognize(h ast.ASTHandle) (variable ast.ASTHandle, bound bvBoundsSet, found bool, err error) {
@@ -46,15 +45,14 @@ func (s *BVBoundsSimplifier) recognize(h ast.ASTHandle) (variable ast.ASTHandle,
 			if signed {
 				bound = bvBoundsSignedLower(w, lv)
 			} else {
-				max := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(w)), big.NewInt(1))
-				bound = bvBoundsRangeSet(w, lv, max)
+				bound = bvBoundsRangeSet(w, lv, bvBoundsMaximum(w))
 			}
 		} else if rn {
 			variable = lhs
 			if signed {
 				bound = bvBoundsSignedUpper(w, rv)
 			} else {
-				bound = bvBoundsRangeSet(w, big.NewInt(0), rv)
+				bound = bvBoundsRangeSet(w, 0, rv)
 			}
 		} else {
 			return variable, bound, false, nil
@@ -102,19 +100,19 @@ func (s *BVBoundsSimplifier) recognize(h ast.ASTHandle) (variable ast.ASTHandle,
 	}
 	return lhs, bvBoundsSingleton(w, v), true, nil
 }
-func bvBoundsSignedLower(w uint32, v *big.Int) bvBoundsSet {
-	sign := new(big.Int).Lsh(big.NewInt(1), uint(w-1))
-	max := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(w)), big.NewInt(1))
-	if v.Cmp(sign) >= 0 {
-		return bvBoundsSet{width: w, ranges: []bvBoundsRange{{bvBI(v), max}, {big.NewInt(0), new(big.Int).Sub(sign, big.NewInt(1))}}, tight: true}.normalize()
+func bvBoundsSignedLower(w uint32, v uint64) bvBoundsSet {
+	sign := uint64(1) << (w - 1)
+	max := bvBoundsMaximum(w)
+	if v >= sign {
+		return bvBoundsSet{width: w, ranges: []bvBoundsRange{{v, max}, {0, sign - 1}}, tight: true}.normalize()
 	}
-	return bvBoundsRangeSet(w, v, new(big.Int).Sub(sign, big.NewInt(1)))
+	return bvBoundsRangeSet(w, v, sign-1)
 }
-func bvBoundsSignedUpper(w uint32, v *big.Int) bvBoundsSet {
-	sign := new(big.Int).Lsh(big.NewInt(1), uint(w-1))
-	max := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(w)), big.NewInt(1))
-	if v.Cmp(sign) >= 0 {
+func bvBoundsSignedUpper(w uint32, v uint64) bvBoundsSet {
+	sign := uint64(1) << (w - 1)
+	max := bvBoundsMaximum(w)
+	if v >= sign {
 		return bvBoundsRangeSet(w, sign, v)
 	}
-	return bvBoundsSet{width: w, ranges: []bvBoundsRange{{sign, max}, {big.NewInt(0), bvBI(v)}}, tight: true}.normalize()
+	return bvBoundsSet{width: w, ranges: []bvBoundsRange{{sign, max}, {0, v}}, tight: true}.normalize()
 }

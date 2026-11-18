@@ -5,11 +5,11 @@ package tactic
 import (
 	"errors"
 	"io"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type eq2bvModelPair struct {
@@ -124,27 +124,31 @@ func (c *Eq2BVModelConverter) ApplyModel(out *ModelRef, goal uint32) (err error)
 			if pair.fresh != decl {
 				continue
 			}
-			text, found, e := c.manager.BitVectorNumeralText(value)
-			if e != nil {
-				return e
-			}
-			if found {
+			// rational r;
+			q := c.manager.NumeralService().Manager
+			r := unumeral.NewRational()
+			_, found, e := c.manager.BitVectorNumeralRational(value, &r)
+			if e == nil && found {
 				if pair.negativeWidth != 0 {
-					valueInt, ok := new(big.Int).SetString(text, 10)
-					if !ok {
-						return ast.ErrASTDomain
+					// the all-ones sentinel 2^w - 1 stands for -1
+					sentinel := unumeral.NewRational()
+					e = errors.Join(q.SetInt32(&sentinel, 2), q.Power(&sentinel, pair.negativeWidth, &sentinel), q.Dec(&sentinel))
+					var equal bool
+					if e == nil {
+						equal, e = q.Equal(&r, &sentinel)
 					}
-					sentinel := new(big.Int).Lsh(big.NewInt(1), uint(pair.negativeWidth))
-					sentinel.Sub(sentinel, big.NewInt(1))
-					if valueInt.Cmp(sentinel) == 0 {
-						text = "-1"
+					if e == nil && equal {
+						e = q.SetInt32(&r, -1)
 					}
+					e = errors.Join(e, q.Del(&sentinel))
 				}
-				value, e = c.manager.ArithmeticIntegerNumeralText(text)
-				if e != nil {
-					return e
+				if e == nil {
+					value, e = c.manager.ArithmeticNumeralFromRational(&r, true)
 				}
 				decl = pair.original
+			}
+			if e = errors.Join(e, q.Del(&r)); e != nil {
+				return e
 			}
 			break
 		}

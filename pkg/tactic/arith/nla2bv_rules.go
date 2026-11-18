@@ -4,7 +4,6 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -135,7 +134,7 @@ func (c *nla2BVInvocation) collectPower2(g *tactic.Goal) error {
 		if err != nil {
 			return errors.Join(err, c.local.releaseTo(mark))
 		}
-		bits := c.local.bv(45, c.local.numeral(big.NewRat(1, 1), width), exponent)
+		bits := c.local.bv(45, c.local.numeral(1, width), exponent)
 		value := c.local.hold(c.t.manager.MkBitVectorToInt(bits))
 		if err = c.appendOwned(&c.trail, &c.trailBytes, value); err != nil {
 			return errors.Join(err, c.local.releaseTo(mark))
@@ -376,7 +375,11 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 	mark := c.local.checkpoint()
 	defer func() { resultErr = errors.Join(resultErr, c.local.releaseTo(mark)) }()
 	var lower, upper *unumeral.OwnedRational
-	low, strict, hasLow, err := c.bounds.Lower(variable)
+	// rational l, u;
+	q := c.t.manager.NumeralService().Manager
+	low, up := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&low), q.Del(&up)) }()
+	strict, hasLow, err := c.bounds.Lower(variable, &low)
 	if err != nil {
 		return err
 	}
@@ -384,12 +387,12 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 		if err = nla2BVAssert(214, "!is_strict", !strict); err != nil {
 			return err
 		}
-		lower = c.local.rational(&low)
+		lower = c.local.rationalFrom(&low)
 		if c.local.err != nil {
 			return c.local.err
 		}
 	}
-	up, strict, hasUp, err := c.bounds.Upper(variable)
+	strict, hasUp, err := c.bounds.Upper(variable, &up)
 	if err != nil {
 		return err
 	}
@@ -397,7 +400,7 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 		if err = nla2BVAssert(218, "!is_strict", !strict); err != nil {
 			return err
 		}
-		upper = c.local.rational(&up)
+		upper = c.local.rationalFrom(&up)
 		if c.local.err != nil {
 			return c.local.err
 		}

@@ -2,13 +2,13 @@ package arith
 
 import (
 	"bytes"
-	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestRecover01ModelReconstruction(t *testing.T) {
@@ -27,7 +27,7 @@ func TestRecover01ModelReconstruction(t *testing.T) {
 	defer func() { equationMust(t, m.DelExprSubstitution(&sub)) }()
 	d := &recover01Definitions{manager: m, goal: goal, sub: sub}
 	defer func() { equationMust(t, d.Close()) }()
-	equationMust(t, d.build(x, []ast.ASTHandle{p}, []big.Rat{*big.NewRat(3, 1)}))
+	equationMust(t, d.build(x, []ast.ASTHandle{p}, []unumeral.Rational{smallRational(3, 1)}))
 	fresh, err := m.RefGet(d.booleans[0].fresh)
 	equationMust(t, err)
 	freshDecl, err := m.GetDecl(fresh)
@@ -90,7 +90,7 @@ func TestRecover01ModelReconstructsRealDefinitionFromNegatedBoolean(t *testing.T
 	defer func() { equationMust(t, m.DelExprSubstitution(&sub)) }()
 	defs := &recover01Definitions{manager: m, goal: goal, sub: sub}
 	defer func() { equationMust(t, defs.Close()) }()
-	equationMust(t, defs.build(x, []ast.ASTHandle{notP}, []big.Rat{*big.NewRat(1, 2)}))
+	equationMust(t, defs.build(x, []ast.ASTHandle{notP}, []unumeral.Rational{smallRational(1, 2)}))
 	fresh, err := m.RefGet(defs.booleans[0].fresh)
 	equationMust(t, err)
 	freshDecl, err := m.GetDecl(fresh)
@@ -155,8 +155,8 @@ func TestRecover01ExtensionOrderInterleaved(t *testing.T) {
 	defer func() { equationMust(t, m.DelExprSubstitution(&sub)) }()
 	d := &recover01Definitions{manager: m, goal: goal, sub: sub}
 	defer func() { equationMust(t, d.Close()) }()
-	equationMust(t, d.build(x, []ast.ASTHandle{p}, []big.Rat{*big.NewRat(3, 1)}))
-	equationMust(t, d.build(y, []ast.ASTHandle{r}, []big.Rat{*big.NewRat(7, 1)}))
+	equationMust(t, d.build(x, []ast.ASTHandle{p}, []unumeral.Rational{smallRational(3, 1)}))
+	equationMust(t, d.build(y, []ast.ASTHandle{r}, []unumeral.Rational{smallRational(7, 1)}))
 	var out tactic.TacticResult
 	equationMust(t, out.Prepare(m))
 	defer func() { equationMust(t, out.Close()) }()

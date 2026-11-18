@@ -98,7 +98,7 @@ func TestBV2RealSourceCachedSignatureAssertions(t *testing.T) {
 			u.reverse[decl] = sig
 			a, b := bv2RealOut(t, f.m), bv2RealOut(t, f.m)
 			var divisor, radical big.Rat
-			_, err = u.Match(h, a, b, &divisor, &radical)
+			_, err = matchRat(u, h, a, b, &divisor, &radical)
 			if diagnostic.DebugBuild {
 				if !errors.Is(err, diagnostic.ErrDebugAssertion) {
 					t.Fatal("missing cache signature assertion", err)

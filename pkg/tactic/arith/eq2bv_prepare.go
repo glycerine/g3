@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/bitutil"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type eq2bvReplacement struct {
@@ -77,6 +78,9 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 	for _, h := range order {
 		ordered = append(ordered, indexed{h})
 	}
+	q := m.NumeralService().Manager
+	upper, lower := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&upper), q.Del(&lower)) }()
 	plan = &eq2bvReplacements{manager: m, nonfd: nonfd}
 	defer func() {
 		if err != nil {
@@ -86,15 +90,18 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 	}()
 	for _, entry := range ordered {
 		maximum := maxima[entry.h]
-		upper, strict, found, e := bounds.Upper(entry.h)
+		strict, found, e := bounds.Upper(entry.h, &upper)
 		if e != nil {
 			return plan, e
 		}
 		if found {
-			if strict || !upper.IsInt() || upper.Sign() < 0 || upper.Num().BitLen() > 32 {
+			value, unsigned, e := rationalUnsigned(q, &upper)
+			if e != nil {
+				return plan, e
+			}
+			if strict || !unsigned {
 				return plan, ast.ErrASTDomain
 			}
-			value := uint32(upper.Num().Uint64())
 			if value > maximum {
 				maximum = value
 			}
@@ -111,19 +118,33 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 		}
 		// The source sizes from equalities and the upper bound only. A larger
 		// lower bound would otherwise wrap modulo the bit-vector width.
-		lower, lowerStrict, hasLower, e := bounds.Lower(entry.h)
+		lowerStrict, hasLower, e := bounds.Lower(entry.h, &lower)
 		if e != nil {
 			return plan, e
 		}
-		if hasLower && lower.Sign() >= 0 {
-			if lowerStrict || !lower.IsInt() {
-				return plan, ast.ErrASTDomain
-			}
-			if lowerBits := lower.Num().BitLen(); lowerBits > int(width) {
-				width = uint32(lowerBits)
+		lowerNegative := false
+		if hasLower {
+			if lowerNegative, e = q.IsNeg(&lower); e != nil {
+				return plan, e
 			}
 		}
-		negativeSentinel := found && (!hasLower || lower.Sign() < 0)
+		if hasLower && !lowerNegative {
+			isInt, e := q.IsInt(&lower)
+			if e != nil {
+				return plan, e
+			}
+			if lowerStrict || !isInt {
+				return plan, ast.ErrASTDomain
+			}
+			lowerBits, e := rationalBitLength(q, &lower)
+			if e != nil {
+				return plan, e
+			}
+			if lowerBits > width {
+				width = lowerBits
+			}
+		}
+		negativeSentinel := found && (!hasLower || lowerNegative)
 		if negativeSentinel && width <= 32 && uint64(domainMaximum) == (uint64(1)<<width)-1 {
 			width++
 		}

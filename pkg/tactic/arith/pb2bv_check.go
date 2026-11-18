@@ -3,8 +3,10 @@ package arith
 // Source: src/tactic/arith/pb2bv_tactic.cpp only_01_visitor/quick_pb_check.
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type pbNonPB struct{ term ast.ASTHandle }
@@ -83,7 +85,7 @@ func (t *PB2BVTactic) check(goal *tactic.Goal) (bool, error) {
 	return true, nil
 }
 
-func (t *PB2BVTactic) checkNode(term ast.ASTHandle, kind ast.ASTKind) (bool, error) {
+func (t *PB2BVTactic) checkNode(term ast.ASTHandle, kind ast.ASTKind) (_ bool, resultErr error) {
 	if kind != ast.ASTApp {
 		return false, nil
 	}
@@ -142,15 +144,32 @@ func (t *PB2BVTactic) checkNode(term ast.ASTHandle, kind ast.ASTKind) (bool, err
 	if err != nil || sk != 1 {
 		return false, err
 	}
-	l, _, found, err := t.bounds.Lower(term)
+	// rational l, u; (l.is_zero() || l.is_one()) && (u.is_zero() || u.is_one())
+	q := t.q()
+	l, u := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&l), q.Del(&u)) }()
+	_, found, err := t.bounds.Lower(term, &l)
 	if err != nil || !found {
 		return false, err
 	}
-	u, _, found, err := t.bounds.Upper(term)
+	_, found, err = t.bounds.Upper(term, &u)
 	if err != nil || !found {
 		return false, err
 	}
-	return (l.Sign() == 0 || l.RatString() == "1") && (u.Sign() == 0 || u.RatString() == "1"), nil
+	for _, v := range []*unumeral.Rational{&l, &u} {
+		zero, err := q.IsZero(v)
+		if err != nil {
+			return false, err
+		}
+		one, err := q.IsOne(v)
+		if err != nil {
+			return false, err
+		}
+		if !zero && !one {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 func (t *PB2BVTactic) constraintCore(term ast.ASTHandle) (bool, error) {
 	f, op, args, app, err := t.bounds.app(term)

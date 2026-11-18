@@ -5,14 +5,15 @@ package arith
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
-	"math/big"
 	"reflect"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -280,7 +281,7 @@ func (t *Elim01Tactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	return result.AddGoal(goal)
 }
 
-func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, conversion *elim01Conversion) error {
+func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, conversion *elim01Conversion) (resultErr error) {
 	m := t.manager
 	sort, err := m.GetSort(variable)
 	if err != nil {
@@ -294,20 +295,39 @@ func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, conversion *elim01Con
 	if err != nil || family != t.bounds.family || kind != 1 {
 		return err
 	}
-	lo, lowStrict, hasLow, err := t.bounds.Lower(variable)
+	// rational lo, hi;
+	q := m.NumeralService().Manager
+	lo, hi := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&lo), q.Del(&hi)) }()
+	lowStrict, hasLow, err := t.bounds.Lower(variable, &lo)
 	if err != nil {
 		return err
 	}
-	hi, highStrict, hasHigh, err := t.bounds.Upper(variable)
-	if err != nil || !hasLow || !hasHigh || lowStrict || highStrict || lo.Sign() < 0 || lo.Cmp(&hi) > 0 || !lo.IsInt() || !hi.IsInt() {
+	highStrict, hasHigh, err := t.bounds.Upper(variable, &hi)
+	if err != nil || !hasLow || !hasHigh || lowStrict || highStrict {
 		return err
 	}
-	max := new(big.Int).Set(hi.Num())
-	min := new(big.Int).Set(lo.Num())
-	if !max.IsUint64() || max.Uint64() > uint64(t.maxCoefficient) || !min.IsUint64() {
+	// zero <= lo && hi <= m_max_hi && lo <= hi; lo/hi.get_unsigned()
+	loUnsigned, err := q.IsUnsigned(&lo)
+	if err != nil || !loUnsigned {
+		return err
+	}
+	hiUnsigned, err := q.IsUnsigned(&hi)
+	if err != nil || !hiUnsigned {
+		return err
+	}
+	minValue32, err := q.Unsigned(&lo)
+	if err != nil {
+		return err
+	}
+	maxValue32, err := q.Unsigned(&hi)
+	if err != nil {
+		return err
+	}
+	if maxValue32 > t.maxCoefficient || minValue32 > maxValue32 {
 		return nil
 	}
-	maxValue, minValue := max.Uint64(), min.Uint64()
+	maxValue, minValue := uint64(maxValue32), uint64(minValue32)
 	boolSort, err := m.MkBoolSort()
 	if err != nil {
 		return err
@@ -335,7 +355,7 @@ func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, conversion *elim01Con
 		if e != nil {
 			return e
 		}
-		weight, e := m.ArithmeticIntegerNumeralText(new(big.Int).Lsh(big.NewInt(1), uint(shift)).String())
+		weight, e := m.ArithmeticIntegerNumeralText(strconv.FormatUint(uint64(1)<<shift, 10))
 		if e != nil {
 			return e
 		}
@@ -366,7 +386,7 @@ func (t *Elim01Tactic) addVariable(variable ast.ASTHandle, conversion *elim01Con
 		return err
 	}
 	appendAxiom := func(op int32, value uint64) error {
-		number, e := m.ArithmeticIntegerNumeralText(new(big.Int).SetUint64(value).String())
+		number, e := m.ArithmeticIntegerNumeralText(strconv.FormatUint(value, 10))
 		if e != nil {
 			return e
 		}

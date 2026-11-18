@@ -50,7 +50,14 @@ func (i *FMConstraintIndex) Backward(c *FMConstraint) error {
 		*i.Counter += uint32(best)
 	}
 	for _, other := range candidates {
-		if !other.Dead && fmConstraintSubsumes(c, other, i.Counter) {
+		subsumes := false
+		if !other.Dead {
+			var err error
+			if subsumes, err = fmConstraintSubsumes(c, other, i.Counter); err != nil {
+				return err
+			}
+		}
+		if subsumes {
 			if err := i.diagnostics.subsumed(c, other); err != nil {
 				return err
 			}

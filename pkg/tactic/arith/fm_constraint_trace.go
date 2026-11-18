@@ -5,7 +5,6 @@ package arith
 import (
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -73,8 +72,12 @@ func (d *fmConstraintDiagnostics) constraint(out io.Writer, c *FMConstraint) err
 				return err
 			}
 		}
-		if !c.Coefficients[i].IsInt() || c.Coefficients[i].Num().Cmp(big.NewInt(1)) != 0 {
-			if err := fmDisplayWrite(out, c.Coefficients[i].RatString()+"*"); err != nil {
+		if !c.Coefficients[i].IsOne() {
+			text, err := c.numerals.String(&c.Coefficients[i])
+			if err != nil {
+				return err
+			}
+			if err := fmDisplayWrite(out, text+"*"); err != nil {
 				return err
 			}
 		}
@@ -86,7 +89,11 @@ func (d *fmConstraintDiagnostics) constraint(out io.Writer, c *FMConstraint) err
 	if c.Strict {
 		comparison = " < "
 	}
-	return fmDisplayWrite(out, comparison+c.Constant.RatString()+")")
+	text, err := c.numerals.String(&c.Constant)
+	if err != nil {
+		return err
+	}
+	return fmDisplayWrite(out, comparison+text+")")
 }
 func (d *fmConstraintDiagnostics) constraints(out io.Writer, cs []*FMConstraint) error {
 	for _, c := range cs {

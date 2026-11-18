@@ -2,6 +2,7 @@ package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:1277-1441.
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -12,7 +13,7 @@ type FMResolution struct {
 	Inconsistent bool
 }
 
-func FMResolve(store *FMConstraintStore, variables *FMVariableTable, lower, upper *FMConstraint, x uint32) (FMResolution, error) {
+func FMResolve(store *FMConstraintStore, variables *FMVariableTable, lower, upper *FMConstraint, x uint32) (_ FMResolution, err error) {
 	if store == nil || variables == nil || lower == nil || upper == nil || lower.Dead || upper.Dead {
 		return FMResolution{}, ast.ErrASTDomain
 	}
@@ -20,6 +21,7 @@ func FMResolve(store *FMConstraintStore, variables *FMVariableTable, lower, uppe
 	if err != nil {
 		return FMResolution{}, err
 	}
+	defer func() { err = errors.Join(err, fmRelease(lower.numerals, coefficients, &constant)) }()
 	if len(xs) == 0 && (constant.Sign() > 0 || !strict && constant.Sign() == 0) {
 		return FMResolution{Tautology: true}, store.diagnostics.resolution(x, lower, upper, nil, " consequent literal is always true: ", 1366)
 	}

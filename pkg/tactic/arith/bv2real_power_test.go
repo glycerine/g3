@@ -87,7 +87,7 @@ func TestBV2RealExtensionProjectPowerAndSignBoundary(t *testing.T) {
 				u, f := bv2RealFixture(t, 2048)
 				c := &bv2RealCall{u: u}
 				t.Cleanup(func() { equationMust(t, c.close()) })
-				input := c.numeral(new(big.Rat).SetInt(n), width)
+				input := c.numeralRat(new(big.Rat).SetInt(n), width)
 				equationMust(t, c.err)
 				result := c.extend(7, input)
 				equationMust(t, c.err)

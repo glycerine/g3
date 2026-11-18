@@ -16,11 +16,13 @@ func FMConstraintIsFalse(c *FMConstraint) bool {
 // Register normalizes a constraint and places it in each permitted variable's
 // occurrence list. Deferred constraints are the source's "all forbidden"
 // branch and remain owned by the caller for reconstruction in the output goal.
-func (t *FMVariableTable) Register(c *FMConstraint) FMRegistration {
-	c.NormalizeCoefficients()
+func (t *FMVariableTable) Register(c *FMConstraint) (FMRegistration, error) {
+	if err := c.NormalizeCoefficients(); err != nil {
+		return FMRegistrationDeferred, err
+	}
 	if FMConstraintIsFalse(c) {
 		c.Dead = true
-		return FMRegistrationFalse
+		return FMRegistrationFalse, nil
 	}
 	indexed := false
 	for _, x := range c.Variables {
@@ -30,8 +32,8 @@ func (t *FMVariableTable) Register(c *FMConstraint) FMRegistration {
 		}
 	}
 	if !indexed {
-		return FMRegistrationDeferred
+		return FMRegistrationDeferred, nil
 	}
 	t.Index.Add(c)
-	return FMRegistrationIndexed
+	return FMRegistrationIndexed, nil
 }

@@ -17,7 +17,7 @@ import (
 func TestBV2RealNumericHelpersReleaseWidePayloadsBeforeCallerReturns(t *testing.T) {
 	u, f := bv2RealFixture(t, 512)
 	wide := new(big.Rat).SetInt(new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 250), big.NewInt(19)))
-	h := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.numeral(wide, 257) })
+	h := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.numeralRat(wide, 257) })
 	c := &bv2RealCall{u: u}
 	t.Cleanup(func() { equationMust(t, c.close()) })
 	service := f.m.NumeralService()
@@ -28,7 +28,7 @@ func TestBV2RealNumericHelpersReleaseWidePayloadsBeforeCallerReturns(t *testing.
 	before, err := service.Stats()
 	equationMust(t, err)
 	for i := 0; i < 8; i++ {
-		same := c.numeral(wide, 257)
+		same := c.numeralRat(wide, 257)
 		equationMust(t, c.err)
 		if same != h {
 			t.Fatal("numeral cache identity changed")
@@ -58,7 +58,7 @@ func TestBV2RealNumericHelperFailureScopes(t *testing.T) {
 			t.Run(fmt.Sprintf("query=%v/%d", query, stop), func(t *testing.T) {
 				u, f := bv2RealFixture(t, 512)
 				wide := new(big.Rat).SetInt(new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 250), big.NewInt(19)))
-				h := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.numeral(wide, 257) })
+				h := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.numeralRat(wide, 257) })
 				c := &bv2RealCall{u: u}
 				t.Cleanup(func() {
 					if c != nil {
@@ -69,7 +69,7 @@ func TestBV2RealNumericHelperFailureScopes(t *testing.T) {
 				if query {
 					c.bvNumeral(h)
 				} else {
-					c.numeral(wide, 257)
+					c.numeralRat(wide, 257)
 				}
 				f.m.Budget().FailAfter(-1)
 				if c.err == nil {

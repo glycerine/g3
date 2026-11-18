@@ -5,7 +5,6 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -155,22 +154,18 @@ func (u *BV2RealUtil) AuxDecls() ([]ast.ASTHandle, error) {
 	}
 	return append([]ast.ASTHandle(nil), u.decls...), nil
 }
-func (u *BV2RealUtil) Defaults() (root, divisor, maxDivisor big.Rat, err error) {
-	if err = u.open(); err != nil {
-		return
+
+// Defaults copies m_default_root, m_default_divisor and m_max_divisor.
+func (u *BV2RealUtil) Defaults(root, divisor, maxDivisor *unumeral.OwnedRational) error {
+	if err := u.open(); err != nil {
+		return err
 	}
-	for i, out := range []*big.Rat{&root, &divisor, &maxDivisor} {
-		text, e := u.manager.NumeralService().String(&u.defaults[i])
-		if e != nil {
-			err = e
-			return
-		}
-		if _, ok := out.SetString(text); !ok {
-			err = ast.ErrASTDomain
-			return
+	for i, out := range []*unumeral.OwnedRational{root, divisor, maxDivisor} {
+		if err := u.manager.NumeralService().Copy(out, &u.defaults[i]); err != nil {
+			return err
 		}
 	}
-	return
+	return nil
 }
 func (u *BV2RealUtil) MaxNumBits() (uint32, error) {
 	if err := u.open(); err != nil {
@@ -407,36 +402,9 @@ func (c *bv2RealCall) arith(k int32, args ...ast.ASTHandle) ast.ASTHandle {
 func (c *bv2RealCall) basic(k int32, args ...ast.ASTHandle) ast.ASTHandle {
 	return c.app(c.u.manager.BasicFamilyID(), k, args...)
 }
-func (c *bv2RealCall) bvNumeral(h ast.ASTHandle) (*big.Rat, bool) {
-	// is_zero/mk_extend borrow a numeral only for their local recognition.
-	// The returned Go value is independent of that project rational owner.
-	count := len(c.numbers)
-	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
-	q := c.number()
-	if q == nil {
-		return nil, false
-	}
-	var width uint32
-	yes, err := c.u.manager.BitVectorNumeralValue(h, q, &width)
-	if err != nil {
-		c.err = err
-		return nil, false
-	}
-	if !yes {
-		return nil, false
-	}
-	text, err := c.u.manager.NumeralService().String(q)
-	if err != nil {
-		c.err = err
-		return nil, false
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		c.err = ast.ErrASTDomain
-	}
-	return value, ok
-}
-func (c *bv2RealCall) numeral(q *big.Rat, width uint32) ast.ASTHandle {
+
+// numeral is m_bv.mk_numeral(rational(v), width).
+func (c *bv2RealCall) numeral(v uint32, width uint32) ast.ASTHandle {
 	// The AST parameter copies the numeral; its construction argument ends here.
 	count := len(c.numbers)
 	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
@@ -444,17 +412,11 @@ func (c *bv2RealCall) numeral(q *big.Rat, width uint32) ast.ASTHandle {
 	if n == nil {
 		return ast.ASTHandle{}
 	}
-	if err := c.u.manager.NumeralService().SetString(n, q.RatString()); err != nil {
+	if err := c.u.manager.NumeralService().Manager.SetUint32(&n.Raw, v); err != nil {
 		c.err = err
 		return ast.ASTHandle{}
 	}
 	return c.hold(c.u.manager.BitVectorNumeral(n, width))
-}
-func (c *bv2RealCall) realNumeral(q *big.Rat) ast.ASTHandle {
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	return c.hold(c.u.manager.ArithmeticNumeralRat(q, false))
 }
 func (c *bv2RealCall) align(a, b ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle) {
 	wa, wb := c.width(a), c.width(b)
@@ -553,33 +515,30 @@ func (c *bv2RealCall) mulAdopting(a, b ast.ASTHandle, rawA bool) (result ast.AST
 	}
 	return c.bv(6, sv, tv)
 }
-func (c *bv2RealCall) multiplyScalar(q *big.Rat, b ast.ASTHandle) (result ast.ASTHandle) {
+
+// multiplyScalar is mk_bv_mul(rational const& n, expr* t).
+func (c *bv2RealCall) multiplyScalar(q *unumeral.OwnedRational, b ast.ASTHandle) (result ast.ASTHandle) {
 	mark := c.checkpoint()
 	defer c.endExpressionScope(mark, &result)
-	if q.Cmp(big.NewRat(1, 1)) == 0 {
-		return b
-	}
-	// expr* s = mk_sbv(n); return mk_bv_mul(s, t): s is raw.
-	value := c.rational(q)
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	return c.mulAdopting(c.signedNumeralRaw(value), b, true)
+	one, err := c.u.manager.NumeralService().IsOne(q)
+	if err != nil {
+		c.err = err
+		return ast.ASTHandle{}
+	}
+	if one {
+		return b
+	}
+	// expr* s = mk_sbv(n); return mk_bv_mul(s, t): s is raw.
+	return c.mulAdopting(c.signedNumeralRaw(q), b, true)
 }
 func (c *bv2RealCall) extract(high, low uint32, h ast.ASTHandle) ast.ASTHandle {
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
 	return c.hold(c.u.manager.MkBitVectorExtract(high, low, h))
-}
-func (c *bv2RealCall) encoding(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle {
-	count := len(c.numbers)
-	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
-	divisor, root := c.rational(d), c.rational(r)
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	return c.encodingOwned(a, b, divisor, root)
 }
 func (c *bv2RealCall) encodingOwned(a, b ast.ASTHandle, d, r *unumeral.OwnedRational) ast.ASTHandle {
 	if c.err != nil {
@@ -656,15 +615,6 @@ func (c *bv2RealCall) encodingOwned(a, b ast.ASTHandle, d, r *unumeral.OwnedRati
 	}
 	return c.hold(c.u.manager.MkApp(decl, []ast.ASTHandle{a, b}))
 }
-func (c *bv2RealCall) reduced(a, b ast.ASTHandle, d, r *big.Rat) (result ast.ASTHandle) {
-	mark := c.checkpoint()
-	defer c.endExpressionScope(mark, &result)
-	divisor, root := c.rational(d), c.rational(r)
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	return c.reducedOwned(a, b, divisor, root)
-}
 func (u *BV2RealUtil) IsEncodingDecl(decl ast.ASTHandle) (bool, error) {
 	if err := u.open(); err != nil {
 		return false, err
@@ -672,7 +622,7 @@ func (u *BV2RealUtil) IsEncodingDecl(decl ast.ASTHandle) (bool, error) {
 	_, ok := u.reverse[decl]
 	return ok, nil
 }
-func (u *BV2RealUtil) MkBV2RealC(a, b ast.ASTHandle, d, r *big.Rat, out ast.ASTRef) (err error) {
+func (u *BV2RealUtil) MkBV2RealC(a, b ast.ASTHandle, d, r *unumeral.OwnedRational, out ast.ASTRef) (err error) {
 	if err = u.open(); err != nil {
 		return err
 	}
@@ -681,13 +631,15 @@ func (u *BV2RealUtil) MkBV2RealC(a, b ast.ASTHandle, d, r *big.Rat, out ast.ASTR
 	}
 	c := &bv2RealCall{u: u}
 	defer u.finish(c, &err)
-	h := c.encoding(a, b, d, r)
+	h := c.encodingOwned(a, b, d, r)
 	if c.err != nil {
 		return c.err
 	}
 	return u.manager.SetRef(out, h)
 }
-func (u *BV2RealUtil) MkBV2Real(a, b ast.ASTHandle, d, r *big.Rat, out ast.ASTRef) (ok bool, err error) {
+
+// MkBV2Real is mk_bv2real(s, t, d, r, result); d may be capped in place.
+func (u *BV2RealUtil) MkBV2Real(a, b ast.ASTHandle, d, r *unumeral.OwnedRational, out ast.ASTRef) (ok bool, err error) {
 	if err = u.open(); err != nil {
 		return false, err
 	}
@@ -700,13 +652,13 @@ func (u *BV2RealUtil) MkBV2Real(a, b ast.ASTHandle, d, r *big.Rat, out ast.ASTRe
 	if !ok || c.err != nil {
 		return false, c.err
 	}
-	h := c.encoding(a, b, d, r)
+	h := c.encodingOwned(a, b, d, r)
 	if c.err != nil {
 		return false, c.err
 	}
 	return true, u.manager.SetRef(out, h)
 }
-func (u *BV2RealUtil) MkReduced(a, b ast.ASTHandle, d, r *big.Rat, out ast.ASTRef) (err error) {
+func (u *BV2RealUtil) MkReduced(a, b ast.ASTHandle, d, r *unumeral.OwnedRational, out ast.ASTRef) (err error) {
 	if err = u.open(); err != nil {
 		return err
 	}
@@ -715,7 +667,7 @@ func (u *BV2RealUtil) MkReduced(a, b ast.ASTHandle, d, r *big.Rat, out ast.ASTRe
 	}
 	c := &bv2RealCall{u: u}
 	defer u.finish(c, &err)
-	h := c.reduced(a, b, d, r)
+	h := c.reducedOwned(a, b, d, r)
 	if c.err != nil {
 		return c.err
 	}
@@ -746,22 +698,26 @@ func (u *BV2RealUtil) MkReducedDefault(a, b ast.ASTHandle, out ast.ASTRef) (err 
 	}
 	return u.manager.SetRef(out, h)
 }
-func (c *bv2RealCall) match(h ast.ASTHandle) (a, b ast.ASTHandle, d, r big.Rat, found bool) {
+
+// match is is_bv2real(n, s, t, d, r), copying d and r into the caller's
+// rationals.
+func (c *bv2RealCall) match(h ast.ASTHandle, d, r *unumeral.OwnedRational) (a, b ast.ASTHandle, found bool) {
 	count := len(c.numbers)
 	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
 	term, found := c.matchTerm(h)
 	if !found || c.err != nil {
 		return
 	}
-	divisor, root := c.rationalValue(term.divisor), c.rationalValue(term.root)
-	if c.err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, d, r, false
+	s := c.u.manager.NumeralService()
+	if c.err = s.Copy(d, term.divisor); c.err == nil {
+		c.err = s.Copy(r, term.root)
 	}
-	d.Set(divisor)
-	r.Set(root)
-	return term.first, term.second, d, r, true
+	if c.err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false
+	}
+	return term.first, term.second, true
 }
-func (u *BV2RealUtil) Match(h ast.ASTHandle, aout, bout ast.ASTRef, d, r *big.Rat) (found bool, err error) {
+func (u *BV2RealUtil) Match(h ast.ASTHandle, aout, bout ast.ASTRef, d, r *unumeral.OwnedRational) (found bool, err error) {
 	if err = u.open(); err != nil {
 		return false, err
 	}
@@ -770,7 +726,7 @@ func (u *BV2RealUtil) Match(h ast.ASTHandle, aout, bout ast.ASTRef, d, r *big.Ra
 	}
 	c := &bv2RealCall{u: u}
 	defer u.finish(c, &err)
-	a, b, divisor, root, found := c.match(h)
+	a, b, found := c.match(h, d, r)
 	if !found || c.err != nil {
 		return false, c.err
 	}
@@ -780,8 +736,6 @@ func (u *BV2RealUtil) Match(h ast.ASTHandle, aout, bout ast.ASTRef, d, r *big.Ra
 	if err = u.manager.SetRef(bout, b); err != nil {
 		return false, err
 	}
-	d.Set(&divisor)
-	r.Set(&root)
 	return true, nil
 }
 

@@ -1,9 +1,13 @@
 package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:490-510,997-1086.
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
 
-func (p *FMInputParser) Parse(formula ast.ASTHandle, dependency ast.ASTDependency) (*FMConstraint, FMRegistration, bool, error) {
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+func (p *FMInputParser) Parse(formula ast.ASTHandle, dependency ast.ASTDependency) (_ *FMConstraint, _ FMRegistration, _ bool, err error) {
 	if err := p.open(); err != nil {
 		return nil, FMRegistrationDeferred, false, err
 	}
@@ -79,9 +83,12 @@ func (p *FMInputParser) Parse(formula ast.ASTHandle, dependency ast.ASTDependenc
 		}
 		literals = append(literals, literal)
 	}
-	xs, coefficients, constant, strict, _, err := p.inequality(args[inequalityIndex], true)
+	xs, coefficients, constant, strict, matched, err := p.inequality(args[inequalityIndex], true)
 	if err != nil {
 		return nil, FMRegistrationDeferred, false, err
+	}
+	if matched {
+		defer func() { err = errors.Join(err, fmRelease(p.manager.NumeralService().Manager, coefficients, &constant)) }()
 	}
 	if err = p.store.diagnostics.inputVariables(xs); err != nil {
 		return nil, FMRegistrationDeferred, false, err
@@ -93,7 +100,10 @@ func (p *FMInputParser) Parse(formula ast.ASTHandle, dependency ast.ASTDependenc
 	if err = p.store.diagnostics.inputConstraint(c); err != nil {
 		return c, FMRegistrationDeferred, true, err
 	}
-	registration := p.Variables.Register(c)
+	registration, err := p.Variables.Register(c)
+	if err != nil {
+		return c, FMRegistrationDeferred, true, err
+	}
 	if registration == FMRegistrationDeferred {
 		err = p.store.diagnostics.deferred(c)
 	}

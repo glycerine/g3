@@ -34,13 +34,13 @@ func TestFMProjectionMatchesIndependentIntervalOracle(t *testing.T) {
 												if v != y {
 													t.Fatal("eliminated variable survived", v)
 												}
-												lhs.Add(lhs, new(big.Rat).Mul(&coeffs[i], big.NewRat(value, 1)))
+												lhs.Add(lhs, new(big.Rat).Mul(fmBig(&coeffs[i]), big.NewRat(value, 1)))
 											}
-											comparison = lhs.Cmp(&bound)
+											comparison = lhs.Cmp(fmBig(&bound))
 											got := comparison < 0 || comparison == 0 && !strict
 											checked++
 											if got != want {
-												t.Fatalf("integerY=%v a=%d b=%d p=%d q=%d c=%d d=%d strict=%v/%v y=%d: interval=%s..%s projection=%s <= %s strict=%v", integerY, a, b, p, q, c, d, lowerStrict, upperStrict, value, lowerEnd, upperEnd, lhs, &bound, strict)
+												t.Fatalf("integerY=%v a=%d b=%d p=%d q=%d c=%d d=%d strict=%v/%v y=%d: interval=%s..%s projection=%s <= %s strict=%v", integerY, a, b, p, q, c, d, lowerStrict, upperStrict, value, lowerEnd, upperEnd, lhs, fmBig(&bound), strict)
 											}
 										}
 									}

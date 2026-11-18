@@ -5,7 +5,6 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
@@ -31,19 +30,6 @@ func (c *bv2RealCall) rationalPowerTwo(exponent uint32) *unumeral.OwnedRational 
 	value, err := s.Power(two, exponent)
 	c.err = errors.Join(err, c.releaseNumbersTo(count))
 	return c.takeRational(value, nil)
-}
-
-func (c *bv2RealCall) signedNumeral(q *big.Rat) (result ast.ASTHandle) {
-	mark := c.checkpoint()
-	defer c.endExpressionScope(mark, &result)
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	value := c.rational(q)
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	return c.signedNumeralOwned(value)
 }
 
 func (c *bv2RealCall) signedNumeralOwned(value *unumeral.OwnedRational) (result ast.ASTHandle) {
@@ -157,7 +143,7 @@ func (c *bv2RealCall) signedReal(h ast.ASTHandle) (result ast.ASTHandle) {
 	}
 	v := c.hold(c.u.manager.MkBitVectorToInt(h))
 	v = c.arith(14, v)
-	nonnegative := c.bv(23, c.numeral(big.NewRat(0, 1), width), h)
+	nonnegative := c.bv(23, c.numeral(0, width), h)
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}

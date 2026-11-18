@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"reflect"
 )
 
@@ -13,11 +13,12 @@ type FMConstraint struct {
 	ID                   uint32
 	Literals             []int32
 	Variables            []uint32
-	Coefficients         []big.Rat
-	Constant             big.Rat
+	Coefficients         []unumeral.Rational // m_as: rationals of the manager's NumeralService().Manager
+	Constant             unumeral.Rational   // m_c
 	Dependency           ast.ASTDependency
 	Strict, Dead, Marked bool
 	bytes                uint64
+	numerals             *unumeral.RationalManager // the store's NumeralService().Manager
 }
 type FMConstraintStore struct {
 	index       *FMConstraintIndex
@@ -56,14 +57,34 @@ func (s *FMConstraintStore) next() uint32 {
 	s.nextID++
 	return id
 }
-func (s *FMConstraintStore) New(lits []int32, vars []uint32, coeffs []big.Rat, constant *big.Rat, strict bool, dep ast.ASTDependency) (*FMConstraint, error) {
+
+// fmCoefficientBytes is the per-coefficient charge of a constraint (the
+// figure of the earlier Go rational layout, kept so budget accounting is
+// unchanged).
+const fmCoefficientBytes = 64
+
+// fmRelease destroys a coefficient vector and constant built by a caller.
+func fmRelease(q *unumeral.RationalManager, coefficients []unumeral.Rational, constant *unumeral.Rational) (err error) {
+	for i := range coefficients {
+		err = errors.Join(err, q.Del(&coefficients[i]))
+	}
+	if constant != nil {
+		err = errors.Join(err, q.Del(constant))
+	}
+	return err
+}
+
+func (s *FMConstraintStore) q() *unumeral.RationalManager { return s.manager.NumeralService().Manager }
+
+// New is mk_constraint: the constraint copies coeffs and constant.
+func (s *FMConstraintStore) New(lits []int32, vars []uint32, coeffs []unumeral.Rational, constant *unumeral.Rational, strict bool, dep ast.ASTDependency) (*FMConstraint, error) {
 	if e := s.open(); e != nil {
 		return nil, e
 	}
 	if len(vars) != len(coeffs) || constant == nil {
 		return nil, ast.ErrASTDomain
 	}
-	bytes := uint64(reflect.TypeOf(FMConstraint{}).Size()) + uint64(len(lits))*4 + uint64(len(vars))*(4+uint64(reflect.TypeOf(big.Rat{}).Size()))
+	bytes := uint64(reflect.TypeOf(FMConstraint{}).Size()) + uint64(len(lits))*4 + uint64(len(vars))*(4+fmCoefficientBytes)
 	if e := s.budget.Reserve(bytes); e != nil {
 		return nil, e
 	}
@@ -73,13 +94,22 @@ func (s *FMConstraintStore) New(lits []int32, vars []uint32, coeffs []big.Rat, c
 		s.budget.Release(bytes)
 		return nil, e
 	}
-	c := &FMConstraint{ID: s.next(), Literals: append([]int32(nil), lits...), Variables: append([]uint32(nil), vars...), Constant: *new(big.Rat).Set(constant), Strict: strict, Dependency: dep, bytes: bytes}
-	c.Coefficients = make([]big.Rat, len(coeffs))
+	q := s.q()
+	c := &FMConstraint{ID: s.next(), Literals: append([]int32(nil), lits...), Variables: append([]uint32(nil), vars...), Constant: unumeral.NewRational(), Strict: strict, Dependency: dep, bytes: bytes, numerals: q}
+	c.Coefficients = make([]unumeral.Rational, len(coeffs))
+	for i := range c.Coefficients {
+		c.Coefficients[i] = unumeral.NewRational()
+	}
 	for i := range coeffs {
 		if err := s.diagnostics.allocatedVariable(i, vars[i]); err != nil {
 			return nil, errors.Join(err, s.Delete(c))
 		}
-		c.Coefficients[i].Set(&coeffs[i])
+		if err := q.Copy(&c.Coefficients[i], &coeffs[i]); err != nil {
+			return nil, errors.Join(err, s.Delete(c))
+		}
+	}
+	if err := q.Copy(&c.Constant, constant); err != nil {
+		return nil, errors.Join(err, s.Delete(c))
 	}
 	s.constraints = append(s.constraints, c)
 	return c, nil
@@ -100,6 +130,9 @@ func (s *FMConstraintStore) Delete(c *FMConstraint) error {
 	}
 	if s.index != nil {
 		s.index.Todo.Erase(c)
+	}
+	if e = fmRelease(s.q(), c.Coefficients, &c.Constant); e != nil {
+		return e
 	}
 	s.freeIDs = append(s.freeIDs, c.ID)
 	s.budget.Release(c.bytes)

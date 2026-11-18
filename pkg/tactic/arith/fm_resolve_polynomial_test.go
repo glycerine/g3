@@ -9,8 +9,8 @@ func TestFMResolvePolynomialCombinesAndCancels(t *testing.T) {
 	upper := fmSubsumptionConstraint(nil, []uint32{x, y}, []int64{4, 1}, 7, false)
 	xs, as, c, strict, e := fmResolvePolynomial(v, lower, upper, x)
 	equationMust(t, e)
-	if strict || len(xs) != 1 || xs[0] != y || as[0].RatString() != "14" || c.RatString() != "34" {
-		t.Fatalf("resolution polynomial = %v %v <= %s strict=%v", xs, as, c.RatString(), strict)
+	if strict || len(xs) != 1 || xs[0] != y || fmText(&as[0]) != "14" || fmText(&c) != "34" {
+		t.Fatalf("resolution polynomial = %v %v <= %s strict=%v", xs, as, fmText(&c), strict)
 	}
 	upper.Coefficients[1] = fmCRat(-6, 1)
 	xs, as, _, _, e = fmResolvePolynomial(v, lower, upper, x)
@@ -27,7 +27,7 @@ func TestFMResolvePolynomialRoundsIntegerStrictResult(t *testing.T) {
 	upper := fmSubsumptionConstraint(nil, []uint32{x}, []int64{1}, 3, false)
 	_, as, c, strict, e := fmResolvePolynomial(v, lower, upper, x)
 	equationMust(t, e)
-	if strict || len(as) != 1 || as[0].RatString() != "1" || c.RatString() != "4" {
-		t.Fatalf("integer result = %v <= %s strict=%v", as, c.RatString(), strict)
+	if strict || len(as) != 1 || fmText(&as[0]) != "1" || fmText(&c) != "4" {
+		t.Fatalf("integer result = %v <= %s strict=%v", as, fmText(&c), strict)
 	}
 }

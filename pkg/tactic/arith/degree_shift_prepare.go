@@ -5,9 +5,9 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type degreeShiftEntry struct {
@@ -15,7 +15,7 @@ type degreeShiftEntry struct {
 	// definition is (^ fresh 1/k), built by prepare_substitution for the
 	// extension model converter when models are enabled.
 	definition ast.ASTRef
-	degree     *big.Int
+	degree     unumeral.Rational // m_var2degree's k (owned)
 }
 type degreeShiftPlan struct {
 	manager *ast.ASTManager
@@ -26,7 +26,11 @@ func (p *degreeShiftPlan) Close() error {
 	if p == nil || p.manager == nil {
 		return nil
 	}
+	q := p.manager.NumeralService().Manager
 	for i := range p.entries {
+		if err := q.Del(&p.entries[i].degree); err != nil {
+			return err
+		}
 		for _, ref := range []*ast.ASTRef{&p.entries[i].proof, &p.entries[i].definition, &p.entries[i].fresh, &p.entries[i].original} {
 			if *ref != (ast.ASTRef{}) {
 				if err := p.manager.DelRef(ref); err != nil {
@@ -39,7 +43,7 @@ func (p *degreeShiftPlan) Close() error {
 	p.manager = nil
 	return nil
 }
-func degreeShiftDefinitionProof(m *ast.ASTManager, original, fresh ast.ASTHandle, degree *big.Int) (result ast.ASTRef, err error) {
+func degreeShiftDefinitionProof(m *ast.ASTManager, original, fresh ast.ASTHandle, degree *unumeral.Rational) (result ast.ASTRef, err error) {
 	var refs []ast.ASTRef
 	defer func() {
 		for i := len(refs) - 1; i >= 0; i-- {
@@ -57,7 +61,7 @@ func degreeShiftDefinitionProof(m *ast.ASTManager, original, fresh ast.ASTHandle
 		}
 		return e
 	}
-	exponent, err := m.ArithmeticRealNumeralText(degree.String())
+	exponent, err := m.ArithmeticNumeralFromRational(degree, false)
 	if err != nil {
 		return result, err
 	}
@@ -104,13 +108,20 @@ func degreeShiftPrepareWithCheckpoint(m *ast.ASTManager, roots []ast.ASTHandle, 
 }
 
 // degreeShiftModelDefinition is mk_power(fresh, rational(1)/k).
-func degreeShiftModelDefinition(m *ast.ASTManager, fresh ast.ASTHandle, degree *big.Int) (ast.ASTRef, error) {
+func degreeShiftModelDefinition(m *ast.ASTManager, fresh ast.ASTHandle, degree *unumeral.Rational) (ast.ASTRef, error) {
 	family, err := m.ArithmeticFamilyID()
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	exponent, err := m.ArithmeticRealNumeralText("1/" + degree.String())
-	if err != nil {
+	// rational(1)/k
+	q := m.NumeralService().Manager
+	inverse := unumeral.NewRational()
+	err = q.Inv(degree, &inverse)
+	var exponent ast.ASTHandle
+	if err == nil {
+		exponent, err = m.ArithmeticNumeralFromRational(&inverse, false)
+	}
+	if err = errors.Join(err, q.Del(&inverse)); err != nil {
 		return ast.ASTRef{}, err
 	}
 	exponentRef, err := m.NewRef(exponent)
@@ -136,6 +147,7 @@ func degreeShiftPrepareSubstitution(m *ast.ASTManager, roots []ast.ASTHandle, pr
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errors.Join(err, degreeShiftReleaseDegrees(m, degrees)) }()
 	// prepare_substitution walks m_var2degree in table order.
 	type item struct{ h ast.ASTHandle }
 	items := make([]item, 0, len(order))
@@ -154,8 +166,11 @@ func degreeShiftPrepareSubstitution(m *ast.ASTManager, roots []ast.ASTHandle, pr
 		if e != nil {
 			return plan, e
 		}
-		plan.entries = append(plan.entries, degreeShiftEntry{original: original, degree: new(big.Int).Set(degrees[entry.h])})
+		plan.entries = append(plan.entries, degreeShiftEntry{original: original, degree: unumeral.NewRational()})
 		current := &plan.entries[len(plan.entries)-1]
+		if e = m.NumeralService().Manager.Copy(&current.degree, degrees[entry.h]); e != nil {
+			return plan, e
+		}
 		sort, e := m.GetSort(entry.h)
 		if e != nil {
 			return plan, e
@@ -169,13 +184,13 @@ func degreeShiftPrepareSubstitution(m *ast.ASTManager, roots []ast.ASTHandle, pr
 			return plan, e
 		}
 		if models {
-			current.definition, e = degreeShiftModelDefinition(m, fresh, current.degree)
+			current.definition, e = degreeShiftModelDefinition(m, fresh, &current.degree)
 			if e != nil {
 				return plan, e
 			}
 		}
 		if proofs {
-			current.proof, e = degreeShiftDefinitionProof(m, entry.h, fresh, current.degree)
+			current.proof, e = degreeShiftDefinitionProof(m, entry.h, fresh, &current.degree)
 			if e != nil {
 				return plan, e
 			}

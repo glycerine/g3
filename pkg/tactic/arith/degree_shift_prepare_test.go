@@ -28,8 +28,8 @@ func TestDegreeShiftPrepare(t *testing.T) {
 				equationMust(t, err)
 				fresh, err := m.RefGet(entry.fresh)
 				equationMust(t, err)
-				if entry.degree.String() != want[original] || fresh == original || freshVars[fresh] {
-					t.Fatalf("bad substitution: original=%v fresh=%v degree=%s", original, fresh, entry.degree)
+				if ratText(m, &entry.degree) != want[original] || fresh == original || freshVars[fresh] {
+					t.Fatalf("bad substitution: original=%v fresh=%v degree=%s", original, fresh, ratText(m, &entry.degree))
 				}
 				freshVars[fresh] = true
 				originalSort, err := m.GetSort(original)
@@ -48,7 +48,7 @@ func TestDegreeShiftPrepare(t *testing.T) {
 					equationMust(t, err)
 					right, err := m.GetArg(fact, 1)
 					equationMust(t, err)
-					if left != fresh || right != power(original, entry.degree.String()) {
+					if left != fresh || right != power(original, ratText(m, &entry.degree)) {
 						t.Fatal("definition proof has the wrong fact")
 					}
 				} else if entry.proof != (ast.ASTRef{}) {

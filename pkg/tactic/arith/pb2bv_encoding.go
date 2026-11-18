@@ -4,20 +4,49 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type pbLiteral struct {
 	variable ast.ASTHandle
 	negative bool
 }
+
+// pbMonomial is monomial: rational m_a (a rational of the manager's
+// NumeralService().Manager, owned by the polynomial) and its literal.
 type pbMonomial struct {
-	weight  big.Rat
+	weight  unumeral.Rational
 	literal pbLiteral
 }
 type pbPolynomial []pbMonomial
+
+func (t *PB2BVTactic) q() *unumeral.RationalManager { return t.manager.NumeralService().Manager }
+
+// pbRelease is the polynomial's destructor: it destroys the weights.
+func pbRelease(q *unumeral.RationalManager, p pbPolynomial) (err error) {
+	for i := range p {
+		err = errors.Join(err, q.Del(&p[i].weight))
+	}
+	return err
+}
+
+// pbMonomialOf is monomial(a, l): the polynomial owns a copy of a.
+func pbMonomialOf(q *unumeral.RationalManager, a *unumeral.Rational, l pbLiteral) (pbMonomial, error) {
+	m := pbMonomial{weight: unumeral.NewRational(), literal: l}
+	if err := q.Copy(&m.weight, a); err != nil {
+		return m, errors.Join(err, q.Del(&m.weight))
+	}
+	return m, nil
+}
+
+// pbUnitMonomial is monomial(l), whose m_a is one.
+func pbUnitMonomial(q *unumeral.RationalManager, l pbLiteral) (pbMonomial, error) {
+	m := pbMonomial{weight: unumeral.NewRational(), literal: l}
+	return m, q.SetInt32(&m.weight, 1)
+}
+
 type pbBitBinding struct{ declaration, positive, negative ast.ASTHandle }
 
 // This concrete lexical trail keeps the source expr_ref/vector results alive
@@ -112,15 +141,28 @@ func (t *PB2BVTactic) monomialLiteral(l pbLiteral) (ast.ASTHandle, error) {
 	return t.integerLiteral(l.variable, l.negative)
 }
 
-func (t *PB2BVTactic) allClauses(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (ast.ASTHandle, error) {
+func (t *PB2BVTactic) allClauses(p pbPolynomial, c *unumeral.Rational, s *pbEncodingScope) (_ ast.ASTHandle, resultErr error) {
 	m := t.manager
+	q := t.q()
 	n := len(p)
-	sums := make([]big.Rat, n)
+	sums := make([]unumeral.Rational, n)
+	for i := range sums {
+		sums[i] = unumeral.NewRational()
+	}
+	defer func() {
+		for i := range sums {
+			resultErr = errors.Join(resultErr, q.Del(&sums[i]))
+		}
+	}()
 	lits := make([]ast.ASTHandle, n)
 	for i := n - 1; i >= 0; i-- {
-		sums[i].Set(&p[i].weight)
+		if err := q.Copy(&sums[i], &p[i].weight); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		if i+1 < n {
-			sums[i].Add(&sums[i], &sums[i+1])
+			if err := q.Add(&sums[i], &sums[i+1], &sums[i]); err != nil {
+				return ast.ASTHandle{}, err
+			}
 		}
 	}
 	for i := range p {
@@ -131,12 +173,20 @@ func (t *PB2BVTactic) allClauses(p pbPolynomial, c *big.Rat, s *pbEncodingScope)
 		lits[i] = h
 	}
 	var clauses, clause []ast.ASTHandle
-	var process func(int, *big.Rat) error
-	process = func(index int, bound *big.Rat) error {
-		if bound.Sign() <= 0 {
-			return nil
+	var process func(int, *unumeral.Rational) error
+	process = func(index int, bound *unumeral.Rational) (resultErr error) {
+		if positive, err := q.IsPos(bound); err != nil || !positive {
+			return err
 		}
-		if index == n || sums[index].Cmp(bound) < 0 {
+		below := index == n
+		if !below {
+			c, err := q.Compare(&sums[index], bound)
+			if err != nil {
+				return err
+			}
+			below = c < 0
+		}
+		if below {
 			var h ast.ASTHandle
 			var err error
 			switch len(clause) {
@@ -161,27 +211,45 @@ func (t *PB2BVTactic) allClauses(p pbPolynomial, c *big.Rat, s *pbEncodingScope)
 			return err
 		}
 		clause = clause[:len(clause)-1]
-		return process(index+1, new(big.Rat).Sub(bound, &p[index].weight))
+		next := unumeral.NewRational()
+		defer func() { resultErr = errors.Join(resultErr, q.Del(&next)) }()
+		if err := q.Sub(bound, &p[index].weight, &next); err != nil {
+			return err
+		}
+		return process(index+1, &next)
 	}
 	if err := process(0, c); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return s.gate(ast.ASTOpAnd, clauses...)
 }
-func (t *PB2BVTactic) bitblast(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (ast.ASTHandle, error) {
+func (t *PB2BVTactic) bitblast(p pbPolynomial, c *unumeral.Rational, s *pbEncodingScope) (_ ast.ASTHandle, resultErr error) {
 	m := t.manager
+	q := t.q()
 	cardinality := true
 	for i := range p {
-		if p[i].weight.Cmp(big.NewRat(1, 1)) != 0 {
+		one, err := q.IsOne(&p[i].weight)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if !one {
 			cardinality = false
 			break
 		}
 	}
 	n := len(p)
-	if cardinality && big.NewRat(int64(n), 1).Cmp(c) < 0 {
+	cVsN, err := rationalCompareInt(q, c, int64(n))
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	cIsOne, err := q.IsOne(c)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if cardinality && cVsN > 0 {
 		return m.MkFalse()
 	}
-	if cardinality && (c.Cmp(big.NewRat(1, 1)) == 0 || c.Cmp(big.NewRat(int64(n), 1)) == 0) {
+	if cardinality && (cIsOne || cVsN == 0) {
 		args := make([]ast.ASTHandle, n)
 		for i := range p {
 			h, err := t.monomialLiteral(p[i].literal)
@@ -190,7 +258,7 @@ func (t *PB2BVTactic) bitblast(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (
 			}
 			args[i] = h
 		}
-		if c.Cmp(big.NewRat(1, 1)) == 0 {
+		if cIsOne {
 			return s.hold(m.MkOrArgs(args))
 		}
 		return s.gate(ast.ASTOpAnd, args...)
@@ -199,10 +267,13 @@ func (t *PB2BVTactic) bitblast(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (
 		return t.allClauses(p, c, s)
 	}
 	if cardinality {
-		if !c.IsInt() || !c.Num().IsUint64() || c.Num().Uint64() > uint64(^uint32(0)) || c.Sign() <= 0 || c.Cmp(big.NewRat(int64(n), 1)) >= 0 {
+		k, unsigned, err := rationalUnsigned(q, c)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if !unsigned || k == 0 || cVsN >= 0 {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
-		k := uint32(c.Num().Uint64())
 		rows := uint32(n) - k + 1
 		// Source multiplies unsigned operands before assigning to uint64.
 		cost := uint64(k * rows)
@@ -245,17 +316,27 @@ func (t *PB2BVTactic) bitblast(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (
 	if err := t.tracePolynomial("pb2bv_bv_detail", "bitblast_pbc", 427, "encoding:\n", p, c, ""); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	var sum big.Rat
+	// rational sum(0);
+	sum := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&sum)) }()
 	for i := range p {
-		if p[i].weight.Sign() <= 0 {
+		positive, err := q.IsPos(&p[i].weight)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if !positive {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
-		sum.Add(&sum, &p[i].weight)
+		if err = q.Add(&sum, &p[i].weight, &sum); err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
-	if sum.Cmp(c) < 0 {
+	if cmp, err := q.Compare(&sum, c); err != nil {
+		return ast.ASTHandle{}, err
+	} else if cmp < 0 {
 		return m.MkFalse()
 	}
-	bits, err := lia2pbBits(&sum)
+	bits, err := lia2pbBits(q, &sum)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -266,11 +347,11 @@ func (t *PB2BVTactic) bitblast(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (
 	for i := range p {
 		// m.mk_ite(mon_lit2lit(l), mk_numeral(a), mk_numeral(0)): GCC
 		// evaluates the arguments right to left.
-		zero, err := s.hold(m.BitVectorNumeralRat(new(big.Rat), bits))
+		zero, err := s.hold(m.BitVectorNumeralUnsigned(0, bits))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		weight, err := s.hold(m.BitVectorNumeralRat(&p[i].weight, bits))
+		weight, err := s.hold(m.BitVectorNumeralFromRational(&p[i].weight, bits))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -292,108 +373,188 @@ func (t *PB2BVTactic) bitblast(p pbPolynomial, c *big.Rat, s *pbEncodingScope) (
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	rhs, err := s.hold(m.BitVectorNumeralRat(c, bits))
+	rhs, err := s.hold(m.BitVectorNumeralFromRational(c, bits))
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return s.hold(m.MkBitVectorULE(rhs, lhs))
 }
-func (t *PB2BVTactic) split(p pbPolynomial, c *big.Rat) (pbPolynomial, pbPolynomial, error) {
-	if len(p) <= 2 || c.Cmp(big.NewRat(1, 1)) == 0 || p[0].weight.Cmp(c) != 0 || p[1].weight.Cmp(c) != 0 {
-		return p, nil, nil
+
+// split is split(m_p, m_c, m_clause): *p is rewritten in place and the
+// clause is returned (owned by the caller, empty when nothing is split).
+func (t *PB2BVTactic) split(p *pbPolynomial, c *unumeral.Rational) (clause pbPolynomial, resultErr error) {
+	q := t.q()
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, pbRelease(q, clause))
+			clause = nil
+		}
+	}()
+	cIsOne, err := q.IsOne(c)
+	if err != nil {
+		return nil, err
+	}
+	if len(*p) <= 2 || cIsOne {
+		return nil, nil
+	}
+	equalC := func(i int) (bool, error) { return q.Equal(&(*p)[i].weight, c) }
+	for _, i := range []int{0, 1} {
+		if eq, err := equalC(i); err != nil || !eq {
+			return nil, err
+		}
 	}
 	i := 2
-	for i < len(p) && p[i].weight.Cmp(c) == 0 {
+	for i < len(*p) {
+		eq, err := equalC(i)
+		if err != nil {
+			return nil, err
+		}
+		if !eq {
+			break
+		}
 		i++
 	}
-	if i == len(p) {
-		return p, nil, nil
+	if i == len(*p) {
+		return nil, nil
 	}
-	clause := make(pbPolynomial, 0, i+1)
+	clause = make(pbPolynomial, 0, i+1)
 	for j := 0; j < i; j++ {
-		clause = append(clause, pbMonomial{weight: *big.NewRat(1, 1), literal: p[j].literal})
+		mon, err := pbUnitMonomial(q, (*p)[j].literal)
+		if err != nil {
+			return clause, errors.Join(err, q.Del(&mon.weight))
+		}
+		clause = append(clause, mon)
 	}
 	integer, err := t.manager.MkFamilySort(t.bounds.family, 1, nil)
 	if err != nil {
-		return nil, nil, err
+		return clause, err
 	}
 	fresh, err := t.manager.MkFreshConstNullable(nil, integer)
 	if err != nil {
-		return nil, nil, err
+		return clause, err
 	}
 	if err = t.manager.IncRef(fresh); err != nil {
-		return nil, nil, err
+		return clause, err
 	}
 	t.temporaryInts = append(t.temporaryInts, fresh)
-	clause = append(clause, pbMonomial{weight: *big.NewRat(1, 1), literal: pbLiteral{fresh, true}})
-	remaining := make(pbPolynomial, 1, len(p)-i+1)
-	remaining[0].weight.Set(c)
-	remaining[0].literal = pbLiteral{fresh, false}
-	remaining = append(remaining, p[i:]...)
-	return remaining, clause, nil
+	mon, err := pbUnitMonomial(q, pbLiteral{fresh, true})
+	if err != nil {
+		return clause, errors.Join(err, q.Del(&mon.weight))
+	}
+	clause = append(clause, mon)
+	// m_p[0] = monomial(m_c, lit(new_var, false)) after moving [i, sz)
+	// down; monomials [0, i) are destroyed.
+	first, err := pbMonomialOf(q, c, pbLiteral{fresh, false})
+	if err != nil {
+		return clause, err
+	}
+	old := *p
+	remaining := make(pbPolynomial, 1, len(old)-i+1)
+	remaining[0] = first
+	remaining = append(remaining, old[i:]...)
+	*p = remaining
+	return clause, pbRelease(q, old[:i])
 }
-func (t *PB2BVTactic) mkPBC(p pbPolynomial, c *big.Rat, split bool, s *pbEncodingScope) (ast.ASTHandle, error) {
-	if err := t.tracePolynomial("mk_pbc", "mk_pbc", 507, "", p, c, ""); err != nil {
+
+// mkPBC is mk_pbc(m_p, m_c, r, enable_split): *p and c are normalized in
+// place, as the source's reference parameters are.
+func (t *PB2BVTactic) mkPBC(p *pbPolynomial, c *unumeral.Rational, split bool, s *pbEncodingScope) (_ ast.ASTHandle, resultErr error) {
+	q := t.q()
+	if err := t.tracePolynomial("mk_pbc", "mk_pbc", 507, "", *p, c, ""); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if c.Sign() <= 0 {
+	if positive, err := q.IsPos(c); err != nil {
+		return ast.ASTHandle{}, err
+	} else if !positive {
 		return t.manager.MkTrue()
 	}
-	if len(p) == 0 {
+	if len(*p) == 0 {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	gcd := new(big.Int).Set(p[0].weight.Num())
-	if p[0].weight.Cmp(c) > 0 {
-		gcd.Set(c.Num())
-	}
-	for i := range p {
-		if !p[i].weight.IsInt() {
-			return ast.ASTHandle{}, ast.ErrASTDomain
+	// numeral a_gcd = (it->m_a > m_c) ? m_c : it->m_a;
+	gcd := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&gcd)) }()
+	if cmp, err := q.Compare(&(*p)[0].weight, c); err != nil {
+		return ast.ASTHandle{}, err
+	} else if cmp > 0 {
+		err = q.Copy(&gcd, c)
+		if err != nil {
+			return ast.ASTHandle{}, err
 		}
-		if p[i].weight.Cmp(c) > 0 {
-			p[i].weight.Set(c)
-		}
-		gcd.GCD(nil, nil, gcd, p[i].weight.Num())
+	} else if err = q.Copy(&gcd, &(*p)[0].weight); err != nil {
+		return ast.ASTHandle{}, err
 	}
-	if gcd.Sign() <= 0 {
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	g := new(big.Rat).SetInt(gcd)
-	if gcd.Cmp(big.NewInt(1)) != 0 {
-		for i := range p {
-			p[i].weight.Quo(&p[i].weight, g)
+	for i := range *p {
+		w := &(*p)[i].weight
+		if isInt, err := q.IsInt(w); err != nil || !isInt {
+			return ast.ASTHandle{}, errors.Join(err, ast.ErrASTDomain)
 		}
-		q := new(big.Rat).Quo(c, g)
-		v := new(big.Int).Quo(q.Num(), q.Denom())
-		if new(big.Int).Mod(q.Num(), q.Denom()).Sign() != 0 {
-			v.Add(v, big.NewInt(1))
+		if cmp, err := q.Compare(w, c); err != nil {
+			return ast.ASTHandle{}, err
+		} else if cmp > 0 {
+			if err = q.Copy(w, c); err != nil {
+				return ast.ASTHandle{}, err
+			}
 		}
-		c.SetInt(v)
+		if err := q.GCD(&gcd, w, &gcd); err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
-	if err := t.tracePolynomial("mk_pbc", "mk_pbc", 528, "GCD = "+g.RatString()+"; Normalized: ", p, c, "\n"); err != nil {
+	if positive, err := q.IsPos(&gcd); err != nil || !positive {
+		return ast.ASTHandle{}, errors.Join(err, ast.ErrASTDomain)
+	}
+	gcdIsOne, err := q.IsOne(&gcd)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !gcdIsOne {
+		for i := range *p {
+			if err = q.Div(&(*p)[i].weight, &gcd, &(*p)[i].weight); err != nil {
+				return ast.ASTHandle{}, err
+			}
+		}
+		// m_c = ceil(m_c/a_gcd);
+		if err = q.Div(c, &gcd, c); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if err = q.Ceil(c, c); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	gcdText, err := q.String(&gcd)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err := t.tracePolynomial("mk_pbc", "mk_pbc", 528, "GCD = "+gcdText+"; Normalized: ", *p, c, "\n"); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	// The source's a_sum loop adds m_c rather than the coefficients. For any
 	// nonempty polynomial this branch succeeds immediately; preserve it.
-	if err := t.tracePolynomial("split_bug", "mk_pbc", 542, "", p, c, ""); err != nil {
+	if err := t.tracePolynomial("split_bug", "mk_pbc", 542, "", *p, c, ""); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// polynomial clause;
 	var clause pbPolynomial
-	var err error
+	defer func() { resultErr = errors.Join(resultErr, pbRelease(q, clause)) }()
 	if split {
-		p, clause, err = t.split(p, c)
+		clause, err = t.split(p, c)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 	}
-	if err = t.traceSplit(p, c, clause); err != nil {
+	if err = t.traceSplit(*p, c, clause); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	first, err := t.bitblast(p, c, s)
+	first, err := t.bitblast(*p, c, s)
 	if err != nil || len(clause) == 0 {
 		return first, err
 	}
-	second, err := t.bitblast(clause, big.NewRat(1, 1), s)
+	one := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&one)) }()
+	if err = q.SetInt32(&one, 1); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	second, err := t.bitblast(clause, &one, s)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

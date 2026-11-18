@@ -4,19 +4,20 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // PBSum represents constant + sum(coefficients[i] * indicator(args[i])).
-// All coefficients are positive. It owns the constructed Boolean expressions;
-// callers must Close it before closing the manager.
+// All coefficients are positive. It owns the constructed Boolean expressions
+// and its rationals (of the manager's NumeralService().Manager); callers must
+// Close it before closing the manager.
 type PBSum struct {
 	Args         []ast.ASTHandle
-	Coefficients []big.Rat
-	Constant     big.Rat
+	Coefficients []unumeral.Rational
+	Constant     unumeral.Rational
 	manager      *ast.ASTManager
 	refs         []ast.ASTRef
 }
@@ -31,6 +32,16 @@ func (s *PBSum) Close() error {
 			return err
 		}
 		s.refs = s.refs[1:]
+	}
+	q := s.manager.NumeralService().Manager
+	for len(s.Coefficients) > 0 {
+		if err := q.Del(&s.Coefficients[0]); err != nil {
+			return err
+		}
+		s.Coefficients = s.Coefficients[1:]
+	}
+	if err := q.Del(&s.Constant); err != nil {
+		return err
 	}
 	s.Args = nil
 	s.Coefficients = nil
@@ -51,39 +62,34 @@ func (s *PBSum) pin(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
 
 // lia2cardNumeral recognizes the source's recursive minus and to_real numeral
 // wrappers, without accepting arbitrary arithmetic expressions as numerals.
-func lia2cardNumeral(m *ast.ASTManager, h ast.ASTHandle, family ast.FamilyID) (*big.Rat, bool, error) {
+// The value is written into r (a rational of the manager's
+// NumeralService().Manager).
+func lia2cardNumeral(m *ast.ASTManager, h ast.ASTHandle, family ast.FamilyID, r *unumeral.Rational) (bool, error) {
 	kind, err := m.GetKind(h)
 	if err != nil || kind != ast.ASTApp {
-		return nil, false, err
+		return false, err
 	}
 	fid, err := m.GetFamilyID(h)
 	if err != nil || fid != family {
-		return nil, false, err
+		return false, err
 	}
 	op, err := m.GetDeclKind(h)
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 	if op == 8 || op == 14 {
 		arg, err := m.GetArg(h, 0)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
-		r, found, err := lia2cardNumeral(m, arg, family)
-		if found && op == 8 {
-			r.Neg(r)
+		found, err := lia2cardNumeral(m, arg, family, r)
+		if err == nil && found && op == 8 {
+			err = m.NumeralService().Manager.Neg(r)
 		}
-		return r, found, err
+		return found, err
 	}
-	text, _, found, err := m.ArithmeticNumeralText(h)
-	if err != nil || !found {
-		return nil, false, err
-	}
-	r, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
-	}
-	return r, true, nil
+	_, found, err := m.ArithmeticNumeralRational(h, r)
+	return found && err == nil, err
 }
 
 // ExtractPBSum borrows the arithmetic term and known 0/1 variables. It
@@ -94,20 +100,21 @@ func ExtractPBSum(m *ast.ASTManager, term ast.ASTHandle, zeroOne map[ast.ASTHand
 }
 
 func extractPBSumWithTrace(m *ast.ASTManager, term ast.ASTHandle, zeroOne map[ast.ASTHandle]bool, tags *diagnostic.TraceTags) (*PBSum, bool, error) {
-	return extractPBSumTerms(m, []ast.ASTHandle{term}, []*big.Rat{big.NewRat(1, 1)}, zeroOne, tags)
+	return extractPBSumTerms(m, []ast.ASTHandle{term}, []int32{1}, zeroOne, tags)
 }
 
 // extractPBSumTerms accumulates get_pb_sum(terms[i], muls[i], ...) into one
 // sum, in order; is_pb calls it on x with 1 and on y with -1.
-func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat, zeroOne map[ast.ASTHandle]bool, tags *diagnostic.TraceTags) (*PBSum, bool, error) {
+func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []int32, zeroOne map[ast.ASTHandle]bool, tags *diagnostic.TraceTags) (_ *PBSum, _ bool, resultErr error) {
 	family, err := m.RegisterArithmeticPlugin()
 	if err != nil {
 		return nil, false, err
 	}
+	q := m.NumeralService().Manager
 	// s holds only lia_rewriter_cfg::args. conds is get_pb_sum's local
 	// expr_ref_vector: get_sum pushes and pops it, so an ite's (not c)
 	// dies at its pop_back unless insert_arg copied it into args.
-	s := &PBSum{manager: m}
+	s := &PBSum{manager: m, Constant: unumeral.NewRational()}
 	var conds []ast.ASTRef
 	pushCond := func(h ast.ASTHandle) error {
 		ref, err := m.NewRef(h)
@@ -128,7 +135,7 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 		}
 	}()
 	// insert_arg: expr_ref cond = add_conds(conds, x), released on return.
-	insert := func(weight *big.Rat, x ast.ASTHandle) (result error) {
+	insert := func(weight *unumeral.Rational, x ast.ASTHandle) (result error) {
 		var cond ast.ASTRef
 		{
 			// add_conds: es.push_back(e); result = mk_and(es); es.pop_back().
@@ -165,30 +172,46 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 			return err
 		}
 		if m.IsTrue(condition) {
-			s.Constant.Add(&s.Constant, weight)
-			return nil
+			return q.Add(&s.Constant, weight, &s.Constant)
 		}
-		if weight.Sign() == 0 {
-			return nil
-		}
-		var coefficient big.Rat
-		coefficient.Set(weight)
-		if coefficient.Sign() < 0 {
-			condition, err = s.pin(m.MkNot(condition))
-			if err != nil {
-				return err
-			}
-			coefficient.Neg(&coefficient)
-			s.Constant.Add(&s.Constant, weight)
-		} else if condition, err = s.pin(condition, nil); err != nil {
+		sign, err := q.Sign(weight)
+		if err != nil || sign == 0 {
 			return err
+		}
+		coefficient := unumeral.NewRational()
+		if err = q.Copy(&coefficient, weight); err != nil {
+			return errors.Join(err, q.Del(&coefficient))
+		}
+		if sign < 0 {
+			condition, err = s.pin(m.MkNot(condition))
+			if err == nil {
+				err = q.Neg(&coefficient)
+			}
+			if err == nil {
+				err = q.Add(&s.Constant, weight, &s.Constant)
+			}
+		} else {
+			condition, err = s.pin(condition, nil)
+		}
+		if err != nil {
+			return errors.Join(err, q.Del(&coefficient))
 		}
 		s.Args = append(s.Args, condition)
 		s.Coefficients = append(s.Coefficients, coefficient)
 		return nil
 	}
-	var getSum func(ast.ASTHandle, *big.Rat) (bool, error)
-	getSum = func(h ast.ASTHandle, mul *big.Rat) (bool, error) {
+	// scaled is a rational temporary for -mul and r*mul.
+	scaled := func(mul *unumeral.Rational, by *unumeral.Rational, out *unumeral.Rational) error {
+		if by == nil {
+			return errors.Join(q.Copy(out, mul), q.Neg(out))
+		}
+		return q.Mul(by, mul, out)
+	}
+	var getSum func(ast.ASTHandle, *unumeral.Rational) (bool, error)
+	getSum = func(h ast.ASTHandle, mul *unumeral.Rational) (_ bool, resultErr error) {
+		// rational r; and the scaled multiplier of a recursive call.
+		r, next := unumeral.NewRational(), unumeral.NewRational()
+		defer func() { resultErr = errors.Join(resultErr, q.Del(&r), q.Del(&next)) }()
 		kind, err := m.GetKind(h)
 		if err != nil || kind != ast.ASTApp {
 			return false, err
@@ -233,15 +256,21 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 					if err != nil || !ok {
 						return ok, err
 					}
-					return getSum(right, new(big.Rat).Neg(mul))
+					if err = scaled(mul, nil, &next); err != nil {
+						return false, err
+					}
+					return getSum(right, &next)
 				}
 				for side := 0; side < 2; side++ {
-					r, ok, err := lia2cardNumeral(m, left, family)
+					ok, err := lia2cardNumeral(m, left, family, &r)
 					if err != nil {
 						return false, err
 					}
 					if ok {
-						return getSum(right, new(big.Rat).Mul(r, mul))
+						if err = scaled(mul, &r, &next); err != nil {
+							return false, err
+						}
+						return getSum(right, &next)
 					}
 					left, right = right, left
 				}
@@ -251,7 +280,10 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 					return false, err
 				}
 				if op == 8 {
-					return getSum(arg, new(big.Rat).Neg(mul))
+					if err = scaled(mul, nil, &next); err != nil {
+						return false, err
+					}
+					return getSum(arg, &next)
 				}
 				return getSum(arg, mul)
 			}
@@ -317,7 +349,7 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 			}
 			return true, insert(mul, indicator)
 		}
-		r, ok, err := lia2cardNumeral(m, h, family)
+		ok, err := lia2cardNumeral(m, h, family, &r)
 		if err != nil || !ok {
 			if err == nil {
 				err = lia2cardTraceUnsupported(m, tags, h)
@@ -328,10 +360,18 @@ func extractPBSumTerms(m *ast.ASTManager, terms []ast.ASTHandle, muls []*big.Rat
 		if err != nil {
 			return false, err
 		}
-		return true, insert(new(big.Rat).Mul(mul, r), truth)
+		if err = q.Mul(mul, &r, &next); err != nil {
+			return false, err
+		}
+		return true, insert(&next, truth)
 	}
+	mul := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&mul)) }()
 	for i, term := range terms {
-		ok, err := getSum(term, muls[i])
+		if err := q.SetInt32(&mul, muls[i]); err != nil {
+			return nil, false, errors.Join(err, s.Close())
+		}
+		ok, err := getSum(term, &mul)
 		if err != nil || !ok {
 			return nil, ok, errors.Join(err, s.Close())
 		}

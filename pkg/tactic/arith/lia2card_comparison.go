@@ -4,7 +4,6 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -39,7 +38,7 @@ func lia2cardComparisonRetaining(m *ast.ASTManager, left, right ast.ASTHandle, z
 			return result, false, err
 		}
 	}
-	sum, matched, err := extractPBSumTerms(m, []ast.ASTHandle{left, right}, []*big.Rat{big.NewRat(1, 1), big.NewRat(-1, 1)}, zeroOne, tags)
+	sum, matched, err := extractPBSumTerms(m, []ast.ASTHandle{left, right}, []int32{1, -1}, zeroOne, tags)
 	if err != nil || !matched {
 		return result, matched, err
 	}
@@ -65,34 +64,63 @@ func lia2cardComparisonRetaining(m *ast.ASTManager, left, right ast.ASTHandle, z
 			return result, false, err
 		}
 		initialized++
-		if err = service.SetString(&weights[j], sum.Coefficients[j].RatString()); err != nil {
+		if err = service.Manager.Copy(&weights[j].Raw, &sum.Coefficients[j]); err != nil {
 			return result, false, err
 		}
 	}
-	boundRat := new(big.Rat).Neg(&sum.Constant)
+	// rational k = -sum.Constant
+	q := service.Manager
 	bound, err := service.NewValue()
 	if err != nil {
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, service.Del(&bound)) }()
-	if err = service.SetString(&bound, boundRat.RatString()); err != nil {
+	if err = errors.Join(q.Copy(&bound.Raw, &sum.Constant), q.Neg(&bound.Raw)); err != nil {
 		return result, false, err
+	}
+	boundSign, err := q.Sign(&bound.Raw)
+	if err != nil {
+		return result, false, err
+	}
+	boundIsOne, err := q.IsOne(&bound.Raw)
+	if err != nil {
+		return result, false, err
+	}
+	// k >= 1 for a nonnegative k: k is nonzero and an integer bound.
+	boundAtLeastOne := boundIsOne
+	if !boundAtLeastOne && boundSign > 0 {
+		var c int
+		one := unumeral.NewRational()
+		err = q.SetInt32(&one, 1)
+		if err == nil {
+			c, err = q.Compare(&bound.Raw, &one)
+		}
+		if err = errors.Join(err, q.Del(&one)); err != nil {
+			return result, false, err
+		}
+		boundAtLeastOne = c >= 0
+	}
+	unitSingle := false
+	if len(weights) == 1 {
+		if unitSingle, err = q.IsOne(&sum.Coefficients[0]); err != nil {
+			return result, false, err
+		}
 	}
 	makeLE := func() (ast.ASTHandle, error) {
 		if len(weights) == 0 {
-			if boundRat.Sign() < 0 {
+			if boundSign < 0 {
 				return m.MkFalse()
 			}
 			return m.MkTrue()
 		}
-		if boundRat.Sign() < 0 {
+		if boundSign < 0 {
 			return m.MkFalse()
 		}
-		if len(weights) == 1 && sum.Coefficients[0].Cmp(big.NewRat(1, 1)) == 0 {
-			if boundRat.Cmp(big.NewRat(1, 1)) >= 0 {
+		if unitSingle {
+			if boundAtLeastOne {
 				return m.MkTrue()
 			}
-			if boundRat.Sign() == 0 {
+			if boundSign == 0 {
 				return m.MkNot(sum.Args[0])
 			}
 		}
@@ -100,20 +128,20 @@ func lia2cardComparisonRetaining(m *ast.ASTManager, left, right ast.ASTHandle, z
 	}
 	makeGE := func() (ast.ASTHandle, error) {
 		if len(weights) == 0 {
-			if boundRat.Sign() > 0 {
+			if boundSign > 0 {
 				return m.MkFalse()
 			}
 			return m.MkTrue()
 		}
-		if len(weights) == 1 && sum.Coefficients[0].Cmp(big.NewRat(1, 1)) == 0 {
-			if boundRat.Cmp(big.NewRat(1, 1)) == 0 {
+		if unitSingle {
+			if boundIsOne {
 				return sum.Args[0], nil
 			}
-			if boundRat.Sign() == 0 {
+			if boundSign == 0 {
 				return m.MkNot(sum.Args[0])
 			}
 		}
-		if boundRat.Sign() < 0 {
+		if boundSign < 0 {
 			return m.MkTrue()
 		}
 		return m.MkPseudoBooleanGE(weights, sum.Args, &bound)
@@ -121,7 +149,7 @@ func lia2cardComparisonRetaining(m *ast.ASTManager, left, right ast.ASTHandle, z
 	var output ast.ASTHandle
 	if !equality {
 		output, err = makeLE()
-	} else if boundRat.Sign() < 0 {
+	} else if boundSign < 0 {
 		output, err = m.MkFalse()
 	} else if compileEquality {
 		output, err = m.MkPseudoBooleanEQ(weights, sum.Args, &bound)
@@ -130,7 +158,7 @@ func lia2cardComparisonRetaining(m *ast.ASTManager, left, right ast.ASTHandle, z
 		// unflattened and lia2card loops forever. The fork fix folds the
 		// empty sum (AUDIT.md tactic_arith_02, Needs verification;
 		// test_vectors/z3_bug_exclusions.txt).
-		if boundRat.Sign() == 0 {
+		if boundSign == 0 {
 			output, err = m.MkTrue()
 		} else {
 			output, err = m.MkFalse()

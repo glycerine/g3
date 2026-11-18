@@ -9,7 +9,7 @@ func TestFMInputPolynomialExtractsOrderedMonomials(t *testing.T) {
 	polynomial := fixDLApp(t, m, 6, fixDLApp(t, m, 9, two, x), y)
 	xs, coefficients, useful, e := p.polynomial(polynomial, true)
 	equationMust(t, e)
-	if !useful || len(xs) != 2 || coefficients[0].RatString() != "2" || coefficients[1].RatString() != "1" {
+	if !useful || len(xs) != 2 || fmText(&coefficients[0]) != "2" || fmText(&coefficients[1]) != "1" {
 		t.Fatalf("polynomial = %v %v useful=%v", xs, coefficients, useful)
 	}
 }

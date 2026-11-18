@@ -4,12 +4,12 @@ package bv
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/messages"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type bv1BlasterImplementation struct {
@@ -170,27 +170,37 @@ func (r *bv1BlasterImplementation) numeral(d ast.ASTHandle) (result ast.ASTHandl
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	text, yes, err := m.BitVectorNumeralText(h)
+	// rational v = f->get_parameter(0).get_rational(); rational two(2);
+	q := m.NumeralService().Manager
+	v, two, rem := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&v), q.Del(&two), q.Del(&rem)) }()
+	n, yes, err := m.BitVectorNumeralRational(h, &v)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if !yes {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	n, err := m.BitVectorSize(h)
-	if err != nil {
+	if err = q.SetInt32(&two, 2); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	v, yes := new(big.Int).SetString(text, 10)
-	if !yes {
-		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
+	// bits are pushed low to high, then reversed.
 	bits := make([]ast.ASTHandle, n)
-	for i := range bits {
-		if v.Bit(int(n)-1-i) == 0 {
-			bits[i] = r.zero
+	for i := uint32(0); i < n; i++ {
+		if err = q.Mod(&v, &two, &rem); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		zero, err := q.IsZero(&rem)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if zero {
+			bits[n-1-i] = r.zero
 		} else {
-			bits[i] = r.one
+			bits[n-1-i] = r.one
+		}
+		if err = q.IDiv(&v, &two, &v); err != nil {
+			return ast.ASTHandle{}, err
 		}
 	}
 	return m.MkBitVectorConcat(bits)

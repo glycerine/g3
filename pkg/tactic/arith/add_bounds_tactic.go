@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -136,9 +135,15 @@ func arithmeticConstant(m *ast.ASTManager, h ast.ASTHandle, family ast.FamilyID)
 }
 
 type addBoundsImplementation struct {
-	lower, upper big.Rat
+	lower, upper unumeral.Rational // m_lower, m_upper: rationals of the manager's NumeralService().Manager
 	header       uint64
 }
+
+// release destroys m_lower and m_upper.
+func (r *addBoundsImplementation) release(q *unumeral.RationalManager) error {
+	return errors.Join(q.Del(&r.lower), q.Del(&r.upper))
+}
+
 type AddBoundsTactic struct {
 	self        *AddBoundsTactic
 	manager     *ast.ASTManager
@@ -233,7 +238,9 @@ func (t *AddBoundsTactic) releaseNumerals(size int) error {
 	}
 	return nil
 }
-func (t *AddBoundsTactic) readRational(key string, fallback int64) (value *big.Rat, err error) {
+
+// readRational is p.get_rat(key, rational(fallback)) into value.
+func (t *AddBoundsTactic) readRational(key string, fallback int64, value *unumeral.Rational) (err error) {
 	start := len(t.numerals)
 	defer func() { err = errors.Join(err, t.releaseNumerals(start)) }()
 	n := t.context.Numerals()
@@ -241,45 +248,30 @@ func (t *AddBoundsTactic) readRational(key string, fallback int64) (value *big.R
 	out := new(unumeral.OwnedRational)
 	t.numerals = append(t.numerals, def, out)
 	if *def, err = n.NewValue(); err != nil {
-		return nil, err
-	}
-	if err = n.SetInt64(def, fallback); err != nil {
-		return nil, err
-	}
-	if *out, err = t.context.GetRatName(&t.params, &key, def); err != nil {
-		return nil, err
-	}
-	text, err := n.String(out)
-	if err != nil {
-		return nil, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, ast.ErrASTDomain
-	}
-	return value, nil
-}
-func (t *AddBoundsTactic) policy(r *addBoundsImplementation) error {
-	v, err := t.readRational("add_bound_lower", -2)
-	if v != nil {
-		r.lower.Set(v)
-	}
-	if err != nil {
 		return err
 	}
-	v, err = t.readRational("add_bound_upper", 2)
-	if v != nil {
-		r.upper.Set(v)
+	if err = n.SetInt64(def, fallback); err != nil {
+		return err
 	}
-	return err
+	if *out, err = t.context.GetRatName(&t.params, &key, def); err != nil {
+		return err
+	}
+	return n.Manager.Copy(value, &out.Raw)
+}
+func (t *AddBoundsTactic) policy(r *addBoundsImplementation) error {
+	if err := t.readRational("add_bound_lower", -2, &r.lower); err != nil {
+		return err
+	}
+	return t.readRational("add_bound_upper", 2, &r.upper)
 }
 func (t *AddBoundsTactic) build() (*addBoundsImplementation, error) {
 	n := uint64(reflect.TypeOf(addBoundsImplementation{}).Size())
 	if err := t.manager.Budget().Reserve(n); err != nil {
 		return nil, err
 	}
-	r := &addBoundsImplementation{header: n}
+	r := &addBoundsImplementation{header: n, lower: unumeral.NewRational(), upper: unumeral.NewRational()}
 	if err := t.policy(r); err != nil {
+		err = errors.Join(err, r.release(t.manager.NumeralService().Manager))
 		t.manager.Budget().Release(n)
 		return nil, err
 	}
@@ -376,7 +368,7 @@ func (t *AddBoundsTactic) Cleanup() error {
 	old := t.current
 	t.current = r
 	t.manager.Budget().Release(old.header)
-	return nil
+	return old.release(t.manager.NumeralService().Manager)
 }
 func (t *AddBoundsTactic) Close() error {
 	if t == nil || t.self != t {
@@ -392,6 +384,9 @@ func (t *AddBoundsTactic) Close() error {
 		return err
 	}
 	if t.current != nil {
+		if err := t.current.release(t.manager.NumeralService().Manager); err != nil {
+			return err
+		}
 		t.manager.Budget().Release(t.current.header)
 		t.current = nil
 	}
@@ -460,7 +455,7 @@ func (t *AddBoundsTactic) Apply(g *tactic.Goal, result *tactic.TacticResult) (er
 			if has {
 				continue
 			}
-			number, e := t.manager.ArithmeticNumeralRat(value, integer)
+			number, e := t.manager.ArithmeticNumeralFromRational(value, integer)
 			if e != nil {
 				return false, e
 			}

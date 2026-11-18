@@ -13,7 +13,7 @@ func TestFMRemainingDeduplicatesAndMarksConstraints(t *testing.T) {
 	equationMust(t, table.BindVariable(y, fixDLConst(t, m, false, "fm_remaining_y")))
 	c := fmSubsumptionConstraint(nil, []uint32{x, y}, []int64{1, 1}, 5, false)
 	c.ID = 1
-	v.Register(c)
+	fmRegister(t, v, c)
 	result, e := table.Remaining(v)
 	equationMust(t, e)
 	if len(result) != 1 || !c.Dead || result[0].Expression.IsNull() {

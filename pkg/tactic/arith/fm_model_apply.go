@@ -6,7 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, _ uint32) (err error) {
@@ -39,30 +39,56 @@ func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, _ uint32) (err error
 		return e
 	}
 	defer func() { err = errors.Join(err, c.manager.DelRef(&ref)) }()
+	// rational lower, upper, val, witness;
+	q := c.manager.NumeralService().Manager
+	lower, upper, value, witness := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&lower), q.Del(&upper), q.Del(&value), q.Del(&witness)) }()
 	for i := len(c.variables) - 1; i >= 0; i-- {
 		if e = c.traceVariable(c.variables[i], ast.ASTHandle{}); e != nil {
 			return e
 		}
-		var lower, upper *big.Rat
+		hasLower, hasUpper := false, false
 		for _, clause := range c.clauses[i] {
 			if !c.manager.ResourceLimit().Inc() {
 				return tactic.NewTacticException(c.manager.ResourceLimit().CancelMessage())
 			}
-			kind, value, e := c.processBound(c.variables[i], clause, ev, ref)
+			kind, e := c.processBound(c.variables[i], clause, ev, ref, &value)
 			if e != nil {
 				return e
 			}
-			if e = c.traceBound(kind, value, clause); e != nil {
+			if e = c.traceBound(kind, &value, clause); e != nil {
 				return e
 			}
 			switch kind {
 			case fmLowerBound:
-				if lower == nil || value.Cmp(lower) > 0 {
-					lower = value
+				better := !hasLower
+				if hasLower {
+					cmp, e := q.Compare(&value, &lower)
+					if e != nil {
+						return e
+					}
+					better = cmp > 0
+				}
+				if better {
+					hasLower = true
+					if e = q.Copy(&lower, &value); e != nil {
+						return e
+					}
 				}
 			case fmUpperBound:
-				if upper == nil || value.Cmp(upper) < 0 {
-					upper = value
+				better := !hasUpper
+				if hasUpper {
+					cmp, e := q.Compare(&value, &upper)
+					if e != nil {
+						return e
+					}
+					better = cmp < 0
+				}
+				if better {
+					hasUpper = true
+					if e = q.Copy(&upper, &value); e != nil {
+						return e
+					}
 				}
 			}
 		}
@@ -74,35 +100,45 @@ func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, _ uint32) (err error
 		if e != nil {
 			return e
 		}
-		var witness *big.Rat
 		if kind == 1 {
-			if lower != nil {
-				witness = lower
-			} else if upper != nil {
-				witness = upper
-			} else {
-				witness = new(big.Rat)
+			switch {
+			case hasLower:
+				e = q.Copy(&witness, &lower)
+			case hasUpper:
+				e = q.Copy(&witness, &upper)
+			default:
+				e = q.SetInt32(&witness, 0)
 			}
 		} else {
 			switch {
-			case lower != nil && upper != nil:
-				witness = new(big.Rat).Quo(new(big.Rat).Add(lower, upper), big.NewRat(2, 1))
-			case lower != nil:
-				witness = new(big.Rat).Add(lower, big.NewRat(1, 1))
-			case upper != nil:
-				witness = new(big.Rat).Sub(upper, big.NewRat(1, 1))
+			case hasLower && hasUpper:
+				// (lower + upper) / rational(2)
+				e = q.Add(&lower, &upper, &witness)
+				if e == nil {
+					e = q.SetInt32(&value, 2)
+				}
+				if e == nil {
+					e = q.Div(&witness, &value, &witness)
+				}
+			case hasLower:
+				e = errors.Join(q.Copy(&witness, &lower), q.Inc(&witness))
+			case hasUpper:
+				e = errors.Join(q.Copy(&witness, &upper), q.Dec(&witness))
 			default:
-				witness = new(big.Rat)
+				e = q.SetInt32(&witness, 0)
 			}
 		}
-		value, e := c.manager.ArithmeticNumeralRat(witness, kind == 1)
 		if e != nil {
 			return e
 		}
-		if e = c.traceVariable(c.variables[i], value); e != nil {
+		numeral, e := c.manager.ArithmeticNumeralFromRational(&witness, kind == 1)
+		if e != nil {
 			return e
 		}
-		if e = md.RegisterConstant(c.variables[i], value); e != nil {
+		if e = c.traceVariable(c.variables[i], numeral); e != nil {
+			return e
+		}
+		if e = md.RegisterConstant(c.variables[i], numeral); e != nil {
 			return e
 		}
 	}

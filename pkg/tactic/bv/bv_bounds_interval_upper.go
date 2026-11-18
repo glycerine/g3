@@ -2,12 +2,10 @@ package bv
 
 // Source: src/tactic/bv/bv_bounds_tactic.cpp:188-193.
 
-import "math/big"
-
-func (b bvBoundsSet) nonWrappedUpper() (*big.Int, bool) {
+func (b bvBoundsSet) nonWrappedUpper() (uint64, bool) {
 	v, ok := b.modularInterval()
 	if !ok || v.IsWrapped() {
-		return nil, false
+		return 0, false
 	}
-	return new(big.Int).SetUint64(v.Upper()), true
+	return v.Upper(), true
 }

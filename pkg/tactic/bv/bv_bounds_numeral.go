@@ -1,42 +1,32 @@
 package bv
 
-// Source: src/tactic/bv/bv_bounds_tactic.cpp numeral decoding.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp is_number and mk_numeral.
 
 import (
 	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func bvBoundsNumeral(m *ast.ASTManager, h ast.ASTHandle) (*big.Int, uint32, bool, error) {
-	value, err := m.NumeralService().NewValue()
-	if err != nil {
-		return nil, 0, false, err
+// bvBoundsNumeral is m_bv.is_numeral(e, r, sz) with r.get_uint64() for a
+// numeral of at most 64 bits (value is zero for a wider numeral).
+func bvBoundsNumeral(m *ast.ASTManager, h ast.ASTHandle) (value uint64, width uint32, numeral bool, resultErr error) {
+	q := m.NumeralService().Manager
+	r := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&r)) }()
+	width, numeral, err := m.BitVectorNumeralRational(h, &r)
+	if err != nil || !numeral {
+		return 0, 0, false, err
 	}
-	defer func() { _ = m.NumeralService().Del(&value) }()
-	var width uint32
-	yes, err := m.BitVectorNumeralValue(h, &value, &width)
-	if err != nil || !yes {
-		return nil, 0, yes, err
+	if width > 64 {
+		return 0, width, true, nil
 	}
-	text, err := m.NumeralService().String(&value)
-	if err != nil {
-		return nil, 0, false, err
-	}
-	n, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		return nil, 0, false, ast.ErrASTDomain
-	}
-	return n, width, true, nil
+	value, err = q.Uint64(&r)
+	return value, width, err == nil, err
 }
-func bvBoundsMakeNumeral(m *ast.ASTManager, value *big.Int, width uint32) (h ast.ASTHandle, err error) {
-	n, err := m.NumeralService().NewValue()
-	if err != nil {
-		return h, err
-	}
-	if err = m.NumeralService().SetString(&n, value.String()); err != nil {
-		return h, err
-	}
-	defer func() { err = errors.Join(err, m.NumeralService().Del(&n)) }()
-	return m.BitVectorNumeral(&n, width)
+
+// bvBoundsMakeNumeral is m_bv.mk_numeral(rational(v, rational::ui64()), sz).
+func bvBoundsMakeNumeral(m *ast.ASTManager, value uint64, width uint32) (ast.ASTHandle, error) {
+	return m.BitVectorNumeralUint64(value, width)
 }

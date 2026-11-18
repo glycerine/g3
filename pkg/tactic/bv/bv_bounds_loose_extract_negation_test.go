@@ -1,7 +1,6 @@
 package bv
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -23,7 +22,7 @@ func TestBVBoundsNegatedExtractEqualityTargetsExtractTerm(t *testing.T) {
 		t.Fatalf("assert negated extract-zero equality: ok=%v err=%v", ok, err)
 	}
 	got := f.simp.bounds[top]
-	if !got.equal(bvBoundsRangeSet(4, big.NewInt(1), big.NewInt(15))) {
+	if !got.equal(bvBoundsRangeSet(4, 1, 15)) {
 		t.Fatalf("negated equality must complement the extract term's singleton bound: %#v", got)
 	}
 }

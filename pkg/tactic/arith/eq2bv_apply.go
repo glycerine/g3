@@ -5,7 +5,6 @@ package arith
 import (
 	"errors"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
@@ -62,15 +61,14 @@ func eq2bvIsBound(plan *eq2bvReplacements, form ast.ASTHandle) (bool, error) {
 		if !constant {
 			continue
 		}
-		text, _, numeral, e := m.ArithmeticNumeralText(pair[1])
+		_, numeral, unsigned, e := numeralUnsigned(m, pair[1])
 		if e != nil {
 			return false, e
 		}
 		if !numeral {
 			continue
 		}
-		value, ok := new(big.Rat).SetString(text)
-		if ok && value.IsInt() && value.Sign() >= 0 && value.Num().BitLen() <= 32 {
+		if unsigned {
 			return true, nil
 		}
 	}

@@ -3,10 +3,11 @@ package arith
 // Source: src/tactic/arith/fm_tactic.cpp:57-156.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type fmBoundKind uint8
@@ -17,13 +18,10 @@ const (
 	fmUpperBound
 )
 
-func fmRat(m *ast.ASTManager, h ast.ASTHandle) (*big.Rat, bool, error) {
-	s, _, yes, e := m.ArithmeticNumeralText(h)
-	if e != nil || !yes {
-		return nil, yes, e
-	}
-	v, ok := new(big.Rat).SetString(s)
-	return v, ok, nil
+// fmRat is m_util.is_numeral(h, out).
+func fmRat(m *ast.ASTManager, h ast.ASTHandle, out *unumeral.Rational) (bool, error) {
+	_, yes, e := m.ArithmeticNumeralRational(h, out)
+	return yes && e == nil, e
 }
 func (c *FMModelConverter) evaluate(ev *model.ModelEvaluator, h ast.ASTHandle, ref ast.ASTRef) (ast.ASTHandle, error) {
 	if e := ev.Evaluate(h, ref); e != nil {
@@ -31,11 +29,20 @@ func (c *FMModelConverter) evaluate(ev *model.ModelEvaluator, h ast.ASTHandle, r
 	}
 	return c.manager.RefGet(ref)
 }
-func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *model.ModelEvaluator, ref ast.ASTRef) (fmBoundKind, *big.Rat, error) {
+
+// processBound is fm_mc's process(x, clause, ev): result (a rational of the
+// manager's NumeralService().Manager) receives the bound.
+func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *model.ModelEvaluator, ref ast.ASTRef, result *unumeral.Rational) (_ fmBoundKind, resultErr error) {
 	m := c.manager
+	q := m.NumeralService().Manager
+	// rational r, bound, a, val;
+	bound, coefficient, coef, value := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() {
+		resultErr = errors.Join(resultErr, q.Del(&bound), q.Del(&coefficient), q.Del(&coef), q.Del(&value))
+	}()
 	f, op, n, e := c.appInfo(clause)
 	if e != nil {
-		return fmNoBound, nil, e
+		return fmNoBound, e
 	}
 	lits := []ast.ASTHandle{clause}
 	if f == m.BasicFamilyID() && op == ast.ASTOpOr {
@@ -43,17 +50,16 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 		for i := uint32(0); i < n; i++ {
 			h, e := m.GetArg(clause, i)
 			if e != nil {
-				return fmNoBound, nil, e
+				return fmNoBound, e
 			}
 			lits = append(lits, h)
 		}
 	}
 	var kind fmBoundKind
-	var result *big.Rat
 	for _, lit := range lits {
 		neg, arg, e := c.notArg(lit)
 		if e != nil {
-			return fmNoBound, nil, e
+			return fmNoBound, e
 		}
 		atom := lit
 		if neg {
@@ -62,39 +68,39 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 		if yes, _ := c.uninterpConst(atom); yes {
 			value, e := c.evaluate(ev, lit, ref)
 			if e != nil {
-				return fmNoBound, nil, e
+				return fmNoBound, e
 			}
 			truth, e := m.MkTrue()
 			if e != nil {
-				return fmNoBound, nil, e
+				return fmNoBound, e
 			}
 			if value == truth {
-				return fmNoBound, nil, nil
+				return fmNoBound, nil
 			}
 			continue
 		}
 		af, aop, an, e := c.appInfo(atom)
 		if e != nil {
-			return fmNoBound, nil, e
+			return fmNoBound, e
 		}
 		arith, e := m.ArithmeticFamilyID()
 		if e != nil {
-			return fmNoBound, nil, e
+			return fmNoBound, e
 		}
 		if af != arith || (aop != 2 && aop != 3) || an != 2 {
-			return fmNoBound, nil, ast.ErrASTDomain
+			return fmNoBound, ast.ErrASTDomain
 		}
 		lhs, e := m.GetArg(atom, 0)
 		if e != nil {
-			return fmNoBound, nil, e
+			return fmNoBound, e
 		}
 		rhs, e := m.GetArg(atom, 1)
 		if e != nil {
-			return fmNoBound, nil, e
+			return fmNoBound, e
 		}
-		bound, ok, e := fmRat(m, rhs)
+		ok, e := fmRat(m, rhs, &bound)
 		if e != nil || !ok {
-			return fmNoBound, nil, e
+			return fmNoBound, e
 		}
 		strict := neg
 		directionNeg := neg
@@ -102,7 +108,9 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 			directionNeg = !directionNeg
 		}
 		if directionNeg {
-			bound.Neg(bound)
+			if e = q.Neg(&bound); e != nil {
+				return fmNoBound, e
+			}
 		}
 		terms := []ast.ASTHandle{lhs}
 		lf, lop, ln, _ := c.appInfo(lhs)
@@ -111,30 +119,33 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 			for i := uint32(0); i < ln; i++ {
 				h, e := m.GetArg(lhs, i)
 				if e != nil {
-					return fmNoBound, nil, e
+					return fmNoBound, e
 				}
 				terms = append(terms, h)
 			}
 		}
-		coefficient := new(big.Rat)
+		if e = q.SetInt32(&coefficient, 0); e != nil {
+			return fmNoBound, e
+		}
 		found := false
 		for _, term := range terms {
 			v := term
-			coef := big.NewRat(1, 1)
+			if e = q.SetInt32(&coef, 1); e != nil {
+				return fmNoBound, e
+			}
 			tf, top, tn, _ := c.appInfo(term)
 			if tf == arith && top == 9 && tn == 2 {
 				first, e := m.GetArg(term, 0)
 				if e != nil {
-					return fmNoBound, nil, e
+					return fmNoBound, e
 				}
 				second, e := m.GetArg(term, 1)
 				if e != nil {
-					return fmNoBound, nil, e
+					return fmNoBound, e
 				}
-				if q, yes, e := fmRat(m, first); e != nil {
-					return fmNoBound, nil, e
+				if yes, e := fmRat(m, first, &coef); e != nil {
+					return fmNoBound, e
 				} else if yes {
-					coef = q
 					v = second
 				}
 			}
@@ -142,71 +153,86 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 			// original monomial for variables already interpreted in the model.
 			vf, vop, vn, e := c.appInfo(v)
 			if e != nil {
-				return fmNoBound, nil, e
+				return fmNoBound, e
 			}
 			if vf == arith && vop == 14 && vn == 1 {
 				v, e = m.GetArg(v, 0)
 				if e != nil {
-					return fmNoBound, nil, e
+					return fmNoBound, e
 				}
 			}
 			if ast.ASTSourceDebug {
 				yes, e := c.uninterpConst(v)
 				if e != nil {
-					return fmNoBound, nil, e
+					return fmNoBound, e
 				}
 				if !yes {
-					return fmNoBound, nil, ast.ErrASTDomain
+					return fmNoBound, ast.ErrASTDomain
 				}
 			}
 			if yes, _ := c.isVariable(v, variable); yes {
-				coefficient.Set(coef)
+				if e = q.Copy(&coefficient, &coef); e != nil {
+					return fmNoBound, e
+				}
 				if directionNeg {
-					coefficient.Neg(coefficient)
+					if e = q.Neg(&coefficient); e != nil {
+						return fmNoBound, e
+					}
 				}
 				found = true
 				continue
 			}
-			value, e := c.evaluate(ev, term, ref)
+			evaluated, e := c.evaluate(ev, term, ref)
 			if e != nil {
-				return fmNoBound, nil, e
+				return fmNoBound, e
 			}
-			q, yes, e := fmRat(m, value)
+			yes, e := fmRat(m, evaluated, &value)
 			if ast.ASTSourceDebug && e == nil && !yes {
-				return fmNoBound, nil, ast.ErrASTDomain
+				return fmNoBound, ast.ErrASTDomain
 			}
 			if e != nil || !yes {
-				return fmNoBound, nil, e
+				return fmNoBound, e
 			}
 			if directionNeg {
-				q.Neg(q)
+				if e = q.Neg(&value); e != nil {
+					return fmNoBound, e
+				}
 			}
-			bound.Sub(bound, q)
+			if e = q.Sub(&bound, &value, &bound); e != nil {
+				return fmNoBound, e
+			}
 		}
-		if !found || coefficient.Sign() == 0 {
-			return fmNoBound, nil, ast.ErrASTDomain
+		if !found || coefficient.IsZero() {
+			return fmNoBound, ast.ErrASTDomain
 		}
 		sort, e := m.GetRange(variable)
 		if e != nil {
-			return fmNoBound, nil, e
+			return fmNoBound, e
 		}
 		integer, e := m.GetDeclKind(sort)
 		if e != nil {
-			return fmNoBound, nil, e
+			return fmNoBound, e
 		}
 		if integer == 1 && strict {
 			if ast.ASTSourceDebug && !bound.IsInt() {
-				return fmNoBound, nil, ast.ErrASTDomain
+				return fmNoBound, ast.ErrASTDomain
 			}
-			bound.Sub(bound, big.NewRat(1, 1))
+			if e = q.Dec(&bound); e != nil {
+				return fmNoBound, e
+			}
 		}
-		lower := coefficient.Sign() < 0
-		bound.Quo(bound, coefficient)
+		lower := coefficient.IsNeg()
+		if e = q.Div(&bound, &coefficient, &bound); e != nil {
+			return fmNoBound, e
+		}
 		if integer == 1 {
 			if lower {
-				bound = fmCeil(bound)
+				e = q.Ceil(&bound, &bound)
 			} else {
-				bound = fmFloor(bound)
+				e = q.Floor(&bound, &bound)
+			}
+			if e != nil {
+				return fmNoBound, e
 			}
 		}
 		if lower {
@@ -214,24 +240,12 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 		} else {
 			kind = fmUpperBound
 		}
-		result = bound
+		if e = q.Copy(result, &bound); e != nil {
+			return fmNoBound, e
+		}
 	}
 	if ast.ASTSourceDebug && kind == fmNoBound {
-		return fmNoBound, nil, ast.ErrASTDomain
+		return fmNoBound, ast.ErrASTDomain
 	}
-	return kind, result, nil
-}
-func fmFloor(v *big.Rat) *big.Rat {
-	q := new(big.Int).Quo(v.Num(), v.Denom())
-	if v.Sign() < 0 && new(big.Int).Rem(v.Num(), v.Denom()).Sign() != 0 {
-		q.Sub(q, big.NewInt(1))
-	}
-	return new(big.Rat).SetInt(q)
-}
-func fmCeil(v *big.Rat) *big.Rat {
-	q := new(big.Int).Quo(v.Num(), v.Denom())
-	if v.Sign() > 0 && new(big.Int).Rem(v.Num(), v.Denom()).Sign() != 0 {
-		q.Add(q, big.NewInt(1))
-	}
-	return new(big.Rat).SetInt(q)
+	return kind, nil
 }

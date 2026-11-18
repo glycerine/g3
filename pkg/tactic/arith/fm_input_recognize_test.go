@@ -8,15 +8,15 @@ func TestFMInputInequalityNormalizesGEAndNegation(t *testing.T) {
 	bound := fixDLApp(t, m, 3, x, fixDLNumber(t, m, false, "5"))
 	xs, coefficients, constant, strict, matched, e := p.inequality(bound, true)
 	equationMust(t, e)
-	if !matched || strict || len(xs) != 1 || coefficients[0].RatString() != "-1" || constant.RatString() != "-5" {
-		t.Fatalf("GE normalized to %v %v <= %s strict=%v", xs, coefficients, constant.RatString(), strict)
+	if !matched || strict || len(xs) != 1 || fmText(&coefficients[0]) != "-1" || fmText(&constant) != "-5" {
+		t.Fatalf("GE normalized to %v %v <= %s strict=%v", xs, coefficients, fmText(&constant), strict)
 	}
 	negated, e := m.MkNot(bound)
 	equationMust(t, e)
 	_, coefficients, constant, strict, matched, e = p.inequality(negated, true)
 	equationMust(t, e)
-	if !matched || !strict || coefficients[0].RatString() != "1" || constant.RatString() != "5" {
-		t.Fatalf("not-GE normalized to %v <= %s strict=%v", coefficients, constant.RatString(), strict)
+	if !matched || !strict || fmText(&coefficients[0]) != "1" || fmText(&constant) != "5" {
+		t.Fatalf("not-GE normalized to %v <= %s strict=%v", coefficients, fmText(&constant), strict)
 	}
 }
 

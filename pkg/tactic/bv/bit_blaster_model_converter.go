@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
@@ -370,13 +370,29 @@ func (r *BitBlasterModelConverter) reconstruct(md *model.ModelCore, bs ast.ASTHa
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	var value big.Int
+	// rational val; rational two(2);
+	q := r.manager.NumeralService()
+	number, err := q.NewValue()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { err = errors.Join(err, q.Del(&number)) }()
+	rm := q.Manager
+	two := unumeral.NewRational()
+	defer func() { err = errors.Join(err, rm.Del(&two)) }()
+	if err = rm.SetInt32(&two, 2); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	value := &number.Raw
 	for k := uint32(0); k < n; k++ {
 		j := k
 		if r.toBool {
 			j = n - 1 - k
 		}
-		value.Lsh(&value, 1)
+		// val *= two;
+		if err = rm.Mul(value, &two, value); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		bit, e := r.manager.GetArg(bs, j)
 		if e != nil {
 			return ast.ASTHandle{}, e
@@ -403,17 +419,11 @@ func (r *BitBlasterModelConverter) reconstruct(md *model.ModelCore, bs ast.ASTHa
 			one = !matched || text != "0"
 		}
 		if one {
-			value.SetBit(&value, 0, 1)
+			// val++;
+			if err = rm.Inc(value); err != nil {
+				return ast.ASTHandle{}, err
+			}
 		}
-	}
-	q := r.manager.NumeralService()
-	number, err := q.NewValue()
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	defer func() { err = errors.Join(err, q.Del(&number)) }()
-	if err = q.SetString(&number, value.String()); err != nil {
-		return ast.ASTHandle{}, err
 	}
 	return r.manager.BitVectorNumeral(&number, n)
 }

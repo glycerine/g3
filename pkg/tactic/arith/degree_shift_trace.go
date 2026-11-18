@@ -44,7 +44,11 @@ func (t *DegreeShiftTactic) traceCandidates(plan *degreeShiftPlan) error {
 			if err != nil {
 				return err
 			}
-			if _, err = fmt.Fprintf(out, "POWER: %s\n", entry.degree); err != nil {
+			power, err := t.manager.NumeralService().Manager.String(&entry.degree)
+			if err != nil {
+				return err
+			}
+			if _, err = fmt.Fprintf(out, "POWER: %s\n", power); err != nil {
 				return err
 			}
 			if err = ast.DisplayLegacySMT(out, t.manager, original, 0, nil); err != nil {

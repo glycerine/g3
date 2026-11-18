@@ -41,7 +41,7 @@ func TestBV2RealDivisorAlignmentProjectArithmeticAndScope(t *testing.T) {
 			outer := c.number()
 			equationMust(t, c.err)
 			equationMust(t, service.SetString(outer, "1234567890123456789012345678901234567890"))
-			a, b, x, y := c.alignDivisors(args[0], args[1], args[2], args[3], d1, d2)
+			a, b, x, y := c.alignDivisorsRat(args[0], args[1], args[2], args[3], d1, d2)
 			equationMust(t, c.err)
 			if d1.Num().Cmp(common) != 0 || d2.Num().Cmp(common) != 0 {
 				t.Fatal("wrong common divisor", d1, d2, common)
@@ -70,7 +70,7 @@ func TestBV2RealDivisorAlignmentFailureAssignmentOrder(t *testing.T) {
 	d2 := new(big.Rat).SetInt(new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 607), big.NewInt(7)))
 	wantD1, wantD2 := new(big.Rat).Set(d1), new(big.Rat).Set(d2)
 	f.m.Budget().FailAfter(0)
-	a, b, x, y := c.alignDivisors(args[0], args[1], args[2], args[3], d1, d2)
+	a, b, x, y := c.alignDivisorsRat(args[0], args[1], args[2], args[3], d1, d2)
 	f.m.Budget().FailAfter(-1)
 	var failure umemory.Failure
 	if !errors.Is(c.err, arena.ErrInjectedFailure) && (!errors.As(c.err, &failure) || failure.Kind != umemory.FailureMemout || !f.m.NumeralService().RuntimeOwner().State().OutOfMemory) {
@@ -98,7 +98,7 @@ func TestBV2RealDivisorAlignmentAllocationFrontiers(t *testing.T) {
 			common := new(big.Rat).SetInt(new(big.Int).Mul(factor, big.NewInt(30)))
 			d1, d2 := new(big.Rat).Set(oldD1), new(big.Rat).Set(oldD2)
 			f.m.Budget().FailAfter(stop)
-			a, b, x, y := c.alignDivisors(args[0], args[1], args[2], args[3], d1, d2)
+			a, b, x, y := c.alignDivisorsRat(args[0], args[1], args[2], args[3], d1, d2)
 			f.m.Budget().FailAfter(-1)
 			if c.err == nil {
 				succeeded = true
@@ -155,7 +155,7 @@ func TestBV2RealEqualDivisorsSkipProjectArithmetic(t *testing.T) {
 	t.Cleanup(func() { equationMust(t, c.close()) })
 	d1, d2 := big.NewRat(6, 1), big.NewRat(6, 1)
 	f.m.Budget().FailAfter(0)
-	a, b, x, y := c.alignDivisors(args[0], args[1], args[2], args[3], d1, d2)
+	a, b, x, y := c.alignDivisorsRat(args[0], args[1], args[2], args[3], d1, d2)
 	f.m.Budget().FailAfter(-1)
 	equationMust(t, c.err)
 	if [4]ast.ASTHandle{a, b, x, y} != args {

@@ -5,7 +5,6 @@ package sls
 import (
 	"errors"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -686,17 +685,28 @@ func (s *SearchTracker) signed(v *numeral.Int, bits uint32) error {
 	return s.base.numbers.Sub(v, power, v)
 }
 
-func (s *SearchTracker) ratioPowerTwo(value *numeral.Int, bits uint32) (float64, error) {
+// ratioPowerTwo is rational n(diff); n /= rational(m_powers(bv_sz));
+// n.get_double(). The rational lives in the global mpq manager (the AST
+// manager's NumeralService().Manager); diff belongs to the tracker's own
+// mpz manager, so it crosses as its decimal text.
+func (s *SearchTracker) ratioPowerTwo(value *numeral.Int, bits uint32) (_ float64, resultErr error) {
 	text, err := s.base.numbers.String(value)
 	if err != nil {
 		return 0, err
 	}
-	integer, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		return 0, ErrSLSSearch
+	q := s.base.manager.NumeralService().Manager
+	n, power := numeral.NewRational(), numeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&n), q.Del(&power)) }()
+	if err = q.SetString(&n, text); err != nil {
+		return 0, err
 	}
-	ratio, _ := new(big.Rat).SetFrac(integer, new(big.Int).Lsh(big.NewInt(1), uint(bits))).Float64()
-	return ratio, nil
+	if err = errors.Join(q.SetInt32(&power, 2), q.Power(&power, bits, &power)); err != nil {
+		return 0, err
+	}
+	if err = q.Div(&n, &power, &n); err != nil {
+		return 0, err
+	}
+	return q.Float64(&n)
 }
 
 func (s *SearchTracker) TopScore(roots []ast.ASTHandle) (float64, error) {

@@ -1,7 +1,6 @@
 package bv
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -9,9 +8,9 @@ func TestBVBoundsModularRejectsExtendedDomain(t *testing.T) {
 	malformed := bvBoundsSet{
 		width: 8,
 		ranges: []bvBoundsRange{
-			{lo: big.NewInt(1), hi: big.NewInt(2)},
-			{lo: big.NewInt(4), hi: big.NewInt(5)},
-			{lo: big.NewInt(7), hi: big.NewInt(8)},
+			{lo: 1, hi: 2},
+			{lo: 4, hi: 5},
+			{lo: 7, hi: 8},
 		},
 		tight: true,
 	}
@@ -21,7 +20,7 @@ func TestBVBoundsModularRejectsExtendedDomain(t *testing.T) {
 	if _, ok := malformed.singleton(); ok || !malformed.complement().empty() {
 		t.Fatal("malformed consumer input must fail closed")
 	}
-	if got := bvBoundsRangeSet(8, big.NewInt(0), big.NewInt(1)).intersect(bvBoundsRangeSet(16, big.NewInt(0), big.NewInt(1))); !got.empty() {
+	if got := bvBoundsRangeSet(8, 0, 1).intersect(bvBoundsRangeSet(16, 0, 1)); !got.empty() {
 		t.Fatalf("width-mismatched intersection = %#v", got)
 	}
 }

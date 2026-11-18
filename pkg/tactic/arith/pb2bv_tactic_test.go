@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/big"
 	"os"
 	"os/exec"
 	"regexp"
@@ -184,13 +183,13 @@ func TestPB2BVCoefficientNormalization(t *testing.T) {
 	m := r.manager
 	x := fixDLConst(t, m, true, "x")
 	y := fixDLConst(t, m, true, "y")
-	p := pbPolynomial{{weight: *big.NewRat(12, 1), literal: pbLiteral{x, false}}, {weight: *big.NewRat(6, 1), literal: pbLiteral{y, false}}}
-	c := big.NewRat(10, 1)
+	p := pbPolynomial{{weight: smallRational(12, 1), literal: pbLiteral{x, false}}, {weight: smallRational(6, 1), literal: pbLiteral{y, false}}}
+	c := smallRational(10, 1)
 	scope := &pbEncodingScope{owner: r}
-	_, err := r.mkPBC(p, c, false, scope)
+	_, err := r.mkPBC(&p, &c, false, scope)
 	equationMust(t, err)
-	if p[0].weight.RatString() != "5" || p[1].weight.RatString() != "3" || c.RatString() != "5" {
-		t.Fatal("trim before GCD and ceil", p, c)
+	if ratOf(m, &p[0].weight).RatString() != "5" || ratOf(m, &p[1].weight).RatString() != "3" || ratOf(m, &c).RatString() != "5" {
+		t.Fatal("trim before GCD and ceil")
 	}
 	equationMust(t, scope.close())
 }

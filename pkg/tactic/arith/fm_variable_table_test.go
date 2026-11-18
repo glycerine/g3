@@ -10,7 +10,7 @@ func TestFMVariableTableClassification(t *testing.T) {
 	if r != 0 || i != 1 || f != 2 || v.IsInteger(r) || !v.IsInteger(i) || !v.IsForbidden(f) || v.IsForbidden(i) {
 		t.Fatal("variable metadata was not retained")
 	}
-	c := &FMConstraint{Variables: []uint32{i, f}}
+	c := &FMConstraint{numerals: fmTestNumerals, Variables: []uint32{i, f}}
 	if !v.AllInteger(c) {
 		t.Fatal("integer constraint was classified as mixed")
 	}

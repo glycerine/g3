@@ -3,39 +3,38 @@ package bv
 // Source: src/tactic/bv/bv_bounds_tactic.cpp interval operations.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/math/interval"
 )
 
-type bvBoundsRange struct{ lo, hi *big.Int }
+// bvBoundsRange is an inclusive range of uint64 values: the source interval
+// holds uint64_t bounds (sz <= 64).
+type bvBoundsRange struct{ lo, hi uint64 }
 type bvBoundsSet struct {
 	width  uint32
 	ranges []bvBoundsRange
 	tight  bool
 }
 
-func bvBI(v *big.Int) *big.Int { return new(big.Int).Set(v) }
-func bvBoundsSingleton(width uint32, v *big.Int) bvBoundsSet {
-	return bvBoundsSet{width: width, ranges: []bvBoundsRange{{bvBI(v), bvBI(v)}}, tight: true}
+func bvBoundsSingleton(width uint32, v uint64) bvBoundsSet {
+	return bvBoundsSet{width: width, ranges: []bvBoundsRange{{v, v}}, tight: true}
 }
-func bvBoundsRangeSet(width uint32, lo, hi *big.Int) bvBoundsSet {
-	if lo.Cmp(hi) > 0 {
+func bvBoundsRangeSet(width uint32, lo, hi uint64) bvBoundsSet {
+	if lo > hi {
 		return bvBoundsSet{width: width, tight: true}
 	}
-	return bvBoundsSet{width: width, ranges: []bvBoundsRange{{bvBI(lo), bvBI(hi)}}, tight: true}
+	return bvBoundsSet{width: width, ranges: []bvBoundsRange{{lo, hi}}, tight: true}
 }
-func bvBoundsLooseRangeSet(width uint32, lo, hi *big.Int) bvBoundsSet {
+func bvBoundsLooseRangeSet(width uint32, lo, hi uint64) bvBoundsSet {
 	b := bvBoundsRangeSet(width, lo, hi)
 	b.tight = false
 	return b
 }
-func (b bvBoundsSet) singleton() (*big.Int, bool) {
+func (b bvBoundsSet) singleton() (uint64, bool) {
 	v, ok := b.modularInterval()
 	if ok && v.IsSingleton() {
-		return new(big.Int).SetUint64(v.Lower()), true
+		return v.Lower(), true
 	}
-	return nil, false
+	return 0, false
 }
 func (b bvBoundsSet) empty() bool { return len(b.ranges) == 0 }
 func (b bvBoundsSet) intersect(o bvBoundsSet) bvBoundsSet {
@@ -60,7 +59,7 @@ func (b bvBoundsSet) normalize() bvBoundsSet {
 	}
 	for i := 0; i < len(b.ranges); i++ {
 		for j := i + 1; j < len(b.ranges); j++ {
-			if b.ranges[j].lo.Cmp(b.ranges[i].lo) < 0 {
+			if b.ranges[j].lo < b.ranges[i].lo {
 				b.ranges[i], b.ranges[j] = b.ranges[j], b.ranges[i]
 			}
 		}
@@ -68,12 +67,13 @@ func (b bvBoundsSet) normalize() bvBoundsSet {
 	out := bvBoundsSet{width: b.width, tight: b.tight}
 	for _, r := range b.ranges {
 		n := len(out.ranges)
-		if n == 0 || new(big.Int).Add(out.ranges[n-1].hi, big.NewInt(1)).Cmp(r.lo) < 0 {
-			out.ranges = append(out.ranges, bvBoundsRange{bvBI(r.lo), bvBI(r.hi)})
+		// a gap: hi + 1 < r.lo, without wrapping at the uint64 maximum
+		if n == 0 || out.ranges[n-1].hi < r.lo && r.lo-out.ranges[n-1].hi > 1 {
+			out.ranges = append(out.ranges, r)
 			continue
 		}
-		if r.hi.Cmp(out.ranges[n-1].hi) > 0 {
-			out.ranges[n-1].hi = bvBI(r.hi)
+		if r.hi > out.ranges[n-1].hi {
+			out.ranges[n-1].hi = r.hi
 		}
 	}
 	return out
@@ -110,7 +110,7 @@ func (b bvBoundsSet) equal(o bvBoundsSet) bool {
 }
 func (b bvBoundsSet) complement() bvBoundsSet {
 	if b.empty() {
-		return bvBoundsRangeSet(b.width, big.NewInt(0), bvBoundsMaximum(b.width))
+		return bvBoundsRangeSet(b.width, 0, bvBoundsMaximum(b.width))
 	}
 	v, ok := b.modularInterval()
 	if !ok {
@@ -130,26 +130,25 @@ func (b bvBoundsSet) complement() bvBoundsSet {
 func (b bvBoundsSet) sourceComplement() bvBoundsSet {
 	maximum := bvBoundsMaximum(b.width)
 	if !b.tight {
-		return bvBoundsRangeSet(b.width, big.NewInt(0), maximum)
+		return bvBoundsRangeSet(b.width, 0, maximum)
 	}
 	if b.empty() || b.full() {
 		return bvBoundsSet{width: b.width, tight: true}
 	}
 	if len(b.ranges) == 2 {
 		// The two stored ranges are the wrapped interval [l..max] U [0..h].
-		return bvBoundsRangeSet(b.width,
-			new(big.Int).Add(b.ranges[0].hi, big.NewInt(1)),
-			new(big.Int).Sub(b.ranges[1].lo, big.NewInt(1)))
+		// Normalized, they are [0..h] U [l..max] with h + 1 < l.
+		return bvBoundsRangeSet(b.width, b.ranges[0].hi+1, b.ranges[1].lo-1)
 	}
 	r := b.ranges[0]
-	if r.lo.Sign() == 0 {
-		return bvBoundsRangeSet(b.width, new(big.Int).Add(r.hi, big.NewInt(1)), maximum)
+	if r.lo == 0 {
+		return bvBoundsRangeSet(b.width, r.hi+1, maximum)
 	}
-	if r.hi.Cmp(maximum) == 0 {
-		return bvBoundsRangeSet(b.width, big.NewInt(0), new(big.Int).Sub(r.lo, big.NewInt(1)))
+	if r.hi == maximum {
+		return bvBoundsRangeSet(b.width, 0, r.lo-1)
 	}
 	return bvBoundsSet{width: b.width, ranges: []bvBoundsRange{
-		{lo: big.NewInt(0), hi: new(big.Int).Sub(r.lo, big.NewInt(1))},
-		{lo: new(big.Int).Add(r.hi, big.NewInt(1)), hi: maximum},
+		{lo: 0, hi: r.lo - 1},
+		{lo: r.hi + 1, hi: maximum},
 	}, tight: true}
 }

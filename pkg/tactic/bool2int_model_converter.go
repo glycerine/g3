@@ -9,11 +9,11 @@ package tactic
 import (
 	"errors"
 	"io"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type Bool2IntModelConverter struct {
@@ -102,9 +102,17 @@ func (c *Bool2IntModelConverter) ApplyModel(out *ModelRef, goal uint32) (err err
 			err = errors.Join(err, target.Close())
 		}
 	}()
+	// rational value, p;
+	q := m.NumeralService().Manager
+	value, power, two := unumeral.NewRational(), unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&value), q.Del(&power), q.Del(&two)) }()
+	if err = q.SetInt32(&two, 2); err != nil {
+		return err
+	}
 	for i, old := range c.numsAsInt {
-		value := new(big.Int)
-		power := big.NewInt(1)
+		if err = errors.Join(q.SetInt32(&value, 0), q.SetInt32(&power, 1)); err != nil {
+			return err
+		}
 		isValue := true
 		for _, bit := range c.numsAsBool[i] {
 			interp, e := source.ConstantInterpretation(bit)
@@ -115,17 +123,21 @@ func (c *Bool2IntModelConverter) ApplyModel(out *ModelRef, goal uint32) (err err
 			case interp.IsNull():
 				isValue = false
 			case m.IsTrue(interp):
-				value.Add(value, power)
+				if e = q.Add(&value, &power, &value); e != nil {
+					return e
+				}
 			case !m.IsFalse(interp):
 				isValue = false
 			}
 			if !isValue {
 				break
 			}
-			power = new(big.Int).Lsh(power, 1)
+			if e = q.Mul(&power, &two, &power); e != nil {
+				return e
+			}
 		}
 		if isValue {
-			numeral, e := m.ArithmeticIntegerNumeralText(value.String())
+			numeral, e := m.ArithmeticNumeralFromRational(&value, true)
 			if e != nil {
 				return e
 			}

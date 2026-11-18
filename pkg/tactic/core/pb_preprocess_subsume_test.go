@@ -1,10 +1,10 @@
 package core
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestPBPreprocessSubsumesWeakerConstraint(t *testing.T) {
@@ -27,9 +27,13 @@ func TestPBPreprocessSubsumesWeakerConstraint(t *testing.T) {
 
 func TestPBPreprocessSubsumptionCoefficientDirection(t *testing.T) {
 	f := newPBPreprocessFixture(t)
-	a := &pbPreprocessConstraint{terms: []pbPreprocessTerm{{expression: f.vars[0], coefficient: big.NewRat(2, 1)}}, bound: big.NewRat(1, 1)}
-	b := &pbPreprocessConstraint{terms: []pbPreprocessTerm{{expression: f.vars[0], coefficient: big.NewRat(1, 1)}}, bound: big.NewRat(1, 1)}
-	if pbPreprocessSubsumes(a, b) {
+	two := unumeral.Rational{Num: unumeral.NewInt(2), Den: unumeral.NewInt(1)}
+	one := unumeral.Rational{Num: unumeral.NewInt(1), Den: unumeral.NewInt(1)}
+	a := &pbPreprocessConstraint{terms: []pbPreprocessTerm{{expression: f.vars[0], coefficient: &two}}, bound: &one}
+	b := &pbPreprocessConstraint{terms: []pbPreprocessTerm{{expression: f.vars[0], coefficient: &one}}, bound: &one}
+	subsumes, e := f.runner.subsumes(a, b)
+	simplifyMust(t, e)
+	if subsumes {
 		t.Fatal("larger source coefficient cannot subsume smaller target")
 	}
 }

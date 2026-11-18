@@ -27,33 +27,33 @@ func TestDegreeShiftCandidateGCDAndOrdinaryOccurrences(t *testing.T) {
 	x6, x10 := power(x, "6"), power(x, "10")
 	y4 := power(y, "4")
 	roots := []ast.ASTHandle{x6, x10, x6, y4, power(z, "21474836480"), power(integer, "4")}
-	got, e := degreeShiftCandidates(m, roots)
+	got, e := degreeShiftCandidatesHeld(t, m, roots)
 	equationMust(t, e)
-	if len(got) != 3 || got[x].String() != "2" || got[y].String() != "4" || got[z].String() != "21474836480" {
+	if len(got) != 3 || ratText(m, got[x]) != "2" || ratText(m, got[y]) != "4" || ratText(m, got[z]) != "21474836480" {
 		t.Fatalf("candidate degrees: %v", got)
 	}
 	// Seeing x alone as a root does not call save_degree(x,1); seeing it as
 	// an ordinary application's argument does, even after a shared power.
-	got, e = degreeShiftCandidates(m, append(roots, x))
+	got, e = degreeShiftCandidatesHeld(t, m, append(roots, x))
 	equationMust(t, e)
 	if got[x] == nil {
 		t.Fatal("bare root unexpectedly disqualified x")
 	}
 	ordinary := fixDLApp(t, m, 6, x, fixDLNumber(t, m, false, "1"))
-	got, e = degreeShiftCandidates(m, append(roots, ordinary))
+	got, e = degreeShiftCandidatesHeld(t, m, append(roots, ordinary))
 	equationMust(t, e)
 	if _, exists := got[x]; exists || len(got) != 2 {
 		t.Fatalf("ordinary occurrence: %v", got)
 	}
 	for _, exponent := range []string{"0", "-2", "1/2", "1"} {
-		got, e = degreeShiftCandidates(m, []ast.ASTHandle{y4, power(y, exponent)})
+		got, e = degreeShiftCandidatesHeld(t, m, []ast.ASTHandle{y4, power(y, exponent)})
 		equationMust(t, e)
 		if len(got) != 0 {
 			t.Fatalf("exponent %s left candidates: %v", exponent, got)
 		}
 	}
 	compound := fixDLApp(t, m, 6, x, y)
-	got, e = degreeShiftCandidates(m, []ast.ASTHandle{x6, y4, power(compound, "4")})
+	got, e = degreeShiftCandidatesHeld(t, m, []ast.ASTHandle{x6, y4, power(compound, "4")})
 	equationMust(t, e)
 	if len(got) != 0 {
 		t.Fatalf("compound power failed to expose ordinary children: %v", got)
@@ -201,7 +201,7 @@ func TestArithmeticCandidateQuantifierAnnotations(t *testing.T) {
 					t.Fatalf("eq2bv must ignore annotations: %v", got)
 				}
 			} else {
-				got, e := degreeShiftCandidates(m, []ast.ASTHandle{q})
+				got, e := degreeShiftCandidatesHeld(t, m, []ast.ASTHandle{q})
 				equationMust(t, e)
 				if len(got) != 0 {
 					t.Fatalf("degree shift must visit annotations: %v", got)

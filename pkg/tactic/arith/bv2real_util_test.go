@@ -66,7 +66,7 @@ func bv2RealSignedValue(t *testing.T, f *bv2IntFixture, h ast.ASTHandle) *big.In
 func TestBV2RealUtilDefaultsDeclarationsCacheAndReset(t *testing.T) {
 	u, f := bv2RealFixture(t, 32)
 	m := f.m
-	root, d, max, err := u.Defaults()
+	root, d, max, err := defaultsRat(u)
 	equationMust(t, err)
 	if root.Cmp(big.NewRat(2, 1)) != 0 || d.Cmp(big.NewRat(2, 1)) != 0 || max.Cmp(big.NewRat(4, 1)) != 0 {
 		t.Fatal("source defaults")
@@ -85,12 +85,12 @@ func TestBV2RealUtilDefaultsDeclarationsCacheAndReset(t *testing.T) {
 	}
 	a, b := f.bv(t, 1, 3), f.bv(t, 2, 5)
 	out := bv2RealOut(t, m)
-	equationMust(t, u.MkBV2RealC(a, b, big.NewRat(2, 1), big.NewRat(2, 1), out))
+	equationMust(t, mkBV2RealCRat(u, a, b, big.NewRat(2, 1), big.NewRat(2, 1), out))
 	first, err := m.RefGet(out)
 	equationMust(t, err)
 	firstDecl, err := m.GetDecl(first)
 	equationMust(t, err)
-	equationMust(t, u.MkBV2RealC(f.bv(t, 3, 3), b, big.NewRat(4, 2), big.NewRat(4, 2), out))
+	equationMust(t, mkBV2RealCRat(u, f.bv(t, 3, 3), b, big.NewRat(4, 2), big.NewRat(4, 2), out))
 	same, err := m.RefGet(out)
 	equationMust(t, err)
 	sameDecl, err := m.GetDecl(same)
@@ -108,7 +108,7 @@ func TestBV2RealUtilDefaultsDeclarationsCacheAndReset(t *testing.T) {
 		case "root":
 			r = big.NewRat(3, 1)
 		}
-		equationMust(t, u.MkBV2RealC(x, b, divisor, r, out))
+		equationMust(t, mkBV2RealCRat(u, x, b, divisor, r, out))
 		h, err := m.RefGet(out)
 		equationMust(t, err)
 		decl, err := m.GetDecl(h)
@@ -131,7 +131,7 @@ func TestBV2RealUtilDefaultsDeclarationsCacheAndReset(t *testing.T) {
 	if len(side) != 0 {
 		t.Fatal("reset kept conditions")
 	}
-	equationMust(t, u.MkBV2RealC(a, b, big.NewRat(2, 1), big.NewRat(2, 1), out))
+	equationMust(t, mkBV2RealCRat(u, a, b, big.NewRat(2, 1), big.NewRat(2, 1), out))
 	h, err := m.RefGet(out)
 	equationMust(t, err)
 	decl, err := m.GetDecl(h)
@@ -189,7 +189,7 @@ func TestBV2RealUtilRealNumeralMatchAndIntegerRefusal(t *testing.T) {
 	a, b := bv2RealOut(t, m), bv2RealOut(t, m)
 	var d, r big.Rat
 	h := fixDLNumber(t, m, false, "-7/3")
-	ok, err := u.Match(h, a, b, &d, &r)
+	ok, err := matchRat(u, h, a, b, &d, &r)
 	equationMust(t, err)
 	if !ok || d.Cmp(big.NewRat(3, 1)) != 0 || r.Cmp(big.NewRat(2, 1)) != 0 {
 		t.Fatal("real numeral match")
@@ -207,7 +207,7 @@ func TestBV2RealUtilRealNumeralMatchAndIntegerRefusal(t *testing.T) {
 		t.Fatal("source signed zero width", width)
 	}
 	beforeA, beforeB := av, bv
-	ok, err = u.Match(fixDLNumber(t, m, true, "4"), a, b, &d, &r)
+	ok, err = matchRat(u, fixDLNumber(t, m, true, "4"), a, b, &d, &r)
 	equationMust(t, err)
 	if ok {
 		t.Fatal("integer numeral accepted as real encoding")
@@ -228,7 +228,7 @@ func TestBV2RealUtilDivisorAlignmentAndRefusalPrefixes(t *testing.T) {
 			out := bv2RealOut(t, m)
 			a, b := f.bv(t, 4, 3), f.bv(t, 2, 3)
 			d := big.NewRat(divisor, 1)
-			ok, err := u.MkBV2Real(a, b, d, big.NewRat(2, 1), out)
+			ok, err := mkBV2RealRat(u, a, b, d, big.NewRat(2, 1), out)
 			equationMust(t, err)
 			want := divisor == 8 || divisor == 32
 			if ok != want {
@@ -328,7 +328,7 @@ func TestBV2RealUtilReducedPrebuiltCPPOracle(t *testing.T) {
 			for _, root := range []int64{2, 3} {
 				s := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.signedNumeral(big.NewRat(a, 1)) })
 				tv := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.signedNumeral(big.NewRat(b, 1)) })
-				equationMust(t, u.MkReduced(s, tv, big.NewRat(3, 1), big.NewRat(root, 1), out))
+				equationMust(t, mkReducedRat(u, s, tv, big.NewRat(3, 1), big.NewRat(root, 1), out))
 				h, err := f.m.RefGet(out)
 				equationMust(t, err)
 				input.WriteString("(push)(assert (not (= ")
@@ -410,13 +410,13 @@ func TestBV2RealUtilWideDefaultsAndOwnerGuards(t *testing.T) {
 	u, err := NewBV2RealUtil(f.m, ^uint32(0), ^uint32(0), 64)
 	equationMust(t, err)
 	t.Cleanup(func() { equationMust(t, u.Close()) })
-	root, d, max, err := u.Defaults()
+	root, d, max, err := defaultsRat(u)
 	equationMust(t, err)
 	if root.Cmp(big.NewRat(4294967295, 1)) != 0 || d.Cmp(&root) != 0 || max.Cmp(big.NewRat(8589934590, 1)) != 0 {
 		t.Fatal("default parameter overflow")
 	}
 	copy := *u
-	if _, _, _, err = copy.Defaults(); err == nil {
+	if _, _, _, err = defaultsRat(&copy); err == nil {
 		t.Fatal("copied utility accepted")
 	}
 	r, err := NewBV2RealRewriter(u)
@@ -432,7 +432,7 @@ func TestBV2RealUtilWideDefaultsAndOwnerGuards(t *testing.T) {
 	}
 	equationMust(t, u.Close())
 	equationMust(t, u.Close())
-	if _, _, _, err = u.Defaults(); err == nil {
+	if _, _, _, err = defaultsRat(u); err == nil {
 		t.Fatal("closed utility accepted")
 	}
 	var nilUtil *BV2RealUtil

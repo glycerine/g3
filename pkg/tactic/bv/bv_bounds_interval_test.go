@@ -1,15 +1,14 @@
 package bv
 
 import (
-	"math/big"
 	"testing"
 )
 
 func TestBVBoundsSourceModularSetIntersectionComplement(t *testing.T) {
-	a := bvBoundsRangeSet(8, big.NewInt(4), big.NewInt(20))
-	b := bvBoundsRangeSet(8, big.NewInt(10), big.NewInt(30))
+	a := bvBoundsRangeSet(8, 4, 20)
+	b := bvBoundsRangeSet(8, 10, 30)
 	got := a.intersect(b)
-	want := bvBoundsRangeSet(8, big.NewInt(10), big.NewInt(20))
+	want := bvBoundsRangeSet(8, 10, 20)
 	if !got.equal(want) {
 		t.Fatal(got)
 	}

@@ -1,44 +1,39 @@
 package bv
 
 // Source: src/math/interval/mod_interval.h:21-230 and
-// src/tactic/bv/bv_bounds_tactic.cpp:61-153.
+// src/tactic/bv/bv_bounds_tactic.cpp:28-153.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/math/interval"
 )
 
-func bvBoundsMaximum(width uint32) *big.Int {
+// bvBoundsMaximum is uMaxInt(sz) for sz <= 64.
+func bvBoundsMaximum(width uint32) uint64 {
 	if width == 0 {
-		return new(big.Int)
+		return 0
 	}
-	return new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(width)), big.NewInt(1))
+	return ^uint64(0) >> (64 - width)
 }
 
 func (b bvBoundsSet) modularInterval() (*interval.ModularInterval, bool) {
 	b = b.normalize()
-	if b.width == 0 || len(b.ranges) == 0 || len(b.ranges) > 2 {
+	if b.width == 0 || b.width > 64 || len(b.ranges) == 0 || len(b.ranges) > 2 {
 		return nil, false
 	}
 	maximum := bvBoundsMaximum(b.width)
 	for _, r := range b.ranges {
-		if r.lo == nil || r.hi == nil || r.lo.Sign() < 0 || r.lo.Cmp(r.hi) > 0 || r.hi.Cmp(maximum) > 0 {
+		if r.lo > r.hi || r.hi > maximum {
 			return nil, false
 		}
 	}
 	lower, upper := b.ranges[0].lo, b.ranges[0].hi
 	if len(b.ranges) == 2 {
-		if b.ranges[0].lo.Sign() != 0 || b.ranges[1].hi.Cmp(maximum) != 0 {
+		if b.ranges[0].lo != 0 || b.ranges[1].hi != maximum {
 			return nil, false
 		}
 		lower, upper = b.ranges[1].lo, b.ranges[0].hi
 	}
-	// bv_bounds_tactic's interval holds uint64_t bounds (sz <= 64).
-	if !lower.IsUint64() || !upper.IsUint64() {
-		return nil, false
-	}
-	v, err := interval.NewModularInterval(lower.Uint64(), upper.Uint64(), b.width, b.tight)
+	v, err := interval.NewModularInterval(lower, upper, b.width, b.tight)
 	return v, err == nil
 }
 
@@ -47,10 +42,10 @@ func bvBoundsFromModularInterval(v *interval.ModularInterval) bvBoundsSet {
 		return bvBoundsSet{}
 	}
 	b := bvBoundsSet{width: v.Size(), tight: v.Tight()}
-	lower, upper := new(big.Int).SetUint64(v.Lower()), new(big.Int).SetUint64(v.Upper())
+	lower, upper := v.Lower(), v.Upper()
 	if v.IsWrapped() {
 		b.ranges = []bvBoundsRange{
-			{lo: big.NewInt(0), hi: upper},
+			{lo: 0, hi: upper},
 			{lo: lower, hi: bvBoundsMaximum(v.Size())},
 		}
 	} else {

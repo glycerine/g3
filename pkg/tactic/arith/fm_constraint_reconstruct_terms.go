@@ -2,12 +2,9 @@ package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:879-903.
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
-
-func fmIsOne(v *big.Rat) bool { return v.IsInt() && v.Num().IsInt64() && v.Num().Int64() == 1 }
 
 func (t *FMExpressionTable) constraintPolynomial(c *FMConstraint) (ast.ASTHandle, ast.ASTHandle, error) {
 	integer := t.variables.AllInteger(c)
@@ -27,7 +24,7 @@ func (t *FMExpressionTable) constraintPolynomial(c *FMConstraint) (ast.ASTHandle
 				return ast.ASTHandle{}, ast.ASTHandle{}, err
 			}
 		}
-		if !fmIsOne(&c.Coefficients[i]) {
+		if !c.Coefficients[i].IsOne() {
 			numeral, err := t.numeral(&c.Coefficients[i], integer)
 			if err != nil {
 				return ast.ASTHandle{}, ast.ASTHandle{}, err
@@ -54,9 +51,7 @@ func (t *FMExpressionTable) constraintPolynomial(c *FMConstraint) (ast.ASTHandle
 	return lhs, rhs, err
 }
 
-func (t *FMExpressionTable) numeral(v *big.Rat, integer bool) (ast.ASTHandle, error) {
-	if integer {
-		return t.manager.ArithmeticIntegerNumeralText(v.RatString())
-	}
-	return t.manager.ArithmeticRealNumeralText(v.RatString())
+// numeral is a.mk_numeral(v, integer).
+func (t *FMExpressionTable) numeral(v *unumeral.Rational, integer bool) (ast.ASTHandle, error) {
+	return t.manager.ArithmeticNumeralFromRational(v, integer)
 }

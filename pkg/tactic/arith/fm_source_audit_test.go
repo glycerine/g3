@@ -2,8 +2,8 @@ package arith
 
 import (
 	"errors"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"math"
-	"math/big"
 	"reflect"
 	"testing"
 
@@ -45,12 +45,12 @@ func TestFMConstraintDeletionErasesTodoBeforeIDReuse(t *testing.T) {
 	if p.Variables.Index.Todo.Len() != 0 {
 		t.Fatal("deleted constraint remained in subsumption todo")
 	}
-	replacement, err := p.store.New(nil, []uint32{0}, []big.Rat{fmCRat(1, 1)}, big.NewRat(2, 1), false, ast.ASTDependency{})
+	replacement, err := p.store.New(nil, []uint32{0}, []unumeral.Rational{fmCRat(1, 1)}, fmCRatP(2, 1), false, ast.ASTDependency{})
 	equationMust(t, err)
 	if replacement.ID != id {
 		t.Fatal("source free-list reuse", replacement.ID, id)
 	}
-	p.Variables.Register(replacement)
+	fmRegister(t, p.Variables, replacement)
 	if got := p.Variables.Index.Todo.Pop(); got != replacement {
 		t.Fatal("reused ID found stale object", got, replacement)
 	}

@@ -3,38 +3,78 @@ package arith
 // Source: src/tactic/arith/lia2pb_tactic.cpp is_target_core and visitor/check.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func lia2pbBits(n *big.Rat) (uint32, error) {
-	if n.Sign() < 0 || !n.IsInt() {
+// lia2pbBits is rational::get_num_bits() of a nonnegative integer.
+func lia2pbBits(q *unumeral.RationalManager, n *unumeral.Rational) (uint32, error) {
+	negative, err := q.IsNeg(n)
+	if err != nil {
+		return 0, err
+	}
+	isInt, err := q.IsInt(n)
+	if err != nil {
+		return 0, err
+	}
+	if negative || !isInt {
 		return 0, ast.ErrASTDomain
 	}
-	bits := n.Num().BitLen()
+	bits, err := rationalBitLength(q, n)
 	if bits == 0 {
 		bits = 1
 	}
-	return uint32(bits), nil
+	return bits, err
 }
 
-func (t *LIA2PBTactic) target(variable ast.ASTHandle) (upper big.Rat, found bool, err error) {
+// target is is_target_core(n, u): upper receives u (a rational of the
+// manager's NumeralService().Manager).
+func (t *LIA2PBTactic) target(variable ast.ASTHandle, upper *unumeral.Rational) (found bool, resultErr error) {
 	constant, err := t.bounds.constant(variable)
 	if err != nil || !constant {
-		return upper, false, err
+		return false, err
 	}
-	lower, _, found, err := t.bounds.Lower(variable)
+	// rational l;
+	q := t.manager.NumeralService().Manager
+	lower := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&lower)) }()
+	_, found, err = t.bounds.Lower(variable, &lower)
 	if err != nil || !found {
-		return upper, false, err
+		return false, err
 	}
-	upper, _, found, err = t.bounds.Upper(variable)
-	if err != nil || !found || lower.Sign() != 0 || upper.Sign() < 0 {
-		return upper, false, err
+	_, found, err = t.bounds.Upper(variable, upper)
+	if err != nil || !found {
+		return false, err
 	}
-	bits, err := lia2pbBits(&upper)
-	return upper, bits <= t.maxBits, err
+	zero, err := q.IsZero(&lower)
+	if err != nil || !zero {
+		return false, err
+	}
+	negative, err := q.IsNeg(upper)
+	if err != nil || negative {
+		return false, err
+	}
+	bits, err := lia2pbBits(q, upper)
+	return bits <= t.maxBits, err
+}
+
+// targetAboveOne is is_target_core(x, u) && u > rational(1).
+func (t *LIA2PBTactic) targetAboveOne(variable ast.ASTHandle, upper *unumeral.Rational) (bool, error) {
+	ok, err := t.target(variable, upper)
+	if err != nil || !ok {
+		return false, err
+	}
+	q := t.manager.NumeralService().Manager
+	// u > 1 for an integer u >= 0: u is neither zero nor one.
+	zero, err := q.IsZero(upper)
+	if err != nil || zero {
+		return false, err
+	}
+	one, err := q.IsOne(upper)
+	return !one, err
 }
 
 // The live visitor instantiation marks every expression and ignores quantifier
@@ -156,6 +196,8 @@ func (t *LIA2PBTactic) checkNode(term ast.ASTHandle, kind ast.ASTKind) (bool, er
 	if err != nil || sortKind != 1 {
 		return false, err
 	}
-	_, bounded, err := t.target(term)
-	return bounded, err
+	q := t.manager.NumeralService().Manager
+	u := unumeral.NewRational()
+	bounded, err := t.target(term, &u)
+	return bounded, errors.Join(err, q.Del(&u))
 }

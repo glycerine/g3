@@ -1,52 +1,84 @@
 package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:549-591.
-import "math/big"
+import (
+	"errors"
 
-func fmAbsInt(v *big.Int) *big.Int { return new(big.Int).Abs(v) }
-func fmLCM(a, b *big.Int) *big.Int {
-	if a.Sign() == 0 || b.Sign() == 0 {
-		return new(big.Int)
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+)
+
+// MakeInteger is mk_int: multiply as and c by the lcm of their
+// denominators.
+func (c *FMConstraint) MakeInteger() (resultErr error) {
+	q := c.numerals
+	// rational l = denominator(c);
+	l, d := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&l), q.Del(&d)) }()
+	if err := q.DenominatorRational(&c.Constant, &l); err != nil {
+		return err
 	}
-	g := new(big.Int).GCD(nil, nil, a, b)
-	return new(big.Int).Abs(new(big.Int).Quo(new(big.Int).Mul(a, b), g))
-}
-func (c *FMConstraint) MakeInteger() {
-	l := new(big.Int).Set(c.Constant.Denom())
 	for i := range c.Coefficients {
-		l = fmLCM(l, c.Coefficients[i].Denom())
+		if err := q.DenominatorRational(&c.Coefficients[i], &d); err != nil {
+			return err
+		}
+		if err := q.LCM(&l, &d, &l); err != nil {
+			return err
+		}
 	}
-	if l.Cmp(big.NewInt(1)) == 0 {
-		return
+	if l.IsOne() {
+		return nil
 	}
-	c.Constant.Mul(&c.Constant, new(big.Rat).SetInt(l))
+	if err := q.Mul(&c.Constant, &l, &c.Constant); err != nil {
+		return err
+	}
 	for i := range c.Coefficients {
-		c.Coefficients[i].Mul(&c.Coefficients[i], new(big.Rat).SetInt(l))
+		if err := q.Mul(&c.Coefficients[i], &l, &c.Coefficients[i]); err != nil {
+			return err
+		}
 	}
+	return nil
 }
-func (c *FMConstraint) NormalizeCoefficients() {
+
+// NormalizeCoefficients divides as and c by the gcd of their absolute
+// values when they are integers.
+func (c *FMConstraint) NormalizeCoefficients() (resultErr error) {
+	q := c.numerals
 	if len(c.Variables) == 0 {
-		return
+		return nil
 	}
 	if !c.Constant.IsInt() {
-		return
+		return nil
 	}
-	g := fmAbsInt(c.Constant.Num())
+	// rational g = abs(c);
+	g, a := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&g), q.Del(&a)) }()
+	if err := errors.Join(q.Copy(&g, &c.Constant), q.Abs(&g)); err != nil {
+		return err
+	}
 	for i := range c.Coefficients {
 		if !c.Coefficients[i].IsInt() {
-			return
+			return nil
 		}
-		g.GCD(nil, nil, g, fmAbsInt(c.Coefficients[i].Num()))
-		if g.Cmp(big.NewInt(1)) == 0 {
-			return
+		if err := errors.Join(q.Copy(&a, &c.Coefficients[i]), q.Abs(&a)); err != nil {
+			return err
+		}
+		if err := q.GCD(&g, &a, &g); err != nil {
+			return err
+		}
+		if g.IsOne() {
+			return nil
 		}
 	}
-	if g.Sign() == 0 || g.Cmp(big.NewInt(1)) == 0 {
-		return
+	if g.IsZero() || g.IsOne() {
+		return nil
 	}
-	q := new(big.Rat).SetInt(g)
-	c.Constant.Quo(&c.Constant, q)
+	if err := q.Div(&c.Constant, &g, &c.Constant); err != nil {
+		return err
+	}
 	for i := range c.Coefficients {
-		c.Coefficients[i].Quo(&c.Coefficients[i], q)
+		if err := q.Div(&c.Coefficients[i], &g, &c.Coefficients[i]); err != nil {
+			return err
+		}
 	}
+	return nil
 }

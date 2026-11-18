@@ -1,10 +1,10 @@
 package arith
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestRecover01DefinitionsShareBooleansAndHandleSigns(t *testing.T) {
@@ -33,8 +33,8 @@ func TestRecover01DefinitionsShareBooleansAndHandleSigns(t *testing.T) {
 	defer func() { equationMust(t, m.DelExprSubstitution(&sub)) }()
 	d := &recover01Definitions{manager: m, goal: goal, sub: sub}
 	defer func() { equationMust(t, d.Close()) }()
-	equationMust(t, d.build(x, []ast.ASTHandle{p, notQ}, []big.Rat{*big.NewRat(2, 1), *big.NewRat(3, 1)}))
-	equationMust(t, d.build(y, []ast.ASTHandle{p}, []big.Rat{*big.NewRat(1, 2)}))
+	equationMust(t, d.build(x, []ast.ASTHandle{p, notQ}, []unumeral.Rational{smallRational(2, 1), smallRational(3, 1)}))
+	equationMust(t, d.build(y, []ast.ASTHandle{p}, []unumeral.Rational{smallRational(1, 2)}))
 	ownedAtomRefs, err := m.GetRefCount(p)
 	equationMust(t, err)
 	if ownedAtomRefs <= atomRefs {

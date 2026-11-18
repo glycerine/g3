@@ -6,11 +6,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *PB2BVTactic) BindTrace(tags *diagnostic.TraceTags) error {
@@ -61,15 +61,34 @@ func (t *PB2BVTactic) tracePair(tag, function string, line int, first ast.ASTHan
 		return err
 	})
 }
-func (t *PB2BVTactic) displayPolynomial(out io.Writer, p pbPolynomial, c *big.Rat) error {
-	for i, mon := range p {
+func (t *PB2BVTactic) displayPolynomial(out io.Writer, p pbPolynomial, c *unumeral.Rational) error {
+	text, err := t.q().String(c)
+	if err != nil {
+		return err
+	}
+	return t.displayPolynomialText(out, p, text)
+}
+
+// displayPolynomialText is display(out, m_p, m_c) with m_c already printed.
+func (t *PB2BVTactic) displayPolynomialText(out io.Writer, p pbPolynomial, c string) error {
+	q := t.q()
+	for i := range p {
+		mon := &p[i]
 		if i != 0 {
 			if _, err := io.WriteString(out, " + "); err != nil {
 				return err
 			}
 		}
-		if mon.weight.Cmp(big.NewRat(1, 1)) != 0 {
-			if _, err := io.WriteString(out, mon.weight.RatString()+"*"); err != nil {
+		one, err := q.IsOne(&mon.weight)
+		if err != nil {
+			return err
+		}
+		if !one {
+			weight, err := q.String(&mon.weight)
+			if err != nil {
+				return err
+			}
+			if _, err := io.WriteString(out, weight+"*"); err != nil {
 				return err
 			}
 		}
@@ -82,10 +101,10 @@ func (t *PB2BVTactic) displayPolynomial(out io.Writer, p pbPolynomial, c *big.Ra
 			return err
 		}
 	}
-	_, err := fmt.Fprintf(out, " >= %s\n", c.RatString())
+	_, err := fmt.Fprintf(out, " >= %s\n", c)
 	return err
 }
-func (t *PB2BVTactic) tracePolynomial(tag, function string, line int, prefix string, p pbPolynomial, c *big.Rat, suffix string) error {
+func (t *PB2BVTactic) tracePolynomial(tag, function string, line int, prefix string, p pbPolynomial, c *unumeral.Rational, suffix string) error {
 	return t.emit(tag, function, line, func(out io.Writer) error {
 		if _, err := io.WriteString(out, prefix); err != nil {
 			return err
@@ -97,24 +116,35 @@ func (t *PB2BVTactic) tracePolynomial(tag, function string, line int, prefix str
 		return err
 	})
 }
-func (t *PB2BVTactic) traceNumeral(tag, function string, line int, prefix string, c *big.Rat, suffix string) error {
-	return t.emit(tag, function, line, func(out io.Writer) error { _, err := io.WriteString(out, prefix+c.RatString()+suffix); return err })
-}
-func (t *PB2BVTactic) traceBitWidth(bits uint32, sum *big.Rat, n int) error {
-	return t.emit("num_bits_bug", "bitblast_pbc", 445, func(out io.Writer) error {
-		_, err := fmt.Fprintf(out, "bits: %d sum: %s size: %d\n", bits, sum.RatString(), n)
+func (t *PB2BVTactic) traceNumeral(tag, function string, line int, prefix string, c *unumeral.Rational, suffix string) error {
+	return t.emit(tag, function, line, func(out io.Writer) error {
+		text, err := t.q().String(c)
+		if err != nil {
+			return err
+		}
+		_, err = io.WriteString(out, prefix+text+suffix)
 		return err
 	})
 }
-func (t *PB2BVTactic) traceSplit(p pbPolynomial, c *big.Rat, clause pbPolynomial) error {
+func (t *PB2BVTactic) traceBitWidth(bits uint32, sum *unumeral.Rational, n int) error {
+	return t.emit("num_bits_bug", "bitblast_pbc", 445, func(out io.Writer) error {
+		text, err := t.q().String(sum)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(out, "bits: %d sum: %s size: %d\n", bits, text, n)
+		return err
+	})
+}
+func (t *PB2BVTactic) traceSplit(p pbPolynomial, c *unumeral.Rational, clause pbPolynomial) error {
 	return t.emit("split_bug", "mk_pbc", 545, func(out io.Writer) error {
 		if err := t.displayPolynomial(out, p, c); err != nil {
 			return err
 		}
-		return t.displayPolynomial(out, clause, big.NewRat(1, 1))
+		return t.displayPolynomialText(out, clause, "1")
 	})
 }
-func (t *PB2BVTactic) traceEquality(term ast.ASTHandle, p pbPolynomial, c *big.Rat, p2 pbPolynomial, c2 *big.Rat, a, b ast.ASTHandle) error {
+func (t *PB2BVTactic) traceEquality(term ast.ASTHandle, p pbPolynomial, c *unumeral.Rational, p2 pbPolynomial, c2 *unumeral.Rational, a, b ast.ASTHandle) error {
 	return t.emit("pb2bv_convert", "convert", 824, func(out io.Writer) error {
 		if err := t.bounds.writeExpr(out, term); err != nil {
 			return err

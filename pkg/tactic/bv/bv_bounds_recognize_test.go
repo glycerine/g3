@@ -2,7 +2,6 @@ package bv
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
 	"testing"
 )
 
@@ -17,7 +16,7 @@ func TestBVBoundsSourceRecognizesUnsignedSignedAndEquality(t *testing.T) {
 		if !ok || key != f.x || b.empty() {
 			t.Fatal(ok, key, b)
 		}
-		if tc.lo == 4 && b.ranges[0].lo.Cmp(big.NewInt(tc.lo)) != 0 {
+		if tc.lo == 4 && b.ranges[0].lo != uint64(tc.lo) {
 			t.Fatal(b)
 		}
 	}
@@ -40,7 +39,7 @@ func TestBVBoundsRecognizeRejectsNumeralEquality(t *testing.T) {
 	for _, h := range []ast.ASTHandle{eq(f.num(t, 1), f.x), eq(f.x, f.num(t, 1))} {
 		key, b, ok, e := f.simp.recognize(h)
 		sharingMust(t, e)
-		if !ok || key != f.x || len(b.ranges) != 1 || b.ranges[0].lo.Cmp(big.NewInt(1)) != 0 || b.ranges[0].hi.Cmp(big.NewInt(1)) != 0 {
+		if !ok || key != f.x || len(b.ranges) != 1 || b.ranges[0].lo != 1 || b.ranges[0].hi != 1 {
 			t.Fatal(ok, key, b)
 		}
 	}

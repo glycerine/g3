@@ -3,8 +3,6 @@ package arith
 // Source: src/tactic/arith/eq2bv_tactic.cpp, collect_fd/is_fd/is_bound.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -40,15 +38,11 @@ func eq2bvCollectOrdered(m *ast.ASTManager, roots []ast.ASTHandle, nonfd map[ast
 				return 0, false, e
 			}
 		}
-		text, _, found, e := m.ArithmeticNumeralText(c)
-		if e != nil || !found {
+		value, found, unsigned, e := numeralUnsigned(m, c)
+		if e != nil || !found || !unsigned {
 			return 0, false, e
 		}
-		r, ok := new(big.Rat).SetString(text)
-		if !ok || !r.IsInt() || r.Sign() < 0 || r.Num().BitLen() > 32 {
-			return 0, false, nil
-		}
-		return uint32(r.Num().Uint64()), true, nil
+		return value, true, nil
 	}
 	for _, root := range roots {
 		kind, e := m.GetKind(root)

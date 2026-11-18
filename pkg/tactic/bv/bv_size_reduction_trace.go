@@ -5,8 +5,8 @@ package bv
 import (
 	"errors"
 	"fmt"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -107,7 +107,11 @@ func (t *BVSizeReductionTactic) traceBounds(r *bvSizeReductionImplementation) er
 			if err := t.writeSizeExpr(w, v); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(w, " >= %s\n", bound.String()); err != nil {
+			text, err := t.manager.NumeralService().Manager.String(bound)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, " >= %s\n", text); err != nil {
 				return err
 			}
 		}
@@ -119,26 +123,39 @@ func (t *BVSizeReductionTactic) traceBounds(r *bvSizeReductionImplementation) er
 			if err := t.writeSizeExpr(w, v); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(w, " <= %s\n", bound.String()); err != nil {
+			text, err := t.manager.NumeralService().Manager.String(bound)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, " <= %s\n", text); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
 }
-func (t *BVSizeReductionTactic) traceInterval(v ast.ASTHandle, l, u *big.Int) error {
+func (t *BVSizeReductionTactic) traceInterval(v ast.ASTHandle, l, u *unumeral.Rational) error {
 	return t.emit("bv_size_reduction", 216, func(w io.Writer) error {
-		if _, err := fmt.Fprintf(w, "%s <= ", l.String()); err != nil {
+		q := t.manager.NumeralService().Manager
+		lText, err := q.String(l)
+		if err != nil {
+			return err
+		}
+		uText, err := q.String(u)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "%s <= ", lText); err != nil {
 			return err
 		}
 		if err := t.writeSizeName(w, v); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(w, " <= %s\n", u.String())
+		_, err = fmt.Fprintf(w, " <= %s\n", uText)
 		return err
 	})
 }
-func (t *BVSizeReductionTactic) traceWidth(v ast.ASTHandle, l, u *big.Int, bits uint32, mode int) error {
+func (t *BVSizeReductionTactic) traceWidth(v ast.ASTHandle, l, u *unumeral.Rational, bits uint32, mode int) error {
 	line := 257
 	if mode < 0 {
 		line = 236
@@ -166,13 +183,22 @@ func (t *BVSizeReductionTactic) traceWidth(v ast.ASTHandle, l, u *big.Int, bits 
 			_, err := fmt.Fprintf(w, " <= 0 <= u  --> %d bits\n", bits)
 			return err
 		}
-		if _, err := fmt.Fprintf(w, "%s <= ", l.String()); err != nil {
+		q := t.manager.NumeralService().Manager
+		lText, err := q.String(l)
+		if err != nil {
+			return err
+		}
+		uText, err := q.String(u)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "%s <= ", lText); err != nil {
 			return err
 		}
 		if err := t.writeSizeName(w, v); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(w, " <= %s --> %d bits\n", u.String(), bits)
+		_, err = fmt.Fprintf(w, " <= %s --> %d bits\n", uText, bits)
 		return err
 	})
 }

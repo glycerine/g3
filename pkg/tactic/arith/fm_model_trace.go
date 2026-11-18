@@ -4,8 +4,8 @@ package arith
 
 import (
 	"fmt"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -48,7 +48,7 @@ func (c *FMModelConverter) traceVariable(variable ast.ASTHandle, value ast.ASTHa
 		return fmDisplayWrite(out, "\n")
 	})
 }
-func (c *FMModelConverter) traceBound(kind fmBoundKind, value *big.Rat, clause ast.ASTHandle) error {
+func (c *FMModelConverter) traceBound(kind fmBoundKind, value *unumeral.Rational, clause ast.ASTHandle) error {
 	line := 204
 	if kind == fmLowerBound {
 		line = 207
@@ -65,7 +65,11 @@ func (c *FMModelConverter) traceBound(kind fmBoundKind, value *big.Rat, clause a
 			if kind == fmUpperBound {
 				direction = "upper"
 			}
-			if _, err := fmt.Fprintf(out, "%s bound: %s for:\n", direction, value.RatString()); err != nil {
+			text, err := c.manager.NumeralService().Manager.String(value)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "%s bound: %s for:\n", direction, text); err != nil {
 				return err
 			}
 		}

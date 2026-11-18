@@ -75,7 +75,11 @@ func (e *FMEliminator) Try(x uint32) (bool, error) {
 		if err := e.Variables.Index.Backward(c); err != nil {
 			return false, err
 		}
-		switch e.Variables.Register(c) {
+		registration, err := e.Variables.Register(c)
+		if err != nil {
+			return false, err
+		}
+		switch registration {
 		case FMRegistrationFalse:
 			e.Inconsistent = true
 			if err := e.Store.Delete(c); err != nil {

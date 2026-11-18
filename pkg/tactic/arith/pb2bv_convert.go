@@ -4,11 +4,11 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type pbConstraintKind uint8
@@ -45,28 +45,31 @@ func (c *pbTacticConfiguration) GetSubst(term ast.ASTHandle) (ast.ASTHandle, ast
 	}
 	return value, ast.ASTHandle{}, true, nil
 }
-func pbAdjust(positive *bool, kind *pbConstraintKind, c *big.Rat) {
+func pbAdjust(q *unumeral.RationalManager, positive *bool, kind *pbConstraintKind, c *unumeral.Rational) error {
 	if !*positive {
 		if *kind == pbLessEqual {
 			*positive = true
 			*kind = pbGreaterEqual
-			c.Add(c, big.NewRat(1, 1))
+			return q.Inc(c)
 		} else if *kind == pbGreaterEqual {
 			*positive = true
 			*kind = pbLessEqual
-			c.Sub(c, big.NewRat(1, 1))
+			return q.Dec(c)
 		}
 	}
+	return nil
 }
-func (t *PB2BVTactic) numeral(h ast.ASTHandle) (q big.Rat, integer, found bool, err error) {
-	text, integer, found, err := t.manager.ArithmeticNumeralText(h)
-	if err != nil || !found {
-		return q, integer, found, err
-	}
-	if _, ok := q.SetString(text); !ok {
-		return q, false, false, ast.ErrASTDomain
-	}
-	return q, integer, true, nil
+
+// numeral is m_arith_util.is_numeral(h, r, is_int), writing r (a rational of
+// the manager's NumeralService().Manager).
+func (t *PB2BVTactic) numeral(h ast.ASTHandle, r *unumeral.Rational) (integer, found bool, err error) {
+	integer, found, err = t.manager.ArithmeticNumeralRational(h, r)
+	return integer, found && err == nil, err
+}
+
+// isNumeral is m_arith_util.is_numeral(h).
+func (t *PB2BVTactic) isNumeral(h ast.ASTHandle) (bool, error) {
+	return t.manager.IsArithmeticNumeral(h)
 }
 func (t *PB2BVTactic) addBoundsDependencies(h ast.ASTHandle) error {
 	for _, lower := range []bool{true, false} {
@@ -104,8 +107,15 @@ func (t *PB2BVTactic) convert(term ast.ASTHandle, out ast.ASTRef, positive, root
 	}
 	return t.manager.SetRef(out, value)
 }
-func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pbEncodingScope) (ast.ASTHandle, error) {
+func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pbEncodingScope) (_ ast.ASTHandle, resultErr error) {
 	m := t.manager
+	q := t.q()
+	// numeral c; polynomial m_p, m_p2; numeral c2;
+	c, c2 := unumeral.NewRational(), unumeral.NewRational()
+	var p, p2 pbPolynomial
+	defer func() {
+		resultErr = errors.Join(resultErr, pbRelease(q, p2), pbRelease(q, p), q.Del(&c2), q.Del(&c))
+	}()
 	family, op, args, _, err := t.bounds.app(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -155,7 +165,7 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 	// (<= c x)/(>= c x) without range checks (AUDIT.md tactic_arith_03-F1;
 	// fork fix in pb2bv_tactic.cpp convert). Mirror the atom so the
 	// numeral is on the right and use the checked rhs-numeral code.
-	_, _, number, err := t.numeral(lhs)
+	number, err := t.isNumeral(lhs)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -174,14 +184,16 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 			kind = pbLessEqual
 		}
 	}
-	c, integer, number, err := t.numeral(rhs)
+	integer, number, err := t.numeral(rhs, &c)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if !number || !integer {
 		return ast.ASTHandle{}, t.nonPB(term)
 	}
-	pbAdjust(&positive, &kind, &c)
+	if err = pbAdjust(q, &positive, &kind, &c); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	constant, err := t.bounds.constant(lhs)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -190,44 +202,52 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 		if err = t.addBoundsDependencies(lhs); err != nil {
 			return ast.ASTHandle{}, err
 		}
+		cSign, err := q.Sign(&c)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		cVsOne, err := rationalCompareInt(q, &c, 1)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
 		if kind == pbEqual {
 			if err = t.traceNumeral("pb2bv_bug", "convert", 673, "c: ", &c, "\n"); err != nil {
 				return ast.ASTHandle{}, err
 			}
-			if c.Sign() != 0 && c.Cmp(big.NewRat(1, 1)) != 0 {
+			if cSign != 0 && cVsOne != 0 {
 				if positive {
 					return m.MkFalse()
 				}
 				return m.MkTrue()
 			}
-			sign := c.Sign() == 0
+			sign := cSign == 0
 			if !positive {
 				sign = !sign
 			}
 			return t.integerLiteral(lhs, sign)
 		}
 		if kind == pbLessEqual {
-			if c.Cmp(big.NewRat(1, 1)) >= 0 {
+			if cVsOne >= 0 {
 				if err = t.traceDiscard(term, 691); err != nil {
 					return ast.ASTHandle{}, err
 				}
 				return m.MkTrue()
 			}
-			if c.Sign() < 0 {
+			if cSign < 0 {
 				return m.MkFalse()
 			}
 		} else {
-			if c.Sign() <= 0 {
+			if cSign <= 0 {
 				if err = t.traceDiscard(term, 704); err != nil {
 					return ast.ASTHandle{}, err
 				}
 				return m.MkTrue()
 			}
-			if c.Cmp(big.NewRat(1, 1)) > 0 {
+			if cVsOne > 0 {
 				return m.MkFalse()
 			}
 		}
-		if !positive || !((c.Sign() == 0 && kind == pbLessEqual) || (c.Cmp(big.NewRat(1, 1)) == 0 && kind == pbGreaterEqual)) {
+		if !positive || !((cSign == 0 && kind == pbLessEqual) || (cVsOne == 0 && kind == pbGreaterEqual)) {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
 		return t.integerLiteral(lhs, kind == pbLessEqual)
@@ -256,7 +276,7 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 		if !ok || f != t.bounds.family || k != 9 || len(a) != 2 {
 			return ast.ASTHandle{}, t.nonPB(term)
 		}
-		_, _, num, e := t.numeral(a[0])
+		num, e := t.isNumeral(a[0])
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -268,48 +288,69 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 			return ast.ASTHandle{}, t.nonPB(term)
 		}
 	}
-	p := make(pbPolynomial, 0, len(terms))
+	p = make(pbPolynomial, 0, len(terms))
 	for _, mon := range terms {
 		constant, e := t.bounds.constant(mon)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		weight := big.NewRat(1, 1)
-		variable := mon
-		negative := false
+		// rational a(1);
+		monomial, e := pbUnitMonomial(q, pbLiteral{mon, false})
+		p = append(p, monomial)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		last := &p[len(p)-1]
 		if !constant {
 			_, _, a, _, e := t.bounds.app(mon)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			n, _, _, e := t.numeral(a[0])
+			if _, _, e = t.numeral(a[0], &last.weight); e != nil {
+				return ast.ASTHandle{}, e
+			}
+			last.literal.variable = a[1]
+			negative, e := q.IsNeg(&last.weight)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			weight.Set(&n)
-			variable = a[1]
-			if weight.Sign() < 0 {
-				weight.Neg(weight)
-				c.Add(&c, weight)
-				negative = true
+			if negative {
+				if e = q.Neg(&last.weight); e == nil {
+					e = q.Add(&c, &last.weight, &c)
+				}
+				if e != nil {
+					return ast.ASTHandle{}, e
+				}
+				last.literal.negative = true
 			}
 		}
-		if err = t.addBoundsDependencies(variable); err != nil {
+		if err = t.addBoundsDependencies(last.literal.variable); err != nil {
 			return ast.ASTHandle{}, err
 		}
-		p = append(p, pbMonomial{weight: *weight, literal: pbLiteral{variable, negative}})
 	}
-	sort.SliceStable(p, func(i, j int) bool { return p[i].weight.Cmp(&p[j].weight) > 0 })
+	var cmpErr error
+	sort.SliceStable(p, func(i, j int) bool {
+		c, e := q.Compare(&p[i].weight, &p[j].weight)
+		cmpErr = errors.Join(cmpErr, e)
+		return c > 0
+	})
+	if cmpErr != nil {
+		return ast.ASTHandle{}, cmpErr
+	}
 	if kind == pbGreaterEqual {
-		return t.mkPBC(p, &c, root, s)
+		return t.mkPBC(&p, &c, root, s)
 	}
 	if kind == pbLessEqual {
-		c.Neg(&c)
+		if err = q.Neg(&c); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		for i := range p {
-			c.Add(&c, &p[i].weight)
+			if err = q.Add(&c, &p[i].weight, &c); err != nil {
+				return ast.ASTHandle{}, err
+			}
 			p[i].literal.negative = !p[i].literal.negative
 		}
-		return t.mkPBC(p, &c, root, s)
+		return t.mkPBC(&p, &c, root, s)
 	}
 	eqVector, err := t.equalVector(p, &c)
 	if err != nil {
@@ -342,23 +383,31 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 		}
 		return s.gate(ast.ASTOpNot, value)
 	}
-	p2 := make(pbPolynomial, len(p))
-	c2 := new(big.Rat).Neg(&c)
+	p2 = make(pbPolynomial, 0, len(p))
+	if err = errors.Join(q.Copy(&c2, &c), q.Neg(&c2)); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	for i := range p {
-		p2[i].weight.Set(&p[i].weight)
-		p2[i].literal = p[i].literal
-		p2[i].literal.negative = !p2[i].literal.negative
-		c2.Add(c2, &p[i].weight)
+		literal := p[i].literal
+		literal.negative = !literal.negative
+		monomial, e := pbMonomialOf(q, &p[i].weight, literal)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		p2 = append(p2, monomial)
+		if err = q.Add(&c2, &p[i].weight, &c2); err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
-	first, err := t.mkPBC(p, &c, false, s)
+	first, err := t.mkPBC(&p, &c, false, s)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	second, err := t.mkPBC(p2, c2, false, s)
+	second, err := t.mkPBC(&p2, &c2, false, s)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = t.traceEquality(term, p, &c, p2, c2, first, second); err != nil {
+	if err = t.traceEquality(term, p, &c, p2, &c2, first, second); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	value, err := s.gate(ast.ASTOpAnd, first, second)
@@ -367,7 +416,7 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 	}
 	return s.gate(ast.ASTOpNot, value)
 }
-func (t *PB2BVTactic) equalVector(p pbPolynomial, c *big.Rat) (bool, error) {
+func (t *PB2BVTactic) equalVector(p pbPolynomial, c *unumeral.Rational) (_ bool, resultErr error) {
 	if err := t.tracePolynomial("is_eq_vector", "is_eq_vector", 586, "", p, c, ""); err != nil {
 		return false, err
 	}
@@ -375,14 +424,29 @@ func (t *PB2BVTactic) equalVector(p pbPolynomial, c *big.Rat) (bool, error) {
 		return false, nil
 	}
 	n := len(p) / 2
-	bound := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(n)), big.NewInt(1))
-	if c.Cmp(new(big.Rat).SetInt(bound)) != 0 {
-		return false, nil
+	// rational two(2), power = 2^(n-1-i), bound = 2^n - 1
+	q := t.q()
+	two, power := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&two), q.Del(&power)) }()
+	if err := errors.Join(q.SetInt32(&two, 2), q.Power(&two, uint32(n), &power), q.Dec(&power)); err != nil {
+		return false, err
+	}
+	if eq, err := q.Equal(c, &power); err != nil || !eq {
+		return false, err
 	}
 	for i := 0; i < n; i++ {
 		a, b := &p[2*i], &p[2*i+1]
-		if a.literal.negative == b.literal.negative || a.weight.Cmp(&b.weight) != 0 || a.weight.Cmp(new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(n-i-1)))) != 0 {
+		if a.literal.negative == b.literal.negative {
 			return false, nil
+		}
+		if eq, err := q.Equal(&a.weight, &b.weight); err != nil || !eq {
+			return false, err
+		}
+		if err := q.Power(&two, uint32(n-i-1), &power); err != nil {
+			return false, err
+		}
+		if eq, err := q.Equal(&a.weight, &power); err != nil || !eq {
+			return false, err
 		}
 	}
 	return true, nil

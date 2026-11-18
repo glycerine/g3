@@ -55,7 +55,7 @@ func TestRecover01CoefficientsTruthTables(t *testing.T) {
 	equationMust(t, e)
 	_, integrated, ok, e := recover01Coefficients(m, groups[decl])
 	equationMust(t, e)
-	if !ok || integrated[0].RatString() != "2" || integrated[1].RatString() != "-3" {
+	if !ok || ratText(m, &integrated[0]) != "2" || ratText(m, &integrated[1]) != "-3" {
 		t.Fatal("collector integration", integrated)
 	}
 	for _, tc := range tests {
@@ -65,7 +65,7 @@ func TestRecover01CoefficientsTruthTables(t *testing.T) {
 			if ok != tc.valid {
 				t.Fatalf("valid=%v", ok)
 			}
-			if ok && (len(lits) != 2 || lits[0] != p || lits[1] != q || coeffs[0].RatString() != "2" || coeffs[1].RatString() != "-3") {
+			if ok && (len(lits) != 2 || lits[0] != p || lits[1] != q || ratText(m, &coeffs[0]) != "2" || ratText(m, &coeffs[1]) != "-3") {
 				t.Fatalf("literals %v coefficients %v", lits, coeffs)
 			}
 		})

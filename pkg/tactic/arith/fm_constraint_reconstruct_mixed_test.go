@@ -36,7 +36,7 @@ func TestFMConstraintExpressionRebuildsLiteralClause(t *testing.T) {
 	equationMust(t, e)
 	q, e := table.AddBoolean(qh)
 	equationMust(t, e)
-	expression, e := table.ConstraintExpression(&FMConstraint{Literals: []int32{int32(p), -int32(q)}, Constant: fmCRat(-1, 1)})
+	expression, e := table.ConstraintExpression(&FMConstraint{numerals: fmTestNumerals, Literals: []int32{int32(p), -int32(q)}, Constant: fmCRat(-1, 1)})
 	equationMust(t, e)
 	notQ, e := m.MkNot(qh)
 	equationMust(t, e)

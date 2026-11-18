@@ -5,7 +5,6 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -126,32 +125,23 @@ func (u *BV2RealUtil) publishEncoding(key bv2RealKey, decl ast.ASTHandle, widthA
 	return nil
 }
 
-// find(f, sig) copies the reverse signature into a local rational pair.
-func (c *bv2RealCall) signatureValues(signature *bv2RealSignature) (d, r big.Rat) {
-	count := len(c.numbers)
-	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
+// find(f, sig) copies the reverse signature into a local rational pair,
+// owned by this call.
+func (c *bv2RealCall) signatureValues(signature *bv2RealSignature) (d, r *unumeral.OwnedRational) {
 	service := c.u.manager.NumeralService()
 	for i, source := range []*unumeral.OwnedRational{signature.divisor, signature.root} {
 		value := c.number()
 		if c.err != nil {
-			return
+			return nil, nil
 		}
 		if c.err = service.Copy(value, source); c.err != nil {
-			return
+			return nil, nil
 		}
-		text, err := service.String(value)
-		if err != nil {
-			c.err = err
-			return
-		}
-		target := &d
-		if i == 1 {
-			target = &r
-		}
-		if _, ok := target.SetString(text); !ok {
-			c.err = ast.ErrASTDomain
-			return
+		if i == 0 {
+			d = value
+		} else {
+			r = value
 		}
 	}
-	return
+	return d, r
 }

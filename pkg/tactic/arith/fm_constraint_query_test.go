@@ -3,7 +3,7 @@ package arith
 import "testing"
 
 func TestFMConstraintQueries(t *testing.T) {
-	c := &FMConstraint{Variables: []uint32{3, 8}}
+	c := &FMConstraint{numerals: fmTestNumerals, Variables: []uint32{3, 8}}
 	if !c.Live() {
 		t.Fatal("fresh constraint is not live")
 	}

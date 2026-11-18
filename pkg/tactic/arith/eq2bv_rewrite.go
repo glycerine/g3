@@ -4,7 +4,6 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -50,15 +49,14 @@ func (c *eq2bvRewriteConfig) ReduceApp(decl ast.ASTHandle, args ast.AppArguments
 		if !found {
 			continue
 		}
-		text, _, found, err := m.ArithmeticNumeralText(pair[1])
+		value, found, unsigned, err := numeralUnsigned(m, pair[1])
 		if err != nil {
 			return rewriter.RewriteFailed, err
 		}
 		if !found {
 			continue
 		}
-		value, ok := new(big.Rat).SetString(text)
-		if !ok || !value.IsInt() || value.Sign() < 0 || value.Num().BitLen() > 32 {
+		if !unsigned {
 			return rewriter.RewriteFailed, ast.ErrASTDomain
 		}
 		replacement := c.plan.entries[index]
@@ -66,7 +64,7 @@ func (c *eq2bvRewriteConfig) ReduceApp(decl ast.ASTHandle, args ast.AppArguments
 		if err != nil {
 			return rewriter.RewriteFailed, err
 		}
-		numeral, err := m.BitVectorNumeralUnsigned(uint32(value.Num().Uint64()), replacement.width)
+		numeral, err := m.BitVectorNumeralUnsigned(value, replacement.width)
 		if err != nil {
 			return rewriter.RewriteFailed, err
 		}

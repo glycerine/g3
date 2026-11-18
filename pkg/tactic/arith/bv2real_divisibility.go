@@ -4,24 +4,10 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
-
-func (c *bv2RealCall) divisible(h ast.ASTHandle, overflow *big.Rat) (ast.ASTHandle, bool) {
-	if c.err != nil {
-		return h, false
-	}
-	count := len(c.numbers)
-	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
-	input := c.rational(overflow)
-	if c.err != nil {
-		return h, false
-	}
-	return c.divisibleOwned(h, input)
-}
 
 // The live cap path passes the actual project overflow owner directly, just
 // as the source const rational& parameter; only the local copy is owned here.
@@ -114,18 +100,18 @@ func (c *bv2RealCall) divisibleOwned(h ast.ASTHandle, overflow *unumeral.OwnedRa
 			return h, false
 		}
 		if width <= power {
-			c.side(c.basic(ast.ASTOpEq, h, c.numeral(big.NewRat(0, 1), width)))
+			c.side(c.basic(ast.ASTOpEq, h, c.numeral(0, width)))
 			if c.err != nil {
 				return h, false
 			}
-			next := c.numeral(big.NewRat(0, 1), 1)
+			next := c.numeral(0, 1)
 			if c.err != nil {
 				return h, false
 			}
 			h = next
 		} else {
 			low := c.extract(power-1, 0, h)
-			c.side(c.basic(ast.ASTOpEq, low, c.numeral(big.NewRat(0, 1), power)))
+			c.side(c.basic(ast.ASTOpEq, low, c.numeral(0, power)))
 			if c.err != nil {
 				return h, false
 			}
@@ -144,28 +130,30 @@ func (c *bv2RealCall) divisibleOwned(h ast.ASTHandle, overflow *unumeral.OwnedRa
 	return h, one && err == nil
 }
 
-func (c *bv2RealCall) alignDivisor(a, b ast.ASTHandle, d *big.Rat) (ast.ASTHandle, ast.ASTHandle, bool) {
+// alignDivisor is align_divisor(s, t, d): d (the caller's rational) is
+// capped to m_max_divisor in place.
+func (c *bv2RealCall) alignDivisor(a, b ast.ASTHandle, d *unumeral.OwnedRational) (ast.ASTHandle, ast.ASTHandle, bool) {
 	if c.err != nil {
 		return a, b, false
 	}
-	maximum := c.rationalValue(&c.u.defaults[2])
-	if c.err != nil {
+	s := c.u.manager.NumeralService()
+	maximum := &c.u.defaults[2]
+	within, err := s.LessEqual(d, maximum)
+	if err != nil {
+		c.err = err
 		return a, b, false
 	}
-	if d.Cmp(maximum) <= 0 {
+	if within {
 		return a, b, true
 	}
-	if maximum.Sign() == 0 {
-		c.err = ast.ErrASTDomain
+	zero, err := s.IsZero(maximum)
+	if err != nil || zero {
+		c.err = errors.Join(err, ast.ErrASTDomain)
 		return a, b, false
 	}
 	count := len(c.numbers)
 	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
-	s := c.u.manager.NumeralService()
-	input := c.rational(d)
-	if c.err != nil {
-		return a, b, false
-	}
+	input := d
 	overflow := c.takeRational(s.Div(input, &c.u.defaults[2]))
 	if c.err != nil {
 		return a, b, false
@@ -187,10 +175,5 @@ func (c *bv2RealCall) alignDivisor(a, b ast.ASTHandle, d *big.Rat) (ast.ASTHandl
 	if c.err = s.Copy(input, &c.u.defaults[2]); c.err != nil {
 		return a, b, false
 	}
-	capped := c.rationalValue(input)
-	if c.err != nil {
-		return a, b, false
-	}
-	d.Set(capped)
 	return a, b, true
 }

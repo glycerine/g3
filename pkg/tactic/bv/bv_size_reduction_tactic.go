@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -16,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/memory"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -89,7 +89,7 @@ func MakeBVSizeReductionTactic(m *ast.ASTManager, c *uparams.ParamsContext, g *u
 	return w, nil
 }
 func (t *BVSizeReductionTactic) build() (r *bvSizeReductionImplementation, err error) {
-	r = &bvSizeReductionImplementation{lower: make(map[ast.ASTHandle]*big.Int), upper: make(map[ast.ASTHandle]*big.Int), lowerOrder: ast.NewObjMap(t.manager), upperOrder: ast.NewObjMap(t.manager), keys: make(map[ast.ASTHandle]bool)}
+	r = &bvSizeReductionImplementation{lower: make(map[ast.ASTHandle]*unumeral.Rational), upper: make(map[ast.ASTHandle]*unumeral.Rational), lowerOrder: ast.NewObjMap(t.manager), upperOrder: ast.NewObjMap(t.manager), keys: make(map[ast.ASTHandle]bool)}
 	r.family, err = t.manager.BitVectorUtilityFamilyID()
 	if err != nil {
 		return r, err
@@ -180,6 +180,9 @@ func (t *BVSizeReductionTactic) closeImplementation(r *bvSizeReductionImplementa
 			return err
 		}
 		r.held = r.held[:i]
+	}
+	if err := r.release(t.manager.NumeralService().Manager); err != nil {
+		return err
 	}
 	r.lower = nil
 	r.upper = nil

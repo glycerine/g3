@@ -23,14 +23,11 @@ func (d *ObjectiveDecomposer) pseudoBooleanSum(root ast.ASTHandle) (result pbSum
 		return result, ok, err
 	}
 	defer func() { err = errors.Join(err, sum.Close()) }()
-	// TODO bigC: arith.ExtractPBSum's coefficients are big.Rat.
 	o := newRatOps(d.manager)
-	result.offset = o.zero()
-	o.fromBig(&result.offset, &sum.Constant)
+	result.offset = o.clone(&sum.Constant)
 	result.weights = make([]numeral.Rational, len(sum.Coefficients))
 	for i := range sum.Coefficients {
-		result.weights[i] = o.zero()
-		o.fromBig(&result.weights[i], &sum.Coefficients[i])
+		result.weights[i] = o.clone(&sum.Coefficients[i])
 	}
 	if !o.ok() {
 		return pbSum{}, false, errors.Join(o.err, result.release(o.q))

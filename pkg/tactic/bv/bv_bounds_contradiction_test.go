@@ -24,7 +24,7 @@ func TestBVBoundsSourceContradictionAndNegatedBound(t *testing.T) {
 		t.Fatal(f.simp.bounds)
 	}
 	for _, b := range f.simp.bounds {
-		if len(b.ranges) != 1 || b.ranges[0].lo.Int64() != 11 {
+		if len(b.ranges) != 1 || int64(b.ranges[0].lo) != 11 {
 			t.Fatal(b)
 		}
 	}

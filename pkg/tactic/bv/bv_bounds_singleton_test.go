@@ -26,7 +26,7 @@ func TestBVBoundsSourceSingletonReplacesVariable(t *testing.T) {
 	sharingMust(t, e)
 	n, _, yes, e := bvBoundsNumeral(f.m, got)
 	sharingMust(t, e)
-	if !yes || n.Int64() != 7 {
+	if !yes || int64(n) != 7 {
 		t.Fatal(n, yes)
 	}
 }

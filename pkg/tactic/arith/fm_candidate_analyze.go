@@ -9,7 +9,7 @@ func (t *FMVariableTable) analyze(c *FMConstraint, x uint32) (allInteger, unitCo
 		}
 		if v == x {
 			a := &c.Coefficients[i]
-			unitCoefficient = a.IsInt() && a.Num().IsInt64() && (a.Num().Int64() == 1 || a.Num().Int64() == -1)
+			unitCoefficient = a.IsOne() || a.IsMinusOne()
 		}
 	}
 	return allInteger, unitCoefficient

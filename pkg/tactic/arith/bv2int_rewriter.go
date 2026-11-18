@@ -5,7 +5,6 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -248,11 +247,15 @@ func (c *bv2IntCall) numeral() *unumeral.OwnedRational {
 	c.numerals = append(c.numerals, &q)
 	return &q
 }
-func (c *bv2IntCall) number(h ast.ASTHandle) (*big.Rat, bool) {
-	if c.err != nil {
+
+// number is m_arith.is_numeral(h, k, is_int) && is_int: k is a rational of
+// this call.
+func (c *bv2IntCall) number(h ast.ASTHandle) (*unumeral.Rational, bool) {
+	q := c.numeral()
+	if q == nil {
 		return nil, false
 	}
-	text, integer, ok, err := c.r.manager.ArithmeticNumeralText(h)
+	integer, ok, err := c.r.manager.ArithmeticNumeralRational(h, &q.Raw)
 	if err != nil {
 		c.err = err
 		return nil, false
@@ -260,13 +263,11 @@ func (c *bv2IntCall) number(h ast.ASTHandle) (*big.Rat, bool) {
 	if !ok || !integer {
 		return nil, false
 	}
-	q, ok := new(big.Rat).SetString(text)
-	if !ok {
-		c.err = ast.ErrASTDomain
-	}
-	return q, ok
+	return &q.Raw, true
 }
-func (c *bv2IntCall) bvNumber(h ast.ASTHandle) (*big.Rat, bool) {
+
+// bvNumber is m_bv.is_numeral(h, r, sz): r is a rational of this call.
+func (c *bv2IntCall) bvNumber(h ast.ASTHandle) (*unumeral.Rational, bool) {
 	q := c.numeral()
 	if q == nil {
 		return nil, false
@@ -280,34 +281,60 @@ func (c *bv2IntCall) bvNumber(h ast.ASTHandle) (*big.Rat, bool) {
 	if !ok {
 		return nil, false
 	}
-	text, err := c.r.manager.NumeralService().String(q)
-	if err != nil {
-		c.err = err
-		return nil, false
-	}
-	v, ok := new(big.Rat).SetString(text)
-	if !ok {
-		c.err = ast.ErrASTDomain
-	}
-	return v, ok
+	return &q.Raw, true
 }
-func (c *bv2IntCall) bn(q *big.Rat, n uint32) ast.ASTHandle {
-	v := c.numeral()
-	if v == nil {
-		return ast.ASTHandle{}
-	}
-	if err := c.r.manager.NumeralService().SetString(v, q.RatString()); err != nil {
-		c.err = err
-		return ast.ASTHandle{}
-	}
-	return c.hold(c.r.manager.BitVectorNumeral(v, n))
-}
-func (c *bv2IntCall) small(v int64, n uint32) ast.ASTHandle { return c.bn(big.NewRat(v, 1), n) }
-func (c *bv2IntCall) integer(q *big.Rat) ast.ASTHandle {
+
+// bn is m_bv.mk_numeral(q, n).
+func (c *bv2IntCall) bn(q *unumeral.Rational, n uint32) ast.ASTHandle {
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	return c.hold(c.r.manager.ArithmeticNumeralRat(q, true))
+	return c.hold(c.r.manager.BitVectorNumeralFromRational(q, n))
+}
+func (c *bv2IntCall) small(v int64, n uint32) ast.ASTHandle {
+	q := c.numeral()
+	if q == nil {
+		return ast.ASTHandle{}
+	}
+	if c.err = c.r.manager.NumeralService().Manager.SetInt64(&q.Raw, v); c.err != nil {
+		return ast.ASTHandle{}
+	}
+	return c.bn(&q.Raw, n)
+}
+
+// numBits is k.get_num_bits() of a nonnegative integer.
+func (c *bv2IntCall) numBits(q *unumeral.Rational) uint32 {
+	if c.err != nil {
+		return 0
+	}
+	if q.IsZero() {
+		return 1
+	}
+	n, err := c.r.manager.NumeralService().Manager.Bitsize(q)
+	c.err = err
+	return n
+}
+
+// powerOfTwo is rational::power_of_two(k), a rational of this call.
+func (c *bv2IntCall) powerOfTwo(k uint32) *unumeral.Rational {
+	q := c.numeral()
+	if q == nil {
+		return nil
+	}
+	m := c.r.manager.NumeralService().Manager
+	if c.err = m.SetInt32(&q.Raw, 2); c.err == nil {
+		c.err = m.Power(&q.Raw, k, &q.Raw)
+	}
+	if c.err != nil {
+		return nil
+	}
+	return &q.Raw
+}
+func (c *bv2IntCall) integer(q *unumeral.Rational) ast.ASTHandle {
+	if c.err != nil {
+		return ast.ASTHandle{}
+	}
+	return c.hold(c.r.manager.ArithmeticNumeralFromRational(q, true))
 }
 func (c *bv2IntCall) toInt(h ast.ASTHandle) ast.ASTHandle {
 	if c.err != nil {
@@ -376,12 +403,8 @@ func (c *bv2IntCall) unsigned(h ast.ASTHandle) (ast.ASTHandle, bool) {
 	if c.is(h, c.r.bv, 58, 1) {
 		return c.arg(h, 0), true
 	}
-	if q, ok := c.number(h); ok && q.Sign() >= 0 {
-		n := uint32(q.Num().BitLen())
-		if n == 0 {
-			n = 1
-		}
-		return c.bn(q, n), true
+	if q, ok := c.number(h); ok && !q.IsNeg() {
+		return c.bn(q, c.numBits(q)), true
 	}
 	return ast.ASTHandle{}, false
 }
@@ -390,13 +413,15 @@ func (c *bv2IntCall) difference(h ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, 
 		return s, c.small(0, 1), true
 	}
 	if q, ok := c.number(h); ok {
-		c.err = bv2IntSourceAssert(515, "k.is_neg()", q.Sign() < 0)
+		c.err = bv2IntSourceAssert(515, "k.is_neg()", q.IsNeg())
 		if c.err != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false
 		}
-		q.Neg(q)
+		if c.err = c.r.manager.NumeralService().Manager.Neg(q); c.err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, false
+		}
 		// is_bv2int_diff assigns t = mk_numeral(k, ...) before s = #b0.
-		t := c.bn(q, uint32(q.Num().BitLen()))
+		t := c.bn(q, c.numBits(q))
 		s := c.small(0, 1)
 		return s, t, true
 	}
@@ -411,16 +436,20 @@ func (c *bv2IntCall) difference(h ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, 
 	}
 	if c.is(h, c.r.arith, 6, 2) {
 		a, b := c.arg(h, 0), c.arg(h, 1)
-		if q, ok := c.number(a); ok && q.Sign() < 0 {
+		if q, ok := c.number(a); ok && q.IsNeg() {
 			if s, ok := c.unsigned(b); ok {
-				q.Neg(q)
-				return s, c.bn(q, uint32(q.Num().BitLen())), true
+				if c.err = c.r.manager.NumeralService().Manager.Neg(q); c.err != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, false
+				}
+				return s, c.bn(q, c.numBits(q)), true
 			}
 		}
-		if q, ok := c.number(b); ok && q.Sign() < 0 {
+		if q, ok := c.number(b); ok && q.IsNeg() {
 			if s, ok := c.unsigned(a); ok {
-				q.Neg(q)
-				return s, c.bn(q, uint32(q.Num().BitLen())), true
+				if c.err = c.r.manager.NumeralService().Manager.Neg(q); c.err != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, false
+				}
+				return s, c.bn(q, c.numBits(q)), true
 			}
 		}
 	}
@@ -434,7 +463,7 @@ func (c *bv2IntCall) shl1(h ast.ASTHandle) (ast.ASTHandle, bool) {
 	if !c.is(b, c.r.bv, 45, 2) {
 		return ast.ASTHandle{}, false
 	}
-	if q, ok := c.bvNumber(c.arg(b, 0)); ok && q.Cmp(big.NewRat(1, 1)) == 0 {
+	if q, ok := c.bvNumber(c.arg(b, 0)); ok && q.IsOne() {
 		return c.arg(b, 1), true
 	}
 	return ast.ASTHandle{}, false
@@ -474,7 +503,7 @@ func (c *bv2IntCall) signed(h ast.ASTHandle) (ast.ASTHandle, bool) {
 		return ast.ASTHandle{}, false
 	}
 	one, sign := c.arg(cond, 0), c.arg(cond, 1)
-	if q, ok := c.bvNumber(one); !ok || q.Cmp(big.NewRat(1, 1)) != 0 || c.width(one) != 1 {
+	if q, ok := c.bvNumber(one); !ok || !q.IsOne() || c.width(one) != 1 {
 		return ast.ASTHandle{}, false
 	}
 	lo, hi, base, ok := c.extract(sign)
@@ -486,8 +515,16 @@ func (c *bv2IntCall) signed(h ast.ASTHandle) (ast.ASTHandle, bool) {
 		return ast.ASTHandle{}, false
 	}
 	q, ok := c.number(c.arg(then, 1))
-	power := new(big.Int).Lsh(big.NewInt(1), uint(hi))
-	if !ok || q.Cmp(new(big.Rat).SetInt(power)) != 0 {
+	if !ok {
+		return ast.ASTHandle{}, false
+	}
+	power := c.powerOfTwo(hi)
+	if power == nil {
+		return ast.ASTHandle{}, false
+	}
+	equal, err := c.r.manager.NumeralService().Manager.Equal(q, power)
+	if err != nil || !equal {
+		c.err = err
 		return ast.ASTHandle{}, false
 	}
 	return original, true
@@ -509,17 +546,20 @@ func (c *bv2IntCall) signedInt(h ast.ASTHandle) ast.ASTHandle {
 	}
 	cond := c.basic(ast.ASTOpEq, c.small(1, 1), c.extractApp(n-1, n-1, h))
 	e := c.toInt(c.extractApp(n-2, 0, h))
-	power := new(big.Int).Lsh(big.NewInt(1), uint(n-1))
-	t := c.ai(7, e, c.integer(new(big.Rat).SetInt(power)))
+	power := c.powerOfTwo(n - 1)
+	if power == nil {
+		return ast.ASTHandle{}
+	}
+	t := c.ai(7, e, c.integer(power))
 	return c.basic(ast.ASTOpIte, cond, t, e)
 }
 func (c *bv2IntCall) addBV(s, t ast.ASTHandle, signed bool) ast.ASTHandle {
 	c.assertBV(s, 321, "m_bv.is_bv(s)")
 	c.assertBV(t, 322, "m_bv.is_bv(t)")
-	if q, ok := c.bvNumber(s); ok && q.Sign() == 0 {
+	if q, ok := c.bvNumber(s); ok && q.IsZero() {
 		return t
 	}
-	if q, ok := c.bvNumber(t); ok && q.Sign() == 0 {
+	if q, ok := c.bvNumber(t); ok && q.IsZero() {
 		return s
 	}
 	// expr_ref s1(s), t1(t): t1 dies first.
@@ -533,16 +573,16 @@ func (c *bv2IntCall) addBV(s, t ast.ASTHandle, signed bool) ast.ASTHandle {
 func (c *bv2IntCall) mulBV(s, t ast.ASTHandle, signed bool) ast.ASTHandle {
 	c.assertBV(s, 372, "m_bv.is_bv(s)")
 	c.assertBV(t, 373, "m_bv.is_bv(t)")
-	if q, ok := c.bvNumber(s); ok && q.Sign() == 0 {
+	if q, ok := c.bvNumber(s); ok && q.IsZero() {
 		return s
 	}
-	if q, ok := c.bvNumber(t); ok && q.Sign() == 0 {
+	if q, ok := c.bvNumber(t); ok && q.IsZero() {
 		return t
 	}
-	if q, ok := c.bvNumber(s); ok && q.Cmp(big.NewRat(1, 1)) == 0 {
+	if q, ok := c.bvNumber(s); ok && q.IsOne() {
 		return t
 	}
-	if q, ok := c.bvNumber(t); ok && q.Cmp(big.NewRat(1, 1)) == 0 {
+	if q, ok := c.bvNumber(t); ok && q.IsOne() {
 		return s
 	}
 	// expr_ref s1(s), t1(t): each assignment releases the replaced value and

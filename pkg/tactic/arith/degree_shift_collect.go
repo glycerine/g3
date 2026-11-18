@@ -3,19 +3,20 @@ package arith
 // Source: src/tactic/arith/degree_shift_tactic.cpp, candidate collection.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // degreeShiftCandidates borrows roots and returns the common positive exponent
 // of each eligible real constant. Rewriting and model reconstruction are separate
 // phases; this collector does not modify or own any expressions.
-func degreeShiftCandidates(m *ast.ASTManager, roots []ast.ASTHandle) (map[ast.ASTHandle]*big.Int, error) {
+func degreeShiftCandidates(m *ast.ASTManager, roots []ast.ASTHandle) (map[ast.ASTHandle]*unumeral.Rational, error) {
 	return degreeShiftCandidatesWithCheckpoint(m, roots, nil)
 }
 
-func degreeShiftCandidatesWithCheckpoint(m *ast.ASTManager, roots []ast.ASTHandle, checkpoint func() error) (map[ast.ASTHandle]*big.Int, error) {
+func degreeShiftCandidatesWithCheckpoint(m *ast.ASTManager, roots []ast.ASTHandle, checkpoint func() error) (map[ast.ASTHandle]*unumeral.Rational, error) {
 	degrees, _, err := degreeShiftCandidatesOrdered(m, roots, checkpoint)
 	return degrees, err
 }
@@ -23,12 +24,26 @@ func degreeShiftCandidatesWithCheckpoint(m *ast.ASTManager, roots []ast.ASTHandl
 // degreeShiftCandidatesOrdered also returns the candidates in m_var2degree
 // (obj_map<app, rational>) table order: keys enter at their first
 // save_degree, and discard_non_candidates erases the degree-one ones.
-func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, checkpoint func() error) (map[ast.ASTHandle]*big.Int, []ast.ASTHandle, error) {
+// The degrees are rationals of the manager's NumeralService().Manager owned
+// by the caller (degreeShiftReleaseDegrees).
+func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, checkpoint func() error) (_ map[ast.ASTHandle]*unumeral.Rational, _ []ast.ASTHandle, resultErr error) {
 	family, err := m.RegisterArithmeticPlugin()
 	if err != nil {
 		return nil, nil, err
 	}
-	degrees := make(map[ast.ASTHandle]*big.Int)
+	q := m.NumeralService().Manager
+	degrees := make(map[ast.ASTHandle]*unumeral.Rational)
+	// rational k; and m_one.
+	k, one := unumeral.NewRational(), unumeral.NewRational()
+	defer func() {
+		resultErr = errors.Join(resultErr, q.Del(&k), q.Del(&one))
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, degreeShiftReleaseDegrees(m, degrees))
+		}
+	}()
+	if err = q.SetInt32(&one, 1); err != nil {
+		return nil, nil, err
+	}
 	table := ast.NewObjMap(m)
 	visited := make(map[ast.ASTHandle]bool)
 	var todo []ast.ASTHandle
@@ -38,7 +53,7 @@ func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, chec
 			todo = append(todo, h)
 		}
 	}
-	save := func(h ast.ASTHandle, degree *big.Int) error {
+	save := func(h ast.ASTHandle, degree *unumeral.Rational) error {
 		kind, e := m.GetKind(h)
 		if e != nil || kind != ast.ASTApp {
 			return e
@@ -48,7 +63,9 @@ func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, chec
 			return e
 		}
 		if old := degrees[h]; old != nil {
-			old.GCD(nil, nil, old, degree)
+			if e = q.GCD(degree, old, old); e != nil {
+				return e
+			}
 			// m_var2degree.insert(to_app(t), old_k) re-inserts the key;
 			// core_hashtable::insert may expand the table first.
 			if e = table.Insert(h, [2]ast.ASTHandle{}); e != nil {
@@ -58,11 +75,15 @@ func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, chec
 			if e = table.Insert(h, [2]ast.ASTHandle{}); e != nil {
 				return e
 			}
-			degrees[h] = new(big.Int).Set(degree)
+			stored := new(unumeral.Rational)
+			*stored = unumeral.NewRational()
+			degrees[h] = stored
+			if e = q.Copy(stored, degree); e != nil {
+				return e
+			}
 		}
 		return nil
 	}
-	one := big.NewInt(1)
 	args := func(h ast.ASTHandle) error {
 		kind, e := m.GetKind(h)
 		if e != nil || kind != ast.ASTApp {
@@ -77,7 +98,7 @@ func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, chec
 			if e != nil {
 				return e
 			}
-			if e = save(child, one); e != nil {
+			if e = save(child, &one); e != nil {
 				return e
 			}
 			visit(child)
@@ -143,17 +164,16 @@ func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, chec
 					if e != nil {
 						return nil, nil, e
 					}
-					text, _, found, e := m.ArithmeticNumeralText(exponent)
+					_, found, e := m.ArithmeticNumeralRational(exponent, &k)
 					if e != nil {
 						return nil, nil, e
 					}
-					k, ok := new(big.Rat).SetString(text)
-					if found && ok && k.IsInt() && k.Sign() > 0 {
+					if found && k.IsInt() && k.IsPos() {
 						base, e := m.GetArg(h, 0)
 						if e != nil {
 							return nil, nil, e
 						}
-						if e = save(base, k.Num()); e != nil {
+						if e = save(base, &k); e != nil {
 							return nil, nil, e
 						}
 						if e = args(base); e != nil {
@@ -172,12 +192,15 @@ func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, chec
 	}
 	var toDelete []ast.ASTHandle
 	for _, slot := range table.Entries() {
-		if degrees[slot.Key].Cmp(one) == 0 {
+		if degrees[slot.Key].IsOne() {
 			toDelete = append(toDelete, slot.Key)
 		}
 	}
 	for _, h := range toDelete {
 		if err = table.Erase(h); err != nil {
+			return nil, nil, err
+		}
+		if err = q.Del(degrees[h]); err != nil {
 			return nil, nil, err
 		}
 		delete(degrees, h)
@@ -188,4 +211,14 @@ func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, chec
 		order[i] = entries[i].Key
 	}
 	return degrees, order, nil
+}
+
+// degreeShiftReleaseDegrees destroys a candidate map's rationals.
+func degreeShiftReleaseDegrees(m *ast.ASTManager, degrees map[ast.ASTHandle]*unumeral.Rational) (err error) {
+	q := m.NumeralService().Manager
+	for h, d := range degrees {
+		err = errors.Join(err, q.Del(d))
+		delete(degrees, h)
+	}
+	return err
 }

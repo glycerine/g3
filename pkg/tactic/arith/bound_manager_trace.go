@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
@@ -76,9 +76,17 @@ func (b *BoundManager) traceFound(term ast.ASTHandle) error {
 		return err
 	})
 }
-func (b *BoundManager) traceBounds(low, high *big.Rat) error {
+func (b *BoundManager) traceBounds(low, high *unumeral.Rational) error {
 	return b.emit("is_disjunctive_bound", 227, func(out io.Writer) error {
-		_, err := fmt.Fprintf(out, "bounds: %s %s\n", low.RatString(), high.RatString())
+		l, err := b.q().String(low)
+		if err != nil {
+			return err
+		}
+		h, err := b.q().String(high)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(out, "bounds: %s %s\n", l, h)
 		return err
 	})
 }
@@ -95,7 +103,11 @@ func (b *BoundManager) Display(out io.Writer) error {
 			if bound.strict {
 				op = "<"
 			}
-			if _, err := fmt.Fprintf(out, "%s %s", bound.value.RatString(), op); err != nil {
+			text, err := b.q().String(bound.value)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "%s %s", text, op); err != nil {
 				return err
 			}
 		} else {
@@ -117,7 +129,11 @@ func (b *BoundManager) Display(out io.Writer) error {
 			if bound.strict {
 				op = "<"
 			}
-			if _, err := fmt.Fprintf(out, "%s %s", op, bound.value.RatString()); err != nil {
+			text, err := b.q().String(bound.value)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "%s %s", op, text); err != nil {
 				return err
 			}
 		} else {

@@ -28,7 +28,11 @@ func degreeShiftAssertBounds(plan *degreeShiftPlan, goal *tactic.Goal, proofs bo
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&zeroRef)) }()
 	for _, entry := range plan.entries {
-		if entry.degree.Bit(0) != 0 {
+		even, e := m.NumeralService().Manager.IsEven(&entry.degree)
+		if e != nil {
+			return e
+		}
+		if !even {
 			continue
 		}
 		fresh, e := m.RefGet(entry.fresh)

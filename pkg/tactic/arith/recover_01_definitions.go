@@ -4,10 +4,10 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type recover01Boolean struct {
@@ -102,7 +102,7 @@ func (d *recover01Definitions) booleanVariable(atom ast.ASTHandle) (ast.ASTHandl
 	return fresh, nil
 }
 
-func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTHandle, coefficients []big.Rat, trace ...func(ast.ASTHandle, ast.ASTHandle) error) (err error) {
+func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTHandle, coefficients []unumeral.Rational, trace ...func(ast.ASTHandle, ast.ASTHandle) error) (err error) {
 	if d == nil || d.manager == nil || d.goal == nil || len(literals) == 0 || len(literals) != len(coefficients) {
 		return ast.ErrASTDomain
 	}
@@ -155,7 +155,13 @@ func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTH
 			}
 		}
 		if negative {
-			one, x := m.ArithmeticNumeralRat(big.NewRat(1, 1), integer)
+			var one ast.ASTHandle
+			var x error
+			if integer {
+				one, x = m.ArithmeticIntegerNumeralText("1")
+			} else {
+				one, x = m.ArithmeticRealNumeralText("1")
+			}
 			if x != nil {
 				return x
 			}
@@ -167,7 +173,7 @@ func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTH
 				return e
 			}
 		}
-		coefficient, e := m.ArithmeticNumeralRat(&coefficients[i], integer)
+		coefficient, e := m.ArithmeticNumeralFromRational(&coefficients[i], integer)
 		if e != nil {
 			return e
 		}

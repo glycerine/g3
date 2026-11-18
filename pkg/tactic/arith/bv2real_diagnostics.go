@@ -5,7 +5,6 @@ package arith
 import (
 	"errors"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -48,11 +47,26 @@ func (c *bv2RealCall) assertBV(h ast.ASTHandle, line int32, condition string) {
 	}
 }
 
-func (c *bv2RealCall) checkSignature(a, b ast.ASTHandle, sig *bv2RealSignature, d, r *big.Rat) error {
-	if err := bv2RealSourceAssert(60, "sig.m_d.is_int() && sig.m_d.is_pos()", d.IsInt() && d.Sign() > 0); err != nil {
+func (c *bv2RealCall) checkSignature(a, b ast.ASTHandle, sig *bv2RealSignature, d, r *unumeral.OwnedRational) error {
+	s := c.u.manager.NumeralService()
+	intPos := func(v *unumeral.OwnedRational) (bool, error) {
+		integer, err := s.IsInt(v)
+		if err != nil || !integer {
+			return false, err
+		}
+		return s.IsPos(v)
+	}
+	ok, err := intPos(d)
+	if err != nil {
 		return err
 	}
-	if err := bv2RealSourceAssert(61, "sig.m_r.is_int() && sig.m_r.is_pos()", r.IsInt() && r.Sign() > 0); err != nil {
+	if err := bv2RealSourceAssert(60, "sig.m_d.is_int() && sig.m_d.is_pos()", ok); err != nil {
+		return err
+	}
+	if ok, err = intPos(r); err != nil {
+		return err
+	}
+	if err := bv2RealSourceAssert(61, "sig.m_r.is_int() && sig.m_r.is_pos()", ok); err != nil {
 		return err
 	}
 	return c.checkSignatureWidths(a, b, sig)

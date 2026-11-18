@@ -4,7 +4,6 @@ package portfolio
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -133,11 +132,27 @@ func (s *BoundedInt2BVSolver) clearConsequences() error {
 
 // The source starts at one bit and then doubles bound while bound<=k.
 // This intentionally uses one more bit than the minimum positive width.
-func boundedInt2BVNumBits(k *big.Rat) (uint32, error) {
-	if k == nil || k.Sign() < 0 || !k.IsInt() {
+func boundedInt2BVNumBits(q *unumeral.RationalManager, k *unumeral.Rational) (uint32, error) {
+	if k == nil {
 		return 0, ast.ErrASTDomain
 	}
-	return uint32(k.Num().BitLen()) + 1, nil
+	negative, err := q.IsNeg(k)
+	if err != nil {
+		return 0, err
+	}
+	integer, err := q.IsInt(k)
+	if err != nil {
+		return 0, err
+	}
+	if negative || !integer {
+		return 0, ast.ErrASTDomain
+	}
+	zero, err := q.IsZero(k)
+	if err != nil || zero {
+		return 1, err
+	}
+	bits, err := q.Bitsize(k)
+	return bits + 1, err
 }
 func (c *boundedInt2BVCall) definition(decl ast.ASTHandle) (ast.ASTHandle, error) {
 	s := c.owner
@@ -151,8 +166,16 @@ func (c *boundedInt2BVCall) definition(decl ast.ASTHandle) (ast.ASTHandle, error
 		return ast.ASTHandle{}, err
 	}
 	offset := s.offsets[decl]
-	if offset.Sign() != 0 {
-		n, err := c.hold(m.ArithmeticNumeralRat(&offset, true))
+	nonzero := false
+	if offset != nil {
+		zero, err := m.NumeralService().Manager.IsZero(offset)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		nonzero = !zero
+	}
+	if nonzero {
+		n, err := c.hold(m.ArithmeticNumeralFromRational(offset, true))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -163,23 +186,32 @@ func (c *boundedInt2BVCall) definition(decl ast.ASTHandle) (ast.ASTHandle, error
 	}
 	return h, nil
 }
-func (s *BoundedInt2BVSolver) accumulateSub(c *boundedInt2BVCall) error {
+func (s *BoundedInt2BVSolver) accumulateSub(c *boundedInt2BVCall) (resultErr error) {
 	m := s.manager
+	// rational lo, hi;
+	q := m.NumeralService().Manager
+	lo, hi := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&lo), q.Del(&hi)) }()
 	for _, bm := range s.bounds {
 		vars, err := bm.Variables()
 		if err != nil {
 			return err
 		}
 		for _, e := range vars {
-			lo, strictLo, hasLo, err := bm.Lower(e)
+			strictLo, hasLo, err := bm.Lower(e, &lo)
 			if err != nil {
 				return err
 			}
-			hi, strictHi, hasHi, err := bm.Upper(e)
+			strictHi, hasHi, err := bm.Upper(e, &hi)
 			if err != nil {
 				return err
 			}
-			if !hasLo || !hasHi || strictLo || strictHi || lo.Cmp(&hi) > 0 {
+			if !hasLo || !hasHi || strictLo || strictHi {
+				continue
+			}
+			if cmp, err := q.Compare(&lo, &hi); err != nil {
+				return err
+			} else if cmp > 0 {
 				continue
 			}
 			f, yes, err := enum2BVConstant(m, e)
@@ -443,26 +475,21 @@ func (s *BoundedInt2BVSolver) projectConsequence(c *boundedInt2BVCall, h ast.AST
 	}
 	var width uint32
 	yes, err = m.BitVectorNumeralValue(v, q, &width)
-	var text string
+	// num += offset
 	if err == nil && yes {
-		text, err = m.NumeralService().String(q)
+		if offset := s.offsets[bv]; offset != nil {
+			err = m.NumeralService().Manager.Add(&q.Raw, offset, &q.Raw)
+		}
+	}
+	var original, value ast.ASTHandle
+	if err == nil && yes {
+		original, err = c.hold(m.MkApp(f, nil))
+	}
+	if err == nil && yes {
+		value, err = c.hold(m.ArithmeticNumeralFromRational(&q.Raw, true))
 	}
 	err = errors.Join(err, c.retireNumber(q))
 	if err != nil || !yes {
-		return h, err
-	}
-	n, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return h, ast.ErrASTDomain
-	}
-	offset := s.offsets[bv]
-	n.Add(n, &offset)
-	original, err := c.hold(m.MkApp(f, nil))
-	if err != nil {
-		return h, err
-	}
-	value, err := c.hold(m.ArithmeticNumeralRat(n, true))
-	if err != nil {
 		return h, err
 	}
 	eq, err := c.hold(m.MkEq(original, value))
@@ -496,12 +523,16 @@ func (c *boundedInt2BVCall) retireNumber(q *unumeral.OwnedRational) error {
 // introduceBVConstant is accumulate_sub's !m_int2bv.find(f, fbv) block. Its
 // expr_ref b dies at the block end; the declaration stays owned by m_bv_fns
 // and the range cap by m_assertions.
-func (s *BoundedInt2BVSolver) introduceBVConstant(c *boundedInt2BVCall, f ast.ASTHandle, lo, hi *big.Rat) (bv ast.ASTHandle, result error) {
+func (s *BoundedInt2BVSolver) introduceBVConstant(c *boundedInt2BVCall, f ast.ASTHandle, lo, hi *unumeral.Rational) (bv ast.ASTHandle, result error) {
 	m := s.manager
-	var n big.Rat
-	n.Sub(hi, lo)
-	n.Add(&n, big.NewRat(1, 1))
-	bits, err := boundedInt2BVNumBits(&n)
+	q := m.NumeralService().Manager
+	// rational n = hi - lo + rational::one();
+	n := unumeral.NewRational()
+	defer func() { result = errors.Join(result, q.Del(&n)) }()
+	if err := errors.Join(q.Sub(hi, lo, &n), q.Inc(&n)); err != nil {
+		return bv, err
+	}
+	bits, err := boundedInt2BVNumBits(q, &n)
 	if err != nil {
 		return bv, err
 	}
@@ -527,9 +558,12 @@ func (s *BoundedInt2BVSolver) introduceBVConstant(c *boundedInt2BVCall, f ast.AS
 	}
 	s.int2bv[f] = bv
 	s.bv2int[bv] = f
-	var copy big.Rat
-	copy.Set(lo)
-	s.offsets[bv] = copy
+	offset := new(unumeral.Rational)
+	*offset = unumeral.NewRational()
+	if err = q.Copy(offset, lo); err != nil {
+		return bv, errors.Join(err, q.Del(offset))
+	}
+	s.offsets[bv] = offset
 	if err = m.IncRef(bv); err != nil {
 		return bv, err
 	}
@@ -539,16 +573,25 @@ func (s *BoundedInt2BVSolver) introduceBVConstant(c *boundedInt2BVCall, f ast.AS
 	}
 	s.intDecls = append(s.intDecls, f)
 	// Source only adds the range cap when the offset is nonzero.
-	power := new(big.Int).Sub(n.Num(), big.NewInt(1))
-	power.And(power, n.Num())
-	if lo.Sign() != 0 && power.Sign() != 0 {
-		var max big.Rat
-		max.Sub(&n, big.NewRat(1, 1))
-		q, err := c.numeral()
+	powerOfTwo, _, err := q.IsPowerOfTwo(&n)
+	if err != nil {
+		return bv, err
+	}
+	loZero, err := q.IsZero(lo)
+	if err != nil {
+		return bv, err
+	}
+	if !loZero && !powerOfTwo {
+		number, err := c.numeral()
 		if err != nil {
 			return bv, err
 		}
-		err = m.NumeralService().SetString(q, max.RatString())
+		// n - rational::one()
+		err = q.Copy(&number.Raw, &n)
+		if err == nil {
+			err = q.Dec(&number.Raw)
+		}
+		q := number
 		var cap ast.ASTHandle
 		if err == nil {
 			cap, err = m.BitVectorNumeral(q, bits)

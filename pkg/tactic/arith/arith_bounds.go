@@ -4,15 +4,16 @@ package arith
 // src/tactic/arith/arith_bounds_tactic.cpp.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/messages"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 type arithmeticBoundInfo struct {
-	value  big.Rat
+	value  *unumeral.Rational // a rational of the manager's NumeralService().Manager
 	index  int
 	strict bool
 }
@@ -74,24 +75,50 @@ func arithmeticBoundsRelation(manager *ast.ASTManager, expression ast.ASTHandle)
 	return left, right, strict, true, nil
 }
 
-func arithmeticBoundsNumeral(manager *ast.ASTManager, expression ast.ASTHandle) (value big.Rat, matched bool, err error) {
-	text, _, matched, err := manager.ArithmeticNumeralText(expression)
-	if err != nil || !matched {
-		return value, matched, err
+// arithmeticBoundsNumeral is a.is_numeral(e, r) into value.
+func arithmeticBoundsNumeral(manager *ast.ASTManager, expression ast.ASTHandle, value *unumeral.Rational) (matched bool, err error) {
+	_, matched, err = manager.ArithmeticNumeralRational(expression, value)
+	return matched && err == nil, err
+}
+
+// arithmeticBoundsImproves is the subsumption test against the previous
+// bound: a strictly better value, or an equal one that becomes strict.
+func arithmeticBoundsImproves(q *unumeral.RationalManager, previous arithmeticBoundInfo, found bool, value *unumeral.Rational, strict, upper bool) (bool, error) {
+	if !found {
+		return true, nil
 	}
-	if _, ok := value.SetString(text); !ok {
-		return value, false, ast.ErrASTDomain
+	cmp, err := q.Compare(previous.value, value)
+	if err != nil {
+		return false, err
 	}
-	return value, true, nil
+	if upper && cmp > 0 || !upper && cmp < 0 {
+		return true, nil
+	}
+	return cmp == 0 && strict && !previous.strict, nil
 }
 
 // ArithmeticBoundsKeep returns the source arithmetic-bound subsumption mask.
 // It is the concrete, proof-disabled instantiation used to simplify Farkas
 // lemmas: for each term it retains only the strongest lower and upper bound.
-func ArithmeticBoundsKeep(manager *ast.ASTManager, formulas []ast.ASTHandle) ([]bool, error) {
+func ArithmeticBoundsKeep(manager *ast.ASTManager, formulas []ast.ASTHandle) (_ []bool, resultErr error) {
 	if manager == nil {
 		return nil, ast.ErrASTHandle
 	}
+	q := manager.NumeralService().Manager
+	// The bound maps' rationals and the scratch value.
+	var owned []*unumeral.Rational
+	defer func() {
+		for _, v := range owned {
+			resultErr = errors.Join(resultErr, q.Del(v))
+		}
+	}()
+	newValue := func() *unumeral.Rational {
+		v := new(unumeral.Rational)
+		*v = unumeral.NewRational()
+		owned = append(owned, v)
+		return v
+	}
+	value := newValue()
 	keep := make([]bool, len(formulas))
 	for i := range keep {
 		keep[i] = true
@@ -113,21 +140,26 @@ func ArithmeticBoundsKeep(manager *ast.ASTManager, formulas []ast.ASTHandle) ([]
 			}
 			continue
 		}
-		if value, numeral, err := arithmeticBoundsNumeral(manager, right); err != nil {
+		if numeral, err := arithmeticBoundsNumeral(manager, right, value); err != nil {
 			return nil, err
 		} else if numeral {
 			previous, found := upper[left]
-			if !found || previous.value.Cmp(&value) > 0 || previous.value.Cmp(&value) == 0 && strict && !previous.strict {
+			better, err := arithmeticBoundsImproves(q, previous, found, value, strict, true)
+			if err != nil {
+				return nil, err
+			}
+			if better {
 				if found {
 					keep[previous.index] = false
 				}
 				upper[left] = arithmeticBoundInfo{value: value, index: index, strict: strict}
+				value = newValue()
 			} else {
 				keep[index] = false
 			}
 			continue
 		}
-		value, numeral, err := arithmeticBoundsNumeral(manager, left)
+		numeral, err := arithmeticBoundsNumeral(manager, left, value)
 		if err != nil {
 			return nil, err
 		}
@@ -135,11 +167,16 @@ func ArithmeticBoundsKeep(manager *ast.ASTManager, formulas []ast.ASTHandle) ([]
 			continue
 		}
 		previous, found := lower[right]
-		if !found || previous.value.Cmp(&value) < 0 || previous.value.Cmp(&value) == 0 && strict && !previous.strict {
+		better, err := arithmeticBoundsImproves(q, previous, found, value, strict, false)
+		if err != nil {
+			return nil, err
+		}
+		if better {
 			if found {
 				keep[previous.index] = false
 			}
 			lower[right] = arithmeticBoundInfo{value: value, index: index, strict: strict}
+			value = newValue()
 		} else {
 			keep[index] = false
 		}

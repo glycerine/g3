@@ -109,7 +109,7 @@ func TestBV2RealQuantifiedBodyReducesBoundCoefficients(t *testing.T) {
 	equationMust(t, err)
 	fixDLPin(t, m, v)
 	s := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle {
-		return c.encoding(v, c.numeral(big.NewRat(0, 1), 4), big.NewRat(2, 1), big.NewRat(3, 1))
+		return c.encoding(v, c.numeralRat(big.NewRat(0, 1), 4), big.NewRat(2, 1), big.NewRat(3, 1))
 	})
 	sum := fixDLApp(t, m, 6, s, s)
 	body := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle {

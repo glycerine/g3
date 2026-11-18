@@ -79,13 +79,13 @@ func cardinalityCondition(t *testing.T, m *ast.ASTManager, h ast.ASTHandle, bool
 
 func cardinalityValue(t *testing.T, m *ast.ASTManager, s *PBSum, bools map[ast.ASTHandle]bool, ints map[ast.ASTHandle]int64) *big.Rat {
 	t.Helper()
-	v := new(big.Rat).Set(&s.Constant)
+	v := ratOf(m, &s.Constant)
 	for i, h := range s.Args {
-		if s.Coefficients[i].Sign() <= 0 {
+		if ratOf(m, &s.Coefficients[i]).Sign() <= 0 {
 			t.Fatal("nonpositive output weight")
 		}
 		if cardinalityCondition(t, m, h, bools, ints) {
-			v.Add(v, &s.Coefficients[i])
+			v.Add(v, ratOf(m, &s.Coefficients[i]))
 		}
 	}
 	return v
@@ -175,7 +175,7 @@ func TestLIA2CardNumeralWrappersFractionsAndFailure(t *testing.T) {
 	// Failed extraction must leave the input roots usable.
 	s, ok, err = ExtractPBSum(m, three, nil)
 	equationMust(t, err)
-	if !ok || len(s.Args) != 0 || s.Constant.Cmp(big.NewRat(3, 1)) != 0 {
+	if !ok || len(s.Args) != 0 || ratOf(m, &s.Constant).Cmp(big.NewRat(3, 1)) != 0 {
 		t.Fatal("constant extraction after failure")
 	}
 	equationMust(t, s.Close())

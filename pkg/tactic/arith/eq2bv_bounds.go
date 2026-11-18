@@ -4,9 +4,9 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type eq2bvBound struct {
@@ -47,17 +47,8 @@ func (b *eq2bvBounds) Close() error {
 	b.manager = nil
 	return nil
 }
-func eq2bvNumeral(m *ast.ASTManager, value *big.Rat, width uint32) (h ast.ASTHandle, err error) {
-	service := m.NumeralService()
-	n, err := service.NewValue()
-	if err != nil {
-		return h, err
-	}
-	defer func() { err = errors.Join(err, service.Del(&n)) }()
-	if err = service.SetString(&n, value.RatString()); err != nil {
-		return h, err
-	}
-	return m.BitVectorNumeral(&n, width)
+func eq2bvNumeral(m *ast.ASTManager, value *unumeral.Rational, width uint32) (h ast.ASTHandle, err error) {
+	return m.BitVectorNumeralFromRational(value, width)
 }
 func eq2bvMakeBounds(plan *eq2bvReplacements, source *BoundManager) (result *eq2bvBounds, err error) {
 	if plan == nil || plan.manager == nil || source == nil || source.Manager() != plan.manager {
@@ -71,24 +62,33 @@ func eq2bvMakeBounds(plan *eq2bvReplacements, source *BoundManager) (result *eq2
 			result = nil
 		}
 	}()
+	// rational r;
+	q := m.NumeralService().Manager
+	value, max := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&value), q.Del(&max)) }()
 	for _, entry := range plan.entries {
 		fresh, e := m.RefGet(entry.fresh)
 		if e != nil {
 			return result, e
 		}
 		for _, lower := range []bool{true, false} {
-			var value big.Rat
 			var strict, found bool
 			var dep ast.ASTDependency
 			if lower {
-				value, strict, found, e = source.Lower(entry.original)
+				strict, found, e = source.Lower(entry.original, &value)
 			} else {
-				value, strict, found, e = source.Upper(entry.original)
+				strict, found, e = source.Upper(entry.original, &value)
 			}
 			if e != nil {
 				return result, e
 			}
-			if !found || value.Sign() < 0 {
+			negative := false
+			if found {
+				if negative, e = q.IsNeg(&value); e != nil {
+					return result, e
+				}
+			}
+			if !found || negative {
 				continue
 			}
 			if strict {
@@ -119,9 +119,18 @@ func eq2bvMakeBounds(plan *eq2bvReplacements, source *BoundManager) (result *eq2
 				if x != nil {
 					return result, x
 				}
-				max := new(big.Int).Lsh(big.NewInt(1), uint(entry.width))
-				max.Sub(max, big.NewInt(1))
-				sentinel, x := eq2bvNumeral(m, new(big.Rat).SetInt(max), entry.width)
+				// 2^width - 1
+				x = q.SetInt32(&max, 2)
+				if x == nil {
+					x = q.Power(&max, entry.width, &max)
+				}
+				if x == nil {
+					x = q.Dec(&max)
+				}
+				var sentinel ast.ASTHandle
+				if x == nil {
+					sentinel, x = eq2bvNumeral(m, &max, entry.width)
+				}
 				if x == nil {
 					sentinel, x = m.MkEq(fresh, sentinel)
 				}

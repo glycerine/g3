@@ -15,7 +15,7 @@ func TestBVBoundsSourceEqualityBoundTargetsExtractTerm(t *testing.T) {
 	key, b, found, e := f.simp.recognize(eq)
 	sharingMust(t, e)
 	zero, singleton := b.singleton()
-	if !found || key != top || b.width != 4 || !singleton || zero.Sign() != 0 {
+	if !found || key != top || b.width != 4 || !singleton || zero != 0 {
 		t.Fatal(found, key, b)
 	}
 }

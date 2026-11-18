@@ -41,9 +41,9 @@ func TestBoundManagerComparisonSemantics(t *testing.T) {
 							form = h
 						}
 						equationMust(t, b.Collect(form, ast.ASTDependency{}))
-						lower, ls, hasL, err := b.Lower(x)
+						lower, ls, hasL, err := boundRat(b, x, true)
 						equationMust(t, err)
-						upper, us, hasU, err := b.Upper(x)
+						upper, us, hasU, err := boundRat(b, x, false)
 						equationMust(t, err)
 						if hasL == hasU {
 							t.Fatal("expected exactly one bound")
@@ -113,12 +113,12 @@ func TestBoundManagerEqualityDisjunctionNegationAndOrder(t *testing.T) {
 	equationMust(t, err)
 	fixDLPin(t, m, or)
 	equationMust(t, b.Collect(or, ast.ASTDependency{}))
-	lo, strict, found, err := b.Lower(x)
+	lo, strict, found, err := boundRat(b, x, true)
 	equationMust(t, err)
 	if !found || strict || lo.Cmp(big.NewRat(-3, 1)) != 0 {
 		t.Fatal("disjunction minimum", lo, strict, found)
 	}
-	hi, strict, found, err := b.Upper(x)
+	hi, strict, found, err := boundRat(b, x, false)
 	equationMust(t, err)
 	if !found || strict || hi.Cmp(big.NewRat(5, 1)) != 0 {
 		t.Fatal("disjunction maximum", hi, strict, found)
@@ -130,7 +130,7 @@ func TestBoundManagerEqualityDisjunctionNegationAndOrder(t *testing.T) {
 	equationMust(t, err)
 	fixDLPin(t, m, eq)
 	equationMust(t, b.Collect(eq, ast.ASTDependency{}))
-	lo, _, found, err = b.Lower(y)
+	lo, _, found, err = boundRat(b, y, true)
 	equationMust(t, err)
 	if !found || lo.Cmp(big.NewRat(7, 3)) != 0 {
 		t.Fatal("real equality", lo, found)
@@ -142,7 +142,7 @@ func TestBoundManagerEqualityDisjunctionNegationAndOrder(t *testing.T) {
 	}
 	variables[0] = y
 	lo.SetInt64(100)
-	again, _, _, err := b.Lower(y)
+	again, _, _, err := boundRat(b, y, true)
 	equationMust(t, err)
 	if again.Cmp(big.NewRat(7, 3)) != 0 {
 		t.Fatal("borrowed rational storage escaped")

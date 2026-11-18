@@ -4,11 +4,11 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
@@ -66,13 +66,17 @@ func (t *LIA2PBTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err = t.emitLIA2PB("operator()", 211, t.bounds.Display); err != nil {
 		return err
 	}
+	// rational u;
+	q := t.manager.NumeralService().Manager
+	u := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&u)) }()
 	found := false
 	for _, variable := range t.bounds.variables {
-		u, ok, e := t.target(variable)
+		ok, e := t.targetAboveOne(variable, &u)
 		if e != nil {
 			return e
 		}
-		if ok && u.Cmp(big.NewRat(1, 1)) > 0 {
+		if ok {
 			found = true
 			break
 		}
@@ -92,12 +96,12 @@ func (t *LIA2PBTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	}
 	var bits uint32
 	for _, variable := range t.bounds.variables {
-		u, ok, e := t.target(variable)
+		ok, e := t.targetAboveOne(variable, &u)
 		if e != nil {
 			return e
 		}
-		if ok && u.Cmp(big.NewRat(1, 1)) > 0 {
-			n, e := lia2pbBits(&u)
+		if ok {
+			n, e := lia2pbBits(q, &u)
 			if e != nil {
 				return e
 			}
@@ -193,12 +197,16 @@ func (t *LIA2PBTactic) convert(goal *tactic.Goal, result *tactic.TacticResult) (
 	}
 	defer func() { err = errors.Join(err, m.DelExprSubstitution(&sub)) }()
 	var count uint32
+	// rational u;
+	q := m.NumeralService().Manager
+	u := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&u)) }()
 	for _, variable := range t.bounds.variables {
-		u, ok, e := t.target(variable)
+		ok, e := t.targetAboveOne(variable, &u)
 		if e != nil {
 			return e
 		}
-		if !ok || u.Cmp(big.NewRat(1, 1)) <= 0 {
+		if !ok {
 			continue
 		}
 		count++
@@ -301,9 +309,10 @@ func (t *LIA2PBTactic) convert(goal *tactic.Goal, result *tactic.TacticResult) (
 	return nil
 }
 
-func (t *LIA2PBTactic) convertVariable(goal *tactic.Goal, variable ast.ASTHandle, upper *big.Rat, zero, one ast.ASTHandle, sub ast.ASTExprSubstitution, extension *tactic.ExtensionModelConverter, filter *tactic.FilterModelConverter, cores bool) (err error) {
+func (t *LIA2PBTactic) convertVariable(goal *tactic.Goal, variable ast.ASTHandle, upper *unumeral.Rational, zero, one ast.ASTHandle, sub ast.ASTExprSubstitution, extension *tactic.ExtensionModelConverter, filter *tactic.FilterModelConverter, cores bool) (err error) {
 	m := t.manager
-	bits, err := lia2pbBits(upper)
+	q := m.NumeralService().Manager
+	bits, err := lia2pbBits(q, upper)
 	if err != nil {
 		return err
 	}
@@ -318,7 +327,12 @@ func (t *LIA2PBTactic) convertVariable(goal *tactic.Goal, variable ast.ASTHandle
 			err = errors.Join(err, m.DelRef(&held[i]))
 		}
 	}()
-	weight := big.NewRat(1, 1)
+	// rational a(1);
+	weight, two := unumeral.NewRational(), unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&weight), q.Del(&two)) }()
+	if err = errors.Join(q.SetInt32(&weight, 1), q.SetInt32(&two, 2)); err != nil {
+		return err
+	}
 	for i := uint32(0); i < bits; i++ {
 		fresh, e := m.MkFreshConstNullable(nil, integer)
 		if e != nil {
@@ -340,7 +354,7 @@ func (t *LIA2PBTactic) convertVariable(goal *tactic.Goal, variable ast.ASTHandle
 		}
 		term := fresh
 		if i != 0 {
-			n, e := m.ArithmeticNumeralRat(weight, true)
+			n, e := m.ArithmeticNumeralFromRational(&weight, true)
 			if e != nil {
 				return e
 			}
@@ -364,7 +378,10 @@ func (t *LIA2PBTactic) convertVariable(goal *tactic.Goal, variable ast.ASTHandle
 				return err
 			}
 		}
-		weight.Mul(weight, big.NewRat(2, 1))
+		// a *= rational(2);
+		if err = q.Mul(&weight, &two, &weight); err != nil {
+			return err
+		}
 	}
 	if len(args) < 2 {
 		return ast.ErrASTDomain

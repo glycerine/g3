@@ -12,12 +12,12 @@ package core
 
 import (
 	"errors"
-	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // pbPreprocessRec is rec { pos, neg }.
@@ -271,6 +271,8 @@ func nextResolvent(r *pbPreprocessRound, entries []ast.ObjMapEntry, i int) int {
 }
 
 func (t *PBPreprocessTactic) simplify(g *tactic.Goal, mc *tactic.PBPreprocModelConverter, rw *rewriter.TheoryRewriter) (progress bool, err error) {
+	var held pbPreprocessHeld
+	defer func() { err = errors.Join(err, t.releaseHeld(&held)) }()
 	m := t.manager
 	r := &pbPreprocessRound{vars: ast.NewObjMap(m)}
 	if err = t.normalize(g); err != nil {
@@ -396,7 +398,10 @@ func (t *PBPreprocessTactic) simplify(g *tactic.Goal, mc *tactic.PBPreprocModelC
 		if e != nil {
 			return false, e
 		}
-		first, e := t.parse(f)
+		if e = t.releaseHeld(&held); e != nil {
+			return false, e
+		}
+		first, e := t.parse(f, &held)
 		if e != nil {
 			return false, e
 		}
@@ -435,11 +440,18 @@ func (t *PBPreprocessTactic) simplify(g *tactic.Goal, mc *tactic.PBPreprocModelC
 			if x != nil {
 				return false, x
 			}
-			second, x := t.parse(fk)
+			second, x := t.parse(fk, &held)
 			if x != nil {
 				return false, x
 			}
-			if second == nil || !pbPreprocessSubsumes(first, second) {
+			if second == nil {
+				continue
+			}
+			subsumes, x := t.subsumes(first, second)
+			if x != nil {
+				return false, x
+			}
+			if !subsumes {
 				continue
 			}
 			di, x := g.Dependency(gi)
@@ -469,27 +481,31 @@ func (t *PBPreprocessTactic) simplify(g *tactic.Goal, mc *tactic.PBPreprocModelC
 	return progress, nil
 }
 
-// pbPreprocessSubsumes is subsumes(args1, coeffs1, k1, args2, coeffs2, k2).
-func pbPreprocessSubsumes(a, b *pbPreprocessConstraint) bool {
-	if a == nil || b == nil || b.bound.Cmp(a.bound) > 0 {
-		return false
+// subsumes is subsumes(args1, coeffs1, k1, args2, coeffs2, k2).
+func (t *PBPreprocessTactic) subsumes(a, b *pbPreprocessConstraint) (bool, error) {
+	if a == nil || b == nil {
+		return false, nil
+	}
+	q := t.manager.NumeralService().Manager
+	if c, e := q.Compare(b.bound, a.bound); e != nil || c > 0 {
+		return false, e
 	}
 	for _, left := range a.terms {
 		found := false
 		for _, right := range b.terms {
 			if left.expression == right.expression {
-				if left.coefficient.Cmp(right.coefficient) > 0 {
-					return false
+				if c, e := q.Compare(left.coefficient, right.coefficient); e != nil || c > 0 {
+					return false, e
 				}
 				found = true
 				break
 			}
 		}
 		if !found {
-			return false
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
 // isComplement is is_complement.
@@ -504,8 +520,11 @@ func (t *PBPreprocessTactic) isComplement(x, y ast.ASTHandle) (bool, error) {
 }
 
 // resolve is the special subsumption-resolution case.
-func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelConverter, rw *rewriter.TheoryRewriter, r *pbPreprocessRound, idx1 uint32, positions []uint32) (bool, error) {
+func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelConverter, rw *rewriter.TheoryRewriter, r *pbPreprocessRound, idx1 uint32, positions []uint32) (_ bool, resultErr error) {
 	m := t.manager
+	q := m.NumeralService().Manager
+	var held pbPreprocessHeld
+	defer func() { resultErr = errors.Join(resultErr, t.releaseHeld(&held)) }()
 	if len(positions) != 1 {
 		return false, nil
 	}
@@ -521,20 +540,20 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 	if err = t.pbTrace("resolve", 522, func() (string, error) { return t.pbText(f1, " ", f2, "\n") }); err != nil {
 		return false, err
 	}
-	first, err := t.parse(f1)
+	first, err := t.parse(f1, &held)
 	if err != nil || first == nil {
 		return false, err
 	}
-	if first.bound.Cmp(big.NewRat(1, 1)) != 0 {
+	if !first.bound.IsOne() {
 		return false, nil
 	}
-	second, err := t.parse(f2)
+	second, err := t.parse(f2, &held)
 	if err != nil || second == nil {
 		return false, err
 	}
 	// Check that each variable in idx1 occurs only in idx2.
 	minIndex := 0
-	var minCoeff *big.Rat
+	var minCoeff *unumeral.Rational
 	var indices []int
 	for i, term := range first.terms {
 		x := term.expression
@@ -568,7 +587,15 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 			if !complement {
 				continue
 			}
-			if i == 0 || minCoeff.Cmp(other.coefficient) > 0 {
+			smaller := i == 0
+			if !smaller {
+				c, e := q.Compare(minCoeff, other.coefficient)
+				if e != nil {
+					return false, e
+				}
+				smaller = c > 0
+			}
+			if smaller {
 				minCoeff = other.coefficient
 				minIndex = j
 			}
@@ -633,11 +660,11 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 			return false, err
 		}
 		if ge {
-			k, err := t.rational(tmp2, nil)
+			k, err := t.rational(tmp2, nil, &held)
 			if err != nil {
 				return false, err
 			}
-			if k.Cmp(big.NewRat(1, 1)) == 0 {
+			if k.IsOne() {
 				n, err := m.GetNumArgs(tmp2)
 				if err != nil {
 					return false, err

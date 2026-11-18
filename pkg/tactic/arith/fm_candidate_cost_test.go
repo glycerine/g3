@@ -12,7 +12,7 @@ func TestFMCandidatesSourceOrdering(t *testing.T) {
 	real := v.Add(false, false)
 	integer := v.Add(true, false)
 	v.Add(false, true)
-	c := &FMConstraint{}
+	c := &FMConstraint{numerals: fmTestNumerals}
 	v.Index.Lower[real] = []*FMConstraint{c, c}
 	v.Index.Upper[real] = []*FMConstraint{c}
 	v.Index.Lower[integer] = []*FMConstraint{c}

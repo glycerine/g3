@@ -131,11 +131,12 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 		}
 		variable, e := m.MkApp(group.decl, nil)
 		if e != nil {
-			return e
+			return errors.Join(e, recover01Release(m.NumeralService().Manager, coeffs))
 		}
-		if e = defs.build(variable, literals, coeffs, func(variable, definition ast.ASTHandle) error {
+		e = defs.build(variable, literals, coeffs, func(variable, definition ast.ASTHandle) error {
 			return emitRecover01Definition(m, trace, services.Trace, variable, definition)
-		}); e != nil {
+		})
+		if e = errors.Join(e, recover01Release(m.NumeralService().Manager, coeffs)); e != nil {
 			return e
 		}
 		recovered++

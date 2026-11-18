@@ -104,7 +104,7 @@ func TestBV2RealDivisibilityWideAllocationPrecedesSideConditions(t *testing.T) {
 			var gotA, gotB ast.ASTHandle
 			var ok bool
 			if capDivisor {
-				gotA, gotB, ok = c.alignDivisor(a, b, divisor)
+				gotA, gotB, ok = c.alignDivisorRat(a, b, divisor)
 			} else {
 				gotA, ok = c.divisible(a, factor)
 				gotB = b
@@ -151,7 +151,7 @@ func TestBV2RealDivisorCapStopsAfterCoefficientTraceFailure(t *testing.T) {
 			divisor := big.NewRat(8, 1)
 			c := &bv2RealCall{u: u}
 			t.Cleanup(func() { equationMust(t, c.close()) })
-			gotA, gotB, ok := c.alignDivisor(a, b, divisor)
+			gotA, gotB, ok := c.alignDivisorRat(a, b, divisor)
 			f.m.Budget().FailAfter(-1)
 			if !writer.fired || !errors.Is(c.err, arena.ErrInjectedFailure) {
 				t.Fatal("post-assignment trace operand failure not reached", c.err, writer.output.String())
@@ -187,7 +187,7 @@ func TestBV2RealDivisibilityProjectAllocationFrontiers(t *testing.T) {
 				var gotA, gotB ast.ASTHandle
 				var ok bool
 				if capDivisor {
-					gotA, gotB, ok = c.alignDivisor(a, b, divisor)
+					gotA, gotB, ok = c.alignDivisorRat(a, b, divisor)
 				} else {
 					gotA, ok = c.divisible(a, factor)
 					gotB = b

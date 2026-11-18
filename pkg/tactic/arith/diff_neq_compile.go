@@ -3,11 +3,12 @@ package arith
 // Source: src/tactic/arith/diff_neq_tactic.cpp compile and bound/atom processing.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func diffNeqUnsupported() error { return tactic.NewTacticException("goal is not diff neq") }
@@ -53,28 +54,40 @@ func (t *DiffNeqTactic) diffNeqInteger(term ast.ASTHandle) (bool, error) {
 	kind, err := t.manager.GetDeclKind(sort)
 	return kind == 1, err
 }
-func (t *DiffNeqTactic) diffNeqNumeral(term ast.ASTHandle) (value big.Rat, found bool, err error) {
-	text, _, found, err := t.manager.ArithmeticNumeralText(term)
-	if err != nil || !found {
-		return value, found, err
-	}
-	if _, ok := value.SetString(text); !ok {
-		return value, false, ast.ErrASTDomain
-	}
-	return value, true, nil
+
+// diffNeqNumeral is u.is_numeral(term, k) into value.
+func (t *DiffNeqTactic) diffNeqNumeral(term ast.ASTHandle, value *unumeral.Rational) (found bool, err error) {
+	_, found, err = t.manager.ArithmeticNumeralRational(term, value)
+	return found && err == nil, err
 }
-func (t *DiffNeqTactic) diffNeqOffset(term ast.ASTHandle) (int32, bool, error) {
-	n, found, err := t.diffNeqNumeral(term)
+func (t *DiffNeqTactic) diffNeqOffset(term ast.ASTHandle) (_ int32, _ bool, resultErr error) {
+	// rational k;
+	q := t.manager.NumeralService().Manager
+	n := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&n)) }()
+	found, err := t.diffNeqNumeral(term, &n)
 	if err != nil || !found {
 		return 0, false, err
 	}
-	if n.Cmp(big.NewRat(t.current.maxNegK, 1)) < 0 || n.Cmp(big.NewRat(t.current.maxK, 1)) > 0 {
+	low, err := rationalCompareInt(q, &n, t.current.maxNegK)
+	if err != nil {
+		return 0, false, err
+	}
+	high, err := rationalCompareInt(q, &n, t.current.maxK)
+	if err != nil {
+		return 0, false, err
+	}
+	if low < 0 || high > 0 {
 		return 0, false, nil
 	}
-	if !n.IsInt() || !n.Num().IsInt64() {
+	if !n.IsInt() {
 		return 0, false, ast.ErrASTDomain
 	}
-	return int32(n.Num().Int64()), true, nil
+	v, err := q.Int64(&n)
+	if err != nil {
+		return 0, false, err
+	}
+	return int32(v), true, nil
 }
 func (t *DiffNeqTactic) mkDiffNeqVariable(term ast.ASTHandle) (uint32, error) {
 	if x, found := t.current.indices[term]; found {
@@ -172,8 +185,11 @@ func (t *DiffNeqTactic) diffNeqMinusOne(term ast.ASTHandle) (ast.ASTHandle, bool
 	if err != nil || !app || family != t.family || op != 9 || len(args) != 2 {
 		return ast.ASTHandle{}, false, err
 	}
-	n, found, err := t.diffNeqNumeral(args[0])
-	if err != nil || !found || n.Cmp(big.NewRat(-1, 1)) != 0 {
+	q := t.manager.NumeralService().Manager
+	n := unumeral.NewRational()
+	found, err := t.diffNeqNumeral(args[0], &n)
+	minusOne := n.IsMinusOne()
+	if err = errors.Join(err, q.Del(&n)); err != nil || !found || !minusOne {
 		return ast.ASTHandle{}, false, err
 	}
 	return args[1], true, nil
@@ -197,7 +213,7 @@ func (t *DiffNeqTactic) processDiffNeqNE(lhs, rhs ast.ASTHandle) error {
 	if a && b {
 		return t.processDiffNeqCore(lhs, rhs, 0)
 	}
-	_, number, err := t.diffNeqNumeral(lhs)
+	number, err := t.manager.IsArithmeticNumeral(lhs)
 	if err != nil {
 		return err
 	}

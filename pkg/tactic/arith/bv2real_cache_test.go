@@ -25,7 +25,7 @@ func TestBV2RealCacheOwnsProjectRationalCopiesAcrossReset(t *testing.T) {
 	service := f.m.NumeralService()
 	before, err := service.Stats()
 	equationMust(t, err)
-	equationMust(t, u.MkBV2RealC(a, b, d, r, out))
+	equationMust(t, mkBV2RealCRat(u, a, b, d, r, out))
 	h, err := f.m.RefGet(out)
 	equationMust(t, err)
 	decl, err := f.m.GetDecl(h)
@@ -55,7 +55,7 @@ func TestBV2RealCacheOwnsProjectRationalCopiesAcrossReset(t *testing.T) {
 	r.SetInt64(1)
 	originalD, _ := new(big.Rat).SetString(wantD)
 	originalR, _ := new(big.Rat).SetString(wantR)
-	equationMust(t, u.MkBV2RealC(a, b, originalD, originalR, out))
+	equationMust(t, mkBV2RealCRat(u, a, b, originalD, originalR, out))
 	same, err := f.m.RefGet(out)
 	equationMust(t, err)
 	sameDecl, err := f.m.GetDecl(same)
@@ -99,7 +99,7 @@ func TestBV2RealCacheInsertionFailurePublicationPrefixes(t *testing.T) {
 			out := bv2RealOut(t, f.m)
 			d, r := bv2RealWideCachePair()
 			f.m.Budget().FailAfter(stop)
-			err := u.MkBV2RealC(a, b, d, r, out)
+			err := mkBV2RealCRat(u, a, b, d, r, out)
 			f.m.Budget().FailAfter(-1)
 			if err == nil {
 				succeeded = true
@@ -121,7 +121,7 @@ func TestBV2RealCacheInsertionFailurePublicationPrefixes(t *testing.T) {
 				if known {
 					t.Fatal("source reverse entry appeared after a failed second insertion")
 				}
-				equationMust(t, u.MkBV2RealC(a, b, d, r, out))
+				equationMust(t, mkBV2RealCRat(u, a, b, d, r, out))
 				app, e := f.m.RefGet(out)
 				equationMust(t, e)
 				actual, e := f.m.GetDecl(app)
@@ -155,7 +155,7 @@ func TestBV2RealCacheHitEndsSignatureNumericScope(t *testing.T) {
 	a, b := f.bv(t, 1, 3), f.bv(t, 2, 5)
 	out := bv2RealOut(t, f.m)
 	d, r := bv2RealWideCachePair()
-	equationMust(t, u.MkBV2RealC(a, b, d, r, out))
+	equationMust(t, mkBV2RealCRat(u, a, b, d, r, out))
 	c := &bv2RealCall{u: u}
 	h := c.encoding(a, b, d, r)
 	equationMust(t, c.err)
@@ -176,7 +176,7 @@ func TestBV2RealCacheLookupReadsOwnedReverseValues(t *testing.T) {
 	a, b := f.bv(t, 1, 3), f.bv(t, 2, 5)
 	out := bv2RealOut(t, f.m)
 	d, r := bv2RealWideCachePair()
-	equationMust(t, u.MkBV2RealC(a, b, d, r, out))
+	equationMust(t, mkBV2RealCRat(u, a, b, d, r, out))
 	h, err := f.m.RefGet(out)
 	equationMust(t, err)
 	decl, err := f.m.GetDecl(h)
@@ -193,7 +193,7 @@ func TestBV2RealCacheLookupReadsOwnedReverseValues(t *testing.T) {
 	var divisor, root big.Rat
 	before, err := service.Stats()
 	equationMust(t, err)
-	matched, err := u.Match(h, aout, bout, &divisor, &root)
+	matched, err := matchRat(u, h, aout, bout, &divisor, &root)
 	equationMust(t, err)
 	if !matched || divisor.Cmp(big.NewRat(5, 1)) != 0 || root.Cmp(big.NewRat(3, 1)) != 0 {
 		t.Fatal("match read detached metadata", matched, &divisor, &root)

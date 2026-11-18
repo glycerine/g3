@@ -8,14 +8,14 @@ func TestFMConstraintExpressionConstantBranches(t *testing.T) {
 	table, e := NewFMExpressionTable(m, v)
 	equationMust(t, e)
 	t.Cleanup(func() { equationMust(t, table.Close()) })
-	truth, e := table.ConstraintExpression(&FMConstraint{Constant: fmCRat(1, 1)})
+	truth, e := table.ConstraintExpression(&FMConstraint{numerals: fmTestNumerals, Constant: fmCRat(1, 1)})
 	equationMust(t, e)
 	wantTrue, e := m.MkTrue()
 	equationMust(t, e)
 	if truth != wantTrue {
 		t.Fatal("positive constant did not reconstruct true")
 	}
-	falsehood, e := table.ConstraintExpression(&FMConstraint{Constant: fmCRat(-1, 1)})
+	falsehood, e := table.ConstraintExpression(&FMConstraint{numerals: fmTestNumerals, Constant: fmCRat(-1, 1)})
 	equationMust(t, e)
 	wantFalse, e := m.MkFalse()
 	equationMust(t, e)

@@ -7,7 +7,7 @@ func TestFMEliminateOneSidedVariable(t *testing.T) {
 	x := v.Add(false, false)
 	c := fmSubsumptionConstraint(nil, []uint32{x}, []int64{-1}, 2, false)
 	c.ID = 9
-	v.Register(c)
+	fmRegister(t, v, c)
 	e, err := NewFMEliminator(store, v, DefaultFMEliminationConfig())
 	equationMust(t, err)
 	t.Cleanup(func() { equationMust(t, e.Close()) })

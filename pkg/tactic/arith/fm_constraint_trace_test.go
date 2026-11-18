@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"strings"
 	"testing"
 
@@ -210,12 +210,12 @@ func TestFMConstraintTraceGrowthAbortAndRefusedStream(t *testing.T) {
 	vars.Index.diagnostics = diagnostics
 	var original []*FMConstraint
 	for i := uint32(1); i <= 3; i++ {
-		lower, err := store.New(nil, []uint32{0, i}, []big.Rat{fmCRat(-1, 1), fmCRat(1, 1)}, big.NewRat(0, 1), false, ast.ASTDependency{})
+		lower, err := store.New(nil, []uint32{0, i}, []unumeral.Rational{fmCRat(-1, 1), fmCRat(1, 1)}, fmCRatP(0, 1), false, ast.ASTDependency{})
 		equationMust(t, err)
-		upper, err := store.New(nil, []uint32{0, i + 3}, []big.Rat{fmCRat(1, 1), fmCRat(1, 1)}, big.NewRat(0, 1), false, ast.ASTDependency{})
+		upper, err := store.New(nil, []uint32{0, i + 3}, []unumeral.Rational{fmCRat(1, 1), fmCRat(1, 1)}, fmCRatP(0, 1), false, ast.ASTDependency{})
 		equationMust(t, err)
-		vars.Register(lower)
-		vars.Register(upper)
+		fmRegister(t, vars, lower)
+		fmRegister(t, vars, upper)
 		original = append(original, lower, upper)
 	}
 	eliminator, err := NewFMEliminator(store, vars, DefaultFMEliminationConfig())

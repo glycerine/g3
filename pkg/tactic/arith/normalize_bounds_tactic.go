@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/z3exception"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -15,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -216,30 +216,37 @@ func (t *NormalizeBoundsTactic) ResetStatistics() error                   { retu
 func (t *NormalizeBoundsTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
 func (t *NormalizeBoundsTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *NormalizeBoundsTactic) Reset() error                             { return t.Cleanup() }
-func (t *NormalizeBoundsTactic) target(variable ast.ASTHandle) (value big.Rat, found bool, err error) {
+
+// target is is_target(var, val): val (a rational of the manager's
+// NumeralService().Manager) receives the nonzero lower bound.
+func (t *NormalizeBoundsTactic) target(variable ast.ASTHandle, value *unumeral.Rational) (found bool, err error) {
 	constant, err := t.bounds.constant(variable)
 	if err != nil || !constant {
-		return value, false, err
+		return false, err
 	}
 	if t.integerOnly {
 		sort, e := t.manager.GetSort(variable)
 		if e != nil {
-			return value, false, e
+			return false, e
 		}
 		family, e := t.manager.GetFamilyID(sort)
 		if e != nil {
-			return value, false, e
+			return false, e
 		}
 		kind, e := t.manager.GetDeclKind(sort)
 		if e != nil {
-			return value, false, e
+			return false, e
 		}
 		if family != t.bounds.family || kind != 1 {
-			return value, false, nil
+			return false, nil
 		}
 	}
-	value, _, found, err = t.bounds.Lower(variable)
-	return value, found && value.Sign() != 0, err
+	_, found, err = t.bounds.Lower(variable, value)
+	if err != nil || !found {
+		return false, err
+	}
+	zero, err := t.manager.NumeralService().Manager.IsZero(value)
+	return !zero, err
 }
 func (t *NormalizeBoundsTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
 	defer func() {
@@ -271,7 +278,9 @@ func (t *NormalizeBoundsTactic) Apply(goal *tactic.Goal, result *tactic.TacticRe
 		if err = t.traceLower(variable); err != nil {
 			return err
 		}
-		_, ok, e := t.target(variable)
+		probe := unumeral.NewRational()
+		ok, e := t.target(variable, &probe)
+		e = errors.Join(e, t.manager.NumeralService().Manager.Del(&probe))
 		if e != nil {
 			return e
 		}
@@ -341,8 +350,12 @@ func (t *NormalizeBoundsTactic) normalize(goal *tactic.Goal, result *tactic.Tact
 	}
 	defer func() { err = errors.Join(err, m.DelExprSubstitution(&sub)) }()
 	var count uint32
+	// rational val;
+	q := m.NumeralService().Manager
+	value := unumeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&value)) }()
 	for _, variable := range t.bounds.variables {
-		value, found, e := t.target(variable)
+		found, e := t.target(variable, &value)
 		if e != nil {
 			return e
 		}
@@ -368,7 +381,7 @@ func (t *NormalizeBoundsTactic) normalize(goal *tactic.Goal, result *tactic.Tact
 			return e
 		}
 		definition, e := func() (ast.ASTHandle, error) {
-			number, e := m.ArithmeticNumeralRat(&value, kind == 1)
+			number, e := m.ArithmeticNumeralFromRational(&value, kind == 1)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}

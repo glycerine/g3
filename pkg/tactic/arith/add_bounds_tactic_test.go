@@ -130,16 +130,16 @@ func TestAddBoundsTranslationAndRationalParameterSnapshot(t *testing.T) {
 	set("add_bound_upper", "7")
 	equationMust(t, r.UpdateParams(&settings))
 	equationMust(t, r.Close())
-	if copy.current.lower.RatString() != "-123456789012345678901234567890" || copy.current.upper.RatString() != "123456789012345678901234567890" {
+	if ratText(m, &copy.current.lower) != "-123456789012345678901234567890" || ratText(m, &copy.current.upper) != "123456789012345678901234567890" {
 		t.Fatal("source updates changed translated policy")
 	}
 	equationMust(t, translated.Cleanup())
-	if copy.current.lower.RatString() != "-123456789012345678901234567890" {
+	if ratText(m, &copy.current.lower) != "-123456789012345678901234567890" {
 		t.Fatal("cleanup lost copied parameter snapshot")
 	}
 	equationMust(t, translated.UpdateParams(&settings))
 	equationMust(t, translated.Cleanup())
-	if copy.current.lower.RatString() != "-8" || copy.current.upper.RatString() != "7" {
+	if ratText(m, &copy.current.lower) != "-8" || ratText(m, &copy.current.upper) != "7" {
 		t.Fatal("updated policy lost on rebuild")
 	}
 }

@@ -5,7 +5,6 @@ package portfolio
 import (
 	"errors"
 	"io"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -15,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic/arith"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -42,7 +42,7 @@ type BoundedInt2BVSolver struct {
 	// int2bvOrder is m_int2bv's obj_map<func_decl, func_decl*> table
 	// layout; extend_model walks it.
 	int2bvOrder     *ast.ObjMap
-	offsets         map[ast.ASTHandle]big.Rat
+	offsets         map[ast.ASTHandle]*unumeral.Rational // m_bv2offset: rationals of the manager's NumeralService().Manager
 	consequences    []ast.ASTRef
 	pending         *boundedInt2BVCall
 	status          lbool.LBool
@@ -86,7 +86,7 @@ func NewBoundedInt2BVSolver(m *ast.ASTManager, c *uparams.ParamsContext, p *upar
 	if err = m.Budget().Reserve(n); err != nil {
 		return nil, err
 	}
-	s := &BoundedInt2BVSolver{manager: m, context: c, backend: backend, status: lbool.Undef, header: n, services: services, int2bv: make(map[ast.ASTHandle]ast.ASTHandle), int2bvOrder: ast.NewObjMap(m), bv2int: make(map[ast.ASTHandle]ast.ASTHandle), offsets: make(map[ast.ASTHandle]big.Rat)}
+	s := &BoundedInt2BVSolver{manager: m, context: c, backend: backend, status: lbool.Undef, header: n, services: services, int2bv: make(map[ast.ASTHandle]ast.ASTHandle), int2bvOrder: ast.NewObjMap(m), bv2int: make(map[ast.ASTHandle]ast.ASTHandle), offsets: make(map[ast.ASTHandle]*unumeral.Rational)}
 	s.self = s
 	s.parameters, err = c.NewValue()
 	if err == nil {
@@ -182,7 +182,12 @@ func (s *BoundedInt2BVSolver) Close() error {
 		}
 		s.rewriteContext = nil
 	}
-	clear(s.offsets)
+	for decl, offset := range s.offsets {
+		if err := s.manager.NumeralService().Manager.Del(offset); err != nil {
+			return err
+		}
+		delete(s.offsets, decl)
+	}
 	clear(s.int2bv)
 	s.int2bvOrder.Reset()
 	clear(s.bv2int)
@@ -314,6 +319,11 @@ func (s *BoundedInt2BVSolver) PopCore(n uint32) error {
 			}
 			delete(s.int2bv, s.intDecls[i])
 			delete(s.bv2int, s.bvDecls[i])
+			if offset := s.offsets[s.bvDecls[i]]; offset != nil {
+				if err := s.manager.NumeralService().Manager.Del(offset); err != nil {
+					return err
+				}
+			}
 			delete(s.offsets, s.bvDecls[i])
 		}
 		s.limits = s.limits[:size]

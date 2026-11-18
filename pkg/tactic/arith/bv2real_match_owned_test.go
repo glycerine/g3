@@ -54,7 +54,7 @@ func TestBV2RealMatchedProjectOwnersOutliveInputAndUtility(t *testing.T) {
 	equationMust(t, err)
 	d, r := bv2RealWideCachePair()
 	out := bv2RealOut(t, m)
-	equationMust(t, u.MkBV2RealC(a, b, d, r, out))
+	equationMust(t, mkBV2RealCRat(u, a, b, d, r, out))
 	h, err := m.RefGet(out)
 	equationMust(t, err)
 	before, err := s.Stats()
@@ -101,7 +101,7 @@ func TestBV2RealOwnedMatchingAlignmentDoesNotMutateCache(t *testing.T) {
 	u, f := bv2RealFixture(t, 256)
 	makeEncoding := func(d int64) ast.ASTHandle {
 		out := bv2RealOut(t, f.m)
-		equationMust(t, u.MkBV2RealC(f.bv(t, 1, 4), f.bv(t, 2, 4), big.NewRat(d, 1), big.NewRat(3, 1), out))
+		equationMust(t, mkBV2RealCRat(u, f.bv(t, 1, 4), f.bv(t, 2, 4), big.NewRat(d, 1), big.NewRat(3, 1), out))
 		h, err := f.m.RefGet(out)
 		equationMust(t, err)
 		return h
@@ -153,7 +153,7 @@ func TestBV2RealCachedMatchOwnedCopyFailureFrontiers(t *testing.T) {
 			d, r := bv2RealWideCachePair()
 			out := bv2RealOut(t, f.m)
 			a, b := f.bv(t, 1, 3), f.bv(t, 2, 5)
-			equationMust(t, u.MkBV2RealC(a, b, d, r, out))
+			equationMust(t, mkBV2RealCRat(u, a, b, d, r, out))
 			h, err := f.m.RefGet(out)
 			equationMust(t, err)
 			before, err := s.Stats()
@@ -296,14 +296,14 @@ func TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers(t *testing.T) {
 			}
 			if err == nil {
 				succeeded = true
-				root, divisor, maximum, err := u.Defaults()
+				root, divisor, maximum, err := defaultsRat(u)
 				equationMust(t, err)
 				if root.RatString() != "4294967295" || divisor.RatString() != "4294967295" || maximum.RatString() != "8589934590" {
 					t.Fatal("uint default construction/product", root.RatString(), divisor.RatString(), maximum.RatString())
 				}
 				// The Go snapshot cannot alter the project field or subsequent encodings.
 				root.SetInt64(7)
-				actual, _, _, err := u.Defaults()
+				actual, _, _, err := defaultsRat(u)
 				equationMust(t, err)
 				if actual.RatString() != "4294967295" {
 					t.Fatal("default snapshot aliases owner")

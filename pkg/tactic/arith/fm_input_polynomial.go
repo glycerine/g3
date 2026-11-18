@@ -2,9 +2,10 @@ package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:438-472,1029-1061.
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (p *FMInputParser) arithmetic(term ast.ASTHandle, operation int32) (bool, error) {
@@ -20,43 +21,54 @@ func (p *FMInputParser) arithmetic(term ast.ASTHandle, operation int32) (bool, e
 	return op == operation, err
 }
 
-func (p *FMInputParser) monomial(term ast.ASTHandle) (ast.ASTHandle, big.Rat, bool, error) {
+// monomial writes the coefficient into coefficient (a rational of the
+// manager's NumeralService().Manager).
+func (p *FMInputParser) monomial(term ast.ASTHandle, coefficient *unumeral.Rational) (ast.ASTHandle, bool, error) {
+	q := p.manager.NumeralService().Manager
 	base, yes, err := p.variableTerm(term)
 	if err != nil || yes {
-		return base, *big.NewRat(1, 1), yes, err
+		if err == nil {
+			err = q.SetInt32(coefficient, 1)
+		}
+		return base, yes, err
 	}
 	mul, err := p.arithmetic(term, 9)
 	if err != nil || !mul {
-		return ast.ASTHandle{}, big.Rat{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	n, err := p.manager.GetNumArgs(term)
 	if err != nil || n != 2 {
-		return ast.ASTHandle{}, big.Rat{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
-	coefficient, err := p.manager.GetArg(term, 0)
+	coefficientTerm, err := p.manager.GetArg(term, 0)
 	if err != nil {
-		return ast.ASTHandle{}, big.Rat{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
-	text, _, numeral, err := p.manager.ArithmeticNumeralText(coefficient)
+	numeral, err := p.manager.IsArithmeticNumeral(coefficientTerm)
 	if err != nil || !numeral {
-		return ast.ASTHandle{}, big.Rat{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	variable, err := p.manager.GetArg(term, 1)
 	if err != nil {
-		return ast.ASTHandle{}, big.Rat{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	base, yes, err = p.variableTerm(variable)
 	if err != nil || !yes {
-		return ast.ASTHandle{}, big.Rat{}, false, err
+		return ast.ASTHandle{}, false, err
 	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return ast.ASTHandle{}, big.Rat{}, false, ast.ErrASTDomain
+	if _, _, err = p.manager.ArithmeticNumeralRational(coefficientTerm, coefficient); err != nil {
+		return ast.ASTHandle{}, false, err
 	}
-	return base, *value, true, nil
+	return base, true, nil
 }
 
-func (p *FMInputParser) polynomial(term ast.ASTHandle, intern bool) ([]uint32, []big.Rat, bool, error) {
+// polynomial is is_linear_mon over the sum: the coefficients (rationals of
+// the manager's NumeralService().Manager) are owned by the caller, also
+// when the result is not useful.
+func (p *FMInputParser) polynomial(term ast.ASTHandle, intern bool) (_ []uint32, _ []unumeral.Rational, _ bool, resultErr error) {
+	q := p.manager.NumeralService().Manager
+	coefficient := unumeral.NewRational()
+	defer func() { resultErr = errors.Join(resultErr, q.Del(&coefficient)) }()
 	terms := []ast.ASTHandle{term}
 	if add, err := p.arithmetic(term, 6); err != nil {
 		return nil, nil, false, err
@@ -75,21 +87,21 @@ func (p *FMInputParser) polynomial(term ast.ASTHandle, intern bool) ([]uint32, [
 		}
 	}
 	seen := map[ast.ASTHandle]bool{}
-	xs, coefficients := make([]uint32, 0, len(terms)), make([]big.Rat, 0, len(terms))
+	xs, coefficients := make([]uint32, 0, len(terms)), make([]unumeral.Rational, 0, len(terms))
 	allForbidden := true
 	for _, monomial := range terms {
-		base, coefficient, yes, err := p.monomial(monomial)
+		base, yes, err := p.monomial(monomial, &coefficient)
 		if err != nil || !yes || seen[base] {
-			return nil, nil, false, err
+			return nil, nil, false, errors.Join(err, fmRelease(q, coefficients, nil))
 		}
 		seen[base] = true
 		integer, err := p.integerVariable(base)
 		if err != nil {
-			return nil, nil, false, err
+			return nil, nil, false, errors.Join(err, fmRelease(q, coefficients, nil))
 		}
 		declaration, err := p.manager.GetDecl(base)
 		if err != nil {
-			return nil, nil, false, err
+			return nil, nil, false, errors.Join(err, fmRelease(q, coefficients, nil))
 		}
 		if !p.forbidden[declaration] && (!p.RealOnly || !integer) {
 			allForbidden = false
@@ -97,9 +109,14 @@ func (p *FMInputParser) polynomial(term ast.ASTHandle, intern bool) ([]uint32, [
 		if intern {
 			x, err := p.internVariable(base)
 			if err != nil {
-				return nil, nil, false, err
+				return nil, nil, false, errors.Join(err, fmRelease(q, coefficients, nil))
 			}
-			xs, coefficients = append(xs, x), append(coefficients, coefficient)
+			stored := unumeral.NewRational()
+			coefficients = append(coefficients, stored)
+			xs = append(xs, x)
+			if err = q.Copy(&coefficients[len(coefficients)-1], &coefficient); err != nil {
+				return nil, nil, false, errors.Join(err, fmRelease(q, coefficients, nil))
+			}
 		}
 	}
 	return xs, coefficients, !allForbidden, nil

@@ -3,6 +3,7 @@ package arith
 // Source: src/tactic/arith/fm_tactic.cpp:474-510,795-825.
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 )
@@ -42,7 +43,10 @@ func (p *FMInputParser) isOCC(formula ast.ASTHandle) (bool, error) {
 		}
 	}
 	if !clause {
-		_, _, _, _, matched, err := p.inequality(formula, false)
+		_, coefficients, constant, _, matched, err := p.inequality(formula, false)
+		if matched {
+			err = errors.Join(err, fmRelease(p.manager.NumeralService().Manager, coefficients, &constant))
+		}
 		return matched, err
 	}
 	found := false
@@ -54,7 +58,10 @@ func (p *FMInputParser) isOCC(formula ast.ASTHandle) (bool, error) {
 		if literal {
 			continue
 		}
-		_, _, _, _, matched, err := p.inequality(arg, false)
+		_, coefficients, constant, _, matched, err := p.inequality(arg, false)
+		if matched {
+			err = errors.Join(err, fmRelease(p.manager.NumeralService().Manager, coefficients, &constant))
+		}
 		if err != nil {
 			return false, err
 		}
