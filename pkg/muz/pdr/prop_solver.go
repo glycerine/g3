@@ -936,12 +936,14 @@ func (p *PropSolver) extractTheoryCore(safe *safeAssumptions, wantConsequences b
 	if err != nil || proof.IsNull() {
 		return nil, nil, false, err
 	}
-	// farkas_learner fl(m_fparams, m): the pdr constructor also allocates
-	// m_ctx, an smt::kernel over its private proof manager m_pr
-	// (pdr_farkas_learner.cpp:382). Only get_lemma_guesses uses it, and that
-	// is not reached (core_farkas_generalizer is never allocated), so the
-	// kernel is not built; its constructor's TRACE record is kept.
-	smtcore.TraceDetachedContextSetup()
+	// farkas_learner fl(m_fparams, m): the constructor makes the private
+	// proof manager m_pr and the kernel m_ctx over it (farkasProofManager);
+	// fl dies at the end of the scope.
+	proofManager, err := newFarkasProofManager(p.manager, p.contexts.config.Params, p.contexts.config.Globals)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, proofManager.Close()) }()
 	learner, err := NewFarkasLearner(p.manager, p.contexts.config.Params, p.contexts.config.Globals)
 	if err != nil {
 		return nil, nil, false, err

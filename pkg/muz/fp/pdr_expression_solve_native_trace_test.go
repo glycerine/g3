@@ -70,8 +70,9 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeSolveFailure(t *testing.T) {
 	// The boundary sits 64 KiB below the lane threshold: the rewriter's
 	// rationals of the wide numeral (scratch kept by the mpz manager, as
 	// z3's are) stay allocated past pdr_context.cpp:1888, and the first
-	// deallocation after them, inside the native solve's static features,
-	// must still cross it.
+	// deallocation after them, inside the native solve's reachability check
+	// (reg_decl_plugins of the farkas_learner's private manager), must
+	// still cross it.
 	writer := &pdrSolveNativeFailureWriter{engine: f.e, context: prequery, cleanup: ruleUpdateDERCleanupWriter{boundary: ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime, slack: 1 << 16}}}
 	tags := diagnostic.NewTraceTagsWithWriter(writer)
 	tags.Enable("pdr")
@@ -88,7 +89,7 @@ func TestPDRExpressionTransferredOwnerSurvivesNativeSolveFailure(t *testing.T) {
 	// Repair only native accounting; the engine must finish its own solver
 	// state before attempting the next public expression query.
 	writer.cleanup.restoreAccounting(t, f.runtime)
-	if !writer.cleanup.matched || !writer.cleanup.boundary.interrupted || !writer.transferred || status != lbool.Undef || !errors.Is(cause, arena.ErrBounds) || !strings.Contains(cause.Error(), "smt kernel configure asserted bounds") {
+	if !writer.cleanup.matched || !writer.cleanup.boundary.interrupted || !writer.transferred || status != lbool.Undef || !errors.Is(cause, arena.ErrBounds) || !strings.Contains(cause.Error(), "muz/pdr: reachability check") {
 		t.Fatal("query missed the native solve failure after owner transfer", status, cause)
 	}
 	if f.e.pdr != prequery || f.e.pdrRules == nil {
