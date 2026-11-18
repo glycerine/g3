@@ -64,11 +64,7 @@ func (c *SMTContext) ConstantProbe(value float64) (*APIProbe, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, err := newAPIProbe(c.smtContextState, probe)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
+	return c.saveProbe(newAPIProbe(c.smtContextState, probe))
 }
 
 type APIGoalProbeKind uint8
@@ -108,5 +104,5 @@ func (c *SMTContext) GoalProbe(kind APIGoalProbeKind) (*APIProbe, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPIProbe(c.smtContextState, probe)
+	return c.saveProbe(newAPIProbe(c.smtContextState, probe))
 }

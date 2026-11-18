@@ -32,5 +32,9 @@ func (v *ASTVector) Translate(target *SMTContext) (result *ASTVector, resultErr 
 	if err != nil {
 		return nil, err
 	}
-	return &ASTVector{owner: owner, object: object}, nil
+	result = &ASTVector{owner: owner, object: object}
+	if err = target.saveHeld(result, &result.last); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

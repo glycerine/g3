@@ -24,6 +24,7 @@ type APISimpleSolver struct {
 	explicitParams  uparams.ParamsRef
 	explicitReady   bool
 	closed          bool
+	last            apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 // ErrSolverNoFactory is FORK FIX #122's default_exception: a solver made
@@ -39,13 +40,24 @@ func (c *SMTContext) NewSimpleSolver() (*APISimpleSolver, error) {
 		return nil, err
 	}
 	command := c.command
-	return newLazyAPISolver(c.smtContextState, func(string) (solver.Solver, error) {
+	return c.saveSolver(newLazyAPISolver(c.smtContextState, func(string) (solver.Solver, error) {
 		return command.NewSimpleSolver()
-	}), nil
+	}))
 }
 
+// saveSolver is save_object of a new Z3_solver_ref.
+func (c *smtContextState) saveSolver(s *APISimpleSolver) (*APISimpleSolver, error) {
+	if err := c.saveObject(s, &s.last); err != nil {
+		s.last.closed = true
+		return nil, err
+	}
+	return s, nil
+}
+
+func (s *APISimpleSolver) lastRelease() error { return s.last.release(s.destroy) }
+
 func (s *APISimpleSolver) open() error {
-	if s == nil || s.owner == nil || s.closed || s.owner.closed || s.owner.command == nil {
+	if s == nil || s.owner == nil || s.closed || s.last.closed || s.owner.closed || s.owner.command == nil {
 		return ErrSMTContextOwner
 	}
 	if s.solver == nil {
@@ -131,8 +143,21 @@ func (s *APISimpleSolver) Reset() error {
 	return s.dropSolver()
 }
 
+// Close is Z3_solver_dec_ref of the handle's reference: the handle is
+// unusable at once; the solver dies now, or when the context's last-object
+// reference to it is released.
 func (s *APISimpleSolver) Close() error {
-	if s == nil || s.closed {
+	if s == nil || s.closed || s.last.closed {
+		return nil
+	}
+	if !s.last.close() {
+		return nil
+	}
+	return s.destroy()
+}
+
+func (s *APISimpleSolver) destroy() error {
+	if s.closed {
 		return nil
 	}
 	if s.explicitReady {

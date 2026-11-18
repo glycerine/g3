@@ -12,6 +12,7 @@ type APITactic struct {
 	owner  *smtContextState
 	tactic tactic.Tactic
 	closed bool
+	last   apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func newAPITactic(owner *smtContextState, value tactic.Tactic) (*APITactic, error) {
@@ -27,13 +28,31 @@ func newAPITactic(owner *smtContextState, value tactic.Tactic) (*APITactic, erro
 }
 
 func (t *APITactic) open() error {
-	if t == nil || t.self != t || t.owner == nil || t.tactic == nil || t.closed || t.owner.closed || t.owner.command == nil {
+	if t == nil || t.self != t || t.owner == nil || t.tactic == nil || t.closed || t.owner.closed || t.owner.command == nil || t.last.closed {
 		return ErrSMTContextOwner
 	}
 	return nil
 }
 
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (t *APITactic) Close() error {
+	if t == nil || t.last.closed {
+		return nil
+	}
+	if t.self != t {
+		return ErrSMTContextOwner
+	}
+	if !t.last.close() {
+		return nil
+	}
+	return t.destroy()
+}
+
+func (t *APITactic) lastRelease() error { return t.last.release(t.destroy) }
+
+func (t *APITactic) destroy() error {
 	if t == nil || t.closed {
 		return nil
 	}
@@ -64,26 +83,26 @@ func (c *SMTContext) Tactic(name string) (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(c.smtContextState, value)
+	return c.saveTactic(newAPITactic(c.smtContextState, value))
 }
 
 func (c *SMTContext) SkipTactic() (*APITactic, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	return newAPITactic(c.smtContextState, tactic.NewSkipTactic())
+	return c.saveTactic(newAPITactic(c.smtContextState, tactic.NewSkipTactic()))
 }
 
 func (c *SMTContext) FailTactic() (*APITactic, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	return newAPITactic(c.smtContextState, tactic.NewFailTactic())
+	return c.saveTactic(newAPITactic(c.smtContextState, tactic.NewFailTactic()))
 }
 
 func (c *SMTContext) FailIfUndecidedTactic() (*APITactic, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	return newAPITactic(c.smtContextState, tactic.NewFailIfUndecidedTactic())
+	return c.saveTactic(newAPITactic(c.smtContextState, tactic.NewFailIfUndecidedTactic()))
 }

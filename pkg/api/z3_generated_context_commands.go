@@ -97,6 +97,9 @@ func replayCreateContextWithConfig(r *Z3Replayer, config *Config, userRef, repla
 	if err != nil {
 		return errors.Join(err, context.Close())
 	}
+	// The replayed api::context keeps m_last_obj in results; the Go API
+	// calls the replay makes must not hold a second last object.
+	context.lastObjectByResults = true
 	if r.contexts == nil {
 		r.contexts = make(map[uint64]*replayContextOwner)
 	}

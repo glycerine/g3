@@ -22,6 +22,10 @@ func (o *APIDatatypeConstructorObject) QueryFields(count uint32) (APIDatatypeCon
 	if err := o.open(); err != nil {
 		return APIDatatypeConstructorQuery{}, err
 	}
+	// Z3_query_constructor: reset_last_result.
+	if err := o.owner.resetLastResult(); err != nil {
+		return APIDatatypeConstructorQuery{}, err
+	}
 	if o.constructor.IsNull() {
 		return APIDatatypeConstructorQuery{}, ast.ErrASTDomain
 	}

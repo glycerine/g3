@@ -17,6 +17,7 @@ var ErrASTMapMissing = errors.New("api: AST map key is absent")
 type ASTMap struct {
 	owner  *apiContextResults
 	object *apiASTMapObject
+	last   apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 // NewASTMap constructs an empty context-local AST map.
@@ -43,18 +44,40 @@ func (c *SMTContext) NewASTMap() (result *ASTMap, resultErr error) {
 	if err = owner.saveObject(&object.object); err != nil {
 		return nil, err
 	}
-	return &ASTMap{owner: owner, object: object}, nil
+	result = &ASTMap{owner: owner, object: object}
+	if err = c.saveHeld(result, &result.last); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (m *ASTMap) check() error {
-	if m == nil || m.owner == nil || m.object == nil {
+	if m == nil || m.owner == nil || m.object == nil || m.last.closed {
 		return ast.ErrASTHandle
 	}
 	return m.object.check()
 }
 
 // Close releases every map-owned key and value reference.
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (m *ASTMap) Close() error {
+	if m == nil {
+		return ast.ErrASTHandle
+	}
+	if m.last.closed {
+		return nil
+	}
+	if !m.last.close() {
+		return nil
+	}
+	return m.destroy()
+}
+
+func (m *ASTMap) lastRelease() error { return m.last.release(m.destroy) }
+
+func (m *ASTMap) destroy() error {
 	if m == nil {
 		return ast.ErrASTHandle
 	}

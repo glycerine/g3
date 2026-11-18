@@ -14,6 +14,8 @@ func TestASTVectorOwnsElementsUntilClose(t *testing.T) {
 		t.Fatalf("vector references: got %d want %d", retained, base+2)
 	}
 	astTestMust(t, v.Close())
+	// m_last_obj holds the last object returned until it is replaced.
+	astTestMust(t, f.c.resetLastResult())
 	after, err := f.m.GetRefCount(a)
 	astTestMust(t, err)
 	if after != base {

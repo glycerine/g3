@@ -22,6 +22,7 @@ type APIModel struct {
 	owner  *smtContextState
 	core   *model.ModelCore
 	closed bool
+	last   apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func newAPIModel(owner *smtContextState, core *model.ModelCore, acquired bool) (*APIModel, error) {
@@ -49,7 +50,15 @@ func (c *SMTContext) NewAPIModel() (*APIModel, error) {
 	if err != nil {
 		return nil, errors.Join(err, derived.Close())
 	}
-	return result, nil
+	return result, c.saveModel(result)
+}
+
+// saveModel is save_object of a returned Z3_model_ref.
+func (c *smtContextState) saveModel(m *APIModel) error {
+	if err := c.saveHeld(m, &m.last); err != nil {
+		return err
+	}
+	return nil
 }
 
 // CurrentAPIModel acquires the latest solver model. It remains valid across
@@ -62,11 +71,15 @@ func (c *SMTContext) CurrentAPIModel() (*APIModel, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPIModel(c.smtContextState, core, true)
+	result, err := newAPIModel(c.smtContextState, core, true)
+	if err != nil {
+		return nil, err
+	}
+	return result, c.saveModel(result)
 }
 
 func (m *APIModel) open() error {
-	if m == nil || m.owner == nil || m.core == nil || m.closed || m.owner.closed {
+	if m == nil || m.owner == nil || m.core == nil || m.closed || m.owner.closed || m.last.closed {
 		return ErrSMTContextOwner
 	}
 	return m.core.Check()
@@ -79,7 +92,22 @@ func (m *APIModel) Manager() (*ast.ASTManager, error) {
 	return m.core.Manager(), nil
 }
 
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (m *APIModel) Close() error {
+	if m == nil || m.last.closed {
+		return nil
+	}
+	if !m.last.close() {
+		return nil
+	}
+	return m.destroy()
+}
+
+func (m *APIModel) lastRelease() error { return m.last.release(m.destroy) }
+
+func (m *APIModel) destroy() error {
 	if m == nil || m.closed {
 		return nil
 	}
@@ -182,6 +210,7 @@ type APIModelUniverse struct {
 	manager *ast.ASTManager
 	values  []ast.ASTRef
 	closed  bool
+	last    apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func (m *APIModel) Universe(sort ast.ASTHandle) (result *APIModelUniverse, err error) {
@@ -210,18 +239,21 @@ func (m *APIModel) Universe(sort ast.ASTHandle) (result *APIModelUniverse, err e
 		}
 		result.values = append(result.values, ref)
 	}
-	return result, nil
+	if err = m.owner.saveHeld(result, &result.last); err != nil {
+		result = nil
+	}
+	return result, err
 }
 
 func (u *APIModelUniverse) Size() uint32 {
-	if u == nil || u.closed {
+	if u == nil || u.closed || u.last.closed {
 		return 0
 	}
 	return uint32(len(u.values))
 }
 
 func (u *APIModelUniverse) At(index uint32) (ast.ASTHandle, error) {
-	if u == nil || u.manager == nil || u.closed {
+	if u == nil || u.manager == nil || u.closed || u.last.closed {
 		return ast.ASTHandle{}, ErrSMTContextOwner
 	}
 	if uint64(index) >= uint64(len(u.values)) {
@@ -230,7 +262,20 @@ func (u *APIModelUniverse) At(index uint32) (ast.ASTHandle, error) {
 	return u.manager.RefGet(u.values[index])
 }
 
-func (u *APIModelUniverse) Close() (result error) {
+// Close releases the handle's reference (api_last_object.go).
+func (u *APIModelUniverse) Close() error {
+	if u == nil || u.last.closed {
+		return nil
+	}
+	if !u.last.close() {
+		return nil
+	}
+	return u.destroy()
+}
+
+func (u *APIModelUniverse) lastRelease() error { return u.last.release(u.destroy) }
+
+func (u *APIModelUniverse) destroy() (result error) {
 	if u == nil || u.closed {
 		return nil
 	}
@@ -269,7 +314,7 @@ func (m *APIModel) Translate(target *SMTContext) (result *APIModel, err error) {
 	if err != nil {
 		return nil, errors.Join(err, translated.Close())
 	}
-	return result, nil
+	return result, target.saveModel(result)
 }
 
 // String implements Z3_model_to_string using the owning context's live print
@@ -330,9 +375,11 @@ func (c *SMTContext) AsArrayFunction(value ast.ASTHandle) (ast.ASTHandle, error)
 }
 
 type APIFunctionInterpretation struct {
+	owner    *smtContextState
 	model    *model.ModelCore
 	function *model.FunctionInterpretation
 	closed   bool
+	last     apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func newAPIFunctionInterpretation(core *model.ModelCore, function *model.FunctionInterpretation) (*APIFunctionInterpretation, error) {
@@ -353,7 +400,7 @@ func (m *APIModel) FunctionInterpretation(declaration ast.ASTHandle) (*APIFuncti
 	if err != nil {
 		return nil, err
 	}
-	return newAPIFunctionInterpretation(m.core, function)
+	return m.saveFunction(newAPIFunctionInterpretation(m.core, function))
 }
 
 func (m *APIModel) AddFunctionInterpretation(declaration, elseValue ast.ASTHandle) (*APIFunctionInterpretation, error) {
@@ -374,17 +421,44 @@ func (m *APIModel) AddFunctionInterpretation(declaration, elseValue ast.ASTHandl
 	if err = m.core.RegisterFunction(declaration, function); err != nil {
 		return nil, errors.Join(err, function.Close())
 	}
-	return newAPIFunctionInterpretation(m.core, function)
+	return m.saveFunction(newAPIFunctionInterpretation(m.core, function))
+}
+
+// saveFunction is save_object of a returned Z3_func_interp_ref.
+func (m *APIModel) saveFunction(f *APIFunctionInterpretation, err error) (*APIFunctionInterpretation, error) {
+	if err != nil {
+		return nil, err
+	}
+	f.owner = m.owner
+	if err = m.owner.saveHeld(f, &f.last); err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 func (f *APIFunctionInterpretation) open() error {
-	if f == nil || f.model == nil || f.function == nil || f.closed {
+	if f == nil || f.model == nil || f.function == nil || f.closed || f.last.closed {
 		return ErrSMTContextOwner
 	}
 	return f.model.Check()
 }
 
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (f *APIFunctionInterpretation) Close() error {
+	if f == nil || f.last.closed {
+		return nil
+	}
+	if !f.last.close() {
+		return nil
+	}
+	return f.destroy()
+}
+
+func (f *APIFunctionInterpretation) lastRelease() error { return f.last.release(f.destroy) }
+
+func (f *APIFunctionInterpretation) destroy() error {
 	if f == nil || f.closed {
 		return nil
 	}
@@ -439,6 +513,7 @@ type APIFunctionEntry struct {
 	function *model.FunctionInterpretation
 	entry    *model.FunctionEntry
 	closed   bool
+	last     apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func (f *APIFunctionInterpretation) Entry(index uint32) (*APIFunctionEntry, error) {
@@ -452,17 +527,38 @@ func (f *APIFunctionInterpretation) Entry(index uint32) (*APIFunctionEntry, erro
 	if err = f.model.IncRef(); err != nil {
 		return nil, err
 	}
-	return &APIFunctionEntry{model: f.model, function: f.function, entry: entry}, nil
+	result := &APIFunctionEntry{model: f.model, function: f.function, entry: entry}
+	if f.owner != nil {
+		if err = f.owner.saveHeld(result, &result.last); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 func (e *APIFunctionEntry) open() error {
-	if e == nil || e.model == nil || e.function == nil || e.entry == nil || e.closed {
+	if e == nil || e.model == nil || e.function == nil || e.entry == nil || e.closed || e.last.closed {
 		return ErrSMTContextOwner
 	}
 	return e.model.Check()
 }
 
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (e *APIFunctionEntry) Close() error {
+	if e == nil || e.last.closed {
+		return nil
+	}
+	if !e.last.close() {
+		return nil
+	}
+	return e.destroy()
+}
+
+func (e *APIFunctionEntry) lastRelease() error { return e.last.release(e.destroy) }
+
+func (e *APIFunctionEntry) destroy() error {
 	if e == nil || e.closed {
 		return nil
 	}

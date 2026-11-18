@@ -35,6 +35,10 @@ func (c *SMTContext) EnumerationSortWithSymbol(name usymbol.Symbol, elements []u
 	if err != nil {
 		return APIEnumerationSort{}, err
 	}
+	// reset_last_result releases m_last_obj.
+	if err = c.resetLastResult(); err != nil {
+		return APIEnumerationSort{}, err
+	}
 	constructors := make([]ast.DatatypeConstructorDefinition, len(elements))
 	for i, element := range elements {
 		spelling, err := m.Symbols.String(element)

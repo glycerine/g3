@@ -38,19 +38,25 @@ func (t *APITactic) apply(goal *APIGoal, params *uparams.ParamsContext, local *u
 	if err = working.IncRef(); err != nil {
 		return nil, errors.Join(err, working.Close())
 	}
+	// _tactic_apply saves its Z3_apply_result_ref before running the
+	// tactic; after a failure m_last_obj still holds it.
+	held := &APITacticResult{owner: t.owner, manager: goal.manager}
+	held.self = held
+	if err = t.owner.saveHeld(held, &held.last); err != nil {
+		return nil, errors.Join(err, working.DecRef())
+	}
 	native := &tactic.TacticResult{}
 	defer func() {
 		resultErr = errors.Join(resultErr, native.Close(), working.DecRef())
-		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, held.Close())
 			result = nil
 		}
 	}()
 	if err = t.execute(working, native, params, local); err != nil {
 		return nil, err
 	}
-	result = &APITacticResult{owner: t.owner, manager: goal.manager}
-	result.self = result
+	result = held
 	if native.ModelConverter != nil {
 		if err = native.ModelConverter.IncRef(); err != nil {
 			return result, err

@@ -18,6 +18,7 @@ type APIGoal struct {
 	goal            *tactic.Goal
 	closed          bool
 	shared, cleanup bool
+	last            apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func (c *SMTContext) NewGoal(models, unsatCores, proofs bool) (*APIGoal, error) {
@@ -34,17 +35,38 @@ func (c *SMTContext) NewGoal(models, unsatCores, proofs bool) (*APIGoal, error) 
 	}
 	result := &APIGoal{owner: c.smtContextState, manager: manager, goal: goal}
 	result.self = result
+	if err = c.saveHeld(result, &result.last); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
 func (g *APIGoal) open() error {
-	if g == nil || g.self != g || g.owner == nil || g.manager == nil || g.goal == nil || g.closed || g.owner.closed || g.owner.command == nil {
+	if g == nil || g.self != g || g.owner == nil || g.manager == nil || g.goal == nil || g.closed || g.owner.closed || g.owner.command == nil || g.last.closed {
 		return ErrSMTContextOwner
 	}
 	return g.goal.CheckOwner()
 }
 
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (g *APIGoal) Close() error {
+	if g == nil || g.last.closed {
+		return nil
+	}
+	if g.self != g {
+		return ErrSMTContextOwner
+	}
+	if !g.last.close() {
+		return nil
+	}
+	return g.destroy()
+}
+
+func (g *APIGoal) lastRelease() error { return g.last.release(g.destroy) }
+
+func (g *APIGoal) destroy() error {
 	if g == nil || g.closed {
 		return nil
 	}

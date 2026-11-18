@@ -51,7 +51,7 @@ func (s *APISimpleSolver) ParameterDescriptions() (result *ParameterDescriptions
 			}
 		}()
 	}
-	return s.collectDescriptions()
+	return s.owner.saveDescriptions(s.collectDescriptions())
 }
 
 // updateSolverParams is updt_params of the solver's current parameters

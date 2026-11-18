@@ -7,5 +7,5 @@ func (o *APIOptimize) ParameterDescriptions() (*ParameterDescriptions, error) {
 		return nil, err
 	}
 	context := &SMTContext{smtContextState: o.owner}
-	return context.ParameterDescriptions("opt")
+	return context.saveDescriptions(context.ParameterDescriptions("opt"))
 }

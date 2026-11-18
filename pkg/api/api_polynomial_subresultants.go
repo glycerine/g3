@@ -20,6 +20,9 @@ func (c *SMTContext) PolynomialSubresultants(left, right, variable ast.ASTHandle
 	}
 	defer func() { resultErr = errors.Join(resultErr, inputs.close()) }()
 	result = &APIPolynomialSubresultants{owner: c.smtContextState, manager: manager}
+	if err = c.saveHeld(result, &result.last); err != nil {
+		return nil, err
+	}
 	ownedResult := result
 	defer func() {
 		if resultErr != nil {

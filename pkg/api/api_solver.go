@@ -39,7 +39,12 @@ type smtContextState struct {
 	polyLimit      control.Reslimit
 	polynomial     *apiPolynomialManager
 	realClosure    *realclosure.APIValues
-	closed         bool
+	// lastObject is api::context::m_last_obj (api_last_object.go).
+	lastObject apiLastObject
+	// lastObjectByResults: an apiContextResults (the replay layer's
+	// api::context) keeps m_last_obj for this context.
+	lastObjectByResults bool
+	closed              bool
 }
 
 // NewSMTContext constructs an independent solver context with source defaults.
@@ -435,6 +440,10 @@ func (c *SMTContext) ResetAssertions() error {
 func (c *SMTContext) Close() error {
 	if c == nil || c.smtContextState == nil || c.closed {
 		return nil
+	}
+	// ~context: m_last_obj = nullptr comes first.
+	if err := c.releaseLastObject(); err != nil {
+		return err
 	}
 	if c.realClosure != nil {
 		if err := c.realClosure.Close(); err != nil {

@@ -24,5 +24,5 @@ func (c *SMTContext) NewSolverFromTactic(value *APITactic) (*APISimpleSolver, er
 		return command.NewSolverFromTactic(held)
 	})
 	s.release = held.DecRef
-	return s, nil
+	return c.saveSolver(s)
 }

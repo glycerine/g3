@@ -72,5 +72,5 @@ func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver
 	if err != nil {
 		return nil, err
 	}
-	return &APISimpleSolver{owner: target.smtContextState, solver: translated}, nil
+	return target.saveSolver(&APISimpleSolver{owner: target.smtContextState, solver: translated})
 }

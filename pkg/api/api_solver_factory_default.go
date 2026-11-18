@@ -10,7 +10,7 @@ func (c *SMTContext) NewSolver() (*APISimpleSolver, error) {
 		return nil, err
 	}
 	command := c.command
-	return newLazyAPISolver(c.smtContextState, func(logic string) (solver.Solver, error) {
+	return c.saveSolver(newLazyAPISolver(c.smtContextState, func(logic string) (solver.Solver, error) {
 		return command.NewStrategicSolver(logic, false)
-	}), nil
+	}))
 }

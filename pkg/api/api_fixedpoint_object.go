@@ -25,6 +25,7 @@ type APIFixedpoint struct {
 	hasLastExpression bool
 	hasLastRelations  bool
 	closed            bool
+	last              apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func (c *SMTContext) NewFixedpoint() (*APIFixedpoint, error) {
@@ -35,17 +36,36 @@ func (c *SMTContext) NewFixedpoint() (*APIFixedpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &APIFixedpoint{owner: c.smtContextState, command: command}, nil
+	result := &APIFixedpoint{owner: c.smtContextState, command: command}
+	if err = c.saveHeld(result, &result.last); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (f *APIFixedpoint) open() error {
-	if f == nil || f.owner == nil || f.command == nil || f.closed || f.owner.closed {
+	if f == nil || f.owner == nil || f.command == nil || f.closed || f.owner.closed || f.last.closed {
 		return ErrSMTContextOwner
 	}
 	return nil
 }
 
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (f *APIFixedpoint) Close() error {
+	if f == nil || f.last.closed {
+		return nil
+	}
+	if !f.last.close() {
+		return nil
+	}
+	return f.destroy()
+}
+
+func (f *APIFixedpoint) lastRelease() error { return f.last.release(f.destroy) }
+
+func (f *APIFixedpoint) destroy() error {
 	if f == nil || f.closed {
 		return nil
 	}

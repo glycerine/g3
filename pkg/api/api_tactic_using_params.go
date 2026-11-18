@@ -32,5 +32,5 @@ func (t *APITactic) UsingParameters(parameters *ParameterSet) (result *APITactic
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(t.owner, value)
+	return t.owner.saveTactic(newAPITactic(t.owner, value))
 }

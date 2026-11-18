@@ -11,5 +11,5 @@ func (o *APIOptimize) ObjectiveExpressions() ([]ast.ASTRef, error) {
 	if err := o.open(); err != nil {
 		return nil, err
 	}
-	return o.command.OptimizationObjectives()
+	return o.owner.saveVectorRefs(o.command.OptimizationObjectives)
 }

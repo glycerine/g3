@@ -244,6 +244,8 @@ func TestAPITacticResultOwnsProofConverterAndCore(t *testing.T) {
 		t.Fatal("result core lifetime", contains, err)
 	}
 	astTestMust(t, retained.Close())
+	// result was the last object returned: m_last_obj still holds it.
+	astTestMust(t, f.c.resetLastResult())
 	after, err := f.m.GetRefCount(label)
 	astTestMust(t, err)
 	if after != before {

@@ -58,7 +58,7 @@ func (left *APIProbe) Compare(kind APIProbeComparison, right *APIProbe) (*APIPro
 	if err != nil {
 		return nil, err
 	}
-	return newAPIProbe(owner, probe)
+	return owner.saveProbe(newAPIProbe(owner, probe))
 }
 
 func (left *APIProbe) And(right *APIProbe) (*APIProbe, error) {
@@ -80,7 +80,7 @@ func (left *APIProbe) logical(kind tactic.ProbeKind, right *APIProbe) (*APIProbe
 	if err != nil {
 		return nil, err
 	}
-	return newAPIProbe(owner, probe)
+	return owner.saveProbe(newAPIProbe(owner, probe))
 }
 
 func (p *APIProbe) Not() (*APIProbe, error) {
@@ -95,5 +95,5 @@ func (p *APIProbe) Not() (*APIProbe, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPIProbe(p.owner, probe)
+	return p.owner.saveProbe(newAPIProbe(p.owner, probe))
 }

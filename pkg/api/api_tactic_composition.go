@@ -29,7 +29,7 @@ func (first *APITactic) AndThen(second *APITactic) (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(owner, value)
+	return owner.saveTactic(newAPITactic(owner, value))
 }
 
 func (first *APITactic) OrElse(second *APITactic) (*APITactic, error) {
@@ -41,7 +41,7 @@ func (first *APITactic) OrElse(second *APITactic) (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(owner, value)
+	return owner.saveTactic(newAPITactic(owner, value))
 }
 
 func (t *APITactic) TryFor(milliseconds uint32) (*APITactic, error) {
@@ -52,7 +52,7 @@ func (t *APITactic) TryFor(milliseconds uint32) (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(t.owner, value)
+	return t.owner.saveTactic(newAPITactic(t.owner, value))
 }
 
 func (t *APITactic) Repeat(maximum uint32) (*APITactic, error) {
@@ -63,7 +63,7 @@ func (t *APITactic) Repeat(maximum uint32) (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(t.owner, value)
+	return t.owner.saveTactic(newAPITactic(t.owner, value))
 }
 
 func (t *APITactic) When(probe *APIProbe) (*APITactic, error) {
@@ -80,7 +80,7 @@ func (t *APITactic) When(probe *APIProbe) (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(t.owner, value)
+	return t.owner.saveTactic(newAPITactic(t.owner, value))
 }
 
 func (probe *APIProbe) Conditional(thenTactic, elseTactic *APITactic) (*APITactic, error) {
@@ -98,7 +98,7 @@ func (probe *APIProbe) Conditional(thenTactic, elseTactic *APITactic) (*APITacti
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(owner, value)
+	return owner.saveTactic(newAPITactic(owner, value))
 }
 
 func (probe *APIProbe) FailIf() (*APITactic, error) {
@@ -109,7 +109,7 @@ func (probe *APIProbe) FailIf() (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(probe.owner, value)
+	return probe.owner.saveTactic(newAPITactic(probe.owner, value))
 }
 
 func (t *APITactic) validateOwner(owner *smtContextState) error {

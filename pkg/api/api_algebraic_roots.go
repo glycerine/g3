@@ -63,6 +63,12 @@ func (c *SMTContext) AlgebraicRoots(expression ast.ASTHandle, assignments []ast.
 	if err != nil {
 		return nil, err
 	}
+	// Z3_algebraic_roots saves its vector before making the root numerals.
+	held := &apiLastVector{context: c.smtContextState}
+	held.hold.closed = true
+	if err = c.saveObject(held, &held.hold); err != nil {
+		return nil, err
+	}
 	result = make([]ast.ASTHandle, roots.Len())
 	for i := range result {
 		value, e := roots.Borrow(uint32(i))
@@ -73,6 +79,10 @@ func (c *SMTContext) AlgebraicRoots(expression ast.ASTHandle, assignments []ast.
 		if e != nil {
 			return nil, e
 		}
+		if e = manager.IncRef(result[i]); e != nil {
+			return nil, e
+		}
+		held.values = append(held.values, result[i])
 	}
 	return result, nil
 }

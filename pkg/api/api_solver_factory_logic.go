@@ -17,7 +17,7 @@ func (c *SMTContext) NewSolverForLogic(logic string) (*APISimpleSolver, error) {
 		return nil, fmt.Errorf("logic %q is not recognized", logic)
 	}
 	command := c.command
-	return newLazyAPISolver(c.smtContextState, func(string) (solver.Solver, error) {
+	return c.saveSolver(newLazyAPISolver(c.smtContextState, func(string) (solver.Solver, error) {
 		return command.NewStrategicSolver(logic, true)
-	}), nil
+	}))
 }

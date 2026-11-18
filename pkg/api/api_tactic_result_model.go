@@ -51,5 +51,12 @@ func (r *APITacticResult) ConvertModel(index uint32, source *APIModel) (result *
 	if err != nil || core == nil {
 		return nil, err
 	}
-	return newAPIModel(r.owner, core, false)
+	result, err = newAPIModel(r.owner, core, false)
+	if err != nil {
+		return nil, err
+	}
+	if err = r.owner.saveModel(result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

@@ -38,5 +38,8 @@ func (g *APIGoal) Translate(target *SMTContext) (result *APIGoal, resultErr erro
 	}
 	result = &APIGoal{owner: target.smtContextState, manager: targetManager, goal: translated}
 	result.self = result
+	if err = target.saveHeld(result, &result.last); err != nil {
+		return nil, err
+	}
 	return result, nil
 }

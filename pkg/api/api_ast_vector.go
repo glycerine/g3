@@ -13,6 +13,7 @@ import (
 type ASTVector struct {
 	owner  *apiContextResults
 	object *apiASTVectorObject
+	last   apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func (c *SMTContext) NewASTVector() (result *ASTVector, resultErr error) {
@@ -38,17 +39,39 @@ func (c *SMTContext) NewASTVector() (result *ASTVector, resultErr error) {
 	if err = owner.saveObject(&object.object); err != nil {
 		return nil, err
 	}
-	return &ASTVector{owner: owner, object: object}, nil
+	result = &ASTVector{owner: owner, object: object}
+	if err = c.saveHeld(result, &result.last); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (v *ASTVector) check() error {
-	if v == nil || v.owner == nil || v.object == nil {
+	if v == nil || v.owner == nil || v.object == nil || v.last.closed {
 		return ast.ErrASTHandle
 	}
 	return v.object.check()
 }
 
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (v *ASTVector) Close() error {
+	if v == nil {
+		return ast.ErrASTHandle
+	}
+	if v.last.closed {
+		return nil
+	}
+	if !v.last.close() {
+		return nil
+	}
+	return v.destroy()
+}
+
+func (v *ASTVector) lastRelease() error { return v.last.release(v.destroy) }
+
+func (v *ASTVector) destroy() error {
 	if v == nil {
 		return ast.ErrASTHandle
 	}

@@ -35,6 +35,10 @@ func (c *SMTContext) TupleSortWithSymbol(name usymbol.Symbol, fieldNames []usymb
 	if err != nil {
 		return APITupleSort{}, err
 	}
+	// reset_last_result releases m_last_obj.
+	if err = c.resetLastResult(); err != nil {
+		return APITupleSort{}, err
+	}
 	spelling, err := m.Symbols.String(name)
 	if err != nil {
 		return APITupleSort{}, err

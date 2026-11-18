@@ -9,7 +9,7 @@ func (f *APIFixedpoint) ParameterDescriptions() (*ParameterDescriptions, error) 
 	if err := f.open(); err != nil {
 		return nil, err
 	}
-	return (&SMTContext{smtContextState: f.owner}).ParameterDescriptions("fixedpoint")
+	return f.owner.saveDescriptions((&SMTContext{smtContextState: f.owner}).ParameterDescriptions("fixedpoint"))
 }
 
 // ParameterHelp renders the fixedpoint catalog in source parameter-help format.

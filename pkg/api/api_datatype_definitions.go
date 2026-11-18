@@ -85,6 +85,10 @@ func (c *SMTContext) DatatypeSortsWithSymbols(definitions []ast.DatatypeDefiniti
 	if err != nil {
 		return nil, err
 	}
+	// reset_last_result releases m_last_obj.
+	if err = c.resetLastResult(); err != nil {
+		return nil, err
+	}
 	if len(definitions) == 0 {
 		return nil, nil
 	}

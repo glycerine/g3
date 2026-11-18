@@ -11,14 +11,14 @@ func (f *APIFixedpoint) Assertions() ([]ast.ASTRef, error) {
 	if err := f.open(); err != nil {
 		return nil, err
 	}
-	return f.command.FixedpointAssertions()
+	return f.owner.saveVectorRefs(f.command.FixedpointAssertions)
 }
 
 func (f *APIFixedpoint) Rules() ([]ast.ASTRef, error) {
 	if err := f.open(); err != nil {
 		return nil, err
 	}
-	return f.command.FixedpointRules()
+	return f.owner.saveVectorRefs(f.command.FixedpointRules)
 }
 
 func (f *APIFixedpoint) Statistics() (statistics.Statistics, error) {
@@ -36,5 +36,5 @@ func (f *APIFixedpoint) StatisticsObject() (*APIStatistics, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPIStatistics(f.owner, value)
+	return f.owner.saveStatistics(newAPIStatistics(f.owner, value))
 }

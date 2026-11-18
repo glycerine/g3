@@ -16,5 +16,8 @@ func (o *APIOptimize) Model() (*APIModel, error) {
 	if err != nil {
 		return nil, errors.Join(err, core.DecRef())
 	}
+	if err = o.owner.saveModel(result); err != nil {
+		return nil, err
+	}
 	return result, nil
 }

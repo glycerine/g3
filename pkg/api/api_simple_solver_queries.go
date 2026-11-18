@@ -40,5 +40,12 @@ func (s *APISimpleSolver) Assertions() (result []ast.ASTRef, resultErr error) {
 		}
 		result = append(result, ref)
 	}
+	// Z3_solver_get_assertions saves its vector in m_last_obj.
+	if err = s.owner.saveVector(values); err != nil {
+		for i := range result {
+			err = errors.Join(err, manager.DelRef(&result[i]))
+		}
+		return nil, err
+	}
 	return result, nil
 }

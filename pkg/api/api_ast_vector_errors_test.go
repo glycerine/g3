@@ -29,6 +29,8 @@ func TestASTVectorBoundsAndForeignHandles(t *testing.T) {
 	if _, err = f.c.NewASTVectorValues(a, foreignSort); !errors.Is(err, ast.ErrASTHandle) {
 		t.Fatalf("foreign constructor value: %v", err)
 	}
+	// m_last_obj holds the last object returned until it is replaced.
+	astTestMust(t, f.c.resetLastResult())
 	after, err := f.m.GetRefCount(a)
 	astTestMust(t, err)
 	if after != base {

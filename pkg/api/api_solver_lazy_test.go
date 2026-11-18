@@ -105,6 +105,8 @@ func runSolverLazyMode(t *testing.T, mode int) string {
 		astTestMust(t, err)
 		astTestMust(t, s.Assert(parse(solverLazyBase)))
 		astTestMust(t, u.Assert(parse(solverLazyGoal)))
+		x := check(s)
+		fmt.Fprintf(&out, "%d %d\n", x, check(u))
 		a, err := s.ScopeLevel()
 		astTestMust(t, err)
 		b, err := u.ScopeLevel()
@@ -117,7 +119,7 @@ func runSolverLazyMode(t *testing.T, mode int) string {
 }
 
 func TestAPISolverLazyModesAnswer(t *testing.T) {
-	for mode, want := range []string{"-1\n1\n", "1\n1\n", "0 0\n", "ok\n", "1\n"} {
+	for mode, want := range []string{"-1\n1\n", "1\n1\n", "1 1\n0 0\n", "ok\n", "1\n"} {
 		if got := runSolverLazyMode(t, mode); got != want {
 			t.Fatalf("mode %d: %q, want %q (lazy.c against build/libz3)", mode, got, want)
 		}

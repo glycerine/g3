@@ -40,6 +40,13 @@ func (m *ASTMap) Keys() (result *ASTMapKeys, resultErr error) {
 		}
 		result.refs = append(result.refs, ref)
 	}
+	// Z3_ast_map_keys saves its vector in m_last_obj.
+	if m.owner.smt != nil {
+		if err = m.owner.smt.saveVector(handles); err != nil {
+			resultErr = err
+			return
+		}
+	}
 	return result, nil
 }
 

@@ -26,7 +26,7 @@ func (c *SMTContext) ParallelOr(children ...*APITactic) (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(c.smtContextState, value)
+	return c.saveTactic(newAPITactic(c.smtContextState, value))
 }
 
 func (first *APITactic) ParallelAndThen(second *APITactic) (*APITactic, error) {
@@ -38,5 +38,5 @@ func (first *APITactic) ParallelAndThen(second *APITactic) (*APITactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPITactic(owner, value)
+	return owner.saveTactic(newAPITactic(owner, value))
 }

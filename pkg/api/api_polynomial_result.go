@@ -15,10 +15,11 @@ type APIPolynomialSubresultants struct {
 	values  []ast.ASTRef
 	cursor  int
 	closed  bool
+	last    apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func (r *APIPolynomialSubresultants) open() error {
-	if r == nil || r.owner == nil || r.manager == nil || r.closed || r.owner.closed {
+	if r == nil || r.owner == nil || r.manager == nil || r.closed || r.owner.closed || r.last.closed {
 		return ErrSMTContextOwner
 	}
 	return nil
@@ -56,7 +57,22 @@ func (r *APIPolynomialSubresultants) Values() ([]ast.ASTHandle, error) {
 	return result, nil
 }
 
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
 func (r *APIPolynomialSubresultants) Close() error {
+	if r == nil || r.last.closed {
+		return nil
+	}
+	if !r.last.close() {
+		return nil
+	}
+	return r.destroy()
+}
+
+func (r *APIPolynomialSubresultants) lastRelease() error { return r.last.release(r.destroy) }
+
+func (r *APIPolynomialSubresultants) destroy() error {
 	if r == nil || r.closed {
 		return nil
 	}

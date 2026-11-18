@@ -26,7 +26,7 @@ func (c *SMTContext) StatisticsObject() (*APIStatistics, error) {
 		}
 	}
 	statistics.AddResourceLimit(&value, manager.ResourceLimit().Count())
-	return newAPIStatistics(c.smtContextState, value)
+	return c.saveStatistics(newAPIStatistics(c.smtContextState, value))
 }
 
 func (c *SMTContext) FixedpointStatisticsObject() (*APIStatistics, error) {
@@ -37,5 +37,5 @@ func (c *SMTContext) FixedpointStatisticsObject() (*APIStatistics, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPIStatistics(c.smtContextState, value)
+	return c.saveStatistics(newAPIStatistics(c.smtContextState, value))
 }

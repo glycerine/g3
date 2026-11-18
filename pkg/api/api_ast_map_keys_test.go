@@ -8,7 +8,7 @@ import (
 )
 
 func TestPublicASTMapKeysOwnIndependentRoots(t *testing.T) {
-	_, manager, mapping := newPublicASTMapFixture(t)
+	c, manager, mapping := newPublicASTMapFixture(t)
 	key := publicASTMapAtom(t, manager, "public-map-owned-key")
 	value := publicASTMapAtom(t, manager, "public-map-owned-value")
 	astTestMust(t, mapping.Insert(key, value))
@@ -33,6 +33,8 @@ func TestPublicASTMapKeysOwnIndependentRoots(t *testing.T) {
 		t.Fatal("key snapshot borrowed map root", err)
 	}
 	astTestMust(t, keys.Close())
+	// m_last_obj holds the last object returned until it is replaced.
+	astTestMust(t, c.resetLastResult())
 	if manager.IsLiveHandle(got) {
 		t.Fatal("key snapshot failed to release root")
 	}

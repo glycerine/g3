@@ -24,6 +24,9 @@ func (s *APISimpleSolver) Model() (*APIModel, error) {
 	if err != nil {
 		return nil, errors.Join(err, core.DecRef())
 	}
+	if err = s.owner.saveModel(result); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -67,6 +70,13 @@ func (s *APISimpleSolver) UnsatCore() (result []ast.ASTRef, resultErr error) {
 		}
 		result = append(result, ref)
 	}
+	// Z3_solver_get_unsat_core saves its vector in m_last_obj.
+	if err = s.owner.saveVector(values); err != nil {
+		for i := range result {
+			err = errors.Join(err, manager.DelRef(&result[i]))
+		}
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -90,5 +100,5 @@ func (s *APISimpleSolver) Statistics() (*APIStatistics, error) {
 		}
 	}
 	statistics.AddResourceLimit(&value, manager.ResourceLimit().Count())
-	return newAPIStatistics(s.owner, value)
+	return s.owner.saveStatistics(newAPIStatistics(s.owner, value))
 }

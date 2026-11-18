@@ -30,5 +30,9 @@ func (c *SMTContext) NamedProbe(name string) (result *APIProbe, resultErr error)
 		}
 	}()
 	result, resultErr = newAPIProbe(c.smtContextState, probe)
-	return result, resultErr
+	if resultErr != nil {
+		return nil, resultErr
+	}
+	// The probe owns its registration now; a failed save closes it.
+	return c.saveProbe(result, nil)
 }

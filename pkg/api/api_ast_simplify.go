@@ -53,7 +53,7 @@ func (c *SMTContext) SimplifyParameterDescriptions() (*ParameterDescriptions, er
 	if err = rewriter.TheoryRewriterParameterDescriptions(descriptions); err != nil {
 		return nil, errors.Join(err, descriptions.Close())
 	}
-	return &ParameterDescriptions{owner: c.smtContextState, value: descriptions, symbols: globals.Context.Symbols()}, nil
+	return c.saveDescriptions(&ParameterDescriptions{owner: c.smtContextState, value: descriptions, symbols: globals.Context.Symbols()}, nil)
 }
 
 // SimplifyHelp formats the source simplifier parameter descriptions.

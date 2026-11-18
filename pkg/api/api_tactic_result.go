@@ -21,16 +21,35 @@ type APITacticResult struct {
 	modelConverter tactic.ModelConverter
 	modelCleanup   bool
 	closed         bool
+	last           apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 func (r *APITacticResult) open() error {
-	if r == nil || r.self != r || r.owner == nil || r.manager == nil || r.closed || r.owner.closed || r.owner.command == nil {
+	if r == nil || r.self != r || r.owner == nil || r.manager == nil || r.closed || r.owner.closed || r.owner.command == nil || r.last.closed {
 		return ErrSMTContextOwner
 	}
 	return nil
 }
 
-func (r *APITacticResult) Close() (result error) {
+// Close releases the handle's reference: the handle is unusable at once;
+// the object dies now, or when the context's last-object reference to it
+// is released (api_last_object.go).
+func (r *APITacticResult) Close() error {
+	if r == nil || r.last.closed {
+		return nil
+	}
+	if r.self != r {
+		return ErrSMTContextOwner
+	}
+	if !r.last.close() {
+		return nil
+	}
+	return r.destroy()
+}
+
+func (r *APITacticResult) lastRelease() error { return r.last.release(r.destroy) }
+
+func (r *APITacticResult) destroy() (result error) {
 	if r == nil || r.closed {
 		return nil
 	}
@@ -116,6 +135,9 @@ func (r *APITacticResult) Subgoal(index uint32) (*APIGoal, error) {
 	}
 	result := &APIGoal{owner: r.owner, manager: r.manager, goal: goal, shared: true}
 	result.self = result
+	if err := r.owner.saveHeld(result, &result.last); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 

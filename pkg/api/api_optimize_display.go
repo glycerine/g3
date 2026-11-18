@@ -43,5 +43,5 @@ func (o *APIOptimize) StatisticsObject() (*APIStatistics, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAPIStatistics(o.owner, value)
+	return o.owner.saveStatistics(newAPIStatistics(o.owner, value))
 }

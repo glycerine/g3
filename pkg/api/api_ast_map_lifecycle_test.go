@@ -14,6 +14,8 @@ func TestPublicASTMapLifecycleAndOwnership(t *testing.T) {
 	astTestMust(t, mapping.Insert(key, value))
 	astTestMust(t, mapping.Close())
 	astTestMust(t, mapping.Close())
+	// m_last_obj holds the last object returned until it is replaced.
+	astTestMust(t, c.resetLastResult())
 	if _, err := mapping.Size(); !errors.Is(err, ast.ErrASTHandle) {
 		t.Fatal("closed map operation", err)
 	}

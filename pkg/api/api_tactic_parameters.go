@@ -30,5 +30,5 @@ func (t *APITactic) ParameterDescriptions() (result *ParameterDescriptions, resu
 	if err = t.tactic.CollectParamDescrs(value); err != nil {
 		return nil, err
 	}
-	return &ParameterDescriptions{owner: t.owner, value: value, symbols: globals.Context.Symbols()}, nil
+	return t.owner.saveDescriptions(&ParameterDescriptions{owner: t.owner, value: value, symbols: globals.Context.Symbols()}, nil)
 }

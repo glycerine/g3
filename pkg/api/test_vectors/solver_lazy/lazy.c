@@ -4,7 +4,9 @@
 //   0: mk_solver, parse, set_params, push/assert/check/pop, check
 //   1: mk_solver, get_param_descrs (built and dropped), parse, assert,
 //      check, reset, assert, check
-//   2: mk_solver_for_logic and mk_simple_solver, each parse/assert/num_scopes
+//   2: mk_solver_for_logic and mk_simple_solver, each parse/assert, check
+//      s, check t, num_scopes; t is m_last_obj, so its dec_ref leaves it
+//      alive (with its smt context) until the context dies
 //   3: parse a text with an unused declaration twice (the parse's
 //      cmd_context frees it each time)
 //   4: mk_solver_for_logic(UFLIA), parse/assert, check (the tactic
@@ -78,6 +80,10 @@ int main(int argc, char** argv) {
     Z3_solver_inc_ref(c, t);
     Z3_solver_assert(c, s, parse(base));
     Z3_solver_assert(c, t, parse(goal));
+    // Sequenced: GCC evaluates printf's arguments right to left.
+    int rs = Z3_solver_check(c, s);
+    int rt = Z3_solver_check(c, t);
+    printf("%d %d\n", rs, rt);
     printf("%u %u\n", Z3_solver_get_num_scopes(c, s), Z3_solver_get_num_scopes(c, t));
     Z3_solver_dec_ref(c, t);
     Z3_solver_dec_ref(c, s);

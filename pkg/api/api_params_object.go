@@ -8,6 +8,8 @@ package api
 // Close is the source final dec_ref.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/arena"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -44,7 +46,12 @@ func (c *SMTContext) NewParameterSet() (*ParameterSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ParameterSet{owner: c.smtContextState, params: globals.Context, value: value}, nil
+	result := &ParameterSet{owner: c.smtContextState, params: globals.Context, value: value}
+	// Z3_mk_params: save_object (a params_ref holds no AST).
+	if err = c.saveObject(nil, nil); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	return result, nil
 }
 
 func (p *ParameterSet) open() error {
