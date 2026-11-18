@@ -4641,3 +4641,47 @@ void tst_z3_4_7_1_proof_checker_rejects() {
     std::cout << "proof_checker_rejects: true-axiom " << true_ok << " farkas symbol " << farkas_ok << "\n";
     ENSURE(true_ok && !farkas_ok);
 }
+
+// FORK FIX #130: ll_escaped (z3_logger.h) computes the three escape
+// digits from a plain char, which is signed on x86-64, so byte 0xC3 (-61)
+// was logged as "\0*/", which z3's own replayer rejects with "invalid
+// scaped character". The fork takes the digits from the unsigned byte
+// ("\195"), so the log replays.
+void tst_z3_4_7_1_log_escape_high_byte() {
+    char const* log_name = "z3_4_7_1_log_escape_high_byte.log";
+    ENSURE(Z3_open_log(log_name));
+    {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a\xc3" "b"), Z3_mk_bool_sort(ctx));
+        Z3_del_context(ctx);
+    }
+    Z3_close_log();
+    std::string text;
+    {
+        std::ifstream in(log_name);
+        std::stringstream buffer;
+        buffer << in.rdbuf();
+        text = buffer.str();
+    }
+    std::ostringstream out;
+    {
+        std::ifstream in(log_name);
+        z3_replayer r(in);
+        register_z3_replayer_cmds(r);
+        std::streambuf* saved = std::cout.rdbuf(out.rdbuf());
+        try {
+            r.parse();
+        }
+        catch (z3_exception & ex) {
+            out << "replay error: " << ex.msg() << "\n";
+        }
+        std::cout.rdbuf(saved);
+    }
+    std::remove(log_name);
+    std::cout << "log_escape_high_byte: escaped " << (text.find("a\\195b") != std::string::npos)
+              << " replay output: " << out.str() << "\n";
+    ENSURE(text.find("a\\195b") != std::string::npos);
+    ENSURE(out.str().empty());
+}

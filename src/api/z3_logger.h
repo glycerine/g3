@@ -59,12 +59,16 @@ static std::ostream & operator<<(std::ostream & out, ll_escaped const & d) {
             out << c;
         }
         else {
+            // FORK FIX #130 (g3 audit, see FORK_BUGFIXES.md): take the digits
+            // from the unsigned byte; a negative (signed) char gave "\0*/",
+            // which the replayer rejects.
+            unsigned char u = static_cast<unsigned char>(c);
             char str[4] = {'0', '0', '0', 0};
-            str[2] = '0' + (c % 10);
-            c /= 10;
-            str[1] = '0' + (c % 10);
-            c /= 10;
-            str[0] = '0' + c;
+            str[2] = '0' + (u % 10);
+            u /= 10;
+            str[1] = '0' + (u % 10);
+            u /= 10;
+            str[0] = '0' + u;
             out << '\\' << str;
         }
         s++;
