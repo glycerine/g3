@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 
@@ -189,5 +190,31 @@ func TestSplitClauseContextTranslationPreservesPolicy(t *testing.T) {
 	simplifyMust(t, copy.Apply(goal, &result))
 	if len(result.Goals) != 3 {
 		t.Fatalf("largest clause produced %d branches", len(result.Goals))
+	}
+}
+
+// split_pc does not override converter::display, so displaying it writes
+// nothing (AUDIT tactic_core_02-F10).
+func TestSplitClauseProofConverterDisplayIsEmpty(t *testing.T) {
+	m, context, _ := simplifyFixture(t)
+	simplifyMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	a := splitClauseAtom(t, m, "split-display-a")
+	b := splitClauseAtom(t, m, "split-display-b")
+	goal, _ := splitClauseGoal(t, m, true, []ast.ASTHandle{a, b})
+	t.Cleanup(func() { simplifyMust(t, goal.Close()) })
+	runner, err := NewSplitClauseTactic(m, context, nil)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	var result tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, result.Close()) })
+	simplifyMust(t, runner.Apply(goal, &result))
+	pc, ok := result.ProofConverter.(*splitClauseProofConverter)
+	if !ok {
+		t.Fatalf("proof converter %T", result.ProofConverter)
+	}
+	var out bytes.Buffer
+	simplifyMust(t, pc.Display(&out))
+	if out.Len() != 0 {
+		t.Fatalf("split_pc display wrote %q", out.String())
 	}
 }

@@ -1209,5 +1209,5 @@ func (t *TseitinCNFTactic) applyImp(goal *tactic.Goal, result *tactic.TacticResu
 	if e = result.AddGoal(goal); e != nil {
 		return e
 	}
-	return nil
+	return coreTraceGoal("tseitin_cnf", "src/tactic/core/tseitin_cnf_tactic.cpp", 851, goal)
 }

@@ -4,7 +4,6 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
 	"reflect"
@@ -218,6 +217,9 @@ func (t *SplitClauseTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (
 	}
 	if report != nil {
 		defer func() { resultErr = errors.Join(resultErr, report.Close()) }()
+	}
+	if err = coreTraceGoal("before_split_clause", "src/tactic/core/split_clause_tactic.cpp", 113, goal); err != nil {
+		return err
 	}
 	position, found, err := t.selectClause(goal)
 	if err != nil {
@@ -457,26 +459,10 @@ func (c *splitClauseProofConverter) Translate(translation *ast.ASTTranslation) (
 
 func (c *splitClauseProofConverter) Cancel() error { return c.open() }
 
+// Display is converter::display: split_pc does not override it, so it
+// writes nothing.
 func (c *splitClauseProofConverter) Display(out io.Writer) error {
-	if err := c.open(); err != nil {
-		return err
-	}
-	clause, err := c.manager.RefGet(c.clause)
-	if err != nil {
-		return err
-	}
-	printer, err := ast.NewLegacySMTPrinter(c.manager)
-	if err != nil {
-		return err
-	}
-	if _, err = fmt.Fprint(out, "(split-clause "); err != nil {
-		return err
-	}
-	if err = printer.DisplayExpr(out, clause, nil); err != nil {
-		return err
-	}
-	_, err = fmt.Fprint(out, ")")
-	return err
+	return c.open()
 }
 
 func (c *splitClauseProofConverter) Close() (result error) {
