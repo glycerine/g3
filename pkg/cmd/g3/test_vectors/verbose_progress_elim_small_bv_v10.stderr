@@ -1,0 +1,4 @@
+(:elim-small-bv-num-eliminated 5)
+(elim-small-bv :num-exprs 54 :num-asts 242)
+(:elim-small-bv-num-eliminated 2)
+(elim-small-bv :num-exprs 26 :num-asts 197)

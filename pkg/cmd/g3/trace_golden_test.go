@@ -179,6 +179,14 @@ var goldenTraceSites = map[string]bool{
 	"qe process_partition src/qe/qe.cpp":                        true,
 	"qe find_min_weight src/qe/qe.cpp":                          true,
 	"qe solve_vars src/qe/qe.cpp":                               true,
+	// elim-small-bv's rw_cfg (compare with G3_GOLDEN_TAGS=elim_small_bv,
+	// elim_small_bv_app,elim_small_bv_pre G3_GOLDEN_VECTORS=
+	// verbose_progress_elim_small_bv).
+	"elim_small_bv pre_visit src/tactic/bv/elim_small_bv_tactic.cpp":         true,
+	"elim_small_bv replace_var src/tactic/bv/elim_small_bv_tactic.cpp":       true,
+	"elim_small_bv reduce_quantifier src/tactic/bv/elim_small_bv_tactic.cpp": true,
+	"elim_small_bv_app reduce_app src/tactic/bv/elim_small_bv_tactic.cpp":    true,
+	"elim_small_bv_pre pre_visit src/tactic/bv/elim_small_bv_tactic.cpp":     true,
 }
 
 // goldenPointerMaskedSites print search_tree node addresses ("node 0x...");

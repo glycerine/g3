@@ -51,6 +51,9 @@ var verboseProgressCases = []verboseProgressCase{
 	// (smt.configuring), (smt.collecting-features), (smt.searching),
 	// (smt.final-check ...), the level-11 model dump.
 	{"arith", "arith", []string{"-v:100"}},
+	// elim-small-bv's tactic_report :num-asts counts the ASTs alive while
+	// the tactic's rewriter caches still hold them.
+	{"elim_small_bv_v10", "elim_small_bv", []string{"-v:10"}},
 	{"arith_v11", "arith", []string{"-v:11"}},
 	// final-check per theory, (smt.mbqi) after the proto model dump, the
 	// MBQI auxiliary context's own setup/timeit lines.
