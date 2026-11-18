@@ -176,3 +176,68 @@ func TestExprPatternMatcherAssociativeCommutativeBacktracking(t *testing.T) {
 	}
 	patternMust(t, m.DelRef(&patterns[0]))
 }
+
+// expr_pattern_match::instantiate walks the template with for_each_ast,
+// whose LIFO stack instantiates the last argument first: (f (g x0) (h x1))
+// builds (h b) before (g a).
+func TestExprPatternMatcherInstantiatesLastArgumentFirst(t *testing.T) {
+	m := patternManager(t)
+	b, err := m.MkBoolSort()
+	patternMust(t, err)
+	decl := func(name string, arity int) ast.ASTHandle {
+		t.Helper()
+		s, e := m.Symbols.Intern(name)
+		patternMust(t, e)
+		domain := make([]ast.ASTHandle, arity)
+		for i := range domain {
+			domain[i] = b
+		}
+		d, e := m.MkFuncDecl(s, domain, b, ast.ASTFuncDeclInfo{})
+		patternMust(t, e)
+		patternMust(t, m.IncRef(d))
+		t.Cleanup(func() { patternMust(t, m.DecRef(d)) })
+		return d
+	}
+	f, g, h := decl("order-f", 2), decl("order-g", 1), decl("order-h", 1)
+	constant := func(name string) ast.ASTHandle {
+		t.Helper()
+		s, e := m.Symbols.Intern(name)
+		patternMust(t, e)
+		c, e := m.MkConst(s, b)
+		patternMust(t, e)
+		patternMust(t, m.IncRef(c))
+		t.Cleanup(func() { patternMust(t, m.DecRef(c)) })
+		return c
+	}
+	a, c := constant("order-a"), constant("order-c")
+	x0, err := m.MkVar(0, b)
+	patternMust(t, err)
+	x1, err := m.MkVar(1, b)
+	patternMust(t, err)
+	gx, err := m.MkApp(g, []ast.ASTHandle{x0})
+	patternMust(t, err)
+	hx, err := m.MkApp(h, []ast.ASTHandle{x1})
+	patternMust(t, err)
+	template, err := m.MkApp(f, []ast.ASTHandle{gx, hx})
+	patternMust(t, err)
+	patternMust(t, m.IncRef(template))
+	t.Cleanup(func() { patternMust(t, m.DecRef(template)) })
+	matcher, err := newExprPatternMatcher(m)
+	patternMust(t, err)
+	t.Cleanup(func() { patternMust(t, matcher.Close()) })
+	result, err := matcher.instantiate(template, map[ast.ASTHandle]uint32{}, map[ast.ASTHandle]ast.ASTHandle{x0: a, x1: c}, map[ast.ASTHandle]ast.ASTHandle{})
+	patternMust(t, err)
+	patternMust(t, m.IncRef(result))
+	t.Cleanup(func() { patternMust(t, m.DecRef(result)) })
+	ga, err := m.GetArg(result, 0)
+	patternMust(t, err)
+	hc, err := m.GetArg(result, 1)
+	patternMust(t, err)
+	gID, err := m.GetASTID(ga)
+	patternMust(t, err)
+	hID, err := m.GetASTID(hc)
+	patternMust(t, err)
+	if hID >= gID {
+		t.Fatal("the last argument must be instantiated first", hID, gID)
+	}
+}

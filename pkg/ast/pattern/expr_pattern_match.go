@@ -499,12 +499,14 @@ func (p *exprPatternMatcher) instantiate(h ast.ASTHandle, substitution map[ast.A
 			return ast.ASTHandle{}, err
 		}
 		args := make([]ast.ASTHandle, n)
-		for i := uint32(0); i < n; i++ {
-			child, e := p.manager.GetArg(h, i)
+		// for_each_ast pushes the arguments 0..n-1 on a LIFO stack, so the
+		// last argument's subtree is instantiated first.
+		for i := n; i > 0; i-- {
+			child, e := p.manager.GetArg(h, i-1)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			args[i], e = p.instantiate(child, substitution, bound, memo)
+			args[i-1], e = p.instantiate(child, substitution, bound, memo)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
