@@ -383,7 +383,10 @@ func DefaultGetConsequences(s Solver, assumptions, variables []ast.ASTHandle, fa
 			status, e = s.CheckSat(assumptions)
 		}
 		if e == nil && status == lbool.False {
-			core, e := s.UnsatCore()
+			// get_consequences_core: an exception here propagates; keep
+			// e the outer error so the Join below returns it.
+			var core []ast.ASTHandle
+			core, e = s.UnsatCore()
 			if e == nil {
 				var consequence ast.ASTHandle
 				consequence, e = appendConsequence(manager, core, literal)
