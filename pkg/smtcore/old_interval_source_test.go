@@ -3,12 +3,11 @@ package smtcore
 // Source: src/smt/old_interval.cpp:20-151; src/test/old_interval.cpp:20-115.
 
 import (
-	"math/big"
 	"testing"
 )
 
 func TestSMTOldIntervalRegisteredExtendedNumeralAssertions(t *testing.T) {
-	finite := func(n int64) smtExtendedRational { return smtFiniteExtended(big.NewRat(n, 1)) }
+	finite := func(n int64) smtExtendedRational { return oiFinite(n, 1) }
 	positiveInfinity := smtInfiniteExtended(true)
 	negativeInfinity := smtInfiniteExtended(false)
 	zero := finite(0)
@@ -54,18 +53,18 @@ func TestSMTOldIntervalRegisteredExtendedNumeralAssertions(t *testing.T) {
 		{"multiply minus negative", negativeInfinity, finite(-10), positiveInfinity},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.left.clone()
+			got := oiCloneExt(tc.left)
 			var err error
 			switch tc.name[:3] {
 			case "add":
-				err = got.add(&tc.right)
+				err = got.add(testQ(), &tc.right)
 			case "sub":
-				err = got.sub(&tc.right)
+				err = got.sub(testQ(), &tc.right)
 			case "mul":
-				got.mul(&tc.right)
+				err = got.mul(testQ(), &tc.right)
 			}
-			if err != nil || !got.equal(&tc.want) {
-				t.Fatalf("result=%s want=%s err=%v", &got, &tc.want, err)
+			if err != nil || !got.testEqual(&tc.want) {
+				t.Fatalf("result=%s want=%s err=%v", got.testString(), tc.want.testString(), err)
 			}
 		})
 	}
@@ -75,33 +74,33 @@ func TestSMTOldIntervalRegisteredExtendedNumeralAssertions(t *testing.T) {
 	ordered := []smtExtendedRational{negativeInfinity, finite(-10), finite(-3), zero, finite(2), finite(4), finite(10), finite(30), positiveInfinity}
 	for i, left := range ordered {
 		for j, right := range ordered {
-			got := left.cmp(&right)
+			got := left.testCmp(&right)
 			want := 0
 			if i < j {
 				want = -1
 			} else if i > j {
 				want = 1
 			}
-			if got != want || left.equal(&right) != (i == j) {
-				t.Fatalf("source ordering %s vs %s: cmp=%d want=%d", &left, &right, got, want)
+			if got != want || left.testEqual(&right) != (i == j) {
+				t.Fatalf("source ordering %s vs %s: cmp=%d want=%d", left.testString(), right.testString(), got, want)
 			}
 		}
 	}
 
 	value := finite(10)
-	value.neg()
+	value.neg(testQ())
 	wantNegativeTen := finite(-10)
-	if !value.equal(&wantNegativeTen) {
-		t.Fatal("finite negation", &value)
+	if !value.testEqual(&wantNegativeTen) {
+		t.Fatal("finite negation", value.testString())
 	}
-	value = positiveInfinity.clone()
-	value.neg()
-	if !value.equal(&negativeInfinity) {
-		t.Fatal("positive infinity negation", &value)
+	value = oiCloneExt(positiveInfinity)
+	value.neg(testQ())
+	if !value.testEqual(&negativeInfinity) {
+		t.Fatal("positive infinity negation", value.testString())
 	}
-	value.neg()
-	if !value.equal(&positiveInfinity) {
-		t.Fatal("negative infinity negation", &value)
+	value.neg(testQ())
+	if !value.testEqual(&positiveInfinity) {
+		t.Fatal("negative infinity negation", value.testString())
 	}
 	negativeTen, positiveTen := finite(-10), finite(10)
 	if negativeInfinity.sign() >= 0 || zero.sign() != 0 || positiveInfinity.sign() <= 0 || negativeTen.sign() >= 0 || positiveTen.sign() <= 0 {
@@ -115,11 +114,11 @@ func TestSMTOldIntervalRegisteredExtendedNumeralAssertions(t *testing.T) {
 func TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic(t *testing.T) {
 	var manager smtArithmeticBoundDependencyManager
 	makeInterval := func(lower, upper int64, lowerOpen, upperOpen bool) *smtOldInterval {
-		result, err := newSMTOldIntervalBounds(&manager, big.NewRat(lower, 1), lowerOpen, nil, big.NewRat(upper, 1), upperOpen, nil)
+		result, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(lower), lowerOpen, nil, oiR(upper), upperOpen, nil)
 		astTestMust(t, err)
 		return result
 	}
-	all, err := newSMTOldInterval(&manager)
+	all, err := newSMTOldInterval(&manager, testQ())
 	astTestMust(t, err)
 	fixtures := []struct {
 		name   string
@@ -130,19 +129,19 @@ func TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic(t *testing.T) {
 		{"singleton", makeInterval(10, 10, false, false), false, "[10, 10]"},
 		{"all", all, false, "(-oo, oo)"},
 		{"lower", func() *smtOldInterval {
-			x, _ := newSMTOldIntervalHalfBound(&manager, big.NewRat(-10, 1), false, true, nil)
+			x, _ := newSMTOldIntervalHalfBound(&manager, testQ(), oiR(-10), false, true, nil)
 			return x
 		}(), false, "[-10, oo)"},
 		{"upper", func() *smtOldInterval {
-			x, _ := newSMTOldIntervalHalfBound(&manager, big.NewRat(10, 1), false, false, nil)
+			x, _ := newSMTOldIntervalHalfBound(&manager, testQ(), oiR(10), false, false, nil)
 			return x
 		}(), false, "(-oo, 10]"},
 		{"lower open", func() *smtOldInterval {
-			x, _ := newSMTOldIntervalHalfBound(&manager, big.NewRat(-10, 1), true, true, nil)
+			x, _ := newSMTOldIntervalHalfBound(&manager, testQ(), oiR(-10), true, true, nil)
 			return x
 		}(), false, "(-10, oo)"},
 		{"upper open", func() *smtOldInterval {
-			x, _ := newSMTOldIntervalHalfBound(&manager, big.NewRat(10, 1), true, false, nil)
+			x, _ := newSMTOldIntervalHalfBound(&manager, testQ(), oiR(10), true, false, nil)
 			return x
 		}(), false, "(-oo, 10)"},
 		{"bounded", makeInterval(2, 10, false, false), false, "[2, 10]"},
@@ -154,7 +153,7 @@ func TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic(t *testing.T) {
 	}
 	for _, fixture := range fixtures {
 		t.Run(fixture.name, func(t *testing.T) {
-			value := fixture.value.clone()
+			value := oiClone(fixture.value)
 			if fixture.square {
 				value.power(2)
 			}
@@ -167,7 +166,7 @@ func TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic(t *testing.T) {
 	// interval_tester::bugs() reproduces the source's zero-times-unbounded
 	// sign case, then the registered driver exercises each multiply/divide path.
 	bug := func() *smtOldInterval {
-		left, err := newSMTOldIntervalHalfBound(&manager, big.NewRat(0, 1), false, true, nil)
+		left, err := newSMTOldIntervalHalfBound(&manager, testQ(), oiR(0), false, true, nil)
 		astTestMust(t, err)
 		right := makeInterval(-1, 0, false, false)
 		astTestMust(t, left.mul(right))
@@ -185,11 +184,11 @@ func TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic(t *testing.T) {
 	}{
 		{"dependency product", makeInterval(-5, 5, true, false), makeInterval(-5, 5, false, true), false, "[-25, 25)"},
 		{"bounded over positive halfline", makeInterval(2, 10, false, false), func() *smtOldInterval {
-			x, _ := newSMTOldIntervalHalfBound(&manager, big.NewRat(10, 1), false, true, nil)
+			x, _ := newSMTOldIntervalHalfBound(&manager, testQ(), oiR(10), false, true, nil)
 			return x
 		}(), true, "(0, 1]"},
 		{"positive halfline division", func() *smtOldInterval {
-			x, _ := newSMTOldIntervalHalfBound(&manager, big.NewRat(2, 1), false, true, nil)
+			x, _ := newSMTOldIntervalHalfBound(&manager, testQ(), oiR(2), false, true, nil)
 			return x
 		}(), makeInterval(2, 6, false, false), true, "[1/3, oo)"},
 		{"negative interval product", makeInterval(-2, -1, false, true), makeInterval(-3, 0, false, false), false, "[0, 6]"},
@@ -198,14 +197,14 @@ func TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic(t *testing.T) {
 		{"division by open-zero interval", makeInterval(10, 20, false, false), makeInterval(0, 1, true, false), true, "[10, oo)"},
 		{"division by wider open-zero interval", makeInterval(10, 20, false, false), makeInterval(0, 2, true, false), true, "[5, oo)"},
 	}
-	positiveHalfline, _ := newSMTOldIntervalHalfBound(&manager, big.NewRat(10, 1), false, true, nil)
+	positiveHalfline, _ := newSMTOldIntervalHalfBound(&manager, testQ(), oiR(10), false, true, nil)
 	astTestMust(t, positiveHalfline.inverse())
 	if got := positiveHalfline.String(); got != "(0, 1/10]" {
 		t.Fatal("source l(10).inv()", got)
 	}
 	for _, check := range checks {
 		t.Run(check.name, func(t *testing.T) {
-			result := check.left.clone()
+			result := oiClone(check.left)
 			if check.divide {
 				astTestMust(t, result.div(check.right))
 			} else {

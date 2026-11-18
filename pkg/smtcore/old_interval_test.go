@@ -1,7 +1,6 @@
 package smtcore
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -9,16 +8,16 @@ func TestSMTOldIntervalCloneOwnsRationalEndpoints(t *testing.T) {
 	var manager smtArithmeticBoundDependencyManager
 	lower := &smtArithmeticBound{variable: 1}
 	upper := &smtArithmeticBound{variable: 2}
-	original, err := newSMTOldIntervalBounds(&manager, big.NewRat(2, 3), false, manager.Leaf(lower), big.NewRat(7, 5), true, manager.Leaf(upper))
+	original, err := newSMTOldIntervalBounds(&manager, testQ(), oiRat(2, 3), false, manager.Leaf(lower), oiRat(7, 5), true, manager.Leaf(upper))
 	astTestMust(t, err)
 	// Exercise intervals produced by arithmetic, whose big.Rat endpoints
 	// can retain spare limb capacity, rather than only fresh numerals.
-	unit, err := newSMTOldIntervalPoint(&manager, big.NewRat(1, 1), nil, nil)
+	unit, err := newSMTOldIntervalPoint(&manager, testQ(), oiR(1), nil, nil)
 	astTestMust(t, err)
 	astTestMust(t, original.add(unit))
 	astTestMust(t, original.sub(unit))
-	copy := original.clone()
-	point, err := newSMTOldIntervalPoint(&manager, big.NewRat(11, 13), nil, nil)
+	copy := oiClone(original)
+	point, err := newSMTOldIntervalPoint(&manager, testQ(), oiRat(11, 13), nil, nil)
 	astTestMust(t, err)
 	astTestMust(t, copy.add(point))
 	if original.String() != "[2/3, 7/5)" || original.lowerDep != copy.lowerDep || original.upperDep != copy.upperDep {
@@ -29,8 +28,8 @@ func TestSMTOldIntervalCloneOwnsRationalEndpoints(t *testing.T) {
 	}
 	// Mutations must be independent in both directions, while explanation
 	// nodes stay shared immutable leaves owned by the dependency manager.
-	original.lower.value.SetInt64(17)
-	original.upper.value.SetInt64(19)
+	astTestMust(t, testQ().SetInt64(&original.lower.value, 17))
+	astTestMust(t, testQ().SetInt64(&original.upper.value, 19))
 	if copy.String() != "[59/39, 146/65)" || !manager.Contains(copy.lowerDep, lower) || !manager.Contains(copy.upperDep, upper) {
 		t.Fatal("source mutation changed copied interval or premises", copy)
 	}
@@ -39,18 +38,18 @@ func TestSMTOldIntervalCloneOwnsRationalEndpoints(t *testing.T) {
 func TestSMTOldIntervalAddSubtractContainsAndDependencies(t *testing.T) {
 	var manager smtArithmeticBoundDependencyManager
 	a, b := &smtArithmeticBound{variable: 1}, &smtArithmeticBound{variable: 2}
-	left, err := newSMTOldIntervalBounds(&manager, big.NewRat(-1, 1), false, manager.Leaf(a), big.NewRat(2, 1), true, manager.Leaf(b))
+	left, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(-1), false, manager.Leaf(a), oiR(2), true, manager.Leaf(b))
 	if err != nil {
 		t.Fatal(err)
 	}
-	right, err := newSMTOldIntervalPoint(&manager, big.NewRat(3, 1), nil, nil)
+	right, err := newSMTOldIntervalPoint(&manager, testQ(), oiR(3), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = left.add(right); err != nil || left.String() != "[2, 5)" {
 		t.Fatalf("addition = %s, %v", left, err)
 	}
-	if !left.contains(big.NewRat(2, 1)) || left.contains(big.NewRat(5, 1)) || left.containsZero() {
+	if !left.testContains(oiR(2)) || left.testContains(oiR(5)) || left.containsZero() {
 		t.Fatal("containment after addition")
 	}
 	if !manager.Contains(left.lowerDep, a) || !manager.Contains(left.upperDep, b) {
@@ -63,14 +62,14 @@ func TestSMTOldIntervalAddSubtractContainsAndDependencies(t *testing.T) {
 
 func TestSMTOldIntervalInverseAndPower(t *testing.T) {
 	var manager smtArithmeticBoundDependencyManager
-	positive, err := newSMTOldIntervalBounds(&manager, big.NewRat(0, 1), true, nil, big.NewRat(2, 1), false, nil)
+	positive, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(0), true, nil, oiR(2), false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = positive.inverse(); err != nil || positive.String() != "[1/2, oo)" {
 		t.Fatalf("inverse = %s, %v", positive, err)
 	}
-	crossing, err := newSMTOldIntervalBounds(&manager, big.NewRat(-3, 1), false, nil, big.NewRat(2, 1), true, nil)
+	crossing, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(-3), false, nil, oiR(2), true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +77,7 @@ func TestSMTOldIntervalInverseAndPower(t *testing.T) {
 	if crossing.String() != "[0, 9]" {
 		t.Fatalf("even power = %s", crossing)
 	}
-	negative, err := newSMTOldIntervalBounds(&manager, big.NewRat(-2, 1), false, nil, big.NewRat(-1, 1), false, nil)
+	negative, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(-2), false, nil, oiR(-1), false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +85,7 @@ func TestSMTOldIntervalInverseAndPower(t *testing.T) {
 	if negative.String() != "[-8, -1]" {
 		t.Fatalf("odd power = %s", negative)
 	}
-	zero, err := newSMTOldIntervalPoint(&manager, new(big.Rat), nil, nil)
+	zero, err := newSMTOldIntervalPoint(&manager, testQ(), oiR(0), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +97,7 @@ func TestSMTOldIntervalInverseAndPower(t *testing.T) {
 func TestSMTOldIntervalMultiplicationSignTable(t *testing.T) {
 	var manager smtArithmeticBoundDependencyManager
 	makeInterval := func(lower, upper int64) *smtOldInterval {
-		result, err := newSMTOldIntervalBounds(&manager, big.NewRat(lower, 1), false, nil, big.NewRat(upper, 1), false, nil)
+		result, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(lower), false, nil, oiR(upper), false, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -108,7 +107,7 @@ func TestSMTOldIntervalMultiplicationSignTable(t *testing.T) {
 	wants := [3][3]string{{"[4, 9]", "[-9, 6]", "[-12, -4]"}, {"[-9, 6]", "[-6, 9]", "[-8, 12]"}, {"[-12, -4]", "[-8, 12]", "[4, 16]"}}
 	for left := range classes {
 		for right := range classes {
-			result := classes[left].clone()
+			result := oiClone(classes[left])
 			if err := result.mul(classes[right]); err != nil {
 				t.Fatal(left, right, err)
 			}
@@ -121,29 +120,29 @@ func TestSMTOldIntervalMultiplicationSignTable(t *testing.T) {
 
 func TestSMTOldIntervalMultiplyOpenZeroAndDivide(t *testing.T) {
 	var manager smtArithmeticBoundDependencyManager
-	left, err := newSMTOldIntervalBounds(&manager, big.NewRat(0, 1), true, nil, big.NewRat(2, 1), false, nil)
+	left, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(0), true, nil, oiR(2), false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	right, err := newSMTOldIntervalBounds(&manager, big.NewRat(-1, 1), false, nil, big.NewRat(0, 1), false, nil)
+	right, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(-1), false, nil, oiR(0), false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = left.mul(right); err != nil || left.String() != "[-2, 0]" {
 		t.Fatalf("open-zero product = %s, %v", left, err)
 	}
-	numerator, err := newSMTOldIntervalBounds(&manager, big.NewRat(2, 1), false, nil, big.NewRat(4, 1), false, nil)
+	numerator, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(2), false, nil, oiR(4), false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	denominator, err := newSMTOldIntervalBounds(&manager, big.NewRat(1, 1), false, nil, big.NewRat(2, 1), false, nil)
+	denominator, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(1), false, nil, oiR(2), false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = numerator.div(denominator); err != nil || numerator.String() != "[1, 4]" {
 		t.Fatalf("division = %s, %v", numerator, err)
 	}
-	zero, err := newSMTOldIntervalPoint(&manager, new(big.Rat), nil, nil)
+	zero, err := newSMTOldIntervalPoint(&manager, testQ(), oiR(0), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,11 +157,11 @@ func TestSMTOldIntervalMultiplicationClosedOracle(t *testing.T) {
 		for b := a; b <= 5; b++ {
 			for c := int64(-5); c <= 5; c++ {
 				for d := c; d <= 5; d++ {
-					left, err := newSMTOldIntervalBounds(&manager, big.NewRat(a, 1), false, nil, big.NewRat(b, 1), false, nil)
+					left, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(a), false, nil, oiR(b), false, nil)
 					if err != nil {
 						t.Fatal(err)
 					}
-					right, err := newSMTOldIntervalBounds(&manager, big.NewRat(c, 1), false, nil, big.NewRat(d, 1), false, nil)
+					right, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(c), false, nil, oiR(d), false, nil)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -179,7 +178,7 @@ func TestSMTOldIntervalMultiplicationClosedOracle(t *testing.T) {
 					if err = left.mul(right); err != nil {
 						t.Fatal(a, b, c, d, err)
 					}
-					if left.lower.infinite() || left.upper.infinite() || left.lower.value.Cmp(big.NewRat(minimum, 1)) != 0 || left.upper.value.Cmp(big.NewRat(maximum, 1)) != 0 || left.lowerOpen || left.upperOpen {
+					if left.lower.infinite() || left.upper.infinite() || !oiIs(&left.lower.value, minimum, 1) || !oiIs(&left.upper.value, maximum, 1) || left.lowerOpen || left.upperOpen {
 						t.Fatalf("[%d,%d]*[%d,%d] = %s, want [%d, %d]", a, b, c, d, left, minimum, maximum)
 					}
 				}

@@ -7,7 +7,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -181,28 +180,6 @@ func (t *SMTTheoryArith) isNumeralExpr(n ast.ASTHandle) (bool, error) {
 	return ok, err
 }
 
-// isNumeralBig is m_util.is_numeral(n, r) for the nonlinear interval
-// code, whose old_interval endpoints are math/big values.
-func (t *SMTTheoryArith) isNumeralBig(n ast.ASTHandle) (*big.Rat, bool) {
-	r, _, matched, err := t.state.manager.ArithmeticNumeralBigRat(n)
-	if err != nil || !matched {
-		return nil, false
-	}
-	return r, true
-}
-
-// getMonomialCoeff: given a monomial c*M, return c.
-func (t *SMTTheoryArith) getMonomialCoeff(m ast.ASTHandle) (*big.Rat, error) {
-	arg0, err := t.state.manager.GetArg(m, 0)
-	if err != nil {
-		return nil, err
-	}
-	if r, ok := t.isNumeralBig(arg0); ok {
-		return r, nil
-	}
-	return big.NewRat(1, 1), nil
-}
-
 // getMonomialCoeffQ is get_monomial_coeff(m) into a rational.
 func (t *SMTTheoryArith) getMonomialCoeffQ(m ast.ASTHandle, out *numeral.Rational) error {
 	arg0, err := t.state.manager.GetArg(m, 0)
@@ -280,100 +257,83 @@ func (t *SMTTheoryArith) mkLeaf(b smtArithBound) *smtArithmeticBoundDependency {
 	return t.depManager.Leaf(b.base())
 }
 
-// mkIntervalForVar returns an interval using the bounds of v.
+// mkIntervalForVar is mk_interval_for(v): the bounds' rational parts are
+// copied into the interval's endpoints.
 func (t *SMTTheoryArith) mkIntervalForVar(v SMTTheoryVar) (*smtOldInterval, error) {
 	l, u := t.lower(v), t.upper(v)
-	// old_interval holds math/big values (a boundary).
-	toBig := func(r *numeral.Rational) *big.Rat {
-		b, err := smtQBig(t.q, r)
-		t.keep(err)
-		return b
-	}
 	switch {
 	case l != nil && u != nil:
 		lv, uv := &l.base().value, &u.base().value
-		lr, ur := toBig(&lv.rational), toBig(&uv.rational)
-		if err := t.takeQErr(nil); err != nil {
-			return nil, err
-		}
-		return newSMTOldIntervalBounds(&t.depManager, lr, !lv.infinitesimal.IsZero(), t.mkLeaf(l),
-			ur, !uv.infinitesimal.IsZero(), t.mkLeaf(u))
+		return newSMTOldIntervalBounds(&t.depManager, t.q, &lv.rational, !lv.infinitesimal.IsZero(), t.mkLeaf(l),
+			&uv.rational, !uv.infinitesimal.IsZero(), t.mkLeaf(u))
 	case l != nil:
 		lv := &l.base().value
-		lr := toBig(&lv.rational)
-		if err := t.takeQErr(nil); err != nil {
-			return nil, err
-		}
-		return newSMTOldIntervalHalfBound(&t.depManager, lr, !lv.infinitesimal.IsZero(), true, t.mkLeaf(l))
+		return newSMTOldIntervalHalfBound(&t.depManager, t.q, &lv.rational, !lv.infinitesimal.IsZero(), true, t.mkLeaf(l))
 	case u != nil:
 		uv := &u.base().value
-		ur := toBig(&uv.rational)
-		if err := t.takeQErr(nil); err != nil {
-			return nil, err
-		}
-		return newSMTOldIntervalHalfBound(&t.depManager, ur, !uv.infinitesimal.IsZero(), false, t.mkLeaf(u))
+		return newSMTOldIntervalHalfBound(&t.depManager, t.q, &uv.rational, !uv.infinitesimal.IsZero(), false, t.mkLeaf(u))
 	}
-	return newSMTOldInterval(&t.depManager)
+	return newSMTOldInterval(&t.depManager, t.q)
 }
 
 // mkIntervalForExpr returns an interval for n using its bounds.
 func (t *SMTTheoryArith) mkIntervalForExpr(n ast.ASTHandle) (*smtOldInterval, error) {
 	if !t.hasVar(n) {
-		return newSMTOldInterval(&t.depManager)
+		return newSMTOldInterval(&t.depManager, t.q)
 	}
 	return t.mkIntervalForVar(t.expr2var(n))
 }
 
-// smtArithRatBitsize is mpq_manager::bitsize: bitsize(num) for an integer,
-// else bitsize(num) + bitsize(den), where mpz bitsize is log2|z| + 1 (1 for 0).
-func smtArithRatBitsize(q *big.Rat) uint {
-	if q.IsInt() {
-		return smtArithIntBitsize(q.Num())
-	}
-	return smtArithIntBitsize(q.Num()) + smtArithIntBitsize(q.Denom())
-}
-
-func smtArithIntBitsize(z *big.Int) uint {
-	if z.Sign() == 0 {
-		return 1
-	}
-	return uint(z.BitLen())
-}
-
-// mulBoundOf sets target *= [lower(var), upper(var)]^power.
-func (t *SMTTheoryArith) mulBoundOf(v ast.ASTHandle, power uint32, target *smtOldInterval) error {
+// mulBoundOf sets target *= [lower(var), upper(var)]^power; the interval i
+// dies when mul_bound_of returns.
+func (t *SMTTheoryArith) mulBoundOf(v ast.ASTHandle, power uint32, target *smtOldInterval) (err error) {
 	i, err := t.mkIntervalForVar(t.expr2var(v))
 	if err != nil {
 		return err
 	}
-	i.power(power)
+	defer func() { err = errors.Join(err, i.del()) }()
+	if err = i.power(power); err != nil {
+		return err
+	}
 	if err = target.mul(i); err != nil {
 		return err
 	}
-	if target.lowerOpen || target.minusInfinity() {
-		t.limitInc(1)
-	} else {
-		t.limitInc(smtArithRatBitsize(&target.lower.value))
-	}
-	if target.upperOpen || target.plusInfinity() {
-		t.limitInc(1)
-	} else {
-		t.limitInc(smtArithRatBitsize(&target.upper.value))
+	// limit().inc(... get_lower_value().bitsize()) and the upper's.
+	for _, side := range []struct {
+		open, infinite bool
+		value          *numeral.Rational
+	}{{target.lowerOpen, target.minusInfinity(), &target.lower.value}, {target.upperOpen, target.plusInfinity(), &target.upper.value}} {
+		if side.open || side.infinite {
+			t.limitInc(1)
+			continue
+		}
+		bits, err := t.q.Bitsize(side.value)
+		if err != nil {
+			return err
+		}
+		t.limitInc(uint(bits))
 	}
 	return nil
 }
 
 // evaluateAsInterval evaluates n with interval arithmetic; internalized
 // subexpressions use their bounds. Only +, *, and numerals are handled.
-func (t *SMTTheoryArith) evaluateAsInterval(n ast.ASTHandle) (*smtOldInterval, error) {
+// The caller frees the result; each argument's interval dies after it is
+// combined.
+func (t *SMTTheoryArith) evaluateAsInterval(n ast.ASTHandle) (result *smtOldInterval, err error) {
 	if t.hasVar(n) {
 		return t.mkIntervalForExpr(n)
 	}
 	if t.isOp(n, smtArithOpAdd) {
-		r, err := newSMTOldIntervalPoint(&t.depManager, new(big.Rat), nil, nil)
+		r, err := newSMTOldIntervalInt(&t.depManager, t.q, 0)
 		if err != nil {
 			return nil, err
 		}
+		defer func() {
+			if err != nil {
+				err = errors.Join(err, r.del())
+			}
+		}()
 		args, err := t.args(n)
 		if err != nil {
 			return nil, err
@@ -383,21 +343,34 @@ func (t *SMTTheoryArith) evaluateAsInterval(n ast.ASTHandle) (*smtOldInterval, e
 			if err != nil {
 				return nil, err
 			}
-			if err = r.add(a); err != nil {
+			err = r.add(a)
+			if e := a.del(); e != nil && err == nil {
+				err = e
+			}
+			if err != nil {
 				return nil, err
 			}
 		}
 		return r, nil
 	}
 	if t.isOp(n, smtArithOpMul) {
-		coeff, err := t.getMonomialCoeff(n)
+		coeff := smtQZero()
+		err := t.getMonomialCoeffQ(n, &coeff)
+		var r *smtOldInterval
+		if err == nil {
+			r, err = newSMTOldIntervalPoint(&t.depManager, t.q, &coeff, nil, nil)
+		}
+		if e := smtQDel(t.q, &coeff); e != nil && err == nil {
+			err = e
+		}
 		if err != nil {
 			return nil, err
 		}
-		r, err := newSMTOldIntervalPoint(&t.depManager, coeff, nil, nil)
-		if err != nil {
-			return nil, err
-		}
+		defer func() {
+			if err != nil {
+				err = errors.Join(err, r.del())
+			}
+		}()
 		numVars, err := t.getNumVarsInMonomial(n)
 		if err != nil {
 			return nil, err
@@ -411,8 +384,14 @@ func (t *SMTTheoryArith) evaluateAsInterval(n ast.ASTHandle) (*smtOldInterval, e
 			if err != nil {
 				return nil, err
 			}
-			it.power(power)
-			if err = r.mul(it); err != nil {
+			err = it.power(power)
+			if err == nil {
+				err = r.mul(it)
+			}
+			if e := it.del(); e != nil && err == nil {
+				err = e
+			}
+			if err != nil {
 				return nil, err
 			}
 		}
@@ -425,10 +404,15 @@ func (t *SMTTheoryArith) evaluateAsInterval(n ast.ASTHandle) (*smtOldInterval, e
 		}
 		return t.evaluateAsInterval(arg)
 	}
-	if val, ok := t.isNumeralBig(n); ok {
-		return newSMTOldIntervalPoint(&t.depManager, val, nil, nil)
+	// rational val; m_util.is_numeral(n, val)
+	val := smtQZero()
+	defer func() { err = errors.Join(err, smtQDel(t.q, &val)) }()
+	if ok, err := t.isNumeralQ(n, &val); err != nil {
+		return nil, err
+	} else if ok {
+		return newSMTOldIntervalPoint(&t.depManager, t.q, &val, nil, nil)
 	}
-	return newSMTOldInterval(&t.depManager)
+	return newSMTOldInterval(&t.depManager, t.q)
 }
 
 // dependency2NewBound copies the justification stored in dep to newBound.
@@ -474,7 +458,7 @@ func (t *SMTTheoryArith) updateBoundsUsingInterval(v SMTTheoryVar, i *smtOldInte
 		}
 		newLower := newSMTArithmeticValue()
 		defer newLower.del(t.q)
-		if err := t.q.SetBigRat(&newLower.rational, lv); err != nil {
+		if err := t.q.Copy(&newLower.rational, lv); err != nil {
 			return false, err
 		}
 		if i.lowerOpen {
@@ -506,7 +490,7 @@ func (t *SMTTheoryArith) updateBoundsUsingInterval(v SMTTheoryVar, i *smtOldInte
 		}
 		newUpper := newSMTArithmeticValue()
 		defer newUpper.del(t.q)
-		if err := t.q.SetBigRat(&newUpper.rational, uv); err != nil {
+		if err := t.q.Copy(&newUpper.rational, uv); err != nil {
 			return false, err
 		}
 		if i.upperOpen {
@@ -535,15 +519,16 @@ func (t *SMTTheoryArith) updateBoundsUsingInterval(v SMTTheoryVar, i *smtOldInte
 }
 
 // propagateNlUpward uses the bounds of the variables to bound m.
-func (t *SMTTheoryArith) propagateNlUpward(m ast.ASTHandle) (bool, error) {
+func (t *SMTTheoryArith) propagateNlUpward(m ast.ASTHandle) (_ bool, err error) {
 	numVars, err := t.getNumVarsInMonomial(m)
 	if err != nil {
 		return false, err
 	}
-	newBounds, err := newSMTOldIntervalPoint(&t.depManager, big.NewRat(1, 1), nil, nil)
+	newBounds, err := newSMTOldIntervalInt(&t.depManager, t.q, 1)
 	if err != nil {
 		return false, err
 	}
+	defer func() { err = errors.Join(err, newBounds.del()) }()
 	for i := uint32(0); i < numVars; i++ {
 		v, power, err := t.getVarAndDegree(m, i)
 		if err != nil {
@@ -558,7 +543,7 @@ func (t *SMTTheoryArith) propagateNlUpward(m ast.ASTHandle) (bool, error) {
 
 // propagateNlDownward bounds the i-th variable of m from the bounds of m and
 // the other variables. Roots are not supported: a power != 1 is skipped.
-func (t *SMTTheoryArith) propagateNlDownward(m ast.ASTHandle, i uint32) (bool, error) {
+func (t *SMTTheoryArith) propagateNlDownward(m ast.ASTHandle, i uint32) (_ bool, err error) {
 	v, power, err := t.getVarAndDegree(m, i)
 	if err != nil {
 		return false, err
@@ -570,10 +555,11 @@ func (t *SMTTheoryArith) propagateNlDownward(m ast.ASTHandle, i uint32) (bool, e
 	if err != nil {
 		return false, err
 	}
-	otherBounds, err := newSMTOldIntervalPoint(&t.depManager, big.NewRat(1, 1), nil, nil)
+	otherBounds, err := newSMTOldIntervalInt(&t.depManager, t.q, 1)
 	if err != nil {
 		return false, err
 	}
+	defer func() { err = errors.Join(err, otherBounds.del()) }()
 	for j := uint32(0); j < numVars; j++ {
 		w, pw, err := t.getVarAndDegree(m, j)
 		if err != nil {
@@ -593,6 +579,7 @@ func (t *SMTTheoryArith) propagateNlDownward(m ast.ASTHandle, i uint32) (bool, e
 	if err != nil {
 		return false, err
 	}
+	defer func() { err = errors.Join(err, r.del()) }()
 	if err = r.div(otherBounds); err != nil {
 		return false, err
 	}
@@ -1558,7 +1545,11 @@ func (t *SMTTheoryArith) isCrossNestedConsistentPoly(p []smtArithCoeffExpr) (boo
 			d = i.upperDep
 		}
 		if d != nil {
-			return false, t.setConflictDependency(d)
+			err = t.setConflictDependency(d)
+			return false, errors.Join(err, i.del())
+		}
+		if err = i.del(); err != nil {
+			return false, err
 		}
 	}
 	return true, nil
@@ -1901,16 +1892,17 @@ func (t *SMTTheoryArith) initGrobner(nlCluster []SMTTheoryVar, gb *grobner.Solve
 }
 
 // mkIntervalForMonomial returns the interval of a grobner monomial.
-func (t *SMTTheoryArith) mkIntervalForMonomial(m *grobner.Monomial) (*smtOldInterval, error) {
-	// The old_interval endpoints are math/big values (a boundary).
-	c, err := smtQBig(t.q, m.Coefficient())
+func (t *SMTTheoryArith) mkIntervalForMonomial(m *grobner.Monomial) (_ *smtOldInterval, err error) {
+	// interval r(m_dep_manager, rational(m->get_coeff()))
+	r, err := newSMTOldIntervalPoint(&t.depManager, t.q, m.Coefficient(), nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	r, err := newSMTOldIntervalPoint(&t.depManager, c, nil, nil)
-	if err != nil {
-		return nil, err
-	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, r.del())
+		}
+	}()
 	var v ast.ASTHandle
 	hasVar := false
 	power := uint32(0)
@@ -1952,14 +1944,22 @@ func (t *SMTTheoryArith) setConflictDependency(d *smtArithmeticBoundDependency) 
 
 // isInconsistentInterval reports whether I.lower <= -M_1 - ... - M_n <=
 // I.upper is inconsistent, setting a conflict from the variable bounds.
-func (t *SMTTheoryArith) isInconsistentInterval(I *smtOldInterval, monomials []*grobner.Monomial, dep *smtArithmeticBoundDependency) (bool, error) {
-	r := I.clone()
+func (t *SMTTheoryArith) isInconsistentInterval(I *smtOldInterval, monomials []*grobner.Monomial, dep *smtArithmeticBoundDependency) (_ bool, err error) {
+	r, err := I.clone()
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Join(err, r.del()) }()
 	for _, m := range monomials {
 		mi, err := t.mkIntervalForMonomial(m)
 		if err != nil {
 			return false, err
 		}
-		if err = r.add(mi); err != nil {
+		err = r.add(mi)
+		if e := mi.del(); e != nil && err == nil {
+			err = e
+		}
+		if err != nil {
 			return false, err
 		}
 		if r.minusInfinity() && r.plusInfinity() {
@@ -1988,11 +1988,12 @@ func (t *SMTTheoryArith) isInconsistentInterval(I *smtOldInterval, monomials []*
 
 // isInconsistentEq reports whether the equation is inconsistent, setting a
 // conflict.
-func (t *SMTTheoryArith) isInconsistentEq(eq *grobner.Equation, deps *smtArithGbDeps) (bool, error) {
-	zero, err := newSMTOldIntervalPoint(&t.depManager, new(big.Rat), nil, nil)
+func (t *SMTTheoryArith) isInconsistentEq(eq *grobner.Equation, deps *smtArithGbDeps) (_ bool, err error) {
+	zero, err := newSMTOldIntervalInt(&t.depManager, t.q, 0)
 	if err != nil {
 		return false, err
 	}
+	defer func() { err = errors.Join(err, zero.del()) }()
 	dep, err := deps.toBoundDependency(eq.Dependency())
 	if err != nil {
 		return false, err
@@ -2090,6 +2091,11 @@ func (t *SMTTheoryArith) isInconsistent2(eq *grobner.Equation, deps *smtArithGbD
 	ms := eq.Monomials()
 	num := len(ms)
 	intervals := make([]*smtOldInterval, num)
+	defer func() {
+		for _, it := range intervals {
+			err = errors.Join(err, it.del())
+		}
+	}()
 	for i, m := range ms {
 		it, err := t.mkIntervalForMonomial(m)
 		if err != nil {
@@ -2129,14 +2135,22 @@ func (t *SMTTheoryArith) isInconsistent2(eq *grobner.Equation, deps *smtArithGbD
 				if deleted[k] || !t.isPerfectSquareTriple(m1, &a, m2, &b, ms[k]) {
 					continue
 				}
-				I := intervals[i].clone()
-				if err := I.add(intervals[j]); err != nil {
+				// interval I = intervals[i] + intervals[j] + intervals[k]
+				I, err := intervals[i].clone()
+				if err != nil {
 					return false, err
 				}
-				if err := I.add(intervals[k]); err != nil {
+				if err = I.add(intervals[j]); err == nil {
+					err = I.add(intervals[k])
+				}
+				improves := I.minusInfinity() || I.lower.value.Sign() < 0
+				if e := I.del(); e != nil && err == nil {
+					err = e
+				}
+				if err != nil {
 					return false, err
 				}
-				if I.minusInfinity() || I.lower.value.Sign() < 0 {
+				if improves {
 					// the lower bound improves when the square is eliminated
 					deleted[i], deleted[j], deleted[k] = true, true, true
 					break
@@ -2154,10 +2168,12 @@ func (t *SMTTheoryArith) isInconsistent2(eq *grobner.Equation, deps *smtArithGbD
 	if len(monomials) == num {
 		return false, nil // didn't find any perfect square.
 	}
-	geZero, err := newSMTOldIntervalHalfBound(&t.depManager, new(big.Rat), false, true, nil)
+	zero := smtQZero()
+	geZero, err := newSMTOldIntervalHalfBound(&t.depManager, t.q, &zero, false, true, nil)
 	if err != nil {
 		return false, err
 	}
+	defer func() { err = errors.Join(err, geZero.del()) }()
 	dep, err := deps.toBoundDependency(eq.Dependency())
 	if err != nil {
 		return false, err

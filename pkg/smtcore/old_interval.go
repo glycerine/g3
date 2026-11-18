@@ -2,40 +2,72 @@ package smtcore
 
 // Source: src/smt/old_interval.cpp and src/smt/old_interval.h retained
 // rational interval operations used by nonlinear arithmetic.
+//
+// An smtOldInterval is old_interval: its endpoints are ext_numerals over
+// rationals of the AST manager's rational manager q. The source's intervals
+// are values; here each one is freed with del where the source's interval
+// dies (a local at scope exit, a temporary after its full expression).
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type smtOldInterval struct {
 	manager              *smtArithmeticBoundDependencyManager
+	q                    *numeral.RationalManager
 	lower, upper         smtExtendedRational
 	lowerOpen, upperOpen bool
 	lowerDep, upperDep   *smtArithmeticBoundDependency
 }
 
-func newSMTOldInterval(manager *smtArithmeticBoundDependencyManager) (*smtOldInterval, error) {
-	if manager == nil {
+// newSMTOldInterval is interval(m): (-oo, oo).
+func newSMTOldInterval(manager *smtArithmeticBoundDependencyManager, q *numeral.RationalManager) (*smtOldInterval, error) {
+	if manager == nil || q == nil {
 		return nil, ast.ErrASTDomain
 	}
-	return &smtOldInterval{manager: manager, lower: smtInfiniteExtended(false), upper: smtInfiniteExtended(true), lowerOpen: true, upperOpen: true}, nil
+	return &smtOldInterval{manager: manager, q: q, lower: smtInfiniteExtended(false), upper: smtInfiniteExtended(true), lowerOpen: true, upperOpen: true}, nil
 }
 
-func newSMTOldIntervalBounds(manager *smtArithmeticBoundDependencyManager, lower *big.Rat, lowerOpen bool, lowerDep *smtArithmeticBoundDependency, upper *big.Rat, upperOpen bool, upperDep *smtArithmeticBoundDependency) (*smtOldInterval, error) {
-	if manager == nil || lower == nil || upper == nil || lower.Cmp(upper) > 0 || lower.Cmp(upper) == 0 && lowerOpen && upperOpen {
+// newSMTOldIntervalBounds is interval(m, lower, l_open, l_dep, upper, u_open,
+// u_dep); the source's SASSERT(lower <= upper) is kept as a domain check.
+func newSMTOldIntervalBounds(manager *smtArithmeticBoundDependencyManager, q *numeral.RationalManager, lower *numeral.Rational, lowerOpen bool, lowerDep *smtArithmeticBoundDependency, upper *numeral.Rational, upperOpen bool, upperDep *smtArithmeticBoundDependency) (*smtOldInterval, error) {
+	if manager == nil || q == nil || lower == nil || upper == nil {
 		return nil, ast.ErrASTDomain
 	}
-	return &smtOldInterval{manager: manager, lower: smtFiniteExtended(lower), upper: smtFiniteExtended(upper), lowerOpen: lowerOpen, upperOpen: upperOpen, lowerDep: lowerDep, upperDep: upperDep}, nil
+	c, err := q.Compare(lower, upper)
+	if err != nil {
+		return nil, err
+	}
+	if c > 0 || c == 0 && lowerOpen && upperOpen {
+		return nil, ast.ErrASTDomain
+	}
+	result := &smtOldInterval{manager: manager, q: q, lower: smtExtendedZero(), upper: smtExtendedZero(), lowerOpen: lowerOpen, upperOpen: upperOpen, lowerDep: lowerDep, upperDep: upperDep}
+	if err = q.Copy(&result.lower.value, lower); err == nil {
+		err = q.Copy(&result.upper.value, upper)
+	}
+	if err != nil {
+		return nil, errors.Join(err, result.del())
+	}
+	return result, nil
 }
 
-func newSMTOldIntervalPoint(manager *smtArithmeticBoundDependencyManager, value *big.Rat, lowerDep, upperDep *smtArithmeticBoundDependency) (*smtOldInterval, error) {
-	return newSMTOldIntervalBounds(manager, value, false, lowerDep, value, false, upperDep)
+// newSMTOldIntervalPoint is interval(m, val, l_dep, u_dep): [val, val].
+func newSMTOldIntervalPoint(manager *smtArithmeticBoundDependencyManager, q *numeral.RationalManager, value *numeral.Rational, lowerDep, upperDep *smtArithmeticBoundDependency) (*smtOldInterval, error) {
+	return newSMTOldIntervalBounds(manager, q, value, false, lowerDep, value, false, upperDep)
 }
 
-func newSMTOldIntervalHalfBound(manager *smtArithmeticBoundDependencyManager, value *big.Rat, open, lower bool, dependency *smtArithmeticBoundDependency) (*smtOldInterval, error) {
-	result, err := newSMTOldInterval(manager)
+// newSMTOldIntervalInt is interval(m, rational(k)).
+func newSMTOldIntervalInt(manager *smtArithmeticBoundDependencyManager, q *numeral.RationalManager, k int32) (*smtOldInterval, error) {
+	r := smtQInt(k)
+	return newSMTOldIntervalPoint(manager, q, &r, nil, nil)
+}
+
+// newSMTOldIntervalHalfBound is interval(m, val, open, lower, d).
+func newSMTOldIntervalHalfBound(manager *smtArithmeticBoundDependencyManager, q *numeral.RationalManager, value *numeral.Rational, open, lower bool, dependency *smtArithmeticBoundDependency) (*smtOldInterval, error) {
+	result, err := newSMTOldInterval(manager, q)
 	if err != nil || value == nil {
 		if err == nil {
 			err = ast.ErrASTDomain
@@ -43,33 +75,64 @@ func newSMTOldIntervalHalfBound(manager *smtArithmeticBoundDependencyManager, va
 		return nil, err
 	}
 	if lower {
-		result.lower, result.lowerOpen, result.lowerDep = smtFiniteExtended(value), open, dependency
+		result.lowerOpen, result.lowerDep = open, dependency
+		result.lower.kind = smtExtendedFinite
+		err = q.Copy(&result.lower.value, value)
 	} else {
-		result.upper, result.upperOpen, result.upperDep = smtFiniteExtended(value), open, dependency
+		result.upperOpen, result.upperDep = open, dependency
+		result.upper.kind = smtExtendedFinite
+		err = q.Copy(&result.upper.value, value)
+	}
+	if err != nil {
+		return nil, errors.Join(err, result.del())
 	}
 	return result, nil
 }
 
-func (i *smtOldInterval) clone() *smtOldInterval {
-	result := *i
-	// A big.Rat struct copy shares its limb storage. Calling Set on that
-	// shallow copy can reuse the shared storage, so start with fresh values.
-	result.lower = i.lower.clone()
-	result.upper = i.upper.clone()
-	return &result
-}
-func (i *smtOldInterval) valid(other *smtOldInterval) bool {
-	return i != nil && other != nil && i.manager != nil && i.manager == other.manager
+// del is ~old_interval: it frees both endpoints. A nil interval frees
+// nothing.
+func (i *smtOldInterval) del() error {
+	if i == nil {
+		return nil
+	}
+	return errors.Join(i.lower.del(i.q), i.upper.del(i.q))
 }
 
+// clone is the copy constructor interval(other).
+func (i *smtOldInterval) clone() (*smtOldInterval, error) {
+	result := &smtOldInterval{manager: i.manager, q: i.q, lower: smtExtendedZero(), upper: smtExtendedZero()}
+	if err := result.set(i); err != nil {
+		return nil, errors.Join(err, result.del())
+	}
+	return result, nil
+}
+
+// set is operator=.
+func (i *smtOldInterval) set(other *smtOldInterval) error {
+	if err := i.lower.set(i.q, &other.lower); err != nil {
+		return err
+	}
+	if err := i.upper.set(i.q, &other.upper); err != nil {
+		return err
+	}
+	i.lowerOpen, i.upperOpen = other.lowerOpen, other.upperOpen
+	i.lowerDep, i.upperDep = other.lowerDep, other.upperDep
+	return nil
+}
+
+func (i *smtOldInterval) valid(other *smtOldInterval) bool {
+	return i != nil && other != nil && i.manager != nil && i.manager == other.manager && i.q == other.q
+}
+
+// add is operator+=.
 func (i *smtOldInterval) add(other *smtOldInterval) error {
 	if !i.valid(other) {
 		return ast.ErrASTDomain
 	}
-	if err := i.lower.add(&other.lower); err != nil {
+	if err := i.lower.add(i.q, &other.lower); err != nil {
 		return err
 	}
-	if err := i.upper.add(&other.upper); err != nil {
+	if err := i.upper.add(i.q, &other.upper); err != nil {
 		return err
 	}
 	i.lowerOpen = i.lowerOpen || other.lowerOpen
@@ -87,20 +150,31 @@ func (i *smtOldInterval) add(other *smtOldInterval) error {
 	return nil
 }
 
-func (i *smtOldInterval) neg() {
+// neg swaps the endpoints (std::swap moves the rationals) and negates them.
+func (i *smtOldInterval) neg() error {
 	i.lower, i.upper = i.upper, i.lower
 	i.lowerOpen, i.upperOpen = i.upperOpen, i.lowerOpen
 	i.lowerDep, i.upperDep = i.upperDep, i.lowerDep
-	i.lower.neg()
-	i.upper.neg()
+	if err := i.lower.neg(i.q); err != nil {
+		return err
+	}
+	return i.upper.neg(i.q)
 }
-func (i *smtOldInterval) sub(other *smtOldInterval) error {
+
+// sub is operator-=: interval tmp(other); tmp.neg(); *this += tmp.
+func (i *smtOldInterval) sub(other *smtOldInterval) (err error) {
 	if !i.valid(other) {
 		return ast.ErrASTDomain
 	}
-	copy := other.clone()
-	copy.neg()
-	return i.add(copy)
+	tmp, err := other.clone()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, tmp.del()) }()
+	if err = tmp.neg(); err != nil {
+		return err
+	}
+	return i.add(tmp)
 }
 
 func (i *smtOldInterval) containsZero() bool {
@@ -108,38 +182,55 @@ func (i *smtOldInterval) containsZero() bool {
 }
 func (i *smtOldInterval) minusInfinity() bool { return i == nil || i.lower.infinite() }
 func (i *smtOldInterval) plusInfinity() bool  { return i == nil || i.upper.infinite() }
-func (i *smtOldInterval) lowerValue() (*big.Rat, error) {
+
+// lowerValue is get_lower_value(): the endpoint's rational, borrowed.
+func (i *smtOldInterval) lowerValue() (*numeral.Rational, error) {
 	if i == nil || i.lower.infinite() {
 		return nil, ast.ErrASTDomain
 	}
-	return new(big.Rat).Set(&i.lower.value), nil
+	return &i.lower.value, nil
 }
-func (i *smtOldInterval) upperValue() (*big.Rat, error) {
+
+// upperValue is get_upper_value(): the endpoint's rational, borrowed.
+func (i *smtOldInterval) upperValue() (*numeral.Rational, error) {
 	if i == nil || i.upper.infinite() {
 		return nil, ast.ErrASTDomain
 	}
-	return new(big.Rat).Set(&i.upper.value), nil
+	return &i.upper.value, nil
 }
-func (i *smtOldInterval) equal(other *smtOldInterval) bool {
-	return i != nil && other != nil && i.lower.equal(&other.lower) && i.upper.equal(&other.upper) && i.lowerOpen == other.lowerOpen && i.upperOpen == other.upperOpen
+
+// equal is operator==.
+func (i *smtOldInterval) equal(other *smtOldInterval) (bool, error) {
+	if i == nil || other == nil {
+		return false, nil
+	}
+	if eq, err := i.lower.equal(i.q, &other.lower); err != nil || !eq {
+		return false, err
+	}
+	if eq, err := i.upper.equal(i.q, &other.upper); err != nil || !eq {
+		return false, err
+	}
+	return i.lowerOpen == other.lowerOpen && i.upperOpen == other.upperOpen, nil
 }
-func (i *smtOldInterval) contains(value *big.Rat) bool {
+
+// contains is contains(rational const & v).
+func (i *smtOldInterval) contains(value *numeral.Rational) (bool, error) {
 	if i == nil || value == nil {
-		return false
+		return false, nil
 	}
 	if !i.lower.infinite() {
-		c := value.Cmp(&i.lower.value)
-		if c < 0 || c == 0 && i.lowerOpen {
-			return false
+		c, err := i.q.Compare(value, &i.lower.value)
+		if err != nil || c < 0 || c == 0 && i.lowerOpen {
+			return false, err
 		}
 	}
 	if !i.upper.infinite() {
-		c := value.Cmp(&i.upper.value)
-		if c > 0 || c == 0 && i.upperOpen {
-			return false
+		c, err := i.q.Compare(value, &i.upper.value)
+		if err != nil || c > 0 || c == 0 && i.upperOpen {
+			return false, err
 		}
 	}
-	return true
+	return true, nil
 }
 func (i *smtOldInterval) zero() bool { return i != nil && i.lower.zero() && i.upper.zero() }
 func (i *smtOldInterval) positiveOne() bool {
@@ -154,11 +245,6 @@ func (i *smtOldInterval) negative() bool     { return i.upper.sign() <= 0 }
 func (i *smtOldInterval) negativeZero() bool { return i.upper.zero() && !i.upperOpen }
 func (i *smtOldInterval) mixed() bool        { return i.lower.sign() < 0 && i.upper.sign() > 0 }
 
-func smtExtendedProduct(left, right *smtExtendedRational) smtExtendedRational {
-	result := left.clone()
-	result.mul(right)
-	return result
-}
 func (i *smtOldInterval) join3(a, b, c *smtArithmeticBoundDependency) *smtArithmeticBoundDependency {
 	return i.manager.Join(i.manager.Join(a, b), c)
 }
@@ -172,77 +258,160 @@ func (i *smtOldInterval) joinOptional(a, b, first, second *smtArithmeticBoundDep
 	return i.join3(a, b, first)
 }
 
-func (i *smtOldInterval) mul(other *smtOldInterval) error {
+// mul is operator*=. The products new_lower and new_upper are computed
+// from the old endpoints first, then assigned (m_lower = new_lower copies)
+// and freed, as the source's ext_numeral temporaries are.
+func (i *smtOldInterval) mul(other *smtOldInterval) (err error) {
 	if !i.valid(other) {
 		return ast.ErrASTDomain
 	}
 	if i.zero() {
 		return nil
 	}
+	q := i.q
 	if other.zero() {
-		*i = *other.clone()
+		if err = i.set(other); err != nil {
+			return err
+		}
 		i.lowerDep = i.manager.Join(i.lowerDep, i.upperDep)
 		i.upperDep = i.lowerDep
 		return nil
 	}
-	a, b, c, d := i.lower, i.upper, other.lower, other.upper
+	a, b, c, d := &i.lower, &i.upper, &other.lower, &other.upper
 	ao, bo, co, do := i.lowerOpen, i.upperOpen, other.lowerOpen, other.upperOpen
 	ad, bd, cd, dd := i.lowerDep, i.upperDep, other.lowerDep, other.upperDep
-	set := func(lower smtExtendedRational, lo bool, ld *smtArithmeticBoundDependency, upper smtExtendedRational, uo bool, ud *smtArithmeticBoundDependency) {
-		i.lower, i.lowerOpen, i.lowerDep = lower, lo, ld
-		i.upper, i.upperOpen, i.upperDep = upper, uo, ud
-		if i.lower.infinite() {
-			i.lowerDep = nil
+	var temps []*smtExtendedRational
+	defer func() {
+		for _, t := range temps {
+			err = errors.Join(err, t.del(q))
 		}
-		if i.upper.infinite() {
-			i.upperDep = nil
-		}
+	}()
+	product := func(x, y *smtExtendedRational) (*smtExtendedRational, error) {
+		r, e := smtExtendedProduct(q, x, y)
+		temps = append(temps, &r)
+		return &r, e
 	}
+	set := func(lower *smtExtendedRational, lo bool, ld func() *smtArithmeticBoundDependency, upper *smtExtendedRational, uo bool, ud func() *smtArithmeticBoundDependency) error {
+		i.lowerOpen, i.upperOpen = lo, uo
+		if e := i.lower.set(q, lower); e != nil {
+			return e
+		}
+		if e := i.upper.set(q, upper); e != nil {
+			return e
+		}
+		i.lowerDep, i.upperDep = nil, nil
+		if !i.lower.infinite() {
+			i.lowerDep = ld()
+		}
+		if !i.upper.infinite() {
+			i.upperDep = ud()
+		}
+		return nil
+	}
+	pair := func(x1, y1, x2, y2 *smtExtendedRational) (*smtExtendedRational, *smtExtendedRational, error) {
+		newLower, e := product(x1, y1)
+		if e != nil {
+			return nil, nil, e
+		}
+		newUpper, e := product(x2, y2)
+		return newLower, newUpper, e
+	}
+	join := i.manager.Join
 	if i.negative() {
 		if other.negative() {
-			set(smtExtendedProduct(&b, &d), !(i.negativeZero() || other.negativeZero()) && (bo || do), i.manager.Join(bd, dd), smtExtendedProduct(&a, &c), ao || co, i.joinOptional(ad, cd, bd, dd))
+			newLower, newUpper, e := pair(b, d, a, c)
+			if e != nil {
+				return e
+			}
+			return set(newLower, !(i.negativeZero() || other.negativeZero()) && (bo || do), func() *smtArithmeticBoundDependency { return join(bd, dd) },
+				newUpper, ao || co, func() *smtArithmeticBoundDependency { return i.joinOptional(ad, cd, bd, dd) })
 		} else if other.mixed() {
-			set(smtExtendedProduct(&a, &d), ao || do, i.join3(ad, dd, bd), smtExtendedProduct(&a, &c), ao || co, i.join3(ad, cd, bd))
-		} else {
-			n0 := i.negativeZero()
-			set(smtExtendedProduct(&a, &d), ao || do, i.joinOptional(ad, dd, bd, cd), smtExtendedProduct(&b, &c), !(n0 || other.positiveZero()) && (bo || co), i.manager.Join(bd, cd))
+			newLower, newUpper, e := pair(a, d, a, c)
+			if e != nil {
+				return e
+			}
+			return set(newLower, ao || do, func() *smtArithmeticBoundDependency { return i.join3(ad, dd, bd) },
+				newUpper, ao || co, func() *smtArithmeticBoundDependency { return i.join3(ad, cd, bd) })
 		}
+		newLower, newUpper, e := pair(a, d, b, c)
+		if e != nil {
+			return e
+		}
+		n0 := i.negativeZero()
+		return set(newLower, ao || do, func() *smtArithmeticBoundDependency { return i.joinOptional(ad, dd, bd, cd) },
+			newUpper, !(n0 || other.positiveZero()) && (bo || co), func() *smtArithmeticBoundDependency { return join(bd, cd) })
 	} else if i.mixed() {
 		if other.negative() {
-			set(smtExtendedProduct(&b, &c), bo || co, i.join3(bd, cd, dd), smtExtendedProduct(&a, &c), ao || co, i.join3(ad, cd, dd))
+			newLower, newUpper, e := pair(b, c, a, c)
+			if e != nil {
+				return e
+			}
+			return set(newLower, bo || co, func() *smtArithmeticBoundDependency { return i.join3(bd, cd, dd) },
+				newUpper, ao || co, func() *smtArithmeticBoundDependency { return i.join3(ad, cd, dd) })
 		} else if other.mixed() {
-			adn, bcn, acn, bdn := smtExtendedProduct(&a, &d), smtExtendedProduct(&b, &c), smtExtendedProduct(&a, &c), smtExtendedProduct(&b, &d)
+			adn, bcn, e := pair(a, d, b, c)
+			if e != nil {
+				return e
+			}
+			acn, bdn, e := pair(a, c, b, d)
+			if e != nil {
+				return e
+			}
 			adOpen, bcOpen, acOpen, bdOpen := ao || do, bo || co, ao || co, bo || do
 			lower, lowerOpen := adn, adOpen
-			if adn.cmp(&bcn) > 0 || adn.equal(&bcn) && adOpen && !bcOpen {
+			cmp, e := adn.cmp(q, bcn)
+			if e != nil {
+				return e
+			}
+			if !(cmp < 0 || cmp == 0 && !adOpen && bcOpen) {
 				lower, lowerOpen = bcn, bcOpen
 			}
 			upper, upperOpen := acn, acOpen
-			if acn.cmp(&bdn) < 0 || acn.equal(&bdn) && acOpen && !bdOpen {
+			if cmp, e = acn.cmp(q, bdn); e != nil {
+				return e
+			}
+			if !(cmp > 0 || cmp == 0 && !acOpen && bdOpen) {
 				upper, upperOpen = bdn, bdOpen
 			}
-			deps := i.join4(ad, bd, cd, dd)
-			set(lower, lowerOpen, deps, upper, upperOpen, deps)
-		} else {
-			set(smtExtendedProduct(&a, &d), ao || do, i.join3(ad, dd, cd), smtExtendedProduct(&b, &d), bo || do, i.join3(bd, dd, cd))
+			deps := func() *smtArithmeticBoundDependency { return i.join4(ad, bd, cd, dd) }
+			return set(lower, lowerOpen, deps, upper, upperOpen, deps)
 		}
-	} else {
-		if !i.positive() {
-			return ast.ErrASTDomain
+		newLower, newUpper, e := pair(a, d, b, d)
+		if e != nil {
+			return e
 		}
-		if other.negative() {
-			p0 := i.positiveZero()
-			set(smtExtendedProduct(&b, &c), bo || co, i.joinOptional(bd, cd, ad, dd), smtExtendedProduct(&a, &d), !(p0 || other.negativeZero()) && (ao || do), i.manager.Join(ad, dd))
-		} else if other.mixed() {
-			set(smtExtendedProduct(&b, &c), bo || co, i.join3(bd, cd, ad), smtExtendedProduct(&b, &d), bo || do, i.join3(bd, dd, ad))
-		} else {
-			set(smtExtendedProduct(&a, &c), !(i.positiveZero() || other.positiveZero()) && (ao || co), i.manager.Join(ad, cd), smtExtendedProduct(&b, &d), bo || do, i.joinOptional(bd, dd, ad, cd))
-		}
+		return set(newLower, ao || do, func() *smtArithmeticBoundDependency { return i.join3(ad, dd, cd) },
+			newUpper, bo || do, func() *smtArithmeticBoundDependency { return i.join3(bd, dd, cd) })
 	}
-	return nil
+	if !i.positive() {
+		return ast.ErrASTDomain
+	}
+	if other.negative() {
+		newLower, newUpper, e := pair(b, c, a, d)
+		if e != nil {
+			return e
+		}
+		p0 := i.positiveZero()
+		return set(newLower, bo || co, func() *smtArithmeticBoundDependency { return i.joinOptional(bd, cd, ad, dd) },
+			newUpper, !(p0 || other.negativeZero()) && (ao || do), func() *smtArithmeticBoundDependency { return join(ad, dd) })
+	} else if other.mixed() {
+		newLower, newUpper, e := pair(b, c, b, d)
+		if e != nil {
+			return e
+		}
+		return set(newLower, bo || co, func() *smtArithmeticBoundDependency { return i.join3(bd, cd, ad) },
+			newUpper, bo || do, func() *smtArithmeticBoundDependency { return i.join3(bd, dd, ad) })
+	}
+	newLower, newUpper, e := pair(a, c, b, d)
+	if e != nil {
+		return e
+	}
+	return set(newLower, !(i.positiveZero() || other.positiveZero()) && (ao || co), func() *smtArithmeticBoundDependency { return join(ad, cd) },
+		newUpper, bo || do, func() *smtArithmeticBoundDependency { return i.joinOptional(bd, dd, ad, cd) })
 }
 
-func (i *smtOldInterval) div(other *smtOldInterval) error {
+// div is operator/=: interval tmp(other); tmp.inv(); *this *= tmp.
+func (i *smtOldInterval) div(other *smtOldInterval) (err error) {
 	if !i.valid(other) || other.containsZero() {
 		return ast.ErrASTDomain
 	}
@@ -255,98 +424,155 @@ func (i *smtOldInterval) div(other *smtOldInterval) error {
 		i.upperDep = i.manager.Join(i.upperDep, dependency)
 		return nil
 	}
-	copy := other.clone()
-	if err := copy.inverse(); err != nil {
+	tmp, err := other.clone()
+	if err != nil {
 		return err
 	}
-	return i.mul(copy)
+	defer func() { err = errors.Join(err, tmp.del()) }()
+	if err = tmp.inverse(); err != nil {
+		return err
+	}
+	return i.mul(tmp)
 }
 
-func (i *smtOldInterval) inverse() error {
+// inverse is inv(): the new endpoints are ext_numeral copies, inverted,
+// then assigned and freed.
+func (i *smtOldInterval) inverse() (err error) {
 	if i == nil || i.manager == nil || i.containsZero() {
 		return ast.ErrASTDomain
 	}
+	q := i.q
+	if !i.positiveOne() && !i.negativeOne() {
+		return ast.ErrASTDomain
+	}
+	newLower, newUpper := smtExtendedZero(), smtExtendedZero()
+	defer func() { err = errors.Join(err, newLower.del(q), newUpper.del(q)) }()
 	if i.positiveOne() {
-		newLower := i.upper
-		if err := newLower.inverse(); err != nil {
+		if err = newLower.set(q, &i.upper); err != nil {
 			return err
 		}
-		newUpper := smtInfiniteExtended(true)
-		if !i.lower.zero() {
-			newUpper = i.lower
-			if err := newUpper.inverse(); err != nil {
+		if err = newLower.inverse(q); err != nil {
+			return err
+		}
+		if i.lower.zero() {
+			newUpper.kind = smtExtendedPlusInfinity
+		} else {
+			if err = newUpper.set(q, &i.lower); err != nil {
+				return err
+			}
+			if err = newUpper.inverse(q); err != nil {
 				return err
 			}
 		}
-		i.lower, i.upper = newLower, newUpper
+		if err = i.lower.set(q, &newLower); err != nil {
+			return err
+		}
+		if err = i.upper.set(q, &newUpper); err != nil {
+			return err
+		}
 		i.lowerOpen, i.upperOpen = i.upperOpen, i.lowerOpen
 		newUpperDep := i.lowerDep
 		i.lowerDep = i.manager.Join(i.lowerDep, i.upperDep)
 		i.upperDep = newUpperDep
 		return nil
 	}
-	if i.negativeOne() {
-		newUpper := i.lower
-		if err := newUpper.inverse(); err != nil {
+	if err = newUpper.set(q, &i.lower); err != nil {
+		return err
+	}
+	if err = newUpper.inverse(q); err != nil {
+		return err
+	}
+	if i.upper.zero() {
+		newLower.kind = smtExtendedMinusInfinity
+	} else {
+		if err = newLower.set(q, &i.upper); err != nil {
 			return err
 		}
-		newLower := smtInfiniteExtended(false)
-		if !i.upper.zero() {
-			newLower = i.upper
-			if err := newLower.inverse(); err != nil {
-				return err
-			}
+		if err = newLower.inverse(q); err != nil {
+			return err
 		}
-		i.lower, i.upper = newLower, newUpper
-		i.lowerOpen, i.upperOpen = i.upperOpen, i.lowerOpen
-		newLowerDep := i.upperDep
-		i.upperDep = i.manager.Join(i.lowerDep, i.upperDep)
-		i.lowerDep = newLowerDep
-		return nil
 	}
-	return ast.ErrASTDomain
+	if err = i.lower.set(q, &newLower); err != nil {
+		return err
+	}
+	if err = i.upper.set(q, &newUpper); err != nil {
+		return err
+	}
+	i.lowerOpen, i.upperOpen = i.upperOpen, i.lowerOpen
+	newLowerDep := i.upperDep
+	i.upperDep = i.manager.Join(i.lowerDep, i.upperDep)
+	i.lowerDep = newLowerDep
+	return nil
 }
 
-func (i *smtOldInterval) power(exponent uint32) {
+// power is expt(n).
+func (i *smtOldInterval) power(exponent uint32) error {
 	if i == nil || exponent == 1 {
-		return
+		return nil
+	}
+	q := i.q
+	both := func() error {
+		if err := i.lower.power(q, exponent); err != nil {
+			return err
+		}
+		return i.upper.power(q, exponent)
 	}
 	if exponent%2 != 0 {
-		i.lower.power(exponent)
-		i.upper.power(exponent)
-		return
+		return both()
 	}
 	if i.lower.sign() > 0 {
-		i.lower.power(exponent)
-		i.upper.power(exponent)
+		if err := both(); err != nil {
+			return err
+		}
 		if !i.upper.infinite() {
 			i.upperDep = i.manager.Join(i.lowerDep, i.upperDep)
+		} else {
+			i.upperDep = nil
 		}
-		return
+		return nil
 	}
 	if i.upper.sign() < 0 {
 		i.lower, i.upper = i.upper, i.lower
 		i.lowerOpen, i.upperOpen = i.upperOpen, i.lowerOpen
 		i.lowerDep, i.upperDep = i.upperDep, i.lowerDep
-		i.lower.power(exponent)
-		i.upper.power(exponent)
+		if err := both(); err != nil {
+			return err
+		}
 		if !i.upper.infinite() {
 			i.upperDep = i.manager.Join(i.lowerDep, i.upperDep)
+		} else {
+			i.upperDep = nil
 		}
-		return
+		return nil
 	}
-	i.lower.power(exponent)
-	i.upper.power(exponent)
-	if i.lower.cmp(&i.upper) > 0 || i.lower.equal(&i.upper) && !i.lowerOpen && i.upperOpen {
-		i.upper, i.upperOpen = i.lower, i.lowerOpen
+	if err := both(); err != nil {
+		return err
+	}
+	c, err := i.lower.cmp(q, &i.upper)
+	if err != nil {
+		return err
+	}
+	if c > 0 || c == 0 && !i.lowerOpen && i.upperOpen {
+		if err = i.upper.set(q, &i.lower); err != nil {
+			return err
+		}
+		i.upperOpen = i.lowerOpen
 	}
 	if !i.upper.infinite() {
 		i.upperDep = i.manager.Join(i.lowerDep, i.upperDep)
+	} else {
+		i.upperDep = nil
 	}
-	i.lower = smtFiniteExtended(nil)
+	// m_lower = ext_numeral(0)
+	i.lower.kind = smtExtendedFinite
+	if err = q.Reset(&i.lower.value); err != nil {
+		return err
+	}
 	i.lowerOpen, i.lowerDep = false, nil
+	return nil
 }
 
+// String is display.
 func (i *smtOldInterval) String() string {
 	if i == nil {
 		return "<nil>"
@@ -358,5 +584,13 @@ func (i *smtOldInterval) String() string {
 	if i.upperOpen {
 		right = ")"
 	}
-	return left + i.lower.String() + ", " + i.upper.String() + right
+	lower, err := i.lower.String(i.q)
+	if err != nil {
+		lower = err.Error()
+	}
+	upper, err := i.upper.String(i.q)
+	if err != nil {
+		upper = err.Error()
+	}
+	return left + lower + ", " + upper + right
 }

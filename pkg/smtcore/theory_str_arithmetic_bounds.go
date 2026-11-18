@@ -32,9 +32,14 @@ func (t *SMTStringTheory) stringArithmeticBound(expression ast.ASTHandle, lower 
 		if err != nil || !known {
 			return nil, false, err
 		}
-		r, isNumeral := port.isNumeralBig(h)
-		if !isNumeral || !r.IsInt() {
-			return nil, false, nil
+		value := smtQZero()
+		defer smtQDel(port.q, &value)
+		if isNumeral, err := port.isNumeralQ(h, &value); err != nil || !isNumeral || !value.IsInt() {
+			return nil, false, err
+		}
+		r, err := smtQBig(port.q, &value)
+		if err != nil {
+			return nil, false, err
 		}
 		return new(big.Int).Set(r.Num()), true, nil
 	}
