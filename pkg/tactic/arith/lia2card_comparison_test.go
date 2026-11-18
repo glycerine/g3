@@ -106,3 +106,32 @@ func TestLIA2CardComparisonTrivialAndUnsupported(t *testing.T) {
 		t.Fatal("unbounded variable accepted")
 	}
 }
+
+// lia2card mk_eq is m.mk_and(mk_ge(...), mk_le(...)); GCC builds the mk_le
+// argument first (AUDIT tactic_arith_02-F7).
+func TestLIA2CardEqualityBuildsLEFirst(t *testing.T) {
+	_, m := fixDLFixture(t, false)
+	equationMust(t, m.RegisterDeclarationPlugins())
+	x := fixDLConst(t, m, true, "card-order-x")
+	y := fixDLConst(t, m, true, "card-order-y")
+	n := func(value string) ast.ASTHandle { return fixDLNumber(t, m, true, value) }
+	left := fixDLApp(t, m, 6, fixDLApp(t, m, 9, n("2"), x), y)
+	converted, ok, err := lia2cardComparison(m, left, n("1"), map[ast.ASTHandle]bool{x: true, y: true}, true, false, nil)
+	equationMust(t, err)
+	if !ok {
+		t.Fatal("supported equality rejected")
+	}
+	term, err := m.RefGet(converted)
+	equationMust(t, err)
+	ge, err := m.GetArg(term, 0)
+	equationMust(t, err)
+	le, err := m.GetArg(term, 1)
+	equationMust(t, err)
+	geID, err := m.GetASTID(ge)
+	equationMust(t, err)
+	leID, err := m.GetASTID(le)
+	equationMust(t, err)
+	if leID >= geID {
+		t.Fatal("pble must be created before pbge", leID, geID)
+	}
+}

@@ -164,17 +164,19 @@ func lia2cardComparisonRetaining(m *ast.ASTManager, left, right ast.ASTHandle, z
 			output, err = m.MkFalse()
 		}
 	} else {
+		// m.mk_and(mk_ge(...), mk_le(...)): GCC evaluates the arguments right
+		// to left, so the pble side is built first.
 		var ge, le ast.ASTHandle
-		ge, err = makeGE()
+		le, err = makeLE()
 		if err == nil {
-			var geRef ast.ASTRef
-			geRef, err = m.NewRef(ge)
+			var leRef ast.ASTRef
+			leRef, err = m.NewRef(le)
 			if err == nil {
-				le, err = makeLE()
+				ge, err = makeGE()
 				if err == nil {
 					output, err = m.MkAnd(ge, le)
 				}
-				err = errors.Join(err, m.DelRef(&geRef))
+				err = errors.Join(err, m.DelRef(&leRef))
 			}
 		}
 	}
