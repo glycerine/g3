@@ -127,9 +127,23 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 // A clause holds a reference to each atom and captured it from a Boolean
 // variable. Reuse a surviving binding unless NOT needs its nongate enode.
 func (s *SMTInternalizerState) restoreLearnedAtom(expression ast.ASTHandle) (int32, error) {
-	variable, found := s.boolVar.lookup(expression)
-	if found && s.booleanData[variable].basicOp != ast.ASTOpNot {
-		return variable, nil
+	table := s.context.exprs
+	record := table.read(expression)
+	found := record != nil && record.flags&smtExprHasBoolVar != 0
+	if found && s.booleanData[record.boolVar].basicOp != ast.ASTOpNot {
+		return record.boolVar, nil
+	}
+	if !found && s.manager.TryIncRefHeldUninterpretedConstant(expression) {
+		variable := int32(len(s.boolExpr))
+		if record == nil {
+			s.boolVar.set(expression, variable)
+		} else {
+			// The fast retain cannot run callbacks or grow the table.
+			record.boolVar = variable
+			record.flags |= smtExprHasBoolVar
+			table.boolVarCount++
+		}
+		return s.publishBoolVar(expression, SMTBoolVarData{internalLevel: s.scopeLevel, basicOp: -1})
 	}
 	header, err := s.manager.NodeHeader(expression)
 	if err != nil {
@@ -145,7 +159,7 @@ func (s *SMTInternalizerState) restoreLearnedAtom(expression ast.ASTHandle) (int
 	if err = s.internalizeFormula(expression, !basic || op != ast.ASTOpNot, &header); err != nil {
 		return SMTNullBoolVar, err
 	}
-	variable, found = s.boolVar.lookup(expression)
+	variable, found := s.boolVar.lookup(expression)
 	if !found {
 		return SMTNullBoolVar, ast.ErrASTDomain
 	}

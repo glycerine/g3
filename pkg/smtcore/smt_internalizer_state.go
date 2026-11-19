@@ -702,8 +702,13 @@ func (s *SMTInternalizerState) mkBoolVar(expression ast.ASTHandle, header *ast.A
 	if err != nil {
 		return SMTNullBoolVar, err
 	}
+	s.boolVar.set(expression, int32(len(s.boolExpr)))
+	return s.publishBoolVar(expression, data)
+}
+
+// The caller owns the expression reference and has published its binding.
+func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMTBoolVarData) (int32, error) {
 	variable := int32(len(s.boolExpr))
-	s.boolVar.set(expression, variable)
 	s.boolExpr = append(s.boolExpr, expression)
 	s.booleanData = append(s.booleanData, data)
 	s.nextBooleanCreation++

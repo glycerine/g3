@@ -174,3 +174,39 @@ func TestSortHandlesOrdersBySlotThenGeneration(t *testing.T) {
 	}
 	SortHandles(nil)
 }
+
+func TestHeldUninterpretedConstantRetainsOneReference(t *testing.T) {
+	m := astTestManager(t)
+	boolean, err := m.MkBoolSort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf := headerTerm(t, m, boolean, "held-constant")
+	if err := m.IncRef(leaf); err != nil {
+		t.Fatal(err)
+	}
+	defer m.DecRef(leaf)
+	acquired := m.TryIncRefHeldUninterpretedConstant(leaf)
+	want := uint32(1)
+	if acquired {
+		want++
+		defer m.DecRef(leaf)
+	}
+	if acquired == astValidateHandles {
+		t.Fatalf("fast retain availability %v in checked build %v", acquired, astValidateHandles)
+	}
+	if got, err := m.GetRefCount(leaf); err != nil || got != want {
+		t.Fatalf("refcount %d, want %d, error %v", got, want, err)
+	}
+	negated, err := m.MkNot(leaf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.IncRef(negated); err != nil {
+		t.Fatal(err)
+	}
+	defer m.DecRef(negated)
+	if m.TryIncRefHeldUninterpretedConstant(negated) {
+		t.Fatal("fast retain accepted an interpreted application")
+	}
+}
