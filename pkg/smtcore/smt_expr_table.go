@@ -148,6 +148,26 @@ func (b smtBoolVarTable) del(h ast.ASTHandle) {
 		b.t.boolVarCount--
 	}
 }
+
+// retireBoolean clears this variable's state with one expression-table lookup.
+func (t *smtExprTable) retireBoolean(h ast.ASTHandle, clearRelevance bool) {
+	record := t.read(h)
+	if record == nil {
+		return
+	}
+	if record.flags&smtExprHasBoolVar != 0 {
+		t.boolVarCount--
+	}
+	record.flags &^= smtExprHasBoolVar | smtExprHasAssignment
+	record.boolVar, record.assignment = 0, 0
+	if clearRelevance {
+		if record.flags&smtExprRelevant != 0 {
+			t.relevanceRemovals++
+		}
+		record.flags &^= smtExprHasRelevant | smtExprRelevant
+	}
+}
+
 func (b smtBoolVarTable) count() int { return b.t.boolVarCount }
 
 // smtAssignmentTable answers context::b_internalized and get_assignment_core

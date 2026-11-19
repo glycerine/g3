@@ -309,9 +309,14 @@ func TestSMTScopeRestorationProofOwnershipFailureRetryAndClose(t *testing.T) {
 				theory := &scopeRestorationHoldTheory{smtInternalizerTestTheory: &smtInternalizerTestTheory{SMTTheoryBase: base}}
 				astTestMust(t, s.RegisterTheory(theory))
 				smtTestUserPush(t, s)
+				expressions := []ast.ASTHandle{smtRelevancyBool(t, m, "restore-failure-a"), smtRelevancyBool(t, m, "restore-failure-b"), smtRelevancyBool(t, m, "restore-failure-c")}
+				if stage == "rebind" {
+					// The restored clause has both a surviving watch and
+					// a watch discarded with its retiring variable.
+					astTestMust(t, s.Internalize(expressions[0], true))
+				}
 				astTestMust(t, s.beginSearchPersistence(1, SMTParamsState{}))
 				astTestMust(t, s.PushScope())
-				expressions := []ast.ASTHandle{smtRelevancyBool(t, m, "restore-failure-a"), smtRelevancyBool(t, m, "restore-failure-b"), smtRelevancyBool(t, m, "restore-failure-c")}
 				ls := scopeRestorationLiterals(t, s, expressions...)
 				formula, err := m.MkOrArgs(expressions)
 				astTestMust(t, err)

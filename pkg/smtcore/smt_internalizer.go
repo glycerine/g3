@@ -899,7 +899,7 @@ func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle
 	variable, isNew := s.boolVar.lookup(expression)
 	if !isNew {
 		if knownBoolean {
-			variable, err = s.mkBoolVar(expression, header)
+			variable, err = s.mkBoolVar(expression, header, false)
 		} else {
 			variable, err = s.MkBoolVar(expression)
 		}
@@ -910,7 +910,7 @@ func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle
 	} else {
 		isNew = false
 	}
-	if s.context.enodes.get(expression) == nil && (!gateContext || !isGate && count > 0) {
+	if (!gateContext || !isGate && count > 0) && s.context.enodes.get(expression) == nil {
 		if _, err = s.attachBooleanEnode(expression, variable, isGate, !gateContext, true); err != nil {
 			return fmt.Errorf("internalize formula enode: %w", err)
 		}

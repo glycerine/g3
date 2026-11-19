@@ -18,8 +18,9 @@ func (s *SMTInternalizerState) keepClauseAcrossPop(record *SMTInternalizedClause
 
 func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLearnedClause) error {
 	if !saved.installed {
-		if len(saved.sourceAtoms) != 0 {
-			if len(saved.sourceAtoms) != len(saved.clause.literals) {
+		atoms := saved.clause.atoms
+		if len(atoms) != 0 {
+			if len(atoms) != len(saved.clause.literals) {
 				return ast.ErrASTDomain
 			}
 			// A clause whose watched variables survived the pop is still
@@ -34,8 +35,8 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 					record.closeWatches++
 				}
 			}
-			for saved.bindHead < len(saved.sourceAtoms) {
-				atom := saved.sourceAtoms[saved.bindHead]
+			for saved.bindHead < len(atoms) {
+				atom := atoms[saved.bindHead]
 				variable, err := s.restoreLearnedAtom(atom.expression)
 				if err != nil {
 					return err
@@ -80,7 +81,7 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 		allOtherFalse := secondValue == lbool.False
 		// After reselecting both watches, a false second watch means every
 		// remaining literal is false. Stable watches need the full check.
-		if allOtherFalse && len(saved.sourceAtoms) == 0 {
+		if allOtherFalse && len(atoms) == 0 {
 			for _, literal := range literals[2:] {
 				value, e := s.Assignment(literal)
 				if e != nil {
@@ -126,18 +127,25 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 // A clause holds a reference to each atom and captured it from a Boolean
 // variable. Reuse a surviving binding unless NOT needs its nongate enode.
 func (s *SMTInternalizerState) restoreLearnedAtom(expression ast.ASTHandle) (int32, error) {
-	if variable, found := s.boolVar.lookup(expression); found && s.booleanData[variable].basicOp != ast.ASTOpNot {
+	variable, found := s.boolVar.lookup(expression)
+	if found && s.booleanData[variable].basicOp != ast.ASTOpNot {
 		return variable, nil
 	}
 	header, err := s.manager.NodeHeader(expression)
 	if err != nil {
 		return SMTNullBoolVar, err
 	}
+	// A nullary uninterpreted Boolean in a gate context has no theory,
+	// children, gate constraints or enode to internalize. This is the
+	// mk_bool_var path through the source's internalize_formula_core.
+	if !found && header.Kind == ast.ASTApp && header.NumArgs == 0 && header.Family == ast.NullFamilyID {
+		return s.mkBoolVar(expression, &header, true)
+	}
 	op, basic := s.smtHeaderBasicOperation(&header)
 	if err = s.internalizeFormula(expression, !basic || op != ast.ASTOpNot, &header); err != nil {
 		return SMTNullBoolVar, err
 	}
-	variable, found := s.boolVar.lookup(expression)
+	variable, found = s.boolVar.lookup(expression)
 	if !found {
 		return SMTNullBoolVar, ast.ErrASTDomain
 	}

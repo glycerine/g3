@@ -663,11 +663,11 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	if err != nil {
 		return SMTNullBoolVar, err
 	}
-	return s.mkBoolVar(expression, &header)
+	return s.mkBoolVar(expression, &header, false)
 }
 
 // The caller has established that the expression is Boolean and has no variable.
-func (s *SMTInternalizerState) mkBoolVar(expression ast.ASTHandle, header *ast.ASTNodeHeader) (int32, error) {
+func (s *SMTInternalizerState) mkBoolVar(expression ast.ASTHandle, header *ast.ASTNodeHeader, held bool) (int32, error) {
 	data := SMTBoolVarData{
 		justification: NullSMTBooleanJustification(),
 		internalLevel: s.scopeLevel,
@@ -694,7 +694,12 @@ func (s *SMTInternalizerState) mkBoolVar(expression ast.ASTHandle, header *ast.A
 			}
 		}
 	}
-	if err = s.manager.IncRef(expression); err != nil {
+	if held {
+		err = s.manager.IncRefHeld(expression)
+	} else {
+		err = s.manager.IncRef(expression)
+	}
+	if err != nil {
 		return SMTNullBoolVar, err
 	}
 	variable := int32(len(s.boolExpr))
@@ -1245,9 +1250,10 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 		return ast.ErrASTDomain
 	}
 	if preserve {
-		// Detach the lemmas whose atoms this pop retires before retiring
-		// their Boolean variables. closeWatches also makes destruction safe
-		// if a later owner refuses the pop.
+		// As in reinit_clauses, only watches on surviving variables need
+		// individual removal. Retiring watch lists are recycled by the trail,
+		// including when Close takes over a failed pop.
+		booleanLimit := scope.booleanLimit + int(SMTFirstBoolVar)
 		for index := range s.pendingPop.learned {
 			saved := &s.pendingPop.learned[index]
 			if !saved.retired {
@@ -1259,7 +1265,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			}
 			for record.closeWatches < 2 {
 				literal := record.clause.literals[record.closeWatches]
-				if !s.watches[literal.Negated().Index()].RemoveClause(record.clause) {
+				if int(literal.Var()) < booleanLimit && !s.watches[literal.Negated().Index()].RemoveClause(record.clause) {
 					return ast.ErrASTDomain
 				}
 				record.closeWatches++
@@ -1365,7 +1371,9 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 		}
 		expression := s.booleanStack[len(s.booleanStack)-1]
 		if !s.retiringBoolean {
-			variable := s.boolVar.get(expression)
+			// mk_bool_var assigns IDs in creation order, so this trail entry
+			// always owns the last live Boolean slot.
+			variable := int32(len(s.boolExpr) - 1)
 			if (s.cachedActivity || s.caseSplitStrategy == 2) && s.searching && s.activity[variable] > 0 {
 				if err := s.cacheBooleanActivity(expression, s.activity[variable]); err != nil {
 					return err
@@ -1398,11 +1406,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 				}
 			}
 			s.unindexEqualityAtom(variable, expression)
-			s.boolVar.del(expression)
-			s.context.assignments.del(expression)
-			if s.relevancy == nil {
-				s.context.relevant.del(expression)
-			}
+			s.context.exprs.retireBoolean(expression, s.relevancy == nil)
 			s.boolExpr[variable] = ast.ASTHandle{}
 			s.boolExpr = s.boolExpr[:variable]
 			s.booleanData = s.booleanData[:variable]

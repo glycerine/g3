@@ -28,9 +28,8 @@ type smtPreservedLearnedClause struct {
 	clause      *SMTClause
 	pending     smtLearnedAssignment
 	inPlace     bool
-	recordIndex int             // index of the in-place lemma in s.lemmas
-	retired     bool            // the pop retires one of its atoms: popTo detaches it
-	sourceAtoms []smtClauseAtom // borrowed from the surviving clause owner
+	recordIndex int  // index of the in-place lemma in s.lemmas
+	retired     bool // the pop retires one of its atoms: popTo detaches it
 	bindHead    int
 	keepReinit  bool
 }
@@ -302,7 +301,7 @@ func (s *SMTInternalizerState) reinitCandidates(level int, result []smtPreserved
 			// There is no snapshot or reconstruction for surviving bindings.
 			// Source clause objects already own their atoms and proof. Do not
 			// acquire a second snapshot merely to keep the same object alive.
-			result = append(result, smtPreservedLearnedClause{inPlace: true, clause: clause, recordIndex: index, retired: retired, sourceAtoms: clause.atoms})
+			result = append(result, smtPreservedLearnedClause{inPlace: true, clause: clause, recordIndex: index, retired: retired})
 		}
 	}
 	return result, nil
