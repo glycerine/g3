@@ -41,7 +41,7 @@ func TestAPIGlobalTraceControlsShareShellProcessTags(t *testing.T) {
 	if !tags.IsEnabled(name) || !tags.IsEnabled(name+"\x00other") {
 		t.Fatal("source C-string enable")
 	}
-	if shell.NewCommandLine(nil, nil, nil).Trace != tags {
+	if shell.NewCommandLine(nil, nil).Trace != tags {
 		t.Fatal("shell and API use different process trace tables")
 	}
 	DisableTrace(name + "\x00ignored")

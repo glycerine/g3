@@ -35,36 +35,42 @@ func TestShellScopedTimerMemoryTraceSourceLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 	tags.Enable("memory")
-	s := NewTimeoutService(nil)
-	defer s.Close()
-	if err := s.BindMemoryTrace(tags); err != nil {
-		t.Fatal(err)
-	}
-	for _, disabled := range []int64{0, int64(math.MaxUint32)} {
-		if err := s.SetTimeout(disabled); err != nil {
+	for _, disabled := range []uint32{0, math.MaxUint32} {
+		run, err := newTimeoutService(disabled, nil, tags)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := run.Close(); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if out.Len() != 0 {
 		t.Fatal("disabled timer allocated imp", out.String())
 	}
-	if err := s.SetTimeout(1_000_000); err != nil {
+	s, err := newTimeoutService(1_000_000, nil, tags)
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 	firstTimer := s.timer
 	firstAlloc := "alloc " + fmt.Sprintf("%p", firstTimer) + " src/util/scoped_timer.cpp:257 imp " + strconv.FormatUint(uint64(unsafe.Sizeof(*firstTimer)), 10) + "\n"
 	if strings.Count(out.String(), firstAlloc) != 1 {
 		t.Fatal("source allocation", out.String(), firstAlloc)
 	}
-	if err := s.SetTimeout(1_000_000); err != nil {
+	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
+	s, err = newTimeoutService(1_000_000, nil, tags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
 	if !strings.Contains(out.String(), "dealloc "+fmt.Sprintf("%p", firstTimer)+" src/util/scoped_timer.cpp:264\n") {
-		t.Fatal("replacement did not release first imp", out.String())
+		t.Fatal("run close did not release first imp", out.String())
 	}
 	secondTimer := s.timer
 	if secondTimer == firstTimer || strings.Count(out.String(), "[memory] allocate ") != 2 {
-		t.Fatal("replacement allocation", out.String())
+		t.Fatal("second run allocation", out.String())
 	}
 	if active, err := p.BeginFinalize(); err != nil || !active {
 		t.Fatal(active, err)

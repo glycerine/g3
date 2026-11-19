@@ -28,7 +28,7 @@ func TestShellResolveSourceInputExtension(t *testing.T) {
 		{"query.CNF", InputSMT2},
 		{"query.", InputSMT2},
 	} {
-		c := NewCommandLine(nil, nil, nil)
+		c := NewCommandLine(nil, nil)
 		if err := c.Input.AcceptPositional(tc.filename); err != nil {
 			t.Fatal(err)
 		}
@@ -37,7 +37,7 @@ func TestShellResolveSourceInputExtension(t *testing.T) {
 			t.Fatalf("%q: kind %v, err %v", tc.filename, kind, err)
 		}
 	}
-	c := NewCommandLine(nil, nil, nil)
+	c := NewCommandLine(nil, nil)
 	c.Kind = InputDatalog
 	if err := c.Input.AcceptPositional("query.smt2"); err != nil {
 		t.Fatal(err)
@@ -65,7 +65,7 @@ func TestShellMemoryDispatchExitChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := NewCommandLine(nil, nil, nil)
+	c := NewCommandLine(nil, nil)
 	if err := c.BeginMemoryPolicy(policy); err != nil {
 		t.Fatal(err)
 	}

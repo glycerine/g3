@@ -9,7 +9,7 @@ import (
 func TestShellParseAndWriteHelpVersionTerminalActions(t *testing.T) {
 	for _, tc := range []struct{ arg, prefix string }{{"-h", "Z3 [version"}, {"--help", "Z3 [version"}, {"-?", "Z3 [version"}, {"-version", "Z3 version"}} {
 		var out bytes.Buffer
-		command := NewCommandLine(nil, nil, nil)
+		command := NewCommandLine(nil, nil)
 		if err := command.ParseAndWrite([]string{tc.arg, "ignored.smt2"}, &out); err != nil {
 			t.Fatal(tc.arg, err)
 		}

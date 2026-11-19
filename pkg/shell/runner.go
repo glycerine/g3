@@ -3,6 +3,7 @@ package shell
 // Source: src/shell/main.cpp:291-367 frontend composition and dispatch.
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -54,7 +55,7 @@ func NewRunner(c RunnerConfig) (runner *Runner, err error) {
 		runner.Close()
 		return nil, err
 	}
-	runner.command = NewCommandLine(nil, nil, globals)
+	runner.command = NewCommandLine(nil, globals)
 	return runner, nil
 }
 
@@ -81,6 +82,14 @@ func (r *Runner) Run() (result error) {
 	if r.command.Action != CommandContinue {
 		return r.command.WriteTerminalAction(r.output)
 	}
+	timer, err := NewTimeoutService(r.command.TimeoutMilliseconds, r.output)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		result = errors.Join(result, timer.Close())
+		timer.ReportTimeout()
+	}()
 	globals, err := r.context.GlobalParameters()
 	if err != nil {
 		return err
@@ -111,5 +120,5 @@ func (r *Runner) Run() (result error) {
 	if err = r.context.RefreshGlobalParameters(); err != nil {
 		return err
 	}
-	return r.dispatch(kind)
+	return r.dispatch(kind, timer)
 }

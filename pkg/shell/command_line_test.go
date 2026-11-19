@@ -18,7 +18,7 @@ import (
 func TestShellCommandLineFilenameWarningAndOptionOrder(t *testing.T) {
 	var output bytes.Buffer
 	warnings := diagnostic.NewWarningService(&output)
-	c := NewCommandLine(warnings, nil, nil)
+	c := NewCommandLine(warnings, nil)
 	if err := c.Parse([]string{"-smt2", "first.smt2", "-file:second.smt2", "-nw", "third.smt2", "--", "-fourth.smt2", "tail"}); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestShellCommandLineFilenameWarningAndOptionOrder(t *testing.T) {
 
 	output.Reset()
 	warnings = diagnostic.NewWarningService(&output)
-	c = NewCommandLine(warnings, nil, nil)
+	c = NewCommandLine(warnings, nil)
 	if err := c.Parse([]string{"-file", "first", "--", "-strange name"}); err != nil {
 		t.Fatal(err)
 	}
@@ -40,35 +40,15 @@ func TestShellCommandLineFilenameWarningAndOptionOrder(t *testing.T) {
 	}
 }
 
-func TestShellCommandLineBorrowsProcessTimeout(t *testing.T) {
-	first := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil, nil)
-	second := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil, nil)
-	process := BorrowProcessTimeoutService()
-	if process == nil || first.Timer != process || second.Timer != process {
-		t.Fatal("source command lines did not share the process timeout owner")
-	}
-	if err := first.Parse([]string{"-T:0"}); err != nil {
-		t.Fatal("source -T without an injected timer", err)
-	}
-	process.mu.Lock()
-	firstTimer := process.timer
-	process.mu.Unlock()
-	if firstTimer == nil || firstTimer.Closed() {
-		t.Fatal("disabled process timeout did not retain its scoped timer")
-	}
-	if err := second.Parse([]string{"-T:-1"}); err != nil {
-		t.Fatal("second command line could not replace the shared timer", err)
-	}
-	process.mu.Lock()
-	secondTimer := process.timer
-	process.mu.Unlock()
-	if !firstTimer.Closed() || secondTimer == nil || secondTimer == firstTimer || secondTimer.Closed() {
-		t.Fatal("source replacement did not retire the first process timer")
+func TestShellCommandLineFixedTimeout(t *testing.T) {
+	cmd := NewCommandLine(nil, nil)
+	if err := cmd.Parse([]string{"-T:1000", "-T:1"}); !errors.Is(err, ErrShellCommandLine) || cmd.TimeoutMilliseconds != 1_000_000 {
+		t.Fatal("duplicate -T moved the deadline", cmd.TimeoutMilliseconds, err)
 	}
 }
 
 func TestShellCommandLineTerminalActionsAndKinds(t *testing.T) {
-	c := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil, nil)
+	c := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil)
 	if err := c.Parse([]string{"-dl", "-dimacs", "-wcnf", "-bpo", "-log", "-in", "-st", "-ist", "-pm:arith", "ignored"}); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +67,7 @@ func TestShellCommandLineTerminalActionsAndKinds(t *testing.T) {
 		{"-pd", CommandDisplayParamDescriptions}, {"-pm", CommandDisplayModules},
 		{"-pp:arith.solver", CommandDisplayParameter},
 	} {
-		c = NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil, nil)
+		c = NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil)
 		if err := c.Parse([]string{test.arg, "later"}); err != nil || c.Action != test.action {
 			t.Fatal(test.arg, c.Action, err)
 		}
@@ -107,7 +87,7 @@ func TestShellCommandLineSourceDecimalAndRefusals(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	c := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil, nil)
+	c := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil)
 	if err := c.Parse([]string{"-v:  -12tail"}); err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +103,7 @@ func TestShellCommandLineSourceDecimalAndRefusals(t *testing.T) {
 		{"-pp", ErrShellOptionArgument}, {"-bogus", ErrShellCommandLine},
 		{"name=value", ErrShellOptionService},
 	} {
-		c = NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil, nil)
+		c = NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil)
 		if err := c.Parse([]string{test.arg}); !errors.Is(err, test.want) {
 			t.Fatal(test.arg, err, test.want)
 		}
@@ -152,7 +132,7 @@ func TestShellCommandLineDebugAndTraceBuildGates(t *testing.T) {
 		}
 	})
 	tags := diagnostic.NewTraceTagsWithWriter(&bytes.Buffer{})
-	c := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil, nil)
+	c := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), nil)
 	c.Trace, c.Debug = tags, d
 	traceError := c.Parse([]string{"-tr:arith\x00ignored"})
 	if shellTraceOptions {
@@ -219,9 +199,8 @@ func TestShellCommandLineReachesGlobalParameterAndTimeoutOwners(t *testing.T) {
 	if err := globals.InitializeSource(); err != nil {
 		t.Fatal(err)
 	}
-	timer := NewTimeoutService(&bytes.Buffer{})
 	t.Cleanup(func() {
-		for _, e := range []error{timer.Close(), globals.Close(), catalog.Close(), pc.Close(), q.Close(), sy.Close()} {
+		for _, e := range []error{globals.Close(), catalog.Close(), pc.Close(), q.Close(), sy.Close()} {
 			if e != nil {
 				t.Error(e)
 			}
@@ -230,7 +209,7 @@ func TestShellCommandLineReachesGlobalParameterAndTimeoutOwners(t *testing.T) {
 			t.Error("shell command owners retained bytes", b.Used())
 		}
 	})
-	c := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), timer, globals)
+	c := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), globals)
 	if err := c.Parse([]string{"-T:0", "-t:50", "-memory:64", "verbose=2", "input.smt2"}); err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +236,7 @@ func TestShellCommandLineReachesGlobalParameterAndTimeoutOwners(t *testing.T) {
 		{"-pp:verbose", "  name:           verbose\n"},
 	} {
 		var output bytes.Buffer
-		choice := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), timer, globals)
+		choice := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), globals)
 		if err := choice.ParseAndWrite([]string{test.argument, "not-scanned"}, &output); err != nil {
 			t.Fatal(test.argument, err)
 		}
@@ -277,12 +256,12 @@ func TestShellCommandLineReachesGlobalParameterAndTimeoutOwners(t *testing.T) {
 			t.Fatal("terminal action scanned later filename", test.argument)
 		}
 	}
-	choice := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), timer, globals)
+	choice := NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), globals)
 	var missing bytes.Buffer
 	if err := choice.ParseAndWrite([]string{"-pp:no_such_parameter"}, &missing); err == nil || !strings.HasPrefix(missing.String(), "no_such_parameter ") {
 		t.Fatal("-pp source diagnostic before lookup failure", err, missing.String())
 	}
-	choice = NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), timer, globals)
+	choice = NewCommandLine(diagnostic.NewWarningService(&bytes.Buffer{}), globals)
 	if err := choice.ParseAndWrite([]string{"-p"}, refusedWarningWriter{}); !errors.Is(err, io.ErrClosedPipe) {
 		t.Fatal("terminal borrowed stdout refusal", err)
 	}

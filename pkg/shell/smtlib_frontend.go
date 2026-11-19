@@ -6,11 +6,10 @@ import (
 	"errors"
 	"io"
 	"os"
-	"os/signal"
-	"sync/atomic"
 
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -77,9 +76,6 @@ func NewSMTLIBFrontend(c SMTLIBFrontendConfig) (f *SMTLIBFrontend, err error) {
 		return nil, err
 	}
 	f.timer = c.Timer
-	if f.timer == nil {
-		f.timer = BorrowProcessTimeoutService()
-	}
 	return f, nil
 }
 
@@ -97,48 +93,29 @@ func (f *SMTLIBFrontend) Run() (result error) {
 
 	// The source timeout handler exits the process: nothing the parser
 	// writes after the timeout fired reaches the output.
-	var timedOut atomic.Bool
-	if err := f.context.SetShellDiagnosticOutput(timeoutGateWriter(f.diagnostics, &timedOut)); err != nil {
+	signals, stopSignals := newRunSignals(f.timer)
+	defer stopSignals()
+	// The context may retain its output transports after this run returns.
+	defer func() { signals.Done = nil }()
+	previous := f.context.SetRunSignals(signals)
+	defer f.context.SetRunSignals(previous)
+	if err := f.context.SetShellDiagnosticOutput(timeoutGateWriter(f.diagnostics, signals)); err != nil {
 		return err
 	}
 	if err := f.watch.Start(); err != nil {
 		return err
 	}
-	if err := f.timer.RegisterOnTimeoutProc(func() {
-		timedOut.Store(true)
-		_ = f.context.SetCancel(true)
-	}); err != nil {
-		return err
-	}
-	defer func() { result = errors.Join(result, f.timer.RegisterOnTimeoutProc(nil)) }()
-
-	interrupt := make(chan os.Signal, 1)
-	stopInterrupt := make(chan struct{})
-	interruptDone := make(chan struct{})
-	var interrupted atomic.Bool
-	signal.Notify(interrupt, os.Interrupt)
-	go func() {
-		defer close(interruptDone)
-		select {
-		case <-stopInterrupt:
-		case <-interrupt:
-			interrupted.Store(true)
-			_ = f.context.SetCancel(true)
-		}
-	}()
-	defer func() {
-		signal.Stop(interrupt)
-		close(stopInterrupt)
-		<-interruptDone
-	}()
-
-	parseErr := smt2.ParseShellCommandsWithStop(f.context, f.input, timeoutGateWriter(f.output, &timedOut), timedOut.Load)
+	parseErr := smt2.ParseShellCommandsWithStop(f.context, f.input, timeoutGateWriter(f.output, signals), signals.Canceled)
 	stopErr := f.watch.Stop()
 	seconds, secondsErr := f.watch.Seconds()
 	f.result.DurationSeconds = seconds
 	f.result.ParseError = parseErr
-	if timedOut.Load() {
-		<-f.timer.Events()
+	stopped := signals.RunStopped()
+	if stopped && f.timer.Caller() != control.EventCallerTimeout {
+		return errors.Join(stopErr, secondsErr)
+	}
+	if stopped {
+		f.timer.ReportTimeout()
 	}
 
 	var statisticsErr error
@@ -149,15 +126,15 @@ func (f *SMTLIBFrontend) Run() (result error) {
 		statisticsErr = f.writeFinalStatistics(seconds)
 	}
 	f.result.StatisticsError = statisticsErr
-	if interrupted.Load() {
-		signal.Stop(interrupt)
+	if signals.InterruptCount() != 0 {
+		stopSignals()
 		process, signalErr := os.FindProcess(os.Getpid())
 		if signalErr == nil {
 			signalErr = process.Signal(os.Interrupt)
 		}
 		return errors.Join(parseErr, stopErr, secondsErr, statisticsErr, signalErr)
 	}
-	if timedOut.Load() {
+	if stopped {
 		// The C++ timeout callback prints the requested statistics and exits
 		// successfully from the process; parser cancellation is only the Go-side
 		// mechanism for unwinding the active command.
@@ -176,19 +153,19 @@ func (f *SMTLIBFrontend) begin() error {
 
 // gatedWriter drops every write once the timeout fired.
 type gatedWriter struct {
-	w      io.Writer
-	closed *atomic.Bool
+	w       io.Writer
+	signals *control.RunSignals
 }
 
-func timeoutGateWriter(w io.Writer, closed *atomic.Bool) io.Writer {
-	if w == nil {
-		return nil
+func timeoutGateWriter(w io.Writer, signals *control.RunSignals) io.Writer {
+	if w == nil || signals.Done == nil {
+		return w
 	}
-	return &gatedWriter{w: w, closed: closed}
+	return &gatedWriter{w: w, signals: signals}
 }
 
 func (g *gatedWriter) Write(p []byte) (int, error) {
-	if g.closed.Load() {
+	if g.signals.RunStopped() {
 		return len(p), nil
 	}
 	return g.w.Write(p)

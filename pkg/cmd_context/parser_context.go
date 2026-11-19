@@ -31,6 +31,7 @@ func (c *Context) NewParserContext() (result *Context, resultErr error) {
 	if err = c.config.Params.CheckServices(manager.Symbols, manager.NumeralService()); err != nil {
 		return result, err
 	}
+	result.runSignals = manager.ResourceLimit().RunSignals
 	result.manager = manager
 	result.borrowedManager = true
 	if err = result.initBuiltins(); err != nil {

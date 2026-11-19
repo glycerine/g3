@@ -21,6 +21,7 @@ var utilReslimitCancelMu sync.Mutex
 // copy an initialized service (atomic state and owned vectors would alias).
 type Reslimit struct {
 	cancelCount                atomic.Uint32
+	RunSignals                 *RunSignals
 	suspended                  bool
 	Steps, Limit               uint64
 	Limits                     []uint64
@@ -58,12 +59,17 @@ func (r *Reslimit) CheckOpen() {
 		panic("g3: closed resource limit")
 	}
 }
+
+func (r *Reslimit) cancellationRequested() bool {
+	return r.cancelCount.Load() != 0 || (r.RunSignals != nil && r.RunSignals.Canceled())
+}
+
 func (r *Reslimit) Count() uint64 { r.CheckOpen(); return r.Steps }
 func (r *Reslimit) Inc() bool     { return r.IncOffset(1) }
 func (r *Reslimit) IncOffset(offset uint32) bool {
 	r.CheckOpen()
 	r.Steps += uint64(offset)
-	return (r.cancelCount.Load() == 0 && (r.Limit == 0 || r.Steps <= r.Limit)) || r.suspended
+	return (!r.cancellationRequested() && (r.Limit == 0 || r.Steps <= r.Limit)) || r.suspended
 }
 func (r *Reslimit) Push(delta uint32) error {
 	r.CheckOpen()
@@ -104,10 +110,10 @@ func (r *Reslimit) Pop() {
 	r.Limits = r.Limits[:len(r.Limits)-1]
 	r.cancelCount.Store(0)
 }
-func (r *Reslimit) CancelFlag() bool    { return r.cancelCount.Load() > 0 && !r.suspended }
+func (r *Reslimit) CancelFlag() bool    { return !r.suspended && r.cancellationRequested() }
 func (r *Reslimit) CancelCount() uint32 { return r.cancelCount.Load() }
 func (r *Reslimit) CancelMessage() string {
-	if r.cancelCount.Load() > 0 {
+	if r.cancellationRequested() {
 		return messages.Canceled
 	}
 	return messages.MaxResource

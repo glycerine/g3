@@ -42,9 +42,6 @@ func NewWCNFFrontend(c *cmd_context.Context, output io.Writer, options WCNFFront
 		return nil, ErrWCNFFrontend
 	}
 	timer := options.Timer
-	if timer == nil {
-		timer = BorrowProcessTimeoutService()
-	}
 	diagnostics := options.Diagnostics
 	if diagnostics == nil {
 		diagnostics = os.Stderr

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"os/signal"
-	"sync/atomic"
 	"time"
 
 	"github.com/glycerine/g3/pkg/sat"
@@ -40,9 +38,6 @@ func NewDIMACSFrontend(c DIMACSFrontendConfig) (f *DIMACSFrontend, err error) {
 	if c.Globals == nil || c.Input == nil || c.Writer == nil {
 		return nil, ErrShellOptionService
 	}
-	if c.Timer == nil {
-		c.Timer = BorrowProcessTimeoutService()
-	}
 	f = &DIMACSFrontend{globals: c.Globals, timer: c.Timer, input: c.Input, output: c.Writer, stats: c.DisplayStatistics, start: time.Now()}
 	defer func() {
 		if err != nil {
@@ -73,32 +68,12 @@ func (f *DIMACSFrontend) Run() (err error) {
 	if f == nil || f.closed || f.solver == nil {
 		return ErrShellOptionService
 	}
-	var timedOut atomic.Bool
-	if err = f.timer.RegisterOnTimeoutProc(func() {
-		timedOut.Store(true)
-		f.limit.Cancel()
-	}); err != nil {
-		return err
-	}
-	defer func() { err = errors.Join(err, f.timer.RegisterOnTimeoutProc(nil)) }()
-	interrupt := make(chan os.Signal, 1)
-	stopInterrupt := make(chan struct{})
-	var interrupted atomic.Bool
-	signal.Notify(interrupt, os.Interrupt)
-	go func() {
-		select {
-		case <-interrupt:
-			interrupted.Store(true)
-			f.limit.Cancel()
-		case <-stopInterrupt:
-		}
-	}()
-	defer func() {
-		signal.Stop(interrupt)
-		close(stopInterrupt)
-	}()
+	signals, stopSignals := newRunSignals(f.timer)
+	defer stopSignals()
+	f.limit.RunSignals = signals
+	defer func() { f.limit.RunSignals = nil }()
 	finishInterrupt := func(s *sat.Solver) error {
-		if !interrupted.Load() {
+		if signals.InterruptCount() == 0 {
 			return nil
 		}
 		if f.stats {
@@ -106,7 +81,7 @@ func (f *DIMACSFrontend) Run() (err error) {
 				return e
 			}
 		}
-		signal.Stop(interrupt)
+		stopSignals()
 		process, e := os.FindProcess(os.Getpid())
 		if e != nil {
 			return e
@@ -114,22 +89,25 @@ func (f *DIMACSFrontend) Run() (err error) {
 		return process.Signal(os.Interrupt)
 	}
 	finishTimeout := func(s *sat.Solver) error {
-		if !timedOut.Load() {
+		if f.timer.Caller() != control.EventCallerTimeout {
 			return nil
 		}
-		<-f.timer.Events()
+		f.timer.ReportTimeout()
 		if f.stats {
 			return f.writeStatistics(s)
 		}
 		return nil
 	}
+	if signals.RunStopped() {
+		return finishTimeout(f.solver)
+	}
 	if err = sat.ParseDIMACS(f.input, f.solver); err != nil {
 		return err
 	}
-	if interrupted.Load() {
+	if signals.InterruptCount() != 0 {
 		return finishInterrupt(f.solver)
 	}
-	if timedOut.Load() {
+	if signals.RunStopped() {
 		return finishTimeout(f.solver)
 	}
 	verbose, err := diagnostic.ProcessVerboseEnabled(20)
@@ -160,14 +138,14 @@ func (f *DIMACSFrontend) Run() (err error) {
 		defer func() { err = errors.Join(err, active.Close()) }()
 	}
 	status, err := active.Check(assumptions)
-	if err != nil {
-		return err
-	}
-	if interrupted.Load() {
+	if signals.InterruptCount() != 0 {
 		return finishInterrupt(active)
 	}
-	if timedOut.Load() {
+	if signals.RunStopped() {
 		return finishTimeout(active)
+	}
+	if err != nil {
+		return err
 	}
 	if err = f.writeResult(active, status, tracking); err != nil {
 		return err

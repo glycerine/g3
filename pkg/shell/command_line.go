@@ -46,28 +46,25 @@ var ErrShellOptionService = errors.New("shell: option service is unavailable")
 // CommandLine borrows the process services and owns only parser state. Args
 // excludes argv[0], exactly as the source loop starts at argv[1].
 type CommandLine struct {
-	Input              *InputFileOption
-	Timer              *TimeoutService
-	Warnings           *diagnostic.WarningService
-	Globals            *params.GlobalParamsService
-	Trace              *diagnostic.TraceTags
-	Debug              *diagnostic.DebugContext
-	Kind               InputKind
-	StandardInput      bool
-	DisplayStatistics  bool
-	DisplayIStatistics bool
-	Action             CommandAction
-	ActionArgument     string
+	Input               *InputFileOption
+	TimeoutMilliseconds uint32
+	Warnings            *diagnostic.WarningService
+	Globals             *params.GlobalParamsService
+	Trace               *diagnostic.TraceTags
+	Debug               *diagnostic.DebugContext
+	Kind                InputKind
+	StandardInput       bool
+	DisplayStatistics   bool
+	DisplayIStatistics  bool
+	Action              CommandAction
+	ActionArgument      string
 }
 
-func NewCommandLine(warnings *diagnostic.WarningService, timer *TimeoutService, globals *params.GlobalParamsService) *CommandLine {
+func NewCommandLine(warnings *diagnostic.WarningService, globals *params.GlobalParamsService) *CommandLine {
 	if warnings == nil {
 		warnings = diagnostic.BorrowProcessWarningService()
 	}
-	if timer == nil {
-		timer = BorrowProcessTimeoutService()
-	}
-	return &CommandLine{Input: NewInputFileOption(warnings), Timer: timer, Warnings: warnings, Globals: globals, Trace: diagnostic.BorrowProcessTraceTags()}
+	return &CommandLine{Input: NewInputFileOption(warnings), Warnings: warnings, Globals: globals, Trace: diagnostic.BorrowProcessTraceTags()}
 }
 
 func shellCString(s string) string { return s[:text.CStringLength(s)] }
@@ -108,6 +105,7 @@ func (c *CommandLine) Parse(args []string) error {
 	if c == nil || c.Input == nil || c.Warnings == nil {
 		return ErrShellOptionService
 	}
+	var timeoutSpecified bool
 	for i := 0; i < len(args); i++ {
 		arg := shellCString(args[i])
 		if arg == "--" {
@@ -170,12 +168,15 @@ func (c *CommandLine) Parse(args []string) error {
 				if value == nil {
 					return sourceCommandLineError(ErrMissingGlobalTimeout, ErrMissingGlobalTimeout.Error())
 				}
-				if c.Timer == nil {
-					return ErrShellOptionService
+				if timeoutSpecified {
+					return sourceCommandLineError(ErrShellCommandLine, "global timeout specified more than once")
 				}
-				if err := ApplyGlobalTimeoutOption(value, c.Timer); err != nil {
+				ms, err := parseGlobalTimeoutOption(value)
+				if err != nil {
 					return err
 				}
+				c.TimeoutMilliseconds = ms
+				timeoutSpecified = true
 			case "t", "memory":
 				if value == nil {
 					if name == "memory" {

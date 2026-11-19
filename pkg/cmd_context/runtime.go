@@ -114,6 +114,9 @@ func NewAuxiliaryContextFor(template *ast.ASTManager) (*Context, error) {
 	c, err := NewAuxiliaryContext()
 	if c != nil {
 		c.familyTemplate = template
+		if template != nil {
+			c.runSignals = template.ResourceLimit().RunSignals
+		}
 	}
 	return c, err
 }

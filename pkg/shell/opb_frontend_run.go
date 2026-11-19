@@ -22,7 +22,7 @@ func (f *OPBFrontend) run(openInput func() (io.Reader, io.Closer, error)) error 
 		return ErrOPBFrontend
 	}
 	f.started = time.Now()
-	return runOptimizationFrontendProcess(f.context, f.timer, func(timedOut func() bool) (lbool.LBool, error) {
+	return runOptimizationFrontendProcess(f.context, f.timer, func(stopped func() bool) (lbool.LBool, error) {
 		input, inputCloser, err := openInput()
 		if err != nil {
 			return lbool.Undef, err
@@ -37,7 +37,7 @@ func (f *OPBFrontend) run(openInput func() (io.Reader, io.Closer, error)) error 
 			return lbool.Undef, err
 		}
 		f.initialized = true
-		if timedOut() {
+		if stopped() {
 			if inputCloser != nil {
 				err = inputCloser.Close()
 			}
@@ -50,7 +50,7 @@ func (f *OPBFrontend) run(openInput func() (io.Reader, io.Closer, error)) error 
 		if err != nil {
 			return lbool.Undef, err
 		}
-		if timedOut() {
+		if stopped() {
 			return lbool.Undef, nil
 		}
 		f.document = document.Copy()
@@ -58,7 +58,7 @@ func (f *OPBFrontend) run(openInput func() (io.Reader, io.Closer, error)) error 
 		if err != nil {
 			return lbool.Undef, err
 		}
-		if timedOut() {
+		if stopped() {
 			return lbool.Undef, nil
 		}
 		f.context.SetOptimizationFrontend()

@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -2202,5 +2203,38 @@ func TestSMTKernelSamplesSlowProgressAtConfiguredCPUIntervals(t *testing.T) {
 	astTestMust(t, err)
 	if status != lbool.True || recorder.fast == 0 || recorder.slow == 0 {
 		t.Fatal("progress callback", status, recorder.fast, recorder.slow)
+	}
+}
+
+type timeoutOnFirstProgress struct{ done chan struct{} }
+
+func (p *timeoutOnFirstProgress) FastProgressSample() {
+	if p.done != nil {
+		close(p.done)
+		p.done = nil
+	}
+}
+
+func (*timeoutOnFirstProgress) SlowProgressSample() {}
+
+func TestSMTSolverObservesRunTimeoutDuringSearch(t *testing.T) {
+	m, s := smtSolverFixture(t)
+	a := smtRelevancyBool(t, m, "timeout-a")
+	b := smtRelevancyBool(t, m, "timeout-b")
+	formula, err := m.MkOr(a, b)
+	astTestMust(t, err)
+	astTestMust(t, s.Assert(formula))
+
+	// Fire at a known point inside CheckSat, independent of wall-clock timing.
+	done := make(chan struct{})
+	progress := &timeoutOnFirstProgress{done: done}
+	limit := m.ResourceLimit()
+	limit.RunSignals = &control.RunSignals{Done: done}
+	defer func() { limit.RunSignals = nil }()
+	astTestMust(t, s.SetProgressCallback(progress))
+	status, err := s.CheckSat(nil)
+	astTestMust(t, err)
+	if progress.done != nil || status != lbool.Undef {
+		t.Fatalf("search returned %v after timeout (fired=%v)", status, progress.done == nil)
 	}
 }

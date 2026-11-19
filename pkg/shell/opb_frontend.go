@@ -45,9 +45,6 @@ func NewOPBFrontend(context *cmd_context.Context, output io.Writer, options OPBF
 		return nil, ErrOPBFrontend
 	}
 	timer := options.Timer
-	if timer == nil {
-		timer = BorrowProcessTimeoutService()
-	}
 	diagnostics := options.Diagnostics
 	if diagnostics == nil {
 		diagnostics = os.Stderr

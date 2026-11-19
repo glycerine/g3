@@ -5,8 +5,21 @@ package cmd_context
 import (
 	"io"
 
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
+
+// SetRunSignals attaches a run's channels without forcing manager creation.
+// The context keeps them across (reset). The owner restores the previous
+// signals when a frontend finishes with a borrowed context.
+func (c *Context) SetRunSignals(signals *control.RunSignals) (previous *control.RunSignals) {
+	previous, c.runSignals = c.runSignals, signals
+	if c.manager != nil {
+		limit := c.manager.ResourceLimit()
+		previous, limit.RunSignals = limit.RunSignals, signals
+	}
+	return previous
+}
 
 // SetCancel updates the live manager's resource-limit cancellation state.
 // Like the source method, it does not initialize a manager on a cold context.

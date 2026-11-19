@@ -7,25 +7,25 @@ import (
 	"fmt"
 )
 
-func (r *Runner) dispatch(kind InputKind) (result error) {
+func (r *Runner) dispatch(kind InputKind, timer *TimeoutService) (result error) {
 	globals, err := r.context.GlobalParameters()
 	if err != nil {
 		return err
 	}
 	switch kind {
 	case InputDatalog:
-		return RunDatalogFrontend(r.context, r.result.InputName, r.output, r.diagnostics)
+		return RunDatalogFrontendWithTimeout(r.context, r.result.InputName, r.output, r.diagnostics, timer)
 	case InputSMT2:
 		var frontend *SMTLIBFrontend
 		if _, selected := r.command.Input.Selected(); selected {
 			frontend, err = OpenSMTLIBFrontend(r.result.InputName, SMTLIBFileFrontendConfig{
 				Context: r.context, Output: r.output, Diagnostics: r.diagnostics,
-				DisplayStatistics: r.command.DisplayStatistics, Timer: r.command.Timer,
+				DisplayStatistics: r.command.DisplayStatistics, Timer: timer,
 			})
 		} else {
 			frontend, err = NewSMTLIBFrontend(SMTLIBFrontendConfig{
 				Context: r.context, Input: r.input, Output: r.output, Diagnostics: r.diagnostics,
-				DisplayStatistics: r.command.DisplayStatistics, Timer: r.command.Timer,
+				DisplayStatistics: r.command.DisplayStatistics, Timer: timer,
 			})
 		}
 		if err != nil {
@@ -35,7 +35,7 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		return frontend.Run()
 	case InputDIMACS:
 		frontend, err := NewDIMACSFrontend(DIMACSFrontendConfig{
-			Globals: globals, Timer: r.command.Timer, Input: r.input, Writer: r.output,
+			Globals: globals, Timer: timer, Input: r.input, Writer: r.output,
 			DisplayStatistics: r.command.DisplayStatistics,
 		})
 		if err != nil {
@@ -44,7 +44,7 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		defer func() { result = errors.Join(result, frontend.Close()) }()
 		return frontend.Run()
 	case InputWCNF:
-		frontend, err := NewWCNFFrontend(r.context, r.output, WCNFFrontendOptions{DisplayStatistics: r.command.DisplayStatistics, Timer: r.command.Timer, Diagnostics: r.diagnostics})
+		frontend, err := NewWCNFFrontend(r.context, r.output, WCNFFrontendOptions{DisplayStatistics: r.command.DisplayStatistics, Timer: timer, Diagnostics: r.diagnostics})
 		if err != nil {
 			return err
 		}
@@ -53,7 +53,7 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		}
 		return frontend.Run(r.input)
 	case InputOPB:
-		frontend, err := NewOPBFrontend(r.context, r.output, OPBFrontendOptions{DisplayStatistics: r.command.DisplayStatistics, Timer: r.command.Timer, Diagnostics: r.diagnostics})
+		frontend, err := NewOPBFrontend(r.context, r.output, OPBFrontendOptions{DisplayStatistics: r.command.DisplayStatistics, Timer: timer, Diagnostics: r.diagnostics})
 		if err != nil {
 			return err
 		}
@@ -62,7 +62,7 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		}
 		return frontend.Run(r.input)
 	case InputMPS:
-		frontend, err := NewLPFrontend(LPFrontendConfig{
+		frontend, err := NewLPFrontend(LPFrontendConfig{Timer: timer,
 			Globals: globals, Input: r.input, Output: r.output, Diagnostics: r.diagnostics, Name: r.result.InputName,
 		})
 		if err != nil {

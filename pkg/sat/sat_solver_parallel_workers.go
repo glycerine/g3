@@ -47,6 +47,7 @@ func newSATParallelPortfolio(s *Solver, lanes uint32) (_ *satParallelPortfolio, 
 		if e != nil {
 			return nil, e
 		}
+		limit.RunSignals = s.Limit.RunSignals
 		p.limits = append(p.limits, limit)
 		worker, e := NewSATSolver(SolverConfig{
 			TraceTags: s.traceTags, ParamsContext: s.context, Params: s.params,

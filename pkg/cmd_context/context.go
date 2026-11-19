@@ -98,6 +98,7 @@ type Context struct {
 	parameters       *smtcore.ContextParams
 	params           uparams.ParamsRef
 	paramsReady      bool
+	runSignals       *control.RunSignals
 	manager          *ast.ASTManager
 	debugExpressions map[string]ast.ASTRef
 	// objectRefs is m_object_refs' dictionary layout over debugExpressions.
@@ -930,6 +931,7 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 	if err != nil {
 		return nil, err
 	}
+	m.ResourceLimit().RunSignals = c.runSignals
 	if err = c.registerManagerPlugins(m); err != nil {
 		return nil, err
 	}

@@ -54,7 +54,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	if err != nil {
 		return err
 	}
-	command := shell.NewCommandLine(nil, nil, globals)
+	command := shell.NewCommandLine(nil, globals)
 	if err = command.BeginMemoryPolicy(memoryPolicy); err != nil {
 		return err
 	}
@@ -65,6 +65,14 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	if command.Action != shell.CommandContinue {
 		return command.WriteTerminalAction(output)
 	}
+	timer, err := shell.NewTimeoutService(command.TimeoutMilliseconds, output)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		result = errors.Join(result, timer.Close())
+		timer.ReportTimeout()
+	}()
 	if err = uparams.UpdateProcessEnvParams(globals.Current); err != nil {
 		return err
 	}
@@ -88,7 +96,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		if err = context.RefreshGlobalParameters(); err != nil {
 			return err
 		}
-		return shell.RunDatalogFrontend(context, filename, output, diagnostics)
+		return shell.RunDatalogFrontendWithTimeout(context, filename, output, diagnostics, timer)
 	}
 	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log && kind != shell.InputMPS {
 		return fmt.Errorf("selected input frontend is not ported yet")
@@ -121,12 +129,12 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		if selected {
 			frontend, err = shell.OpenSMTLIBFrontend(filename, shell.SMTLIBFileFrontendConfig{
 				Context: context, Output: output, Diagnostics: diagnostics,
-				DisplayStatistics: command.DisplayStatistics, Timer: command.Timer,
+				DisplayStatistics: command.DisplayStatistics, Timer: timer,
 			})
 		} else {
 			frontend, err = shell.NewSMTLIBFrontend(shell.SMTLIBFrontendConfig{
 				Context: context, Input: input, Output: output, Diagnostics: diagnostics,
-				DisplayStatistics: command.DisplayStatistics, Timer: command.Timer,
+				DisplayStatistics: command.DisplayStatistics, Timer: timer,
 			})
 		}
 		if err != nil {
@@ -182,7 +190,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return api.ReplayZ3LogStream(replayer, output, diagnostics, process, nil)
 	}
 	if kind == shell.InputOPB {
-		frontend, err := shell.NewOPBFrontend(context, output, shell.OPBFrontendOptions{DisplayStatistics: command.DisplayStatistics, Timer: command.Timer, Diagnostics: diagnostics})
+		frontend, err := shell.NewOPBFrontend(context, output, shell.OPBFrontendOptions{DisplayStatistics: command.DisplayStatistics, Timer: timer, Diagnostics: diagnostics})
 		if err != nil {
 			return err
 		}
@@ -192,7 +200,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return frontend.Run(input)
 	}
 	if kind == shell.InputWCNF {
-		frontend, err := shell.NewWCNFFrontend(context, output, shell.WCNFFrontendOptions{DisplayStatistics: command.DisplayStatistics, Timer: command.Timer, Diagnostics: diagnostics})
+		frontend, err := shell.NewWCNFFrontend(context, output, shell.WCNFFrontendOptions{DisplayStatistics: command.DisplayStatistics, Timer: timer, Diagnostics: diagnostics})
 		if err != nil {
 			return err
 		}
@@ -202,7 +210,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return frontend.Run(input)
 	}
 	if kind == shell.InputMPS {
-		frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Globals: globals, Input: input, Output: output, Diagnostics: diagnostics, Name: filename})
+		frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Timer: timer, Globals: globals, Input: input, Output: output, Diagnostics: diagnostics, Name: filename})
 		if err != nil {
 			return err
 		}
@@ -210,7 +218,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return frontend.Run()
 	}
 	if kind == shell.InputDIMACS {
-		frontend, err := shell.NewDIMACSFrontend(shell.DIMACSFrontendConfig{Globals: globals, Timer: command.Timer, Input: input, Writer: output, DisplayStatistics: command.DisplayStatistics})
+		frontend, err := shell.NewDIMACSFrontend(shell.DIMACSFrontendConfig{Globals: globals, Timer: timer, Input: input, Writer: output, DisplayStatistics: command.DisplayStatistics})
 		if err != nil {
 			return err
 		}

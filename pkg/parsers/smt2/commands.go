@@ -108,6 +108,9 @@ func parseCommandsWithOptions(context *cmd_context.Context, input io.Reader, out
 }
 
 func parseCommandsWithStop(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector, shell bool, filename string, reportErrors bool, stop func() bool) (result error) {
+	if stop != nil && stop() {
+		return nil
+	}
 	var err error
 	if shell {
 		err = context.SetShellRegularOutput(out)
@@ -157,6 +160,9 @@ func parseCommandsWithStop(context *cmd_context.Context, input io.Reader, out io
 		return err
 	}
 	var firstParseError error
+	if p.stop != nil && p.stop() {
+		return nil
+	}
 	if err = p.advance(); err != nil {
 		firstParseError = parserScannerError(err, scanner)
 		report := func(cause error) error { return nil }
@@ -1501,7 +1507,7 @@ func (p *commandParser) command() (bool, error) {
 		if openErr != nil {
 			return false, fmt.Errorf("failed to open file '%s'", filename)
 		}
-		parseErr := parseCommandsWithOptions(p.context, file, p.out, false, nil, false, filename, true)
+		parseErr := parseCommandsWithStop(p.context, file, p.out, false, nil, false, filename, true, p.stop)
 		closeErr := file.Close()
 		var reported *ReportedParseError
 		if errors.As(parseErr, &reported) {

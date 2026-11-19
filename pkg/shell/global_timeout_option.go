@@ -13,14 +13,14 @@ import (
 var ErrMissingGlobalTimeout = errors.New("option argument (-T:timeout) is missing.")
 var ErrGlobalTimeoutRange = errors.New("global timeout seconds exceed the defined signed-long multiplication range")
 
-// ApplyGlobalTimeoutOption consumes the colon argument after shell/main has
+// parseGlobalTimeoutOption consumes the colon argument after shell/main has
 // selected -T. The source reads a signed decimal prefix with strtol, multiplies
 // by 1000, then passes that long to set_timeout. Go's strconv handles the
 // decimal conversion; overflowing source multiplication is an undefined C++
 // domain and is rejected here before it can silently wrap.
-func ApplyGlobalTimeoutOption(argument *string, timer *TimeoutService) error {
+func parseGlobalTimeoutOption(argument *string) (uint32, error) {
 	if argument == nil {
-		return ErrMissingGlobalTimeout
+		return 0, ErrMissingGlobalTimeout
 	}
 	s := (*argument)[:text.CStringLength(*argument)]
 	i := 0
@@ -52,7 +52,7 @@ func ApplyGlobalTimeoutOption(argument *string, timer *TimeoutService) error {
 		}
 	}
 	if seconds > math.MaxInt64/1000 || seconds < math.MinInt64/1000 {
-		return ErrGlobalTimeoutRange
+		return 0, ErrGlobalTimeoutRange
 	}
-	return timer.SetTimeout(seconds * 1000)
+	return uint32(seconds * 1000), nil
 }

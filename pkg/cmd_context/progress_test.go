@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/util/control"
 )
 
 func TestCommandContextCancelTracksLiveManagerWithoutEagerInitialization(t *testing.T) {
@@ -45,5 +47,39 @@ func TestCommandContextProgressCallbacksMatchSourceOutputSurface(t *testing.T) {
 	got := output.String()
 	if !strings.HasPrefix(got, "(progress\n") || !strings.Contains(got, "(labels") || !strings.HasSuffix(got, "))\n") {
 		t.Fatal("slow progress output", got)
+	}
+}
+
+func TestCommandContextRunSignalsAcrossReset(t *testing.T) {
+	c := contextFixture(t)
+	done := make(chan struct{})
+	signals := &control.RunSignals{Done: done}
+	previous := c.SetRunSignals(signals)
+	if c.manager != nil || previous != nil {
+		t.Fatal("attaching run signals initialized the manager")
+	}
+	m, err := c.Manager()
+	contextMust(t, err)
+	if m.ResourceLimit().RunSignals != signals {
+		t.Fatal("first manager lost run signals")
+	}
+	contextMust(t, c.Reset())
+	m, err = c.Manager()
+	contextMust(t, err)
+	limit := m.ResourceLimit()
+	close(done)
+	contextMust(t, limit.Push(100))
+	before := limit.Count()
+	if limit.Inc() || !limit.CancelFlag() || limit.CancelMessage() != "canceled" || limit.Count() != before+1 {
+		t.Fatal("new manager failed to observe timeout at its existing resource check")
+	}
+	limit.Pop()
+	contextMust(t, c.SetCancel(false))
+	if limit.Inc() {
+		t.Fatal("command-local reset cleared the run deadline")
+	}
+	c.SetRunSignals(previous)
+	if !limit.Inc() {
+		t.Fatal("run deadline leaked into the next use of this context")
 	}
 }

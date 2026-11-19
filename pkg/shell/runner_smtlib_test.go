@@ -2,9 +2,10 @@ package shell_test
 
 import (
 	"bytes"
+	"errors"
 	"strings"
-	"sync"
 	"testing"
+	"testing/iotest"
 
 	"github.com/glycerine/g3/pkg/shell"
 )
@@ -24,29 +25,15 @@ func TestRunnerDispatchesSMTLIBStdinWithParametersAndStatistics(t *testing.T) {
 	}
 }
 
-type lockedBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *lockedBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(p)
-}
-
-func (b *lockedBuffer) String() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String()
-}
-
 // AUDIT.md parsers_shell_01-F7: the global timeout ends the SMT-LIB run
 // (smtlib_frontend.cpp on_timeout: display_statistics(); exit(0)), so
 // nothing after "timeout" is printed and later commands do not run.
 func TestSMTLIBFrontendGlobalTimeoutStopsParsing(t *testing.T) {
-	var output lockedBuffer
-	timer := shell.NewTimeoutService(&output)
+	var output bytes.Buffer
+	timer, err := shell.NewTimeoutService(1, &output) // one millisecond
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() {
 		if err := timer.Close(); err != nil {
 			t.Fatal(err)
@@ -65,13 +52,36 @@ func TestSMTLIBFrontendGlobalTimeoutStopsParsing(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
-	if err = timer.SetTimeout(1); err != nil {
-		t.Fatal(err)
-	}
 	if err = frontend.Run(); err != nil {
 		t.Fatal(err)
 	}
 	if got := output.String(); got != "timeout\n" {
 		t.Fatalf("output %q", got)
+	}
+}
+
+func TestSMTLIBFrontendClosedRunSkipsCommandsAndTimeoutReport(t *testing.T) {
+	var output bytes.Buffer
+	timer, err := shell.NewTimeoutService(0, &output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontend, err := shell.NewSMTLIBFrontend(shell.SMTLIBFrontendConfig{
+		Input:  iotest.ErrReader(errors.New("read after run closed")),
+		Output: &output, Diagnostics: &output, Timer: timer, DisplayStatistics: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer frontend.Close()
+	if err := timer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := frontend.Run(); err != nil {
+		t.Fatal(err)
+	}
+	result, err := frontend.Result()
+	if err != nil || result.ParseError != nil || output.Len() != 0 {
+		t.Fatalf("closed run produced result %+v, error %v, output %q", result, err, output.String())
 	}
 }

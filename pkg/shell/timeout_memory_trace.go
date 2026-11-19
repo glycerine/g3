@@ -26,21 +26,6 @@ func newTimeoutMemoryTrace(tags *diagnostic.TraceTags) control.ScopedTimerMemory
 	return &timeoutMemoryTrace{tags: tags}
 }
 
-func (s *TimeoutService) BindMemoryTrace(tags *diagnostic.TraceTags) error {
-	if s == nil || s.self != s {
-		return control.ErrOwner
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return control.ErrOwner
-	}
-	// A live timer retains the trace owner chosen at its allocation. The
-	// generated process binds its finalization flag to that owner directly.
-	s.trace = tags
-	return nil
-}
-
 func timeoutMemoryParts(w io.Writer, parts ...string) error {
 	for _, part := range parts {
 		// ostream insertions continue after badbit. TraceTags records the
