@@ -37,9 +37,8 @@ type SMTClause struct {
 	// m_clauses_to_reinit[reinitLevel], in push order.
 	reinitLevel uint32
 	reinitSeq   uint64
-	// reinitPos is a Go scratch mark (1-based result position) used only
-	// inside reinitCandidates; it is zero otherwise.
-	reinitPos     int
+	// lemmaIndex is the position in the internalizer's live lemma vector.
+	lemmaIndex    int
 	atoms         []smtClauseAtom
 	deleteHandler SMTClauseDeleteHandler
 	justification SMTJustification

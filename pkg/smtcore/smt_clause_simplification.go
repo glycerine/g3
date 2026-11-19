@@ -145,8 +145,12 @@ func (s *SMTInternalizerState) simplifyClauseRecords(records *[]SMTInternalizedC
 		return 0, ast.ErrASTDomain
 	}
 	i, j := startingAt, startingAt
+	lemmas := records == &s.lemmas
 	defer func() {
 		*records = compactClauseRecords(clauses, i, j)
+		if lemmas && i != j {
+			s.reindexLemmas(j, len(s.lemmas))
+		}
 	}()
 	for ; i < len(clauses); i++ {
 		satisfied, err := s.simplifyClause(&clauses[i])
@@ -162,6 +166,9 @@ func (s *SMTInternalizerState) simplifyClauseRecords(records *[]SMTInternalizedC
 		}
 		record := clauses[i]
 		clauses[j] = record
+		if lemmas && i != j {
+			record.clause.lemmaIndex = j
+		}
 		j++
 		s.simplifyCounter += len(record.clause.literals)
 	}

@@ -279,8 +279,8 @@ func (s *SMTInternalizerState) dropReinitBucketsAbove(level int) {
 // m_clauses_to_reinit[level+1..m_scope_lvl], each once, with their index in
 // m_lemmas. A clause sits validly in exactly one bucket (its reinitLevel,
 // under its unique reinitSeq), so the bucket walk yields reinit_clauses
-// order without sorting. reinitPos marks the candidates for the m_lemmas
-// scan and is zero again on return.
+// order without sorting. The stored lemma index identifies each live record
+// even when only a small fraction of the lemma vector needs restoration.
 func (s *SMTInternalizerState) reinitCandidates(level int, result []smtPreservedLearnedClause, booleanLimit int) ([]smtPreservedLearnedClause, error) {
 	first := len(result)
 	for l := level + 1; l <= int(s.scopeLevel) && l < len(s.reinitBuckets); l++ {
@@ -288,6 +288,11 @@ func (s *SMTInternalizerState) reinitCandidates(level int, result []smtPreserved
 			clause := entry.clause
 			if clause.reinitSeq != entry.seq || !clause.InReinitStack() || int(clause.reinitLevel) != l || !clause.IsLemma() {
 				continue
+			}
+			index := clause.lemmaIndex
+			if index < 0 || index >= len(s.lemmas) || s.lemmas[index].clause != clause {
+				clear(result[first:])
+				return result[:first], ast.ErrASTDomain
 			}
 			retired := false
 			for _, literal := range clause.literals {
@@ -297,33 +302,8 @@ func (s *SMTInternalizerState) reinitCandidates(level int, result []smtPreserved
 			// There is no snapshot or reconstruction for surviving bindings.
 			// Source clause objects already own their atoms and proof. Do not
 			// acquire a second snapshot merely to keep the same object alive.
-			result = append(result, smtPreservedLearnedClause{inPlace: true, clause: clause, recordIndex: -1, retired: retired, sourceAtoms: clause.atoms})
-			clause.reinitPos = len(result) - first
+			result = append(result, smtPreservedLearnedClause{inPlace: true, clause: clause, recordIndex: index, retired: retired, sourceAtoms: clause.atoms})
 		}
-	}
-	count := len(result) - first
-	if count == 0 {
-		return result, nil
-	}
-	found := 0
-	for index := range s.lemmas {
-		clause := s.lemmas[index].clause
-		if clause == nil || clause.reinitPos == 0 {
-			continue
-		}
-		result[first+clause.reinitPos-1].recordIndex = index
-		clause.reinitPos = 0
-		found++
-		if found == count {
-			break
-		}
-	}
-	if found != count {
-		for i := first; i < len(result); i++ {
-			result[i].clause.reinitPos = 0
-		}
-		clear(result[first:])
-		return result[:first], ast.ErrASTDomain
 	}
 	return result, nil
 }

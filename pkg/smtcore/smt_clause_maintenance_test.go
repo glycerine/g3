@@ -151,7 +151,10 @@ func TestSMTClauseMaintenanceHalfKeepsSortedOrder(t *testing.T) {
 	}
 	order := func() []*SMTClause {
 		var result []*SMTClause
-		for _, record := range state.lemmas {
+		for index, record := range state.lemmas {
+			if record.clause.lemmaIndex != index {
+				t.Fatalf("lemma at %d still records index %d", index, record.clause.lemmaIndex)
+			}
 			result = append(result, record.clause)
 		}
 		return result

@@ -377,6 +377,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	}
 	record := SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner}
 	if lemma {
+		clause.lemmaIndex = len(s.lemmas)
 		s.lemmas = append(s.lemmas, record) // m_lemmas.push_back(cls)
 	} else {
 		s.auxClauses = append(s.auxClauses, record) // m_aux_clauses.push_back(cls)

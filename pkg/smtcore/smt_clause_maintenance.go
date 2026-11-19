@@ -114,6 +114,13 @@ func compactClauseRecords(records []SMTInternalizedClause, i, j int) []SMTIntern
 	return records[:j]
 }
 
+// reindexLemmas repairs indices after sorting or compacting live records.
+func (s *SMTInternalizerState) reindexLemmas(start, end int) {
+	for i := start; i < end; i++ {
+		s.lemmas[i].clause.lemmaIndex = i
+	}
+}
+
 // lemmasStart is m_base_lvl == 0 ? 0 : m_base_scopes[m_base_lvl - 1].m_lemmas_lim.
 func (s *SMTInternalizerState) lemmasStart() (int, error) {
 	if s.baseLevel == 0 {
@@ -176,6 +183,7 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 	old := s.lemmas[startAt:endAt]
 	sort.SliceStable(old, func(i, j int) bool { return clauseActivity(&old[i]) > clauseActivity(&old[j]) })
 	startDelAt := (startAt + endAt) / 2
+	s.reindexLemmas(startAt, startDelAt)
 	i, j := startDelAt, startDelAt
 	if smtTraceEnabled("del_inactive_lemmas") {
 		emitSMTTrace("del_inactive_lemmas", "del_inactive_lemmas1", "src/smt/smt_context.cpp", 2698,
@@ -185,6 +193,7 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 	defer func() {
 		if result != nil {
 			s.lemmas = compactClauseRecords(s.lemmas, i, j)
+			s.reindexLemmas(j, len(s.lemmas))
 		}
 	}()
 	for ; i < endAt; i++ {
@@ -198,6 +207,7 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 			continue
 		}
 		s.lemmas[j] = record
+		record.clause.lemmaIndex = j
 		j++
 	}
 	// keep recent clauses
@@ -211,6 +221,7 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 			continue
 		}
 		s.lemmas[j] = record
+		record.clause.lemmaIndex = j
 		j++
 	}
 	clear(s.lemmas[j:])
@@ -269,6 +280,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 	defer func() {
 		if result != nil {
 			s.lemmas = compactClauseRecords(s.lemmas, i, j)
+			s.reindexLemmas(j, len(s.lemmas))
 		}
 	}()
 	for ; i < sz; i++ {
@@ -310,6 +322,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 			}
 		}
 		s.lemmas[j] = record
+		record.clause.lemmaIndex = j
 		j++
 		if err = clause.SetActivity(uint32(float64(activity) / config.InverseDecay)); err != nil {
 			i++
