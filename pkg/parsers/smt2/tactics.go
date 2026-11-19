@@ -329,7 +329,7 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, selected.DecRef()) }()
-	status, err := p.context.CheckSatUsing(selected, &options)
+	status, validate, err := p.context.CheckSatUsingDeferred(selected, &options)
 	tacticFailure := false
 	if err != nil {
 		var failure cmd_context.TacticCommandFailure
@@ -382,6 +382,13 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 	}
 	if printModel && produceModels {
 		if err = p.context.WriteModel(p.out); err != nil && err.Error() != "model is not available" {
+			return err
+		}
+	}
+	// if (result->status() == l_true) ctx.validate_model(); after the
+	// result, the core and the model are printed, before the proof.
+	if validate {
+		if err = p.context.ValidateCheckSatUsingModel(); err != nil {
 			return err
 		}
 	}

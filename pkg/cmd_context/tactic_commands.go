@@ -379,6 +379,27 @@ func (c *Context) AssertGoal(goal *tactic.Goal) error {
 // CheckSatUsing keeps the ordinary incremental solver and its scopes intact.
 // Results from the selected tactic replace the command session's last result.
 func (c *Context) CheckSatUsing(selected tactic.Tactic, options *uparams.ParamsRef) (status lbool.LBool, err error) {
+	status, validate, err := c.CheckSatUsingDeferred(selected, options)
+	if err != nil || !validate {
+		return status, err
+	}
+	return status, c.validateModel()
+}
+
+// CheckSatUsingDeferred runs check_sat_using_tactict_cmd::execute up to
+// its validate_model call and reports whether that call is due
+// (produce_models, a model and status sat). The command prints the result,
+// the print_unsat_core core and the print_model model first, then calls
+// ValidateCheckSatUsingModel, then prints the proof, as the source does.
+func (c *Context) CheckSatUsingDeferred(selected tactic.Tactic, options *uparams.ParamsRef) (status lbool.LBool, validate bool, err error) {
+	status, err = c.checkSatUsing(selected, options, &validate)
+	return status, validate, err
+}
+
+// ValidateCheckSatUsingModel is check-sat-using's ctx.validate_model().
+func (c *Context) ValidateCheckSatUsingModel() error { return c.validateModel() }
+
+func (c *Context) checkSatUsing(selected tactic.Tactic, options *uparams.ParamsRef, validate *bool) (status lbool.LBool, err error) {
 	m, err := c.Manager()
 	if err != nil {
 		return lbool.Undef, err
@@ -528,11 +549,7 @@ func (c *Context) CheckSatUsing(selected tactic.Tactic, options *uparams.ParamsR
 		return lbool.Undef, err
 	}
 	// if (ctx.produce_models() && md) { ...; if (status == l_true) ctx.validate_model(); }
-	if state.Model && model != nil && status == lbool.True {
-		if err = c.validateModel(); err != nil {
-			return status, err
-		}
-	}
+	*validate = state.Model && model != nil && status == lbool.True
 	return status, nil
 }
 

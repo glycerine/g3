@@ -1567,6 +1567,15 @@ func (c *Context) restoreAssertions(size int) error {
 }
 
 func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err error) {
+	return c.CheckSatDisplay(assumptions, nil)
+}
+
+// CheckSatDisplay is cmd_context::check_sat with display_sat_result: when
+// display is non-nil it is called with the result after the solver (or
+// optimizer) returns and before complete_model and validate_model, so the
+// result is printed before a (possibly long) model validation and before a
+// validation error, as in the source.
+func (c *Context) CheckSatDisplay(assumptions []ast.ASTHandle, display func(lbool.LBool) error) (status lbool.LBool, err error) {
 	// IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;)
 	// before init_manager (AUDIT.md FUZZ-F5; g3trace builds only).
 	if diagnostic.VerboseProgress {
@@ -1638,6 +1647,12 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 		c.status, c.checked = status, true
 		if c.progressError != nil {
 			return status, c.progressError
+		}
+	}
+	// display_sat_result(r);
+	if display != nil {
+		if err = display(status); err != nil {
+			return status, err
 		}
 	}
 	if status == lbool.True {

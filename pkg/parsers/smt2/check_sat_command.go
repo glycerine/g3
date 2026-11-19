@@ -26,17 +26,19 @@ func (p *commandParser) checkSatCommand(assuming, execute bool) error {
 	if !execute {
 		return nil
 	}
-	status, err := p.context.CheckSat(assumptions)
-	if err != nil {
+	// check_sat prints the result (display_sat_result) before
+	// complete_model and validate_model.
+	status, err := p.context.CheckSatDisplay(assumptions, func(status lbool.LBool) error {
+		text := "unknown"
+		if status == lbool.True {
+			text = "sat"
+		} else if status == lbool.False {
+			text = "unsat"
+		}
+		_, err := fmt.Fprintln(p.out, text)
 		return err
-	}
-	text := "unknown"
-	if status == lbool.True {
-		text = "sat"
-	} else if status == lbool.False {
-		text = "unsat"
-	}
-	if _, err = fmt.Fprintln(p.out, text); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 	if err = p.context.ValidateInfoStatus(status); err != nil {

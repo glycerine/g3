@@ -86,6 +86,49 @@ func TestCommandContextModelValidationEnabledForSatisfyingGroundAssertions(t *te
 	}
 }
 
+// cmd_context::check_sat calls display_sat_result before complete_model
+// and validate_model, so "sat" is printed before a long validation and
+// before an "invalid model" error. The display callback here asserts a
+// ground formula the model falsifies: validation fails only if it runs
+// after the display.
+func TestCheckSatDisplaysResultBeforeModelValidation(t *testing.T) {
+	c := contextFixture(t)
+	contextMust(t, c.SetLogic("QF_UF"))
+	contextMust(t, c.SetBoolOption("produce-models", true))
+	contextMust(t, c.SetBoolOption("model_validate", true))
+	m, err := c.Manager()
+	contextMust(t, err)
+	boolean, err := m.MkBoolSort()
+	contextMust(t, err)
+	_, err = c.DeclareFunction("display-order-constant", nil, boolean)
+	contextMust(t, err)
+	term, err := c.MakeApp("display-order-constant", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	contextMust(t, c.Assert(term, ""))
+	var shown []lbool.LBool
+	status, err := c.CheckSatDisplay(nil, func(status lbool.LBool) error {
+		shown = append(shown, status)
+		negated, err := m.MkNot(term)
+		if err != nil {
+			return err
+		}
+		// Add the row directly: Assert would reset the check-sat result
+		// (assert_expr does too), and validate_model needs its model.
+		ref, err := m.NewRef(negated)
+		if err != nil {
+			return err
+		}
+		c.assertions = append(c.assertions, assertion{expression: negated, ref: ref})
+		return nil
+	})
+	if len(shown) != 1 || shown[0] != lbool.True || status != lbool.True {
+		t.Fatal("display before validation", shown, status)
+	}
+	if err == nil || err.Error() != "an invalid model was generated" {
+		t.Fatal("validation after display", err)
+	}
+}
+
 func TestCommandContextModelValidationRejectsFalseGroundAssertion(t *testing.T) {
 	c := contextFixture(t)
 	contextMust(t, c.SetLogic("QF_UF"))
