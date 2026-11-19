@@ -3,28 +3,30 @@ package shell
 // Source: src/shell/opt_frontend.cpp timeout and SIGINT handling.
 
 import (
+	"context"
 	"errors"
+	"io"
 	"os"
 
 	"github.com/glycerine/g3/pkg/cmd_context"
-	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func runOptimizationFrontendProcess(
-	context *cmd_context.Context,
-	timer *TimeoutService,
+	ctx context.Context,
+	commands *cmd_context.Context,
+	output io.Writer,
 	solve func(func() bool) (lbool.LBool, error),
 	writeResult func(lbool.LBool) error,
 	writeProgress func() error,
 ) error {
-	if context == nil || solve == nil || writeResult == nil || writeProgress == nil {
+	if commands == nil || solve == nil || writeResult == nil || writeProgress == nil {
 		return ErrShellOptionService
 	}
-	signals, stopSignals := newRunSignals(timer)
+	signals, stopSignals := newRunSignals(ctx)
 	defer stopSignals()
-	previous := context.SetRunSignals(signals)
-	defer context.SetRunSignals(previous)
+	previous := commands.SetRunSignals(signals)
+	defer commands.SetRunSignals(previous)
 
 	var status lbool.LBool
 	var err error
@@ -32,8 +34,7 @@ func runOptimizationFrontendProcess(
 		status, err = solve(signals.RunStopped)
 	}
 	if signals.RunStopped() {
-		if timer.Caller() == control.EventCallerTimeout {
-			timer.ReportTimeout()
+		if reportDeadline(ctx, output) {
 			return writeProgress()
 		}
 		return nil

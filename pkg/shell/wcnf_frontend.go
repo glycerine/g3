@@ -14,14 +14,14 @@ var ErrWCNFFrontend = errors.New("shell: invalid WCNF frontend state")
 
 type WCNFFrontendOptions struct {
 	DisplayStatistics bool
-	Timer             *TimeoutService
-	Diagnostics       io.Writer
+
+	Diagnostics io.Writer
 }
 type WCNFFrontend struct {
-	context     *cmd_context.Context
-	output      io.Writer
-	options     WCNFFrontendOptions
-	timer       *TimeoutService
+	context *cmd_context.Context
+	output  io.Writer
+	options WCNFFrontendOptions
+
 	diagnostics io.Writer
 	initialized bool
 	status      lbool.LBool
@@ -41,12 +41,11 @@ func NewWCNFFrontend(c *cmd_context.Context, output io.Writer, options WCNFFront
 	if !c.UseDatalogFrontendManager() {
 		return nil, ErrWCNFFrontend
 	}
-	timer := options.Timer
 	diagnostics := options.Diagnostics
 	if diagnostics == nil {
 		diagnostics = os.Stderr
 	}
-	return &WCNFFrontend{context: c, output: output, options: options, timer: timer, diagnostics: diagnostics, status: lbool.Undef}, nil
+	return &WCNFFrontend{context: c, output: output, options: options, diagnostics: diagnostics, status: lbool.Undef}, nil
 }
 func (f *WCNFFrontend) Status() (lbool.LBool, error) {
 	if f == nil || !f.finished {

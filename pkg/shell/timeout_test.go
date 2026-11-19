@@ -1,12 +1,10 @@
 package shell
 
 import (
-	"bytes"
+	"context"
 	"math"
 	"testing"
 	"time"
-
-	"github.com/glycerine/g3/pkg/util/control"
 )
 
 func TestShellTimeoutBroadcast(t *testing.T) {
@@ -14,24 +12,18 @@ func TestShellTimeoutBroadcast(t *testing.T) {
 		name       string
 		ms         uint32
 		closeEarly bool
-		want       string
+		want       error
 	}{
-		{"expires", 5, false, "timeout\n"},
-		{"close-before-expiry", 60_000, true, ""},
-		{"close-without-deadline", 0, true, ""},
-		{"close-with-disabled-deadline", math.MaxUint32, true, ""},
+		{"expires", 5, false, context.DeadlineExceeded},
+		{"close-before-expiry", 60_000, true, context.Canceled},
+		{"close-without-deadline", 0, true, context.Canceled},
+		{"close-with-disabled-deadline", math.MaxUint32, true, context.Canceled},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			var out bytes.Buffer
-			timer, err := NewTimeoutService(test.ms, &out)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer timer.Close()
-			done := timer.DoneChan()
-			if done == nil || done != timer.DoneChan() {
-				t.Fatal("unstable worker channel")
-			}
+			command := CommandLine{TimeoutMilliseconds: test.ms}
+			ctx, cancel := command.WithTimeout(context.Background())
+			defer cancel()
+			done := ctx.Done()
 			const workers = 16
 			stopped := make(chan struct{}, workers)
 			for i := 0; i < workers; i++ {
@@ -41,9 +33,7 @@ func TestShellTimeoutBroadcast(t *testing.T) {
 				}()
 			}
 			if test.closeEarly {
-				if err := timer.Close(); err != nil {
-					t.Fatal(err)
-				}
+				cancel()
 			}
 			guard := time.After(2 * time.Second)
 			for i := 0; i < workers; i++ {
@@ -54,20 +44,13 @@ func TestShellTimeoutBroadcast(t *testing.T) {
 				}
 			}
 			select {
-			case <-timer.DoneChan():
+			case <-ctx.Done():
 			default:
 				t.Fatal("late worker missed cancellation")
 			}
-			if err := timer.Close(); err != nil {
-				t.Fatal(err)
-			}
-			if expired := timer.Caller() == control.EventCallerTimeout; expired == test.closeEarly {
-				t.Fatalf("unexpected expiry %v", expired)
-			}
-			timer.ReportTimeout()
-			timer.ReportTimeout()
-			if out.String() != test.want {
-				t.Fatalf("output %q, want %q", out.String(), test.want)
+			cancel()
+			if ctx.Err() != test.want {
+				t.Fatalf("run ended with %v, want %v", ctx.Err(), test.want)
 			}
 		})
 	}

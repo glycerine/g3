@@ -2,6 +2,7 @@ package shell
 
 // Source: src/shell/dimacs_frontend.cpp:85-140.
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -14,8 +15,8 @@ import (
 )
 
 type DIMACSFrontendConfig struct {
-	Globals           *uparams.GlobalParamsService
-	Timer             *TimeoutService
+	Globals *uparams.GlobalParamsService
+
 	Input             io.Reader
 	Writer            io.Writer
 	DisplayStatistics bool
@@ -25,20 +26,20 @@ type DIMACSFrontend struct {
 	params  uparams.ParamsRef
 	runtime *sat.Runtime
 	limit   *control.Reslimit
-	timer   *TimeoutService
-	solver  *sat.Solver
-	input   io.Reader
-	output  io.Writer
-	stats   bool
-	start   time.Time
-	closed  bool
+
+	solver *sat.Solver
+	input  io.Reader
+	output io.Writer
+	stats  bool
+	start  time.Time
+	closed bool
 }
 
 func NewDIMACSFrontend(c DIMACSFrontendConfig) (f *DIMACSFrontend, err error) {
 	if c.Globals == nil || c.Input == nil || c.Writer == nil {
 		return nil, ErrShellOptionService
 	}
-	f = &DIMACSFrontend{globals: c.Globals, timer: c.Timer, input: c.Input, output: c.Writer, stats: c.DisplayStatistics, start: time.Now()}
+	f = &DIMACSFrontend{globals: c.Globals, input: c.Input, output: c.Writer, stats: c.DisplayStatistics, start: time.Now()}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, f.Close())
@@ -64,11 +65,13 @@ func NewDIMACSFrontend(c DIMACSFrontendConfig) (f *DIMACSFrontend, err error) {
 	f.solver, err = sat.NewSATSolver(sat.SolverConfig{ParamsContext: c.Globals.Context, Params: f.params, RLimit: f.limit, Budget: c.Globals.Context.Budget(), Runtime: f.runtime})
 	return f, err
 }
-func (f *DIMACSFrontend) Run() (err error) {
+func (f *DIMACSFrontend) Run() error { return f.RunContext(context.Background()) }
+
+func (f *DIMACSFrontend) RunContext(ctx context.Context) (err error) {
 	if f == nil || f.closed || f.solver == nil {
 		return ErrShellOptionService
 	}
-	signals, stopSignals := newRunSignals(f.timer)
+	signals, stopSignals := newRunSignals(ctx)
 	defer stopSignals()
 	f.limit.RunSignals = signals
 	defer func() { f.limit.RunSignals = nil }()
@@ -89,10 +92,9 @@ func (f *DIMACSFrontend) Run() (err error) {
 		return process.Signal(os.Interrupt)
 	}
 	finishTimeout := func(s *sat.Solver) error {
-		if f.timer.Caller() != control.EventCallerTimeout {
+		if !reportDeadline(ctx, f.output) {
 			return nil
 		}
-		f.timer.ReportTimeout()
 		if f.stats {
 			return f.writeStatistics(s)
 		}

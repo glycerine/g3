@@ -3,7 +3,7 @@ package shell
 // Source: src/shell/main.cpp:291-367 frontend composition and dispatch.
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
 
@@ -59,7 +59,9 @@ func NewRunner(c RunnerConfig) (runner *Runner, err error) {
 	return runner, nil
 }
 
-func (r *Runner) Run() (result error) {
+func (r *Runner) Run() error { return r.RunContext(context.Background()) }
+
+func (r *Runner) RunContext(parent context.Context) (result error) {
 	if r == nil || r.closed || r.running || r.ran || r.command == nil {
 		return ErrShellOptionService
 	}
@@ -82,14 +84,12 @@ func (r *Runner) Run() (result error) {
 	if r.command.Action != CommandContinue {
 		return r.command.WriteTerminalAction(r.output)
 	}
-	timer, err := NewTimeoutService(r.command.TimeoutMilliseconds, r.output)
-	if err != nil {
-		return err
+	ctx, cancel := r.command.WithTimeout(parent)
+	defer cancel()
+	if ctx.Err() != nil {
+		reportDeadline(ctx, r.output)
+		return nil
 	}
-	defer func() {
-		result = errors.Join(result, timer.Close())
-		timer.ReportTimeout()
-	}()
 	globals, err := r.context.GlobalParameters()
 	if err != nil {
 		return err
@@ -120,5 +120,5 @@ func (r *Runner) Run() (result error) {
 	if err = r.context.RefreshGlobalParameters(); err != nil {
 		return err
 	}
-	return r.dispatch(kind, timer)
+	return r.dispatch(ctx, kind)
 }

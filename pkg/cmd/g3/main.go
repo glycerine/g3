@@ -3,6 +3,7 @@ package main
 // g3 executes solver input files through the native Go frontends.
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -45,12 +46,12 @@ func runArguments(args []string, input io.Reader, output io.Writer) error {
 }
 
 func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnostics io.Writer) (result error) {
-	context, memoryPolicy, err := cmd_context.NewStandaloneShellContext()
+	commands, memoryPolicy, err := cmd_context.NewStandaloneShellContext()
 	if err != nil {
 		return err
 	}
-	defer func() { result = errors.Join(result, context.Close()) }()
-	globals, err := context.GlobalParameters()
+	defer func() { result = errors.Join(result, commands.Close()) }()
+	globals, err := commands.GlobalParameters()
 	if err != nil {
 		return err
 	}
@@ -65,14 +66,8 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	if command.Action != shell.CommandContinue {
 		return command.WriteTerminalAction(output)
 	}
-	timer, err := shell.NewTimeoutService(command.TimeoutMilliseconds, output)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		result = errors.Join(result, timer.Close())
-		timer.ReportTimeout()
-	}()
+	ctx, cancel := command.WithTimeout(context.Background())
+	defer cancel()
 	if err = uparams.UpdateProcessEnvParams(globals.Current); err != nil {
 		return err
 	}
@@ -93,10 +88,10 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		if !selected {
 			return fmt.Errorf("Datalog input requires a file or directory path")
 		}
-		if err = context.RefreshGlobalParameters(); err != nil {
+		if err = commands.RefreshGlobalParameters(); err != nil {
 			return err
 		}
-		return shell.RunDatalogFrontendWithTimeout(context, filename, output, diagnostics, timer)
+		return shell.RunDatalogFrontendContext(ctx, commands, filename, output, diagnostics)
 	}
 	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log && kind != shell.InputMPS {
 		return fmt.Errorf("selected input frontend is not ported yet")
@@ -121,27 +116,27 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 			return &shellInputOpenError{filename: filename, cause: err}
 		}
 	}
-	if err = context.RefreshGlobalParameters(); err != nil {
+	if err = commands.RefreshGlobalParameters(); err != nil {
 		return err
 	}
 	if kind == shell.InputSMT2 {
 		var frontend *shell.SMTLIBFrontend
 		if selected {
 			frontend, err = shell.OpenSMTLIBFrontend(filename, shell.SMTLIBFileFrontendConfig{
-				Context: context, Output: output, Diagnostics: diagnostics,
-				DisplayStatistics: command.DisplayStatistics, Timer: timer,
+				Context: commands, Output: output, Diagnostics: diagnostics,
+				DisplayStatistics: command.DisplayStatistics,
 			})
 		} else {
 			frontend, err = shell.NewSMTLIBFrontend(shell.SMTLIBFrontendConfig{
-				Context: context, Input: input, Output: output, Diagnostics: diagnostics,
-				DisplayStatistics: command.DisplayStatistics, Timer: timer,
+				Context: commands, Input: input, Output: output, Diagnostics: diagnostics,
+				DisplayStatistics: command.DisplayStatistics,
 			})
 		}
 		if err != nil {
 			return err
 		}
 		defer func() { result = errors.Join(result, frontend.Close()) }()
-		return frontend.Run()
+		return frontend.RunContext(ctx)
 	}
 	if kind == shell.InputZ3Log {
 		if diagnostics == nil {
@@ -187,43 +182,47 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 			return api.ErrZ3ReplayState
 		}
 		process := processGlobals.Context.Numerals().RuntimeOwner().ProcessOwner()
-		return api.ReplayZ3LogStream(replayer, output, diagnostics, process, nil)
+		err = api.ReplayZ3LogStream(replayer, output, diagnostics, process, nil)
+		if ctx.Err() == context.DeadlineExceeded {
+			_, _ = io.WriteString(output, "timeout\n")
+		}
+		return err
 	}
 	if kind == shell.InputOPB {
-		frontend, err := shell.NewOPBFrontend(context, output, shell.OPBFrontendOptions{DisplayStatistics: command.DisplayStatistics, Timer: timer, Diagnostics: diagnostics})
+		frontend, err := shell.NewOPBFrontend(commands, output, shell.OPBFrontendOptions{DisplayStatistics: command.DisplayStatistics, Diagnostics: diagnostics})
 		if err != nil {
 			return err
 		}
 		if selected {
-			return frontend.RunFile(filename)
+			return frontend.RunFileContext(ctx, filename)
 		}
-		return frontend.Run(input)
+		return frontend.RunContext(ctx, input)
 	}
 	if kind == shell.InputWCNF {
-		frontend, err := shell.NewWCNFFrontend(context, output, shell.WCNFFrontendOptions{DisplayStatistics: command.DisplayStatistics, Timer: timer, Diagnostics: diagnostics})
+		frontend, err := shell.NewWCNFFrontend(commands, output, shell.WCNFFrontendOptions{DisplayStatistics: command.DisplayStatistics, Diagnostics: diagnostics})
 		if err != nil {
 			return err
 		}
 		if selected {
-			return frontend.RunFile(filename)
+			return frontend.RunFileContext(ctx, filename)
 		}
-		return frontend.Run(input)
+		return frontend.RunContext(ctx, input)
 	}
 	if kind == shell.InputMPS {
-		frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Timer: timer, Globals: globals, Input: input, Output: output, Diagnostics: diagnostics, Name: filename})
+		frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Globals: globals, Input: input, Output: output, Diagnostics: diagnostics, Name: filename})
 		if err != nil {
 			return err
 		}
 		defer func() { result = errors.Join(result, frontend.Close()) }()
-		return frontend.Run()
+		return frontend.RunContext(ctx)
 	}
 	if kind == shell.InputDIMACS {
-		frontend, err := shell.NewDIMACSFrontend(shell.DIMACSFrontendConfig{Globals: globals, Timer: timer, Input: input, Writer: output, DisplayStatistics: command.DisplayStatistics})
+		frontend, err := shell.NewDIMACSFrontend(shell.DIMACSFrontendConfig{Globals: globals, Input: input, Writer: output, DisplayStatistics: command.DisplayStatistics})
 		if err != nil {
 			return err
 		}
 		defer func() { result = errors.Join(result, frontend.Close()) }()
-		return frontend.Run()
+		return frontend.RunContext(ctx)
 	}
 	return fmt.Errorf("selected input frontend %s is not ported yet", shell.InputKindName(kind))
 }

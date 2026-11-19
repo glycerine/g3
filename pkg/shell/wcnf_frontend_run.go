@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,18 +12,22 @@ import (
 )
 
 func (f *WCNFFrontend) Run(input io.Reader) error {
+	return f.RunContext(context.Background(), input)
+}
+
+func (f *WCNFFrontend) RunContext(ctx context.Context, input io.Reader) error {
 	if input == nil {
 		return ErrWCNFFrontend
 	}
-	return f.run(func() (io.Reader, io.Closer, error) { return input, nil, nil })
+	return f.run(ctx, func() (io.Reader, io.Closer, error) { return input, nil, nil })
 }
 
-func (f *WCNFFrontend) run(openInput func() (io.Reader, io.Closer, error)) error {
+func (f *WCNFFrontend) run(ctx context.Context, openInput func() (io.Reader, io.Closer, error)) error {
 	if f == nil || f.context == nil || openInput == nil || f.finished || !f.started.IsZero() {
 		return ErrWCNFFrontend
 	}
 	f.started = time.Now()
-	return runOptimizationFrontendProcess(f.context, f.timer, func(stopped func() bool) (lbool.LBool, error) {
+	return runOptimizationFrontendProcess(ctx, f.context, f.output, func(stopped func() bool) (lbool.LBool, error) {
 		input, inputCloser, err := openInput()
 		if err != nil {
 			return lbool.Undef, err

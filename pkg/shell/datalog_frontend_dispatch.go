@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -15,22 +16,22 @@ import (
 // the parser's message and "ERROR: failed to parse file" to the diagnostic
 // stream (std::cerr) and ends the run successfully: main ignores
 // read_datalog's return value.
-func RunDatalogFrontend(context *cmd_context.Context, path string, output, diagnostics io.Writer) error {
-	return RunDatalogFrontendWithTimeout(context, path, output, diagnostics, nil)
+func RunDatalogFrontend(commands *cmd_context.Context, path string, output, diagnostics io.Writer) error {
+	return RunDatalogFrontendContext(context.Background(), commands, path, output, diagnostics)
 }
 
-func RunDatalogFrontendWithTimeout(context *cmd_context.Context, path string, output, diagnostics io.Writer, timer *TimeoutService) error {
-	if context == nil {
+func RunDatalogFrontendContext(ctx context.Context, commands *cmd_context.Context, path string, output, diagnostics io.Writer) error {
+	if commands == nil {
 		return ErrDatalogFrontend
 	}
-	signals := &control.RunSignals{Done: timer.DoneChan()}
+	signals := &control.RunSignals{Done: ctx.Done()}
 	if signals.RunStopped() {
-		timer.ReportTimeout()
+		reportDeadline(ctx, output)
 		return nil
 	}
-	previous := context.SetRunSignals(signals)
-	defer context.SetRunSignals(previous)
-	frontend, err := NewDatalogFrontend(context, timeoutGateWriter(output, signals))
+	previous := commands.SetRunSignals(signals)
+	defer commands.SetRunSignals(previous)
+	frontend, err := NewDatalogFrontend(commands, timeoutGateWriter(output, signals))
 	if err != nil {
 		return err
 	}
@@ -40,7 +41,7 @@ func RunDatalogFrontendWithTimeout(context *cmd_context.Context, path string, ou
 	frontend.SetDiagnostics(timeoutGateWriter(diagnostics, signals))
 	err = frontend.Run(path)
 	if signals.RunStopped() {
-		timer.ReportTimeout()
+		reportDeadline(ctx, output)
 		return nil
 	}
 	var parseError *DatalogParseError

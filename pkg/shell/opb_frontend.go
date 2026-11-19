@@ -15,15 +15,15 @@ var ErrOPBFrontend = errors.New("shell: invalid OPB frontend state")
 
 type OPBFrontendOptions struct {
 	DisplayStatistics bool
-	Timer             *TimeoutService
-	Diagnostics       io.Writer
+
+	Diagnostics io.Writer
 }
 
 type OPBFrontend struct {
-	context     *cmd_context.Context
-	output      io.Writer
-	options     OPBFrontendOptions
-	timer       *TimeoutService
+	context *cmd_context.Context
+	output  io.Writer
+	options OPBFrontendOptions
+
 	diagnostics io.Writer
 	initialized bool
 	status      lbool.LBool
@@ -44,12 +44,11 @@ func NewOPBFrontend(context *cmd_context.Context, output io.Writer, options OPBF
 	if !context.UseDatalogFrontendManager() {
 		return nil, ErrOPBFrontend
 	}
-	timer := options.Timer
 	diagnostics := options.Diagnostics
 	if diagnostics == nil {
 		diagnostics = os.Stderr
 	}
-	return &OPBFrontend{context: context, output: output, options: options, timer: timer, diagnostics: diagnostics, status: lbool.Undef}, nil
+	return &OPBFrontend{context: context, output: output, options: options, diagnostics: diagnostics, status: lbool.Undef}, nil
 }
 
 func (f *OPBFrontend) Status() (lbool.LBool, error) {

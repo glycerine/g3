@@ -16,8 +16,8 @@ type SMTLIBFileFrontendConfig struct {
 	Output            io.Writer
 	Diagnostics       io.Writer
 	DisplayStatistics bool
-	Timer             *TimeoutService
-	Clock             func() (uint64, error)
+
+	Clock func() (uint64, error)
 }
 
 // SMTLIBFileOpenError carries the filename needed for the native shell's
@@ -53,7 +53,6 @@ func OpenSMTLIBFrontend(name string, c SMTLIBFileFrontendConfig) (f *SMTLIBFront
 		Output:            c.Output,
 		Diagnostics:       c.Diagnostics,
 		DisplayStatistics: c.DisplayStatistics,
-		Timer:             c.Timer,
 		Clock:             c.Clock,
 	})
 	if err != nil {

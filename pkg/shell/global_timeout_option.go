@@ -3,9 +3,12 @@ package shell
 // Source: src/shell/main.cpp:207-214, the -T option branch.
 
 import (
+	"context"
 	"errors"
+	"io"
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/glycerine/g3/pkg/util/text"
 )
@@ -55,4 +58,22 @@ func parseGlobalTimeoutOption(argument *string) (uint32, error) {
 		return 0, ErrGlobalTimeoutRange
 	}
 	return uint32(seconds * 1000), nil
+}
+
+// WithTimeout derives one cancellable context for the command-line invocation.
+// Zero and UINT_MAX disable the shell deadline while preserving the parent's.
+func (c *CommandLine) WithTimeout(parent context.Context) (context.Context, context.CancelFunc) {
+	ms := c.TimeoutMilliseconds
+	if ms == 0 || ms == math.MaxUint32 {
+		return context.WithCancel(parent)
+	}
+	return context.WithTimeout(parent, time.Duration(ms)*time.Millisecond)
+}
+
+func reportDeadline(ctx context.Context, output io.Writer) bool {
+	if ctx.Err() != context.DeadlineExceeded {
+		return false
+	}
+	_, _ = io.WriteString(output, "timeout\n")
+	return true
 }

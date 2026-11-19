@@ -3,6 +3,7 @@ package shell
 // Source: src/shell/smtlib_frontend.cpp:26-89; smtlib_frontend.h.
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -23,8 +24,8 @@ type SMTLIBFrontendConfig struct {
 	Output            io.Writer
 	Diagnostics       io.Writer
 	DisplayStatistics bool
-	Timer             *TimeoutService
-	Clock             func() (uint64, error)
+
+	Clock func() (uint64, error)
 }
 
 // SMTLIBFrontend owns the shell-level lifetime around the SMT2 parser. The
@@ -37,13 +38,13 @@ type SMTLIBFrontend struct {
 	diagnostics io.Writer
 	inputClose  io.Closer
 	watch       stopwatch.Stopwatch
-	timer       *TimeoutService
-	stats       bool
-	owned       bool
-	running     bool
-	ran         bool
-	closed      bool
-	result      SMTLIBFrontendResult
+
+	stats   bool
+	owned   bool
+	running bool
+	ran     bool
+	closed  bool
+	result  SMTLIBFrontendResult
 }
 
 func NewSMTLIBFrontend(c SMTLIBFrontendConfig) (f *SMTLIBFrontend, err error) {
@@ -75,13 +76,14 @@ func NewSMTLIBFrontend(c SMTLIBFrontendConfig) (f *SMTLIBFrontend, err error) {
 		}
 		return nil, err
 	}
-	f.timer = c.Timer
 	return f, nil
 }
 
 // Run executes exactly one command stream. Re-running a consumed stream is an
 // ownership error rather than silently replaying commands into mutated state.
-func (f *SMTLIBFrontend) Run() (result error) {
+func (f *SMTLIBFrontend) Run() error { return f.RunContext(context.Background()) }
+
+func (f *SMTLIBFrontend) RunContext(ctx context.Context) (result error) {
 	if err := f.begin(); err != nil {
 		return err
 	}
@@ -93,7 +95,7 @@ func (f *SMTLIBFrontend) Run() (result error) {
 
 	// The source timeout handler exits the process: nothing the parser
 	// writes after the timeout fired reaches the output.
-	signals, stopSignals := newRunSignals(f.timer)
+	signals, stopSignals := newRunSignals(ctx)
 	defer stopSignals()
 	// The context may retain its output transports after this run returns.
 	defer func() { signals.Done = nil }()
@@ -111,11 +113,8 @@ func (f *SMTLIBFrontend) Run() (result error) {
 	f.result.DurationSeconds = seconds
 	f.result.ParseError = parseErr
 	stopped := signals.RunStopped()
-	if stopped && f.timer.Caller() != control.EventCallerTimeout {
+	if stopped && !reportDeadline(ctx, f.output) {
 		return errors.Join(stopErr, secondsErr)
-	}
-	if stopped {
-		f.timer.ReportTimeout()
 	}
 
 	var statisticsErr error

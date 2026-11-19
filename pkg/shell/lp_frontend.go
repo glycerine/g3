@@ -3,6 +3,7 @@ package shell
 // Source: src/shell/lp_frontend.cpp:56-107; lp_frontend.h.
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -16,7 +17,6 @@ import (
 // mps_reader::read then reports it (set_m_ok_to_false). Diagnostics is
 // std::cerr, which receives "cannot process" (os.Stderr when nil).
 type LPFrontendConfig struct {
-	Timer       *TimeoutService
 	Globals     *uparams.GlobalParamsService
 	Input       io.Reader
 	Output      io.Writer
@@ -25,20 +25,19 @@ type LPFrontendConfig struct {
 }
 
 type LPFrontend struct {
-	globalTimeout *TimeoutService
-	globals       *uparams.GlobalParamsService
-	params        *lp.LPParams
-	limit         *control.Reslimit
-	timer         *control.ScopedTimer
-	reader        *lp.FloatMPSReader
-	solver        *lp.FloatPrimalSimplex
-	input         io.Reader
-	output        io.Writer
-	stderr        io.Writer
-	name          string
-	min           bool
-	running       bool
-	closed        bool
+	globals *uparams.GlobalParamsService
+	params  *lp.LPParams
+	limit   *control.Reslimit
+	timer   *control.ScopedTimer
+	reader  *lp.FloatMPSReader
+	solver  *lp.FloatPrimalSimplex
+	input   io.Reader
+	output  io.Writer
+	stderr  io.Writer
+	name    string
+	min     bool
+	running bool
+	closed  bool
 }
 
 func NewLPFrontend(c LPFrontendConfig) (f *LPFrontend, err error) {
@@ -49,7 +48,7 @@ func NewLPFrontend(c LPFrontendConfig) (f *LPFrontend, err error) {
 	if diagnostics == nil {
 		diagnostics = os.Stderr
 	}
-	f = &LPFrontend{globalTimeout: c.Timer, globals: c.Globals, input: c.Input, output: c.Output, stderr: diagnostics, name: c.Name}
+	f = &LPFrontend{globals: c.Globals, input: c.Input, output: c.Output, stderr: diagnostics, name: c.Name}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, f.Close())
@@ -64,17 +63,19 @@ func NewLPFrontend(c LPFrontendConfig) (f *LPFrontend, err error) {
 	return f, err
 }
 
-func (f *LPFrontend) Run() (err error) {
+func (f *LPFrontend) Run() error { return f.RunContext(context.Background()) }
+
+func (f *LPFrontend) RunContext(ctx context.Context) (err error) {
 	if f == nil || f.closed || f.running {
 		return ErrShellOptionService
 	}
 	f.running = true
 	defer func() { f.running = false }()
-	signals := &control.RunSignals{Done: f.globalTimeout.DoneChan()}
+	signals := &control.RunSignals{Done: ctx.Done()}
 	f.limit.RunSignals = signals
 	defer func() { f.limit.RunSignals = nil }()
 	if signals.RunStopped() {
-		f.globalTimeout.ReportTimeout()
+		reportDeadline(ctx, f.output)
 		return nil
 	}
 	if err = f.startLimits(); err != nil {
@@ -100,7 +101,7 @@ func (f *LPFrontend) Run() (err error) {
 	}
 	err = f.solver.FindMaximalSolution()
 	if signals.RunStopped() {
-		f.globalTimeout.ReportTimeout()
+		reportDeadline(ctx, f.output)
 		return nil
 	}
 	if err != nil {
