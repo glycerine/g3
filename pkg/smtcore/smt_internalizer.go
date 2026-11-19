@@ -710,7 +710,7 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 			}
 		}
 	}
-	if err = s.internalizeFormulaCoreOp(expression, gateContext, op, basic, header.NumArgs); err != nil {
+	if err = s.internalizeFormulaCoreOp(expression, gateContext, header, true); err != nil {
 		return err
 	}
 	if basic && op == ast.ASTOpEq {
@@ -871,20 +871,19 @@ func (s *SMTInternalizerState) internalizeDistinct(expression ast.ASTHandle, gat
 }
 
 func (s *SMTInternalizerState) internalizeFormulaCore(expression ast.ASTHandle, gateContext bool) error {
-	op, basic, err := s.basicOperation(expression)
+	header, err := s.manager.NodeHeader(expression)
 	if err != nil {
 		return err
 	}
-	count, err := s.manager.GetNumArgs(expression)
-	if err != nil {
-		return err
+	if header.Kind != ast.ASTApp {
+		return ast.ErrASTDomain
 	}
-	return s.internalizeFormulaCoreOp(expression, gateContext, op, basic, count)
+	return s.internalizeFormulaCoreOp(expression, gateContext, &header, false)
 }
 
-// internalizeFormulaCoreOp is internalizeFormulaCore with the expression's
-// basic operation and argument count already read.
-func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle, gateContext bool, op int32, basic bool, count uint32) error {
+func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle, gateContext bool, header *ast.ASTNodeHeader, knownBoolean bool) error {
+	op, basic := s.smtHeaderBasicOperation(header)
+	count := header.NumArgs
 	var err error
 	isGate := basic && (smtInternalizerGateOperation(op) || op == ast.ASTOpNot)
 	for index := uint32(0); index < count; index++ {
@@ -898,7 +897,11 @@ func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle
 	}
 	variable, isNew := s.boolVar.lookup(expression)
 	if !isNew {
-		variable, err = s.MkBoolVar(expression)
+		if knownBoolean {
+			variable, err = s.mkBoolVar(expression, header)
+		} else {
+			variable, err = s.MkBoolVar(expression)
+		}
 		if err != nil {
 			return fmt.Errorf("internalize formula Boolean variable: %w", err)
 		}

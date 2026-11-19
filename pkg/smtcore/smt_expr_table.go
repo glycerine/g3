@@ -32,10 +32,11 @@ type smtExprRecord struct {
 // smtExprTable is owned by one SMTCheckerContext and borrows nothing. A record
 // whose generation differs from a handle's describes a retired expression.
 type smtExprTable struct {
-	records      []smtExprRecord
-	origin       uint64
-	enodeCount   int
-	boolVarCount int
+	records           []smtExprRecord
+	origin            uint64
+	enodeCount        int
+	boolVarCount      int
+	relevanceRemovals uint64
 }
 
 func newSMTExprTable() *smtExprTable { return &smtExprTable{} }
@@ -66,6 +67,9 @@ func (t *smtExprTable) write(h ast.ASTHandle) *smtExprRecord {
 	}
 	record := &t.records[slot]
 	if record.generation != h.Generation() {
+		if record.flags&smtExprRelevant != 0 {
+			t.relevanceRemovals++
+		}
 		if record.enode != nil {
 			t.enodeCount--
 		}
@@ -205,12 +209,16 @@ func (r smtRelevantTable) set(h ast.ASTHandle, value bool) {
 	record.flags |= smtExprHasRelevant
 	if value {
 		record.flags |= smtExprRelevant
-	} else {
+	} else if record.flags&smtExprRelevant != 0 {
+		r.t.relevanceRemovals++
 		record.flags &^= smtExprRelevant
 	}
 }
 func (r smtRelevantTable) del(h ast.ASTHandle) {
 	if record := r.t.read(h); record != nil {
+		if record.flags&smtExprRelevant != 0 {
+			r.t.relevanceRemovals++
+		}
 		record.flags &^= smtExprHasRelevant | smtExprRelevant
 	}
 }

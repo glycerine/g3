@@ -659,13 +659,21 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	if sort != boolean || s.manager.IsTrue(expression) || s.manager.IsFalse(expression) {
 		return SMTNullBoolVar, ast.ErrASTDomain
 	}
-	data := SMTBoolVarData{}
-	data.Initialize(s.scopeLevel)
-	data.basicOp = -1
 	header, err := s.manager.NodeHeader(expression)
 	if err != nil {
 		return SMTNullBoolVar, err
 	}
+	return s.mkBoolVar(expression, &header)
+}
+
+// The caller has established that the expression is Boolean and has no variable.
+func (s *SMTInternalizerState) mkBoolVar(expression ast.ASTHandle, header *ast.ASTNodeHeader) (int32, error) {
+	data := SMTBoolVarData{
+		justification: NullSMTBooleanJustification(),
+		internalLevel: s.scopeLevel,
+		basicOp:       -1,
+	}
+	var err error
 	if header.Kind == ast.ASTApp {
 		if header.Family == s.manager.BasicFamilyID() {
 			data.basicOp = header.DeclKind
@@ -1407,7 +1415,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.retiringBoolean, s.retiringBooleanRoot = true, expression
 		}
 		if !s.retiringBooleanRoot.IsNull() {
-			consumed, err := s.manager.DecRefConsumed(s.retiringBooleanRoot)
+			consumed, err := s.manager.DecRefHeldConsumed(s.retiringBooleanRoot)
 			if consumed {
 				s.retiringBooleanRoot = ast.ASTHandle{}
 			}

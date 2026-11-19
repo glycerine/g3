@@ -35,7 +35,7 @@ func (s *SMTInternalizerState) cacheGenerationExpr(root ast.ASTHandle, newLevel 
 		if s.cachedGeneration.visit(n) {
 			continue
 		}
-		kind, err := s.manager.GetKind(n)
+		kind, _, count, err := s.manager.NodeShape(n)
 		if err != nil {
 			return err
 		}
@@ -47,10 +47,6 @@ func (s *SMTInternalizerState) cacheGenerationExpr(root ast.ASTHandle, newLevel 
 					continue
 				}
 				s.cachedGeneration.set(n, node.Generation())
-			}
-			count, err := s.manager.GetNumArgs(n)
-			if err != nil {
-				return err
 			}
 			for i := uint32(0); i < count; i++ {
 				arg, err := s.manager.GetArg(n, i)
@@ -88,6 +84,12 @@ func (s *SMTInternalizerState) cacheGenerationExpr(root ast.ASTHandle, newLevel 
 // literals of the clauses reinit_clauses will rebuild and the units
 // reassert_units will reassert.
 func (s *SMTInternalizerState) cacheGenerationForPop(learned []smtPreservedLearnedClause, newLevel uint32) error {
+	// Only retiring enodes and internalized quantifiers can contribute cache
+	// entries. A Boolean-only pop with neither has no generations to restore.
+	if s.scopes[newLevel].enodeLimit == len(s.enodeStack) &&
+		(s.quantifiers == nil || len(s.quantifiers.quantifiers) == 0) {
+		return nil
+	}
 	for i := range learned {
 		if clause := learned[i].clause; clause != nil {
 			if err := s.cacheGenerationLiterals(clause.literals, newLevel); err != nil {

@@ -318,3 +318,20 @@ func TestSMTRelevancyDisabledAndTermITEHandler(t *testing.T) {
 		t.Fatal("disabled source relevancy treats every expression as relevant")
 	}
 }
+
+func TestSMTRelevancyPopFiltersExplicitlyUnmarkedQueueEntries(t *testing.T) {
+	m := astTestManager(t)
+	context, p, s := smtInternalizerFixture(t, m, nil)
+	a := smtRelevancyBool(t, m, "relevance-pop-removed")
+	b := smtRelevancyBool(t, m, "relevance-pop-kept")
+	astTestMust(t, p.MarkRelevant(a))
+	astTestMust(t, p.MarkRelevant(b))
+	astTestMust(t, s.PushScope())
+	astTestMust(t, s.PopScopes(1))
+	astTestMust(t, s.PushScope())
+	astTestMust(t, context.SetRelevant(a, false))
+	astTestMust(t, s.PopScopes(1))
+	if got := p.DrainNewlyRelevant(); len(got) != 1 || got[0] != b {
+		t.Fatalf("queued marks after pop: %v", got)
+	}
+}

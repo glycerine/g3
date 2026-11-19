@@ -36,17 +36,9 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 			}
 			for saved.bindHead < len(saved.sourceAtoms) {
 				atom := saved.sourceAtoms[saved.bindHead]
-				not, _, err := s.manager.IsNot(atom.expression)
+				variable, err := s.restoreLearnedAtom(atom.expression)
 				if err != nil {
 					return err
-				}
-				// Source uses a nongate context for a NOT that owns a Boolean variable.
-				if err = s.Internalize(atom.expression, !not); err != nil {
-					return err
-				}
-				variable, found := s.BoolVar(atom.expression)
-				if !found {
-					return ast.ErrASTDomain
 				}
 				saved.clause.literals[saved.bindHead] = NewSMTLiteral(variable, atom.sign)
 				saved.bindHead++
@@ -86,12 +78,19 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 			return err
 		}
 		allOtherFalse := secondValue == lbool.False
-		for _, literal := range literals[2:] {
-			value, e := s.Assignment(literal)
-			if e != nil {
-				return e
+		// After reselecting both watches, a false second watch means every
+		// remaining literal is false. Stable watches need the full check.
+		if allOtherFalse && len(saved.sourceAtoms) == 0 {
+			for _, literal := range literals[2:] {
+				value, e := s.Assignment(literal)
+				if e != nil {
+					return e
+				}
+				if value != lbool.False {
+					allOtherFalse = false
+					break
+				}
 			}
-			allOtherFalse = allOtherFalse && value == lbool.False
 		}
 		justification := NewSMTBooleanClause(saved.clause)
 		if firstValue == lbool.False && allOtherFalse {
@@ -122,4 +121,25 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 		saved.clause.reinit, saved.clause.reinternalizeAtoms = false, false
 	}
 	return nil
+}
+
+// A clause holds a reference to each atom and captured it from a Boolean
+// variable. Reuse a surviving binding unless NOT needs its nongate enode.
+func (s *SMTInternalizerState) restoreLearnedAtom(expression ast.ASTHandle) (int32, error) {
+	if variable, found := s.boolVar.lookup(expression); found && s.booleanData[variable].basicOp != ast.ASTOpNot {
+		return variable, nil
+	}
+	header, err := s.manager.NodeHeader(expression)
+	if err != nil {
+		return SMTNullBoolVar, err
+	}
+	op, basic := s.smtHeaderBasicOperation(&header)
+	if err = s.internalizeFormula(expression, !basic || op != ast.ASTOpNot, &header); err != nil {
+		return SMTNullBoolVar, err
+	}
+	variable, found := s.boolVar.lookup(expression)
+	if !found {
+		return SMTNullBoolVar, ast.ErrASTDomain
+	}
+	return variable, nil
 }

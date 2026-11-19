@@ -63,10 +63,11 @@ type SMTRelevancyPropagator struct {
 	// ehs holds the handlers the tables refer to, as z3 allocates each
 	// relevancy_eh once in the context region and its watch lists hold
 	// pointers; a scope's handlers die with it (region pop).
-	ehs           []smtRelevancyHandler
-	scopes        []smtRelevancyScope
-	newlyRelevant []ast.ASTHandle
-	propagating   bool
+	ehs                   []smtRelevancyHandler
+	scopes                []smtRelevancyScope
+	newlyRelevant         []ast.ASTHandle
+	newlyRelevantRemovals uint64
+	propagating           bool
 }
 
 func NewSMTRelevancyPropagator(context *SMTCheckerContext, enabled bool) (*SMTRelevancyPropagator, error) {
@@ -946,19 +947,25 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 	}
 	// m_relevant_exprs.shrink releases the popped references first to last.
 	for index := scope.relevantLimit; index < len(p.relevant); index++ {
-		if err := p.context.manager.DecRef(p.relevant[index]); err != nil {
+		if _, err := p.context.manager.DecRefHeldConsumed(p.relevant[index]); err != nil {
 			return err
 		}
 	}
 	p.relevant = p.relevant[:scope.relevantLimit]
 	p.qhead = len(p.relevant)
-	kept := p.newlyRelevant[:0]
-	for _, expression := range p.newlyRelevant {
-		if p.context.relevant.get(expression) {
-			kept = append(kept, expression)
+	// A pop that removed no relevance marks cannot invalidate queued work.
+	// Count explicit mark removals too, since the checker can update them.
+	removals := p.context.exprs.relevanceRemovals
+	if removals != p.newlyRelevantRemovals {
+		kept := p.newlyRelevant[:0]
+		for _, expression := range p.newlyRelevant {
+			if p.context.relevant.get(expression) {
+				kept = append(kept, expression)
+			}
 		}
+		p.newlyRelevant = kept
+		p.newlyRelevantRemovals = removals
 	}
-	p.newlyRelevant = kept
 	for index := len(p.trail); index > scope.trailLimit; index-- {
 		entry := p.trail[index-1]
 		switch entry.kind {

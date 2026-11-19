@@ -300,7 +300,7 @@ func (c *SMTClause) ReleaseAtoms() error {
 		if handle.IsNull() {
 			continue
 		}
-		consumed, err := c.manager.DecRefConsumed(handle)
+		consumed, err := c.manager.DecRefHeldConsumed(handle)
 		if consumed {
 			c.atoms[i].expression = ast.ASTHandle{}
 		}
