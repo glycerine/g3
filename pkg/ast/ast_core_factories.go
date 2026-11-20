@@ -249,6 +249,7 @@ func (m *ASTManager) mkAppCoreCoerced(decl astNodeRef, args AppArguments, frame 
 func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (astNodeRef, error) {
 	v := m.appAt(r.slot)
 	var e error
+	var childHashes [astInlineArgs]uint32
 	// A short application owns all its arguments inline. A slice input is
 	// immutable during construction, so copy the validated child once.
 	inlineSlice := !ASTSourceDebug && args.count <= astInlineArgs && args.appOwner == nil && !args.raw
@@ -287,6 +288,7 @@ func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame 
 		}
 		if inlineSlice {
 			v.inlineArgs[i] = child
+			childHashes[i] = m.nodeAt(child.slot).hash
 		}
 	}
 	if !inlineSlice {
@@ -300,7 +302,12 @@ func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame 
 	if frame != nil {
 		frame.node = r
 	}
-	r, e = m.registerNode(r)
+	if inlineSlice {
+		h := astHashArray(args.count, m.nodeAt(decl.slot).hash, func(i uint32) uint32 { return childHashes[i] })
+		r, e = m.registerHashedNode(r, h)
+	} else {
+		r, e = m.registerNode(r)
+	}
 	if e == nil && r == original {
 		if frame != nil {
 			frame.hash = m.nodeAt(r.slot).hash

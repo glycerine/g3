@@ -407,3 +407,18 @@ go test ./smtcore -run '^$' -bench '^Benchmark(SMTCheckerCandidate|SMTBooleanBin
 ```
 
 The local Go installation used `/usr/local/go1.24.3/pkg/tool/linux_amd64/pprof` in place of `go tool pprof` for the displayed reports. Each Go CPU and heap profile uses the standard pprof format.
+
+### Reusing child hashes during quantifier substitution
+
+During application construction, g3 has already read each child's AST record to validate the operand. The old hash pass followed the newly stored child references back through the AST manager. For up to three inline operands we now save their hashes during validation and register the candidate with the same structural hash. The canonical table, collision checks and ordering of reference acquisitions are shared with the general constructor. A fresh baseline profile put 64.82 of 222.90 sampled CPU seconds under proof-free application rewriting, including work by other rewriters as well as variable substitution.
+
+| Work per iteration | Before | Reuse child hashes |
+|---|---:|---:|
+| Construct an existing unary application | 143.2 ns | 132.0 ns |
+| Construct an existing binary application | 171.7 ns | 149.5 ns |
+| Construct an existing ternary application | 185.5 ns | 165.8 ns |
+| Construct an existing four-argument application, general path | 335.0 ns | 333.0 ns |
+| Substitute two variables, retain the 64 possible instances | 1,974 ns | 1,926 ns |
+| Substitute two variables, retire the previous instance | 2,644 ns | 2,584 ns |
+
+Medians of nine alternating samples per build on CPU 9, with one Go processor. The substitution body contains a shared predicate application, a negation and an ITE. All six benchmarks measured zero allocations per iteration at the reported precision. The substituter gained about 2.4% for retained instances and 2.3% for retired instances. Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTQuantifierBodySubstitution$' -benchtime=50000x`. [Raw benchmark samples](perf/ivy_raft/substitution-hash.csv) · [Substitution benchmark](smtcore/smt_quantifier_substitution_benchmark_test.go)

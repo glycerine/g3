@@ -150,6 +150,12 @@ func (m *ASTManager) registerNode(r astNodeRef) (astNodeRef, error) {
 		m.freeNodeStorage(r)
 		return astNodeRef{}, e
 	}
+	return m.registerHashedNode(r, h)
+}
+
+// The short application factory reads child hashes while validating the
+// operands. Other constructors compute the hash from the finished record.
+func (m *ASTManager) registerHashedNode(r astNodeRef, h uint32) (astNodeRef, error) {
 	m.nodeAt(r.slot).hash = h
 	contains, e := m.registrationBefore(r)
 	if e != nil {
