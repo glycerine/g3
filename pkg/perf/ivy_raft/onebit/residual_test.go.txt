@@ -1,0 +1,110 @@
+package api
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/api/internal/order"
+	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/control"
+)
+
+// Compile all inputs before starting the timer. The benchmark measures the
+// production SAT search across the original sequence of surviving CNFs.
+func BenchmarkRaftBooleanResidualSearch(b *testing.B) {
+	inputs := oneBitRaftQueries(b)
+	var problems []*order.BooleanProblem
+	for i, input := range inputs {
+		k, err := prepareRaftResidual(input)
+		if err != nil {
+			b.Fatalf("prepare obligation %03d: %v", i+1, err)
+		}
+		if k != nil {
+			problems = append(problems, k)
+		}
+	}
+	if len(problems) == 0 {
+		b.Fatal("empty residual corpus")
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := runRaftResiduals(problems); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ReportMetric(float64(len(problems)), "searches/op")
+}
+
+func prepareRaftResidual(input string) (k *order.BooleanProblem, err error) {
+	ctx, err := NewSMTContext()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, ctx.Close()) }()
+	s, err := ctx.NewSimpleSolver()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, s.Close()) }()
+	if err := s.LoadSMT2String(input); err != nil {
+		return nil, err
+	}
+	manager, err := ctx.Manager()
+	if err != nil {
+		return nil, err
+	}
+	assertions, err := solver.Assertions(s.solver)
+	if err != nil {
+		return nil, err
+	}
+	encoded, applicable, err := order.CompileOneBit(manager, assertions)
+	if err != nil {
+		return nil, err
+	}
+	if !applicable {
+		return nil, errors.New("one-bit encoding unavailable")
+	}
+	k = (*order.BooleanProblem)(encoded)
+	conflict, complete := k.Reduce(16, manager.ResourceLimit())
+	if !complete {
+		return nil, errors.New("one-bit reduction interrupted")
+	}
+	if conflict {
+		return nil, nil
+	}
+	return k, nil
+}
+
+func runRaftResiduals(problems []*order.BooleanProblem) (err error) {
+	ctx, err := NewSMTContext()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, ctx.Close()) }()
+	s, err := ctx.NewSimpleSolver()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, s.Close()) }()
+	manager, err := ctx.Manager()
+	if err != nil {
+		return err
+	}
+	limit, err := control.NewReslimit(manager.Budget())
+	if err != nil {
+		return err
+	}
+	batch := orderBooleanSolver{limit: limit}
+	defer func() { err = errors.Join(err, batch.close()) }()
+	for _, k := range problems {
+		proved, err := batch.search(s, manager, k)
+		if err != nil {
+			return err
+		}
+		if !proved {
+			return errors.New("unproved residual Raft obligation")
+		}
+	}
+	return nil
+}

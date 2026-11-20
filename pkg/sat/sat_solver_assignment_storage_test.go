@@ -125,3 +125,22 @@ func TestSATSolverAssignmentRequiresSameActualCheckpointRuntime(t *testing.T) {
 	}
 	satOK(t, foreign.Close())
 }
+
+func TestSATBothPolaritiesPreservesPartialWrite(t *testing.T) {
+	v, _, _ := satVariableStateFixture(t)
+	_, err := v.mkVar(false, true)
+	satOK(t, err)
+	full := v.assignment
+	v.assignment = full[:1]
+	defer func() { v.assignment = full }()
+	want := error(arena.ErrBounds)
+	if satStorageSourceDebug {
+		want = ErrSATAssertion
+	}
+	if err = v.setBothPolarities(0, lbool.True); !errors.Is(err, want) || v.assignment[0] != lbool.True {
+		t.Fatal("missing opposite slot", err, v.assignment)
+	}
+	if err = v.setBothPolarities(1, lbool.True); !errors.Is(err, want) || v.assignment[0] != lbool.True {
+		t.Fatal("missing first slot", err, v.assignment)
+	}
+}

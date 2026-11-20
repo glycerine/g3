@@ -195,6 +195,21 @@ func (s *satSolverVariableState) setAssignment(l Literal, value lbool.LBool) err
 	s.assignment[l.index()] = value
 	return nil
 }
+
+// Assignment and undo always write both polarities. Validating the first
+// write checks the owner. No callback runs before the opposite write.
+func (s *satSolverVariableState) setBothPolarities(l Literal, value lbool.LBool) error {
+	if e := s.setAssignment(l, value); e != nil {
+		return e
+	}
+	opposite := l.Negated()
+	if uint64(opposite.index()) >= uint64(len(s.assignment)) {
+		return s.setAssignment(opposite, -value)
+	}
+	s.assignment[opposite.index()] = -value
+	return nil
+}
+
 func (s *satSolverVariableState) valueVar(v BoolVar) (lbool.LBool, error) {
 	return s.valueLiteral(Literal(uint32(v) << 1))
 }

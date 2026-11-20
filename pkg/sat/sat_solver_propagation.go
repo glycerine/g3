@@ -38,6 +38,23 @@ func satPropagationCursorWrite(i *satSolverWatchIterator, n uint32, w satWatched
 	return nil
 }
 func (s *satSolverPropagationState) propagationConflictCleanup(i *satSolverWatchIterator, from uint32, to *uint32, w satSolverWatchListView) error {
+	// A conflict preserves the unread suffix in its original order. No
+	// source callback runs while this iterator owns the backing.
+	if from < i.end {
+		backing, err := satPropagationCursorRecord(i, from)
+		if err != nil {
+			return err
+		}
+		if *to <= from && uint64(i.end) <= uint64(len(backing.data)) {
+			count := i.end - from
+			if *to != from {
+				copy(backing.data[*to:*to+count], backing.data[from:i.end])
+			}
+			*to += count
+			return s.finishPropagationList(i, w, *to)
+		}
+	}
+	// Preserve the cursor and the first error for malformed ranges.
 	for ; from < i.end; from++ {
 		x, e := satPropagationCursorRead(i, from)
 		if e != nil {

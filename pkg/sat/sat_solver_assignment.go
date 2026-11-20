@@ -47,10 +47,7 @@ func (s *satSolverPropagationState) assignCore(l Literal, j satJustification) er
 	if v.scopeLevel == 0 {
 		j = satJustification{}
 	}
-	if e := v.setAssignment(l, lbool.True); e != nil {
-		return e
-	}
-	if e := v.setAssignment(l.Negated(), lbool.False); e != nil {
+	if e := v.setBothPolarities(l, lbool.True); e != nil {
 		return e
 	}
 	id := uint32(l.variable())
@@ -64,11 +61,18 @@ func (s *satSolverPropagationState) assignCore(l Literal, j satJustification) er
 	if l.sign() {
 		phase = 1
 	}
-	if e := v.setPhase(BoolVar(id), phase); e != nil {
-		return e
-	}
-	if e := v.setGCAssigned(BoolVar(id), true); e != nil {
-		return e
+	// setLevel has checked this owner. Writing its justification does not
+	// call out. Keep the ordered individual writes for a partial column.
+	if uint64(id) < uint64(len(v.phase)) && uint64(id) < uint64(len(v.assignedSinceGC)) {
+		v.phase[id] = phase
+		v.assignedSinceGC[id] = true
+	} else {
+		if e := v.setPhase(BoolVar(id), phase); e != nil {
+			return e
+		}
+		if e := v.setGCAssigned(BoolVar(id), true); e != nil {
+			return e
+		}
 	}
 	if e := v.trailPush(l); e != nil {
 		return e

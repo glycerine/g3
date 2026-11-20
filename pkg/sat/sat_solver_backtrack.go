@@ -93,10 +93,7 @@ func (s *satSolverClauseLifecycle) unassignVars(old uint32) error {
 		if e != nil {
 			return e
 		}
-		if e = v.setAssignment(l, lbool.Undef); e != nil {
-			return e
-		}
-		if e = v.setAssignment(l.Negated(), lbool.Undef); e != nil {
+		if e = v.setBothPolarities(l, lbool.Undef); e != nil {
 			return e
 		}
 		if satStorageSourceDebug {
