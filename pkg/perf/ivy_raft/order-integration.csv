@@ -1,0 +1,4 @@
+variant,cpu,wall_s,user_s,system_s,peak_rss_KiB,passes,cycles_u,instructions_u,termination
+goivy-pinned-g3,6,11.46,11.27,0.18,80616,419,47744239765,94252857594,OK
+direct-ast-order-proof,6,18.53,18.27,0.26,176428,419,77451285249,160532143288,OK
+simple-kernel-original-bitvectors,,270.08,268.88,1.10,798896,250,1129327988448,1926543882155,timeout
