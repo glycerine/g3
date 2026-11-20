@@ -2,7 +2,7 @@
 
 **Latest result on amd64.** g3 now matches Z3’s 16-byte Boolean variable and 8-byte justification. Pinned scoped pop takes 19.32 µs in g3 and 12.34 µs in Z3. [Record layout, timings and storage costs](#matching-the-native-boolean-record)
 
-The Raft study compares the full 419-obligation run from the Ivy logs, including the effect of Boolean packing on elapsed time, live heap and peak RSS. [Raft profiles and optimization trials](#raft-verification-with-python-z3-and-goivy-g3)
+**Raft now completes in 124.71 seconds on g3**, down from 223.30 seconds on the same core. Resetting an exhausted GoIvy solver cut peak RSS from 3,665,916 to 988,940 KiB. All 419 proof results agree. The same change took GoIvy with C++ Z3 from 65.08 to 32.70 seconds. Python Ivy with C++ Z3 took 34.40 seconds. [Solver lifetime experiment](#solver-lifetimes-change-the-raft-search) · [Earlier Raft profiles and trials](#raft-verification-with-python-z3-and-goivy-g3)
 
 The preceding follow-up measures the revised solver through 1,024 workers and includes the committed benchmarks. [Follow-up results and reproduction](#follow-up-on-clause-storage-boolean-variables-and-independent-solvers)
 
@@ -433,3 +433,31 @@ The quantified-instance checker read the Boolean assignment to decide whether a 
 | Formula with shared ITE | 231.6 ns | 219.6 ns | 196.0 ns |
 
 These are medians of nine rotated 300,000-iteration runs on CPU 9, all at zero allocations. The complete Raft check on CPU 6 took 211.46 s before and 223.30 s after, while retired instructions fell from 1.644 to 1.633 trillion. Other processes ran concurrently. We kept the 26% and 15% improvements in candidate checking. This pair provides no evidence of a whole-Raft wall-time gain from that change. [Raw candidate samples](perf/ivy_raft/candidate-read.csv) · [Checker benchmark](smtcore/smt_checker_benchmark_test.go)
+
+### Solver lifetimes change the Raft search
+
+Python Ivy and GoIvy produced byte-identical native Z3 assertion dumps at checks 1, 8, 25, 49, 50, 92, 133, 134, 274, 275 and 321. Even with the same assertions, at check 134 GoIvy with native Z3 created over eleven times as many quantifier instances as Python Ivy. Each GoIvy bridge keeps references to translated terms. The Raft caller also kept the native state of private solvers after proving their obligations unsatisfiable. Python ordinarily drops the references when the wrappers go out of scope.
+
+We varied those two lifetimes independently in Python using the same native Z3 library. Holding both reproduced GoIvy classic's quantifier instantiations, decisions and conflicts at **every one of the 419 checks**. The Boolean variable count matched at 418 checks and the resource counter at 91. Setting `smt.macro_finder` on each solver as a separate Python control reproduced the ordinary Python search. Reference lifetimes therefore change how much search work the solver performs. AST ID reuse and expression-table ordering are possible mechanisms. [Per-check search counters](perf/ivy_raft/lifetime-search.csv) · [Python lifetime experiment](perf/ivy_raft/python_lifetimes.py)
+
+| Python wrapper lifetime | Wall time with statistics | Peak RSS, KiB | New quantifier instances at 134 | New quantifier instances at 275 |
+|---|---:|---:|---:|---:|
+| Ordinary | 37.84 s | 167,648 | 242,379 | 51,181 |
+| Hold ASTs | 41.75 s | 349,500 | 937,292 | 63,093 |
+| Hold solvers | 46.54 s | 869,584 | 1,161,264 | 60,917 |
+| Hold both | 71.42 s | 1,216,068 | 2,695,395 | 299,277 |
+
+Each instance count subtracts the preceding check on the same solver. The CSV contains cumulative solver statistics and identifies each check. For example, at check 275, ordinary Python made 162,589 new decisions and the hold-both control made 1,227,742. GoIvy classic's counters in this comparison were collected at Ivy revision `d2f5d38ab`, before the solver reset. To reproduce a Python control in the Ivy environment, run `XTRACE_OFF=1 python -O perf/ivy_raft/python_lifetimes.py --hold both --stats /tmp/raft-counters.csv -- "$input"`. [Raw timing and hardware samples](perf/ivy_raft/lifetime-runs.csv)
+
+GoIvy commit `7e323d8a3` resets the private solver in `GetSmallModelWithCond` when the final result is UNSAT. In nonincremental mode it also resets the previous solver after creating its replacement. A returned SAT model retains its original solver. These calls use the backend's ordinary reset operation. The GoIvy bridge and small-model tests passed with the change.
+
+| Checker | Pinned CPU | Wall time before → after | Peak RSS before → after, KiB | User instructions before → after |
+|---|---:|---:|---:|---:|
+| GoIvy, g3 `4f9e3ca87` | 6 | 223.30 → **124.71 s** | 3,665,916 → **988,940** | 1.633 T → **942.3 B** |
+| GoIvy, C++ Z3 | 12 | 65.08 → **32.70 s** | 1,189,516 → **321,660** | 395.6 B → **215.5 B** |
+
+A second g3 run on CPU 3 took 123.32 seconds and 942.8 billion instructions. Every timed process returned the complete ordered Raft transcript. The remaining gap against the same GoIvy frontend is about **3.8× in elapsed time and 4.4× in instructions**. The comparison with ordinary uninstrumented Python Ivy is 124.71 / 34.40, or **3.6×**. These backend comparisons used different physical cores of the same CPU. Earlier trials on CPU 6 included the child-hash optimization at 211.46 s and a further operand-pointer experiment at 217.28 s. The latter reduced instructions by 0.34% and had mixed constructor timings. We left it out. [Full-run measurements](perf/ivy_raft/lifetime-runs.csv)
+
+A fresh post-reset g3 CPU profile collected 121.41 sampled seconds. Model-based quantifier checking used 54.80 s inclusive, application rewriting 39.50 s inclusive and AST node address lookup 12.54 s flat. The categories overlap. The post-reset heap run allocated 12.76 GB cumulatively through check 419 and retained 205 MB after forced GC. Dense expression-table growth accounted for 1.22 GiB of cumulative allocation, clause storage for 0.99 GiB and fingerprint insertion for 0.92 GiB. The Go and Python hold-ASTs controls agreed on instantiations, decisions and conflicts at both checks 134 and 275. Quantifier rewriting and the memory required for lookup tables are measurable next targets.
+
+The post-reset native and g3 statistics collectors agreed on **all 24 shared integer counters at all 419 checks**, including resource count, clause production, quantifier instantiations, decisions, propagations and conflicts. Each collector ran a new process and sampled its solver after every check. The timed checks summed to 34.14 s in C++ and 136.86 s in Go in these instrumented runs. Check 134 took 13.29 and 41.28 s respectively, check 251 took 2.82 and 12.90 s, and check 275 took 2.56 and 12.20 s. Each CSV row contains the common counter values once. These controls support measuring cost per search operation directly. [Matched search and check times](perf/ivy_raft/matched-search.csv)
