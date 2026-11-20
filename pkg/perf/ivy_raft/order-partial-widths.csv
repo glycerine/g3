@@ -1,0 +1,13 @@
+input,build,cpu,status,wall_s,user_s,sys_s,rss_KiB,passes
+narrow1,Boolean for width 1,24,OK,10.17,9.98,0.18,76196,419
+narrow1,bit-vector for width 1,24,OK,17.72,17.45,0.27,80316,419
+narrow1,abstract orders,24,OK,11.78,11.55,0.22,82016,419
+narrow2,bit-vector for width 2,24,OK,222.98,221.71,1.20,367928,419
+original,bit-vector for width 2,26,OK,10.81,10.60,0.20,78068,419
+original,bit-vector for width 4,26,OK,19.30,19.04,0.25,174956,419
+original,bit-vector for widths up to 2,26,OK,10.67,10.48,0.19,78792,419
+mixed,bit-vector for width 2,26,OK,18.16,17.84,0.31,105884,419
+original,bit-vector for width 3,28,OK,100.13,99.32,0.73,291892,419
+original,bit-vector for widths up to 16,28,OK,93.39,92.53,0.79,266936,419
+wide8,bit-vector for widths up to 16,28,timeout,240.06,238.97,1.06,457956,273
+uniform3,bit-vector for width 3,28,timeout,240.15,236.09,1.45,1254980,112

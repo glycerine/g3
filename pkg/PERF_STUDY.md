@@ -603,6 +603,23 @@ The check itself accounts for **7.62 s** of the **8.71 s** wall-time gap. Parsin
 
 Reproduce the corpus in one process per backend from `pkg`. Run `go test ./api -run '^$' -bench '^BenchmarkRaftOrderKernel$' -benchtime=1x -cpu=1` and run `python perf/ivy_raft/replay_order_kernel.py` with Ivy's Python environment active. The committed benchmarks check the answers and time loading and solving. The crossover drivers also read the statistics after each check. [Go benchmark](api/api_raft_kernel_benchmark_test.go) · [Native control](perf/ivy_raft/replay_order_kernel.py) · [Compressed SMT-LIB corpus](api/test_vectors/raft_order/kernel.smt2.gz)
 
+#### Where the extra instructions go
+
+The user-mode hardware counters below cover g3 at `c3f2cd110` and native Z3 replaying those same 419 queries. Each event group ran six times per backend, alternating order across CPUs 8 and 21. All 18 search counters agreed per obligation in all 36 runs. Branch events ran continuously. The kernel multiplexed the cache and TLB event groups at 83% and scaled their counts. [All counter readings](perf/ivy_raft/order-kernel-pmu.csv)
+
+| Median events over the complete replay | g3 | C++ Z3 |
+|---|---:|---:|
+| Instructions | 92.67 billion | 20.72 billion |
+| Branches | 19.30 billion | 4.21 billion |
+| Mispredicted branches | 185 million | 107 million |
+| L1 data loads | 42.86 billion | 10.09 billion |
+| L1 data load misses | 846 million | 322 million |
+| Instruction TLB load misses | 5.93 million | 0.51 million |
+
+g3 executed **4.48× as many instructions**, **4.58× as many branches** and **4.25× as many L1 data loads**. Its branch miss rate was 0.96% versus 2.54% and its L1 data load miss rate was 1.97% versus 3.19%. The absolute instruction volume and load count make repeated traversal, dispatch and handle resolution better targets than predicting existing branches. These process-wide counters include the drivers and runtime. They cannot assign misses to a particular structure.
+
+The clean GoIvy binaries were also rerun with the *original concrete* input and transcript check. Across eight runs per build, the `c3f2cd110` pin took 12.53 s and 92.41 billion instructions, the previous pin took 12.30 s and 94.23 billion, and C++ took 37.16 s and 215.52 billion. The machine ran other studies during this crossover. The instruction reduction reproduced end to end. Wall time for this particular Go optimization was more stable in the paired kernel experiment. [Production crossover](perf/ivy_raft/order-substitution-pinned.csv)
+
 #### Memory per quantifier matcher and per solver
 
 An allocation profile of the 419 matched kernel checks attributed about 190 MB to constructing quantifier matchers. Each matcher embedded two 64-by-64 tables of path-tree pointers for finding matching parents and children. Together these used 96 KiB on amd64 before inserting a pattern. Each quantifier manager constructs an eager and a lazy matcher. The new layout allocates one hash row on its first insertion. Each cell has a stable address for scope rollback. [Implementation](smtcore/smt_mam_impl.go)
@@ -620,9 +637,27 @@ Reproduce the worker measurement with `go test ./api -run '^$' -bench '^Benchmar
 
 #### Alternatives tested on the original obligations
 
+* Holding the auxiliary solver until the next proof reduced whole-spec median time from **11.11 to 9.70 s** over eight runs per lifetime. Median peak RSS rose from 81,934 to 94,032 KiB. Across 64 idle owners, the retained auxiliary contexts added **108.8 MB live after GC**. Popping the last frame immediately still added 107.0 MB. All four lifetime variants returned near their initial live heap after closing every owner. The production verifier releases the disposable solver after each attempt. The faster lifetime would be attractive for a dedicated sequential verifier that bounds the number of retained contexts. [Whole-spec samples](perf/ivy_raft/order-reuse.csv) · [Independent owner groups](perf/ivy_raft/order-idle-owners.csv)
+
 * A prototype constructed the translated terms directly with typed AST factories. It verified all 419 obligations in 18.53 s and retired 160.53 billion instructions. The integrated SMT-LIB path took 11.46 s and retired 94.25 billion. Direct construction changed the order of AST creation and solver setup. Eliminating parsing alone does not predict the cost of the resulting search.
 * Forcing the same simple kernel on the *original* bit-vector checks reached 250 passes in 270.08 s before the experiment's timeout. The ordinary concrete solver completed all 419 in 124.71 s. The kernel selection is specific to the independent order proof.
 
 * A bit-parallel evaluator agreed with the existing auxiliary SMT results on 42,579 eligible queries out of 44,546. Using its witnesses reduced one full run to 102.87 s from roughly 123 s. Emitting tautologies alone gave 120.24 s and combining both choices gave 115.82 s. Earlier attempts to skip auxiliary checks changed search order enough to regress badly. The evaluator remains an experiment for finite problems where the order relaxation is inconclusive.
 * Rechecking the previous exact UNSAT core across nearby obligations discharged 171 of 419. Those checks represented only 3.71 seconds of original solver time. Most expensive action transitions needed different premises.
 * Splitting four shared Boolean conditional guards reduced one hard check from roughly 41 seconds to 8.35 seconds across six branches. Results varied widely by obligation. Partial binder expansion and relevance filtering also helped individual goals. These candidates need inexpensive selection criteria and concrete fallback before they merit a default path.
+
+#### Sensitivity to concrete domain size
+
+Each row changes only the eight bit-vector interpretations in a copy of the original Ivy wrapper. Both backends check the same source for each row. Each completed run matched the 419 named obligations and final `OK`. These are single process observations on separate pinned cores. A timeout records the elapsed limit and number of obligations completed. [Input generator](perf/ivy_raft/widths.py) · [Timings, limits and memory](perf/ivy_raft/order-widths.csv)
+
+| Input | g3 with order proof | Native concrete Z3 |
+|---|---:|---:|
+| All widths 1 | 11.60 s | **1.96 s** |
+| All widths 2 | 11.19 s | 105.60 s |
+| All widths 3 | 11.14 s | 180 s limit, 133 passed |
+| All widths 4 | 11.15 s | 180 s limit, 250 passed |
+| Mixed widths 2, 3 and 4 | 12.01 s | 28.77 s |
+| All widths 8 | 12.01 s | 900 s limit, 274 passed |
+| All widths 16 | 12.40 s | 107.47 s |
+
+Finite domain size changes the native search enough to reverse the winner. Encoding one-bit domains as Booleans in the auxiliary g3 proof took 10.17 s. Preserving concrete two-bit domains in the auxiliary reduced the original mixed-width Raft input to 10.81 s, but raised the all-two-bit input to 222.98 s. Selecting exact three-bit domains raised the original input to 100.13 s. These results favor retaining the general order encoding for the original benchmark. A fast one-bit concrete path remains an open opportunity. [Partial-width controls](perf/ivy_raft/order-partial-widths.csv)

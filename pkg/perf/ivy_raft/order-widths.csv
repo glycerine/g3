@@ -1,0 +1,15 @@
+input,backend,cpu,status,wall_s,user_s,system_s,rss_KiB,obligations_passed,timeout_s
+narrow1,g3 with order proof,8,OK,11.60,11.39,0.21,81964,419,120
+narrow2,g3 with order proof,8,OK,11.19,10.99,0.19,82304,419,120
+uniform3,g3 with order proof,8,OK,11.14,10.93,0.20,80112,419,120
+uniform4,g3 with order proof,8,OK,11.15,10.94,0.20,82608,419,120
+mixed,g3 with order proof,8,OK,12.01,11.80,0.19,80308,419,120
+wide8,g3 with order proof,8,OK,12.01,11.80,0.20,81780,419,120
+wide16,g3 with order proof,8,OK,12.40,12.19,0.21,81492,419,120
+narrow1,C++ Z3,10,OK,1.96,1.92,0.04,44196,419,180
+narrow2,C++ Z3,10,OK,105.60,104.52,1.06,1100736,419,180
+uniform3,C++ Z3,10,timeout,180.24,175.24,1.70,1839620,133,180
+uniform4,C++ Z3,10,timeout,180.13,179.18,0.92,1055384,250,180
+mixed,C++ Z3,10,OK,28.77,28.64,0.12,136928,419,180
+wide8,C++ Z3,11,timeout,900.24,880.56,1.19,1083564,274,900
+wide16,C++ Z3,11,OK,107.47,106.73,0.20,220312,419,900
