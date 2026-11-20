@@ -62,6 +62,38 @@ func TestVarSubstitutionOriginalRegisteredIdentities(t *testing.T) {
 	}
 }
 
+func TestVarSubstitutionSharedConditionalMatchesGeneralRewriter(t *testing.T) {
+	m := astTestManager(t)
+	x, y := shiftTestVar(t, m, 0), shiftTestVar(t, m, 1)
+	shared := goalTestApp(t, m, ast.ASTOpOr, x, y)
+	body := goalTestApp(t, m, ast.ASTOpIte, x, shared, goalTestApp(t, m, ast.ASTOpNot, shared))
+	first := goalTestAtom(t, m, "first")
+	truth, err := m.MkTrue()
+	satOK(t, err)
+	falsity, err := m.MkFalse()
+	satOK(t, err)
+
+	specialized, err := NewVarSubstitution(m, true)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, specialized.Close()) })
+	general, err := NewVarSubstitution(m, true)
+	satOK(t, err)
+	general.reducer.engine.substituteVariables = false
+	t.Cleanup(func() { satOK(t, general.Close()) })
+	got, want := astTestPin(t, m, ast.ASTHandle{}), astTestPin(t, m, ast.ASTHandle{})
+	for _, bindings := range [][]ast.ASTHandle{{first, truth}, {y, falsity}, {x, first}, {first}, nil} {
+		satOK(t, specialized.Substitute(body, bindings, got))
+		satOK(t, general.Substitute(body, bindings, want))
+		actual, err := m.RefGet(got)
+		satOK(t, err)
+		expected, err := m.RefGet(want)
+		satOK(t, err)
+		if actual != expected {
+			t.Fatalf("bindings %v produced %v, general rewriter produced %v", bindings, actual, expected)
+		}
+	}
+}
+
 func TestVarSubstitutionOrderResetNullAndGround(t *testing.T) {
 	m := astTestManager(t)
 	v := []ast.ASTHandle{shiftTestVar(t, m, 0), shiftTestVar(t, m, 1), shiftTestVar(t, m, 2), shiftTestVar(t, m, 3)}

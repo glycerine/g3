@@ -48,3 +48,24 @@ func (m *ASTManager) AppArgumentView(app ASTHandle) (AppArguments, error) {
 	}
 	return AppArguments{app: app, appOwner: m, count: m.appAt(r.slot).count}, nil
 }
+
+// SubstitutionShape reads an expression's fixed shape and current reference count.
+// arityOrIndex is the arity of an application or the de Bruijn index of a variable.
+func (m *ASTManager) SubstitutionShape(h ASTHandle) (kind ASTKind, refs, arityOrIndex uint32, ground bool, err error) {
+	if !m.fastHandle(h) {
+		if _, err = m.readExpr(h); err != nil {
+			return
+		}
+	}
+	slot := &m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]
+	switch slot.node.kind {
+	case ASTApp:
+		return ASTApp, slot.node.rc, slot.app.count, slot.app.ground, nil
+	case ASTVar:
+		i := slot.node.kindIndex - 1
+		return ASTVar, slot.node.rc, m.vars[i/astPageSize][i%astPageSize].index, false, nil
+	case ASTQuantifier:
+		return ASTQuantifier, slot.node.rc, 0, false, nil
+	}
+	return 0, 0, 0, false, ErrASTDomain
+}

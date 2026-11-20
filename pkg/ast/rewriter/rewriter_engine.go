@@ -26,6 +26,7 @@ type rewriterEngine struct {
 	shifts                   []uint32
 	header                   uint64
 	ready, closed            bool
+	substituteVariables      bool
 	modelBooleanShortCircuit bool
 }
 
@@ -49,6 +50,8 @@ func (r *rewriterEngine) init(m *ast.ASTManager, cfg rewriterConfiguration) erro
 func (r *rewriterEngine) initMode(m *ast.ASTManager, cfg rewriterConfiguration, proofGen bool) error {
 	r.self = r
 	r.cfg = cfg
+	_, beta := cfg.(*betaReducerConfig)
+	r.substituteVariables = beta && !proofGen && !ast.ASTValidateHandles
 	if e := r.core.init(m, proofGen); e != nil {
 		return e
 	}
@@ -293,6 +296,9 @@ func (r *rewriterEngine) sameSort(old, value ast.ASTHandle) error {
 	return nil
 }
 func (r *rewriterEngine) visit(t ast.ASTHandle, depth uint32) (bool, error) {
+	if r.substituteVariables {
+		return r.visitSubstitution(t, depth)
+	}
 	c := &r.core
 	m := c.manager
 	sub, subProof, found, e := r.cfg.getSubst(t)
@@ -383,6 +389,7 @@ func (r *rewriterEngine) visit(t ast.ASTHandle, depth uint32) (bool, error) {
 	}
 	return false, r.pushFrame(t, cache, depth, kind, n)
 }
+
 func (r *rewriterEngine) processVar(t ast.ASTHandle) (err error) {
 	c := &r.core
 	m := c.manager
@@ -428,6 +435,12 @@ func (r *rewriterEngine) processVar(t ast.ASTHandle) (err error) {
 	if e != nil {
 		return e
 	}
+	return r.processBoundVariable(t, index)
+}
+func (r *rewriterEngine) processBoundVariable(t ast.ASTHandle, index uint32) error {
+	c := &r.core
+	m := c.manager
+	var e error
 	if index < uint32(len(r.bindings)) {
 		i := uint32(len(r.bindings)) - index - 1
 		h := r.bindings[i]
@@ -709,6 +722,29 @@ func (r *rewriterEngine) processApp() (err error) {
 			}
 		}
 		fr = c.frames[fi]
+		if r.substituteVariables {
+			// The beta reducer has no application rule, macro or associative
+			// flattening. Rebuild exactly when a child changed.
+			h := t
+			if fr.newChild() {
+				d, e := m.GetDecl(t)
+				if e != nil {
+					return e
+				}
+				args, e := c.resultArguments(fr.spos, uint32(len(c.results))-fr.spos)
+				if e != nil {
+					return e
+				}
+				h, e = m.RewriterMakeApp(d, args)
+				if e != nil {
+					return e
+				}
+			}
+			if e := m.SetRefHeld(r.r, h); e != nil {
+				return e
+			}
+			return r.finish(fr, false, true)
+		}
 		d, e := m.GetDecl(t)
 		if e != nil {
 			return e

@@ -513,3 +513,9 @@ Creating a variable-substitution engine also creates activity caches for its shi
 | Insert one key first | 350.7 ns | 328.7 ns | 736 B / 3 → 720 B / 3 |
 
 Nine rotated samples used 400,000 lifetimes per workload. On the paged expression-table build, the full Raft proof allocated 11,076,409,104 bytes through check 419 before this change and 10,631,441,088 afterward, a further **445 MB (4.0%)**. Live heap after GC was 183.68 and 183.24 MB. Wall times with heap instrumentation were 128.94 and 127.29 seconds on different pinned cores. The original post-reset solver allocated 12.76 GB, so the combined queue, expression-table and activity-cache changes have removed 2.13 GB from the full proof. [Raw samples](perf/ivy_raft/activity-cache.csv) · [Lifetime benchmark](ast/ast_activity_cache_benchmark_test.go)
+
+### Reading quantifier substitution operands once
+
+The proof-free beta reducer now obtains the expression kind, reference count, ground flag and either application arity or bound-variable index from a single AST slot lookup. Shared nodes and substitutions under binders still use the existing cache, index-shifting and reconstruction rules.
+
+In nine alternating runs of 220,000 substitutions on one core, the median fell from **1,938 to 1,768 ns** when instances survived and from **2,597 to 2,433 ns** when each instance retired. Both workloads used zero allocations per operation. The corresponding full Raft experiment retired 933.7 billion user instructions before and 925.1 billion after. Single wall-time observations were 122.58 and 121.21 seconds. The final traversal matched the original 24 search counters on every one of the 419 verification conditions. Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTQuantifierBodySubstitution$' -benchtime=220000x`. [Individual substitution timings](perf/ivy_raft/substitution-shape.csv)
