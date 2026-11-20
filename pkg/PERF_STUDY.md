@@ -536,6 +536,14 @@ The variable shifter now reads the kind, reference count, ground flag and arity 
 
 Over 15 alternating pairs on CPU 17, the median for all 419 matched kernel checks fell from **11.52 to 11.40 s** and from **92.74 to 92.33 billion** user instructions. All 18 per-obligation search counters matched in every run. [Individual kernel runs](perf/ivy_raft/variable-shift-raft.csv)
 
+### Finding free variables under quantifiers
+
+The free-variable collector now follows Z3's rule of memoizing nodes with more than one reference. It skips ground applications, obtains a variable index or application arity together with the node kind, and starts the worklist in a 16-element stack buffer. The map key contains a slot and binder depth. A node can represent different free variables at different depths, and the root keeps its reachable slots live for the entire visit. [Collector](ast/rewriter/used_vars_ufbv.go)
+
+On a shared expression visited at depths zero, one and two, the median fell from **4,780 to 260 ns**. Each collection previously allocated 4,856 bytes in 11 allocations and now allocates zero. This fixture includes a shared ground subtree that can be skipped entirely. Eleven alternating samples used 300,000 iterations on CPU 7. Run `go test ./ast/rewriter -run '^$' -bench '^BenchmarkUsedVarsUnderQuantifiers$' -benchtime=300000x -cpu=1`. [Benchmark and depth regression](ast/rewriter/used_vars_ufbv_test.go) · [Raw samples](perf/ivy_raft/used-vars-lookup.csv)
+
+On all 419 actual obligations, five fresh processes per build gave median allocated bytes of **2,639,772,064 before and 2,566,255,384 after**, a saving of **73.5 MB and 328,956 allocations**. Median benchmark time on CPU 21 was 10.96 and 10.91 s. A separate nine-pair run on CPU 18 measured 91.77 and 91.08 billion user instructions with identical search counters. Its wall medians were 12.10 and 12.34 s while other work ran on the machine. The repeatable whole-corpus benefit is the reduction in allocations and instructions. [Allocations](perf/ivy_raft/used-vars-allocations.csv) · [Matched checks](perf/ivy_raft/used-vars-raft.csv)
+
 ### Order abstraction for the concrete Raft verifier
 
 The timed input was the original `examples/raft/raft_no_assume_test.ivy`. Its eight abstract types have concrete bit-vector interpretations of widths two, three and four. The GoIvy frontend generated the original assertions for both backends. The proof strategy receives those SMT assertions, with no file names, conjecture names, expected answers or Ivy type metadata. In an earlier diagnostic, checking the separate verification-oriented source without the finite interpretations took 11.96 s on g3. That timing is for a different input.

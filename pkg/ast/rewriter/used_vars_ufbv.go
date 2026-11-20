@@ -32,26 +32,34 @@ func (u *ufbvUsedVars) process(root ast.ASTHandle) error {
 	if u == nil || u.manager == nil {
 		return ast.ErrASTHandle
 	}
-	seen := make(map[usedVarExprDepth]struct{})
-	todo := []usedVarExprDepth{{expr: root}}
+	// All reachable nodes stay live in the same manager for this traversal.
+	// The slot and binder depth therefore identify each shared subproblem.
+	type visit struct{ slot, depth uint32 }
+	seen := make(map[visit]struct{})
+	var stack [16]usedVarExprDepth
+	todo := stack[:1]
+	todo[0].expr = root
 	for len(todo) != 0 {
 		i := len(todo) - 1
 		item := todo[i]
 		todo = todo[:i]
-		if _, present := seen[item]; present {
-			continue
-		}
-		seen[item] = struct{}{}
-		kind, e := u.manager.GetKind(item.expr)
+		kind, refs, arityOrIndex, ground, e := u.manager.SubstitutionShape(item.expr)
 		if e != nil {
 			return e
 		}
+		if ground {
+			continue
+		}
+		if refs > 1 {
+			key := visit{item.expr.Slot(), item.depth}
+			if _, present := seen[key]; present {
+				continue
+			}
+			seen[key] = struct{}{}
+		}
 		switch kind {
 		case ast.ASTVar:
-			index, e := u.manager.GetVarIndex(item.expr)
-			if e != nil {
-				return e
-			}
+			index := arityOrIndex
 			if index < item.depth {
 				continue
 			}
@@ -68,11 +76,7 @@ func (u *ufbvUsedVars) process(root ast.ASTHandle) error {
 			}
 			u.found[index] = sort
 		case ast.ASTApp:
-			n, e := u.manager.GetNumArgs(item.expr)
-			if e != nil {
-				return e
-			}
-			for j := n; j > 0; j-- {
+			for j := arityOrIndex; j > 0; j-- {
 				child, e := u.manager.GetArg(item.expr, j-1)
 				if e != nil {
 					return e
