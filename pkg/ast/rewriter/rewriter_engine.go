@@ -17,7 +17,7 @@ import (
 type rewriterEngine struct {
 	self                     *rewriterEngine
 	core                     rewriterCore
-	cfg                      rewriterConfiguration
+	cfg                      Configuration
 	numSteps                 uint32
 	bindings                 []ast.ASTHandle
 	patterns, noPatterns     []ast.ASTHandle
@@ -30,7 +30,7 @@ type rewriterEngine struct {
 	modelBooleanShortCircuit bool
 }
 
-func newRewriterEngine(m *ast.ASTManager, cfg rewriterConfiguration) (*rewriterEngine, error) {
+func newRewriterEngine(m *ast.ASTManager, cfg Configuration) (*rewriterEngine, error) {
 	if m == nil || cfg == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -44,10 +44,10 @@ func newRewriterEngine(m *ast.ASTManager, cfg rewriterConfiguration) (*rewriterE
 	r := &rewriterEngine{header: n}
 	return r, r.init(m, cfg)
 }
-func (r *rewriterEngine) init(m *ast.ASTManager, cfg rewriterConfiguration) error {
+func (r *rewriterEngine) init(m *ast.ASTManager, cfg Configuration) error {
 	return r.initMode(m, cfg, false)
 }
-func (r *rewriterEngine) initMode(m *ast.ASTManager, cfg rewriterConfiguration, proofGen bool) error {
+func (r *rewriterEngine) initMode(m *ast.ASTManager, cfg Configuration, proofGen bool) error {
 	r.self = r
 	r.cfg = cfg
 	_, beta := cfg.(*betaReducerConfig)
@@ -135,7 +135,7 @@ func (r *rewriterEngine) Reset() error {
 	if e := r.releasePatterns(); e != nil {
 		return e
 	}
-	r.cfg.reset()
+	r.cfg.Reset()
 	if e := r.core.Reset(); e != nil {
 		return e
 	}
@@ -153,7 +153,7 @@ func (r *rewriterEngine) Cleanup() error {
 	if e := r.releasePatterns(); e != nil {
 		return e
 	}
-	r.cfg.cleanup()
+	r.cfg.Cleanup()
 	if e := r.core.Cleanup(); e != nil {
 		return e
 	}
@@ -203,20 +203,20 @@ func (r *rewriterEngine) Close() error {
 	return nil
 }
 func (r *rewriterEngine) pushFrame(t ast.ASTHandle, cache bool, depth uint32, kind ast.ASTKind, numArgs uint32) error {
-	if r.cfg.maxFramesExceeded(uint32(len(r.core.frames))) {
+	if r.cfg.MaxFramesExceeded(uint32(len(r.core.frames))) {
 		return newRewriterException(messages.MaxFrames)
 	}
 	return r.core.pushFrameCore(t, cache, 0, depth, kind, numArgs)
 }
 func (r *rewriterEngine) beginScope() error {
-	if r.cfg.maxScopesExceeded(uint32(len(r.core.scopes))) {
+	if r.cfg.MaxScopesExceeded(uint32(len(r.core.scopes))) {
 		return newRewriterException(messages.MaxScopes)
 	}
 	return r.core.beginScope()
 }
 func (r *rewriterEngine) mustCache(t ast.ASTHandle) (bool, error) {
 	c := &r.core
-	if r.cfg.cacheAllResults() {
+	if r.cfg.CacheAllResults() {
 		if t == c.root {
 			return false, nil
 		}
@@ -226,7 +226,7 @@ func (r *rewriterEngine) mustCache(t ast.ASTHandle) (bool, error) {
 		}
 		return kind == ast.ASTQuantifier || kind == ast.ASTApp && n > 0, nil
 	}
-	if r.cfg.cacheResults() {
+	if r.cfg.CacheResults() {
 		return c.mustCache(t)
 	}
 	return false, nil
@@ -235,13 +235,13 @@ func (r *rewriterEngine) mustCache(t ast.ASTHandle) (bool, error) {
 // mustCacheShape is mustCache(t) given t's NodeShape.
 func (r *rewriterEngine) mustCacheShape(t ast.ASTHandle, kind ast.ASTKind, rc, n uint32) (bool, error) {
 	c := &r.core
-	if r.cfg.cacheAllResults() {
+	if r.cfg.CacheAllResults() {
 		if t == c.root {
 			return false, nil
 		}
 		return kind == ast.ASTQuantifier || kind == ast.ASTApp && n > 0, nil
 	}
-	if r.cfg.cacheResults() {
+	if r.cfg.CacheResults() {
 		if e := c.open(); e != nil {
 			return false, e
 		}
@@ -301,7 +301,7 @@ func (r *rewriterEngine) visit(t ast.ASTHandle, depth uint32) (bool, error) {
 	}
 	c := &r.core
 	m := c.manager
-	sub, subProof, found, e := r.cfg.getSubst(t)
+	sub, subProof, found, e := r.cfg.GetSubst(t)
 	if e != nil {
 		return false, e
 	}
@@ -360,7 +360,7 @@ func (r *rewriterEngine) visit(t ast.ASTHandle, depth uint32) (bool, error) {
 			return true, r.setNewChildIfDifferent(t, h)
 		}
 	}
-	allowed, e := r.cfg.preVisit(t)
+	allowed, e := r.cfg.PreVisit(t)
 	if e != nil {
 		return false, e
 	}
@@ -393,7 +393,7 @@ func (r *rewriterEngine) visit(t ast.ASTHandle, depth uint32) (bool, error) {
 func (r *rewriterEngine) processVar(t ast.ASTHandle) (err error) {
 	c := &r.core
 	m := c.manager
-	done, e := r.cfg.reduceVar(t, r.r, r.pr)
+	done, e := r.cfg.ReduceVar(t, r.r, r.pr)
 	if e != nil {
 		return e
 	}
@@ -488,7 +488,7 @@ func (r *rewriterEngine) processConst(t ast.ASTHandle) error {
 	if e != nil {
 		return e
 	}
-	st, e := r.cfg.reduceApp(d, ast.AppArguments{}, r.r, r.pr)
+	st, e := r.cfg.ReduceApp(d, ast.AppArguments{}, r.r, r.pr)
 	if e != nil {
 		return e
 	}
@@ -774,7 +774,7 @@ func (r *rewriterEngine) processApp() (err error) {
 					return e
 				}
 				if pd == d {
-					flat, e := r.cfg.flatAssoc(d)
+					flat, e := r.cfg.FlatAssoc(d)
 					if e != nil {
 						return e
 					}
@@ -790,7 +790,7 @@ func (r *rewriterEngine) processApp() (err error) {
 		if e != nil {
 			return e
 		}
-		st, e := r.cfg.reduceApp(d, args, r.r, r.pr2)
+		st, e := r.cfg.ReduceApp(d, args, r.r, r.pr2)
 		if e != nil {
 			return e
 		}
@@ -828,7 +828,7 @@ func (r *rewriterEngine) processApp() (err error) {
 			}
 			return m.ResetRefHeld(r.r)
 		}
-		def, _, _, macro, e := r.cfg.getMacro(d)
+		def, _, _, macro, e := r.cfg.GetMacro(d)
 		if e != nil {
 			return e
 		}
@@ -976,7 +976,7 @@ func (r *rewriterEngine) processQuantifier() (err error) {
 		c.numQVars += nd
 	}
 	children := uint32(1)
-	if r.cfg.rewritePatterns() {
+	if r.cfg.RewritePatterns() {
 		children += np + nn
 	}
 	for c.frames[fi].index() < children {
@@ -1024,7 +1024,7 @@ func (r *rewriterEngine) processQuantifier() (err error) {
 			return e
 		}
 	}
-	if r.cfg.rewritePatterns() {
+	if r.cfg.RewritePatterns() {
 		for i := uint32(0); i < np+nn; i++ {
 			h, e := c.resultAt(fr.spos + 1 + i)
 			if e != nil {
@@ -1051,7 +1051,7 @@ func (r *rewriterEngine) processQuantifier() (err error) {
 	}
 	pa := ast.SliceArguments(r.patterns)
 	na := ast.SliceArguments(r.noPatterns)
-	done, e := r.cfg.reduceQuantifier(q, newBody, pa, na, r.r, r.pr)
+	done, e := r.cfg.ReduceQuantifier(q, newBody, pa, na, r.r, r.pr)
 	if e != nil {
 		return e
 	}
@@ -1190,7 +1190,7 @@ func (r *rewriterEngine) resume(out, proof ast.ASTRef) error {
 			return e
 		}
 		r.numSteps++
-		exceeded, err := r.cfg.maxStepsExceeded(r.numSteps)
+		exceeded, err := r.cfg.MaxStepsExceeded(r.numSteps)
 		if err != nil {
 			return err
 		}

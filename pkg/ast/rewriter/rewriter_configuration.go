@@ -10,57 +10,38 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-// Configurations are cold owners; frames, bindings and results use concrete
-// handle storage shared by the source proof and no-proof specializations.
+// DefaultConfiguration supplies the original default_rewriter_cfg behavior.
+type DefaultConfiguration struct{ manager *ast.ASTManager }
 
-type rewriterConfiguration interface {
-	cacheAllResults() bool
-	cacheResults() bool
-	flatAssoc(ast.ASTHandle) (bool, error)
-	rewritePatterns() bool
-	maxScopesExceeded(uint32) bool
-	maxFramesExceeded(uint32) bool
-	maxStepsExceeded(uint32) (bool, error)
-	preVisit(ast.ASTHandle) (bool, error)
-	reduceApp(ast.ASTHandle, ast.AppArguments, ast.ASTRef, ast.ASTRef) (brStatus, error)
-	reduceVar(ast.ASTHandle, ast.ASTRef, ast.ASTRef) (bool, error)
-	reduceQuantifier(ast.ASTHandle, ast.ASTHandle, ast.AppArguments, ast.AppArguments, ast.ASTRef, ast.ASTRef) (bool, error)
-	getMacro(ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, bool, error)
-	getSubst(ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error)
-	reset()
-	cleanup()
-}
-type defaultRewriterConfig struct{ manager *ast.ASTManager }
-
-func (*defaultRewriterConfig) cacheAllResults() bool                 { return false }
-func (*defaultRewriterConfig) cacheResults() bool                    { return true }
-func (*defaultRewriterConfig) flatAssoc(ast.ASTHandle) (bool, error) { return false, nil }
-func (*defaultRewriterConfig) rewritePatterns() bool                 { return true }
-func (*defaultRewriterConfig) maxScopesExceeded(uint32) bool         { return false }
-func (*defaultRewriterConfig) maxFramesExceeded(uint32) bool         { return false }
-func (*defaultRewriterConfig) maxStepsExceeded(uint32) (bool, error) { return false, nil }
-func (*defaultRewriterConfig) preVisit(ast.ASTHandle) (bool, error)  { return true, nil }
-func (*defaultRewriterConfig) reduceApp(ast.ASTHandle, ast.AppArguments, ast.ASTRef, ast.ASTRef) (brStatus, error) {
+func (*DefaultConfiguration) CacheAllResults() bool                 { return false }
+func (*DefaultConfiguration) CacheResults() bool                    { return true }
+func (*DefaultConfiguration) FlatAssoc(ast.ASTHandle) (bool, error) { return false, nil }
+func (*DefaultConfiguration) RewritePatterns() bool                 { return true }
+func (*DefaultConfiguration) MaxScopesExceeded(uint32) bool         { return false }
+func (*DefaultConfiguration) MaxFramesExceeded(uint32) bool         { return false }
+func (*DefaultConfiguration) MaxStepsExceeded(uint32) (bool, error) { return false, nil }
+func (*DefaultConfiguration) PreVisit(ast.ASTHandle) (bool, error)  { return true, nil }
+func (*DefaultConfiguration) ReduceApp(ast.ASTHandle, ast.AppArguments, ast.ASTRef, ast.ASTRef) (brStatus, error) {
 	return brFailed, nil
 }
-func (*defaultRewriterConfig) reduceVar(ast.ASTHandle, ast.ASTRef, ast.ASTRef) (bool, error) {
+func (*DefaultConfiguration) ReduceVar(ast.ASTHandle, ast.ASTRef, ast.ASTRef) (bool, error) {
 	return false, nil
 }
-func (*defaultRewriterConfig) reduceQuantifier(ast.ASTHandle, ast.ASTHandle, ast.AppArguments, ast.AppArguments, ast.ASTRef, ast.ASTRef) (bool, error) {
+func (*DefaultConfiguration) ReduceQuantifier(ast.ASTHandle, ast.ASTHandle, ast.AppArguments, ast.AppArguments, ast.ASTRef, ast.ASTRef) (bool, error) {
 	return false, nil
 }
-func (*defaultRewriterConfig) getMacro(ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, bool, error) {
+func (*DefaultConfiguration) GetMacro(ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, bool, error) {
 	return ast.ASTHandle{}, ast.ASTHandle{}, ast.ASTHandle{}, false, nil
 }
-func (*defaultRewriterConfig) getSubst(ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
+func (*DefaultConfiguration) GetSubst(ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
 	return ast.ASTHandle{}, ast.ASTHandle{}, false, nil
 }
-func (*defaultRewriterConfig) reset()   {}
-func (*defaultRewriterConfig) cleanup() {}
+func (*DefaultConfiguration) Reset()   {}
+func (*DefaultConfiguration) Cleanup() {}
 
-type betaReducerConfig struct{ defaultRewriterConfig }
+type betaReducerConfig struct{ DefaultConfiguration }
 
-func (c *betaReducerConfig) preVisit(t ast.ASTHandle) (bool, error) {
+func (c *betaReducerConfig) PreVisit(t ast.ASTHandle) (bool, error) {
 	g, e := c.manager.IsGround(t)
 	return !g, e
 }
@@ -90,12 +71,12 @@ func (r *betaReducer) Rewrite(t ast.ASTHandle, out ast.ASTRef) error { return r.
 func (r *betaReducer) Close() error                                  { return r.engine.Close() }
 
 type boolRewriterStarConfig struct {
-	defaultRewriterConfig
+	DefaultConfiguration
 	rw boolRewriter
 }
 
-func (c *boolRewriterStarConfig) rewritePatterns() bool { return false }
-func (c *boolRewriterStarConfig) flatAssoc(d ast.ASTHandle) (bool, error) {
+func (c *boolRewriterStarConfig) RewritePatterns() bool { return false }
+func (c *boolRewriterStarConfig) FlatAssoc(d ast.ASTHandle) (bool, error) {
 	if !c.rw.flat {
 		return false, nil
 	}
@@ -106,7 +87,7 @@ func (c *boolRewriterStarConfig) flatAssoc(d ast.ASTHandle) (bool, error) {
 	op, e := c.manager.GetDeclKind(d)
 	return op == ast.ASTOpAnd || op == ast.ASTOpOr, e
 }
-func (c *boolRewriterStarConfig) reduceApp(d ast.ASTHandle, args ast.AppArguments, out, pr ast.ASTRef) (brStatus, error) {
+func (c *boolRewriterStarConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, pr ast.ASTRef) (brStatus, error) {
 	if e := c.manager.ResetRef(pr); e != nil {
 		return brFailed, e
 	}

@@ -217,7 +217,7 @@ func TestBetaReducerOriginalBindingOrderAndBinderShift(t *testing.T) {
 // Source configuration callbacks exercise traversal state rather than adding
 // a second production simplifier.
 type rewriterTestConfig struct {
-	defaultRewriterConfig
+	DefaultConfiguration
 	replaceDecl, result      ast.ASTHandle
 	status                   brStatus
 	macroDecl, macroBody     ast.ASTHandle
@@ -229,29 +229,29 @@ type rewriterTestConfig struct {
 	resets, cleanups         uint32
 }
 
-func (c *rewriterTestConfig) reduceApp(d ast.ASTHandle, args ast.AppArguments, out, pr ast.ASTRef) (brStatus, error) {
+func (c *rewriterTestConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, pr ast.ASTRef) (brStatus, error) {
 	c.calls[d]++
 	if d == c.replaceDecl {
 		return c.status, c.manager.SetRef(out, c.result)
 	}
 	return brFailed, nil
 }
-func (c *rewriterTestConfig) preVisit(t ast.ASTHandle) (bool, error) { return t != c.skip, nil }
-func (c *rewriterTestConfig) getSubst(t ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
+func (c *rewriterTestConfig) PreVisit(t ast.ASTHandle) (bool, error) { return t != c.skip, nil }
+func (c *rewriterTestConfig) GetSubst(t ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
 	return c.substTo, ast.ASTHandle{}, t == c.substFrom, nil
 }
-func (c *rewriterTestConfig) getMacro(d ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, bool, error) {
+func (c *rewriterTestConfig) GetMacro(d ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, bool, error) {
 	return c.macroBody, ast.ASTHandle{}, ast.ASTHandle{}, d == c.macroDecl, nil
 }
-func (c *rewriterTestConfig) maxStepsExceeded(n uint32) (bool, error) {
+func (c *rewriterTestConfig) MaxStepsExceeded(n uint32) (bool, error) {
 	return c.stepLimit != 0 && n > c.stepLimit, nil
 }
-func (c *rewriterTestConfig) maxFramesExceeded(n uint32) bool {
+func (c *rewriterTestConfig) MaxFramesExceeded(n uint32) bool {
 	return c.frameLimit != 0 && n >= c.frameLimit
 }
-func (c *rewriterTestConfig) maxScopesExceeded(uint32) bool { return c.rejectScopes }
-func (c *rewriterTestConfig) reset()                        { c.resets++ }
-func (c *rewriterTestConfig) cleanup()                      { c.cleanups++ }
+func (c *rewriterTestConfig) MaxScopesExceeded(uint32) bool { return c.rejectScopes }
+func (c *rewriterTestConfig) Reset()                        { c.resets++ }
+func (c *rewriterTestConfig) Cleanup()                      { c.cleanups++ }
 func rewriterTestDecl(t *testing.T, m *ast.ASTManager, name string) ast.ASTHandle {
 	t.Helper()
 	b, e := m.MkBoolSort()
@@ -277,7 +277,7 @@ func TestRewriterEngineOriginalBoundedRevisitDepthsAndSubstitution(t *testing.T)
 	term := rewriterTestApp(t, m, f, a)
 	out := astTestPin(t, m, ast.ASTHandle{})
 	for _, st := range []brStatus{brRewrite1, brRewrite2, brRewrite3, brRewriteFull} {
-		cfg := rewriterTestConfig{defaultRewriterConfig: defaultRewriterConfig{m}, replaceDecl: f, result: chain, status: st, calls: map[ast.ASTHandle]uint32{}}
+		cfg := rewriterTestConfig{DefaultConfiguration: DefaultConfiguration{m}, replaceDecl: f, result: chain, status: st, calls: map[ast.ASTHandle]uint32{}}
 		rw, e := newRewriterEngine(m, &cfg)
 		satOK(t, e)
 		satOK(t, rw.Rewrite(term, out))
@@ -301,7 +301,7 @@ func TestRewriterEngineOriginalBoundedRevisitDepthsAndSubstitution(t *testing.T)
 	// get_subst runs before the depth-zero guard and pre_visit.
 	child := rewriterTestApp(t, m, h, a)
 	replacement := rewriterTestApp(t, m, g, child)
-	cfg := rewriterTestConfig{defaultRewriterConfig: defaultRewriterConfig{m}, replaceDecl: f, result: replacement, status: brRewrite1, substFrom: child, substTo: b, calls: map[ast.ASTHandle]uint32{}}
+	cfg := rewriterTestConfig{DefaultConfiguration: DefaultConfiguration{m}, replaceDecl: f, result: replacement, status: brRewrite1, substFrom: child, substTo: b, calls: map[ast.ASTHandle]uint32{}}
 	rw, e := newRewriterEngine(m, &cfg)
 	satOK(t, e)
 	defer func() { satOK(t, rw.Close()) }()
@@ -330,7 +330,7 @@ func TestRewriterEngineOriginalMaxStepsResumeAndCleanup(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		term = rewriterTestApp(t, m, f, term)
 	}
-	cfg := rewriterTestConfig{defaultRewriterConfig: defaultRewriterConfig{m}, stepLimit: 3, calls: map[ast.ASTHandle]uint32{}}
+	cfg := rewriterTestConfig{DefaultConfiguration: DefaultConfiguration{m}, stepLimit: 3, calls: map[ast.ASTHandle]uint32{}}
 	rw, e := newRewriterEngine(m, &cfg)
 	satOK(t, e)
 	defer func() { satOK(t, rw.Close()) }()
@@ -377,7 +377,7 @@ func TestRewriterEngineOriginalMacroExpansionUnderBinder(t *testing.T) {
 	q, e := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: arg})
 	satOK(t, e)
 	astTestPin(t, m, q)
-	cfg := rewriterTestConfig{defaultRewriterConfig: defaultRewriterConfig{m}, macroDecl: f, macroBody: body, calls: map[ast.ASTHandle]uint32{}}
+	cfg := rewriterTestConfig{DefaultConfiguration: DefaultConfiguration{m}, macroDecl: f, macroBody: body, calls: map[ast.ASTHandle]uint32{}}
 	rw, e := newRewriterEngine(m, &cfg)
 	satOK(t, e)
 	defer func() { satOK(t, rw.Close()) }()
@@ -475,7 +475,7 @@ func TestRewriterEngineOriginalFrameScopeLimitsAndDisabledCancel(t *testing.T) {
 	a := goalTestAtom(t, m, "limits-a")
 	f := rewriterTestDecl(t, m, "limits-f")
 	term := rewriterTestApp(t, m, f, rewriterTestApp(t, m, f, rewriterTestApp(t, m, f, a)))
-	cfg := rewriterTestConfig{defaultRewriterConfig: defaultRewriterConfig{m}, frameLimit: 2, calls: map[ast.ASTHandle]uint32{}}
+	cfg := rewriterTestConfig{DefaultConfiguration: DefaultConfiguration{m}, frameLimit: 2, calls: map[ast.ASTHandle]uint32{}}
 	rw, e := newRewriterEngine(m, &cfg)
 	satOK(t, e)
 	defer func() { satOK(t, rw.Close()) }()

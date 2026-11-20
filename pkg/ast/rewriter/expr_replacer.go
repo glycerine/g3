@@ -12,7 +12,7 @@ import (
 )
 
 type defaultExprReplacerConfig struct {
-	defaultRewriterConfig
+	DefaultConfiguration
 	substitution ast.ASTExprSubstitution
 	hasSubst     bool
 	used         ast.ASTDependency
@@ -157,12 +157,12 @@ func (r *SimplifyingExprReplacer) Close() error {
 	return nil
 }
 
-func (c *defaultExprReplacerConfig) maxStepsExceeded(uint32) (bool, error) {
+func (c *defaultExprReplacerConfig) MaxStepsExceeded(uint32) (bool, error) {
 	// The source calls cooperate("simplifier") and never imposes a step limit.
 	return false, nil
 }
 
-func (c *defaultExprReplacerConfig) getSubst(t ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
+func (c *defaultExprReplacerConfig) GetSubst(t ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
 	if !c.hasSubst {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, nil
 	}

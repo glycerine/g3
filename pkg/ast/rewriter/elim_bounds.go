@@ -37,7 +37,7 @@ func NewElimBoundsConfiguration(m *ast.ASTManager) (*ElimBoundsConfiguration, er
 	}
 	c := &ElimBoundsConfiguration{manager: m, arith: arith}
 	c.self = c
-	c.defaults.manager = m
+	c.DefaultConfiguration.manager = m
 	return c, nil
 }
 

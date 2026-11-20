@@ -89,7 +89,7 @@ func (r *Enum2BVRewriter) initMembers(p *uparams.ParamsRef) (err error) {
 	r.bv2Enum = ast.NewObjMap(r.manager)
 	r.enum2Def = ast.NewObjMap(r.manager)
 	r.config = enum2BVConfiguration{owner: r}
-	r.config.defaults.manager = r.manager
+	r.config.DefaultConfiguration.manager = r.manager
 	r.utility, err = ast.NewDatatypeUtil(r.manager)
 	if err != nil {
 		return err

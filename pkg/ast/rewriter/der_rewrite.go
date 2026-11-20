@@ -311,7 +311,7 @@ func NewDERConfiguration(m *ast.ASTManager) (*DERConfiguration, error) {
 	}
 	c := &DERConfiguration{core: d}
 	c.self = c
-	c.defaults.manager = m
+	c.DefaultConfiguration.manager = m
 	return c, nil
 }
 

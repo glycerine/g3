@@ -48,7 +48,7 @@ func NewMaximizeBVSharingConfiguration(m *ast.ASTManager) (*MaximizeBVSharingCon
 	}
 	c := &MaximizeBVSharingConfiguration{manager: m, cache: make(map[acSharingKey]struct{})}
 	c.self = c
-	c.defaults.manager = m
+	c.DefaultConfiguration.manager = m
 	return c, nil
 }
 

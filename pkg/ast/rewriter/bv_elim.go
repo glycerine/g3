@@ -31,7 +31,7 @@ func NewBVElimConfiguration(m *ast.ASTManager) (*BVElimConfiguration, error) {
 	}
 	c := &BVElimConfiguration{manager: m}
 	c.self = c
-	c.defaults.manager = m
+	c.DefaultConfiguration.manager = m
 	return c, nil
 }
 

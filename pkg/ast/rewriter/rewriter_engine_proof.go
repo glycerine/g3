@@ -140,7 +140,7 @@ func (r *rewriterEngine) processAppProof() error {
 				return e
 			}
 		}
-		st, e := r.cfg.reduceApp(d, args, r.r, r.pr2)
+		st, e := r.cfg.ReduceApp(d, args, r.r, r.pr2)
 		if e != nil {
 			return e
 		}
@@ -216,7 +216,7 @@ func (r *rewriterEngine) processAppProof() error {
 			}
 			return e
 		}
-		def, _, defProof, macro, e := r.cfg.getMacro(d)
+		def, _, defProof, macro, e := r.cfg.GetMacro(d)
 		if e != nil {
 			return e
 		}
@@ -273,7 +273,7 @@ func (r *rewriterEngine) processQuantifierProof() (err error) {
 		c.numQVars += nd
 	}
 	children := uint32(1)
-	if r.cfg.rewritePatterns() {
+	if r.cfg.RewritePatterns() {
 		children += np + nn
 	}
 	for c.frames[fi].index() < children {
@@ -318,7 +318,7 @@ func (r *rewriterEngine) processQuantifierProof() (err error) {
 			return e
 		}
 	}
-	if r.cfg.rewritePatterns() {
+	if r.cfg.RewritePatterns() {
 		for i := uint32(0); i < np+nn; i++ {
 			h, e := c.resultAt(fr.spos + 1 + i)
 			if e != nil {
@@ -359,7 +359,7 @@ func (r *rewriterEngine) processQuantifierProof() (err error) {
 	if e = m.SetRef(r.r, newQ); e != nil {
 		return e
 	}
-	done, e := r.cfg.reduceQuantifier(newQ, newBody, pa, na, r.r, r.pr2)
+	done, e := r.cfg.ReduceQuantifier(newQ, newBody, pa, na, r.r, r.pr2)
 	if e != nil {
 		return e
 	}

@@ -42,86 +42,10 @@ type Configuration interface {
 	Cleanup()
 }
 
-// DefaultConfiguration supplies the original default_rewriter_cfg behavior.
-type DefaultConfiguration struct{ defaults defaultRewriterConfig }
-
-func (c *DefaultConfiguration) CacheAllResults() bool { return c.defaults.cacheAllResults() }
-func (c *DefaultConfiguration) CacheResults() bool    { return c.defaults.cacheResults() }
-func (c *DefaultConfiguration) FlatAssoc(d ast.ASTHandle) (bool, error) {
-	return c.defaults.flatAssoc(d)
-}
-func (c *DefaultConfiguration) RewritePatterns() bool { return c.defaults.rewritePatterns() }
-func (c *DefaultConfiguration) MaxScopesExceeded(n uint32) bool {
-	return c.defaults.maxScopesExceeded(n)
-}
-func (c *DefaultConfiguration) MaxFramesExceeded(n uint32) bool {
-	return c.defaults.maxFramesExceeded(n)
-}
-func (c *DefaultConfiguration) MaxStepsExceeded(n uint32) (bool, error) {
-	return c.defaults.maxStepsExceeded(n)
-}
-func (c *DefaultConfiguration) PreVisit(t ast.ASTHandle) (bool, error) { return c.defaults.preVisit(t) }
-func (c *DefaultConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (RewriteStatus, error) {
-	return c.defaults.reduceApp(d, args, out, proof)
-}
-func (c *DefaultConfiguration) ReduceVar(v ast.ASTHandle, out, proof ast.ASTRef) (bool, error) {
-	return c.defaults.reduceVar(v, out, proof)
-}
-func (c *DefaultConfiguration) ReduceQuantifier(q, body ast.ASTHandle, patterns, noPatterns ast.AppArguments, out, proof ast.ASTRef) (bool, error) {
-	return c.defaults.reduceQuantifier(q, body, patterns, noPatterns, out, proof)
-}
-func (c *DefaultConfiguration) GetMacro(d ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, bool, error) {
-	return c.defaults.getMacro(d)
-}
-func (c *DefaultConfiguration) GetSubst(t ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
-	return c.defaults.getSubst(t)
-}
-func (c *DefaultConfiguration) Reset()   { c.defaults.reset() }
-func (c *DefaultConfiguration) Cleanup() { c.defaults.cleanup() }
-
-// The adapter is inline cold configuration storage; all traversal frames and
-// argument views keep the original concrete handle representation.
-type traversalConfiguration struct{ client Configuration }
-
-func (c *traversalConfiguration) cacheAllResults() bool { return c.client.CacheAllResults() }
-func (c *traversalConfiguration) cacheResults() bool    { return c.client.CacheResults() }
-func (c *traversalConfiguration) flatAssoc(d ast.ASTHandle) (bool, error) {
-	return c.client.FlatAssoc(d)
-}
-func (c *traversalConfiguration) rewritePatterns() bool { return c.client.RewritePatterns() }
-func (c *traversalConfiguration) maxScopesExceeded(n uint32) bool {
-	return c.client.MaxScopesExceeded(n)
-}
-func (c *traversalConfiguration) maxFramesExceeded(n uint32) bool {
-	return c.client.MaxFramesExceeded(n)
-}
-func (c *traversalConfiguration) maxStepsExceeded(n uint32) (bool, error) {
-	return c.client.MaxStepsExceeded(n)
-}
-func (c *traversalConfiguration) preVisit(t ast.ASTHandle) (bool, error) { return c.client.PreVisit(t) }
-func (c *traversalConfiguration) reduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (RewriteStatus, error) {
-	return c.client.ReduceApp(d, args, out, proof)
-}
-func (c *traversalConfiguration) reduceVar(v ast.ASTHandle, out, proof ast.ASTRef) (bool, error) {
-	return c.client.ReduceVar(v, out, proof)
-}
-func (c *traversalConfiguration) reduceQuantifier(q, body ast.ASTHandle, patterns, noPatterns ast.AppArguments, out, proof ast.ASTRef) (bool, error) {
-	return c.client.ReduceQuantifier(q, body, patterns, noPatterns, out, proof)
-}
-func (c *traversalConfiguration) getMacro(d ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, bool, error) {
-	return c.client.GetMacro(d)
-}
-func (c *traversalConfiguration) getSubst(t ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
-	return c.client.GetSubst(t)
-}
-func (c *traversalConfiguration) reset()   { c.client.Reset() }
-func (c *traversalConfiguration) cleanup() { c.client.Cleanup() }
-
 // Traversal exposes the original rewriter_tpl specialization across package
 // boundaries. The configuration must outlive this owner.
 type Traversal struct {
 	engine rewriterEngine
-	cfg    traversalConfiguration
 }
 
 // NewTraversal charges the enclosing owner once. A nonnil partial owner returned
@@ -158,9 +82,8 @@ func newTraversalMode(m *ast.ASTManager, cfg Configuration, proofs bool) (*Trave
 		return nil, e
 	}
 	r := &Traversal{}
-	r.cfg.client = cfg
 	r.engine.header = bytes
-	return r, r.engine.initMode(m, &r.cfg, proofs)
+	return r, r.engine.initMode(m, cfg, proofs)
 }
 func (r *Traversal) Rewrite(t ast.ASTHandle, out ast.ASTRef) error {
 	if r == nil {

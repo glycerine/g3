@@ -44,7 +44,7 @@ func NewFPA2BVRewriter(m *ast.ASTManager, converter *astfpa.FPA2BVConverter) (ow
 	owner = &FPA2BVRewriter{manager: m, converter: converter, header: bytes}
 	owner.self = owner
 	owner.config.owner = owner
-	owner.config.defaults.manager = m
+	owner.config.DefaultConfiguration.manager = m
 	owner.config.maxSteps = math.MaxUint32
 	owner.config.maxMemory = math.MaxUint64
 	traversal, err := NewTraversal(m, &owner.config)

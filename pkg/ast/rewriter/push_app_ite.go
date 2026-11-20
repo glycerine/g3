@@ -31,7 +31,7 @@ func newPushAppITEConfiguration(m *ast.ASTManager, conservative, nongroundOnly b
 		return nil, e
 	}
 	c := &PushAppITEConfiguration{manager: m, conservative: conservative, nongroundOnly: nongroundOnly}
-	c.defaults.manager = m
+	c.DefaultConfiguration.manager = m
 	return c, nil
 }
 
