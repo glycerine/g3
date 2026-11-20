@@ -7,6 +7,31 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// Most traversals on the Raft replay close without shifting any variable.
+func BenchmarkTraversalLifetime(b *testing.B) {
+	m := astTestManager(b)
+	cfg := &DefaultConfiguration{manager: m}
+	for _, operation := range []string{"Empty", "Cleanup"} {
+		b.Run(operation, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				traversal, err := NewTraversal(m, cfg)
+				if err != nil {
+					b.Fatal(err)
+				}
+				if operation == "Cleanup" {
+					if err := traversal.Cleanup(); err != nil {
+						b.Fatal(err)
+					}
+				}
+				if err := traversal.Close(); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 // Each shift visits a shared application below a binder. The result must
 // match an independently constructed expression with the expected indices.
 func BenchmarkQuantifiedVariableShift(b *testing.B) {

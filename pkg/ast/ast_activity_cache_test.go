@@ -13,8 +13,8 @@ func TestASTActivityCacheSourceOwnershipReplacementAndReset(t *testing.T) {
 	c, e := NewActivityCache(m, &limit)
 	astTestMust(t, e)
 	t.Cleanup(func() { astTestMust(t, c.Close()) })
-	if c.maxUnused != 1024 || int(c.table.size) != 0 || len(c.queue) != 0 {
-		t.Fatal("source cache constructor", c.maxUnused, int(c.table.size))
+	if c.maxUnused != 1024 || c.activityCacheEntries != nil {
+		t.Fatal("new cache", c.maxUnused, c.activityCacheEntries)
 	}
 	size, e := c.Size()
 	astTestMust(t, e)
@@ -24,6 +24,13 @@ func TestASTActivityCacheSourceOwnershipReplacementAndReset(t *testing.T) {
 		t.Fatal("source cache queries", size, empty)
 	}
 	p, q, r := activityCacheTestAtom(t, m, "cache-p"), activityCacheTestAtom(t, m, "cache-q"), activityCacheTestAtom(t, m, "cache-r")
+	if found, err := c.Find(p); err != nil || !found.IsNull() || c.activityCacheEntries != nil {
+		t.Fatal("lookup in unused cache", found, err)
+	}
+	if _, err := c.Find(ASTHandle{}); err != ErrASTDomain {
+		t.Fatal("null lookup in unused cache", err)
+	}
+	astTestMust(t, c.Reset())
 	refs := func(h ASTHandle) uint32 { n, e := m.GetRefCount(h); astTestMust(t, e); return n }
 	bp, bq, br := refs(p), refs(q), refs(r)
 	astTestMust(t, c.Insert(p, q))
@@ -60,7 +67,7 @@ func TestASTActivityCacheSourceOwnershipReplacementAndReset(t *testing.T) {
 		t.Fatal("null tagged value", found, int(c.table.size), c.unused)
 	}
 	astTestMust(t, c.Cleanup())
-	if int(c.table.size) != 0 || c.queue != nil {
+	if c.activityCacheEntries != nil {
 		t.Fatal("cleanup reinitializes map and finalizes queue")
 	}
 	copyOwner := *c
@@ -251,7 +258,7 @@ func TestASTActivityCacheDuplicateInsertExpandsFullTable(t *testing.T) {
 	defer func() { astTestMust(t, c.Close()) }()
 	value := activityCacheTestAtom(t, m, "full-cache-value")
 	var keys []ASTHandle
-	for i := 0; c.table.hasFreeCells(); i++ {
+	for i := 0; c.activityCacheEntries == nil || c.table.hasFreeCells(); i++ {
 		if i > 1000 {
 			t.Fatal("table never filled")
 		}

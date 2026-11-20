@@ -19,18 +19,30 @@ type astActivityEntry struct {
 // ActivityCache's queue borrows keys owned by live entries. Entries remain
 // stable while numerical/AST deletion may stop and be acknowledged later.
 type ActivityCache struct {
-	self                     *ActivityCache
-	manager                  *ASTManager
-	table                    activityChashtable
-	queue                    []ASTHandle
-	qhead, unused, maxUnused uint32
-	header                   uint64
-	retiring                 astActivityEntry
-	incoming                 ASTHandle
-	incomingHeld             bool
-	pending                  bool
-	cause                    error
-	closed                   bool
+	self    *ActivityCache
+	manager *ASTManager
+	*activityCacheEntries
+	cause     error
+	maxUnused uint32
+	closed    bool
+}
+
+// Many rewriter caches close without an insertion. Allocate their table,
+// eviction queue and interrupted-deletion state together on the first insert.
+type activityCacheEntries struct {
+	table         activityChashtable
+	queue         []ASTHandle
+	qhead, unused uint32
+	retiring      astActivityEntry
+	incoming      ASTHandle
+	incomingHeld  bool
+	pending       bool
+}
+
+func activityCacheBytes() uint64 {
+	// The cache constructor reserves its complete logical header. First
+	// insertion uses the same native Go allocation policy as table growth.
+	return uint64(reflect.TypeOf(ActivityCache{}).Size() + reflect.TypeOf(activityCacheEntries{}).Size())
 }
 
 func NewActivityCache(m *ASTManager, maxUnused *uint32) (*ActivityCache, error) {
@@ -48,11 +60,10 @@ func NewActivityCache(m *ASTManager, maxUnused *uint32) (*ActivityCache, error) 
 	if n < 1024 {
 		n = 1024
 	}
-	bytes := uint64(reflect.TypeOf(ActivityCache{}).Size())
-	if e := m.BudgetField.Reserve(bytes); e != nil {
+	if e := m.BudgetField.Reserve(activityCacheBytes()); e != nil {
 		return nil, e
 	}
-	c := &ActivityCache{manager: m, maxUnused: n, header: bytes}
+	c := &ActivityCache{manager: m, maxUnused: n}
 	c.self = c
 	return c, nil
 }
@@ -174,6 +185,9 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 			return e
 		}
 	}
+	if c.activityCacheEntries == nil {
+		c.activityCacheEntries = new(activityCacheEntries)
+	}
 	if c.unused >= c.maxUnused {
 		if e := c.deleteUnused(); e != nil {
 			return e
@@ -234,6 +248,9 @@ func (c *ActivityCache) Find(k ASTHandle) (ASTHandle, error) {
 	if e != nil {
 		return ASTHandle{}, e
 	}
+	if c.activityCacheEntries == nil {
+		return ASTHandle{}, nil
+	}
 	entry := c.table.find(k, hash)
 	if entry == nil {
 		return ASTHandle{}, nil
@@ -248,6 +265,9 @@ func (c *ActivityCache) Find(k ASTHandle) (ASTHandle, error) {
 	return entry.value, nil
 }
 func (c *ActivityCache) decRefs() error {
+	if c.activityCacheEntries == nil {
+		return nil
+	}
 	if c.incomingHeld {
 		consumed, e := c.dec(c.incoming)
 		if consumed {
@@ -277,16 +297,13 @@ func (c *ActivityCache) clear(cleanup bool) (err error) {
 		return e
 	}
 	if cleanup {
-		c.table = activityChashtable{}
-	} else {
+		c.activityCacheEntries = nil
+	} else if c.activityCacheEntries != nil {
 		c.table.reset()
+		c.queue = c.queue[:0]
+		c.unused = 0
+		c.qhead = 0
 	}
-	c.queue = c.queue[:0]
-	if cleanup {
-		c.queue = nil
-	}
-	c.unused = 0
-	c.qhead = 0
 	c.cause = nil
 	return nil
 }
@@ -296,6 +313,9 @@ func (c *ActivityCache) CheckInvariant() bool { return true }
 func (c *ActivityCache) Size() (uint32, error) {
 	if e := c.open(); e != nil {
 		return 0, e
+	}
+	if c.activityCacheEntries == nil {
+		return 0, nil
 	}
 	return uint32(c.table.size), nil
 }
@@ -313,10 +333,8 @@ func (c *ActivityCache) Close() error {
 	if e := c.decRefs(); e != nil {
 		return e
 	}
-	c.table = activityChashtable{}
-	c.manager.BudgetField.Release(c.header)
-	c.queue = nil
-	c.header = 0
+	c.activityCacheEntries = nil
+	c.manager.BudgetField.Release(activityCacheBytes())
 	c.closed = true
 	return nil
 }
