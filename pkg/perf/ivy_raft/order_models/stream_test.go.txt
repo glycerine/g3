@@ -13,8 +13,9 @@ import (
 )
 
 type modelStudyInput struct {
-	Script string
-	Check  bool
+	Script              string
+	Check               bool
+	PrecedeWithConflict bool
 }
 type modelStudyOutput struct {
 	Script        string
@@ -44,10 +45,30 @@ func runModelStudy(input modelStudyInput) (out modelStudyOutput, err error) {
 	if err != nil {
 		return out, err
 	}
-	out.Script, out.Ready, err = order.Relax(m, assertions)
-	if err == nil && input.Check {
-		out.Proved, err = s.ProveUnsatByOrderAbstraction()
+	out.Script, out.Ready, err = order.ModelStudyRelax(m, assertions)
+	if err != nil || !input.Check {
+		return out, err
 	}
+	if input.PrecedeWithConflict {
+		batch := s.BeginOrderProofBatch()
+		defer func() { err = errors.Join(err, batch.Close()) }()
+		if err = s.Push(); err != nil {
+			return out, err
+		}
+		if err = s.LoadSMT2String("(declare-const witness_conflict Bool)(assert witness_conflict)(assert (not witness_conflict))"); err != nil {
+			return out, err
+		}
+		proved, err := batch.Prove()
+		if err != nil || !proved {
+			return out, errors.Join(err, errors.New("missing proof of scoped contradiction"))
+		}
+		if err = s.Pop(1); err != nil {
+			return out, err
+		}
+		out.Proved, err = batch.Prove()
+		return out, err
+	}
+	out.Proved, err = s.ProveUnsatByOrderAbstraction()
 	return out, err
 }
 func TestStudyOrderModelStream(t *testing.T) {

@@ -30,8 +30,22 @@ func (s *orderSort) numeral(value int) {
 	s.numerals[value] = true
 }
 
-func (t *inference) render() string {
+// Problem is a closed SMT-LIB script with one complete assertion per line.
+// Premises end just before the last assertion, so a batch can keep a proven
+// query's exact prefix while independently checking each new suffix.
+type Problem struct {
+	Text                                string
+	AssertionsStart, LastAssertionStart int
+	DeclarationCount                    int
+}
+
+func (p Problem) Declarations() string { return p.Text[:p.AssertionsStart] }
+func (p Problem) Assertions() string   { return p.Text[p.AssertionsStart:] }
+func (p Problem) Premises() string     { return p.Text[p.AssertionsStart:p.LastAssertionStart] }
+
+func (t *inference) render() Problem {
 	var out, axioms strings.Builder
+	var p Problem
 	sorts := make([]orderSort, len(t.parents))
 	for _, n := range t.terms {
 		switch n.op {
@@ -45,10 +59,12 @@ func (t *inference) render() string {
 	}
 	for i := range sorts {
 		if t.root(i) == i {
+			p.DeclarationCount++
 			fmt.Fprintf(&out, "(declare-sort s%d 0)\n", i)
 		}
 	}
 	for i, d := range t.signatures {
+		p.DeclarationCount++
 		fmt.Fprintf(&out, "(declare-fun f%d (", i)
 		for _, a := range d.inputs {
 			out.WriteString(t.sortName(a))
@@ -61,6 +77,7 @@ func (t *inference) render() string {
 			continue
 		}
 		d, r := t.sortName(i), "lt"+strconv.Itoa(i)
+		p.DeclarationCount++
 		fmt.Fprintf(&out, "(declare-fun %s (%s %s) Bool)\n", r, d, d)
 		fmt.Fprintf(&axioms, "(assert (forall ((x %s)) (not (%s x x))))\n", d, r)
 		fmt.Fprintf(&axioms, "(assert (forall ((x %s)(y %s)) (or (= x y) (%s x y) (%s y x))))\n", d, d, r, r)
@@ -77,6 +94,7 @@ func (t *inference) render() string {
 		}
 		sort.Ints(values)
 		for j, v := range values {
+			p.DeclarationCount++
 			fmt.Fprintf(&out, "(declare-const %s %s)\n", constantName(i, v), t.sortName(i))
 			if j > 0 && s.ordered {
 				fmt.Fprintf(&axioms, "(assert (lt%d %s %s))\n", i, constantName(i, values[j-1]), constantName(i, v))
@@ -91,13 +109,16 @@ func (t *inference) render() string {
 			axioms.WriteString("))\n")
 		}
 	}
+	p.AssertionsStart = out.Len()
 	out.WriteString(axioms.String())
 	for _, n := range t.assertions {
+		p.LastAssertionStart = out.Len()
 		out.WriteString("(assert ")
 		t.writeTerm(&out, n)
 		out.WriteString(")\n")
 	}
-	return out.String()
+	p.Text = out.String()
+	return p
 }
 
 func (t *inference) writeTerm(b *strings.Builder, id int) {

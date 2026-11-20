@@ -17,19 +17,8 @@ def build_driver(work):
     here = Path(__file__).resolve().parent
     root = here.parents[2]
     package = root / "api/internal/order"
-    original = package / "relax.go"
-    source = original.read_text()
-    result = "return t.render(), true, nil"
-    if source.count(result) != 1:
-        raise ValueError("cannot attach diagnostic names to the order renderer")
-    instrumented = work / "relax.go"
-    instrumented.write_text(source.replace(result, """
-        names, err := t.modelStudyMetadata()
-        if err != nil { return "", false, err }
-        return names + t.render(), true, nil"""))
     overlay = work / "overlay.json"
     overlay.write_text(json.dumps({"Replace": {
-        str(original): str(instrumented),
         str(package / "study_metadata.go"): str(here / "metadata.go.txt"),
         str(root / "api/study_order_models_test.go"): str(here / "stream_test.go.txt"),
     }}))
@@ -67,7 +56,8 @@ def samples(args, proc):
                 native_sat += answer == "sat"
                 native_unknown += answer == "unknown"
             check = bool(args.prove_every and seed % args.prove_every == 0)
-            proc.stdin.write(json.dumps({"Script": script, "Check": check}) + "\n")
+            proc.stdin.write(json.dumps({"Script": script, "Check": check,
+                                         "PrecedeWithConflict": args.scope_control}) + "\n")
             proc.stdin.flush()
             result = json.loads(proc.stdout.readline())
             if result["Err"] or not result["Ready"] or result["Proved"]:
@@ -91,6 +81,8 @@ def main():
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--count", type=int, default=250)
     parser.add_argument("--prove-every", type=int, default=25, help="0 skips actual proof attempts")
+    parser.add_argument("--scope-control", action="store_true",
+                        help="prove a scoped contradiction before testing each sampled witness on the same batch")
     parser.add_argument("--native", type=Path, help="optional Z3 executable to check source SAT")
     parser.add_argument("--native-every", type=int, default=500)
     parser.add_argument("--failure", type=Path, help="save the first failing query to this path")

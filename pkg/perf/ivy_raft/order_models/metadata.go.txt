@@ -3,7 +3,21 @@ package order
 import (
 	"fmt"
 	"strings"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
+
+// ModelStudyRelax renders a query with the production inference
+// and renderer. The diagnostic preamble stays in the evaluator.
+func ModelStudyRelax(m *ast.ASTManager, assertions []ast.ASTHandle) (string, bool, error) {
+	var t inference
+	if ok, err := t.infer(m, assertions); !ok || err != nil {
+		return "", false, err
+	}
+	query := t.render()
+	names, err := t.modelStudyMetadata()
+	return names + query.Text, true, err
+}
 
 // The external evaluator needs the source width of each opaque domain and
 // the original symbol of each renamed function. Prepend SMT-LIB comments so

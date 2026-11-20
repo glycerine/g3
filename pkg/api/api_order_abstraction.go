@@ -34,9 +34,12 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
-	source *APISimpleSolver
-	ctx    *SMTContext
-	child  *APISimpleSolver
+	source   *APISimpleSolver
+	ctx      *SMTContext
+	child    *APISimpleSolver
+	parser   *cmd_context.Context
+	declared map[string]string
+	premises string
 }
 
 // BeginOrderProofBatch creates a batch confined to the source solver's owner.
@@ -46,8 +49,9 @@ func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
 }
 
 // Prove has the same result contract as ProveUnsatByOrderAbstraction.
-// A successful attempt pops all its assertions before returning. An
-// inconclusive attempt releases its kernel before the caller's concrete check.
+// A successful attempt pops its query suffix. Later attempts can reuse a
+// byte-identical prefix in the same generated language. An inconclusive
+// attempt releases the private kernel before the caller's concrete check.
 func (b *OrderProofBatch) Prove() (bool, error) {
 	if b == nil || b.state == nil || b.state.source == nil {
 		return false, ErrSMTContextOwner
@@ -113,16 +117,21 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 	if err != nil {
 		return false, err
 	}
-	script, applicable, err := order.Relax(parent, assertions)
+	problem, applicable, err := order.Relax(parent, assertions)
 	if err != nil || !applicable || limit.CancelFlag() {
 		return false, err
+	}
+	if reuse && p.needsNewDeclarations(problem) {
+		if err := p.release(); err != nil {
+			return false, err
+		}
 	}
 	if p.ctx == nil {
 		if err := p.start(parent); err != nil {
 			return false, err
 		}
 	}
-	return p.check(parent, script, maxSteps, reuse)
+	return p.check(parent, problem, maxSteps, reuse)
 }
 
 func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
@@ -150,6 +159,9 @@ func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
 }
 
 func (p *orderProofState) release() error {
+	if err := p.closeParser(); err != nil {
+		return err
+	}
 	if p.child != nil {
 		if err := p.child.Close(); err != nil {
 			return err
@@ -165,14 +177,22 @@ func (p *orderProofState) release() error {
 	return nil
 }
 
-func (p *orderProofState) check(parent *ast.ASTManager, script string, maxSteps uint32, reuse bool) (bool, error) {
+func (p *orderProofState) check(parent *ast.ASTManager, problem order.Problem, maxSteps uint32, reuse bool) (bool, error) {
 	m, err := p.ctx.Manager()
 	if err != nil {
 		return false, err
 	}
 	limit, parentLimit := m.ResourceLimit(), parent.ResourceLimit()
 	limit.RunSignals = parentLimit.RunSignals
-	defer func() { limit.RunSignals = nil }()
+	if p.parser != nil {
+		p.parser.SetRunSignals(parentLimit.RunSignals)
+	}
+	defer func() {
+		if p.parser != nil {
+			p.parser.SetRunSignals(nil)
+		}
+		limit.RunSignals = nil
+	}()
 	if err = limit.Push(maxSteps); err != nil {
 		return false, err
 	}
@@ -184,14 +204,14 @@ func (p *orderProofState) check(parent *ast.ASTManager, script string, maxSteps 
 	if parentLimit.CancelFlag() {
 		return false, nil
 	}
-	if reuse {
-		if err := p.child.Push(); err != nil {
-			return false, err
-		}
-	}
 	// Assertion preprocessing in the simple solver also polls the limit.
+	if reuse {
+		err = p.loadBatch(problem)
+	} else {
+		err = p.child.LoadSMT2String(problem.Text)
+	}
 	var answer lbool.LBool
-	if err = p.child.LoadSMT2String(script); err == nil {
+	if err == nil {
 		answer, err = p.child.Check()
 	}
 	if !limit.IncOffset(0) || parentLimit.CancelFlag() {

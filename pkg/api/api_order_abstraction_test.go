@@ -3,8 +3,10 @@ package api
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -178,10 +180,15 @@ func TestOrderProofBatchSeparatesQueries(t *testing.T) {
 		astTestMust(t, err)
 		level, err := child.ScopeLevel()
 		astTestMust(t, err)
-		assertions, err := child.Assertions()
+		assertions, err := solver.Assertions(child.solver)
 		astTestMust(t, err)
-		if level != 0 || len(assertions) != 0 || len(m.ResourceLimit().Children) != 0 || childManager.ResourceLimit().RunSignals != nil {
-			t.Fatal("completed query retained a scope, assertions or cancellation registration")
+		if level != 1 || len(assertions) != strings.Count(batch.state.premises, "\n") {
+			t.Fatal("unexpected retained premises", level, len(assertions))
+		}
+		parsed, err := batch.state.parser.Assertions()
+		astTestMust(t, err)
+		if len(parsed) != 0 || len(m.ResourceLimit().Children) != 0 || childManager.ResourceLimit().RunSignals != nil {
+			t.Fatal("completed query retained parsed assertions or cancellation registration")
 		}
 	}
 	astTestMust(t, s.Pop(1))

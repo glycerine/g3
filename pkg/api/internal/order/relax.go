@@ -57,13 +57,21 @@ var inapplicable = errors.New("outside the order abstraction")
 // unsigned comparisons, conditionals and quantifiers then retain their truth
 // values. Only unsatisfiability of the returned problem establishes a result
 // for the source assertions. A false applicability result requests fallback.
-func Relax(m *ast.ASTManager, assertions []ast.ASTHandle) (string, bool, error) {
+func Relax(m *ast.ASTManager, assertions []ast.ASTHandle) (Problem, bool, error) {
+	var t inference
+	if ok, err := t.infer(m, assertions); !ok || err != nil {
+		return Problem{}, false, err
+	}
+	return t.render(), true, nil
+}
+
+func (t *inference) infer(m *ast.ASTManager, assertions []ast.ASTHandle) (bool, error) {
 	// This is a cached header bit even when a ground assertion is a large DAG.
 	quantified := false
 	for _, h := range assertions {
 		has, err := m.HasQuantifiers(h)
 		if err != nil {
-			return "", false, err
+			return false, err
 		}
 		if has {
 			quantified = true
@@ -71,13 +79,13 @@ func Relax(m *ast.ASTManager, assertions []ast.ASTHandle) (string, bool, error) 
 		}
 	}
 	if !quantified {
-		return "", false, nil
+		return false, nil
 	}
 	b, err := m.MkBoolSort()
 	if err != nil {
-		return "", false, err
+		return false, err
 	}
-	t := inference{
+	*t = inference{
 		m: m, boolSort: b, bvFamily: ast.NullFamilyID,
 		widths: make(map[ast.ASTHandle]uint32), declIDs: make(map[ast.ASTHandle]int),
 		numerals: make(map[ast.ASTHandle]int), containsFunction: make(map[ast.ASTHandle]bool),
@@ -85,15 +93,15 @@ func Relax(m *ast.ASTManager, assertions []ast.ASTHandle) (string, bool, error) 
 	for _, h := range assertions {
 		if err := t.conjunct(h, 0); err != nil {
 			if err == inapplicable {
-				return "", false, nil
+				return false, nil
 			}
-			return "", false, err
+			return false, err
 		}
 	}
 	if !t.quantified || len(t.parents) == 0 || len(t.assertions) == 0 {
-		return "", false, nil
+		return false, nil
 	}
-	return t.render(), true, nil
+	return true, nil
 }
 
 // Bound the expanded syntax tree as a shared source DAG can have exponentially
