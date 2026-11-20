@@ -1,0 +1,104 @@
+--- a/pkg/sat/sat_solver_justifications.go
++++ b/pkg/sat/sat_solver_justifications.go
+@@ -5,10 +5,12 @@
+ // Native values retain the exact checked clause locator alongside the source
+ // kind/literal words. The surrounding variable-state header owns this member;
+ // native backing has no Runtime allocation or separate provenance reservation.
++type reasonWords struct{ val1, val2 uint32 }
+ type satSolverJustifications struct {
+ 	self    *satSolverJustifications
+ 	clauses *ClauseAllocator // fixed non-owning allocator binding
+-	values  []satJustification
++	values  []reasonWords
++	excess  map[uint32]satJustification
+ 	closed  bool
+ }
+ 
+@@ -63,8 +65,21 @@
+ 	if e := c.checkIndex(i); e != nil {
+ 		return satJustification{}, e
+ 	}
+-	j := c.values[i]
+-	return j, c.checkValue(j)
++	r := c.values[i]
++	if r.val2 == 7 && c.excess != nil {
++		if j, ok := c.excess[i]; ok {
++			return j, c.checkValue(j)
++		}
++	}
++	j := satJustification{val1: r.val1, val2: r.val2}
++	if j.Kind() == 3 {
++		if c.clauses == nil {
++			return j, ErrSATOwner
++		}
++		j.val2 = 3
++		j.locator = satClauseOffset{owner: c.clauses.origin, slot: r.val1, generation: r.val2 >> 4, storageKind: (r.val2 >> 3) & 1}
++	}
++	return j, nil
+ }
+ func (c *satSolverJustifications) write(i uint32, j satJustification) error {
+ 	if e := c.checkIndex(i); e != nil {
+@@ -73,7 +88,7 @@
+ 	if e := c.checkValue(j); e != nil {
+ 		return e
+ 	}
+-	c.values[i] = j
++	c.store(i, j)
+ 	return nil
+ }
+ func (c *satSolverJustifications) push(j satJustification) error {
+@@ -86,7 +101,9 @@
+ 	if uint64(len(c.values)) >= uint64(^uint32(0)) {
+ 		return arena.ErrBounds
+ 	}
+-	c.values = append(c.values, j)
++	i := uint32(len(c.values))
++	c.values = append(c.values, reasonWords{})
++	c.store(i, j)
+ 	return nil
+ }
+ func (c *satSolverJustifications) shrink(n uint32) error {
+@@ -99,6 +116,11 @@
+ 		}
+ 		return arena.ErrBounds
+ 	}
++	for i := range c.excess {
++		if i >= n {
++			delete(c.excess, i)
++		}
++	}
+ 	c.values = c.values[:n]
+ 	return nil
+ }
+@@ -107,6 +129,31 @@
+ 		return ErrSATOwner
+ 	}
+ 	c.values = nil
++	c.excess = nil
+ 	c.closed = true
+ 	return nil
+ }
++
++func (c *satSolverJustifications) store(i uint32, j satJustification) {
++	r := reasonWords{val1: j.val1, val2: j.val2}
++	fallback := false
++	if j.Kind() == 3 {
++		if j.val2 == 3 && j.val1 == j.locator.slot && j.locator.storageKind <= 1 && j.locator.generation < 1<<28 {
++			r.val2 |= j.locator.generation<<4 | j.locator.storageKind<<3
++		} else {
++			fallback = true
++		}
++	} else if j.locator != (satClauseOffset{}) {
++		fallback = true
++	}
++	if fallback || j.val2 == 7 {
++		if c.excess == nil {
++			c.excess = make(map[uint32]satJustification)
++		}
++		c.excess[i] = j
++		r = reasonWords{val2: 7}
++	} else if c.excess != nil {
++		delete(c.excess, i)
++	}
++	c.values[i] = r
++}
