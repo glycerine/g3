@@ -108,7 +108,7 @@ func (c *ParamsContext) mutable(v *ParamsRef) error {
 	if e := c.check(v); e != nil {
 		return e
 	}
-	if v.Slot != 0 && (c.Blocks[v.Slot-1].resetActive || c.SourceFrames[v.Slot-1].Active || c.SetFrames[v.Slot-1].Active || c.replacementFrames[v.Slot-1].active) {
+	if v.Slot != 0 && (c.Blocks[v.Slot-1].resetActive || c.SourceFrames[v.Slot-1].Active || c.SetFrames[v.Slot-1].Active || c.replacementFrames[v.Slot-1].isActive()) {
 		return ErrParamsPrecondition
 	}
 	return nil

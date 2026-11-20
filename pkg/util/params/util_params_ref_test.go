@@ -16,7 +16,7 @@ import (
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
-func paramsTestOwner(t *testing.T) (*ParamsContext, *usymbol.Manager, *unumeral.RationalService) {
+func paramsTestOwner(t testing.TB) (*ParamsContext, *usymbol.Manager, *unumeral.RationalService) {
 	t.Helper()
 	b := arena.NewBudget(^uint64(0))
 	sy, e := usymbol.NewManager(usymbol.Config{Budget: b, PageSize: 64, DescriptorPageSize: 2})
@@ -608,7 +608,7 @@ func paramsAuditRoots(t *testing.T, c *ParamsContext, q *unumeral.RationalServic
 	t.Helper()
 	var bigs uint32
 	for i, frame := range c.replacementFrames {
-		if frame.active {
+		if frame.isActive() {
 			if frame.invocation == 0 || frame.generation != c.Blocks[i].Generation || frame.index >= c.Blocks[i].Size {
 				t.Fatal("invalid declared replacement frame")
 			}

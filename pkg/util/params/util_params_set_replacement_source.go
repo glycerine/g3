@@ -25,12 +25,15 @@ type ParamsSetReplacementReceipt struct {
 	slot, generation, index uint32
 }
 
+func (f *paramsReplacementFrame) isActive() bool { return f != nil && f.active }
+
+// The logical reservation includes room for every block to enter replacement.
 func paramsReplacementFrameBytes(n int) uint64 {
 	return paramsBytes(n, reflect.TypeOf(paramsReplacementFrame{}))
 }
 func (c *ParamsContext) beginReplacement(slot, index uint32, next paramEntry, serial uint64) error {
 	b := &c.Blocks[slot-1]
-	if c.replacementFrames[slot-1].active || index >= b.Size {
+	if c.replacementFrames[slot-1].isActive() || index >= b.Size {
 		return ErrParamsPrecondition
 	}
 	entry := c.Entry(b, index)
@@ -42,13 +45,18 @@ func (c *ParamsContext) beginReplacement(slot, index uint32, next paramEntry, se
 	}
 	// Actual prepared text ownership transfers at this assignment; no root is
 	// inferred from a refcount, allocation count, or descriptor registry.
-	c.replacementFrames[slot-1] = paramsReplacementFrame{invocation: serial, generation: b.Generation, index: index, oldKind: entry.Kind, active: true, leaf: entry.Rat, next: next}
+	f := c.replacementFrames[slot-1]
+	if f == nil {
+		f = new(paramsReplacementFrame)
+		c.replacementFrames[slot-1] = f
+	}
+	*f = paramsReplacementFrame{invocation: serial, generation: b.Generation, index: index, oldKind: entry.Kind, active: true, leaf: entry.Rat, next: next}
 	return c.continueReplacement(slot, true)
 }
 func (c *ParamsContext) continueReplacement(slot uint32, publish bool) error {
-	f := &c.replacementFrames[slot-1]
+	f := c.replacementFrames[slot-1]
 	b := &c.Blocks[slot-1]
-	if !f.active || !b.Live || f.generation != b.Generation || f.invocation == 0 || f.index >= b.Size || f.oldKind != ParamNumeral {
+	if !f.isActive() || !b.Live || f.generation != b.Generation || f.invocation == 0 || f.index >= b.Size || f.oldKind != ParamNumeral {
 		return ErrParamsOwner
 	}
 	entry := c.Entry(b, f.index)
@@ -121,8 +129,8 @@ func (c *ParamsContext) StoppedSetReplacement(v *ParamsRef) (ParamsSetReplacemen
 	if v.Slot == 0 {
 		return ParamsSetReplacementReceipt{}, ErrParamsPrecondition
 	}
-	f := &c.replacementFrames[v.Slot-1]
-	if !f.active || f.cause == nil || f.generation != v.Generation {
+	f := c.replacementFrames[v.Slot-1]
+	if !f.isActive() || f.cause == nil || f.generation != v.Generation {
 		return ParamsSetReplacementReceipt{}, ErrParamsPrecondition
 	}
 	return ParamsSetReplacementReceipt{owner: c.Owner, slot: v.Slot, generation: v.Generation, index: f.index, invocation: f.invocation}, nil
@@ -151,8 +159,8 @@ func (c *ParamsContext) finishSetReplacement(v *ParamsRef, r ParamsSetReplacemen
 	if v.Slot == 0 || r.owner != c.Owner || r.slot != v.Slot || r.generation != v.Generation || r.invocation == 0 {
 		return ErrParamsPrecondition
 	}
-	f := &c.replacementFrames[v.Slot-1]
-	if !f.active || f.invocation != r.invocation || f.index != r.index || f.generation != r.generation {
+	f := c.replacementFrames[v.Slot-1]
+	if !f.isActive() || f.invocation != r.invocation || f.index != r.index || f.generation != r.generation {
 		return ErrParamsPrecondition
 	}
 	return c.continueReplacement(v.Slot, publish)

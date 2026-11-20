@@ -224,7 +224,7 @@ func TestParamsReferenceMatchedReplacementSourceKindsAndLiveNoops(t *testing.T) 
 					t.Fatal("actual NUMDT leaf stop", e)
 				}
 				bc.FailAfter(0)
-				f := &c.replacementFrames[v.Slot-1]
+				f := c.replacementFrames[v.Slot-1]
 				if !f.active || f.index != size || f.oldKind != ParamNumeral || f.phase != 0 || f.leaf != c.Entry(&c.Blocks[v.Slot-1], size).Rat {
 					t.Fatal("actual guarded old leaf binding")
 				}
@@ -391,7 +391,7 @@ func TestParamsReferenceMatchedReplacementContextAbortDoesNotPublish(t *testing.
 	bc.FailAfter(0)
 	receipt, e := c.StoppedSetReplacement(&v)
 	paramsMust(t, e)
-	f := &c.replacementFrames[v.Slot-1]
+	f := c.replacementFrames[v.Slot-1]
 	preparedText := f.next.text.owned
 	if !f.next.text.present || f.next.text.borrowed || preparedText == nil || !preparedText.live {
 		t.Fatal("actual prepared argument absent")
@@ -492,7 +492,7 @@ func TestParamsReferenceMatchedReplacementNativeText(t *testing.T) {
 	bc.FailAfter(0)
 	e = c.SetString(&v, k, &text)
 	paramsMust(t, e)
-	if c.Entry(&c.Blocks[v.Slot-1], size).Kind != ParamString || c.replacementFrames[v.Slot-1].active {
+	if c.Entry(&c.Blocks[v.Slot-1], size).Kind != ParamString || c.replacementFrames[v.Slot-1].isActive() {
 		t.Fatal("native text publication")
 	}
 	end := numericAuditPhysical(t, m, extras)
@@ -611,7 +611,7 @@ func TestParamsReferenceMatchedReplacementIndependentFramesAndReuse(t *testing.T
 	}
 	paramsMust(t, c.CompleteSetReplacement(&v, first))
 	one := numericAuditPhysical(t, m, extras)
-	if one.Named+1 != beforeRoots.Named || one.Objects != both.Objects || !c.replacementFrames[w.Slot-1].active {
+	if one.Named+1 != beforeRoots.Named || one.Objects != both.Objects || !c.replacementFrames[w.Slot-1].isActive() {
 		t.Fatal("unrelated frame consumed", one)
 	}
 	paramsDecAuditColdGraph(t, q, m, r, bn, c, bc, sy, bs)
@@ -649,4 +649,34 @@ func TestParamsReferenceMatchedReplacementIndependentFramesAndReuse(t *testing.T
 	paramsDecAuditColdGraph(t, q, m, r, bn, c, bc, sy, bs)
 	bn.FailAfter(-1)
 	paramsDecFinish(t, func() error { return q.Del(&big) })
+}
+
+func TestParamsReplacementFrameLifetime(t *testing.T) {
+	c, sy, q := paramsTestOwner(t)
+	key := internSymbol(t, sy, "replaced")
+	value, err := c.NewValue()
+	paramsMust(t, err)
+	paramsMust(t, c.SetBool(&value, key, true))
+	slot := value.Slot
+	if c.replacementFrames[slot-1] != nil {
+		t.Fatal("scalar parameter allocated a replacement frame")
+	}
+	number, err := q.NewValue()
+	paramsMust(t, err)
+	paramsMust(t, q.SetFractionSigned(&number, 1, 3))
+	paramsMust(t, c.SetRat(&value, key, &number))
+	paramsMust(t, q.Del(&number))
+	paramsMust(t, c.SetUInt(&value, key, 7))
+	frame := c.replacementFrames[slot-1]
+	if frame == nil || frame.active {
+		t.Fatal("completed numeral replacement")
+	}
+	paramsMust(t, c.Del(&value))
+	value, err = c.NewValue()
+	paramsMust(t, err)
+	paramsMust(t, c.SetBool(&value, key, false))
+	if value.Slot != slot || c.replacementFrames[slot-1] != frame || *frame != (paramsReplacementFrame{}) {
+		t.Fatal("reused block retained the preceding generation's state")
+	}
+	paramsMust(t, c.Del(&value))
 }

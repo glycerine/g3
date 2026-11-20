@@ -110,7 +110,9 @@ type ParamsContext struct {
 	decrementReceipts []paramsDecrementReceipt
 	SourceFrames      []paramsSourceFrame
 	SetFrames         []paramsSetFrame
-	replacementFrames []paramsReplacementFrame
+	// A block only needs this continuation after overwriting a rational.
+	// Keep a materialized frame for subsequent generations of that block.
+	replacementFrames []*paramsReplacementFrame
 	sourceSerial      uint64
 	pages             []paramsEntryPage
 	workspace         []byte
@@ -281,13 +283,15 @@ func (c *ParamsContext) freeEntries(r paramsEntriesRef) {
 func (c *ParamsContext) newBlock() (uint32, error) {
 	for i := range c.Blocks {
 		b := &c.Blocks[i]
-		if !b.Live && !c.SourceFrames[i].Active && !c.SetFrames[i].Active && !c.replacementFrames[i].active && b.Generation != math.MaxUint32 {
+		if !b.Live && !c.SourceFrames[i].Active && !c.SetFrames[i].Active && !c.replacementFrames[i].isActive() && b.Generation != math.MaxUint32 {
 			g := b.Generation + 1
 			*b = paramsBlock{Refs: 1, Generation: g, Live: true}
 			c.decrementReceipts[i] = paramsDecrementReceipt{}
 			c.SourceFrames[i] = paramsSourceFrame{}
 			c.SetFrames[i] = paramsSetFrame{}
-			c.replacementFrames[i] = paramsReplacementFrame{}
+			if f := c.replacementFrames[i]; f != nil {
+				*f = paramsReplacementFrame{}
+			}
 			return uint32(i + 1), nil
 		}
 	}
@@ -307,7 +311,7 @@ func (c *ParamsContext) newBlock() (uint32, error) {
 		copy(frames, c.SourceFrames)
 		sets := make([]paramsSetFrame, len(c.SetFrames), n)
 		copy(sets, c.SetFrames)
-		replacements := make([]paramsReplacementFrame, len(c.replacementFrames), n)
+		replacements := make([]*paramsReplacementFrame, len(c.replacementFrames), n)
 		copy(replacements, c.replacementFrames)
 		c.BudgetField.Release(paramsBlockBytes(cap(c.Blocks)) + paramsReceiptBytes(cap(c.decrementReceipts)) + paramsSourceFrameBytes(cap(c.SourceFrames)) + paramsSetFrameBytes(cap(c.SetFrames)) + paramsReplacementFrameBytes(cap(c.replacementFrames)))
 		c.Blocks = next
@@ -319,7 +323,7 @@ func (c *ParamsContext) newBlock() (uint32, error) {
 	c.decrementReceipts = append(c.decrementReceipts, paramsDecrementReceipt{})
 	c.SourceFrames = append(c.SourceFrames, paramsSourceFrame{})
 	c.SetFrames = append(c.SetFrames, paramsSetFrame{})
-	c.replacementFrames = append(c.replacementFrames, paramsReplacementFrame{})
+	c.replacementFrames = append(c.replacementFrames, nil)
 	c.Blocks = append(c.Blocks, paramsBlock{Refs: 1, Generation: 1, Live: true})
 	return uint32(len(c.Blocks)), nil
 }
@@ -375,7 +379,7 @@ func (c *ParamsContext) decTracked(slot uint32, out *ParamsDecrementReceipt) err
 	// A shared scalar DEC remains defined during an interrupted live reset.
 	// The last-reference destructor would replay already-consumed source leaves;
 	// reject that invalid continuation rather than adopt its reset receipt.
-	if (b.resetActive && (b.resetKind == paramsResetLive || b.resetKind == paramsResetKey) || c.replacementFrames[slot-1].active || c.SetFrames[slot-1].Active && c.SetFrames[slot-1].Published) && b.Refs == 1 {
+	if (b.resetActive && (b.resetKind == paramsResetLive || b.resetKind == paramsResetKey) || c.replacementFrames[slot-1].isActive() || c.SetFrames[slot-1].Active && c.SetFrames[slot-1].Published) && b.Refs == 1 {
 		return ErrParamsPrecondition
 	}
 	b.Refs--
@@ -1643,7 +1647,7 @@ func (c *ParamsContext) Close() error {
 		return nil
 	}
 	for i := range c.replacementFrames {
-		if c.replacementFrames[i].active {
+		if c.replacementFrames[i].isActive() {
 			if e := c.continueReplacement(uint32(i+1), false); e != nil {
 				return e
 			}
