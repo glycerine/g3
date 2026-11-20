@@ -114,6 +114,10 @@ func TestSMTGatePageReuseAtBoundary(t *testing.T) {
 		astTestMust(t, err)
 		v, err := s.MkBoolVar(e)
 		astTestMust(t, err)
+		notPage, gatePage := s.gatePage(n), s.gatePage(v)
+		if notPage == nil || gatePage == nil || notPage.compound != nil || gatePage.notChildren != nil {
+			t.Fatal("allocated unneeded gate metadata on a homogeneous page")
+		}
 		if n != smtBoolGatesPerPage-1 || v != smtBoolGatesPerPage || s.notChild(n) != a || s.boolGateOp(v) != expected {
 			t.Fatal("failed to cache adjacent gates across a page boundary", n, v)
 		}

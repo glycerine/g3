@@ -49,7 +49,7 @@ func BenchmarkSMTBooleanRecord(b *testing.B) {
 // ASTs before the first heap reading so the solver pays only for bindings.
 func BenchmarkSMTBooleanBindingStorage(b *testing.B) {
 	const width = 4096
-	for _, shape := range []string{"Leaf", "Not", "And"} {
+	for _, shape := range []string{"Leaf", "Not", "And", "Mixed"} {
 		b.Run(shape, func(b *testing.B) {
 			m := astTestManager(b)
 			_, _, s := smtInternalizerFixture(b, m, nil)
@@ -59,10 +59,10 @@ func BenchmarkSMTBooleanBindingStorage(b *testing.B) {
 			for i := range exprs {
 				e := smtRelevancyBool(b, m, fmt.Sprintf("binding-%d", i))
 				var err error
-				switch shape {
-				case "Not":
+				switch {
+				case shape == "Not" || shape == "Mixed" && i%2 == 0:
 					e, err = m.MkNot(e)
-				case "And":
+				case shape == "And" || shape == "Mixed":
 					e, err = m.MkAnd(e, other)
 				}
 				benchmarkMust(b, err)

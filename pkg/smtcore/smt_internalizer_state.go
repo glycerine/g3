@@ -211,7 +211,7 @@ type SMTInternalizerState struct {
 	boolVar                    smtBoolVarTable
 	boolExpr                   []ast.ASTHandle
 	booleanData                []SMTBoolVarData
-	gatePages                  []*smtBoolGatePage
+	gatePages                  []smtBoolGatePage
 	binaryReasons              []*smtBinaryReasonPage
 	booleanCreation            []uint64
 	nextBooleanCreation        uint64
@@ -670,14 +670,18 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	return s.mkBoolVar(expression, &header, false)
 }
 
-// Only groups containing a NOT, AND or OR allocate a page. Variable IDs
-// remain dense on pop. Warm pages can be reused without retaining retired gates.
+// The directory has one entry per 32 dense variable IDs. NOT children and
+// AND/OR gates allocate their own arrays on first use. Leaf-only solvers
+// need no directory and the NOT arrays contain no Go pointers.
 const smtBoolGatesPerPage = 32
 
 type smtBoolGatePage struct {
-	conjunctions uint32 // one bit per AND gate
+	compound    *smtCompoundGatePage
+	notChildren *[smtBoolGatesPerPage]ast.ASTHandle
+}
+type smtCompoundGatePage struct {
 	gates        [smtBoolGatesPerPage]*smtBoolGate
-	notChildren  [smtBoolGatesPerPage]ast.ASTHandle
+	conjunctions uint32 // one bit per AND gate
 }
 
 func (s *SMTInternalizerState) gatePage(v int32) *smtBoolGatePage {
@@ -685,18 +689,18 @@ func (s *SMTInternalizerState) gatePage(v int32) *smtBoolGatePage {
 	if int(index) >= len(s.gatePages) {
 		return nil
 	}
-	return s.gatePages[index]
+	return &s.gatePages[index]
 }
 func (s *SMTInternalizerState) boolGate(v int32) *smtBoolGate {
-	if page := s.gatePage(v); page != nil {
-		return page.gates[uint32(v)%smtBoolGatesPerPage]
+	if page := s.gatePage(v); page != nil && page.compound != nil {
+		return page.compound.gates[uint32(v)%smtBoolGatesPerPage]
 	}
 	return nil
 }
 func (s *SMTInternalizerState) boolGateOp(v int32) int32 {
 	slot := uint32(v) % smtBoolGatesPerPage
-	if page := s.gatePage(v); page != nil && page.gates[slot] != nil {
-		if page.conjunctions&(1<<slot) != 0 {
+	if page := s.gatePage(v); page != nil && page.compound != nil && page.compound.gates[slot] != nil {
+		if page.compound.conjunctions&(1<<slot) != 0 {
 			return ast.ASTOpAnd
 		}
 		return ast.ASTOpOr
@@ -704,7 +708,7 @@ func (s *SMTInternalizerState) boolGateOp(v int32) int32 {
 	return -1
 }
 func (s *SMTInternalizerState) notChild(v int32) ast.ASTHandle {
-	if page := s.gatePage(v); page != nil {
+	if page := s.gatePage(v); page != nil && page.notChildren != nil {
 		return page.notChildren[uint32(v)%smtBoolGatesPerPage]
 	}
 	return ast.ASTHandle{}
@@ -712,19 +716,25 @@ func (s *SMTInternalizerState) notChild(v int32) ast.ASTHandle {
 func (s *SMTInternalizerState) cacheBoolGate(v int32, gate *smtBoolGate, notChild ast.ASTHandle, operation int32) {
 	index := int(v) / smtBoolGatesPerPage
 	if index >= len(s.gatePages) {
-		s.gatePages = append(s.gatePages, make([]*smtBoolGatePage, index+1-len(s.gatePages))...)
+		s.gatePages = append(s.gatePages, make([]smtBoolGatePage, index+1-len(s.gatePages))...)
 	}
-	page := s.gatePages[index]
-	if page == nil {
-		page = new(smtBoolGatePage)
-		s.gatePages[index] = page
-	}
+	page := &s.gatePages[index]
 	slot := uint32(v) % smtBoolGatesPerPage
-	page.gates[slot], page.notChildren[slot] = gate, notChild
+	if gate == nil {
+		if page.notChildren == nil {
+			page.notChildren = new([smtBoolGatesPerPage]ast.ASTHandle)
+		}
+		page.notChildren[slot] = notChild
+		return
+	}
+	if page.compound == nil {
+		page.compound = new(smtCompoundGatePage)
+	}
+	page.compound.gates[slot] = gate
 	if operation == ast.ASTOpAnd {
-		page.conjunctions |= 1 << slot
+		page.compound.conjunctions |= 1 << slot
 	} else {
-		page.conjunctions &^= 1 << slot
+		page.compound.conjunctions &^= 1 << slot
 	}
 }
 
@@ -1525,7 +1535,12 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.boolExpr = s.boolExpr[:variable]
 			if page := s.gatePage(variable); page != nil {
 				slot := uint32(variable) % smtBoolGatesPerPage
-				page.gates[slot], page.notChildren[slot] = nil, ast.ASTHandle{}
+				if page.compound != nil {
+					page.compound.gates[slot] = nil
+				}
+				if page.notChildren != nil {
+					page.notChildren[slot] = ast.ASTHandle{}
+				}
 			}
 			s.booleanData[variable].SetNullJustification()
 			s.booleanData = s.booleanData[:variable]
