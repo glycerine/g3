@@ -829,7 +829,13 @@ func (s *SMTInternalizerState) Assignment(literal SMTLiteral) (lbool.LBool, erro
 	if err := s.open(); err != nil {
 		return lbool.Undef, err
 	}
-	if literal.Index() < 0 || int(literal.Index()) >= len(s.assignment) {
+	return s.literalAssignment(literal)
+}
+
+// literalAssignment reads a literal from an already open solver. Watch selection
+// and clause restoration can read several assignments per literal array.
+func (s *SMTInternalizerState) literalAssignment(literal SMTLiteral) (lbool.LBool, error) {
+	if uint(literal.Index()) >= uint(len(s.assignment)) {
 		return lbool.Undef, ast.ErrASTDomain
 	}
 	return s.assignment[literal.Index()], nil

@@ -70,11 +70,11 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 		}
 		literals := saved.clause.literals
 		saved.installed = true
-		firstValue, err := s.Assignment(literals[0])
+		firstValue, err := s.literalAssignment(literals[0])
 		if err != nil {
 			return err
 		}
-		secondValue, err := s.Assignment(literals[1])
+		secondValue, err := s.literalAssignment(literals[1])
 		if err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 		// remaining literal is false. Stable watches need the full check.
 		if allOtherFalse && len(atoms) == 0 {
 			for _, literal := range literals[2:] {
-				value, e := s.Assignment(literal)
+				value, e := s.literalAssignment(literal)
 				if e != nil {
 					return e
 				}

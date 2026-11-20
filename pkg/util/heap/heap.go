@@ -74,6 +74,8 @@ func New(bounds int32, c Config) (*Int, error) {
 	return h, nil
 }
 
+// Gate source assertions before resolving the debug context. This lets release
+// builds inline the empty checks even in the heap invariant walker.
 func (h *Int) debugContext() *diagnostic.DebugContext {
 	if h.debug != nil {
 		return h.debug
@@ -84,6 +86,9 @@ func (h *Int) debugContext() *diagnostic.DebugContext {
 // CASSERT first tests the process assertion switch and the "heap" tag. The
 // current process owner is read at each gate unless an explicit one was lent.
 func (h *Int) cassert(line int32, condition string, test func() bool) error {
+	if !diagnostic.DebugBuild {
+		return nil
+	}
 	d := h.debugContext()
 	on, err := diagnostic.SourceAssertionsEnabled(d)
 	if err != nil || !on {
@@ -111,6 +116,9 @@ func (h *Int) assertFailure(d *diagnostic.DebugContext, line int32, condition st
 // the source's inverse-index write; the Go bounds guard below protects that
 // source-undefined write.
 func (h *Int) sassertInsertValue(v int32) error {
+	if !diagnostic.DebugBuild {
+		return nil
+	}
 	d := h.debugContext()
 	on, err := diagnostic.SourceAssertionsEnabled(d)
 	if err != nil || !on {
@@ -123,6 +131,9 @@ func (h *Int) sassertInsertValue(v int32) error {
 }
 
 func (h *Int) sassert(line int32, condition string, test func() bool) error {
+	if !diagnostic.DebugBuild {
+		return nil
+	}
 	d := h.debugContext()
 	on, err := diagnostic.SourceAssertionsEnabled(d)
 	if err != nil || !on {
@@ -135,6 +146,9 @@ func (h *Int) sassert(line int32, condition string, test func() bool) error {
 }
 
 func (h *Int) cassertInvariant() error {
+	if !diagnostic.DebugBuild {
+		return nil
+	}
 	d := h.debugContext()
 	on, err := diagnostic.SourceAssertionsEnabled(d)
 	if err != nil || !on {

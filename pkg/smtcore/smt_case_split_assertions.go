@@ -5,6 +5,9 @@ package smtcore
 import "github.com/glycerine/g3/pkg/util/diagnostic"
 
 func smtCaseSplitAssert(line int32, condition string, test func() bool) error {
+	if !smtcoreSourceDebug {
+		return nil
+	}
 	d := diagnostic.BorrowProcessDebugContext()
 	enabled, err := diagnostic.SourceAssertionsEnabled(d)
 	if err != nil || !enabled {

@@ -444,7 +444,7 @@ func (s *SMTInternalizerState) selectWatchLiteral(literals []SMTLiteral, startin
 	}
 	minTrue, maxFalse, unknown := -1, -1, -1
 	for index := startingAt; index < len(literals); index++ {
-		value, err := s.Assignment(literals[index])
+		value, err := s.literalAssignment(literals[index])
 		if err != nil {
 			return -1, err
 		}
