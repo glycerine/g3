@@ -1177,3 +1177,14 @@ The pure-Go GoIvy checker also cross-compiled for Linux/arm64 through the local 
 ### Assigning the proof corpus to independent solvers
 
 The final solver checked the 419 captured mixed-width queries in **7.63 s with one worker and 1.84 s with 16** on 12 Go CPUs. The one-bit times were **2.11 s and 0.46 s**. These medians cover nine runs per configuration and include SMT-LIB parsing and cleanup. The Ivy frontend is outside this benchmark. Each worker creates its own context and keeps its solver and proof batch on its goroutine. The separate resident-worker benchmark measures what 2,048 live solvers cost. [Final worker measurements](perf/ivy_raft/frontier-4f0c0457b/workers.csv.gz) · [Corpus benchmark](api/api_raft_boolean_benchmark_test.go) · [Resident-worker measurements](#running-2048-resident-solvers)
+
+The partition benchmark assigns the same 419 inputs once each, using 16 owners throughout. Alternating blocks of 16 gives several workers expensive obligations while preserving some adjacent premise reuse. The table gives median times for equal contiguous ranges and for round-robin blocks of 16.
+
+| Available Go CPUs | Mixed contiguous | Mixed blocks of 16 | One-bit contiguous | One-bit blocks of 16 |
+|---|---:|---:|---:|---:|
+| 1, CPU 43 | 10.56 s | 10.85 s | 3.17 s | 3.24 s |
+| 4, CPUs 12–15 | 2.35 s | 2.56 s | 0.734 s | 0.796 s |
+| 12, CPUs 0–11 | 1.68 s | 1.56 s | 0.435 s | 0.372 s |
+| 12, CPUs 24–35 | 1.77 s | 1.64 s | 0.460 s | 0.393 s |
+
+On the first 12-CPU set, single-query round-robin raised total allocation across owners from 1.207 to 1.569 GB on mixed widths and from 0.407 to 0.584 GB on one-bit. Blocks of 16 used 1.241 and 0.423 GB respectively. Both 12-CPU sets favored these larger blocks. The one- and four-CPU controls favored contiguous assignment in median elapsed time. All **420 runs** completed all 419 proofs. These are separate process series on a shared host. To repeat, run `go test ./api -run '^$' -bench '^BenchmarkRaftWorkerPartitions$' -benchtime=1x -cpu=1,4,12`. [Partition benchmark](api/api_raft_worker_partition_benchmark_test.go) · [Five schedules including input-byte balancing](perf/ivy_raft/frontier-4f0c0457b/worker-partitions.csv.gz)
