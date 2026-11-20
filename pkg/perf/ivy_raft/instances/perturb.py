@@ -65,7 +65,7 @@ def corpus(path):
                 yield json.loads(line)
 
 
-def variants(path, limit):
+def variants(path, limit, seed=0):
     for idx, (name, text) in enumerate(itertools.islice(corpus(path), limit), 1):
         declarations, assertions = [], []
         for form in commands(text):
@@ -78,7 +78,7 @@ def variants(path, limit):
         if not assertions:
             raise ValueError(f"{name}: missing assertions")
         for trial, (percent, negate, shuffle) in enumerate(TRIALS):
-            rng = random.Random(212291 * idx + trial)
+            rng = random.Random(seed + 212291 * idx + trial)
             premises = [v for v in assertions[:-1] if rng.randrange(100) < percent]
             if shuffle:
                 rng.shuffle(premises)
@@ -114,7 +114,7 @@ def replay(args, work):
                    cwd=ROOT, check=True)
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["obligation", "trial", "premises", "applicable", "direct", "native", "retries"])
-    rows = variants(args.input, args.limit)
+    rows = variants(args.input, args.limit, args.seed)
     while batch := list(itertools.islice(rows, 32)):
         chunks = [json.dumps({"ID": f"{i}-{trial}", "Text": text}) for i, trial, _, text in batch]
         proc = subprocess.run([driver, "-test.run=^TestPerturbedInstanceProofs$", "-test.v"],
@@ -127,7 +127,7 @@ def replay(args, work):
             result = native_check(args.native, script, 600)
             retry = direct == "true" and result not in {"sat", "unsat"}
             if retry:
-                result = native_check(args.native, script, 10000)
+                result = native_check(args.native, script, args.confirm_ms)
             if direct == "true" and result != "unsat":
                 raise ValueError(f"unconfirmed direct proof on {i}, trial {trial}: {result}\n{script}")
             writer.writerow([i, trial, n, app, direct, result, int(retry)])
@@ -140,9 +140,14 @@ def main():
                         help="directory of numbered SMT2 files or gzip-compressed JSON lines")
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--limit", type=int, help="number of original obligations to transform")
+    parser.add_argument("--seed", type=int, default=0, help="seed offset for premise sampling and shuffling")
+    parser.add_argument("--confirm-ms", type=int, default=10000,
+                        help="native timeout for retrying an unconfirmed direct proof")
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")
+    if args.confirm_ms < 1:
+        parser.error("--confirm-ms must be positive")
     args.native = args.native.resolve()
     with tempfile.TemporaryDirectory() as tmp:
         replay(args, Path(tmp))
