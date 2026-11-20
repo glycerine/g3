@@ -78,8 +78,10 @@ func TestSmallBytesBoundaryConsolidation(t *testing.T) {
 	// Dividing class16 in chunk64 gives only3 allocations per chunk, but reclaim expects4.
 	a := newSmallTest(t, 64, nil)
 	rs := make([]SmallBytesRef, 4)
+	var locations [4][2]uint32
 	for i := range rs {
 		rs[i] = smallAlloc(t, a, 13)
+		locations[i] = smallLocation(t, a, rs[i])
 	}
 	if a.Stats().Chunks != 2 {
 		t.Fatal("exact endpoint must cause new chunk")
@@ -92,6 +94,17 @@ func TestSmallBytesBoundaryConsolidation(t *testing.T) {
 	}
 	if a.Stats().Chunks != 2 || a.Stats().FreeObjects != 4 {
 		t.Fatal("must retain source exact-divisor and partial-chunk behavior")
+	}
+	// Rebuilding the list must preserve every free location, including its
+	// zero-successor tail, across both chunks.
+	for i := len(locations) - 1; i >= 0; i-- {
+		ref := smallAlloc(t, a, 13)
+		if got := smallLocation(t, a, ref); got != locations[i] {
+			t.Fatalf("recycled location %v, want %v", got, locations[i])
+		}
+	}
+	if s := a.Stats(); s.FreeObjects != 0 || s.Chunks != 2 {
+		t.Fatalf("free list exhausted with %+v", s)
 	}
 	b := newSmallTest(t, 70, nil)
 	for i := 0; i < 5; i++ {

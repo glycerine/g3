@@ -23,8 +23,10 @@ type SmallBytesConfig struct {
 	Descriptors Config
 }
 type smallByteBlock struct {
-	next uint64
-	free bool
+	// Zero is occupied or unused. A free block stores the next location plus
+	// one, so the last block in a list stores one. A location cannot be
+	// MaxUint64: even a four-byte class fits at most MaxUint32/4 blocks.
+	nextFree uint64
 }
 type smallByteChunk struct {
 	data                []byte
@@ -348,9 +350,8 @@ func (a *SmallBytes) Allocate(size uint32) (SmallBytesRef, error) {
 		page, block = smallByteDecode(head)
 		c := &a.chunks[page]
 		m := &c.blocks[block]
-		a.heads[class] = m.next
-		m.next = 0
-		m.free = false
+		a.heads[class] = m.nextFree - 1
+		m.nextFree = 0
 		c.free--
 		a.freeCounts[class]--
 		offset = block * capacity
@@ -401,8 +402,7 @@ func (a *SmallBytes) Deallocate(size uint32, r SmallBytesRef) error {
 	c := &a.chunks[d.page]
 	block := d.offset / d.capacity
 	m := &c.blocks[block]
-	m.free = true
-	m.next = a.heads[class]
+	m.nextFree = a.heads[class] + 1
 	a.heads[class] = smallByteLocation(d.page, block)
 	c.free++
 	a.freeCounts[class]++
@@ -447,8 +447,8 @@ func (a *SmallBytes) Consolidate() error {
 			a.latest[class] = uint32(i) + 1
 			for block := uint32(0); block < c.cursor/(class*a.config.Alignment); block++ {
 				m := &c.blocks[block]
-				if m.free {
-					m.next = a.heads[class]
+				if m.nextFree != 0 {
+					m.nextFree = a.heads[class] + 1
 					a.heads[class] = smallByteLocation(uint32(i), block)
 				}
 			}
