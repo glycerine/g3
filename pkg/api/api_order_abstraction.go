@@ -15,8 +15,9 @@ import (
 const orderProofSteps = 3_000_000
 
 // ProveUnsatByOrderAbstraction tries to refute the current assertions by
-// relaxing quantified bit-vector order constraints. Two-element domains can
-// be enumerated directly. Wider domains use uninterpreted ordered sorts.
+// checking for a contradictory ground instance of a quantified bit-vector
+// assertion. Remaining problems can use exact two-element domains or a
+// relaxation to uninterpreted ordered sorts.
 // True establishes that the assertions are unsatisfiable. False is inconclusive:
 // callers needing a decision or a concrete model should call Check. The
 // independent proof attempt preserves this solver's last check, model and core.
@@ -45,7 +46,7 @@ type orderProofState struct {
 }
 
 // BeginOrderProofBatch creates a batch confined to the source solver's owner.
-// Its first eligible proof allocates the auxiliary kernel.
+// A proof that needs search opens the auxiliary solver on demand.
 func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
 	return &OrderProofBatch{state: &orderProofState{source: s}}
 }
@@ -119,24 +120,27 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 	if err != nil {
 		return false, err
 	}
-	problem, bits, applicable, err := order.ForProof(parent, assertions, maxSteps)
+	proof, applicable, err := order.ForProof(parent, assertions, maxSteps)
 	if err != nil || !applicable || limit.CancelFlag() {
 		return false, err
 	}
-	if bits != nil {
+	if proof.Refuted {
+		return true, nil
+	}
+	if proof.Boolean != nil {
 		if p.ctx != nil {
 			if err := p.release(); err != nil {
 				return false, err
 			}
 		}
-		return p.checkBoolean(parent, bits, maxSteps)
+		return p.checkBoolean(parent, proof.Boolean, proof.SearchSteps)
 	}
 	if p.bits != nil {
 		if err := p.release(); err != nil {
 			return false, err
 		}
 	}
-	if reuse && p.needsNewDeclarations(problem) {
+	if reuse && p.needsNewDeclarations(proof.Order) {
 		if err := p.release(); err != nil {
 			return false, err
 		}
@@ -146,7 +150,7 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 			return false, err
 		}
 	}
-	return p.check(parent, problem, maxSteps, reuse)
+	return p.check(parent, proof.Order, proof.SearchSteps, reuse)
 }
 
 func (p *orderProofState) start(parent *ast.ASTManager) (err error) {

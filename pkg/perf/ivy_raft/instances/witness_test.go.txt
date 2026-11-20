@@ -1,0 +1,75 @@
+package api
+
+import (
+	"bufio"
+	"encoding/json"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/api/internal/order"
+	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+func TestUniversalInstanceModels(t *testing.T) {
+	input := bufio.NewScanner(os.Stdin)
+	input.Buffer(nil, 8<<20)
+	models, refuted := 0, 0
+	for input.Scan() {
+		var row struct {
+			Seed                  int
+			Input, GroundConflict string
+			Concrete              bool
+		}
+		astTestMust(t, json.Unmarshal(input.Bytes(), &row))
+		func() {
+			c, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, c.Close()) }()
+			s, err := c.NewSolver()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, s.Close()) }()
+			astTestMust(t, s.LoadSMT2String(row.Input))
+			m, err := c.Manager()
+			astTestMust(t, err)
+			direct := func() bool {
+				formulas, err := solver.Assertions(s.solver)
+				astTestMust(t, err)
+				p, ok, err := order.ForProof(m, formulas, orderProofSteps)
+				astTestMust(t, err)
+				return ok && p.Refuted
+			}
+			verify := func(want lbool.LBool) {
+				if row.Concrete {
+					got, err := s.Check()
+					if err != nil || got != want {
+						t.Fatal(row.Seed, got, want, err)
+					}
+				}
+			}
+			if direct() {
+				t.Fatal(row.Seed, "refuted a model", row.Input)
+			}
+			verify(lbool.True)
+			models++
+			if row.GroundConflict != "" {
+				astTestMust(t, s.Push())
+				declarations, _, _ := strings.Cut(row.Input, "(assert")
+				astTestMust(t, s.LoadSMT2String(declarations+row.GroundConflict))
+				if !direct() {
+					t.Fatal(row.Seed, "missed ground instance", row.Input, row.GroundConflict)
+				}
+				verify(lbool.False)
+				refuted++
+				astTestMust(t, s.Pop(1))
+				if direct() {
+					t.Fatal(row.Seed, "used a popped assertion")
+				}
+				verify(lbool.True)
+			}
+		}()
+	}
+	astTestMust(t, input.Err())
+	t.Logf("verified %d models and %d direct refutations", models, refuted)
+}

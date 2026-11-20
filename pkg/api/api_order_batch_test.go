@@ -45,7 +45,7 @@ func TestOrderBatchBoundsDeclarationsAcrossGoals(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		fmt.Fprintf(&large, "(declare-const extra%d Bool)(assert extra%d)", i, i)
 	}
-	const contradiction = "(declare-const c Bool)(assert c)(assert (not c))"
+	const contradiction = "(declare-const c Bool)(declare-const d Bool)(assert (or c d))(assert (not d))(assert (not c))"
 	astTestMust(t, s.Push())
 	astTestMust(t, s.LoadSMT2String(large.String()+contradiction))
 	if yes, err := batch.Prove(); err != nil || !yes {
@@ -76,8 +76,8 @@ func TestOrderBatchRebindsChangedFunctionSignature(t *testing.T) {
 		input string
 		want  lbool.LBool
 	}{
-		{unary + "(assert (not (q #b00)))", lbool.False},
-		{binary + "(assert (not (q #b00 #b00)))", lbool.False},
+		{unary + "(declare-const g Bool)(assert (or g (not (q #b00))))(assert (not g))", lbool.False},
+		{binary + "(declare-const g Bool)(assert (or g (not (q #b00 #b00))))(assert (not g))", lbool.False},
 		{unary + "(assert (q #b00))", lbool.True},
 	} {
 		astTestMust(t, s.Push())

@@ -61,7 +61,7 @@ func TestBooleanProofRespectsInferredWidths(t *testing.T) {
 		binary bool
 		proved bool
 	}{
-		{"(declare-const t B)(assert (not (f t)))", true, true},
+		{"(declare-const t B)(assert (f t))", true, false},
 		{"(declare-fun g ((_ BitVec 2)) Bool)(assert (g #b00))", false, false},
 		{"(declare-const a B)(declare-const b B)(declare-const c B)(assert (distinct a b c))", true, true},
 		{"(declare-fun q (B B) Bool)(assert (forall ((x B))(exists ((y B))(q x y))))(assert (exists ((a B))(forall ((b B))(not (q a b)))))", true, true},
@@ -72,9 +72,9 @@ func TestBooleanProofRespectsInferredWidths(t *testing.T) {
 		astTestMust(t, e)
 		a, e := solver.Assertions(s.solver)
 		astTestMust(t, e)
-		_, bits, app, e := order.ForProof(m, a, orderProofSteps)
-		if e != nil || !app || (bits != nil) != tc.binary {
-			t.Fatal(tc.extra, app, bits != nil, e)
+		proof, app, e := order.ForProof(m, a, orderProofSteps)
+		if e != nil || !app || (proof.Boolean != nil) != tc.binary || proof.Refuted {
+			t.Fatal(tc.extra, app, proof.Boolean != nil, e)
 		}
 		if yes, e := s.ProveUnsatByOrderAbstraction(); e != nil || yes != tc.proved {
 			t.Fatal(tc.extra, yes, e)
@@ -90,7 +90,10 @@ func TestBooleanProofInterruptedLoadAndBatchRollover(t *testing.T) {
 	astTestMust(t, err)
 	defer z.Close()
 	var row [2]string
-	astTestMust(t, json.NewDecoder(z).Decode(&row))
+	dec := json.NewDecoder(z)
+	for row[0] != "274.smt2" {
+		astTestMust(t, dec.Decode(&row))
+	}
 	c, s := orderSolver(t, row[1])
 	m, e := c.Manager()
 	astTestMust(t, e)
@@ -98,7 +101,8 @@ func TestBooleanProofInterruptedLoadAndBatchRollover(t *testing.T) {
 	t.Cleanup(func() { astTestMust(t, batch.Close()) })
 	assertions, e := solver.Assertions(s.solver)
 	astTestMust(t, e)
-	_, k, applicable, e := order.ForProof(m, assertions, orderProofSteps)
+	proof, applicable, e := order.ForProof(m, assertions, orderProofSteps)
+	k := proof.Boolean
 	if e != nil || !applicable || k == nil {
 		t.Fatal(row[0], applicable, e)
 	}
@@ -112,7 +116,7 @@ func TestBooleanProofInterruptedLoadAndBatchRollover(t *testing.T) {
 	if prefix <= 0 {
 		t.Fatal("fixture lacks permanent rows")
 	}
-	steps := k.Work + uint32(reduce.Count()) + uint32(k.Vars+prefix)
+	steps := (orderProofSteps - proof.SearchSteps) + k.Work + uint32(reduce.Count()) + uint32(k.Vars+prefix)
 	if ok, e := batch.state.prove(steps, true); ok || e != nil || batch.state.bits != nil {
 		t.Fatal("partially loaded proof", ok, e)
 	}

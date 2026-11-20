@@ -162,7 +162,7 @@ func TestOrderProofBatchSeparatesQueries(t *testing.T) {
 	defer func() { m.ResourceLimit().RunSignals = nil }()
 
 	astTestMust(t, s.Push())
-	astTestMust(t, s.LoadSMT2String("(declare-const conflict Bool)(assert conflict)(assert (not conflict))"))
+	astTestMust(t, s.LoadSMT2String("(declare-const conflict Bool)(declare-const alt Bool)(assert (or conflict alt))(assert (not alt))(assert (not conflict))"))
 	if yes, err := s.ProveUnsatByOrderAbstraction(); err != nil || !yes {
 		t.Fatal("single proof", yes, err)
 	}

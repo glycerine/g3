@@ -1,0 +1,11 @@
+solver,widths,method,obligations,direct_refutations
+default,mixed,predicate-only,419,52
+default,mixed,all-ground-requirements,419,235
+default,mixed,join-up-to-four-and-boolean-equality,419,242
+default,mixed,committed,419,234
+simple,mixed,committed,419,16
+default,onebit,predicate-only,419,52
+default,onebit,all-ground-requirements,419,235
+default,onebit,join-up-to-four-and-boolean-equality,419,242
+default,onebit,committed,419,234
+simple,onebit,committed,419,16

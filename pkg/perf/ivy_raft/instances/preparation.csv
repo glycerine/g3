@@ -1,0 +1,9 @@
+code,obligation,processes,median_ns_op,median_B_op,median_allocs_op
+before,Mixed/001,30,91668.0,47928.0,159.0
+before,Mixed/274,30,392939.5,220633.0,697.0
+before,OneBit/001,30,161442.5,96224.0,176.0
+before,OneBit/274,30,1267472.0,796480.0,273.0
+direct,Mixed/001,30,71581.0,33152.0,108.0
+direct,Mixed/274,30,403447.0,222169.0,706.0
+direct,OneBit/001,30,65532.0,33152.0,108.0
+direct,OneBit/274,30,1317110.0,798008.0,282.0

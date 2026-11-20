@@ -40,22 +40,41 @@ const (
 
 var errBitLimit = errors.New("one-bit expansion limit")
 
-// ForProof chooses a propositional problem when every retained bit-vector
-// sort has two values. Mixed widths and expensive enumerations use the order
-// relaxation. In either case only a refutation proves the original formula.
-func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (Problem, *BooleanProblem, bool, error) {
+// ProofProblem records either a direct refutation or the input and remaining
+// step budget for an independent solver.
+type ProofProblem struct {
+	Order       Problem
+	Boolean     *BooleanProblem
+	Refuted     bool
+	SearchSteps uint32
+}
+
+// ForProof checks universal instances before constructing a Boolean or order
+// problem. Only a refutation establishes a result for the original assertions.
+func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (ProofProblem, bool, error) {
 	var t inference
 	if ok, err := t.infer(m, assertions); err != nil || !ok {
-		return Problem{}, nil, false, err
+		return ProofProblem{}, false, err
 	}
-	bits, err := t.booleanProblem(steps)
+	refuted, spent := t.matchFinalAssertion(steps)
+	if m.ResourceLimit().CancelFlag() {
+		return ProofProblem{}, false, nil
+	}
+	if refuted {
+		return ProofProblem{Refuted: true}, true, nil
+	}
+	if spent >= steps {
+		return ProofProblem{}, false, nil
+	}
+	remaining := steps - spent
+	bits, err := t.booleanProblem(remaining)
 	if err != nil || m.ResourceLimit().CancelFlag() {
-		return Problem{}, nil, false, err
+		return ProofProblem{}, false, err
 	}
 	if bits != nil {
-		return Problem{}, bits, true, nil
+		return ProofProblem{Boolean: bits, SearchSteps: remaining}, true, nil
 	}
-	return t.render(), nil, true, nil
+	return ProofProblem{Order: t.render(), SearchSteps: remaining}, true, nil
 }
 
 func (t *inference) booleanProblem(steps uint32) (*BooleanProblem, error) {
