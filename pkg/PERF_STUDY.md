@@ -634,6 +634,22 @@ g3 executed **4.48× as many instructions**, **4.58× as many branches** and **4
 
 The clean GoIvy binaries were also rerun with the *original concrete* input and transcript check. Across eight runs per build, the `c3f2cd110` pin took 12.53 s and 92.41 billion instructions, the previous pin took 12.30 s and 94.23 billion, and C++ took 37.16 s and 215.52 billion. The machine ran other studies during this crossover. The instruction reduction reproduced end to end. Wall time for this particular Go optimization was more stable in the paired kernel experiment. [Production crossover](perf/ivy_raft/order-substitution-pinned.csv)
 
+#### Direct pointers, AST pages and garbage collection
+
+A hardware cycles profile sampled three complete replays per backend. The largest native userspace entries included AST interning at 3.13%, the C allocator's internal allocation routine at 2.79%, application rewriting at 2.02% and AST deletion at 1.74%. On the Go build with the free-variable collector change, runtime heap scanning had a 2.65% entry, application rewriting 2.14%, declaration identity 1.20% and AST argument access 1.16%. These percentages are relative to each backend's own cycle count. Inlining can attribute a lookup to its caller. [Top 30 self-cost samples per backend](perf/ivy_raft/order-kernel-cycle-profile.csv)
+
+The following controls use the same 419 obligations at `c3f2cd110` and validate the search counters. The medians come from six rotated runs per AST representation and seven per garbage collector setting.
+
+| Change | Median instructions per corpus | Consequence |
+|---|---:|---|
+| Local Go pointer to the application record during rewriting | 92.76 billion vs 92.71 billion | Extending the pointer lifetime to the rewrite frame raised the count to 93.79 billion. |
+| Separate node headers and application records into groups of 2, 4, 8, 16 or 64 | 94.19–98.24 billion vs 92.68 billion | Each grouping cost instructions. Removing record padding alone gave 92.62 billion. |
+| AST page size of 16, 32, 128, 256 or 512 slots | 92.59–92.72 billion vs 92.79 billion at 64 slots | Adjusting the page size moved instruction count by at most 0.23%. |
+| Raise `GOGC` from 100 to 400 | 85.42 billion vs 92.62 billion | Peak RSS rose from 71,448 to 116,492 KiB. |
+| Disable GC for the replay | 81.96 billion | Peak RSS reached 2,558,168 KiB. With a 512 MiB runtime limit, the replay used 82.41 billion instructions and 535,772 KiB peak RSS. |
+
+Disabling collection leaves **3.96×** the native instruction count over the same search. These experiments favor reducing work at repeated AST access sites and shrinking allocations where profiles identify a specific owner. They offer little evidence for changing global AST page size or retaining pointers in every rewrite frame. [Pointer timings](perf/ivy_raft/raft-app-pointers.csv) · [Pointer patch](perf/ivy_raft/app-pointer-control.patch) · [Layout timings](perf/ivy_raft/ast-record-groups.csv) · [Four-record patch](perf/ivy_raft/ast-node-group-control.patch) · [Page timings](perf/ivy_raft/ast-record-pages.csv) · [GC settings](perf/ivy_raft/order-kernel-gc.csv)
+
 #### Memory per quantifier matcher and per solver
 
 An allocation profile of the 419 matched kernel checks attributed about 190 MB to constructing quantifier matchers. Each matcher embedded two 64-by-64 tables of path-tree pointers for finding matching parents and children. Together these used 96 KiB on amd64 before inserting a pattern. Each quantifier manager constructs an eager and a lazy matcher. The new layout allocates one hash row on its first insertion. Each cell has a stable address for scope rollback. [Implementation](smtcore/smt_mam_impl.go)

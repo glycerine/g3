@@ -1,0 +1,93 @@
+--- a/pkg/ast/ast_rewriter_access.go
++++ b/pkg/ast/ast_rewriter_access.go
+@@ -69,3 +69,45 @@
+ 	}
+ 	return 0, 0, 0, false, ErrASTDomain
+ }
++
++// BorrowedRewriteApp is valid while a rewrite frame holds the source AST.
++type BorrowedRewriteApp struct{ slot *astNodeSlot }
++
++func (m *ASTManager) BorrowRewriteApp(h ASTHandle) BorrowedRewriteApp {
++	if m.fastHandle(h) {
++		return BorrowedRewriteApp{&m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]}
++	}
++	return BorrowedRewriteApp{}
++}
++func (v BorrowedRewriteApp) Argument(m *ASTManager, h ASTHandle, i uint32) (ASTHandle, error) {
++	if v.slot == nil || !m.fastHandle(h) {
++		return m.GetArg(h, i)
++	}
++	if i >= v.slot.app.count {
++		return ASTHandle{}, ErrASTDomain
++	}
++	if i < astInlineArgs {
++		return m.external(v.slot.app.inlineArgs[i]), nil
++	}
++	child, e := m.appArg(&v.slot.app, i)
++	return m.external(child), e
++}
++func (v BorrowedRewriteApp) Declaration(m *ASTManager, h ASTHandle) (ASTHandle, error) {
++	if v.slot == nil || !m.fastHandle(h) {
++		return m.GetDecl(h)
++	}
++	return m.external(v.slot.app.decl), nil
++}
++func (v BorrowedRewriteApp) References(m *ASTManager, h ASTHandle) (uint32, error) {
++	if v.slot == nil || !m.fastHandle(h) {
++		return m.GetRefCount(h)
++	}
++	return v.slot.node.rc, nil
++}
++func (v BorrowedRewriteApp) IsFoldOperator(m *ASTManager, h ASTHandle, kind int32) (bool, error) {
++	if v.slot != nil && m.fastHandle(h) && v.slot.app.declCached {
++		return v.slot.app.declFamily == m.BasicFamilyID() && v.slot.app.declKind == kind, nil
++	}
++	app, f, k, err := m.AppIdentity(h)
++	return app && f == m.BasicFamilyID() && k == kind, err
++}
+--- a/pkg/ast/rewriter/rewriter_engine.go
++++ b/pkg/ast/rewriter/rewriter_engine.go
+@@ -687,6 +687,7 @@
+ 	fi := len(c.frames) - 1
+ 	fr := c.frames[fi]
+ 	t := fr.curr
++	view := m.BorrowRewriteApp(t)
+ 	n := fr.numArgs
+ 	if ast.ASTValidateHandles {
+ 		k, e := m.GetNumArgs(t)
+@@ -708,7 +709,7 @@
+ 				return nil
+ 			}
+ 			i := c.frames[fi].index()
+-			arg, e := m.GetArg(t, i)
++			arg, e := view.Argument(m, t, i)
+ 			if e != nil {
+ 				return e
+ 			}
+@@ -727,7 +728,7 @@
+ 			// flattening. Rebuild exactly when a child changed.
+ 			h := t
+ 			if fr.newChild() {
+-				d, e := m.GetDecl(t)
++				d, e := view.Declaration(m, t)
+ 				if e != nil {
+ 					return e
+ 				}
+@@ -745,14 +746,14 @@
+ 			}
+ 			return r.finish(fr, false, true)
+ 		}
+-		d, e := m.GetDecl(t)
++		d, e := view.Declaration(m, t)
+ 		if e != nil {
+ 			return e
+ 		}
+ 		// f->is_associative() && t->get_ref_count() <= 1 &&
+ 		// frame_stack().size() > 1: pure reads, the declaration's flags
+ 		// read only when the cheaper tests pass.
+-		rc, e := m.GetRefCount(t)
++		rc, e := view.References(m, t)
+ 		if e != nil {
+ 			return e
+ 		}

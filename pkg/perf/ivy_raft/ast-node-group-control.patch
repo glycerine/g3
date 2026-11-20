@@ -1,0 +1,74 @@
+--- a/pkg/ast/ast_core_storage.go
++++ b/pkg/ast/ast_core_storage.go
+@@ -233,7 +233,10 @@
+ // second page. app[i] is meaningful only while slot i holds a live
+ // application; allocateNode clears it when an application takes the slot.
+ type astNodePage struct {
+-	slots [astPageSize]astNodeSlot
++	groups [astPageSize / 4]struct {
++		node [4]astNodeRecord
++		app  [4]astAppRecord
++	}
+ }
+ 
+ // astNodeSlot is one slot's node record and application record, padded to
+@@ -451,7 +454,7 @@
+ 	return uint32(n), nil
+ }
+ func (m *ASTManager) nodeAt(slot uint32) *astNodeRecord {
+-	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize].node
++	return &m.nodes[(slot-1)/astPageSize].groups[((slot-1)%astPageSize)/4].node[(slot-1)%4]
+ }
+ func (m *ASTManager) sortAt(slot uint32) *astSortRecord {
+ 	index := m.nodeAt(slot).kindIndex
+@@ -462,7 +465,7 @@
+ 	return &m.decls[(index-1)/astPageSize][(index-1)%astPageSize]
+ }
+ func (m *ASTManager) appAt(slot uint32) *astAppRecord {
+-	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize].app
++	return &m.nodes[(slot-1)/astPageSize].groups[((slot-1)%astPageSize)/4].app[(slot-1)%4]
+ }
+ func (m *ASTManager) varAt(slot uint32) *astVarRecord {
+ 	index := m.nodeAt(slot).kindIndex
+--- a/pkg/ast/ast_held_constant.go
++++ b/pkg/ast/ast_held_constant.go
+@@ -8,10 +8,11 @@
+ 	if astValidateHandles || h.IsNull() || !m.lockFree() {
+ 		return false
+ 	}
+-	slot := &m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]
+-	if slot.node.kind != ASTApp || !slot.app.declCached || slot.app.count != 0 || slot.app.declFamily != NullFamilyID {
++	slot := &m.nodes[(h.slot-1)/astPageSize].groups[((h.slot-1)%astPageSize)/4]
++	idx := (h.slot - 1) % 4
++	if slot.node[idx].kind != ASTApp || !slot.app[idx].declCached || slot.app[idx].count != 0 || slot.app[idx].declFamily != NullFamilyID {
+ 		return false
+ 	}
+-	slot.node.rc++
++	slot.node[idx].rc++
+ 	return true
+ }
+--- a/pkg/ast/ast_rewriter_access.go
++++ b/pkg/ast/ast_rewriter_access.go
+@@ -57,15 +57,16 @@
+ 			return
+ 		}
+ 	}
+-	slot := &m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]
+-	switch slot.node.kind {
++	slot := &m.nodes[(h.slot-1)/astPageSize].groups[((h.slot-1)%astPageSize)/4]
++	idx := (h.slot - 1) % 4
++	switch slot.node[idx].kind {
+ 	case ASTApp:
+-		return ASTApp, slot.node.rc, slot.app.count, slot.app.ground, nil
++		return ASTApp, slot.node[idx].rc, slot.app[idx].count, slot.app[idx].ground, nil
+ 	case ASTVar:
+-		i := slot.node.kindIndex - 1
+-		return ASTVar, slot.node.rc, m.vars[i/astPageSize][i%astPageSize].index, false, nil
++		i := slot.node[idx].kindIndex - 1
++		return ASTVar, slot.node[idx].rc, m.vars[i/astPageSize][i%astPageSize].index, false, nil
+ 	case ASTQuantifier:
+-		return ASTQuantifier, slot.node.rc, 0, false, nil
++		return ASTQuantifier, slot.node[idx].rc, 0, false, nil
+ 	}
+ 	return 0, 0, 0, false, ErrASTDomain
+ }
