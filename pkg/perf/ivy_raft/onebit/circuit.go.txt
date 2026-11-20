@@ -14,3 +14,19 @@ func CompileOneBit(m *ast.ASTManager, assertions []ast.ASTHandle) (*StudyCNF, bo
 	k, err := t.booleanProblem(500_000)
 	return (*StudyCNF)(k), k != nil, err
 }
+
+// PreparedCircuit holds type inference fixed while measuring Boolean encoding.
+type PreparedCircuit struct{ terms inference }
+
+func PrepareCircuit(m *ast.ASTManager, assertions []ast.ASTHandle) (*PreparedCircuit, bool, error) {
+	var input PreparedCircuit
+	ok, err := input.terms.infer(m, assertions)
+	if err != nil || !ok {
+		return nil, false, err
+	}
+	return &input, true, nil
+}
+
+func (input *PreparedCircuit) Compile() (*BooleanProblem, error) {
+	return input.terms.booleanProblem(500_000)
+}

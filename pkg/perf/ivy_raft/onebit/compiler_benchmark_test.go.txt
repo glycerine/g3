@@ -1,0 +1,48 @@
+package api
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/api/internal/order"
+)
+
+// Sparse input repeats one requirement 1,024 times. The symbolic lookup
+// selects a truth-table row with four unconstrained function results.
+func BenchmarkRaftBooleanEncoder(b *testing.B) {
+	queries := oneBitRaftQueries(b)
+	const pred = "(declare-fun p ((_ BitVec 1)) Bool)\n"
+	const requirement = "(assert (forall ((x (_ BitVec 1))) (p x)))\n"
+	const lookup = `(declare-fun f ((_ BitVec 1) (_ BitVec 1) (_ BitVec 1) (_ BitVec 1)) Bool)
+(declare-fun p ((_ BitVec 1)) (_ BitVec 1))
+(declare-fun q ((_ BitVec 1)) (_ BitVec 1))
+(assert (forall ((a (_ BitVec 1)) (b (_ BitVec 1)) (c (_ BitVec 1)) (d (_ BitVec 1)))
+                (f (p a) (q b) (p c) (q d))))`
+	for _, tc := range []struct{ name, input string }{
+		{"Raft001", queries[0]}, {"Raft274", queries[273]},
+		{"Small", pred + requirement}, {"Repeated", pred + strings.Repeat(requirement, 1024)},
+		{"SymbolicLookup", lookup},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			manager, assertions := benchmarkOrderAssertions(b, tc.input, (*SMTContext).NewSimpleSolver)
+			plan, ok, err := order.PrepareCircuit(manager, assertions)
+			if err != nil || !ok {
+				b.Fatal("preparing circuit", ok, err)
+			}
+			want, err := plan.Compile()
+			if err != nil || want == nil {
+				b.Fatal("initial encoding", err)
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				got, err := plan.Compile()
+				if err != nil || got == nil || got.Vars != want.Vars || got.Work != want.Work || len(got.Clauses) != len(want.Clauses) {
+					b.Fatal("encoding changed", err)
+				}
+			}
+			b.ReportMetric(float64(len(want.Clauses)), "clauses/op")
+			b.ReportMetric(float64(want.Vars), "variables/op")
+		})
+	}
+}

@@ -23,7 +23,7 @@ type bitCompiler struct {
 	firstGate         int32
 	work              int
 	m                 *ast.ASTManager
-	gates             map[bitGate]int32
+	gates             map[uint64]int32
 	values            []int32
 	firstVariable     []int32
 }
@@ -31,12 +31,12 @@ type bitRoot struct {
 	after int
 	lit   int32
 }
-type bitGate struct{ op, a, b, c int32 }
 
-const (
-	bitAnd int32 = iota
-	bitITE
-)
+// An AND uses two signed literals. An ITE always has a nonzero third literal.
+type bitGate struct{ a, b, c int32 }
+
+// Truth-table inputs and generated gates each have this many available slots.
+const bitCompilerLimit = 100_000
 
 var errBitLimit = errors.New("one-bit expansion limit")
 
@@ -83,20 +83,22 @@ func (t *inference) booleanProblem(steps uint32) (*BooleanProblem, error) {
 			return nil, nil
 		}
 	}
+	ceiling := int(min(steps, 500_000))
 	k := &bitCompiler{
 		BooleanProblem: BooleanProblem{Vars: 1},
-		m:              t.m, ceiling: int(min(steps, 500_000)),
-		gates:         make(map[bitGate]int32),
-		values:        make([]int32, len(t.declarations)),
-		firstVariable: make([]int32, len(t.signatures)),
+		m:              t.m,
+		ceiling:        ceiling,
+		roots:          make([]bitRoot, 0, min(len(t.assertions), ceiling, 8192)),
+		values:         make([]int32, len(t.declarations)),
+		firstVariable:  make([]int32, len(t.signatures)),
 	}
-	k.emit(1, 0, 0)
+
 	for i, s := range t.signatures {
 		if len(s.inputs) > 10 {
 			return nil, nil
 		}
 		rows := 1 << uint(len(s.inputs))
-		if k.Vars+rows > 100_000 {
+		if k.Vars+rows > bitCompilerLimit {
 			return nil, nil
 		}
 		if e := k.charge(rows); e != nil {
@@ -105,6 +107,11 @@ func (t *inference) booleanProblem(steps uint32) (*BooleanProblem, error) {
 		k.firstVariable[i] = int32(k.Vars + 1)
 		k.Vars += rows
 	}
+	// Limit the starting capacity on repeated assertions and small budgets.
+	// Both tables grow if the expanded circuit needs more gates.
+	size := min(8192, len(t.terms), k.ceiling/2, 12*k.Vars)
+	k.gates = make(map[uint64]int32, size)
+	k.nodes = make([]bitGate, 0, size)
 	k.firstGate = int32(k.Vars + 1)
 	for _, id := range t.assertions {
 		lit, err := k.eval(t, id)
@@ -129,7 +136,7 @@ func (t *inference) booleanProblem(steps uint32) (*BooleanProblem, error) {
 
 func (k *bitCompiler) charge(n int) error {
 	k.work += n
-	if k.work > k.ceiling || len(k.nodes) > 100_000 {
+	if k.work > k.ceiling {
 		return errBitLimit
 	}
 	if k.work >= k.nextPoll {
@@ -139,6 +146,28 @@ func (k *bitCompiler) charge(n int) error {
 		k.nextPoll = k.work + 256
 	}
 	return nil
+}
+
+// Each signed literal fits in 21 bits: input tables contribute at most
+// bitCompilerLimit variables and gate construction adds at most that many more.
+// The zero third operand distinguishes a conjunction from a conditional.
+func (k *bitCompiler) intern(g bitGate) int32 {
+	const offset = 1 << 20
+	key := uint64(g.a+offset) | uint64(g.b+offset)<<21 | uint64(g.c+offset)<<42
+	if x := k.gates[key]; x != 0 {
+		return x
+	}
+	if len(k.nodes) == bitCompilerLimit {
+		// No result can escape an exhausted budget. booleanProblem calls
+		// charge once more before emitting any clauses.
+		k.work = k.ceiling + 1
+		return 1
+	}
+	k.Vars++
+	x := int32(k.Vars)
+	k.gates[key] = x
+	k.nodes = append(k.nodes, g)
+	return x
 }
 
 // Interning AND and ITE gates gives every occurrence of the same Boolean
@@ -156,15 +185,7 @@ func (k *bitCompiler) and(a, b int32) int32 {
 	if a > b {
 		a, b = b, a
 	}
-	key := bitGate{op: bitAnd, a: a, b: b}
-	if n := k.gates[key]; n != 0 {
-		return n
-	}
-	k.Vars++
-	x := int32(k.Vars)
-	k.gates[key] = x
-	k.nodes = append(k.nodes, key)
-	return x
+	return k.intern(bitGate{a: a, b: b})
 }
 
 func (k *bitCompiler) ite(c, a, b int32) int32 {
@@ -195,15 +216,7 @@ func (k *bitCompiler) ite(c, a, b int32) int32 {
 		a, b = -a, -b
 		neg = -1
 	}
-	key := bitGate{op: bitITE, a: c, b: a, c: b}
-	if n := k.gates[key]; n != 0 {
-		return neg * n
-	}
-	k.Vars++
-	x := int32(k.Vars)
-	k.gates[key] = x
-	k.nodes = append(k.nodes, key)
-	return neg * x
+	return neg * k.intern(bitGate{a: c, b: a, c: b})
 }
 
 // Each function's truth table occupies consecutive SAT variables. A known
@@ -341,6 +354,8 @@ func (k *bitCompiler) eval(t *inference, id int32) (int32, error) {
 // A positive occurrence of a gate needs only the forward implication.
 // Mark dependencies in reverse construction order before writing clauses.
 func (k *bitCompiler) emitGates() bool {
+	// Count the constant, roots and polarity-dependent clauses in this pass.
+	rows := 1 + len(k.roots)
 	need := make([]uint8, k.Vars+1)
 	mark := func(x int32) {
 		if x < 0 {
@@ -366,20 +381,27 @@ func (k *bitCompiler) emitGates() bool {
 			continue
 		}
 		a, b := g.a, g.b
-		if g.op == bitITE {
+		if g.c != 0 {
 			mark(a)
 			mark(-a)
 			a, b = g.b, g.c
 		}
 		if flags&1 != 0 {
+			rows += 2
 			mark(a)
 			mark(b)
 		}
 		if flags&2 != 0 {
+			rows++
+			if g.c != 0 {
+				rows++
+			}
 			mark(-a)
 			mark(-b)
 		}
 	}
+	k.Clauses = make([]BooleanClause, 1, rows)
+	k.Clauses[0] = BooleanClause{1}
 	next := 0
 	for i := 0; i <= len(k.nodes); i++ {
 		if i%512 == 0 && k.m.ResourceLimit().CancelFlag() {
@@ -399,7 +421,7 @@ func (k *bitCompiler) emitGates() bool {
 		g := k.nodes[i]
 		x := k.firstGate + int32(i)
 		flags := need[x]
-		if g.op == bitAnd {
+		if g.c == 0 {
 			if flags&1 != 0 {
 				k.emit(-x, g.a, 0)
 				k.emit(-x, g.b, 0)

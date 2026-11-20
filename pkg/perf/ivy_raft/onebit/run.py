@@ -21,7 +21,7 @@ def build(work, truth_tables):
     files = {}
     for source in HERE.glob("*.go.txt"):
         name = source.name.removesuffix(".txt")
-        package = ROOT / "api" if name in {"replay_test.go", "residual_test.go"} else order
+        package = ROOT / "api" if name in {"replay_test.go", "residual_test.go", "compiler_benchmark_test.go"} else order
         files[str(package / ("onebit_study_" + name))] = str(source)
     overlay = work / "overlay.json"
     overlay.write_text(json.dumps({"Replace": files}))
@@ -74,16 +74,26 @@ def main():
     parser.add_argument("--models", type=int, default=0, help="add this many SAT/UNSAT witness pairs")
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--truth-tables", action="store_true", help="also check 70,000 small CNFs")
-    parser.add_argument("--bench-residual", type=int, metavar="N",
+    bench = parser.add_mutually_exclusive_group()
+    bench.add_argument("--bench-compiler", type=int, metavar="N",
+                      help="time Boolean encoding of preloaded inputs for N iterations")
+    bench.add_argument("--bench-residual", type=int, metavar="N",
                         help="time N full SAT searches over the precompiled Raft corpus")
     args = parser.parse_args()
     if args.bench_residual is not None and args.bench_residual < 1:
         parser.error("--bench-residual requires a positive iteration count")
+    if args.bench_compiler is not None and args.bench_compiler < 1:
+        parser.error("--bench-compiler requires a positive iteration count")
     if args.rounds < 1 or args.models < 0 or args.start < 0:
         parser.error("invalid round, count or seed")
     with tempfile.TemporaryDirectory() as directory:
         work = Path(directory)
         driver = build(work, args.truth_tables)
+        if args.bench_compiler is not None:
+            subprocess.run([driver, "-test.run=^$", "-test.bench=^BenchmarkRaftBooleanEncoder$",
+                            f"-test.benchtime={args.bench_compiler}x", "-test.cpu=1"],
+                           cwd=ROOT / "api", check=True)
+            return
         if args.bench_residual is not None:
             subprocess.run([driver, "-test.run=^$", "-test.bench=^BenchmarkRaftBooleanResidualSearch$",
                             f"-test.benchtime={args.bench_residual}x", "-test.cpu=1"],

@@ -1030,3 +1030,22 @@ The SMT Boolean record already uses 16 bytes, including an 8-byte justification.
 Across 128 active one-bit solvers on obligation 274, the 8-byte column saved **60 KiB per solver**, or 7.50 MiB for the group. After closing the batch the sizes matched within 8 bytes per solver. At 16,384 live entries, the median cost of writing and reading a binary justification rose from **12.93 to 16.97 ns**, and a clause justification from **15.36 to 18.53 ns**. There were 20 samples per layout and fixture. [Resident heap](perf/ivy_raft/allocator/sat-reason-owners.csv) · [Five column layouts](perf/ivy_raft/allocator/sat-reason-column.csv)
 
 Across 32 runs of the 419 residual SAT problems, instructions rose from **11.52 to 11.62 billion**. The complete one-bit Raft checker went from **13.67 to 13.73 billion** in 28 runs per build. The general SAT column therefore retains its 32-byte record. To reproduce the size comparison, run `go test ./sat -run Justification -bench '^BenchmarkSATJustificationColumn$' -cpu=1` before and after applying the prototype patch at the repository root. [SAT replay and search counters](perf/ivy_raft/allocator/sat-reason-search.csv.gz) · [Complete checker](perf/ivy_raft/allocator/sat-reason-checker.csv)
+
+#### Building the one-bit Boolean circuit
+
+The encoder now stores three signed 32-bit literals per gate. A conjunction has a zero third operand, while a conditional always has three nonzero operands. The two existing limits of 100,000 inputs and 100,000 gates keep each literal well within a signed 21-bit field. Packing three fields into a 64-bit Go map key preserves operand order and signs. The backwards pass that determines which polarities are needed also counts the exact number of CNF rows. The builder reserves those rows once and retains its original emission order. All the storage belongs to one proof attempt. [Encoder](api/internal/order/boolean_problem.go) · [Gate identity and exhaustion tests](api/internal/order/boolean_problem_test.go)
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Encode one-bit Raft 274, CPU 6 | 872 µs | 586 µs |
+| Bytes allocated during that encoding | 603,904 | 248,992 |
+| Allocations during that encoding | 74 | 19 |
+| Prepare the whole proof input for 274, CPU 6 | 1,076 µs | 797 µs |
+| Prepare the whole proof input for 274, CPU 28 | 1,068 µs | 789 µs |
+| Bytes allocated preparing the proof input | 795,480 | 443,384 |
+| Complete one-bit spec, wall time | 1.76 s | 1.63 s |
+| Complete one-bit spec, instructions | 13.41 billion | 13.14 billion |
+
+The isolated benchmark used 21 rotations per core. Obligation 274 generated the same 3,102 variables and 5,354 clauses. Repeating a single predicate 1,024 times exercises the opposite case. Bounding the initial gate capacity by the number of input variables reduced allocation there from 93,704 to 35,788 bytes. A handwritten hash table was faster on some small circuits but used 116,020 bytes on the repeated input and 306,080 on 274. The full-checker crossover used 21 runs per binary and width. The mixed-width spec, which uses the order solver, retired 49.19 and 49.23 billion instructions. Run `python3 perf/ivy_raft/onebit/run.py --bench-compiler 400` from `pkg/`. [Five encoder fixtures](perf/ivy_raft/onebit/compiler_benchmark_test.go.txt) · [Production samples](perf/ivy_raft/onebit/encoder-production.csv.gz) · [Complete checks](perf/ivy_raft/onebit/encoder-release.csv) · [Twelve gate layouts](perf/ivy_raft/onebit/gate-layouts.csv.gz) · [Layout checks on two cores](perf/ivy_raft/onebit/gate-checker.csv.gz)
+
+The raw clauses, reduced clauses, variable counts and charged work matched byte for byte on all 419 queries. Three replay rounds agreed on 2,500 fresh satisfiable formulas, their contradictory companions and all Raft answers with both general SAT and the independent certificate-checking solver. The public batch API also checked 10,000 separate known models and 20,000 refutations, with native Z3 confirming all 19 independently sampled pairs. The seed ranges started at 6,100,000 and 6,000,000 respectively. [CNF replay](perf/ivy_raft/onebit/run.py) · [Public batch validation](perf/ivy_raft/onebit/batch/check.py)
