@@ -27,6 +27,13 @@ func TestASTSetRefLockFreeMatchesLocked(t *testing.T) {
 		var out []uint32
 		ref, e := m.NewRef(ASTHandle{})
 		astTestMust(t, e)
+		astTestMust(t, set(ref, ASTHandle{}))
+		if h, err := get(ref); err != nil || !h.IsNull() {
+			t.Fatal("empty reference", h, err)
+		}
+		if err := set(ref, ASTHandle{origin: m.origin}); !errors.Is(err, ErrASTHandle) {
+			t.Fatal("malformed null handle", err)
+		}
 		astTestMust(t, set(ref, x))
 		astTestMust(t, set(ref, x))
 		out = append(out, rc(x), rc(y))
@@ -49,6 +56,9 @@ func TestASTSetRefLockFreeMatchesLocked(t *testing.T) {
 		astTestMust(t, m.ResetRef(ref))
 		stale := ref
 		astTestMust(t, m.DelRef(&ref))
+		if err := set(stale, ASTHandle{}); !errors.Is(err, ErrASTHandle) {
+			t.Fatal("clearing stale reference", err)
+		}
 		if e := set(stale, x); !errors.Is(e, ErrASTHandle) {
 			t.Fatal("stale set", e)
 		}

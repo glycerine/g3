@@ -167,6 +167,13 @@ func (m *ASTManager) AssignRef(dst, src ASTRef) error {
 	return m.assignRef(dst, r.node)
 }
 func (m *ASTManager) SetRef(dst ASTRef, h ASTHandle) error {
+	// A validated empty reference already has the requested value. A manager
+	// with pending deletions still has to process them through its normal lock.
+	if !astValidateHandles && h.IsNull() && m != nil && m.lockFree() {
+		if ref, err := m.reference(dst); err == nil && ref.node == (astNodeRef{}) && !ref.owned {
+			return nil
+		}
+	}
 	// A lock-free manager assigns a validated live node to a validated
 	// owning reference without the lock when the old node survives (no
 	// deletion runs): assignRef's incNode/decNode on live nodes. Every
