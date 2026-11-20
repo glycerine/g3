@@ -107,3 +107,7 @@ round,cpu,engine,benchmark,case,pop_ns,whole_ns
 9,30,g3,make-go,ScopedAtoms,14831,
 9,30,g3,queue-go,SurvivingAtoms,302.0,59384
 9,30,g3,queue-go,ScopedAtoms,19486,82712
+1,default,g3,make bench,SurvivingAtoms,723.2,
+1,default,g3,make bench,ScopedAtoms,24960,
+1,default,z3,make cppbench,SurvivingAtoms,477.32,
+1,default,z3,make cppbench,ScopedAtoms,12736.92,
