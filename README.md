@@ -2,8 +2,9 @@
 
 g3 is a port of Z3 (C++) to pure Go. 
 
-Status: the port is feature complete. It is currently undergoing performance optimization and tuning
-since, unsurprisingly, the baseline Go port g3 is slower than the C++ original Z3.
+Status: the port is feature complete. Performance optimization and tuning has
+made g3 tied with or even faster than the C++ original Z3 in many cases. Multiple cores are vastly easier
+to utilize in g3, making it the preferred version for general work.
 
 The C++ Z3 is also included in this repo. The version of Z3 is the version that Ivy needs. This
 is a fork of Z3 4.7.1 with patches applied. 
