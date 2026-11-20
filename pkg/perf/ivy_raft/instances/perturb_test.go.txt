@@ -1,0 +1,38 @@
+package api
+
+import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"os"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/api/internal/order"
+	"github.com/glycerine/g3/pkg/solver"
+)
+
+func TestPerturbedInstanceProofs(t *testing.T) {
+	input := bufio.NewScanner(os.Stdin)
+	input.Buffer(nil, 8<<20)
+	for input.Scan() {
+		var row struct{ ID, Text string }
+		astTestMust(t, json.Unmarshal(input.Bytes(), &row))
+		func() {
+			ctx, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, ctx.Close()) }()
+			source, err := ctx.NewSolver()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, source.Close()) }()
+			astTestMust(t, source.LoadSMT2String(row.Text))
+			assertions, err := solver.Assertions(source.solver)
+			astTestMust(t, err)
+			manager, err := ctx.Manager()
+			astTestMust(t, err)
+			proof, ok, err := order.ForProof(manager, assertions, orderProofSteps)
+			astTestMust(t, err)
+			fmt.Println("PROBE", row.ID, ok, proof.Refuted)
+		}()
+	}
+	astTestMust(t, input.Err())
+}

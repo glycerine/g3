@@ -941,3 +941,24 @@ Run `python3 perf/ivy_raft/onebit/run.py --bench-residual 3` to benchmark the pr
 The public API worker benchmark exposed an ownership bug. Two private SMT-LIB parsers could temporarily install their parameter services as the process default. If the first parser and its solver closed before the second parser finished, the second parser tried to restore the first solver's closed arena. A two-worker regression schedules that ordering with channels. It reproduced the failure before the fix and passed 50 consecutive times afterward. Each solver stays on one goroutine throughout the test. [Overlapping parser regression](api/api_parser_independent_test.go)
 
 Private parsers now borrow their solver's AST manager and parameter service for the whole parse. Only a main command session installs the process parameter binding. AST printers and diagnostic formatters use the manager's parameter service when present. The fix adds no lock to the worker path. The AST, command context, SMT-LIB parser and API suites passed, as did the GoIvy SMT and bridge tests. The Paxos liveness replay still matched the Python reference on all 27,855 normalized output lines. [Parser ownership](cmd_context/parser_context.go) · [Command session binding](parsers/smt2/commands.go) · [Private and main session tests](parsers/smt2/command_globals_test.go)
+
+#### Testing ground-instance proofs against independent native answers
+
+Ten deterministic transformations per obligation retain 0–100% of the premises, reorder them, or negate the goal. For each of the 419 mixed-width and 419 one-bit originals, a fresh native Z3 process checked each transformation. The direct matcher returned a proof on **675 of 4,190 inputs at each width**. Native Z3 returned UNSAT for every one of those 1,350 proofs. It returned SAT on **2,822 mixed-width** and **2,937 one-bit** inputs. The direct matcher declined every SAT case. Of the other cases, native Z3 reported unknown on 201 mixed-width and six one-bit queries and terminated by signal on one mixed-width query. The ordinary timeout was 600 ms. Nine direct proofs needed a second native check with 10 s allowed. [Counts by transformation](perf/ivy_raft/instances/perturbations.csv) · [Per-query results](perf/ivy_raft/instances/perturbation-queries.csv.gz)
+
+Run `python3 perf/ivy_raft/instances/perturb.py --native ../build/z3 --input api/test_vectors/raft_order/mixed.jsonl.gz` from `pkg/`. Omitting the input selects the one-bit corpus. Each row records the native answer, direct proof decision and retry count. [Reproduction script](perf/ivy_raft/instances/perturb.py) · [Go API probe](perf/ivy_raft/instances/perturb_test.go.txt)
+
+With Raft domain widths of 2, 3, 4, 8 and 16, ground-instance matching reduced the complete checker from about **62.0 to 48.8 billion instructions** at every width. Each build reproduced all 419 obligations in every run. On the independent SHT and TLS specifications and their two variants, the instruction changes were below 1%. Native Z3 still used roughly half as many instructions as g3 on SHT. [Twelve rotations per input and build](perf/ivy_raft/instances/transfer.csv)
+
+#### Independent solvers on the complete Raft proof corpus
+
+The API benchmark assigns each goroutine a contiguous, disjoint range of the 419 original verification conditions. Each worker creates, uses and closes its own context, solver and proof batch. The measurement includes SMT-LIB parsing, push, proof, pop and cleanup. The captured queries omit the Ivy frontend. Dividing the sequence also means each worker has to rebuild its own premise state. [Worker benchmark](api/api_raft_boolean_benchmark_test.go) · [Original mixed widths](api/test_vectors/raft_order/mixed.jsonl.gz) · [One-bit input](api/test_vectors/raft_order/onebit.jsonl.gz)
+
+| Workers | Mixed, 1 Go CPU | Mixed, 4 Go CPUs | Mixed, 12 Go CPUs | One-bit, 12 Go CPUs | Mixed peak RSS, 12 Go CPUs |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 8.29 s | 9.44 s | 8.39 s | 2.71 s | 92 MiB |
+| 4 | 8.89 s | 3.32 s | 3.80 s | 1.05 s | 140 MiB |
+| 16 | 10.03 s | 2.91 s | **2.57 s** | **0.76 s** | 250 MiB |
+| 64 | 12.28 s | 3.72 s | 3.05 s | 0.93 s | 565 MiB |
+
+Medians of nine rotated runs per combination on logical CPUs 0–11 of the shared host. All 216 runs proved every obligation, with the private-parser ownership fix in the measured binary. On 12 Go CPUs, 16 workers gave 3.26× the throughput of one on mixed-width Raft and 3.57× on one-bit Raft. Sixty-four workers spent more time and memory on this fixed-size corpus. Earlier 1,024-owner measurements characterize resident solver memory. Run `go test ./api -run '^$' -bench '^BenchmarkRaftIndependentProofs$' -benchtime=1x -cpu=1,4,12`. [Raw timings and allocations](perf/ivy_raft/independent-proof-workers.csv)

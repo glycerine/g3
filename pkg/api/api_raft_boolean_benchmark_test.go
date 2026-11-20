@@ -3,15 +3,23 @@ package api
 import (
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"sync"
 	"testing"
 )
 
 func oneBitRaftQueries(b *testing.B) []string {
 	b.Helper()
-	f, err := os.Open("test_vectors/raft_order/onebit.jsonl.gz")
+	return raftProofQueries(b, "onebit")
+}
+
+func raftProofQueries(b *testing.B, width string) []string {
+	b.Helper()
+	f, err := os.Open("test_vectors/raft_order/" + width + ".jsonl.gz")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -52,38 +60,82 @@ func BenchmarkRaftBooleanProofs(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				runRaftBooleanProofs(b, queries, reuse)
+				if err := runRaftProofQueries(queries, reuse); err != nil {
+					b.Fatal(err)
+				}
 			}
 			b.ReportMetric(float64(len(queries)), "obligations/op")
 		})
 	}
 }
 
-func runRaftBooleanProofs(b *testing.B, queries []string, reuse bool) {
-	b.Helper()
-	must := func(err error) {
-		if err != nil {
-			b.Fatal(err)
+// Each worker owns a context, a solver and a proof batch from creation to close.
+// Contiguous ranges preserve premise reuse within each range. Every round
+// checks all 419 input obligations, including parsing and scope changes.
+func BenchmarkRaftIndependentProofs(b *testing.B) {
+	for _, width := range []string{"mixed", "onebit"} {
+		queries := raftProofQueries(b, width)
+		for _, workers := range []int{1, 4, 16, 64} {
+			b.Run(width+"/"+strconv.Itoa(workers), func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					errs := make([]error, workers)
+					var group sync.WaitGroup
+					for worker := 0; worker < workers; worker++ {
+						group.Add(1)
+						go func(w int) {
+							defer group.Done()
+							start, end := w*len(queries)/workers, (w+1)*len(queries)/workers
+							errs[w] = runRaftProofQueries(queries[start:end], true)
+						}(worker)
+					}
+					group.Wait()
+					for w, err := range errs {
+						if err != nil {
+							b.Fatalf("worker %d: %v", w, err)
+						}
+					}
+				}
+				b.ReportMetric(float64(len(queries)), "obligations/op")
+			})
 		}
 	}
+}
+
+func runRaftProofQueries(queries []string, reuse bool) (err error) {
 	ctx, err := NewSMTContext()
-	must(err)
-	defer func() { must(ctx.Close()) }()
-	s, err := ctx.NewSolver()
-	must(err)
-	defer func() { must(s.Close()) }()
-	prove := s.ProveUnsatByOrderAbstraction
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, ctx.Close()) }()
+	source, err := ctx.NewSolver()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, source.Close()) }()
+	prove := source.ProveUnsatByOrderAbstraction
 	if reuse {
-		batch := s.BeginOrderProofBatch()
-		defer func() { must(batch.Close()) }()
+		batch := source.BeginOrderProofBatch()
+		defer func() { err = errors.Join(err, batch.Close()) }()
 		prove = batch.Prove
 	}
 	for i, input := range queries {
-		must(s.Push())
-		must(s.LoadSMT2String(input))
-		if proved, err := prove(); err != nil || !proved {
-			b.Fatalf("obligation %03d proved %v, error %v", i+1, proved, err)
+		if err := source.Push(); err != nil {
+			return err
 		}
-		must(s.Pop(1))
+		if err := source.LoadSMT2String(input); err != nil {
+			return err
+		}
+		proved, err := prove()
+		if err != nil {
+			return err
+		}
+		if !proved {
+			return fmt.Errorf("unproved query %d in batch", i+1)
+		}
+		if err := source.Pop(1); err != nil {
+			return err
+		}
 	}
+	return nil
 }
