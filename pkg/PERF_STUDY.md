@@ -819,3 +819,23 @@ Across five groups of 1,024 solvers, the shifter change saved a further **190 Mi
 The theory rewriter knows both the family and the operator before it calls the Boolean rewriter. Passing the operator to the existing reduction switch saves another read of the declaration. The public Boolean entry point continues to resolve the operator from its input declaration and run the debug family check. [Theory dispatch](ast/rewriter/th_rewriter.go) · [Boolean reduction](ast/rewriter/rewriter_configuration.go)
 
 Over 13 rotated runs of the 419-obligation matched kernel, the retained variant (`minimal` in the CSV) reduced median instructions from **89.31 to 88.66 billion** and user CPU from 13.61 to 13.07 s. All 18 integer search counters matched on each obligation. Over 17 samples of the public theory rewriter, median times for negation, conjunction and equality went from 395 to 359, 505 to 475 and 453 to 380 ns respectively. The uninterpreted-constant control took 509 and 506 ns. Adding a public combined family/kind accessor saved a further 0.09 billion instructions in this run. The retained change uses the existing AST interface. Run `go test ./api -run '^$' -bench '^BenchmarkRaftBooleanRewrite$' -benchtime=300000x -cpu=1`. [Benchmark](api/api_raft_boolean_rewrite_benchmark_test.go) · [Kernel samples](perf/ivy_raft/boolean-dispatch-kernel.csv) · [Public API samples](perf/ivy_raft/boolean-dispatch-micro.csv)
+
+#### Compilation profiles for the current checker
+
+The Go 1.27.3 compiler was trained on three paths through g3. The saved blended profile combines five mixed-width checker runs, five all-one-bit prototype runs and a replay of the 419 matched SMT kernel checks. Six compiler configurations were rotated across two cores, with 18 complete runs of each configuration on each input. Both SHT isolates and both TLS isolates were held out of training. All runs matched their corresponding native transcripts. [Training profile](perf/ivy_raft/raft-blended.pprof) · [Per-run results](perf/ivy_raft/pgo-checker-crossover.csv)
+
+| Input | Instructions with PGO off | With blended PGO | Median user CPU, off → blended |
+|---|---:|---:|---:|
+| Original Raft | 64.19 billion | 59.28 billion | 10.64 → 9.83 s |
+| All-one-bit Raft, ordinary checker | 64.25 billion | 59.31 billion | 10.36 → 10.39 s |
+| Sharded hash table, process isolate | 9.68 billion | 9.07 billion | 1.66 → 1.63 s |
+| Sharded hash table, transfer isolate | 10.74 billion | 9.98 billion | 1.82 → 1.66 s |
+| TLS, stream-data isolate | 0.98 billion | 0.96 billion | 0.16 → 0.17 s |
+| TLS, stream-position isolate | 1.23 billion | 1.19 billion | 0.23 → 0.18 s |
+
+On the original Raft workload the blended profile removed **7.6% of instructions**. User CPU improved on four of the six inputs. The two shortest runs took fractions of a second, and timing varied with other work on the host. These results support testing the profile with the intended Go version and target machine. With a local g3 module replacement, run the following in the GoIvy module, setting `g3pkg` to the local g3/pkg directory.
+
+```sh
+go build -mod=readonly -tags=xtrace_off -pgo="$g3pkg/perf/ivy_raft/raft-blended.pprof" -o /tmp/goivy-pgo ./cmd/goivy_check
+go build -mod=readonly -tags=xtrace_off -pgo=off -o /tmp/goivy-no-pgo ./cmd/goivy_check
+```
