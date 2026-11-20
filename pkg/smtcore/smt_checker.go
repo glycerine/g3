@@ -42,6 +42,12 @@ func (c *SMTCheckerContext) isRelevant(expression ast.ASTHandle) bool {
 	return c.relevant.get(expression)
 }
 
+// SetRelevancy binds the propagator to this same context. An enode and
+// its relevance mark occupy the same generation-checked expression record.
+func (c *SMTCheckerContext) recordRelevant(record *smtExprRecord) bool {
+	return c.relevancy != nil && !c.relevancy.enabled || record != nil && record.flags&smtExprRelevant != 0
+}
+
 func NewSMTCheckerContext(manager *ast.ASTManager) (*SMTCheckerContext, error) {
 	if manager == nil {
 		return nil, ast.ErrASTHandle
@@ -361,6 +367,10 @@ func (c *SMTChecker) enodeEqualTo(expression ast.ASTHandle) (*SMTEnode, error) {
 	if err != nil {
 		return nil, err
 	}
+	return c.enodeWithHeader(expression, header)
+}
+
+func (c *SMTChecker) enodeWithHeader(expression ast.ASTHandle, header ast.ASTNodeHeader) (*SMTEnode, error) {
 	if header.Kind == ast.ASTVar {
 		index, err := c.context.manager.GetVarIndex(expression)
 		if err != nil || int(index) >= len(c.bindings) {
@@ -368,8 +378,8 @@ func (c *SMTChecker) enodeEqualTo(expression ast.ASTHandle) (*SMTEnode, error) {
 		}
 		return c.bindings[len(c.bindings)-int(index)-1], nil
 	}
-	if node := c.context.enodes.get(expression); node != nil && c.context.isRelevant(expression) {
-		return node, nil
+	if record := c.context.exprs.read(expression); record != nil && record.enode != nil && c.context.recordRelevant(record) {
+		return record.enode, nil
 	}
 	if header.Kind != ast.ASTApp || header.NumArgs == 0 {
 		return nil, nil
@@ -426,8 +436,15 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, header ast.ASTNodeHeade
 			return false, ast.ErrASTDomain
 		}
 	}
-	if c.context.bInternalized(expression) && c.context.isRelevant(expression) {
-		assignment := c.context.getAssignment(expression)
+	record := c.context.exprs.read(expression)
+	if assignment, found := c.context.assignments.lookupRecord(record); found && c.context.recordRelevant(record) {
+		// Ordinary atoms use the assignment we just read. get_assignment
+		// interprets the false constant and the operand of a NOT specially.
+		if manager.IsFalse(expression) {
+			assignment = lbool.False
+		} else if header.Kind == ast.ASTApp && header.Family == manager.BasicFamilyID() && header.DeclKind == ast.ASTOpNot {
+			assignment = c.context.getAssignment(expression)
+		}
 		return assignment != lbool.Undef && value == (assignment == lbool.True), nil
 	}
 	if header.Kind != ast.ASTApp {
@@ -509,7 +526,7 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, header ast.ASTNodeHeade
 			return c.context.isDisequal(left, right), nil
 		}
 	}
-	node, err := c.enodeEqualTo(expression)
+	node, err := c.enodeWithHeader(expression, header)
 	if err != nil || node == nil || !node.boolean || !c.context.isRelevant(node.owner) {
 		return false, err
 	}

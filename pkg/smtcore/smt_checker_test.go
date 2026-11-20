@@ -33,12 +33,19 @@ func TestSMTCheckerBooleanAssignmentsAndStructure(t *testing.T) {
 	astTestMust(t, context.SetAssignment(q, lbool.False))
 	checker, err := NewSMTChecker(context)
 	astTestMust(t, err)
+	// A Boolean variable can be bound to a NOT expression. Its literal
+	// assignment still comes from the opposite value of its operand.
+	neg, err := m.MkNot(p)
+	astTestMust(t, err)
+	astTestMust(t, context.SetRelevant(neg, true))
+	astTestMust(t, context.SetAssignment(neg, lbool.True))
 	for name, test := range map[string]struct {
 		expression ast.ASTHandle
 		unsat      bool
 	}{
 		"or-sat": {disjunction, false}, "and-unsat": {conjunction, true},
 		"iff-unsat": {iff, true}, "ite-sat": {ite, false},
+		"internalized-not-unsat": {neg, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var got bool

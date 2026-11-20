@@ -184,7 +184,10 @@ type smtAssignmentTable struct {
 }
 
 func (a smtAssignmentTable) lookup(h ast.ASTHandle) (lbool.LBool, bool) {
-	record := a.t.read(h)
+	return a.lookupRecord(a.t.read(h))
+}
+
+func (a smtAssignmentTable) lookupRecord(record *smtExprRecord) (lbool.LBool, bool) {
 	if record == nil {
 		return 0, false
 	}
