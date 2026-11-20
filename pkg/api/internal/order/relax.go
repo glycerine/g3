@@ -81,6 +81,7 @@ type inference struct {
 	signatures       []signature
 	numerals         map[ast.ASTHandle]int32
 	containsFunction map[ast.ASTHandle]bool
+	scope            []binding
 	terms            []expression
 	children         []int32
 	declarations     []binding
@@ -273,7 +274,7 @@ func (t *inference) conjunct(h ast.ASTHandle, depth int) error {
 	if err != nil || !keep {
 		return err
 	}
-	id, err := t.read(h, nil, depth)
+	id, err := t.read(h, depth)
 	if err != nil {
 		return err
 	}

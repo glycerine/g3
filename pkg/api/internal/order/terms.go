@@ -6,7 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int32, error) {
+func (t *inference) read(h ast.ASTHandle, depth int) (int32, error) {
 	if err := t.visit(depth); err != nil {
 		return 0, err
 	}
@@ -21,10 +21,10 @@ func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int32, er
 		if err != nil {
 			return 0, err
 		}
-		if uint64(index) >= uint64(len(scope)) {
+		if uint64(index) >= uint64(len(t.scope)) {
 			return 0, inapplicable
 		}
-		v := scope[len(scope)-1-int(index)]
+		v := t.scope[len(t.scope)-1-int(index)]
 		n.op, n.value, n.domain = opVariable, v.name, v.domain
 		// A source factory can construct an open or ill-sorted term.
 		s, err := t.m.GetSort(h)
@@ -39,7 +39,7 @@ func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int32, er
 			return 0, inapplicable
 		}
 	case ast.ASTQuantifier:
-		if err = t.quantifier(h, scope, depth, &n); err != nil {
+		if err = t.quantifier(h, depth, &n); err != nil {
 			return 0, err
 		}
 	case ast.ASTApp:
@@ -55,7 +55,7 @@ func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int32, er
 			if err != nil {
 				return 0, err
 			}
-			child, err := t.read(a, scope, depth+1)
+			child, err := t.read(a, depth+1)
 			if err != nil {
 				return 0, err
 			}
@@ -72,7 +72,7 @@ func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int32, er
 	return id, nil
 }
 
-func (t *inference) quantifier(h ast.ASTHandle, scope []binding, depth int, n *expression) error {
+func (t *inference) quantifier(h ast.ASTHandle, depth int, n *expression) error {
 	count, err := t.m.GetNumDeclarations(h)
 	if err != nil {
 		return err
@@ -99,7 +99,10 @@ func (t *inference) quantifier(h ast.ASTHandle, scope []binding, depth int, n *e
 	if err != nil {
 		return err
 	}
-	body, err := t.read(b, append(scope, binders...), depth+1)
+	saved := len(t.scope)
+	t.scope = append(t.scope, binders...)
+	body, err := t.read(b, depth+1)
+	t.scope = t.scope[:saved]
 	if err != nil {
 		return err
 	}

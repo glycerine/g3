@@ -45,6 +45,7 @@ func (p Problem) Premises() string     { return p.Text[p.AssertionsStart:p.LastA
 
 func (t *inference) render() Problem {
 	var out, axioms strings.Builder
+	out.Grow(8 * len(t.terms))
 	var p Problem
 	// unify always links the larger root to the smaller one. Every root
 	// spelling is available when its descendants are visited in index order.
@@ -71,17 +72,23 @@ func (t *inference) render() Problem {
 	for i := range sorts {
 		if t.root(domainID(i)) == domainID(i) {
 			p.DeclarationCount++
-			fmt.Fprintf(&out, "(declare-sort s%d 0)\n", i)
+			out.WriteString("(declare-sort ")
+			out.WriteString(t.sortName(domainID(i)))
+			out.WriteString(" 0)\n")
 		}
 	}
 	for i, d := range t.signatures {
 		p.DeclarationCount++
-		fmt.Fprintf(&out, "(declare-fun f%d (", i)
+		out.WriteString("(declare-fun f")
+		out.WriteString(strconv.Itoa(i))
+		out.WriteString(" (")
 		for _, a := range d.inputs {
 			out.WriteString(t.sortName(a))
 			out.WriteByte(' ')
 		}
-		fmt.Fprintf(&out, ") %s)\n", t.sortName(d.result))
+		out.WriteString(") ")
+		out.WriteString(t.sortName(d.result))
+		out.WriteString(")\n")
 	}
 	for i, s := range sorts {
 		if !s.ordered {
@@ -147,7 +154,11 @@ func (t *inference) writeTerm(b *strings.Builder, id int32) {
 		b.WriteString(operatorNames[n.op])
 		b.WriteString(" (")
 		for _, v := range t.declarations[n.start : n.start+n.count] {
-			fmt.Fprintf(b, "(v%d %s)", v.name, t.sortName(v.domain))
+			b.WriteString("(v")
+			b.WriteString(strconv.Itoa(int(v.name)))
+			b.WriteByte(' ')
+			b.WriteString(t.sortName(v.domain))
+			b.WriteByte(')')
 		}
 		b.WriteString(") ")
 		t.writeTerm(b, n.value)
@@ -164,7 +175,9 @@ func (t *inference) writeTerm(b *strings.Builder, id int32) {
 		if negate {
 			b.WriteString("(not ")
 		}
-		fmt.Fprintf(b, "(lt%d ", d)
+		b.WriteString("(lt")
+		b.WriteString(strconv.Itoa(int(d)))
+		b.WriteByte(' ')
 		t.writeTerm(b, left)
 		b.WriteByte(' ')
 		t.writeTerm(b, right)
