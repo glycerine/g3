@@ -600,20 +600,19 @@ func (r *rewriterEngine) rewritten(fr rewriterFrame, clear bool) error {
 	}
 	return nil
 }
+
+// Called after at least one child has been rewritten. ITE can fold after
+// its condition, and model evaluation can short-circuit each AND/OR child.
 func (r *rewriterEngine) constantFold(frameIndex int) (bool, error) {
 	c := &r.core
 	m := c.manager
 	fr := c.frames[frameIndex]
-	if r.modelBooleanShortCircuit && fr.index() > 0 {
-		helper := boolRewriter{manager: m}
-		and, err := helper.isOperator(fr.curr, ast.ASTOpAnd)
-		if err != nil {
-			return false, err
-		}
-		or, err := helper.isOperator(fr.curr, ast.ASTOpOr)
-		if err != nil {
-			return false, err
-		}
+	app, family, op, err := m.AppIdentity(fr.curr)
+	if err != nil || !app || family != m.BasicFamilyID() {
+		return false, err
+	}
+	if r.modelBooleanShortCircuit {
+		and, or := op == ast.ASTOpAnd, op == ast.ASTOpOr
 		if and || or {
 			value, err := c.resultAt(fr.spos + fr.index() - 1)
 			if err != nil {
@@ -628,31 +627,19 @@ func (r *rewriterEngine) constantFold(frameIndex int) (bool, error) {
 			}
 		}
 	}
-	if fr.index() != 1 {
+	if fr.index() != 1 || op != ast.ASTOpIte {
 		return false, nil
-	}
-	helper := boolRewriter{manager: m}
-	ite, e := helper.isOperator(fr.curr, ast.ASTOpIte)
-	if e != nil || !ite {
-		return false, e
 	}
 	cond, e := c.resultAt(fr.spos)
 	if e != nil {
 		return false, e
 	}
-	truth, e := helper.isOperator(cond, ast.ASTOpTrue)
-	if e != nil {
+	app, family, op, e = m.AppIdentity(cond)
+	if e != nil || !app || family != m.BasicFamilyID() || (op != ast.ASTOpTrue && op != ast.ASTOpFalse) {
 		return false, e
-	}
-	falsity, e := helper.isOperator(cond, ast.ASTOpFalse)
-	if e != nil {
-		return false, e
-	}
-	if !truth && !falsity {
-		return false, nil
 	}
 	i := uint32(2)
-	if truth {
+	if op == ast.ASTOpTrue {
 		i = 1
 	}
 	arg, e := m.GetArg(fr.curr, i)
@@ -700,14 +687,16 @@ func (r *rewriterEngine) processApp() (err error) {
 	switch fr.state() {
 	case 0:
 		for c.frames[fi].index() < n {
-			folded, e := r.constantFold(fi)
-			if e != nil {
-				return e
-			}
-			if folded {
-				return nil
-			}
 			i := c.frames[fi].index()
+			if i == 1 || i > 0 && r.modelBooleanShortCircuit {
+				folded, e := r.constantFold(fi)
+				if e != nil {
+					return e
+				}
+				if folded {
+					return nil
+				}
+			}
 			arg, e := m.GetArg(t, i)
 			if e != nil {
 				return e

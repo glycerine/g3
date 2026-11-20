@@ -332,12 +332,16 @@ func (m *ASTManager) mkAppArguments(decl astNodeRef, args AppArguments) (result 
 	}
 	arity := m.declAt(decl.slot).arity
 	mismatch := uint64(arity) != uint64(int(args.count))
-	fid, _, e := m.declIdentity(decl)
-	if e != nil {
-		return astNodeRef{}, e
-	}
-	if mismatch && (!f.LeftAssociative && !f.RightAssociative && !f.Chainable || int(args.count) < 2 && fid == 0 && !(f.LeftAssociative && f.RightAssociative)) {
-		return astNodeRef{}, &astArgumentCountError{decl: decl, count: args.count}
+	// funcFlags already checked the declaration. Only the variadic arity
+	// rules below depend on the family.
+	if mismatch || astValidateHandles {
+		fid, _, e := m.declIdentity(decl)
+		if e != nil {
+			return astNodeRef{}, e
+		}
+		if mismatch && (!f.LeftAssociative && !f.RightAssociative && !f.Chainable || int(args.count) < 2 && fid == 0 && !(f.LeftAssociative && f.RightAssociative)) {
+			return astNodeRef{}, &astArgumentCountError{decl: decl, count: args.count}
+		}
 	}
 	// The ground trace follows every successful non-null result. A plain
 	// call after the shaping body replaces a defer, which the body's many

@@ -2,7 +2,7 @@
 
 **Latest result on amd64.** g3 now matches Z3’s 16-byte Boolean variable and 8-byte justification. Pinned scoped pop takes 19.32 µs in g3 and 12.34 µs in Z3. [Record layout, timings and storage costs](#matching-the-native-boolean-record)
 
-**The concrete Raft verifier reached 11.57 seconds on g3 and 35.34 seconds on C++ Z3** in the direct-kernel crossover. g3 discharges the 419 concrete obligations by proving a relaxation over ordered domains. Any inconclusive attempt returns to the ordinary bit-vector solver. The matching-search comparison still favors C++ Z3. [Proof strategy, controls and limits](#order-abstraction-for-the-concrete-raft-verifier)
+**The original concrete Raft spec took 11.13 seconds on g3 and 40.23 seconds on native Z3**, medians of twelve whole-process runs per backend on the same GoIvy revision. Both verified all 419 named obligations in order. g3 can discharge them by proving a relaxation over ordered domains, with the ordinary bit-vector solver handling inconclusive attempts. On an identical solver search C++ still wins. [Whole-spec crossover](perf/ivy_raft/numeric-clean-raft.csv) · [Matching-search comparison](#same-input-and-same-search-in-both-smt-kernels)
 
 **The ordinary g3 solver completed Raft in 124.71 seconds**, down from 223.30 seconds on the same core. Resetting an exhausted GoIvy solver cut peak RSS from 3,665,916 to 988,940 KiB. All 419 proof results agree. The same change took GoIvy with C++ Z3 from 65.08 to 32.70 seconds. Python Ivy with C++ Z3 took 34.40 seconds. [Solver lifetime experiment](#solver-lifetimes-change-the-raft-search) · [Earlier Raft profiles and trials](#raft-verification-with-python-z3-and-goivy-g3)
 
@@ -550,6 +550,14 @@ The C++ rewriter specializes its callbacks on a concrete configuration. g3 previ
 
 In twelve alternating pairs on CPU 19, the median for the 419 matched queries went from **11.23 to 11.08 s** and **91.17 to 90.10 billion** user instructions. The search counters agreed for every obligation in every pair. The checked, debug and trace build also passed the focused proof, rewriting and quantifier tests. [Individual runs](perf/ivy_raft/rewriter-callbacks.csv)
 
+### Repeated operator and declaration reads during rewriting
+
+The application rewriter now inspects a parent only after a child can affect the result. Ordinary ITE folding needs the condition. Short-circuit model evaluation can also use each rewritten AND/OR operand. One lookup identifies the parent operator, and one lookup distinguishes true and false in the condition. The application factory separately skips a second declaration-family lookup on the ordinary matching-arity path. The first lookup already checks the function declaration and supplies its flags. Debug and checked builds retain the extra validation.
+
+The combined production changes retired **89.45 billion instructions versus 90.16 billion** on the 419 matching-search Raft obligations. Median time was **11.27 versus 11.36 s**, across 18 samples per build on two cores. All 18 counters matched per obligation. In the existing canonical-application benchmark, the arity check alone reduced calls with one, two and three arguments from 140.0, 162.7 and 172.2 ns to 134.4, 156.7 and 169.4 ns. Four-argument calls took 345.8 and 346.7 ns. Forwarding a declaration-record pointer through the lower factory saved another 0.28 billion instructions in isolation, with no improvement on the two-argument microbenchmark. Combining declaration and reference-count reads in the rewriter added no further gain. [Canonical benchmark](ast/ast_app_benchmark_test.go) · [Factory samples](perf/ivy_raft/declaration-applications.csv) · [Factory replay](perf/ivy_raft/declaration-kernel.csv) · [Operator variants](perf/ivy_raft/rewrite-constant-fold.csv) · [Combined replay](perf/ivy_raft/rewrite-arity-integrated.csv)
+
+With the same corpus and fixed search, compiling for `GOAMD64=v1`, `v2` and `v3` gave medians of 90.14, 90.05 and 89.71 billion instructions. Median times were 11.42, 11.71 and 11.32 s over 20 runs per target on the Threadripper. The production build keeps its portable amd64 target. [Target-level samples](perf/ivy_raft/amd64-kernel.csv)
+
 ### Order abstraction for the concrete Raft verifier
 
 The timed input was the original `examples/raft/raft_no_assume_test.ivy`. Its eight abstract types have concrete bit-vector interpretations of widths two, three and four. The GoIvy frontend generated the original assertions for both backends. The proof strategy receives those SMT assertions, with no file names, conjecture names, expected answers or Ivy type metadata. In an earlier diagnostic, checking the separate verification-oriented source without the finite interpretations took 11.96 s on g3. That timing is for a different input.
@@ -703,6 +711,8 @@ The next experiment gave each incremental group of final conditions one private 
 The comparison alternated lifetime on two pinned CPUs. The machine also ran package tests during these measurements. A separate ten-run prototype crossover gave 11.46 s for a fresh solver, 10.72 s for popping the preceding frame on the next call and 10.47 s for popping on return. Immediate pop also gives the caller a simple lifetime guarantee. [Production crossover](perf/ivy_raft/order-batch-raft.csv) · [Prototype crossover](perf/ivy_raft/order-batch-lifetimes.csv)
 
 Across 64 independent concrete solvers, keeping all batches active after the first proof took **4.844 MB of live Go heap per solver**. Closing every batch while leaving every concrete solver live reduced this to **3.592 MB per solver**, the same as using one fresh proof solver per call. The concrete owners then had the same 2.869 MB of budget charges per solver. Five fresh-process observations per lifetime also cover groups of 1, 8 and 32. [Worker samples](perf/ivy_raft/order-batch-memory.csv) · [Benchmark](api/api_raft_worker_memory_benchmark_test.go)
+
+At GoIvy `9d6a47b95` with the numeric-page change, twelve runs of each ordinary release binary on CPUs 6 and 21 gave **11.13 s, 83.20 billion instructions and 91,440 KiB peak RSS** for g3, versus **40.23 s, 215.54 billion and 321,580 KiB** for the native backend. Each process checked the same original mixed-width input and produced the Python reference transcript. The elapsed times include other concurrent studies on the host. [Raw comparison](perf/ivy_raft/numeric-clean-raft.csv)
 
 #### Alternatives tested on the original obligations
 
