@@ -1,0 +1,75 @@
+package api
+
+import (
+	"bufio"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/api/internal/order"
+	"github.com/glycerine/g3/pkg/solver"
+)
+
+type modelStudyInput struct {
+	Script string
+	Check  bool
+}
+type modelStudyOutput struct {
+	Script        string
+	Ready, Proved bool
+	Err           string
+}
+
+func runModelStudy(input modelStudyInput) (out modelStudyOutput, err error) {
+	ctx, err := NewSMTContext()
+	if err != nil {
+		return out, err
+	}
+	defer func() { err = errors.Join(err, ctx.Close()) }()
+	s, err := ctx.NewSolver()
+	if err != nil {
+		return out, err
+	}
+	defer func() { err = errors.Join(err, s.Close()) }()
+	if err = s.LoadSMT2String(input.Script); err != nil {
+		return out, err
+	}
+	m, err := ctx.Manager()
+	if err != nil {
+		return out, err
+	}
+	assertions, err := solver.Assertions(s.solver)
+	if err != nil {
+		return out, err
+	}
+	out.Script, out.Ready, err = order.Relax(m, assertions)
+	if err == nil && input.Check {
+		out.Proved, err = s.ProveUnsatByOrderAbstraction()
+	}
+	return out, err
+}
+func TestStudyOrderModelStream(t *testing.T) {
+	input := json.NewDecoder(bufio.NewReader(os.Stdin))
+	buffer := bufio.NewWriter(os.Stdout)
+	output := json.NewEncoder(buffer)
+	for {
+		var row modelStudyInput
+		if err := input.Decode(&row); err == io.EOF {
+			return
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		result, err := runModelStudy(row)
+		if err != nil {
+			result.Err = err.Error()
+		}
+		if err := output.Encode(result); err != nil {
+			t.Fatal(err)
+		}
+		if err := buffer.Flush(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

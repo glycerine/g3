@@ -1,0 +1,30 @@
+package order
+
+import (
+	"fmt"
+	"strings"
+)
+
+// The external evaluator needs the source width of each opaque domain and
+// the original symbol of each renamed function. Prepend SMT-LIB comments so
+// the text submitted to the checker still has the same semantics.
+func (t *inference) modelStudyMetadata() (string, error) {
+	var out strings.Builder
+	for i := range t.parents {
+		if t.root(i) == i {
+			fmt.Fprintf(&out, ";domain s%d %d\n", i, t.widths[t.domainSorts[i]])
+		}
+	}
+	for h, id := range t.declIDs {
+		sym, err := t.m.GetASTName(h)
+		if err != nil {
+			return "", err
+		}
+		name, err := t.m.Symbols.String(sym)
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(&out, ";function f%d %s\n", id, name)
+	}
+	return out.String(), nil
+}
