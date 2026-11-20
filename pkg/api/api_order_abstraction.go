@@ -83,20 +83,7 @@ func checkOrderAbstraction(parent *ast.ASTManager, script string, maxSteps uint3
 	if err != nil {
 		return false, err
 	}
-	limit, parentLimit := m.ResourceLimit(), parent.ResourceLimit()
-	limit.RunSignals = parentLimit.RunSignals
-	if err = limit.Push(maxSteps); err != nil {
-		return false, err
-	}
-	defer limit.Pop()
-	if err = parentLimit.PushChild(limit); err != nil {
-		return false, err
-	}
-	defer parentLimit.PopChild()
-	if parentLimit.CancelFlag() {
-		return false, nil
-	}
-	child, err := ctx.NewSolver()
+	child, err := ctx.NewSimpleSolver()
 	if err != nil {
 		return false, err
 	}
@@ -112,10 +99,24 @@ func checkOrderAbstraction(parent *ast.ASTManager, script string, maxSteps uint3
 	if err = child.SetParameters(params); err != nil {
 		return false, err
 	}
-	if err = child.LoadSMT2String(script); err != nil {
+	limit, parentLimit := m.ResourceLimit(), parent.ResourceLimit()
+	limit.RunSignals = parentLimit.RunSignals
+	if err = limit.Push(maxSteps); err != nil {
 		return false, err
 	}
-	answer, err := child.Check()
+	defer limit.Pop()
+	if err = parentLimit.PushChild(limit); err != nil {
+		return false, err
+	}
+	defer parentLimit.PopChild()
+	if parentLimit.CancelFlag() {
+		return false, nil
+	}
+	// Assertion preprocessing in the simple solver also polls the limit.
+	var answer lbool.LBool
+	if err = child.LoadSMT2String(script); err == nil {
+		answer, err = child.Check()
+	}
 	if !limit.IncOffset(0) || parentLimit.CancelFlag() {
 		return false, nil
 	}

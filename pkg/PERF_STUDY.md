@@ -2,7 +2,7 @@
 
 **Latest result on amd64.** g3 now matches Z3’s 16-byte Boolean variable and 8-byte justification. Pinned scoped pop takes 19.32 µs in g3 and 12.34 µs in Z3. [Record layout, timings and storage costs](#matching-the-native-boolean-record)
 
-**The concrete Raft verifier reached 25.94 seconds on g3 and 32.53 seconds on C++ Z3** in a six-run-per-backend crossover. g3 discharges the 419 concrete obligations by proving a relaxation over ordered domains. Any inconclusive attempt returns to the ordinary bit-vector solver. The matching-search comparison still favors C++ Z3. [Proof strategy, controls and limits](#order-abstraction-for-the-concrete-raft-verifier)
+**The concrete Raft verifier reached 11.57 seconds on g3 and 35.34 seconds on C++ Z3** in the direct-kernel crossover. g3 discharges the 419 concrete obligations by proving a relaxation over ordered domains. Any inconclusive attempt returns to the ordinary bit-vector solver. The matching-search comparison still favors C++ Z3. [Proof strategy, controls and limits](#order-abstraction-for-the-concrete-raft-verifier)
 
 **The ordinary g3 solver completed Raft in 124.71 seconds**, down from 223.30 seconds on the same core. Resetting an exhausted GoIvy solver cut peak RSS from 3,665,916 to 988,940 KiB. All 419 proof results agree. The same change took GoIvy with C++ Z3 from 65.08 to 32.70 seconds. Python Ivy with C++ Z3 took 34.40 seconds. [Solver lifetime experiment](#solver-lifetimes-change-the-raft-search) · [Earlier Raft profiles and trials](#raft-verification-with-python-z3-and-goivy-g3)
 
@@ -535,6 +535,20 @@ The timed input was the original `examples/raft/raft_no_assume_test.ivy`. Its ei
 | Ordered verification transcript | 419 PASS, final OK | 419 PASS, final OK |
 
 Each backend ran three times on each of logical CPUs 6 and 12. The two series used opposite orders. Each process ran on one core with `GOMAXPROCS=1`, tracing off, and solver reset after each completed action. Every timed run was checked against Python Ivy's reference transcript, including the obligation names and order. These crossover numbers are for the in-process prototype. The integrated, resource-bounded implementation took 25.81 s in a separate complete run. The wall-time improvement over native is 20.3% on this input. [Raw crossover timings and counters](perf/ivy_raft/order-crossover.csv) · [Transcript checker](perf/ivy_raft/measure.py)
+
+#### Running the proof directly in the SMT kernel
+
+The transformed problem needs quantified uninterpreted functions and order axioms. g3's general strategy adds tactic preprocessing and then invokes the SMT kernel. Selecting `NewSimpleSolver` for the independent proof calls that kernel directly. In the earlier strategic run, CPU sampling attributed 14.70 s to the tactic solver and 11.17 s to its nested SMT kernel setup and check in a 25.51 s profile. The strategy choice also changes the resulting search.
+
+| Backend | Median wall time | Range | Median peak RSS | Median user instructions |
+|---|---:|---:|---:|---:|
+| g3, direct SMT kernel for the order proof | **11.57 s** | 11.44–12.12 s | 83,858 KiB | 94.27 billion |
+| g3, general strategy for the same order proof | 27.76 s | 26.78–29.52 s | 111,792 KiB | 230.32 billion |
+| GoIvy, C++ Z3 on the concrete problem | 35.34 s | 33.45–36.13 s | 321,220 KiB | 215.52 billion |
+
+Each backend ran twice per core on cores 6 and 12. The checker output matched Python in all twelve executions. The direct kernel took 58% less time than the previous order strategy and 67% less than native Z3 checking the original finite-domain assertions. The machine also ran regression tests on other cores during part of this series. Across all four direct-kernel samples the instruction counts agree to within 0.2%. An additional integrated run on CPU 7 took 14.07 s with 94.19 billion instructions. [Individual runs and order](perf/ivy_raft/order-kernel.csv)
+
+On the standalone fixtures the direct order proof took 26.3 ms on check 1 and 219 ms on check 274, including parsing, context creation and destruction. Simply forcing the general proof solver into incremental mode took 19.60 s on the full spec. Using the SMT-LIB command context to execute the general strategy took 27.37 s. Disabling macro discovery on that strategy raised elapsed time to 115.08 s, including concrete fallbacks. All three produced the reference transcript. Resource exhaustion during assertion insertion as well as search gives control back to the concrete solver. The bounded-retry, concrete model, scope, and checked-handle tests pass with the direct kernel.
 
 #### Why the relaxation proves the concrete obligation
 
