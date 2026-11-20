@@ -21,7 +21,7 @@ type rewriterEngine struct {
 	numSteps                 uint32
 	bindings                 []ast.ASTHandle
 	patterns, noPatterns     []ast.ASTHandle
-	shifter, invShifter      variableShifter
+	shifter, invShifter      engineVariableShifter
 	r, pr, pr2               ast.ASTRef
 	shifts                   []uint32
 	header                   uint64
@@ -37,7 +37,7 @@ func newRewriterEngine(m *ast.ASTManager, cfg Configuration) (*rewriterEngine, e
 	if _, e := m.ProofsEnabled(); e != nil {
 		return nil, e
 	}
-	n := uint64(reflect.TypeOf(rewriterEngine{}).Size())
+	n := uint64(reflect.TypeOf(rewriterEngine{}).Size()) + engineShifterCapacity()
 	if e := m.BudgetField.Reserve(n); e != nil {
 		return nil, e
 	}
@@ -55,10 +55,10 @@ func (r *rewriterEngine) initMode(m *ast.ASTManager, cfg Configuration, proofGen
 	if e := r.core.init(m, proofGen); e != nil {
 		return e
 	}
-	if e := r.shifter.init(m, false); e != nil {
+	if e := r.shifter.init(&r.core); e != nil {
 		return e
 	}
-	if e := r.invShifter.init(m, true); e != nil {
+	if e := r.invShifter.init(&r.core); e != nil {
 		return e
 	}
 	var e error
@@ -141,10 +141,10 @@ func (r *rewriterEngine) Reset() error {
 	}
 	r.bindings = r.bindings[:0]
 	r.shifts = r.shifts[:0]
-	if e := r.shifter.core.Reset(); e != nil {
+	if e := r.shifter.reset(); e != nil {
 		return e
 	}
-	return r.invShifter.core.Reset()
+	return r.invShifter.reset()
 }
 func (r *rewriterEngine) Cleanup() error {
 	if e := r.open(); e != nil {
@@ -158,11 +158,11 @@ func (r *rewriterEngine) Cleanup() error {
 		return e
 	}
 	r.bindings = nil
-	if e := r.shifter.core.Cleanup(); e != nil {
+	if e := r.shifter.get(r.core.manager, false).core.Cleanup(); e != nil {
 		return e
 	}
 	r.shifts = nil
-	return r.invShifter.core.Cleanup()
+	return r.invShifter.get(r.core.manager, true).core.Cleanup()
 }
 func (r *rewriterEngine) Close() error {
 	if r == nil || r.self != r {
@@ -183,15 +183,11 @@ func (r *rewriterEngine) Close() error {
 			}
 		}
 	}
-	if r.invShifter.self != nil {
-		if e := r.invShifter.Close(); e != nil {
-			return e
-		}
+	if e := r.invShifter.close(&r.core); e != nil {
+		return e
 	}
-	if r.shifter.self != nil {
-		if e := r.shifter.Close(); e != nil {
-			return e
-		}
+	if e := r.shifter.close(&r.core); e != nil {
+		return e
 	}
 	r.bindings = nil
 	if e := r.core.Close(); e != nil {
@@ -459,7 +455,7 @@ func (r *rewriterEngine) processBoundVariable(t ast.ASTHandle, index uint32) err
 						return e
 					}
 					defer func() { err = errors.Join(err, m.DelRef(&tmp)) }()
-					if e = r.shifter.ShiftBy(h, uint32(len(r.bindings))-r.shifts[i], tmp); e != nil {
+					if e = r.shifter.get(m, false).ShiftBy(h, uint32(len(r.bindings))-r.shifts[i], tmp); e != nil {
 						return e
 					}
 					value, e := m.RefGet(tmp)
@@ -914,7 +910,7 @@ func (r *rewriterEngine) processAppMacroEnd(fr rewriterFrame, n uint32) (err err
 		return e
 	}
 	if !ground {
-		if e = r.invShifter.InverseShift(h, n, tmp); e != nil {
+		if e = r.invShifter.get(m, true).InverseShift(h, n, tmp); e != nil {
 			return e
 		}
 		h, e = m.RefGet(tmp)

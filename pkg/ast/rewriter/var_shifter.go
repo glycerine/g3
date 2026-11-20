@@ -22,6 +22,68 @@ type variableShifter struct {
 	closed                       bool
 }
 
+// The root cache is constructed immediately so its trace, eviction limit and
+// budget reservation belong to the original constructor. Frames and binding
+// state are needed only when a non-ground term actually needs shifting.
+type engineVariableShifter struct {
+	cache  *ast.ActivityCache
+	active *variableShifter
+}
+
+func (s *engineVariableShifter) init(parent *rewriterCore) error {
+	cache, e := parent.newCache(25)
+	if e != nil {
+		return e
+	}
+	s.cache = cache
+	return nil
+}
+
+func (s *engineVariableShifter) get(m *ast.ASTManager, inverse bool) *variableShifter {
+	if s.active == nil {
+		sh := &variableShifter{inverse: inverse}
+		sh.self = sh
+		c := &sh.core
+		c.initialize(m, false)
+		c.cache = s.cache
+		c.cacheStack = append(c.cacheStack, s.cache)
+		c.ready = true
+		s.active, s.cache = sh, nil
+	}
+	return s.active
+}
+
+func (s *engineVariableShifter) reset() error {
+	if s.active != nil {
+		return s.active.core.Reset()
+	}
+	return s.cache.Reset()
+}
+
+func (s *engineVariableShifter) close(parent *rewriterCore) error {
+	if s.active != nil {
+		if err := s.active.Close(); err != nil {
+			return err
+		}
+		s.active = nil
+		return nil
+	}
+	if s.cache != nil {
+		if e := s.cache.Close(); e != nil {
+			return e
+		}
+		parent.traceCacheDeallocated(s.cache)
+		s.cache = nil
+	}
+	return nil
+}
+
+// Include the dormant traversal capacity in the original owner reservation.
+// Materializing either shifter then needs no further budget charge.
+func engineShifterCapacity() uint64 {
+	return 2 * uint64(reflect.TypeOf(variableShifter{}).Size()-reflect.TypeOf(engineVariableShifter{}).Size())
+}
+
 func newVarShifter(m *ast.ASTManager) (*variableShifter, error) { return newVariableShifter(m, false) }
 func newInvVarShifter(m *ast.ASTManager) (*variableShifter, error) {
 	return newVariableShifter(m, true)

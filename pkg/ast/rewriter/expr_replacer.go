@@ -201,7 +201,7 @@ func NewDefaultExprReplacer(m *ast.ASTManager) (*DefaultExprReplacer, error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	n := uint64(reflect.TypeOf(DefaultExprReplacer{}).Size())
+	n := uint64(reflect.TypeOf(DefaultExprReplacer{}).Size()) + engineShifterCapacity()
 	if err := m.BudgetField.Reserve(n); err != nil {
 		return nil, err
 	}

@@ -77,7 +77,7 @@ func newTraversalMode(m *ast.ASTManager, cfg Configuration, proofs bool) (*Trave
 	if _, e := m.ProofsEnabled(); e != nil {
 		return nil, e
 	}
-	bytes := uint64(reflect.TypeOf(Traversal{}).Size())
+	bytes := uint64(reflect.TypeOf(Traversal{}).Size()) + engineShifterCapacity()
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return nil, e
 	}

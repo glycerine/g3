@@ -92,14 +92,18 @@ func newRewriterCore(m *ast.ASTManager, proofGen bool) (*rewriterCore, error) {
 // Embedded derived objects charge their full header once, then construct this
 // base in place with header=0. Standalone construction retains its own charge.
 func (c *rewriterCore) init(m *ast.ASTManager, proofGen bool) error {
-	c.manager, c.proofGen, c.cancelCheck = m, proofGen, true
-	c.self = c
+	c.initialize(m, proofGen)
 	if e := c.initCacheStack(); e != nil {
 		return e
 	}
 	c.ready = true
 	return nil
 }
+func (c *rewriterCore) initialize(m *ast.ASTManager, proofGen bool) {
+	c.manager, c.proofGen, c.cancelCheck = m, proofGen, true
+	c.self = c
+}
+
 func (c *rewriterCore) open() error {
 	if c == nil || c.self != c || c.closed {
 		return ast.ErrASTHandle
@@ -109,12 +113,20 @@ func (c *rewriterCore) open() error {
 	}
 	return c.cause
 }
-func (c *rewriterCore) pushCache(stack *[]*ast.ActivityCache, line int) (*ast.ActivityCache, error) {
+func (c *rewriterCore) newCache(line int) (*ast.ActivityCache, error) {
 	v, e := ast.NewActivityCache(c.manager, nil)
 	if e != nil {
 		return nil, e
 	}
 	c.traceCacheAllocated(v, line)
+	return v, nil
+}
+
+func (c *rewriterCore) pushCache(stack *[]*ast.ActivityCache, line int) (*ast.ActivityCache, error) {
+	v, e := c.newCache(line)
+	if e != nil {
+		return nil, e
+	}
 	*stack = append(*stack, v)
 	return v, nil
 }

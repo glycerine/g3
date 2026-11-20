@@ -276,3 +276,28 @@ func TestVarSubstitutionBorrowedAppArgumentsOrderAndReset(t *testing.T) {
 		satOK(t, s.Close())
 	}
 }
+
+func TestVarSubstitutionShiftersUseConstructorCaches(t *testing.T) {
+	m := astTestManager(t)
+	s, err := NewVarSubstitution(m, true)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, s.Close()) })
+	r := &s.reducer.engine
+	forward, inverse := r.shifter.cache, r.invShifter.cache
+	if forward == nil || inverse == nil || forward == inverse || r.shifter.active != nil || r.invShifter.active != nil {
+		t.Fatal("expected two distinct root caches at construction")
+	}
+	satOK(t, r.Reset())
+	used := m.Budget().Used()
+	m.Budget().FailAfter(0)
+	defer m.Budget().FailAfter(-1)
+	f := r.shifter.get(m, false)
+	inv := r.invShifter.get(m, true)
+	if f.core.cache != forward || inv.core.cache != inverse || f.inverse || !inv.inverse {
+		t.Fatal("first shift lost constructor cache or direction")
+	}
+	if r.shifter.get(m, false) != f || r.invShifter.get(m, true) != inv || m.Budget().Used() != used {
+		t.Fatal("first shift must use the already reserved capacity")
+	}
+	satOK(t, r.Reset())
+}

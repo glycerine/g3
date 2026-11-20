@@ -58,7 +58,7 @@ func newBetaReducer(m *ast.ASTManager) (*betaReducer, error) {
 	if _, e := m.ProofsEnabled(); e != nil {
 		return nil, e
 	}
-	n := uint64(reflect.TypeOf(betaReducer{}).Size())
+	n := uint64(reflect.TypeOf(betaReducer{}).Size()) + engineShifterCapacity()
 	if e := m.BudgetField.Reserve(n); e != nil {
 		return nil, e
 	}
@@ -110,7 +110,7 @@ func newBoolRewriterStar(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams
 	if _, e := m.ProofsEnabled(); e != nil {
 		return nil, e
 	}
-	n := uint64(reflect.TypeOf(boolRewriterStar{}).Size())
+	n := uint64(reflect.TypeOf(boolRewriterStar{}).Size()) + engineShifterCapacity()
 	if e := m.BudgetField.Reserve(n); e != nil {
 		return nil, e
 	}

@@ -26,7 +26,7 @@ func NewVarSubstitution(m *ast.ASTManager, standardOrder bool) (*VarSubstitution
 	if _, e := m.ProofsEnabled(); e != nil {
 		return nil, e
 	}
-	bytes := uint64(reflect.TypeOf(VarSubstitution{}).Size())
+	bytes := uint64(reflect.TypeOf(VarSubstitution{}).Size()) + engineShifterCapacity()
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return nil, e
 	}
