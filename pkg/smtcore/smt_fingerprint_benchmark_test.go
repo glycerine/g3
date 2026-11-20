@@ -71,3 +71,40 @@ func BenchmarkSMTFingerprint(b *testing.B) {
 		}
 	}
 }
+
+// Measure the queue between matching and instance construction. Eager
+// entries take the ordinary queue path without building any AST lemmas.
+func BenchmarkSMTQIQueueBatch(b *testing.B) {
+	m := astTestManager(b)
+	q := smtRelevancyBool(b, m, "queue-benchmark")
+	for _, size := range []int{32, 1024} {
+		b.Run(strconv.Itoa(size), func(b *testing.B) {
+			queue := NewSMTQIQueueSchedule(m, 1, 2, false)
+			entries := make([]SMTFingerprint, size)
+			for i := range entries {
+				entries[i].data = q
+			}
+			seen := 0
+			consume := func(entry SMTQIQueueEntry) error {
+				if entry.Fingerprint != &entries[seen] || !entry.Instantiated {
+					b.Fatal("wrong eager entry", seen)
+				}
+				seen++
+				return nil
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				seen = 0
+				for j := range entries {
+					if err := queue.Insert(&entries[j], 1, 0); err != nil {
+						b.Fatal(err)
+					}
+				}
+				if err := queue.instantiateNew(nil, consume, nil); err != nil || seen != size || queue.HasWork() {
+					b.Fatal("incomplete batch", seen, err)
+				}
+			}
+		})
+	}
+}

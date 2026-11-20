@@ -66,6 +66,13 @@ func (q *SMTQIQueueSchedule) HasWork() bool {
 	return q != nil && len(q.newEntries) != 0
 }
 
+// Native vector::reset keeps the backing array for the next batch. Drop the
+// Go references so a completed batch cannot keep its fingerprints alive.
+func (q *SMTQIQueueSchedule) clearNewEntries() {
+	clear(q.newEntries)
+	q.newEntries = q.newEntries[:0]
+}
+
 // instantiateNew is qi_queue::instantiate's walk over m_new_entries: an
 // entry within the eager cost threshold is instantiated at once; a costlier
 // one is instantiated when promote reports that it produces a conflict
@@ -107,7 +114,7 @@ func (q *SMTQIQueueSchedule) instantiateNew(promote func(SMTQIQueueEntry) (bool,
 			sinceLastCheck = 0
 		}
 	}
-	q.newEntries = nil
+	q.clearNewEntries()
 	return nil
 }
 
@@ -212,7 +219,7 @@ func (q *SMTQIQueueSchedule) PopScopes(count uint32) error {
 	q.instantiatedTrail = q.instantiatedTrail[:scope.instantiatedLimit]
 	clear(q.delayedEntries[scope.delayedLimit:]) // popped fingerprints become collectable
 	q.delayedEntries = q.delayedEntries[:scope.delayedLimit]
-	q.newEntries = nil
+	q.clearNewEntries()
 	q.scopes = q.scopes[:newLevel]
 	return nil
 }
