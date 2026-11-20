@@ -2,7 +2,9 @@
 
 **Latest result on amd64.** g3 now matches Z3’s 16-byte Boolean variable and 8-byte justification. Pinned scoped pop takes 19.32 µs in g3 and 12.34 µs in Z3. [Record layout, timings and storage costs](#matching-the-native-boolean-record)
 
-**Raft now completes in 124.71 seconds on g3**, down from 223.30 seconds on the same core. Resetting an exhausted GoIvy solver cut peak RSS from 3,665,916 to 988,940 KiB. All 419 proof results agree. The same change took GoIvy with C++ Z3 from 65.08 to 32.70 seconds. Python Ivy with C++ Z3 took 34.40 seconds. [Solver lifetime experiment](#solver-lifetimes-change-the-raft-search) · [Earlier Raft profiles and trials](#raft-verification-with-python-z3-and-goivy-g3)
+**The concrete Raft verifier reached 25.94 seconds on g3 and 32.53 seconds on C++ Z3** in a six-run-per-backend crossover. g3 discharges the 419 concrete obligations by proving a relaxation over ordered domains. Any inconclusive attempt returns to the ordinary bit-vector solver. The matching-search comparison still favors C++ Z3. [Proof strategy, controls and limits](#order-abstraction-for-the-concrete-raft-verifier)
+
+**The ordinary g3 solver completed Raft in 124.71 seconds**, down from 223.30 seconds on the same core. Resetting an exhausted GoIvy solver cut peak RSS from 3,665,916 to 988,940 KiB. All 419 proof results agree. The same change took GoIvy with C++ Z3 from 65.08 to 32.70 seconds. Python Ivy with C++ Z3 took 34.40 seconds. [Solver lifetime experiment](#solver-lifetimes-change-the-raft-search) · [Earlier Raft profiles and trials](#raft-verification-with-python-z3-and-goivy-g3)
 
 The preceding follow-up measures the revised solver through 1,024 workers and includes the committed benchmarks. [Follow-up results and reproduction](#follow-up-on-clause-storage-boolean-variables-and-independent-solvers)
 
@@ -519,3 +521,39 @@ Nine rotated samples used 400,000 lifetimes per workload. On the paged expressio
 The proof-free beta reducer now obtains the expression kind, reference count, ground flag and either application arity or bound-variable index from a single AST slot lookup. Shared nodes and substitutions under binders still use the existing cache, index-shifting and reconstruction rules.
 
 In nine alternating runs of 220,000 substitutions on one core, the median fell from **1,938 to 1,768 ns** when instances survived and from **2,597 to 2,433 ns** when each instance retired. Both workloads used zero allocations per operation. The corresponding full Raft experiment retired 933.7 billion user instructions before and 925.1 billion after. Single wall-time observations were 122.58 and 121.21 seconds. The final traversal matched the original 24 search counters on every one of the 419 verification conditions. Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTQuantifierBodySubstitution$' -benchtime=220000x`. [Individual substitution timings](perf/ivy_raft/substitution-shape.csv)
+
+### Order abstraction for the concrete Raft verifier
+
+The timed input was the original `examples/raft/raft_no_assume_test.ivy`. Its eight abstract types have concrete bit-vector interpretations of widths two, three and four. The GoIvy frontend generated the original assertions for both backends. The proof strategy receives those SMT assertions, with no file names, conjecture names, expected answers or Ivy type metadata. In an earlier diagnostic, checking the separate verification-oriented source without the finite interpretations took 11.96 s on g3. That timing is for a different input.
+
+| Whole process, six samples per backend | Pure-Go g3 with order proof | GoIvy with native C++ Z3 |
+|---|---:|---:|
+| Wall time, median (range) | **25.94 s** (25.84–26.82) | **32.53 s** (32.29–32.77) |
+| Median peak RSS | 114,672 KiB | 321,036 KiB |
+| Median user cycles | 108.88 billion | 138.03 billion |
+| Median user instructions | 230.58 billion | 215.52 billion |
+| Ordered verification transcript | 419 PASS, final OK | 419 PASS, final OK |
+
+Each backend ran three times on each of logical CPUs 6 and 12. The two series used opposite orders. Each process ran on one core with `GOMAXPROCS=1`, tracing off, and solver reset after each completed action. Every timed run was checked against Python Ivy's reference transcript, including the obligation names and order. These crossover numbers are for the in-process prototype. The integrated, resource-bounded implementation took 25.81 s in a separate complete run. The wall-time improvement over native is 20.3% on this input. [Raw crossover timings and counters](perf/ivy_raft/order-crossover.csv) · [Transcript checker](perf/ivy_raft/measure.py)
+
+#### Why the relaxation proves the concrete obligation
+
+A bit-vector used as a node identifier costs the concrete solver every axiom and instantiation that finite bit-vector interpretation entails. In these obligations most uses depend on equality, unsigned order and uninterpreted functions. The proof attempt assigns a fresh domain to each bit-vector function position, bound variable, and numeral occurrence. It unifies two domains wherever passing an argument, testing equality, comparing values or joining conditional branches requires the same type. Positions of equal bit width can therefore remain distinct. No arithmetic or signed comparison is translated in a retained formula.
+
+For any concrete model, give each abstract domain a separate copy of all values of the original width. Interpret each function by transporting its concrete inputs and output through those copies. Interpret the strict-order relation as unsigned less-than and each numeral as its own value. The added axioms express irreflexivity, transitivity, totality, zero as the least value, and the order and distinctness of observed numerals. All hold in that model. Renaming binders preserves quantifier scope. Dropping a whole theory-only **top-level conjunct** can only weaken the assertions. Consequently a concrete satisfying model supplies an abstract satisfying model. Refuting the abstraction rules out all concrete models.
+
+The extra solver runs on the caller's goroutine. It may return only a refutation to the verifier. A satisfiable abstraction, unsupported operation, or speculative resource limit sends the obligation to the original solver with its concrete assertions and scope intact. Core and model APIs continue to use the ordinary solver. The private attempt has a three-million-step ceiling. Across 419 successful prototype checks the median was 24,579 steps, the 99th percentile 507,411 and the largest 2,118,282. Explicit finite source limits bypass the extra search. [Inference and eligibility](api/internal/order/relax.go) · [Solver entry point](api/api_order_abstraction.go) · [Correctness controls](api/api_order_abstraction_test.go)
+
+A deliberately false `X:node = Y:node` conjecture added to a temporary copy of the concrete wrapper produced the **same failed conjecture**, 427 other passing checks, exit code 1 and byte-identical output on both backends. An independent two-bit test asks for five distinct values. The relaxation admits a larger domain and the original solver proves the concrete formula unsatisfiable. Additional tests cover satisfiable formulas with concrete models, nested binders, all four unsigned comparisons in both directions and at equality, signed arithmetic fallback, push/pop, previous model availability and resource-limited retry.
+
+#### What remains slower
+
+At matched concrete search the Go engine still takes about two minutes and native about 33 seconds. Applying the same offline order translation to all 419 captured queries and launching a fresh process per query took 30.63 s total in g3 and 8.47 s in C++ Z3. That experiment includes startup and parsing and omits the Ivy frontend. It shows the benefit of the proof strategy separately from the remaining cost of Go solver operations. For an individual hard goal, check 274, the saved fresh-context benchmark took 15.65 s concretely and 1.77 s with the relaxation. For easy check 1 the times were 17.9 and 55.0 ms. Avoiding speculative setup on easy checks and reusing work between related obligations are high-value next experiments.
+
+Run `go test ./api -run '^$' -bench '^BenchmarkRaftOrderAbstraction$' -benchtime=1x -cpu=1` from `pkg` for the two captured conditions. Each iteration creates a fresh context, loads the original concrete assertions, selects the incremental path, and checks the expected answer. For an end-to-end comparison, build both GoIvy backends with `perf/ivy_raft/build.py` and run `perf/ivy_raft/measure.py` with a Python reference run and the original concrete wrapper. [Benchmark](api/api_order_abstraction_benchmark_test.go) · [Captured inputs](api/test_vectors/raft_order)
+
+#### Alternatives tested on the original obligations
+
+* A bit-parallel evaluator agreed with the existing auxiliary SMT results on 42,579 eligible queries out of 44,546. Using its witnesses reduced one full run to 102.87 s from roughly 123 s. Emitting tautologies alone gave 120.24 s and combining both choices gave 115.82 s. Earlier attempts to skip auxiliary checks changed search order enough to regress badly. The evaluator remains an experiment for finite problems where the order relaxation is inconclusive.
+* Rechecking the previous exact UNSAT core across nearby obligations discharged 171 of 419. Those checks represented only 3.71 seconds of original solver time. Most expensive action transitions needed different premises.
+* Splitting four shared Boolean conditional guards reduced one hard check from roughly 41 seconds to 8.35 seconds across six branches. Results varied widely by obligation. Partial binder expansion and relevance filtering also helped individual goals. These candidates need inexpensive selection criteria and concrete fallback before they merit a default path.

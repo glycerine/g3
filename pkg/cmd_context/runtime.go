@@ -17,6 +17,8 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+const defaultStandaloneBudget = 1 << 40
+
 type contextServices struct {
 	budget      *arena.Budget
 	symbols     *usymbol.Manager
@@ -34,18 +36,18 @@ type contextServices struct {
 // executable composition root must link the generated collectors in engine,
 // matching the source shell's process initialization before cmd_context.
 func NewStandaloneContext() (*Context, error) {
-	context, _, err := newStandaloneContext(false)
+	context, _, err := newStandaloneContext(false, arena.NewBudget(1<<40))
 	return context, err
 }
 
 // NewStandaloneShellContext constructs the command-line process memory path.
 // The returned policy is borrowed from the context and is closed with it.
 func NewStandaloneShellContext() (*Context, *diagnostic.MemoryFatalContext, error) {
-	return newStandaloneContext(true)
+	return newStandaloneContext(true, arena.NewBudget(1<<40))
 }
 
-func newStandaloneContext(shellMemory bool) (*Context, *diagnostic.MemoryFatalContext, error) {
-	s := &contextServices{budget: arena.NewBudget(1 << 40)}
+func newStandaloneContext(shellMemory bool, budget *arena.Budget) (*Context, *diagnostic.MemoryFatalContext, error) {
+	s := &contextServices{budget: budget}
 	fail := func(err error) (*Context, *diagnostic.MemoryFatalContext, error) {
 		return nil, nil, errors.Join(err, s.Close())
 	}
@@ -122,7 +124,13 @@ func NewAuxiliaryContextFor(template *ast.ASTManager) (*Context, error) {
 }
 
 func NewAuxiliaryContext() (*Context, error) {
-	c, err := NewStandaloneContext()
+	return NewAuxiliaryContextWithBudget(arena.NewBudget(defaultStandaloneBudget))
+}
+
+// NewAuxiliaryContextWithBudget gives a private solver its own manager and
+// symbols while charging both solvers against their owner's storage limit.
+func NewAuxiliaryContextWithBudget(budget *arena.Budget) (*Context, error) {
+	c, _, err := newStandaloneContext(false, budget)
 	if c != nil {
 		c.mainContext = false
 	}

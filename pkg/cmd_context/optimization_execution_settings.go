@@ -24,3 +24,13 @@ func (c *Context) optimizationSettings() (optimizationExecutionSettings, error) 
 	}
 	return optimizationExecutionSettings{timeout: timeout, rlimit: rlimit}, nil
 }
+
+// ExecutionLimits returns the timeout in milliseconds and resource limit that
+// apply to a check, including the context's construction parameters.
+func (c *Context) ExecutionLimits() (timeout, steps uint32, err error) {
+	if err = c.valid(); err != nil {
+		return
+	}
+	s, err := c.optimizationSettings()
+	return s.timeout, s.rlimit, err
+}
