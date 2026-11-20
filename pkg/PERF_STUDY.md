@@ -568,6 +568,23 @@ At matched concrete search the Go engine still takes about two minutes and nativ
 
 Run `go test ./api -run '^$' -bench '^BenchmarkRaftOrderAbstraction$' -benchtime=1x -cpu=1` from `pkg` for the two captured conditions. Each iteration creates a fresh context, loads the original concrete assertions, selects the incremental path, and checks the expected answer. For an end-to-end comparison, build both GoIvy backends with `perf/ivy_raft/build.py` and run `perf/ivy_raft/measure.py` with a Python reference run and the original concrete wrapper. [Benchmark](api/api_order_abstraction_benchmark_test.go) · [Captured inputs](api/test_vectors/raft_order)
 
+#### Same input and same search in both SMT kernels
+
+I saved the generated SMT-LIB for all 419 order proofs and replayed the same bytes through both simple solvers with macro discovery enabled. The control uses Ivy's own Z3 4.7.1 Python bindings. Both drivers start a fresh context per obligation and check for UNSAT. Each backend ran three times on each of cores 6 and 12 in opposite orders. All 18 recorded search counters matched **for each individual obligation in every run**, including 38,690 quantifier instantiations, 23,033 decisions, 2,363 conflicts and 66,398 propagations across the corpus. [Per-obligation counters and timings](perf/ivy_raft/order-matched-search.csv)
+
+| Median across six processes | g3 | C++ Z3 |
+|---|---:|---:|
+| Total elapsed, including the driver | 11.54 s | 2.83 s |
+| Create contexts and configure solvers | 0.043 s | 0.044 s |
+| Parse and assert | 1.370 s | 0.238 s |
+| Check the assertions | 9.930 s | 2.311 s |
+| Release contexts and solvers | 0.157 s | 0.069 s |
+| User instructions | 94.66 billion | 20.66 billion |
+
+The check itself accounts for **7.62 s** of the **8.71 s** wall-time gap. Parsing and asserting accounts for another **1.13 s**. Individual medians need not sum to the full process time, which includes reading inputs and collecting statistics. The Go kernel retired **4.58×** as many instructions on this search. A Go CPU profile attributed 35.3% of samples inclusively to application rewriting and 9.0% directly to the inlined AST node lookup. This supports further work on the cost per rewrite and reference access. The optimized end-to-end comparison above uses an additional proof strategy in GoIvy. Supplying the same transformed problem to C++ changes the comparison substantially. [Individual crossover runs](perf/ivy_raft/order-matched-runs.csv)
+
+Reproduce the corpus in one process per backend from `pkg`. Run `go test ./api -run '^$' -bench '^BenchmarkRaftOrderKernel$' -benchtime=1x -cpu=1` and run `python perf/ivy_raft/replay_order_kernel.py` with Ivy's Python environment active. The committed benchmarks check the answers and time loading and solving. The crossover drivers also read the statistics after each check. [Go benchmark](api/api_raft_kernel_benchmark_test.go) · [Native control](perf/ivy_raft/replay_order_kernel.py) · [Compressed SMT-LIB corpus](api/test_vectors/raft_order/kernel.smt2.gz)
+
 #### Alternatives tested on the original obligations
 
 * A prototype constructed the translated terms directly with typed AST factories. It verified all 419 obligations in 18.53 s and retired 160.53 billion instructions. The integrated SMT-LIB path took 11.46 s and retired 94.25 billion. Direct construction changed the order of AST creation and solver setup. Eliminating parsing alone does not predict the cost of the resulting search.
