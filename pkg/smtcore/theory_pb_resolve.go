@@ -51,7 +51,7 @@ func (r *smtPBResolution) antecedent(literal SMTLiteral, coefficient *numeral.Ra
 		return err
 	}
 	v := literal.Var()
-	level := s.booleanData[v].ScopeLevel
+	level := s.booleanData[v].ScopeLevel()
 	if value != lbool.False {
 		if err = q.Sub(&r.lemma.bound, coefficient, &r.lemma.bound); err != nil {
 			return err
@@ -187,7 +187,7 @@ func (r *smtPBResolution) inequality(c *smtPBConstraint, consequent SMTLiteral, 
 			return ast.ErrASTDomain
 		}
 	}
-	if r.theory.state.booleanData[c.lit().Var()].ScopeLevel > r.base {
+	if r.theory.state.booleanData[c.lit().Var()].ScopeLevel() > r.base {
 		r.guards = append(r.guards, c.lit())
 	}
 	return nil
@@ -308,11 +308,11 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (_ bool, er
 		if err != nil {
 			return false, err
 		}
-		if value == lbool.False && s.booleanData[term.literal.Var()].ScopeLevel > r.level {
-			r.level = s.booleanData[term.literal.Var()].ScopeLevel
+		if value == lbool.False && s.booleanData[term.literal.Var()].ScopeLevel() > r.level {
+			r.level = s.booleanData[term.literal.Var()].ScopeLevel()
 		}
 	}
-	if r.level < s.booleanData[c.lit().Var()].ScopeLevel || r.level == base {
+	if r.level < s.booleanData[c.lit().Var()].ScopeLevel() || r.level == base {
 		return false, nil
 	}
 	one := smtQInt(1)
@@ -475,7 +475,7 @@ func (t *SMTPseudoBooleanTheory) resolveConsequent(r *smtPBResolution, consequen
 				return false, err
 			}
 		case SMTBooleanJustificationAxiom:
-			if s.booleanData[consequent.Var()].ScopeLevel > base {
+			if s.booleanData[consequent.Var()].ScopeLevel() > base {
 				r.guards = append(r.guards, consequent)
 			}
 			if err := t.traceAssignment("resolve_conflict", 1710, "axiom ", consequent, nil, false); err != nil {

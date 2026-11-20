@@ -22,7 +22,7 @@ type smtCheckPhaseTheory struct {
 func (t *smtCheckPhaseTheory) InitializeSearch() error {
 	t.initCalls++
 	for _, data := range t.state.booleanData {
-		t.sawAssumption = t.sawAssumption || data.Assumption
+		t.sawAssumption = t.sawAssumption || data.Assumption()
 	}
 	return t.initError
 }

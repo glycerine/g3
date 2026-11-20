@@ -95,7 +95,7 @@ func (s *SMTInternalizerState) propagateTheoryCaseSplits(head int) (bool, error)
 				if other == literal {
 					continue
 				}
-				if err := s.AssignLiteral(other.Negated(), NewSMTBooleanBinaryClause(literal)); err != nil {
+				if err := s.AssignLiteral(other.Negated(), s.binaryReason(literal)); err != nil {
 					return false, err
 				}
 				if s.inconsistent {

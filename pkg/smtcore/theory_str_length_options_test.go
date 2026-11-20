@@ -148,7 +148,7 @@ func TestSMTStringLengthOptionsPrioritiesAggressivePhasesAndLiteralCache(t *test
 			}
 			data, err := state.BooleanData(variable)
 			astTestMust(t, err)
-			if !data.PhaseAvailable || !data.Phase || !state.isRelevant(equal) || data.TryTrueFirst() {
+			if !data.PhaseAvailable() || !data.Phase() || !state.isRelevant(equal) || data.TryTrueFirst() {
 				t.Fatal("aggressive length choice was not relevant with a cached true phase")
 			}
 			if assigned, err := state.Assignment(NewSMTLiteral(variable, false)); err != nil || assigned != lbool.Undef {
@@ -161,7 +161,7 @@ func TestSMTStringLengthOptionsPrioritiesAggressivePhasesAndLiteralCache(t *test
 		variable, _ := state.BoolVar(equal)
 		data, err := state.BooleanData(variable)
 		astTestMust(t, err)
-		if !data.PhaseAvailable || data.Phase || state.theoryAwareBranching.priorities[variable] != -0.1 {
+		if !data.PhaseAvailable() || data.Phase() || state.theoryAwareBranching.priorities[variable] != -0.1 {
 			t.Fatal("more priority/false-phase hint changed")
 		}
 	}

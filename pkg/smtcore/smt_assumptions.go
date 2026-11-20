@@ -122,7 +122,7 @@ func (k *SMTKernel) checkConfiguredAssumptions(assumptions []ast.ASTHandle) (res
 	defer func() {
 		for _, variable := range assumptionVariables {
 			if variable >= SMTFirstBoolVar && int(variable) < len(k.internalizer.booleanData) {
-				k.internalizer.booleanData[variable].Assumption = false
+				k.internalizer.booleanData[variable].SetAssumption(false)
 			}
 		}
 		// mk_unsat_core undoes the push_scope of init_assumptions through
@@ -178,7 +178,7 @@ func (k *SMTKernel) checkConfiguredAssumptions(assumptions []ast.ASTHandle) (res
 			return lbool.Undef, err
 		}
 		if literal.Var() >= SMTFirstBoolVar {
-			k.internalizer.booleanData[literal.Var()].Assumption = true
+			k.internalizer.booleanData[literal.Var()].SetAssumption(true)
 			assumptionVariables = append(assumptionVariables, literal.Var())
 			k.assumptions[literal] = assumption
 		}

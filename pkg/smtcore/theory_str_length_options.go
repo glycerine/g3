@@ -65,8 +65,8 @@ func (t *SMTStringTheory) forceStringTesterPhase(left, right ast.ASTHandle, phas
 	data := &t.state.booleanData[literal.Var()]
 	// context::force_phase writes cached phase only; it does not assign the
 	// literal or set the independent try-true-first flag.
-	data.PhaseAvailable = true
-	data.Phase = phase
+	data.SetPhaseAvailable(true)
+	data.SetPhase(phase)
 	return nil
 }
 

@@ -190,7 +190,7 @@ func (s *SMTInternalizerState) forgetPhaseOfVarsInCurrentLevel() error {
 		start = s.scopes[len(s.scopes)-1].assignedLimit
 	}
 	for _, literal := range s.assignedLiterals[start:] {
-		s.booleanData[literal.Var()].PhaseAvailable = false
+		s.booleanData[literal.Var()].SetPhaseAvailable(false)
 	}
 	return nil
 }

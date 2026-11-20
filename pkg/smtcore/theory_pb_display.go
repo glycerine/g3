@@ -39,7 +39,7 @@ func (t *SMTPseudoBooleanTheory) displayLiteralValue(out io.Writer, l SMTLiteral
 		return err
 	}
 	if value != lbool.Undef {
-		if _, err = fmt.Fprintf(out, ":%d", t.state.booleanData[l.Var()].ScopeLevel); err != nil {
+		if _, err = fmt.Fprintf(out, ":%d", t.state.booleanData[l.Var()].ScopeLevel()); err != nil {
 			return err
 		}
 	}

@@ -131,7 +131,7 @@ func (s *SMTInternalizerState) restoreLearnedAtom(expression ast.ASTHandle) (int
 	table := s.context.exprs
 	record := table.read(expression)
 	found := record != nil && record.flags&smtExprHasBoolVar != 0
-	if found && s.booleanData[record.boolVar].basicOp != ast.ASTOpNot {
+	if found && s.notChild(record.boolVar).IsNull() {
 		return record.boolVar, nil
 	}
 	if !found && s.manager.TryIncRefHeldUninterpretedConstant(expression) {
@@ -144,7 +144,7 @@ func (s *SMTInternalizerState) restoreLearnedAtom(expression ast.ASTHandle) (int
 			record.flags |= smtExprHasBoolVar
 			table.boolVarCount++
 		}
-		return s.publishBoolVar(expression, SMTBoolVarData{internalLevel: s.scopeLevel, basicOp: -1})
+		return s.publishBoolVar(expression, SMTBoolVarData{internalFlags: s.scopeLevel})
 	}
 	header, err := s.manager.NodeHeader(expression)
 	if err != nil {

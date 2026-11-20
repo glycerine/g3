@@ -112,7 +112,7 @@ func (t *SMTPseudoBooleanTheory) compileInequality(c *smtPBConstraint) error {
 		if err != nil {
 			return err
 		}
-		if value != lbool.Undef && s.booleanData[term.literal.Var()].ScopeLevel == base {
+		if value != lbool.Undef && s.booleanData[term.literal.Var()].ScopeLevel() == base {
 			if value == lbool.True {
 				if k < m {
 					return nil
@@ -139,7 +139,7 @@ func (t *SMTPseudoBooleanTheory) compileInequality(c *smtPBConstraint) error {
 	if err != nil {
 		return err
 	}
-	full := value != lbool.True || s.booleanData[thl.Var()].ScopeLevel != base
+	full := value != lbool.True || s.booleanData[thl.Var()].ScopeLevel() != base
 	network := smtPBSort{theory: t}
 	atLeast := network.ge(full, k, in)
 	if network.err != nil {

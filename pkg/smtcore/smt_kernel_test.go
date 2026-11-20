@@ -431,8 +431,8 @@ func TestSMTKernelAssumptionsValidateCheckAndRollback(t *testing.T) {
 		astTestMust(t, assignmentErr)
 		data, dataErr := state.BooleanData(literal.Var())
 		astTestMust(t, dataErr)
-		if value != lbool.Undef || data.Assumption {
-			t.Fatal("assumption state leaked", expression, value, data.Assumption)
+		if value != lbool.Undef || data.Assumption() {
+			t.Fatal("assumption state leaked", expression, value, data.Assumption())
 		}
 	}
 	result, err = kernel.Check()

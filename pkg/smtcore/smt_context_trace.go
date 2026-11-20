@@ -192,25 +192,27 @@ func (s *SMTInternalizerState) traceJustification(j SMTBooleanJustification) str
 }
 
 func (s *SMTInternalizerState) traceJustificationTo(j SMTBooleanJustification, w func(string)) {
-	switch j.kind {
+	switch j.Kind() {
 	case SMTBooleanJustificationAxiom:
 		w("axiom")
 	case SMTBooleanJustificationBinaryClause:
 		w("bin-clause ")
-		s.traceLiteralVerboseTo(j.literal, w)
+		l, _ := j.Literal()
+		s.traceLiteralVerboseTo(l, w)
 	case SMTBooleanJustificationClause:
 		w("clause ")
-		if j.clause != nil {
-			s.traceLiteralsVerboseTo(j.clause.literals, w)
+		if clause, _ := j.Clause(); clause != nil {
+			s.traceLiteralsVerboseTo(clause.literals, w)
 		}
 	case SMTBooleanJustificationObject:
+		reason, _ := j.Justification()
 		theory := SMTNullTheoryID
-		if j.justification != nil {
-			theory = j.justification.FromTheory()
+		if reason != nil {
+			theory = reason.FromTheory()
 		}
 		w("justification " + strconv.Itoa(int(theory)) + ": ")
-		if j.justification != nil {
-			s.traceLiteralsVerboseTo(s.traceJustificationLiterals(j.justification), w)
+		if reason != nil {
+			s.traceLiteralsVerboseTo(s.traceJustificationLiterals(reason), w)
 		}
 	}
 	w("\n")

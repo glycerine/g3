@@ -57,7 +57,7 @@ func TestSMTUnsatCoreReverseTrailDiscoveryAndDuplicates(t *testing.T) {
 	astTestMust(t, s.PushScope())
 	for _, literal := range []SMTLiteral{a, b} {
 		astTestMust(t, s.AssignLiteral(literal, NewSMTBooleanAxiom()))
-		s.booleanData[literal.Var()].Assumption = true
+		s.booleanData[literal.Var()].SetAssumption(true)
 	}
 	astTestMust(t, s.AssignLiteral(c, smtCoreWalkReason(t, b)))
 	astTestMust(t, s.AssignLiteral(d, smtCoreWalkReason(t, a)))
@@ -77,7 +77,7 @@ func TestSMTConflictLearningRetainsAssumptionsBelowSearchDecision(t *testing.T) 
 	a, decision, implied := literals[0], literals[1], literals[2]
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(a, NewSMTBooleanAxiom()))
-	s.booleanData[a.Var()].Assumption = true
+	s.booleanData[a.Var()].SetAssumption(true)
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(decision, NewSMTBooleanAxiom()))
 	astTestMust(t, s.AssignLiteral(implied, smtCoreWalkReason(t, a, decision)))
@@ -107,10 +107,10 @@ func TestSMTUnsatCoreStopsBeforeOlderAssignedReasons(t *testing.T) {
 	astTestMust(t, s.AssignLiteral(b, smtCoreWalkReason(t, a)))
 	// a was already a base fact when it was supplied as an assumption.
 	// It is unnecessary for this query and must not be reached via b.
-	s.booleanData[a.Var()].Assumption = true
+	s.booleanData[a.Var()].SetAssumption(true)
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(c, NewSMTBooleanAxiom()))
-	s.booleanData[c.Var()].Assumption = true
+	s.booleanData[c.Var()].SetAssumption(true)
 	astTestMust(t, s.AssignLiteral(d, smtCoreWalkReason(t, b, c)))
 	r := smtCoreWalkResolver(t, s)
 	core, err := r.UnsatCore(smtCoreWalkReason(t, d), SMTNullLiteral)
@@ -123,13 +123,13 @@ func TestSMTUnsatCoreSkipsAssignmentsAboveConflictLevel(t *testing.T) {
 	a, b, later := ls[0], ls[1], ls[2]
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(a, NewSMTBooleanAxiom()))
-	s.booleanData[a.Var()].Assumption = true
+	s.booleanData[a.Var()].SetAssumption(true)
 	astTestMust(t, s.AssignLiteral(b, smtCoreWalkReason(t, a)))
 	astTestMust(t, s.beginSearchPersistence(s.scopeLevel, SMTParamsState{}))
 	defer func() { astTestMust(t, s.endSearchPersistence()) }()
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(later, NewSMTBooleanAxiom()))
-	s.booleanData[later.Var()].Assumption = true
+	s.booleanData[later.Var()].SetAssumption(true)
 	r := smtCoreWalkResolver(t, s)
 	core, err := r.UnsatCore(smtCoreWalkReason(t, b), SMTNullLiteral)
 	astTestMust(t, err)
@@ -153,7 +153,7 @@ func TestSMTUnsatCoreFailedConsequentPolarityAndContextDedup(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(literal, NewSMTBooleanAxiom()))
-	s.booleanData[literal.Var()].Assumption = true
+	s.booleanData[literal.Var()].SetAssumption(true)
 	k.assumptions = map[SMTLiteral]ast.ASTHandle{literal.Negated(): notP}
 	r := smtCoreWalkResolver(t, s)
 	core, err := r.UnsatCore(NewSMTBooleanAxiom(), literal)
@@ -173,9 +173,9 @@ func TestSMTUnsatCoreBooleanReasonVariants(t *testing.T) {
 			a, b, c := ls[0], ls[1], ls[2]
 			astTestMust(t, s.PushScope())
 			astTestMust(t, s.AssignLiteral(a, NewSMTBooleanAxiom()))
-			s.booleanData[a.Var()].Assumption = true
+			s.booleanData[a.Var()].SetAssumption(true)
 			astTestMust(t, s.AssignLiteral(b, NewSMTBooleanAxiom()))
-			s.booleanData[b.Var()].Assumption = true
+			s.booleanData[b.Var()].SetAssumption(true)
 			reason := smtCoreWalkReason(t, a)
 			switch kind {
 			case "binary":
@@ -229,7 +229,7 @@ func TestSMTUnsatCoreErrorCleanupAndEmptyTrail(t *testing.T) {
 	expectSMTRawCore(t, core, nil)
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AssignLiteral(a, NewSMTBooleanAxiom()))
-	s.booleanData[a.Var()].Assumption = true
+	s.booleanData[a.Var()].SetAssumption(true)
 	owner := &smtCoreWalkStoppedJustification{SMTJustificationBase: NewSMTJustificationBase(true), stop: true, literal: a}
 	reason, err := NewSMTBooleanJustification(owner)
 	astTestMust(t, err)

@@ -75,7 +75,7 @@ func TestSMTActivityCaseSplitQueueHonorsConfiguredAndCachedPhases(t *testing.T) 
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.AssignLiteral(NewSMTLiteral(variable, false), NewSMTBooleanAxiom()))
 	astTestMust(t, state.PopScopes(1))
-	if !state.booleanData[variable].PhaseAvailable || !state.booleanData[variable].Phase {
+	if !state.booleanData[variable].PhaseAvailable() || !state.booleanData[variable].Phase() {
 		t.Fatal("assignment phase was not cached across rollback")
 	}
 	config.PhaseSelection = 2
@@ -160,19 +160,19 @@ func TestSMTActivityCaseSplitQueueForgetsConservativeConflictPhases(t *testing.T
 	astTestMust(t, queue.ConfigurePhases(config))
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.AssignLiteral(NewSMTLiteral(variable, false), NewSMTBooleanAxiom()))
-	if !state.booleanData[variable].PhaseAvailable {
+	if !state.booleanData[variable].PhaseAvailable() {
 		t.Fatal("assignment did not cache its phase")
 	}
 	astTestMust(t, queue.PrepareConflict())
-	if state.booleanData[variable].PhaseAvailable {
+	if state.booleanData[variable].PhaseAvailable() {
 		t.Fatal("conservative conflict retained current-level phase")
 	}
 
-	state.booleanData[variable].PhaseAvailable = true
+	state.booleanData[variable].SetPhaseAvailable(true)
 	config.PhaseSelection = 2
 	astTestMust(t, queue.ConfigurePhases(config))
 	astTestMust(t, queue.PrepareConflict())
-	if !state.booleanData[variable].PhaseAvailable {
+	if !state.booleanData[variable].PhaseAvailable() {
 		t.Fatal("ordinary caching discarded current-level phase")
 	}
 }

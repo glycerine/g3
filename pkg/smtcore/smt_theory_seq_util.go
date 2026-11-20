@@ -460,8 +460,8 @@ func (t *SMTTheorySeq) markLitRelevant(l SMTLiteral) {
 // forcePhase is context::force_phase(l).
 func (t *SMTTheorySeq) forcePhase(l SMTLiteral) {
 	data := &t.state.booleanData[l.Var()]
-	data.PhaseAvailable = true
-	data.Phase = !l.Sign()
+	data.SetPhaseAvailable(true)
+	data.SetPhase(!l.Sign())
 }
 
 func (t *SMTTheorySeq) atBaseLevel() bool { return t.state.scopeLevel == t.state.baseLevel }

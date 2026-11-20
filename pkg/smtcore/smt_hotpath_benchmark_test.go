@@ -37,10 +37,16 @@ func benchmarkSMTBooleans(b *testing.B, m *ast.ASTManager, s *SMTInternalizerSta
 // BenchmarkSMTBooleanPropagation times watched-clause BCP only. Each round
 // propagates a 128-variable implication chain; scope setup and rollback are
 // outside the timed region.
-func BenchmarkSMTBooleanPropagation(b *testing.B) {
+func BenchmarkSMTBooleanPropagation(b *testing.B) { benchmarkSMTBooleanPropagation(b, 0) }
+
+// Same chain, with IDs above the shared binary reason page.
+func BenchmarkSMTBooleanPropagationLargeIDs(b *testing.B) { benchmarkSMTBooleanPropagation(b, 1024) }
+
+func benchmarkSMTBooleanPropagation(b *testing.B, offset int) {
 	m := astTestManager(b)
 	_, _, s := smtInternalizerFixture(b, m, nil)
-	_, literals := benchmarkSMTBooleans(b, m, s, "bench-bcp", smtHotPathWidth)
+	_, literals := benchmarkSMTBooleans(b, m, s, "bench-bcp", offset+smtHotPathWidth)
+	literals = literals[offset:]
 	for i := 0; i+1 < len(literals); i++ {
 		benchmarkMust(b, s.addGateClause([]SMTLiteral{literals[i].Negated(), literals[i+1]}))
 	}

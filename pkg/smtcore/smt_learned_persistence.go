@@ -62,15 +62,16 @@ func (s *SMTInternalizerState) finishLearnedAssignment(p *smtLearnedAssignment) 
 	if p.stage == smtLearnedAssignmentMetadata {
 		data := &s.booleanData[literal.Var()]
 		data.SetJustification(p.justification)
-		data.ScopeLevel = s.scopeLevel
-		if s.searching && s.searchRestartAdaptive && data.PhaseAvailable {
+		data.SetScopeLevel(s.scopeLevel)
+		if s.searching && s.searchRestartAdaptive && data.PhaseAvailable() {
 			// float64() rounds the product, blocking FMA contraction (match z3 bit for bit).
 			s.searchAgility = float64(s.searchAgility * s.searchAgilityFactor)
-			if data.Phase == literal.Sign() {
+			if data.Phase() == literal.Sign() {
 				s.searchAgility += 1 - s.searchAgilityFactor
 			}
 		}
-		data.PhaseAvailable, data.Phase = true, !literal.Sign()
+		data.SetPhaseAvailable(true)
+		data.SetPhase(!literal.Sign())
 		if err := s.appendAssignedLiteral(literal); err != nil {
 			return err
 		}
@@ -358,7 +359,7 @@ func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearn
 					record := *added
 					justification := NewSMTBooleanClause(record.clause)
 					if record.Binary {
-						justification = NewSMTBooleanBinaryClause(record.Literals[1].Negated())
+						justification = s.binaryReason(record.Literals[1].Negated())
 					}
 					remaining := s.learnedAssignmentRemainder(first, assignment, assigned, justification)
 					saved.pending = &remaining

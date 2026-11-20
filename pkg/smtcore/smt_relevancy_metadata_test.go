@@ -1,9 +1,11 @@
 package smtcore
 
 import (
+	"fmt"
+	"testing"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"testing"
 )
 
 func TestSMTRelevancyBooleanMetadataFollowsVariableLifetime(t *testing.T) {
@@ -25,7 +27,7 @@ func TestSMTRelevancyBooleanMetadataFollowsVariableLifetime(t *testing.T) {
 	astTestMust(t, err)
 	nv, err := s.MkBoolVar(neg)
 	astTestMust(t, err)
-	if s.booleanData[nv].basicOp != ast.ASTOpNot || s.booleanData[nv].notChild != a {
+	if s.notChild(nv) != a {
 		t.Fatal("NOT metadata was not recorded")
 	}
 	// A nongate NOT has its own event assignment, but find_assignment still
@@ -39,7 +41,7 @@ func TestSMTRelevancyBooleanMetadataFollowsVariableLifetime(t *testing.T) {
 	b := smtRelevancyBool(t, m, "metadata-b")
 	bv, err := s.MkBoolVar(b)
 	astTestMust(t, err)
-	if bv != nv || !s.booleanData[bv].notChild.IsNull() || s.booleanData[bv].basicOp != -1 {
+	if bv != nv || !s.notChild(bv).IsNull() {
 		t.Fatal("reused variable kept stale NOT metadata")
 	}
 	astTestMust(t, s.SetAssignment(bv, lbool.True))
@@ -74,7 +76,7 @@ func TestSMTRelevancyCachedGateArgumentsPreserveNegationAndOrder(t *testing.T) {
 		astTestMust(t, s.SetAssignment(av, lbool.FromBool(conjunction)))
 		astTestMust(t, s.SetAssignment(bv, lbool.FromBool(!conjunction)))
 		astTestMust(t, s.SetAssignment(pv, lbool.FromBool(!conjunction)))
-		if gate := s.booleanData[pv].gate; gate == nil || len(gate.literals) != 2 || gate.literals[0] != NewSMTLiteral(av, true) {
+		if gate := s.boolGate(pv); gate == nil || len(gate.literals) != 2 || gate.literals[0] != NewSMTLiteral(av, true) {
 			t.Fatal("cached gate did not normalize its NOT operand")
 		}
 		astTestMust(t, p.MarkRelevant(parent))
@@ -82,6 +84,42 @@ func TestSMTRelevancyCachedGateArgumentsPreserveNegationAndOrder(t *testing.T) {
 		astTestMust(t, p.Propagate())
 		if !p.IsRelevant(a) || !p.IsRelevant(neg) || p.IsRelevant(b) {
 			t.Fatal("cached gate lost signed child selection or source argument order")
+		}
+	}
+}
+
+func TestSMTGatePageReuseAtBoundary(t *testing.T) {
+	m := astTestManager(t)
+	_, _, s := smtInternalizerFixture(t, m, nil)
+	for i := 0; i < smtBoolGatesPerPage-2; i++ {
+		_, err := s.MkBoolVar(smtRelevancyBool(t, m, fmt.Sprintf("page-leaf-%d", i)))
+		astTestMust(t, err)
+	}
+	if len(s.gatePages) != 0 {
+		t.Fatal("leaf-only variables allocated gate pages")
+	}
+	a, b := smtRelevancyPinnedBool(t, m, "page-a"), smtRelevancyPinnedBool(t, m, "page-b")
+	for _, expected := range []int32{ast.ASTOpAnd, ast.ASTOpOr} {
+		astTestMust(t, s.PushScope())
+		neg, err := m.MkNot(a)
+		astTestMust(t, err)
+		n, err := s.MkBoolVar(neg)
+		astTestMust(t, err)
+		var e ast.ASTHandle
+		if expected == ast.ASTOpAnd {
+			e, err = m.MkAnd(a, b)
+		} else {
+			e, err = m.MkOr(a, b)
+		}
+		astTestMust(t, err)
+		v, err := s.MkBoolVar(e)
+		astTestMust(t, err)
+		if n != smtBoolGatesPerPage-1 || v != smtBoolGatesPerPage || s.notChild(n) != a || s.boolGateOp(v) != expected {
+			t.Fatal("failed to cache adjacent gates across a page boundary", n, v)
+		}
+		astTestMust(t, s.PopScopes(1))
+		if !s.notChild(n).IsNull() || s.boolGate(v) != nil || s.boolGateOp(v) != -1 {
+			t.Fatal("retired gate metadata remained reachable")
 		}
 	}
 }

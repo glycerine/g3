@@ -185,7 +185,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		// simplify_aux_lemma_literals: a literal true at or below the base
 		// level makes the lemma true; false literals are kept.
-		if kind == SMTClauseAuxLemma && s.booleanData[literal.Var()].ScopeLevel <= s.baseLevel {
+		if kind == SMTClauseAuxLemma && s.booleanData[literal.Var()].ScopeLevel() <= s.baseLevel {
 			value, err := s.Assignment(literal)
 			if err != nil {
 				return err
@@ -331,7 +331,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			return err
 		}
 		if value == lbool.False {
-			if err = s.AssignLiteral(first, NewSMTBooleanBinaryClause(second.Negated())); err != nil {
+			if err = s.AssignLiteral(first, s.binaryReason(second.Negated())); err != nil {
 				return err
 			}
 		}
@@ -432,7 +432,7 @@ func (s *SMTInternalizerState) selectLearnedWatchLiteral(literals []SMTLiteral) 
 		}
 		level := s.scopeLevel
 		if value == lbool.False {
-			level = s.booleanData[literals[index].Var()].ScopeLevel
+			level = s.booleanData[literals[index].Var()].ScopeLevel()
 		}
 		if selected == -1 || level > selectedLevel {
 			selected, selectedLevel = index, level
@@ -453,13 +453,13 @@ func (s *SMTInternalizerState) selectWatchLiteral(literals []SMTLiteral, startin
 		}
 		switch value {
 		case lbool.False:
-			if maxFalse == -1 || s.booleanData[literals[index].Var()].ScopeLevel > s.booleanData[literals[maxFalse].Var()].ScopeLevel {
+			if maxFalse == -1 || s.booleanData[literals[index].Var()].ScopeLevel() > s.booleanData[literals[maxFalse].Var()].ScopeLevel() {
 				maxFalse = index
 			}
 		case lbool.Undef:
 			unknown = index
 		case lbool.True:
-			if minTrue == -1 || s.booleanData[literals[index].Var()].ScopeLevel < s.booleanData[literals[minTrue].Var()].ScopeLevel {
+			if minTrue == -1 || s.booleanData[literals[index].Var()].ScopeLevel() < s.booleanData[literals[minTrue].Var()].ScopeLevel() {
 				minTrue = index
 			}
 		}
@@ -1103,7 +1103,7 @@ func (s *SMTInternalizerState) addGateConstraints(expression ast.ASTHandle, oper
 	if err != nil {
 		return err
 	}
-	if gate := s.booleanData[variable].gate; gate != nil {
+	if gate := s.boolGate(variable); gate != nil {
 		// Children precede their gate in scope order, so these literal indices
 		// remain live for the owning Boolean variable's whole lifetime.
 		gate.literals = arguments

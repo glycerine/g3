@@ -3,7 +3,11 @@ package smtcore
 // Source: src/smt/smt_b_justification.h, src/smt/smt_eq_justification.h,
 // and src/smt/smt_bool_var_data.h compact dependency records.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"unsafe"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 // SMTJustification is the typed base implemented by retained concrete SMT
 // justification objects. It mirrors the source abstract justification class.
@@ -42,42 +46,99 @@ func (k SMTBooleanJustificationKind) String() string {
 	}
 }
 
-// SMTBooleanJustification is a typed Go tagged union replacing the source's
-// low-pointer-bit encoding.
+// SMTBooleanJustification is one GC-traced word. The two low address bits
+// select a variant. Every reference, including a tagged one, points inside
+// its allocation. Clauses use their aligned address directly. Literal cells,
+// the axiom token and boxed interfaces have at least four-byte alignment and
+// size, so byte offsets 1, 2 and 3 respectively are valid interior pointers.
+// uintptr is used only to read the tag. The stored pointer keeps the target live.
 type SMTBooleanJustification struct {
-	kind          SMTBooleanJustificationKind
-	literal       SMTLiteral
-	clause        *SMTClause
-	justification SMTJustification
+	_   [0]func() // Use Equal for value equality of independently constructed reasons.
+	ref unsafe.Pointer
 }
 
+var smtAxiomToken uint32
+
 func NewSMTBooleanAxiom() SMTBooleanJustification {
-	return SMTBooleanJustification{kind: SMTBooleanJustificationAxiom}
+	return SMTBooleanJustification{ref: unsafe.Add(unsafe.Pointer(&smtAxiomToken), SMTBooleanJustificationAxiom)}
 }
 func NewSMTBooleanClause(value *SMTClause) SMTBooleanJustification {
-	return SMTBooleanJustification{kind: SMTBooleanJustificationClause, clause: value}
+	return SMTBooleanJustification{ref: unsafe.Pointer(value)}
+}
+
+// Small binary antecedents share immutable, four-byte-aligned cells across
+// solvers. A detached larger literal owns its cell. Solver propagation reuses
+// pages for larger literals as well.
+const smtBinaryReasonPageSize = 256
+
+type smtBinaryReasonPage [smtBinaryReasonPageSize]SMTLiteral
+
+func (p *smtBinaryReasonPage) init(base uint32) {
+	for i := range p {
+		p[i] = SMTLiteral(base + uint32(i))
+	}
+}
+
+var smtSmallBinaryReasons = func() (p smtBinaryReasonPage) { p.init(0); return }()
+
+func smtBinaryReasonRef(l *SMTLiteral) SMTBooleanJustification {
+	return SMTBooleanJustification{ref: unsafe.Add(unsafe.Pointer(l), SMTBooleanJustificationBinaryClause)}
 }
 func NewSMTBooleanBinaryClause(value SMTLiteral) SMTBooleanJustification {
-	return SMTBooleanJustification{kind: SMTBooleanJustificationBinaryClause, literal: value}
+	if uint32(value) < smtBinaryReasonPageSize {
+		return smtBinaryReasonRef(&smtSmallBinaryReasons[value])
+	}
+	cell := value
+	return smtBinaryReasonRef(&cell)
 }
 func NewSMTBooleanJustification(value SMTJustification) (SMTBooleanJustification, error) {
 	if value == nil {
 		return SMTBooleanJustification{}, ast.ErrASTHandle
 	}
-	return SMTBooleanJustification{kind: SMTBooleanJustificationObject, justification: value}, nil
+	return SMTBooleanJustification{ref: unsafe.Add(unsafe.Pointer(&value), SMTBooleanJustificationObject)}, nil
 }
-func NullSMTBooleanJustification() SMTBooleanJustification {
-	return NewSMTBooleanClause(nil)
+func NullSMTBooleanJustification() SMTBooleanJustification { return SMTBooleanJustification{} }
+
+func (j SMTBooleanJustification) Kind() SMTBooleanJustificationKind {
+	return SMTBooleanJustificationKind(uintptr(j.ref) & 3)
 }
-func (j SMTBooleanJustification) Kind() SMTBooleanJustificationKind { return j.kind }
 func (j SMTBooleanJustification) Clause() (*SMTClause, bool) {
-	return j.clause, j.kind == SMTBooleanJustificationClause
+	if j.Kind() != SMTBooleanJustificationClause {
+		return nil, false
+	}
+	return (*SMTClause)(j.ref), true
 }
 func (j SMTBooleanJustification) Literal() (SMTLiteral, bool) {
-	return j.literal, j.kind == SMTBooleanJustificationBinaryClause
+	if j.Kind() != SMTBooleanJustificationBinaryClause {
+		return 0, false
+	}
+	return *(*SMTLiteral)(unsafe.Add(j.ref, -int(SMTBooleanJustificationBinaryClause))), true
 }
 func (j SMTBooleanJustification) Justification() (SMTJustification, bool) {
-	return j.justification, j.kind == SMTBooleanJustificationObject
+	if j.Kind() != SMTBooleanJustificationObject {
+		return nil, false
+	}
+	return *(*SMTJustification)(unsafe.Add(j.ref, -int(SMTBooleanJustificationObject))), true
+}
+func (j SMTBooleanJustification) Equal(k SMTBooleanJustification) bool {
+	if j.ref == k.ref {
+		return true
+	}
+	if j.Kind() != k.Kind() {
+		return false
+	}
+	switch j.Kind() {
+	case SMTBooleanJustificationBinaryClause:
+		a, _ := j.Literal()
+		b, _ := k.Literal()
+		return a == b
+	case SMTBooleanJustificationObject:
+		a, _ := j.Justification()
+		b, _ := k.Justification()
+		return a == b
+	default:
+		return false
+	}
 }
 
 type SMTEqualityJustificationKind uint8
@@ -122,30 +183,31 @@ func (j SMTEqualityJustification) Justification() (SMTJustification, bool) {
 	return j.justification, j.kind == SMTEqualityJustificationObject
 }
 
-// SMTBoolVarData is the per-variable flag record. It contains no owning
-// payload; all justification targets are borrowed from the context.
+// SMTBoolVarData follows smt_bool_var_data.h: a reason and two packed words.
 type SMTBoolVarData struct {
-	justification  SMTBooleanJustification
-	ScopeLevel     uint32
-	Mark           bool
-	Assumption     bool
-	PhaseAvailable bool
-	Phase          bool
-	equality       bool
-	trueFirst      bool
-	enode          bool
-	quantifier     bool
-	internalLevel  uint32
-	atom           bool
-	notifyTheory   uint8
-	// Immutable expression metadata replaces repeated arena lookups at the
-	// source's direct expr::is_* access sites. Owned by the Boolean variable.
-	basicOp  int32
-	notChild ast.ASTHandle
-	gate     *smtBoolGate
+	justification SMTBooleanJustification
+	scopeFlags    uint32
+	internalFlags uint32
 }
 
-// Only AND and OR variables cache gate arguments and their literal bindings.
+const (
+	smtBoolMark uint32 = 1 << (24 + iota)
+	smtBoolAssumption
+	smtBoolPhaseAvailable
+	smtBoolPhase
+	smtBoolEquality
+	smtBoolTrueFirst
+	smtBoolENode
+	smtBoolQuantifier
+)
+const (
+	smtBoolScopeMask    = 1<<24 - 1
+	smtBoolInternalMask = 1<<23 - 1
+	smtBoolAtom         = 1 << 23
+	smtBoolTheoryShift  = 24
+)
+
+// AND and OR cache their argument array and its literal bindings.
 type smtBoolGate struct {
 	args     []ast.ASTHandle
 	literals []SMTLiteral
@@ -163,50 +225,111 @@ func newSMTBoolGate(n uint32) *smtBoolGate {
 	return &smtBoolGate{args: make([]ast.ASTHandle, n)}
 }
 
-func (d *SMTBoolVarData) updateAtom() {
-	d.atom = d.equality || d.notifyTheory != 0 || d.quantifier || d.enode
-}
-func (d *SMTBoolVarData) Initialize(internalLevel uint32) {
+// Initialize resets the record at a 23-bit internalization level.
+func (d *SMTBoolVarData) Initialize(internalLevel uint32) error {
 	if d == nil {
-		return
+		return ast.ErrASTHandle
 	}
-	*d = SMTBoolVarData{justification: NullSMTBooleanJustification(), internalLevel: internalLevel}
+	if internalLevel > smtBoolInternalMask {
+		return ast.ErrASTDomain
+	}
+	*d = SMTBoolVarData{internalFlags: internalLevel}
+	return nil
 }
-func (d *SMTBoolVarData) InternalLevel() uint32 { return d.internalLevel }
-func (d *SMTBoolVarData) Justification() SMTBooleanJustification {
-	return d.justification
+func (d *SMTBoolVarData) InternalLevel() uint32 { return d.internalFlags & smtBoolInternalMask }
+func (d *SMTBoolVarData) ScopeLevel() uint32    { return d.scopeFlags & smtBoolScopeMask }
+
+// SetScopeLevel records the 24-bit assignment level.
+func (d *SMTBoolVarData) SetScopeLevel(level uint32) error {
+	if level > smtBoolScopeMask {
+		return ast.ErrASTDomain
+	}
+	d.scopeFlags = d.scopeFlags&^smtBoolScopeMask | level
+	return nil
 }
-func (d *SMTBoolVarData) SetAxiom() { d.justification = NewSMTBooleanAxiom() }
-func (d *SMTBoolVarData) SetNullJustification() {
-	d.justification = NullSMTBooleanJustification()
+func (d *SMTBoolVarData) Justification() SMTBooleanJustification         { return d.justification }
+func (d *SMTBoolVarData) SetAxiom()                                      { d.justification = NewSMTBooleanAxiom() }
+func (d *SMTBoolVarData) SetNullJustification()                          { d.justification = NullSMTBooleanJustification() }
+func (d *SMTBoolVarData) SetJustification(value SMTBooleanJustification) { d.justification = value }
+func (d *SMTBoolVarData) IsAtom() bool                                   { return d.internalFlags&smtBoolAtom != 0 }
+func (d *SMTBoolVarData) updateAtom() {
+	if d.scopeFlags&(smtBoolEquality|smtBoolENode|smtBoolQuantifier) == 0 && !d.IsTheoryAtom() {
+		d.internalFlags &^= smtBoolAtom
+	}
 }
-func (d *SMTBoolVarData) SetJustification(value SMTBooleanJustification) {
-	d.justification = value
-}
-func (d *SMTBoolVarData) IsAtom() bool { return d.atom }
 func (d *SMTBoolVarData) Theory() SMTTheoryID {
-	if d.notifyTheory == 0 {
+	if !d.IsTheoryAtom() {
 		return SMTNullTheoryID
 	}
-	return SMTTheoryID(d.notifyTheory)
+	return SMTTheoryID(d.internalFlags >> smtBoolTheoryShift)
 }
-func (d *SMTBoolVarData) IsTheoryAtom() bool { return d.notifyTheory != 0 }
+func (d *SMTBoolVarData) IsTheoryAtom() bool { return d.internalFlags>>smtBoolTheoryShift != 0 }
 func (d *SMTBoolVarData) SetNotifyTheory(value SMTTheoryID) error {
 	if value <= 0 || value > 255 {
 		return ast.ErrASTDomain
 	}
-	d.notifyTheory, d.atom = uint8(value), true
+	d.internalFlags = d.internalFlags&(1<<smtBoolTheoryShift-1) | uint32(value)<<smtBoolTheoryShift | smtBoolAtom
 	return nil
 }
-func (d *SMTBoolVarData) ResetNotifyTheory() { d.notifyTheory = 0; d.updateAtom() }
-func (d *SMTBoolVarData) IsENode() bool      { return d.enode }
-func (d *SMTBoolVarData) SetENode()          { d.enode, d.atom = true, true }
-func (d *SMTBoolVarData) ResetENode()        { d.enode = false; d.updateAtom() }
-func (d *SMTBoolVarData) IsQuantifier() bool { return d.quantifier }
-func (d *SMTBoolVarData) SetQuantifier()     { d.quantifier, d.atom = true, true }
-func (d *SMTBoolVarData) IsEquality() bool   { return d.equality }
-func (d *SMTBoolVarData) SetEquality()       { d.equality, d.atom = true, true }
-func (d *SMTBoolVarData) ResetEquality()     { d.equality = false; d.updateAtom() }
-func (d *SMTBoolVarData) TryTrueFirst() bool { return d.trueFirst }
-func (d *SMTBoolVarData) SetTrueFirst()      { d.trueFirst = true }
-func (d *SMTBoolVarData) ResetTrueFirst()    { d.trueFirst = false }
+func (d *SMTBoolVarData) ResetNotifyTheory() {
+	d.internalFlags &= 1<<smtBoolTheoryShift - 1
+	d.updateAtom()
+}
+func (d *SMTBoolVarData) Mark() bool { return d.scopeFlags&smtBoolMark != 0 }
+func (d *SMTBoolVarData) SetMark(value bool) {
+	if value {
+		d.scopeFlags |= smtBoolMark
+	} else {
+		d.scopeFlags &^= smtBoolMark
+	}
+}
+func (d *SMTBoolVarData) Assumption() bool { return d.scopeFlags&smtBoolAssumption != 0 }
+func (d *SMTBoolVarData) SetAssumption(value bool) {
+	if value {
+		d.scopeFlags |= smtBoolAssumption
+	} else {
+		d.scopeFlags &^= smtBoolAssumption
+	}
+}
+func (d *SMTBoolVarData) PhaseAvailable() bool { return d.scopeFlags&smtBoolPhaseAvailable != 0 }
+func (d *SMTBoolVarData) SetPhaseAvailable(value bool) {
+	if value {
+		d.scopeFlags |= smtBoolPhaseAvailable
+	} else {
+		d.scopeFlags &^= smtBoolPhaseAvailable
+	}
+}
+func (d *SMTBoolVarData) Phase() bool { return d.scopeFlags&smtBoolPhase != 0 }
+func (d *SMTBoolVarData) SetPhase(value bool) {
+	if value {
+		d.scopeFlags |= smtBoolPhase
+	} else {
+		d.scopeFlags &^= smtBoolPhase
+	}
+}
+func (d *SMTBoolVarData) IsEquality() bool { return d.scopeFlags&smtBoolEquality != 0 }
+func (d *SMTBoolVarData) SetEquality() {
+	d.scopeFlags |= smtBoolEquality
+	d.internalFlags |= smtBoolAtom
+}
+func (d *SMTBoolVarData) ResetEquality() {
+	d.scopeFlags &^= smtBoolEquality
+	d.updateAtom()
+}
+func (d *SMTBoolVarData) TryTrueFirst() bool { return d.scopeFlags&smtBoolTrueFirst != 0 }
+func (d *SMTBoolVarData) SetTrueFirst()      { d.scopeFlags |= smtBoolTrueFirst }
+func (d *SMTBoolVarData) ResetTrueFirst()    { d.scopeFlags &^= smtBoolTrueFirst }
+func (d *SMTBoolVarData) IsENode() bool      { return d.scopeFlags&smtBoolENode != 0 }
+func (d *SMTBoolVarData) SetENode() {
+	d.scopeFlags |= smtBoolENode
+	d.internalFlags |= smtBoolAtom
+}
+func (d *SMTBoolVarData) ResetENode() {
+	d.scopeFlags &^= smtBoolENode
+	d.updateAtom()
+}
+func (d *SMTBoolVarData) IsQuantifier() bool { return d.scopeFlags&smtBoolQuantifier != 0 }
+func (d *SMTBoolVarData) SetQuantifier() {
+	d.scopeFlags |= smtBoolQuantifier
+	d.internalFlags |= smtBoolAtom
+}

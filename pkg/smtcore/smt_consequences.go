@@ -312,8 +312,8 @@ func (c *smtConsequences) mkDiseq(e, val ast.ASTHandle) (SMTLiteral, error) {
 // forcePhase is context::force_phase(v, phase).
 func (c *smtConsequences) forcePhase(v int32, phase bool) {
 	data := &c.k.internalizer.booleanData[v]
-	data.PhaseAvailable = true
-	data.Phase = phase
+	data.SetPhaseAvailable(true)
+	data.SetPhase(phase)
 }
 
 // deleteUnfixed is context::delete_unfixed.

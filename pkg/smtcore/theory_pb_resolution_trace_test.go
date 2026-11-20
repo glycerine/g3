@@ -28,7 +28,7 @@ func TestSMTPBResolutionTraceNativeCutPreservesSourceOrder(t *testing.T) {
 	astTestMust(t, s.PushScope())
 	for _, l := range []SMTLiteral{a, b} {
 		smtPBResolutionRoot(t, s, l, false)
-		s.booleanData[l.Var()].Assumption = true
+		s.booleanData[l.Var()].SetAssumption(true)
 	}
 	_, err = s.PropagateCore()
 	astTestMust(t, err)

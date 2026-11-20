@@ -22,7 +22,7 @@ func (r *smtPBResolution) displayResolvedLemma(out io.Writer) error {
 	s := r.theory.state
 	_, _ = fmt.Fprintf(out, "num marks: %d\nconflict level: %d\n", r.numMarks, r.level)
 	for i, l := range s.assignedLiterals {
-		level := s.booleanData[l.Var()].ScopeLevel
+		level := s.booleanData[l.Var()].ScopeLevel()
 		_, marked := r.marks[l.Var()]
 		mark := "u"
 		if marked {
@@ -45,7 +45,7 @@ func (r *smtPBResolution) displayResolvedLemma(out io.Writer) error {
 	}
 	var conflicts uint32
 	for _, term := range r.lemma.terms {
-		level := s.booleanData[term.literal.Var()].ScopeLevel
+		level := s.booleanData[term.literal.Var()].ScopeLevel()
 		if level == r.level {
 			conflicts++
 		}

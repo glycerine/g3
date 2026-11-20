@@ -52,16 +52,16 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 	}
 	data := &s.booleanData[literal.Var()]
 	data.SetJustification(justification)
-	data.ScopeLevel = s.scopeLevel
-	if s.searching && s.searchRestartAdaptive && data.PhaseAvailable {
+	data.SetScopeLevel(s.scopeLevel)
+	if s.searching && s.searchRestartAdaptive && data.PhaseAvailable() {
 		// float64() rounds the product, blocking FMA contraction (match z3 bit for bit).
 		s.searchAgility = float64(s.searchAgility * s.searchAgilityFactor)
-		if !decision && data.Phase == literal.Sign() {
+		if !decision && data.Phase() == literal.Sign() {
 			s.searchAgility += 1 - s.searchAgilityFactor
 		}
 	}
-	data.PhaseAvailable = true
-	data.Phase = !literal.Sign()
+	data.SetPhaseAvailable(true)
+	data.SetPhase(!literal.Sign())
 	s.traceAssignRelevancy(literal)
 	if err := s.appendAssignedLiteral(literal); err != nil {
 		return err
@@ -267,17 +267,16 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 		watch := &s.watches[assigned.Index()]
 		for _, implied := range watch.Literals() {
 			value := s.assignment[implied.Index()]
-			justification := NewSMTBooleanBinaryClause(assigned)
 			switch value {
 			case lbool.False:
 				s.statistics.NumBinPropagations++
 				s.inconsistent = true
-				s.conflict = justification
+				s.conflict = s.binaryReason(assigned)
 				s.conflictLiteral = implied.Negated()
 				return false, nil
 			case lbool.Undef:
 				s.statistics.NumBinPropagations++
-				if err := s.AssignLiteral(implied, justification); err != nil {
+				if err := s.AssignLiteral(implied, s.binaryReason(assigned)); err != nil {
 					return false, err
 				}
 			}

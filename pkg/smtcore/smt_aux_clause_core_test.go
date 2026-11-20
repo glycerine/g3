@@ -23,11 +23,11 @@ func TestSMTAuxiliaryClauseNullAntecedentPreservesAssumptions(t *testing.T) {
 			astTestMust(t, err)
 			astTestMust(t, state.PushScope())
 			astTestMust(t, state.AssignLiteral(la.Negated(), NewSMTBooleanAxiom()))
-			state.booleanData[la.Var()].Assumption = true
+			state.booleanData[la.Var()].SetAssumption(true)
 			want := 1
 			if fullConflict {
 				astTestMust(t, state.AssignLiteral(lb.Negated(), NewSMTBooleanAxiom()))
-				state.booleanData[lb.Var()].Assumption = true
+				state.booleanData[lb.Var()].SetAssumption(true)
 				want = 2
 			}
 			astTestMust(t, state.addClause([]SMTLiteral{la, lb}, false, ast.ASTHandle{}))

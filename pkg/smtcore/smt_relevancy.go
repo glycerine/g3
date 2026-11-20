@@ -86,7 +86,7 @@ func (p *SMTRelevancyPropagator) IsRelevant(expression ast.ASTHandle) bool {
 func (p *SMTRelevancyPropagator) assignment(expression ast.ASTHandle) lbool.LBool {
 	if s := p.internalizer; s != nil {
 		if variable, found := s.boolVar.lookup(expression); found {
-			if child := s.booleanData[variable].notChild; !child.IsNull() {
+			if child := s.notChild(variable); !child.IsNull() {
 				return p.context.assignments.get(child).Negated()
 			}
 			return s.assignment[NewSMTLiteral(variable, false).Index()]
@@ -511,7 +511,7 @@ func (p *SMTRelevancyPropagator) propagateAll(expression ast.ASTHandle) error {
 func (p *SMTRelevancyPropagator) gateArguments(expression ast.ASTHandle) (ast.AppArguments, []SMTLiteral, error) {
 	if s := p.internalizer; s != nil {
 		if variable, found := s.boolVar.lookup(expression); found {
-			if gate := s.booleanData[variable].gate; gate != nil {
+			if gate := s.boolGate(variable); gate != nil {
 				return ast.SliceArguments(gate.args), gate.literals, nil
 			}
 		}
@@ -886,7 +886,7 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 	}
 	op := int32(-1)
 	if variable != SMTNullBoolVar {
-		op = p.internalizer.booleanData[variable].basicOp
+		op = p.internalizer.boolGateOp(variable)
 	} else if p.context.relevant.get(expression) {
 		family, err := p.context.manager.GetFamilyID(expression)
 		if err == nil && family == p.context.manager.BasicFamilyID() {

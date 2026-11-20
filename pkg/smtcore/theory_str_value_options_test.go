@@ -171,7 +171,7 @@ func TestSMTStringValueOptionsCachePhasesAndSelfGuard(t *testing.T) {
 		}
 		data, err := state.BooleanData(variable)
 		astTestMust(t, err)
-		if !data.PhaseAvailable || data.Phase != (label != "more") || data.TryTrueFirst() || !state.isRelevant(equal) {
+		if !data.PhaseAvailable() || data.Phase() != (label != "more") || data.TryTrueFirst() || !state.isRelevant(equal) {
 			t.Fatal("aggressive value phase changed", label)
 		}
 		assigned, err := state.Assignment(NewSMTLiteral(variable, false))

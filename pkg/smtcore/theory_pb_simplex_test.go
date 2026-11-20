@@ -125,7 +125,7 @@ func TestSMTPBSimplexSharedRowsBoundConflictsAndRollback(t *testing.T) {
 				astTestMust(t, s.PushScope())
 				for _, l := range []SMTLiteral{a.Negated(), b} {
 					smtPBResolutionRoot(t, s, l, proofs)
-					s.booleanData[l.Var()].Assumption = true
+					s.booleanData[l.Var()].SetAssumption(true)
 				}
 				_, err := s.PropagateCore()
 				astTestMust(t, err)
@@ -188,7 +188,7 @@ func TestSMTPBSimplexInfeasibleRowExplainsOnlyAssignedPredicates(t *testing.T) {
 			astTestMust(t, s.PushScope())
 			for _, a := range atoms {
 				smtPBResolutionRoot(t, s, a, proofs)
-				s.booleanData[a.Var()].Assumption = true
+				s.booleanData[a.Var()].SetAssumption(true)
 			}
 			_, err := s.PropagateCore()
 			astTestMust(t, err)

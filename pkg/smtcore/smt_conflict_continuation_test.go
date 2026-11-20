@@ -20,7 +20,7 @@ func TestSMTAssignmentRetainsFirstConflictDuringContinuation(t *testing.T) {
 	count := s.statistics.NumConflicts
 	astTestMust(t, s.AssignLiteral(xs[1].Negated(), NewSMTBooleanBinaryClause(xs[0])))
 	got, ok := s.Conflict()
-	if !ok || got != first || s.ConflictLiteral() != xs[0] || s.statistics.NumConflicts != count {
+	if !ok || !got.Equal(first) || s.ConflictLiteral() != xs[0] || s.statistics.NumConflicts != count {
 		t.Fatal("later conflict replaced the first source conflict", s.ConflictLiteral(), s.statistics.NumConflicts)
 	}
 	astTestMust(t, s.AssignLiteral(xs[2], NewSMTBooleanAxiom()))
@@ -43,7 +43,7 @@ func TestSMTClausePublicationContinuesWithoutReplacingConflict(t *testing.T) {
 	astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler(xs[1:], false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
 	astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler(nil, false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
 	got, _ := s.Conflict()
-	if len(s.testClauses()) != before+1 || got != first || s.ConflictLiteral() != xs[0].Negated() || s.statistics.NumConflicts != count {
+	if len(s.testClauses()) != before+1 || !got.Equal(first) || s.ConflictLiteral() != xs[0].Negated() || s.statistics.NumConflicts != count {
 		t.Fatal("source clause tail or first conflict was lost", len(s.testClauses())-before, s.ConflictLiteral(), s.statistics.NumConflicts)
 	}
 }
@@ -117,7 +117,7 @@ func TestSMTBinaryClausePublicationAssignsDuringContinuation(t *testing.T) {
 				t.Fatal("wrong source binary antecedent", reason, ok)
 			}
 			got, _ := s.Conflict()
-			if conflicting && (got != first || s.ConflictLiteral() != xs[1] || s.statistics.NumConflicts != count) {
+			if conflicting && (!got.Equal(first) || s.ConflictLiteral() != xs[1] || s.statistics.NumConflicts != count) {
 				t.Fatal("binary publication replaced the first conflict")
 			}
 		})
@@ -150,7 +150,7 @@ func TestSMTEqualityConflictRetainsEarlierBooleanConflict(t *testing.T) {
 	count := s.statistics.NumConflicts
 	astTestMust(t, s.addEquality(left, right, NewSMTEqualityAxiom()))
 	got, _ := s.Conflict()
-	if got != first || s.ConflictLiteral() != boolean || s.statistics.NumConflicts != count {
+	if !got.Equal(first) || s.ConflictLiteral() != boolean || s.statistics.NumConflicts != count {
 		t.Fatal("later equality conflict replaced the first conflict", s.ConflictLiteral(), s.statistics.NumConflicts)
 	}
 	// add_eq merges the classes; the contradiction surfaces through the

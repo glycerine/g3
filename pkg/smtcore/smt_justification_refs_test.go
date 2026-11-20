@@ -2,7 +2,9 @@ package smtcore
 
 import (
 	"errors"
+	"runtime"
 	"testing"
+	"unsafe"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -62,7 +64,7 @@ func TestSMTCompactBooleanAndEqualityJustifications(t *testing.T) {
 func TestSMTBoolVarDataSourceFlagTransitions(t *testing.T) {
 	var data SMTBoolVarData
 	data.Initialize(19)
-	if data.InternalLevel() != 19 || data.IsAtom() || data.Justification().Kind() != SMTBooleanJustificationClause || data.ScopeLevel != 0 || data.Mark || data.Assumption || data.PhaseAvailable || data.Phase {
+	if data.InternalLevel() != 19 || data.IsAtom() || data.Justification().Kind() != SMTBooleanJustificationClause || data.ScopeLevel() != 0 || data.Mark() || data.Assumption() || data.PhaseAvailable() || data.Phase() {
 		t.Fatal("initial state", data)
 	}
 	data.SetAxiom()
@@ -104,5 +106,101 @@ func TestSMTBoolVarDataSourceFlagTransitions(t *testing.T) {
 	data.Initialize(3)
 	if data.InternalLevel() != 3 || data.IsAtom() || data.TryTrueFirst() {
 		t.Fatal("reinitialize", data)
+	}
+}
+
+func TestSMTBooleanRecordLayoutAndPackedLevels(t *testing.T) {
+	word := unsafe.Sizeof(uintptr(0))
+	if size := unsafe.Sizeof(SMTBooleanJustification{}); size != word {
+		t.Fatalf("Boolean justification is %d bytes, want %d", size, word)
+	}
+	if size := unsafe.Sizeof(SMTBoolVarData{}); size != word+8 {
+		t.Fatalf("Boolean record is %d bytes, want %d", size, word+8)
+	}
+	var d SMTBoolVarData
+	astTestMust(t, d.Initialize(smtBoolInternalMask))
+	astTestMust(t, d.SetScopeLevel(smtBoolScopeMask))
+	d.SetMark(true)
+	d.SetAssumption(true)
+	d.SetPhaseAvailable(true)
+	d.SetPhase(true)
+	d.SetTrueFirst()
+	d.SetEquality()
+	d.SetENode()
+	d.SetQuantifier()
+	astTestMust(t, d.SetNotifyTheory(255))
+	if !errors.Is(d.Initialize(smtBoolInternalMask+1), ast.ErrASTDomain) ||
+		!errors.Is(d.SetScopeLevel(smtBoolScopeMask+1), ast.ErrASTDomain) {
+		t.Fatal("out-of-range level accepted")
+	}
+	if d.InternalLevel() != smtBoolInternalMask || d.ScopeLevel() != smtBoolScopeMask || d.Theory() != 255 ||
+		!d.Mark() || !d.Assumption() || !d.PhaseAvailable() || !d.Phase() ||
+		!d.TryTrueFirst() || !d.IsEquality() || !d.IsENode() || !d.IsQuantifier() {
+		t.Fatal("a packed field overwrote its neighbor")
+	}
+	astTestMust(t, d.SetScopeLevel(0))
+	d.ResetNotifyTheory()
+	if d.InternalLevel() != smtBoolInternalMask || !d.IsQuantifier() || !d.Mark() {
+		t.Fatal("reset damaged adjacent flags")
+	}
+	m := astTestManager(t)
+	_, _, s := smtInternalizerFixture(t, m, nil)
+	s.scopeLevel = smtBoolInternalMask
+	err := s.PushScope()
+	s.scopeLevel = 0
+	if !errors.Is(err, ast.ErrASTDomain) || len(s.scopes) != 0 {
+		t.Fatal("pushed past internalization level limit", err)
+	}
+}
+
+// Returning only the tagged references removes the creator's stack frame
+// before the forced collections. Each reference must retain its own payload.
+func smtDetachedTestReasons(t *testing.T) []SMTBooleanJustification {
+	clause := &SMTClause{literals: []SMTLiteral{4141}}
+	theory, err := NewSMTSimpleJustification(false, []SMTLiteral{9191})
+	astTestMust(t, err)
+	j, err := NewSMTBooleanJustification(theory)
+	astTestMust(t, err)
+	s := SMTInternalizerState{boolExpr: make([]ast.ASTHandle, 1024)}
+	first := s.binaryReason(511)
+	last := s.binaryReason(2047)
+	if len(s.binaryReasons) != 7 || s.binaryReasons[0] == nil || s.binaryReasons[1] != nil || s.binaryReasons[6] == nil {
+		t.Fatal("unexpected allocation for sparse binary literal pages")
+	}
+	return []SMTBooleanJustification{NullSMTBooleanJustification(), NewSMTBooleanClause(clause), NewSMTBooleanAxiom(), j, first, last,
+		NewSMTBooleanBinaryClause(0), NewSMTBooleanBinaryClause(-1 << 31), NewSMTBooleanBinaryClause(1<<31 - 1)}
+}
+
+func TestSMTBooleanTaggedReferencesSurviveGC(t *testing.T) {
+	js := smtDetachedTestReasons(t)
+	runtime.GC()
+	runtime.GC()
+	if c, ok := js[0].Clause(); !ok || c != nil {
+		t.Fatal("null clause")
+	}
+	if c, ok := js[1].Clause(); !ok || len(c.literals) != 1 || c.literals[0] != 4141 {
+		t.Fatal("detached clause")
+	}
+	if !js[2].Equal(NewSMTBooleanAxiom()) {
+		t.Fatal("axiom tag")
+	}
+	obj, ok := js[3].Justification()
+	if !ok || obj.(*SMTSimpleJustification).Literals[0] != 9191 {
+		t.Fatal("detached theory justification")
+	}
+	another, err := NewSMTBooleanJustification(obj)
+	astTestMust(t, err)
+	if !js[3].Equal(another) || js[3].Equal(js[1]) {
+		t.Fatal("theory equality")
+	}
+	for index, want := range []SMTLiteral{511, 2047, 0, -1 << 31, 1<<31 - 1} {
+		reason := js[4+index]
+		got, ok := reason.Literal()
+		if !ok || got != want || !reason.Equal(NewSMTBooleanBinaryClause(want)) || reason.Equal(NewSMTBooleanBinaryClause(want.Negated())) {
+			t.Fatal("literal payload or equality", got, want)
+		}
+		if c, ok := reason.Clause(); ok || c != nil {
+			t.Fatal("binary decoded as a clause")
+		}
 	}
 }

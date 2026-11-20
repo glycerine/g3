@@ -171,8 +171,8 @@ func (q *SMTActivityCaseSplitQueue) NextCaseSplit() (int32, lbool.LBool, error) 
 		phase = true
 	case 2, 3, 4:
 		phase = q.phaseDefault
-		if q.cacheEnabled && data.PhaseAvailable {
-			phase = data.Phase
+		if q.cacheEnabled && data.PhaseAvailable() {
+			phase = data.Phase()
 		}
 	case 5:
 		phase = q.state.random.Next()%2 == 0

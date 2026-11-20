@@ -248,7 +248,7 @@ func (t *SMTBitVectorTheory) traceBVAssignmentMismatch(v1, v2 SMTTheoryVar, inde
 				operandErr = ast.ErrASTDomain
 				return operandErr
 			}
-			level := t.state.booleanData[bit.Var()].ScopeLevel
+			level := t.state.booleanData[bit.Var()].ScopeLevel()
 			_, _ = fmt.Fprintf(out, "val%d: %s lvl: %d bit ", i+1, val.String(), level)
 			operandErr = smtPBWriteLiteral(out, bit)
 			if operandErr != nil {

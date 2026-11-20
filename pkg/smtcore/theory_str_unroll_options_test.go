@@ -102,7 +102,7 @@ func TestSMTStringUnrollTesterOwnershipAndAggressivePhases(t *testing.T) {
 		}
 		data, err := state.BooleanData(variable)
 		astTestMust(t, err)
-		if !state.isRelevant(choice) || !data.PhaseAvailable || data.Phase != (label != "more") || data.TryTrueFirst() {
+		if !state.isRelevant(choice) || !data.PhaseAvailable() || data.Phase() != (label != "more") || data.TryTrueFirst() {
 			t.Fatal("unroll phase hint changed", label)
 		}
 		assigned, err := state.Assignment(NewSMTLiteral(variable, false))

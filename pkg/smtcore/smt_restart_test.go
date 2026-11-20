@@ -59,7 +59,7 @@ func TestSMTRestartPreservesAssumptionScopeClauseReasons(t *testing.T) {
 	k.assumptions = map[SMTLiteral]ast.ASTHandle{pl: p}
 	defer func() { k.assumptions = nil }()
 	astTestMust(t, s.AssignLiteral(pl, NewSMTBooleanAxiom()))
-	s.booleanData[pl.Var()].Assumption = true
+	s.booleanData[pl.Var()].SetAssumption(true)
 	astTestMust(t, s.AddLearnedClause([]SMTLiteral{ql, pl.Negated()}))
 	_, err = s.Propagate()
 	astTestMust(t, err)

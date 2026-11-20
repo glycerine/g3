@@ -70,8 +70,8 @@ func TestSMTPBResolutionNativeCutPreservesAssumptionGuardsAndProof(t *testing.T)
 				astTestMust(t, s.PushScope())
 				smtPBResolutionRoot(t, s, a, proofs)
 				smtPBResolutionRoot(t, s, b, proofs)
-				s.booleanData[a.Var()].Assumption = true
-				s.booleanData[b.Var()].Assumption = true
+				s.booleanData[a.Var()].SetAssumption(true)
+				s.booleanData[b.Var()].SetAssumption(true)
 				_, err = s.PropagateCore()
 				astTestMust(t, err)
 				astTestMust(t, s.beginSearchPersistence(1, SMTParamsState{}))
@@ -172,7 +172,7 @@ func TestSMTPBResolutionResidualPredicateRetainsScopedFalsePremises(t *testing.T
 	astTestMust(t, s.PushScope())
 	for _, l := range []SMTLiteral{atom, inputs[1].Negated(), inputs[2].Negated()} {
 		astTestMust(t, s.AssignLiteral(l, NewSMTBooleanAxiom()))
-		s.booleanData[l.Var()].Assumption = true
+		s.booleanData[l.Var()].SetAssumption(true)
 	}
 	astTestMust(t, s.beginSearchPersistence(1, SMTParamsState{}))
 	s.searchUserBaseLevel = 0

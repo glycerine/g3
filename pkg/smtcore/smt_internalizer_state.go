@@ -211,6 +211,8 @@ type SMTInternalizerState struct {
 	boolVar                    smtBoolVarTable
 	boolExpr                   []ast.ASTHandle
 	booleanData                []SMTBoolVarData
+	gatePages                  []*smtBoolGatePage
+	binaryReasons              []*smtBinaryReasonPage
 	booleanCreation            []uint64
 	nextBooleanCreation        uint64
 	activity                   []float64
@@ -668,30 +670,111 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	return s.mkBoolVar(expression, &header, false)
 }
 
+// Only groups containing a NOT, AND or OR allocate a page. Variable IDs
+// remain dense on pop. Warm pages can be reused without retaining retired gates.
+const smtBoolGatesPerPage = 32
+
+type smtBoolGatePage struct {
+	conjunctions uint32 // one bit per AND gate
+	gates        [smtBoolGatesPerPage]*smtBoolGate
+	notChildren  [smtBoolGatesPerPage]ast.ASTHandle
+}
+
+func (s *SMTInternalizerState) gatePage(v int32) *smtBoolGatePage {
+	index := uint32(v) / smtBoolGatesPerPage
+	if int(index) >= len(s.gatePages) {
+		return nil
+	}
+	return s.gatePages[index]
+}
+func (s *SMTInternalizerState) boolGate(v int32) *smtBoolGate {
+	if page := s.gatePage(v); page != nil {
+		return page.gates[uint32(v)%smtBoolGatesPerPage]
+	}
+	return nil
+}
+func (s *SMTInternalizerState) boolGateOp(v int32) int32 {
+	slot := uint32(v) % smtBoolGatesPerPage
+	if page := s.gatePage(v); page != nil && page.gates[slot] != nil {
+		if page.conjunctions&(1<<slot) != 0 {
+			return ast.ASTOpAnd
+		}
+		return ast.ASTOpOr
+	}
+	return -1
+}
+func (s *SMTInternalizerState) notChild(v int32) ast.ASTHandle {
+	if page := s.gatePage(v); page != nil {
+		return page.notChildren[uint32(v)%smtBoolGatesPerPage]
+	}
+	return ast.ASTHandle{}
+}
+func (s *SMTInternalizerState) cacheBoolGate(v int32, gate *smtBoolGate, notChild ast.ASTHandle, operation int32) {
+	index := int(v) / smtBoolGatesPerPage
+	if index >= len(s.gatePages) {
+		s.gatePages = append(s.gatePages, make([]*smtBoolGatePage, index+1-len(s.gatePages))...)
+	}
+	page := s.gatePages[index]
+	if page == nil {
+		page = new(smtBoolGatePage)
+		s.gatePages[index] = page
+	}
+	slot := uint32(v) % smtBoolGatesPerPage
+	page.gates[slot], page.notChildren[slot] = gate, notChild
+	if operation == ast.ASTOpAnd {
+		page.conjunctions |= 1 << slot
+	} else {
+		page.conjunctions &^= 1 << slot
+	}
+}
+
+// A live literal ID always has the same value, including after scope reuse.
+// Detached reasons keep their immutable cell alive even after solver Close.
+func (s *SMTInternalizerState) binaryReason(l SMTLiteral) SMTBooleanJustification {
+	id := uint32(l)
+	if id < smtBinaryReasonPageSize {
+		return smtBinaryReasonRef(&smtSmallBinaryReasons[id])
+	}
+	return s.largeBinaryReason(l)
+}
+
+func (s *SMTInternalizerState) largeBinaryReason(l SMTLiteral) SMTBooleanJustification {
+	id := uint32(l)
+	if l < 0 || int(l.Var()) >= len(s.boolExpr) {
+		return NewSMTBooleanBinaryClause(l)
+	}
+	slot := int(id/smtBinaryReasonPageSize) - 1
+	if slot >= len(s.binaryReasons) {
+		s.binaryReasons = append(s.binaryReasons, make([]*smtBinaryReasonPage, slot+1-len(s.binaryReasons))...)
+	}
+	page := s.binaryReasons[slot]
+	if page == nil {
+		page = new(smtBinaryReasonPage)
+		page.init(id / smtBinaryReasonPageSize * smtBinaryReasonPageSize)
+		s.binaryReasons[slot] = page
+	}
+	return smtBinaryReasonRef(&page[id%smtBinaryReasonPageSize])
+}
+
 // The caller has established that the expression is Boolean and has no variable.
 func (s *SMTInternalizerState) mkBoolVar(expression ast.ASTHandle, header *ast.ASTNodeHeader, held bool) (int32, error) {
-	data := SMTBoolVarData{
-		justification: NullSMTBooleanJustification(),
-		internalLevel: s.scopeLevel,
-		basicOp:       -1,
-	}
+	data := SMTBoolVarData{internalFlags: s.scopeLevel}
+	var gate *smtBoolGate
+	var notChild ast.ASTHandle
 	var err error
-	if header.Kind == ast.ASTApp {
-		if header.Family == s.manager.BasicFamilyID() {
-			data.basicOp = header.DeclKind
-			if data.basicOp == ast.ASTOpNot {
-				data.notChild, err = s.manager.GetArg(expression, 0)
+	if header.Kind == ast.ASTApp && header.Family == s.manager.BasicFamilyID() {
+		switch header.DeclKind {
+		case ast.ASTOpNot:
+			notChild, err = s.manager.GetArg(expression, 0)
+			if err != nil {
+				return SMTNullBoolVar, err
+			}
+		case ast.ASTOpAnd, ast.ASTOpOr:
+			gate = newSMTBoolGate(header.NumArgs)
+			for i := range gate.args {
+				gate.args[i], err = s.manager.GetArg(expression, uint32(i))
 				if err != nil {
 					return SMTNullBoolVar, err
-				}
-			}
-			if data.basicOp == ast.ASTOpAnd || data.basicOp == ast.ASTOpOr {
-				data.gate = newSMTBoolGate(header.NumArgs)
-				for i := range data.gate.args {
-					data.gate.args[i], err = s.manager.GetArg(expression, uint32(i))
-					if err != nil {
-						return SMTNullBoolVar, err
-					}
 				}
 			}
 		}
@@ -704,7 +787,11 @@ func (s *SMTInternalizerState) mkBoolVar(expression ast.ASTHandle, header *ast.A
 	if err != nil {
 		return SMTNullBoolVar, err
 	}
-	s.boolVar.set(expression, int32(len(s.boolExpr)))
+	variable := int32(len(s.boolExpr))
+	if gate != nil || !notChild.IsNull() {
+		s.cacheBoolGate(variable, gate, notChild, header.DeclKind)
+	}
+	s.boolVar.set(expression, variable)
 	return s.publishBoolVar(expression, data)
 }
 
@@ -813,7 +900,7 @@ func (s *SMTInternalizerState) setAssignmentCore(variable int32, value lbool.LBo
 	}
 	if len(s.scopes) != 0 {
 		s.assignmentTrail = append(s.assignmentTrail, smtInternalizerAssignmentTrail{
-			variable: variable, value: old, justification: s.booleanData[variable].Justification(), scopeLevel: s.booleanData[variable].ScopeLevel,
+			variable: variable, value: old, justification: s.booleanData[variable].Justification(), scopeLevel: s.booleanData[variable].ScopeLevel(),
 		})
 	}
 	s.assignment[positive.Index()] = value
@@ -957,6 +1044,9 @@ func (s *SMTInternalizerState) PendingCongruences() []SMTInternalizerCongruence 
 func (s *SMTInternalizerState) PushScope() error {
 	if err := s.open(); err != nil {
 		return err
+	}
+	if s.scopeLevel >= smtBoolInternalMask {
+		return ast.ErrASTDomain
 	}
 	s.tracePushStream()
 	s.scopes = append(s.scopes, smtInternalizerScope{
@@ -1176,7 +1266,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 		s.assignment[positive.Index()] = entry.value
 		s.assignment[positive.Negated().Index()] = entry.value.Negated()
 		s.booleanData[entry.variable].SetJustification(entry.justification)
-		s.booleanData[entry.variable].ScopeLevel = entry.scopeLevel
+		s.booleanData[entry.variable].SetScopeLevel(entry.scopeLevel)
 		if entry.value == lbool.Undef {
 			if err := s.basicActivityUnassigned(entry.variable); err != nil {
 				return err
@@ -1190,6 +1280,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 				return err
 			}
 		}
+		s.assignmentTrail[len(s.assignmentTrail)-1].justification = NullSMTBooleanJustification()
 		s.assignmentTrail = s.assignmentTrail[:len(s.assignmentTrail)-1]
 	}
 	if scope.assignedLimit < 0 || scope.assignedLimit > len(s.assignedLiterals) {
@@ -1432,9 +1523,11 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.context.exprs.retireBoolean(expression, s.relevancy == nil)
 			s.boolExpr[variable] = ast.ASTHandle{}
 			s.boolExpr = s.boolExpr[:variable]
-			if s.booleanData[variable].gate != nil {
-				s.booleanData[variable].gate = nil
+			if page := s.gatePage(variable); page != nil {
+				slot := uint32(variable) % smtBoolGatesPerPage
+				page.gates[slot], page.notChildren[slot] = nil, ast.ASTHandle{}
 			}
+			s.booleanData[variable].SetNullJustification()
 			s.booleanData = s.booleanData[:variable]
 			s.booleanCreation = s.booleanCreation[:variable]
 			s.activity = s.activity[:variable]
@@ -1858,6 +1951,8 @@ func (s *SMTInternalizerState) Close() error {
 	if s.relevancy != nil && s.relevancy.internalizer == s {
 		s.relevancy.internalizer = nil
 	}
+	s.gatePages = nil
+	s.binaryReasons = nil
 	s.closed = true
 	s.savedAtoms = smtClauseAtomPool{}
 	s.theoryRewriter = nil

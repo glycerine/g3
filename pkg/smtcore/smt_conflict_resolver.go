@@ -148,7 +148,7 @@ func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, le
 					return fail()
 				}
 			case SMTBooleanJustificationObject:
-				if r.state.booleanData[variable].Assumption {
+				if r.state.booleanData[variable].Assumption() {
 					return fail()
 				}
 				object, ok := justification.Justification()
@@ -254,7 +254,7 @@ func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLit
 			return ast.ErrASTDomain
 		}
 		seen[variable] = true
-		if r.state.booleanData[variable].Assumption {
+		if r.state.booleanData[variable].Assumption() {
 			core = append(core, literal)
 		}
 		return nil
@@ -355,7 +355,7 @@ func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLit
 		if err := expand(consequent, reason); err != nil {
 			return nil, err
 		}
-		if consequent.Var() >= SMTFirstBoolVar && r.state.booleanData[consequent.Var()].Assumption {
+		if consequent.Var() >= SMTFirstBoolVar && r.state.booleanData[consequent.Var()].Assumption() {
 			core = append(core, consequent)
 		}
 		for idx >= 0 {
@@ -387,7 +387,7 @@ func (r *SMTConflictResolver) levels() []uint32 {
 	levels := r.levelsBuf[:len(r.state.booleanData)]
 	r.levelsBuf = levels
 	for variable := int32(SMTFirstBoolVar); int(variable) < len(levels); variable++ {
-		levels[variable] = r.state.booleanData[variable].ScopeLevel
+		levels[variable] = r.state.booleanData[variable].ScopeLevel()
 	}
 	return levels
 }
