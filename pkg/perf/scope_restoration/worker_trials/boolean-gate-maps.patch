@@ -1,0 +1,216 @@
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -214 +214,2 @@
+-	gatePages                  []*smtBoolGatePage
++	booleanGates               map[int32]*smtBoolGate
++	notChildren                map[int32]ast.ASTHandle
+@@ -673,13 +674,2 @@
+-// Only groups containing a NOT, AND or OR allocate a page. Variable IDs
+-// remain dense on pop. Warm pages can be reused without retaining retired gates.
+-const smtBoolGatesPerPage = 32
+-
+-type smtBoolGatePage struct {
+-	conjunctions uint32 // one bit per AND gate
+-	gates        [smtBoolGatesPerPage]*smtBoolGate
+-	notChildren  [smtBoolGatesPerPage]ast.ASTHandle
+-}
+-
+-func (s *SMTInternalizerState) gatePage(v int32) *smtBoolGatePage {
+-	index := uint32(v) / smtBoolGatesPerPage
+-	if int(index) >= len(s.gatePages) {
++func (s *SMTInternalizerState) boolGate(v int32) *smtBoolGate {
++	if s.booleanData[v].internalFlags&smtBoolHasGate == 0 {
+@@ -688,17 +678 @@
+-	return s.gatePages[index]
+-}
+-func (s *SMTInternalizerState) boolGate(v int32) *smtBoolGate {
+-	if page := s.gatePage(v); page != nil {
+-		return page.gates[uint32(v)%smtBoolGatesPerPage]
+-	}
+-	return nil
+-}
+-func (s *SMTInternalizerState) boolGateOp(v int32) int32 {
+-	slot := uint32(v) % smtBoolGatesPerPage
+-	if page := s.gatePage(v); page != nil && page.gates[slot] != nil {
+-		if page.conjunctions&(1<<slot) != 0 {
+-			return ast.ASTOpAnd
+-		}
+-		return ast.ASTOpOr
+-	}
+-	return -1
++	return s.booleanGates[v]
+@@ -707,22 +681,4 @@
+-	if page := s.gatePage(v); page != nil {
+-		return page.notChildren[uint32(v)%smtBoolGatesPerPage]
+-	}
+-	return ast.ASTHandle{}
+-}
+-func (s *SMTInternalizerState) cacheBoolGate(v int32, gate *smtBoolGate, notChild ast.ASTHandle, operation int32) {
+-	index := int(v) / smtBoolGatesPerPage
+-	if index >= len(s.gatePages) {
+-		s.gatePages = append(s.gatePages, make([]*smtBoolGatePage, index+1-len(s.gatePages))...)
+-	}
+-	page := s.gatePages[index]
+-	if page == nil {
+-		page = new(smtBoolGatePage)
+-		s.gatePages[index] = page
+-	}
+-	slot := uint32(v) % smtBoolGatesPerPage
+-	page.gates[slot], page.notChildren[slot] = gate, notChild
+-	if operation == ast.ASTOpAnd {
+-		page.conjunctions |= 1 << slot
+-	} else {
+-		page.conjunctions &^= 1 << slot
+-	}
++	if s.booleanData[v].internalFlags&smtBoolHasGate == 0 {
++		return ast.ASTHandle{}
++	}
++	return s.notChildren[v]
+@@ -773,0 +730 @@
++			gate.operation = header.DeclKind
+@@ -791,2 +748,12 @@
+-	if gate != nil || !notChild.IsNull() {
+-		s.cacheBoolGate(variable, gate, notChild, header.DeclKind)
++	if gate != nil {
++		if s.booleanGates == nil {
++			s.booleanGates = make(map[int32]*smtBoolGate)
++		}
++		s.booleanGates[variable] = gate
++		data.internalFlags |= smtBoolHasGate
++	} else if !notChild.IsNull() {
++		if s.notChildren == nil {
++			s.notChildren = make(map[int32]ast.ASTHandle)
++		}
++		s.notChildren[variable] = notChild
++		data.internalFlags |= smtBoolHasGate
+@@ -1526,3 +1493,5 @@
+-			if page := s.gatePage(variable); page != nil {
+-				slot := uint32(variable) % smtBoolGatesPerPage
+-				page.gates[slot], page.notChildren[slot] = nil, ast.ASTHandle{}
++			if s.booleanGates != nil {
++				delete(s.booleanGates, variable)
++			}
++			if s.notChildren != nil {
++				delete(s.notChildren, variable)
+@@ -1954 +1923,2 @@
+-	s.gatePages = nil
++	s.booleanGates = nil
++	s.notChildren = nil
+--- a/smtcore/smt_justification_refs.go
++++ b/smtcore/smt_justification_refs.go
+@@ -206 +206 @@
+-	smtBoolAtom         = 1 << 23
++	smtBoolHasGate      = 1 << 23 // IsAtom derives the native atom bit from its source flags.
+@@ -212,2 +212,3 @@
+-	args     []ast.ASTHandle
+-	literals []SMTLiteral
++	operation int32
++	args      []ast.ASTHandle
++	literals  []SMTLiteral
+@@ -241 +241,0 @@
+-
+@@ -254,5 +254,2 @@
+-func (d *SMTBoolVarData) IsAtom() bool                                   { return d.internalFlags&smtBoolAtom != 0 }
+-func (d *SMTBoolVarData) updateAtom() {
+-	if d.scopeFlags&(smtBoolEquality|smtBoolENode|smtBoolQuantifier) == 0 && !d.IsTheoryAtom() {
+-		d.internalFlags &^= smtBoolAtom
+-	}
++func (d *SMTBoolVarData) IsAtom() bool {
++	return d.scopeFlags&(smtBoolEquality|smtBoolQuantifier|smtBoolENode) != 0 || d.IsTheoryAtom()
+@@ -271 +268 @@
+-	d.internalFlags = d.internalFlags&(1<<smtBoolTheoryShift-1) | uint32(value)<<smtBoolTheoryShift | smtBoolAtom
++	d.internalFlags = d.internalFlags&(1<<smtBoolTheoryShift-1) | uint32(value)<<smtBoolTheoryShift
+@@ -274,5 +271,2 @@
+-func (d *SMTBoolVarData) ResetNotifyTheory() {
+-	d.internalFlags &= 1<<smtBoolTheoryShift - 1
+-	d.updateAtom()
+-}
+-func (d *SMTBoolVarData) Mark() bool { return d.scopeFlags&smtBoolMark != 0 }
++func (d *SMTBoolVarData) ResetNotifyTheory() { d.internalFlags &= 1<<smtBoolTheoryShift - 1 }
++func (d *SMTBoolVarData) Mark() bool         { return d.scopeFlags&smtBoolMark != 0 }
+@@ -310,9 +304,3 @@
+-func (d *SMTBoolVarData) IsEquality() bool { return d.scopeFlags&smtBoolEquality != 0 }
+-func (d *SMTBoolVarData) SetEquality() {
+-	d.scopeFlags |= smtBoolEquality
+-	d.internalFlags |= smtBoolAtom
+-}
+-func (d *SMTBoolVarData) ResetEquality() {
+-	d.scopeFlags &^= smtBoolEquality
+-	d.updateAtom()
+-}
++func (d *SMTBoolVarData) IsEquality() bool   { return d.scopeFlags&smtBoolEquality != 0 }
++func (d *SMTBoolVarData) SetEquality()       { d.scopeFlags |= smtBoolEquality }
++func (d *SMTBoolVarData) ResetEquality()     { d.scopeFlags &^= smtBoolEquality }
+@@ -323,8 +311,2 @@
+-func (d *SMTBoolVarData) SetENode() {
+-	d.scopeFlags |= smtBoolENode
+-	d.internalFlags |= smtBoolAtom
+-}
+-func (d *SMTBoolVarData) ResetENode() {
+-	d.scopeFlags &^= smtBoolENode
+-	d.updateAtom()
+-}
++func (d *SMTBoolVarData) SetENode()          { d.scopeFlags |= smtBoolENode }
++func (d *SMTBoolVarData) ResetENode()        { d.scopeFlags &^= smtBoolENode }
+@@ -332,4 +314 @@
+-func (d *SMTBoolVarData) SetQuantifier() {
+-	d.scopeFlags |= smtBoolQuantifier
+-	d.internalFlags |= smtBoolAtom
+-}
++func (d *SMTBoolVarData) SetQuantifier()     { d.scopeFlags |= smtBoolQuantifier }
+--- a/smtcore/smt_relevancy.go
++++ b/smtcore/smt_relevancy.go
+@@ -889 +889,3 @@
+-		op = p.internalizer.boolGateOp(variable)
++		if gate := p.internalizer.boolGate(variable); gate != nil {
++			op = gate.operation
++		}
+--- a/smtcore/smt_relevancy_metadata_test.go
++++ b/smtcore/smt_relevancy_metadata_test.go
+@@ -4 +4 @@
+-	"fmt"
++	"github.com/glycerine/g3/pkg/util/lbool"
+@@ -6,3 +5,0 @@
+-
+-	"github.com/glycerine/g3/pkg/ast"
+-	"github.com/glycerine/g3/pkg/util/lbool"
+@@ -44 +41 @@
+-	if bv != nv || !s.notChild(bv).IsNull() {
++	if bv != nv || !s.notChild(bv).IsNull() || !s.notChildren[bv].IsNull() {
+@@ -90,36 +86,0 @@
+-
+-func TestSMTGatePageReuseAtBoundary(t *testing.T) {
+-	m := astTestManager(t)
+-	_, _, s := smtInternalizerFixture(t, m, nil)
+-	for i := 0; i < smtBoolGatesPerPage-2; i++ {
+-		_, err := s.MkBoolVar(smtRelevancyBool(t, m, fmt.Sprintf("page-leaf-%d", i)))
+-		astTestMust(t, err)
+-	}
+-	if len(s.gatePages) != 0 {
+-		t.Fatal("leaf-only variables allocated gate pages")
+-	}
+-	a, b := smtRelevancyPinnedBool(t, m, "page-a"), smtRelevancyPinnedBool(t, m, "page-b")
+-	for _, expected := range []int32{ast.ASTOpAnd, ast.ASTOpOr} {
+-		astTestMust(t, s.PushScope())
+-		neg, err := m.MkNot(a)
+-		astTestMust(t, err)
+-		n, err := s.MkBoolVar(neg)
+-		astTestMust(t, err)
+-		var e ast.ASTHandle
+-		if expected == ast.ASTOpAnd {
+-			e, err = m.MkAnd(a, b)
+-		} else {
+-			e, err = m.MkOr(a, b)
+-		}
+-		astTestMust(t, err)
+-		v, err := s.MkBoolVar(e)
+-		astTestMust(t, err)
+-		if n != smtBoolGatesPerPage-1 || v != smtBoolGatesPerPage || s.notChild(n) != a || s.boolGateOp(v) != expected {
+-			t.Fatal("failed to cache adjacent gates across a page boundary", n, v)
+-		}
+-		astTestMust(t, s.PopScopes(1))
+-		if !s.notChild(n).IsNull() || s.boolGate(v) != nil || s.boolGateOp(v) != -1 {
+-			t.Fatal("retired gate metadata remained reachable")
+-		}
+-	}
+-}
