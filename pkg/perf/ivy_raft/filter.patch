@@ -1,0 +1,11 @@
+--- a/smtcore/smt_mam_interpreter.go
++++ b/smtcore/smt_mam_interpreter.go
+@@ -130 +130 @@
+-		if p.declaration == f && i < uint32(len(p.arguments)) && it.relevant(p) && mamIsCgr(p) && p.arguments[i].root == n {
++		if p.declaration == f && i < uint32(len(p.arguments)) && mamIsCgr(p) && p.arguments[i].root == n && it.relevant(p) {
+@@ -146 +146 @@
+-		if p.declaration == j2.decl && it.relevant(p) && mamIsCgr(p) && p.arguments[j2.argPos].root == n {
++		if p.declaration == j2.decl && mamIsCgr(p) && p.arguments[j2.argPos].root == n && it.relevant(p) {
+@@ -149 +149 @@
+-				if p2.declaration == f && numArgs == len(n.arguments) && it.relevant(p2) && mamIsCgr(p2) && p2.arguments[i].root == p {
++				if p2.declaration == f && numArgs == len(n.arguments) && mamIsCgr(p2) && p2.arguments[i].root == p && it.relevant(p2) {

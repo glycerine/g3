@@ -1,0 +1,38 @@
+--- a/smt/g3_solver.go
++++ b/smt/g3_solver.go
+@@ -5,0 +6,4 @@
++	"fmt"
++	"os"
++	"runtime"
++	"runtime/pprof"
+@@ -6,0 +11 @@
++	"sync/atomic"
+@@ -55,0 +61,23 @@
++
++var heapStudyChecks atomic.Int64
++
++func writeStudyHeap(s *Z3Solver, number int64) {
++	stem := fmt.Sprintf("%s-%d", os.Getenv("IVY_STUDY_HEAP"), number)
++	st, err := s.c.Statistics()
++	fail(err)
++	stats, err := st.String()
++	fail(err)
++	fail(st.Close())
++	fail(os.WriteFile(stem+".stats", []byte(stats), 0600))
++	var mem runtime.MemStats
++	runtime.ReadMemStats(&mem)
++	fmt.Fprintf(os.Stderr, "check %d before-GC heap=%d inuse=%d alloc_total=%d gc=%d\n", number, mem.HeapAlloc, mem.HeapInuse, mem.TotalAlloc, mem.NumGC)
++	runtime.GC()
++	runtime.ReadMemStats(&mem)
++	fmt.Fprintf(os.Stderr, "check %d after-GC heap=%d inuse=%d alloc_total=%d gc=%d\n", number, mem.HeapAlloc, mem.HeapInuse, mem.TotalAlloc, mem.NumGC)
++	f, err := os.Create(stem + ".heap")
++	fail(err)
++	fail(pprof.WriteHeapProfile(f))
++	fail(f.Close())
++}
++
+@@ -56,0 +85,4 @@
++	n := heapStudyChecks.Add(1)
++	if n == 134 || n == 275 || n == 419 {
++		defer writeStudyHeap(s, n)
++	}

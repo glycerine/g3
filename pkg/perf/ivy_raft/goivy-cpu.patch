@@ -1,0 +1,19 @@
+--- a/cmd/goivy_check/main.go
++++ b/cmd/goivy_check/main.go
+@@ -43,0 +44 @@
++	"runtime/pprof"
+@@ -112 +113,13 @@
+-	os.Exit(goivy.MainWithConfig(args, cfg))
++	f, err := os.Create(os.Getenv("IVY_STUDY_CPU"))
++	if err != nil {
++		panic(err)
++	}
++	if err := pprof.StartCPUProfile(f); err != nil {
++		panic(err)
++	}
++	code := goivy.MainWithConfig(args, cfg)
++	pprof.StopCPUProfile()
++	if err := f.Close(); err != nil {
++		panic(err)
++	}
++	os.Exit(code)

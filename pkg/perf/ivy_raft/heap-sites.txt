@@ -1,0 +1,99 @@
+File: heap-packed
+Build ID: 9d138e242d32778fdde653a9a5136e393bc43d84
+Type: inuse_space
+Time: 2026-11-20 04:04:58 CST
+Showing nodes accounting for 942473563B, 93.21% of 1011127805B total
+Dropped 329 nodes (cum <= 5055639B)
+Showing top 16 nodes out of 193
+      flat  flat%   sum%        cum   cum%
+199319010B 19.71% 19.71% 199319010B 19.71%  github.com/glycerine/g3/pkg/ast.(*ASTManager).ensureNodePage
+184465314B 18.24% 37.96% 253112474B 25.03%  github.com/glycerine/g3/pkg/smtcore.(*SMTCachedVarSubstitution).Instantiate
+131424256B 13.00% 50.95% 131424256B 13.00%  github.com/glycerine/g3/pkg/ast.(*astCanonicalTable).rebuild
+117404937B 11.61% 62.57% 117404937B 11.61%  github.com/glycerine/g3/pkg/smtcore.(*smtExprTable).write
+ 99343593B  9.83% 72.39%  99343593B  9.83%  github.com/glycerine/g3/pkg/arena.(*SmallBytes).newChunk
+ 36301881B  3.59% 75.98%  36301881B  3.59%  github.com/glycerine/g3/pkg/smtcore.(*SMTWatchList).InsertClause (inline)
+ 29773728B  2.94% 78.93%  29773728B  2.94%  github.com/glycerine/g3/pkg/arena.(*descriptorSlab).Allocate
+ 26596234B  2.63% 81.56%  26596234B  2.63%  github.com/glycerine/g3/pkg/smtcore.(*smtRelevancyTable).push
+ 23166976B  2.29% 83.85%  23166976B  2.29%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).pool
+ 20042815B  1.98% 85.83%  63158589B  6.25%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).addClauseKindWithJustificationAndDeleteHandler
+ 17743872B  1.75% 87.58%  17743872B  1.75%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).pushTrail
+ 15791319B  1.56% 89.15%  15791319B  1.56%  github.com/glycerine/g3/pkg/ast.activityChashAlloc
+ 13172269B  1.30% 90.45%  15690991B  1.55%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).publishBoolVar
+ 12525649B  1.24% 91.69%  12525649B  1.24%  github.com/glycerine/g3/pkg/util/idgen.(*Generator).Reserve
+  9466012B  0.94% 92.62%   9466012B  0.94%  github.com/glycerine/g3/pkg/ast.(*ASTManager).ensureRefPage
+  5935698B  0.59% 93.21%   5935698B  0.59%  github.com/glycerine/g3/pkg/smtcore.(*SMTQIQueueSchedule).RecordInstance
+
+File: heap-packed
+Build ID: 9d138e242d32778fdde653a9a5136e393bc43d84
+Type: alloc_space
+Time: 2026-11-20 04:04:58 CST
+Showing nodes accounting for 7281627998B, 79.27% of 9186189315B total
+Dropped 1062 nodes (cum <= 45930946B)
+Showing top 16 nodes out of 207
+      flat  flat%   sum%        cum   cum%
+1064178619B 11.58% 11.58% 1073156546B 11.68%  github.com/glycerine/g3/pkg/smtcore.(*SMTFingerprintSet).Insert
+836853506B  9.11% 20.69% 836853506B  9.11%  github.com/glycerine/g3/pkg/smtcore.(*SMTQIQueueSchedule).Insert
+809586626B  8.81% 29.51% 1032722598B 11.24%  github.com/glycerine/g3/pkg/smtcore.(*SMTQIInstanceBuilder).finishLemma
+802380812B  8.73% 38.24% 939498423B 10.23%  github.com/glycerine/g3/pkg/smtcore.(*SMTCachedVarSubstitution).Instantiate
+753519618B  8.20% 46.44% 753519618B  8.20%  github.com/glycerine/g3/pkg/smtcore.smtNewClauseStorage
+575712145B  6.27% 52.71% 1515210568B 16.49%  github.com/glycerine/g3/pkg/smtcore.(*SMTQIInstanceBuilder).Prepare
+509887022B  5.55% 58.26% 509887022B  5.55%  github.com/glycerine/g3/pkg/smtcore.(*smtExprTable).write
+372289689B  4.05% 62.32% 372289689B  4.05%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).argumentHandles
+354106607B  3.85% 66.17% 592929698B  6.45%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).setRelevant
+263613297B  2.87% 69.04% 263613297B  2.87%  github.com/glycerine/g3/pkg/ast.(*astCanonicalTable).rebuild
+211351744B  2.30% 71.34% 211351744B  2.30%  github.com/glycerine/g3/pkg/smtcore.NewSMTEnode
+199319010B  2.17% 73.51% 199319010B  2.17%  github.com/glycerine/g3/pkg/ast.(*ASTManager).ensureNodePage
+157292644B  1.71% 75.22% 157292644B  1.71%  github.com/glycerine/g3/pkg/smtcore.NewSMTUnitResolutionJustification
+150387210B  1.64% 76.86% 150387210B  1.64%  github.com/glycerine/g3/pkg/ast.activityChashAlloc
+115401365B  1.26% 78.12% 115401365B  1.26%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).pool
+105748084B  1.15% 79.27% 1082508081B 11.78%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).addClauseKindWithJustificationAndDeleteHandler
+
+File: heap-final
+Build ID: c11d3f4d2d106c960895f4f7266572770c960b5c
+Type: inuse_space
+Time: 2026-11-20 04:10:15 CST
+Showing nodes accounting for 941900044B, 93.47% of 1007708195B total
+Dropped 242 nodes (cum <= 5038540B)
+Showing top 16 nodes out of 204
+      flat  flat%   sum%        cum   cum%
+198790613B 19.73% 19.73% 198790613B 19.73%  github.com/glycerine/g3/pkg/ast.(*ASTManager).ensureNodePage
+190913788B 18.95% 38.67% 256923108B 25.50%  github.com/glycerine/g3/pkg/smtcore.(*SMTCachedVarSubstitution).Instantiate
+131424256B 13.04% 51.71% 131424256B 13.04%  github.com/glycerine/g3/pkg/ast.(*astCanonicalTable).rebuild
+117404937B 11.65% 63.36% 117404937B 11.65%  github.com/glycerine/g3/pkg/smtcore.(*smtExprTable).write
+ 90914447B  9.02% 72.39%  90914447B  9.02%  github.com/glycerine/g3/pkg/arena.(*SmallBytes).newChunk
+ 40516932B  4.02% 76.41%  40516932B  4.02%  github.com/glycerine/g3/pkg/smtcore.(*SMTWatchList).InsertClause (inline)
+ 31665099B  3.14% 79.55%  31665099B  3.14%  github.com/glycerine/g3/pkg/smtcore.(*smtRelevancyTable).push
+ 25532150B  2.53% 82.08%  25532150B  2.53%  github.com/glycerine/g3/pkg/arena.(*descriptorSlab).Allocate
+ 23927614B  2.37% 84.46%  23927614B  2.37%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).pool
+ 20025748B  1.99% 86.45%  61063509B  6.06%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).addClauseKindWithJustificationAndDeleteHandler
+ 17743872B  1.76% 88.21%  17743872B  1.76%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).pushTrail
+ 16315847B  1.62% 89.83%  16315847B  1.62%  github.com/glycerine/g3/pkg/ast.activityChashAlloc
+ 12525649B  1.24% 91.07%  12525649B  1.24%  github.com/glycerine/g3/pkg/util/idgen.(*Generator).Reserve
+ 10900941B  1.08% 92.15%  12885069B  1.28%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).publishBoolVar
+  7362453B  0.73% 92.88%   7362453B  0.73%  github.com/glycerine/g3/pkg/ast.(*ASTManager).ensureRefPage
+  5935698B  0.59% 93.47%   5935698B  0.59%  github.com/glycerine/g3/pkg/smtcore.(*SMTQIQueueSchedule).RecordInstance
+
+File: heap-final
+Build ID: c11d3f4d2d106c960895f4f7266572770c960b5c
+Type: alloc_space
+Time: 2026-11-20 04:10:15 CST
+Showing nodes accounting for 6836083149B, 79.06% of 8646458618B total
+Dropped 1021 nodes (cum <= 43232293B)
+Showing top 16 nodes out of 213
+      flat  flat%   sum%        cum   cum%
+1122938582B 12.99% 12.99% 1133003810B 13.10%  github.com/glycerine/g3/pkg/smtcore.(*SMTFingerprintSet).Insert
+849943514B  9.83% 22.82% 849943514B  9.83%  github.com/glycerine/g3/pkg/smtcore.(*SMTQIQueueSchedule).Insert
+815964038B  9.44% 32.25% 950443809B 10.99%  github.com/glycerine/g3/pkg/smtcore.(*SMTCachedVarSubstitution).Instantiate
+808012482B  9.35% 41.60% 1014381294B 11.73%  github.com/glycerine/g3/pkg/smtcore.(*SMTQIInstanceBuilder).finishLemma
+719959778B  8.33% 49.93% 719959778B  8.33%  github.com/glycerine/g3/pkg/smtcore.smtNewClauseStorage
+510440718B  5.90% 55.83% 510440718B  5.90%  github.com/glycerine/g3/pkg/smtcore.(*smtExprTable).write
+344852653B  3.99% 59.82% 585564794B  6.77%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).setRelevant
+333488001B  3.86% 63.67% 333488001B  3.86%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).argumentHandles
+264680842B  3.06% 66.74% 264680842B  3.06%  github.com/glycerine/g3/pkg/ast.(*astCanonicalTable).rebuild
+237564612B  2.75% 69.48% 237564612B  2.75%  github.com/glycerine/g3/pkg/smtcore.NewSMTEnode
+199914835B  2.31% 71.80% 199914835B  2.31%  github.com/glycerine/g3/pkg/ast.(*ASTManager).ensureNodePage
+158865416B  1.84% 73.63% 158865416B  1.84%  github.com/glycerine/g3/pkg/smtcore.NewSMTUnitResolutionJustification
+154462966B  1.79% 75.42% 154462966B  1.79%  github.com/glycerine/g3/pkg/ast.activityChashAlloc
+113838851B  1.32% 76.74% 113838851B  1.32%  github.com/glycerine/g3/pkg/smtcore.(*SMTRelevancyPropagator).pool
+110241414B  1.27% 78.01% 1056287608B 12.22%  github.com/glycerine/g3/pkg/smtcore.(*SMTInternalizerState).addClauseKindWithJustificationAndDeleteHandler
+ 90914447B  1.05% 79.06%  90914447B  1.05%  github.com/glycerine/g3/pkg/arena.(*SmallBytes).newChunk

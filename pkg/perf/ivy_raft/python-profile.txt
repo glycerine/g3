@@ -1,0 +1,52 @@
+Python -O ivy_check, 419 Raft checks, perf record -F 149 -e cycles:u --call-graph fp
+5230 samples, zero lost
+
+77.74%  libz3.so
+15.12%  python3.10
+5.45%  libc.so.6
+1.18%  libgomp.so.1.0.0
+
+Symbols, flat share of cycles
+6.47%  [.] smt::relevancy_propagator_imp::is_relevant(expr*) const
+3.83%  [.] smt::interpreter::mk_depth1_vector(smt::enode*, func_decl*, unsigned int)
+3.06%  [.] _PyEval_EvalFrameDefault
+2.86%  [.] insdict<ast*, ast_insdict_hash, ast_eq_proc>::put(ast* const&, bool&)
+2.29%  [.] PyObject_RichCompareBool
+2.19%  [.] smt::context::bcp()
+1.83%  [.] smt::fingerprint_set::insert(void*, unsigned int, unsigned int, smt::enode* const*)
+1.77%  [.] unsigned int get_composite_hash<smt::fingerprint*, smt::fingerprint_set::fingerprint_khasher, smt::fingerprint_set::fingerprint_chasher>(smt::fingerprint*, unsigned int, smt::fingerprint_set::fingerprint_khasher const&, smt::fingerprint_set::fingerprint_chasher const&) [clone .isra.0]
+1.58%  [.] smt::context::get_enode_eq_to(func_decl*, unsigned int, smt::enode* const*)
+1.45%  [.] PyUnicode_RichCompare
+1.33%  [.] smt::checker::check_core(expr*, bool)
+1.17%  [.] list_contains
+1.14%  [.] smt::checker::get_enode_eq_to(expr*)
+1.12%  [.] ast_manager::delete_node(ast*)
+1.12%  [.] smt::cg_table::insert(smt::enode*)
+1.06%  [.] smt::cg_table::cg_hash::operator()(smt::enode*) const
+0.98%  [.] smt::interpreter::execute_core(smt::code_tree*, smt::enode*)
+0.88%  [.] _int_malloc
+0.83%  [.] small_object_allocator::allocate(unsigned long)
+0.83%  [.] smt::relevancy_propagator_imp::mark_as_relevant(expr*)
+0.83%  [.] smt::cg_table::erase(smt::enode*)
+
+Python cProfile run, 38.824 s total, columns self_s cumulative_s call_count function
+29.172 29.174 419 z3core.py:3418 Z3_solver_check_assumptions
+2.159 2.174 6 yacc.py:2492 add_lookaheads
+0.699 1.526 1337384 ivy_logic_utils.py:598 symbols_ilu_ast
+0.411 2.130 300700 ivy_logic_utils.py:198 rename_ast
+0.373 0.376 4041935 ~:0 <built-in method builtins.isinstance>
+0.343 0.517 858880 ivy_logic.py:313 is_app
+0.335 0.335 1725271 recstruct_object.py:31 <lambda>
+0.262 0.293 6070 yacc.py:2068 traverse
+0.180 0.316 109357 yacc.py:2165 lr0_goto
+0.159 3.252 6 yacc.py:2534 lr_parse_table
+0.154 0.384 291152 ivy_logic.py:271 <lambda>
+0.141 0.185 6 yacc.py:2372 compute_lookback_includes
+0.119 0.549 55924 logic.py:150 _preprocess_
+0.117 2.025 300700 ivy_logic_utils.py:205 <listcomp>
+0.116 0.169 332659 <string>:60 __getitem__
+0.100 0.266 55924 logic.py:166 <listcomp>
+0.096 0.214 90123 logic.py:182 <lambda>
+0.094 0.094 14 z3core.py:3328 Z3_mk_solver
+0.091 0.133 232016 ivy_logic.py:632 is_binder
+0.089 0.096 6 yacc.py:1875 compute_follow
