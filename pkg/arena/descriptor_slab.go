@@ -6,9 +6,16 @@ import (
 	"reflect"
 )
 
+// A live slot links to itself. A free slot links to its successor or zero.
+// A retired slot has the maximum generation and never reenters the free list.
+type descriptorState struct {
+	generation Generation
+	next       Slot
+}
+
 type descriptorSlabPage struct {
 	records []vectorDescriptor
-	meta    []slotState
+	meta    []descriptorState
 	live    uint32
 }
 
@@ -23,6 +30,7 @@ type descriptorSlab struct {
 	slots, live, retired                           uint32
 	recordPageBytes, metaPageBytes, directoryBytes uint64
 	closed                                         bool
+	pageShift                                      uint8
 }
 
 func newDescriptorSlab(config Config) (*descriptorSlab, error) {
@@ -44,23 +52,28 @@ func newDescriptorSlab(config Config) (*descriptorSlab, error) {
 	if uint64(config.PageSize) > maxInt || (t.Size() != 0 && uint64(config.PageSize) > maxInt/uint64(t.Size())) {
 		return nil, ErrConfig
 	}
-	metaSize := uint64(reflect.TypeOf(slotState{}).Size())
+	metaSize := uint64(reflect.TypeOf(descriptorState{}).Size())
 	if uint64(config.PageSize) > maxInt/metaSize {
 		return nil, ErrConfig
 	}
 	if e := config.Budget.Reserve(uint64(reflect.TypeOf(descriptorSlab{}).Size())); e != nil {
 		return nil, e
 	}
-	return &descriptorSlab{config: config, recordPageBytes: uint64(config.PageSize) * uint64(t.Size()), metaPageBytes: uint64(config.PageSize) * metaSize}, nil
+	return &descriptorSlab{
+		config:          config,
+		pageShift:       uint8(bits.TrailingZeros32(config.PageSize)),
+		recordPageBytes: uint64(config.PageSize) * uint64(t.Size()),
+		metaPageBytes:   uint64(config.PageSize) * metaSize,
+	}, nil
 }
 
 func (s *descriptorSlab) location(slot Slot) (uint32, uint32) {
 	n := uint32(slot) - 1
-	// PageSize is a power of two (checked at construction): shift, not divide.
-	return n >> bits.TrailingZeros32(s.config.PageSize), n & (s.config.PageSize - 1)
+	// Construction checks that PageSize is a power of two and records its shift.
+	return n >> (s.pageShift & 31), n & (s.config.PageSize - 1)
 }
-func (s *descriptorSlab) state(slot Slot) *slotState {
-	if slot == 0 || uint32(slot) > s.slots {
+func (s *descriptorSlab) state(slot Slot) *descriptorState {
+	if uint32(slot)-1 >= s.slots {
 		return nil
 	}
 	p, i := s.location(slot)
@@ -112,7 +125,7 @@ func (s *descriptorSlab) Allocate() (Slot, Generation, error) {
 			s.config.Budget.Release(s.directoryBytes)
 			s.directoryBytes = newDirectoryBytes
 		}
-		s.pages = append(s.pages, descriptorSlabPage{records: make([]vectorDescriptor, s.config.PageSize), meta: make([]slotState, s.config.PageSize)})
+		s.pages = append(s.pages, descriptorSlabPage{records: make([]vectorDescriptor, s.config.PageSize), meta: make([]descriptorState, s.config.PageSize)})
 	} else if s.pages[p].records == nil {
 		if err := s.config.Budget.Reserve(s.recordPageBytes); err != nil {
 			return 0, 0, err
@@ -125,9 +138,8 @@ func (s *descriptorSlab) Allocate() (Slot, Generation, error) {
 	} else {
 		s.slots++
 	}
-	m.next = 0
+	m.next = slot
 	m.generation++
-	m.live = true
 	s.pages[p].live++
 	s.live++
 	return slot, m.generation, nil
@@ -138,62 +150,63 @@ func (s *descriptorSlab) IsLive(slot Slot, generation Generation) bool {
 		return false
 	}
 	m := s.state(slot)
-	return m != nil && m.live && m.generation == generation
+	return m != nil && m.next == slot && m.generation == generation
 }
 
 // readLive validates a slot and generation once and reads its record.
 func (s *descriptorSlab) readLive(slot Slot, generation Generation) (vectorDescriptor, bool) {
-	if s.closed || generation == 0 || slot == 0 || uint32(slot) > s.slots {
+	// Closed slabs have zero slots. A live slot always has a nonzero generation.
+	if uint32(slot)-1 >= s.slots {
 		return vectorDescriptor{}, false
 	}
 	p, i := s.location(slot)
 	page := &s.pages[p]
-	if m := &page.meta[i]; !m.live || m.generation != generation {
+	if m := &page.meta[i]; m.next != slot || m.generation != generation {
 		return vectorDescriptor{}, false
 	}
 	return page.records[i], true
 }
 
-func (s *descriptorSlab) Read(slot Slot) (vectorDescriptor, error) {
-	var zero vectorDescriptor
+func (s *descriptorSlab) liveLocation(slot Slot) (*descriptorSlabPage, uint32, error) {
 	if s.closed {
-		return zero, ErrClosed
+		return nil, 0, ErrClosed
 	}
-	m := s.state(slot)
-	if m == nil || !m.live {
-		return zero, ErrInvalidSlot
+	if uint32(slot)-1 >= s.slots {
+		return nil, 0, ErrInvalidSlot
 	}
 	p, i := s.location(slot)
-	return s.pages[p].records[i], nil
+	page := &s.pages[p]
+	if page.meta[i].next != slot {
+		return nil, 0, ErrInvalidSlot
+	}
+	return page, i, nil
+}
+func (s *descriptorSlab) Read(slot Slot) (vectorDescriptor, error) {
+	page, i, err := s.liveLocation(slot)
+	if err != nil {
+		return vectorDescriptor{}, err
+	}
+	return page.records[i], nil
 }
 func (s *descriptorSlab) Write(slot Slot, value vectorDescriptor) error {
-	if s.closed {
-		return ErrClosed
+	page, i, err := s.liveLocation(slot)
+	if err != nil {
+		return err
 	}
-	m := s.state(slot)
-	if m == nil || !m.live {
-		return ErrInvalidSlot
-	}
-	p, i := s.location(slot)
-	s.pages[p].records[i] = value
+	page.records[i] = value
 	return nil
 }
 func (s *descriptorSlab) Recycle(slot Slot) error {
-	if s.closed {
-		return ErrClosed
+	page, i, err := s.liveLocation(slot)
+	if err != nil {
+		return err
 	}
-	m := s.state(slot)
-	if m == nil || !m.live {
-		return ErrInvalidSlot
-	}
-	p, i := s.location(slot)
-	var zero vectorDescriptor
-	s.pages[p].records[i] = zero
-	m.live = false
-	s.pages[p].live--
+	m := &page.meta[i]
+	page.records[i] = vectorDescriptor{}
+	m.next = 0
+	page.live--
 	s.live--
 	if m.generation == Generation(math.MaxUint32) {
-		m.retired = true
 		s.retired++
 	} else {
 		m.next = s.free
@@ -224,7 +237,7 @@ func (s *descriptorSlab) Reset() {
 	}
 	for n := uint64(1); n <= uint64(s.slots); n++ {
 		slot := Slot(n)
-		if s.state(slot).live {
+		if s.state(slot).next == slot {
 			s.Recycle(slot)
 		}
 	}

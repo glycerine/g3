@@ -153,3 +153,41 @@ func TestRegion64PreservesWideValues(t *testing.T) {
 		t.Fatal(e, seen)
 	}
 }
+
+func TestDescriptorFreeLinkValidity(t *testing.T) {
+	slab, err := newDescriptorSlab(Config{PageSize: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer slab.Close()
+	var refs [3]SmallBytesRef
+	for i := range refs {
+		slot, generation, err := slab.Allocate()
+		if err != nil {
+			t.Fatal(err)
+		}
+		refs[i] = SmallBytesRef{slot, generation}
+	}
+	for _, r := range refs {
+		if _, ok := slab.readLive(r.Slot, 0); ok {
+			t.Fatal("zero generation accepted")
+		}
+		if err := slab.Recycle(r.Slot); err != nil {
+			t.Fatal(err)
+		}
+	}
+	slab.TrimFreePages()
+	for i := len(refs) - 1; i >= 0; i-- {
+		r := refs[i]
+		if _, ok := slab.readLive(r.Slot, r.Generation); ok {
+			t.Fatal("free descriptor accepted")
+		}
+		slot, generation, err := slab.Allocate()
+		if err != nil || slot != r.Slot || generation != r.Generation+1 {
+			t.Fatal(slot, generation, err)
+		}
+		if _, ok := slab.readLive(r.Slot, r.Generation); ok {
+			t.Fatal("old generation accepted after reuse")
+		}
+	}
+}
