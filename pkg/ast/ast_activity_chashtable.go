@@ -22,25 +22,17 @@ type activityChashCell struct {
 }
 
 type activityChashtable struct {
-	cells      []activityChashCell
-	slots      int32
-	usedSlots  int32
-	size       int32
-	nextCell   int32
-	freeCell   int32
-	initSlots  int32
-	initCellar int32
+	cells     []activityChashCell
+	slots     int32
+	usedSlots int32
+	size      int32
+	nextCell  int32
+	freeCell  int32
 	// spare is a cell array the table no longer uses (the one an expansion
 	// or a reset replaced), kept to back the next array of at most its
 	// capacity; the source returns these to the allocator. Its cells are
 	// rewritten before reuse.
 	spare []activityChashCell
-}
-
-func newActivityChashtable() activityChashtable {
-	t := activityChashtable{initSlots: activityChashInitSlots, initCellar: activityChashInitCellar}
-	t.init(t.initSlots, t.initCellar)
-	return t
 }
 
 func activityChashAlloc(n int32) []activityChashCell {
@@ -84,7 +76,17 @@ func (t *activityChashtable) init(slots, cellar int32) {
 }
 
 func (t *activityChashtable) hasFreeCells() bool {
-	return t.freeCell != activityChashNil || t.nextCell < int32(len(t.cells))
+	return t.slots == 0 || t.freeCell != activityChashNil || t.nextCell < int32(len(t.cells))
+}
+
+// A zero-value table allocates its first cells on insertion. A full table
+// expands before checking for duplicates, matching insert_if_not_there.
+func (t *activityChashtable) prepareInsert() {
+	if t.slots == 0 {
+		t.init(activityChashInitSlots, activityChashInitCellar)
+	} else if !t.hasFreeCells() {
+		t.expandTable()
+	}
 }
 
 func (t *activityChashtable) getFreeCell() int32 {
@@ -157,6 +159,9 @@ func (t *activityChashtable) expandTable() {
 // find is chashtable::find: the entry for key k (whose AST hash is hash),
 // or nil.
 func (t *activityChashtable) find(k ASTHandle, hash uint32) *astActivityEntry {
+	if t.size == 0 {
+		return nil
+	}
 	c := int32(hash & uint32(t.slots-1))
 	if t.cells[c].next == activityChashFree {
 		return nil
@@ -172,9 +177,6 @@ func (t *activityChashtable) find(k ASTHandle, hash uint32) *astActivityEntry {
 // insert is insert_if_not_there for a key known to be absent: a colliding
 // entry becomes the chain head and the old head moves to a cellar cell.
 func (t *activityChashtable) insert(entry astActivityEntry) *astActivityEntry {
-	if !t.hasFreeCells() {
-		t.expandTable()
-	}
 	idx := int32(entry.hash & uint32(t.slots-1))
 	if t.cells[idx].next == activityChashFree {
 		t.size++
@@ -238,16 +240,5 @@ func (t *activityChashtable) reset() {
 	if t.size == 0 {
 		return
 	}
-	t.finalize()
-}
-
-func (t *activityChashtable) finalize() {
-	t.init(t.initSlots, t.initCellar)
-}
-
-// release is finalize that also drops the spare array.
-func (t *activityChashtable) release() {
-	t.spare = nil
-	t.cells = nil
-	t.init(t.initSlots, t.initCellar)
+	t.init(activityChashInitSlots, activityChashInitCellar)
 }

@@ -53,7 +53,6 @@ func NewActivityCache(m *ASTManager, maxUnused *uint32) (*ActivityCache, error) 
 		return nil, e
 	}
 	c := &ActivityCache{manager: m, maxUnused: n, header: bytes}
-	c.table = newActivityChashtable()
 	c.self = c
 	return c, nil
 }
@@ -182,9 +181,7 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 	}
 	// chashtable::insert_if_not_there grows a full table before it looks
 	// the key up, also when the key is already present.
-	if !c.table.hasFreeCells() {
-		c.table.expandTable()
-	}
+	c.table.prepareInsert()
 	entry := c.table.find(k, hash)
 	if entry == nil {
 		entry = c.table.insert(astActivityEntry{key: k, hash: hash, dummy: true})
@@ -280,7 +277,7 @@ func (c *ActivityCache) clear(cleanup bool) (err error) {
 		return e
 	}
 	if cleanup {
-		c.table.release()
+		c.table = activityChashtable{}
 	} else {
 		c.table.reset()
 	}
