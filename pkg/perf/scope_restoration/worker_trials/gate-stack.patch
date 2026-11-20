@@ -1,0 +1,66 @@
+--- a/smtcore/smt_internalizer.go
++++ b/smtcore/smt_internalizer.go
+@@ -1106 +1106 @@
+-		s.booleanData[variable].gateLiterals = arguments
++		s.boolGates[s.booleanData[variable].gateIndex-1].literals = arguments
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -136,0 +137,5 @@
++type smtBoolGate struct {
++	args     []ast.ASTHandle
++	literals []SMTLiteral
++}
++
+@@ -137,0 +143 @@
++	boolGates []smtBoolGate
+@@ -676,0 +683 @@
++	var args []ast.ASTHandle
+@@ -687,3 +694,3 @@
+-				data.gateArgs = make([]ast.ASTHandle, header.NumArgs)
+-				for i := range data.gateArgs {
+-					data.gateArgs[i], err = s.manager.GetArg(expression, uint32(i))
++				args = make([]ast.ASTHandle, header.NumArgs)
++				for i := range args {
++					args[i], err = s.manager.GetArg(expression, uint32(i))
+@@ -703,0 +711,4 @@
++	}
++	if args != nil {
++		s.boolGates = append(s.boolGates, smtBoolGate{args: args})
++		data.gateIndex = int32(len(s.boolGates))
+@@ -734 +745,2 @@
+-	s.booleanStack = append(s.booleanStack, expression)
++	// The Boolean trail is the expression vector without its reserved slot.
++	s.booleanStack = s.boolExpr[1:]
+@@ -1421 +1433,4 @@
+-			s.boolExpr[variable] = ast.ASTHandle{}
++			if gate := s.booleanData[variable].gateIndex; gate != 0 {
++				s.boolGates[gate-1] = smtBoolGate{}
++				s.boolGates = s.boolGates[:gate-1]
++			}
+--- a/smtcore/smt_justification_refs.go
++++ b/smtcore/smt_justification_refs.go
+@@ -48,0 +49 @@
++	literal       SMTLiteral
+@@ -50 +50,0 @@
+-	literal       SMTLiteral
+@@ -143,4 +143,3 @@
+-	basicOp      int32
+-	notChild     ast.ASTHandle
+-	gateArgs     []ast.ASTHandle
+-	gateLiterals []SMTLiteral
++	basicOp   int32
++	notChild  ast.ASTHandle
++	gateIndex int32 // index plus one into the solver gate stack
+--- a/smtcore/smt_relevancy.go
++++ b/smtcore/smt_relevancy.go
+@@ -514,2 +514,3 @@
+-			if args := s.booleanData[variable].gateArgs; args != nil {
+-				return ast.SliceArguments(args), s.booleanData[variable].gateLiterals, nil
++			if index := s.booleanData[variable].gateIndex; index != 0 {
++				gate := &s.boolGates[index-1]
++				return ast.SliceArguments(gate.args), gate.literals, nil
+--- a/smtcore/smt_relevancy_metadata_test.go
++++ b/smtcore/smt_relevancy_metadata_test.go
+@@ -77 +77 @@
+-		if len(s.booleanData[pv].gateLiterals) != 2 || s.booleanData[pv].gateLiterals[0] != NewSMTLiteral(av, true) {
++		if len(s.boolGates[s.booleanData[pv].gateIndex-1].literals) != 2 || s.boolGates[s.booleanData[pv].gateIndex-1].literals[0] != NewSMTLiteral(av, true) {

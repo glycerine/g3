@@ -1,0 +1,102 @@
+--- a/smtcore/smt_boolean_propagation.go
++++ b/smtcore/smt_boolean_propagation.go
+@@ -167 +167 @@
+-	clause, err := NewSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr)
++	clause, err := newSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.savedAtoms)
+--- a/smtcore/smt_clause.go
++++ b/smtcore/smt_clause.go
+@@ -7,0 +8 @@
++	"math/bits"
+@@ -32 +33,2 @@
+-	capacity           uint32
++	atomPage           *smtClauseAtomPage
++	atomSlot           uint8
+@@ -110,0 +113,4 @@
++	return newSMTClause(manager, literals, kind, justification, deleteHandler, saveAtoms, expressions, nil)
++}
++
++func newSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle, pool *smtClauseAtomPool) (*SMTClause, error) {
+@@ -126,3 +132,3 @@
+-		manager:            manager,
+-		literals:           clause.literals,
+-		capacity:           uint32(len(literals)),
++		manager:  manager,
++		literals: clause.literals,
++
+@@ -142 +148 @@
+-	clause.atoms = make([]smtClauseAtom, len(literals))
++	pool.allocate(clause, len(literals))
+@@ -406 +412 @@
+-	c.atoms = nil
++	c.discardAtoms()
+@@ -410,0 +417,40 @@
++
++// Each occupied slot belongs to exactly one live clause. Each page contains
++// only scalar handles and sign bits. Long clauses and overflow get ordinary
++// heap storage; a clause of any lifetime can release its slot independently.
++const smtShortClauseAtoms = 4
++
++type smtClauseAtomPage struct {
++	free  uint16
++	slots [16][smtShortClauseAtoms]smtClauseAtom
++}
++type smtClauseAtomPool struct{ pages [4]*smtClauseAtomPage }
++
++func (p *smtClauseAtomPool) allocate(c *SMTClause, n int) {
++	if p != nil && n <= smtShortClauseAtoms {
++		for i, page := range p.pages {
++			if page == nil {
++				page = &smtClauseAtomPage{free: ^uint16(0)}
++				p.pages[i] = page
++			}
++			if page.free == 0 {
++				continue
++			}
++			slot := bits.TrailingZeros16(page.free)
++			page.free &^= 1 << slot
++			c.atomPage, c.atomSlot = page, uint8(slot)
++			c.atoms = page.slots[slot][:n:n]
++			return
++		}
++	}
++	c.atoms = make([]smtClauseAtom, n)
++}
++
++// All references in this span have been consumed by ReleaseAtoms.
++func (c *SMTClause) discardAtoms() {
++	c.atoms = nil
++	if c.atomPage != nil {
++		c.atomPage.free |= 1 << c.atomSlot
++		c.atomPage = nil
++	}
++}
+--- a/smtcore/smt_clause_backtrack.go
++++ b/smtcore/smt_clause_backtrack.go
+@@ -122 +122 @@
+-		saved.clause.atoms = nil
++		saved.clause.discardAtoms()
+--- a/smtcore/smt_internalizer.go
++++ b/smtcore/smt_internalizer.go
+@@ -155,2 +155 @@
+-	// kept is collected in a scratch buffer and copied out at its final
+-	// length once the loop has not found the clause satisfied.
++	// Collect the simplified literals in solver-local storage.
+@@ -216 +215,4 @@
+-	s.clauseKeptScratch = kept[:0]
++	// Keep this backing array private across callbacks. A nested insertion
++	// gets its own buffer. Only one buffer survives the outer call.
++	s.clauseKeptScratch = nil
++	defer func() { s.clauseKeptScratch = kept[:0] }()
+@@ -220 +222 @@
+-	kept = append([]SMTLiteral(nil), kept...)
++
+@@ -325 +327 @@
+-		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
++		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: []SMTLiteral{first, second}, Root: root, Binary: true, Lemma: lemma, Proof: proof})
+@@ -378 +380 @@
+-	record := SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner}
++	record := SMTInternalizedClause{Literals: clause.literals, Root: root, Proof: proof, clause: clause, owner: owner}
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -137,0 +138 @@
++	savedAtoms smtClauseAtomPool

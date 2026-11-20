@@ -1,0 +1,64 @@
+--- a/smtcore/smt_clause_backtrack.go
++++ b/smtcore/smt_clause_backtrack.go
+@@ -147 +147 @@
+-		return s.publishBoolVar(expression, SMTBoolVarData{internalLevel: s.scopeLevel, basicOp: -1})
++		return s.publishBoolVar(expression, nil)
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -137,0 +138 @@
++	boolCapacity int
+@@ -706 +707 @@
+-	return s.publishBoolVar(expression, data)
++	return s.publishBoolVar(expression, &data)
+@@ -710 +711,12 @@
+-func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMTBoolVarData) (int32, error) {
++// growBooleanVectors expands all per-variable tables together.
++func (s *SMTInternalizerState) growBooleanVectors(n int) {
++	extra := n + 1
++	s.boolExpr = append(s.boolExpr, make([]ast.ASTHandle, extra)...)[:n]
++	s.booleanData = append(s.booleanData, make([]SMTBoolVarData, extra)...)[:n]
++	s.booleanCreation = append(s.booleanCreation, make([]uint64, extra)...)[:n]
++	s.activity = append(s.activity, make([]float64, extra)...)[:n]
++	s.assignment = append(s.assignment, make([]lbool.LBool, 2*extra)...)[:2*n]
++	s.watches = append(s.watches, make([]SMTWatchList, 2*extra)...)[:2*n]
++	s.boolCapacity = n + extra
++}
++func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data *SMTBoolVarData) (int32, error) {
+@@ -712,2 +724,12 @@
+-	s.boolExpr = append(s.boolExpr, expression)
+-	s.booleanData = append(s.booleanData, data)
++	n := len(s.boolExpr)
++	if n == s.boolCapacity || s.boolCapacity == 0 {
++		s.growBooleanVectors(n)
++	}
++	s.boolExpr = s.boolExpr[:n+1]
++	s.boolExpr[n] = expression
++	s.booleanData = s.booleanData[:n+1]
++	if data == nil {
++		s.booleanData[n] = SMTBoolVarData{internalLevel: s.scopeLevel, basicOp: -1}
++	} else {
++		s.booleanData[n] = *data
++	}
+@@ -715 +737,2 @@
+-	s.booleanCreation = append(s.booleanCreation, s.nextBooleanCreation)
++	s.booleanCreation = s.booleanCreation[:n+1]
++	s.booleanCreation[n] = s.nextBooleanCreation
+@@ -726,9 +749,6 @@
+-	s.activity = append(s.activity, initialActivity)
+-	s.assignment = append(s.assignment, lbool.Undef, lbool.Undef)
+-	if n := len(s.watches); cap(s.watches)-n >= 2 {
+-		// The slots past len were recycled when their variable retired.
+-		s.watches = s.watches[:n+2]
+-	} else {
+-		s.watches = append(s.watches, SMTWatchList{}, SMTWatchList{})
+-	}
+-	s.booleanStack = append(s.booleanStack, expression)
++	s.activity = s.activity[:n+1]
++	s.activity[n] = initialActivity
++	s.assignment = s.assignment[:2*n+2]
++	s.assignment[2*n], s.assignment[2*n+1] = lbool.Undef, lbool.Undef
++	s.watches = s.watches[:2*n+2]
++	s.booleanStack = s.boolExpr[1:]
+@@ -1421 +1441 @@
+-			s.boolExpr[variable] = ast.ASTHandle{}
++

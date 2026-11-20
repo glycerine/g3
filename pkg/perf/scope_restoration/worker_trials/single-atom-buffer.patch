@@ -1,0 +1,85 @@
+--- a/smtcore/smt_boolean_propagation.go
++++ b/smtcore/smt_boolean_propagation.go
+@@ -167 +167 @@
+-	clause, err := NewSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr)
++	clause, err := newSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.savedAtoms)
+--- a/smtcore/smt_clause.go
++++ b/smtcore/smt_clause.go
+@@ -28,0 +29,18 @@
++// smtClauseAtomBuffer serves temporary atom owners from one solver-local
++// slab. Live clauses keep their spans until every release has succeeded.
++type smtClauseAtomBuffer struct {
++	atoms        [256]smtClauseAtom
++	used, owners int
++}
++
++func (c *SMTClause) discardAtoms() {
++	c.atoms = nil
++	if buf := c.atomBuffer; buf != nil {
++		buf.owners--
++		if buf.owners == 0 {
++			buf.used = 0
++		}
++		c.atomBuffer = nil
++	}
++}
++
+@@ -29,0 +48 @@
++	atomBuffer         *smtClauseAtomBuffer
+@@ -110,0 +130,4 @@
++	return newSMTClause(manager, literals, kind, justification, deleteHandler, saveAtoms, expressions, nil)
++}
++
++func newSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle, buffer **smtClauseAtomBuffer) (*SMTClause, error) {
+@@ -142 +165,17 @@
+-	clause.atoms = make([]smtClauseAtom, len(literals))
++	n := len(literals)
++	if buffer != nil && n <= len((*smtClauseAtomBuffer)(nil).atoms) {
++		if *buffer == nil {
++			*buffer = new(smtClauseAtomBuffer)
++		}
++		buf := *buffer
++		if n <= len(buf.atoms)-buf.used {
++			end := buf.used + n
++			clause.atoms = buf.atoms[buf.used:end:end]
++			buf.used = end
++			buf.owners++
++			clause.atomBuffer = buf
++		}
++	}
++	if clause.atoms == nil {
++		clause.atoms = make([]smtClauseAtom, n)
++	}
+@@ -406 +445 @@
+-	c.atoms = nil
++	c.discardAtoms()
+--- a/smtcore/smt_clause_backtrack.go
++++ b/smtcore/smt_clause_backtrack.go
+@@ -122 +122 @@
+-		saved.clause.atoms = nil
++		saved.clause.discardAtoms()
+--- a/smtcore/smt_internalizer.go
++++ b/smtcore/smt_internalizer.go
+@@ -155,2 +155 @@
+-	// kept is collected in a scratch buffer and copied out at its final
+-	// length once the loop has not found the clause satisfied.
++	// Collect the simplified literals in solver-local storage.
+@@ -216 +215,4 @@
+-	s.clauseKeptScratch = kept[:0]
++	// Keep this backing array private across callbacks. A nested insertion
++	// gets its own buffer. Only one buffer survives the outer call.
++	s.clauseKeptScratch = nil
++	defer func() { s.clauseKeptScratch = kept[:0] }()
+@@ -220 +222 @@
+-	kept = append([]SMTLiteral(nil), kept...)
++
+@@ -325 +327 @@
+-		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
++		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: []SMTLiteral{first, second}, Root: root, Binary: true, Lemma: lemma, Proof: proof})
+@@ -378 +380 @@
+-	record := SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner}
++	record := SMTInternalizedClause{Literals: clause.literals, Root: root, Proof: proof, clause: clause, owner: owner}
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -137,0 +138 @@
++	savedAtoms *smtClauseAtomBuffer

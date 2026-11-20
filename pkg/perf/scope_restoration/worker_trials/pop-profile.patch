@@ -1,0 +1,12 @@
+--- a/smtcore/smt_hotpath_benchmark_test.go
++++ b/smtcore/smt_hotpath_benchmark_test.go
+@@ -3,0 +4 @@
++	"context"
+@@ -4,0 +6 @@
++	"runtime/pprof"
+@@ -217,0 +220 @@
++			label := pprof.WithLabels(context.Background(), pprof.Labels("phase", "pop"))
+@@ -242,0 +246 @@
++					pprof.SetGoroutineLabels(label)
+@@ -245,0 +250 @@
++					pprof.SetGoroutineLabels(context.Background())

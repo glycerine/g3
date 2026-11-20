@@ -1,0 +1,60 @@
+--- a/smtcore/smt_internalizer.go
++++ b/smtcore/smt_internalizer.go
+@@ -1106 +1106 @@
+-		s.booleanData[variable].gateLiterals = arguments
++		s.booleanData[variable].gate.literals = arguments
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -687,3 +687,3 @@
+-				data.gateArgs = make([]ast.ASTHandle, header.NumArgs)
+-				for i := range data.gateArgs {
+-					data.gateArgs[i], err = s.manager.GetArg(expression, uint32(i))
++				data.gate = newSMTBoolGate(header.NumArgs)
++				for i := range data.gate.args {
++					data.gate.args[i], err = s.manager.GetArg(expression, uint32(i))
+@@ -1422,0 +1423,3 @@
++			if s.booleanData[variable].gate != nil {
++				s.booleanData[variable].gate = nil
++			}
+--- a/smtcore/smt_justification_refs.go
++++ b/smtcore/smt_justification_refs.go
+@@ -48,0 +49 @@
++	literal       SMTLiteral
+@@ -50 +50,0 @@
+-	literal       SMTLiteral
+@@ -143,4 +143,19 @@
+-	basicOp      int32
+-	notChild     ast.ASTHandle
+-	gateArgs     []ast.ASTHandle
+-	gateLiterals []SMTLiteral
++	basicOp  int32
++	notChild ast.ASTHandle
++	gate     *smtBoolGate
++}
++type smtBoolGate struct {
++	args     []ast.ASTHandle
++	literals []SMTLiteral
++}
++
++func newSMTBoolGate(n uint32) *smtBoolGate {
++	if n <= 4 {
++		g := new(struct {
++			smtBoolGate
++			args [4]ast.ASTHandle
++		})
++		g.smtBoolGate.args = g.args[:n:n]
++		return &g.smtBoolGate
++	}
++	return &smtBoolGate{args: make([]ast.ASTHandle, n)}
+--- a/smtcore/smt_relevancy.go
++++ b/smtcore/smt_relevancy.go
+@@ -514,2 +514,2 @@
+-			if args := s.booleanData[variable].gateArgs; args != nil {
+-				return ast.SliceArguments(args), s.booleanData[variable].gateLiterals, nil
++			if gate := s.booleanData[variable].gate; gate != nil {
++				return ast.SliceArguments(gate.args), gate.literals, nil
+--- a/smtcore/smt_relevancy_metadata_test.go
++++ b/smtcore/smt_relevancy_metadata_test.go
+@@ -77 +77 @@
+-		if len(s.booleanData[pv].gateLiterals) != 2 || s.booleanData[pv].gateLiterals[0] != NewSMTLiteral(av, true) {
++		if len(s.booleanData[pv].gate.literals) != 2 || s.booleanData[pv].gate.literals[0] != NewSMTLiteral(av, true) {

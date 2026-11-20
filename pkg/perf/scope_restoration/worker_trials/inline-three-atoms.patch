@@ -1,0 +1,59 @@
+--- a/smtcore/smt_clause.go
++++ b/smtcore/smt_clause.go
+@@ -30,3 +30,3 @@
+-	self               *SMTClause
+-	manager            *ast.ASTManager
+-	capacity           uint32
++	self    *SMTClause
++	manager *ast.ASTManager
++
+@@ -124 +124,17 @@
+-	clause := smtNewClauseStorage(literals)
++	var clause *SMTClause
++	var atoms []smtClauseAtom
++	if saveAtoms && len(literals) <= 3 {
++		block := new(struct {
++			storage smtClauseStorage4
++			atoms   [3]smtClauseAtom
++		})
++		clause = &block.storage.clause
++		clause.literals = block.storage.lits[:len(literals):len(literals)]
++		copy(clause.literals, literals)
++		atoms = block.atoms[:len(literals):len(literals)]
++	} else {
++		clause = smtNewClauseStorage(literals)
++		if saveAtoms {
++			atoms = make([]smtClauseAtom, len(literals))
++		}
++	}
+@@ -126,3 +142,3 @@
+-		manager:            manager,
+-		literals:           clause.literals,
+-		capacity:           uint32(len(literals)),
++		manager:  manager,
++		literals: clause.literals,
++
+@@ -142 +158 @@
+-	clause.atoms = make([]smtClauseAtom, len(literals))
++	clause.atoms = atoms
+--- a/smtcore/smt_internalizer.go
++++ b/smtcore/smt_internalizer.go
+@@ -155,2 +155 @@
+-	// kept is collected in a scratch buffer and copied out at its final
+-	// length once the loop has not found the clause satisfied.
++	// Collect the simplified literals in solver-local storage.
+@@ -216 +215,4 @@
+-	s.clauseKeptScratch = kept[:0]
++	// Keep this backing array private across callbacks. A nested insertion
++	// gets its own buffer. Only one buffer survives the outer call.
++	s.clauseKeptScratch = nil
++	defer func() { s.clauseKeptScratch = kept[:0] }()
+@@ -220 +222 @@
+-	kept = append([]SMTLiteral(nil), kept...)
++
+@@ -325 +327 @@
+-		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
++		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: []SMTLiteral{first, second}, Root: root, Binary: true, Lemma: lemma, Proof: proof})
+@@ -378 +380 @@
+-	record := SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner}
++	record := SMTInternalizedClause{Literals: clause.literals, Root: root, Proof: proof, clause: clause, owner: owner}

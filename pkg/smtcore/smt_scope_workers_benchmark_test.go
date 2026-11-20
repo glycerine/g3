@@ -101,7 +101,8 @@ func scopeBenchmarkLiveHeap() int64 {
 // ns/op measures aggregate throughput. pop-ns/op is mean wall time inside
 // each solver's pop, including scheduling. idle-B/solver is the process-wide
 // live heap growth from the unused fixtures to the emptied, warmed solvers.
-// fixture-B/solver also includes the manager, rooted expressions and test fixture.
+// Use a fresh process with -benchtime=1x for fixture-B/solver. This includes
+// the manager, rooted expressions and test fixture before benchmark calibration.
 func BenchmarkSMTScopeRestorationWorkers(b *testing.B) {
 	for _, count := range []int{1, 8, 48} {
 		b.Run(fmt.Sprintf("Workers%d", count), func(b *testing.B) {
@@ -161,6 +162,8 @@ func benchmarkSMTScopedWorkers(b *testing.B, count, width int) {
 	b.ReportMetric(float64(sum.Nanoseconds())/float64(b.N), "pop-ns/op")
 	after := scopeBenchmarkLiveHeap()
 	b.ReportMetric(float64(after-before)/float64(count), "idle-B/solver")
-	b.ReportMetric(float64(after-beforeFixtures)/float64(count), "fixture-B/solver")
+	if b.N == 1 {
+		b.ReportMetric(float64(after-beforeFixtures)/float64(count), "fixture-B/solver")
+	}
 	runtime.KeepAlive(workers)
 }

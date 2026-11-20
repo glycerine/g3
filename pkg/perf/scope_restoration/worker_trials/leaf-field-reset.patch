@@ -1,0 +1,45 @@
+--- a/smtcore/smt_clause_backtrack.go
++++ b/smtcore/smt_clause_backtrack.go
+@@ -147 +147,8 @@
+-		return s.publishBoolVar(expression, SMTBoolVarData{internalLevel: s.scopeLevel, basicOp: -1})
++		n := len(s.booleanData)
++		if n < cap(s.booleanData) {
++			s.booleanData = s.booleanData[:n+1]
++			s.booleanData[n].resetLeaf(s.scopeLevel)
++		} else {
++			s.booleanData = append(s.booleanData, SMTBoolVarData{internalLevel: s.scopeLevel, basicOp: -1})
++		}
++		return s.publishBoolVar(expression)
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -706 +706,2 @@
+-	return s.publishBoolVar(expression, data)
++	s.booleanData = append(s.booleanData, data)
++	return s.publishBoolVar(expression)
+@@ -710 +711 @@
+-func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMTBoolVarData) (int32, error) {
++func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle) (int32, error) {
+@@ -713 +713,0 @@
+-	s.booleanData = append(s.booleanData, data)
+--- a/smtcore/smt_justification_refs.go
++++ b/smtcore/smt_justification_refs.go
+@@ -195,0 +196,19 @@
++
++// Restore an uninterpreted constant into a recycled Boolean slot.
++func (d *SMTBoolVarData) resetLeaf(level uint32) {
++	if d.justification != (SMTBooleanJustification{}) {
++		d.justification = SMTBooleanJustification{}
++	}
++	d.ScopeLevel = 0
++	d.Mark, d.Assumption, d.PhaseAvailable, d.Phase = false, false, false, false
++	d.equality, d.trueFirst, d.enode, d.quantifier = false, false, false, false
++	d.internalLevel = level
++	d.atom, d.notifyTheory, d.basicOp = false, 0, -1
++	d.notChild = ast.ASTHandle{}
++	if d.gateArgs != nil {
++		d.gateArgs = nil
++	}
++	if d.gateLiterals != nil {
++		d.gateLiterals = nil
++	}
++}

@@ -1,0 +1,23 @@
+--- a/smtcore/smt_clause_backtrack.go
++++ b/smtcore/smt_clause_backtrack.go
+@@ -147 +147,2 @@
+-		return s.publishBoolVar(expression, SMTBoolVarData{internalLevel: s.scopeLevel, basicOp: -1})
++		s.booleanData = append(s.booleanData, SMTBoolVarData{internalLevel: s.scopeLevel, basicOp: -1})
++		return s.publishBoolVar(expression)
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -706 +706,2 @@
+-	return s.publishBoolVar(expression, data)
++	s.booleanData = append(s.booleanData, data)
++	return s.publishBoolVar(expression)
+@@ -710 +711 @@
+-func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMTBoolVarData) (int32, error) {
++func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle) (int32, error) {
+@@ -713 +713,0 @@
+-	s.booleanData = append(s.booleanData, data)
+@@ -734 +734 @@
+-	s.booleanStack = append(s.booleanStack, expression)
++	s.booleanStack = s.boolExpr[1:]
+@@ -1421 +1421 @@
+-			s.boolExpr[variable] = ast.ASTHandle{}
++			// The Boolean trail still owns this pointer-free handle until release.

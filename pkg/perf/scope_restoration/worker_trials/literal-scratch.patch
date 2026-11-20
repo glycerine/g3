@@ -1,0 +1,21 @@
+--- a/smtcore/smt_internalizer.go
++++ b/smtcore/smt_internalizer.go
+@@ -155,2 +155 @@
+-	// kept is collected in a scratch buffer and copied out at its final
+-	// length once the loop has not found the clause satisfied.
++	// Collect the simplified literals in solver-local storage.
+@@ -216 +215,4 @@
+-	s.clauseKeptScratch = kept[:0]
++	// Keep this backing array private across callbacks. A nested insertion
++	// gets its own buffer. Only one buffer survives the outer call.
++	s.clauseKeptScratch = nil
++	defer func() { s.clauseKeptScratch = kept[:0] }()
+@@ -220 +222 @@
+-	kept = append([]SMTLiteral(nil), kept...)
++
+@@ -325 +327 @@
+-		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
++		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: []SMTLiteral{first, second}, Root: root, Binary: true, Lemma: lemma, Proof: proof})
+@@ -378 +380 @@
+-	record := SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner}
++	record := SMTInternalizedClause{Literals: clause.literals, Root: root, Proof: proof, clause: clause, owner: owner}

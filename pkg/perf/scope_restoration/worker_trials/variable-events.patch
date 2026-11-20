@@ -1,0 +1,66 @@
+--- a/smtcore/smt_activity_heap_queue.go
++++ b/smtcore/smt_activity_heap_queue.go
+@@ -45,2 +45,4 @@
+-	if err := s.basicActivity.Reserve(v + 1); err != nil {
+-		return err
++	if smtcoreSourceDebug || v >= s.basicActivity.Bounds() {
++		if err := s.basicActivity.Reserve(v + 1); err != nil {
++			return err
++		}
+@@ -49,2 +51,4 @@
+-		if err := s.delayedActivity.Reserve(v + 1); err != nil {
+-			return err
++		if smtcoreSourceDebug || v >= s.delayedActivity.Bounds() {
++			if err := s.delayedActivity.Reserve(v + 1); err != nil {
++				return err
++			}
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -725 +725,3 @@
+-	s.traceMkBoolVar(variable, expression)
++	if smtTraceEnabled("mk_bool_var") {
++		s.traceMkBoolVar(variable, expression)
++	}
+@@ -740,2 +742,4 @@
+-	if err := s.relevanceActivityCreated(variable); err != nil {
+-		return SMTNullBoolVar, err
++	if s.relevanceActivity.delayed != nil {
++		if err := s.relevanceActivityCreated(variable); err != nil {
++			return SMTNullBoolVar, err
++		}
+@@ -1360,2 +1364,4 @@
+-		if err := s.undoTheoryAttachments(top.theoryLimit); err != nil {
+-			return err
++		if top.theoryLimit != len(s.theoryTrail) {
++			if err := s.undoTheoryAttachments(top.theoryLimit); err != nil {
++				return err
++			}
+@@ -1396,2 +1402,4 @@
+-			if err := s.relevanceActivityDeleted(variable); err != nil {
+-				return err
++			if s.relevanceActivity.delayed != nil {
++				if err := s.relevanceActivityDeleted(variable); err != nil {
++					return err
++				}
+@@ -1419 +1427,3 @@
+-			s.unindexEqualityAtom(variable, expression)
++			if int(variable) < s.equalityAtomCursor {
++				s.unindexEqualityAtom(variable, expression)
++			}
+--- a/util/heap/heap.go
++++ b/util/heap/heap.go
+@@ -350 +350 @@
+-	if v < 0 || int64(v) >= int64(len(h.indices)) || h.Contains(v) {
++	if v < 0 || int64(v) >= int64(len(h.indices)) || h.indices[v] != 0 {
+@@ -420 +420 @@
+-	if !h.Contains(v) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
++	if v < 0 || int64(v) >= int64(len(h.indices)) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
+@@ -451 +451 @@
+-	if !h.Contains(v) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
++	if v < 0 || int64(v) >= int64(len(h.indices)) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
+@@ -468 +468 @@
+-	if !h.Contains(v) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
++	if v < 0 || int64(v) >= int64(len(h.indices)) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
+@@ -514 +514 @@
+-	if n > h.Bounds() {
++	if int64(n) > int64(len(h.indices)) {
