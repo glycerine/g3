@@ -17,8 +17,16 @@ func BenchmarkRaftIdleSolverMemory(b *testing.B) {
 		b.Fatal(err)
 	}
 	input := string(data)
+	counts := []int{1, 8, 32, 64}
+	if raw := os.Getenv("G3_RAFT_MEMORY_OWNERS"); raw != "" {
+		count, err := strconv.Atoi(raw)
+		if err != nil || count < 1 {
+			b.Fatalf("invalid G3_RAFT_MEMORY_OWNERS %q", raw)
+		}
+		counts = []int{count}
+	}
 	for _, mode := range []string{"Concrete", "Order", "OrderBatch"} {
-		for _, count := range []int{1, 8, 32, 64} {
+		for _, count := range counts {
 			b.Run(mode+"/"+strconv.Itoa(count), func(b *testing.B) {
 				b.StopTimer()
 				var loaded, active, idle, budget float64

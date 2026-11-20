@@ -184,3 +184,90 @@ func TestNumericCellSlabDirectoryPeakBudget(t *testing.T) {
 		t.Fatal(budget.Used())
 	}
 }
+
+func TestNumericCellSlabShortFirstPage(t *testing.T) {
+	budget := arena.NewBudget(1 << 20)
+	s, err := newNumericCellSlab(arena.Config{Budget: budget})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	var first *numericCellSlotState
+	for i := 1; i <= 1025; i++ {
+		if i == 65 || i == 1025 {
+			before, used := s.Stats(), budget.Used()
+			budget.FailAfter(0)
+			if _, _, err := s.Allocate(); !errors.Is(err, arena.ErrInjectedFailure) {
+				t.Fatal("failed page growth", i, err)
+			}
+			if s.Stats() != before || budget.Used() != used {
+				t.Fatal("failed page growth changed the slab", i)
+			}
+			budget.FailAfter(-1)
+		}
+		slot, gen, err := s.Allocate()
+		if err != nil || int(slot) != i || gen != 1 {
+			t.Fatal(i, slot, gen, err)
+		}
+		if err := s.Write(slot, NumericCell{Size: uint32(i)}); err != nil {
+			t.Fatal(err)
+		}
+		if i == 1 {
+			first = s.State(slot)
+			if len(s.pages[0].records) != 64 {
+				t.Fatal("first page capacity", len(s.pages[0].records))
+			}
+		}
+	}
+	if first != s.State(1) || len(s.pages) != 2 || len(s.pages[0].records) != 1024 || len(s.pages[1].records) != 1024 {
+		t.Fatal("unexpected page dimensions or moved metadata", s.Stats())
+	}
+	for i := 1; i <= 1025; i++ {
+		if value, err := s.Read(arena.Slot(i)); err != nil || value.Size != uint32(i) {
+			t.Fatal("lost cell after growth", i, value.Size, err)
+		}
+	}
+	page, index := s.location(arena.Slot(math.MaxUint32))
+	if page != (1<<22)-1 || index != 1022 {
+		t.Fatal("wrapped high slot", page, index)
+	}
+	s.Reset()
+	if stats := s.Stats(); stats.Live != 0 || stats.Pages != 0 || stats.RecordBytes != 0 {
+		t.Fatal(stats)
+	}
+	s.Close()
+	if budget.Used() != 0 {
+		t.Fatal("close retained budget", budget.Used())
+	}
+}
+
+func TestNumericCellSlabTrimAndRefillShortPage(t *testing.T) {
+	budget := arena.NewBudget(1 << 20)
+	s, err := newNumericCellSlab(arena.Config{Budget: budget})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	slot, previous, err := s.Allocate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	used := budget.Used()
+	if err := s.Recycle(slot); err != nil {
+		t.Fatal(err)
+	}
+	s.TrimFreePages()
+	if used-budget.Used() != 64*s.recordBytes {
+		t.Fatal("unexpected short-page charge", used, budget.Used())
+	}
+	before := s.Stats()
+	budget.FailAfter(0)
+	if _, _, err := s.Allocate(); !errors.Is(err, arena.ErrInjectedFailure) || s.Stats() != before {
+		t.Fatal("failed refill changed the slab", err, s.Stats())
+	}
+	budget.FailAfter(-1)
+	slot, next, err := s.Allocate()
+	if err != nil || next != previous+1 || used != budget.Used() || s.IsLive(slot, previous) {
+		t.Fatal("refilled short page", slot, next, err)
+	}
+}

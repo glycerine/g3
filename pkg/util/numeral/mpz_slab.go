@@ -27,17 +27,19 @@ type numericCellPage struct {
 // Read returns a copy; there are no mutable slice or pointer borrows.
 // numericCellSlab and its Budget are single-owner and are not safe for concurrent use.
 type numericCellSlab struct {
-	pages                                          []numericCellPage
-	config                                         arena.Config
-	Free                                           arena.Slot
-	slots, Live, retired                           uint32
-	recordPageBytes, metaPageBytes, directoryBytes uint64
-	closed                                         bool
-	pageShift                                      uint32 // log2(config.PageSize); fits the padding after closed
+	pages                                      []numericCellPage
+	config                                     arena.Config
+	Free                                       arena.Slot
+	slots, Live, retired                       uint32
+	recordBytes, metaPageBytes, directoryBytes uint64
+	closed                                     bool
+	pageShift, firstRecordCount                uint32
 }
 
 func newNumericCellSlab(config arena.Config) (*numericCellSlab, error) {
-	if config.PageSize == 0 {
+	first := config.PageSize
+	if first == 0 {
+		first = 64
 		config.PageSize = 1024
 	}
 	if config.PageSize&(config.PageSize-1) != 0 {
@@ -62,14 +64,18 @@ func newNumericCellSlab(config arena.Config) (*numericCellSlab, error) {
 	if e := config.Budget.Reserve(uint64(reflect.TypeOf(numericCellSlab{}).Size())); e != nil {
 		return nil, e
 	}
-	return &numericCellSlab{config: config, pageShift: uint32(bits.TrailingZeros32(config.PageSize)), recordPageBytes: uint64(config.PageSize) * uint64(t.Size()), metaPageBytes: uint64(config.PageSize) * metaSize}, nil
+	return &numericCellSlab{
+		config: config, firstRecordCount: first,
+		pageShift:   uint32(bits.TrailingZeros32(config.PageSize)),
+		recordBytes: uint64(t.Size()), metaPageBytes: uint64(config.PageSize) * metaSize,
+	}, nil
 }
 
 func (s *numericCellSlab) location(slot arena.Slot) (uint32, uint32) {
 	n := uint32(slot) - 1
 	// PageSize is a power of two (newNumericCellSlab), so the page index is
 	// a shift rather than a hardware division; the shift is computed once.
-	return n >> s.pageShift, n & (s.config.PageSize - 1)
+	return n >> (s.pageShift & 31), n & (s.config.PageSize - 1)
 }
 func (s *numericCellSlab) State(slot arena.Slot) *numericCellSlotState {
 	if slot == 0 || uint32(slot) > s.slots {
@@ -113,7 +119,11 @@ func (s *numericCellSlab) Allocate() (arena.Slot, arena.Generation, error) {
 		}
 		// Charge peak old+new directory storage before copying. The old
 		// directory becomes releasable only when the new one is published.
-		amount := s.recordPageBytes + s.metaPageBytes + newDirectoryBytes
+		count := s.config.PageSize
+		if p == 0 {
+			count = s.firstRecordCount
+		}
+		amount := uint64(count)*s.recordBytes + s.metaPageBytes + newDirectoryBytes
 		if err := s.config.Budget.Reserve(amount); err != nil {
 			return 0, 0, err
 		}
@@ -124,12 +134,22 @@ func (s *numericCellSlab) Allocate() (arena.Slot, arena.Generation, error) {
 			s.config.Budget.Release(s.directoryBytes)
 			s.directoryBytes = newDirectoryBytes
 		}
-		s.pages = append(s.pages, numericCellPage{records: make([]NumericCell, s.config.PageSize), meta: make([]numericCellSlotState, s.config.PageSize)})
-	} else if s.pages[p].records == nil {
-		if err := s.config.Budget.Reserve(s.recordPageBytes); err != nil {
+		s.pages = append(s.pages, numericCellPage{records: make([]NumericCell, count), meta: make([]numericCellSlotState, s.config.PageSize)})
+	} else if i >= uint32(len(s.pages[p].records)) {
+		page := &s.pages[p]
+		count := s.config.PageSize
+		if p == 0 && i < s.firstRecordCount {
+			count = s.firstRecordCount
+		}
+		// Both allocations count toward the peak while copying a short page.
+		// The generation ledger stays in place for the lifetime of the slab.
+		if err := s.config.Budget.Reserve(uint64(count) * s.recordBytes); err != nil {
 			return 0, 0, err
 		}
-		s.pages[p].records = make([]NumericCell, s.config.PageSize)
+		records := make([]NumericCell, count)
+		copy(records, page.records)
+		s.config.Budget.Release(uint64(len(page.records)) * s.recordBytes)
+		page.records = records
 	}
 	m := &s.pages[p].meta[i]
 	if s.Free != 0 {
@@ -154,8 +174,9 @@ func (s *numericCellSlab) IsLive(slot arena.Slot, generation arena.Generation) b
 	return m != nil && m.live && m.Generation == generation
 }
 
-// recordPtr returns the live record of slot, or nil; normal builds use it
-// for digit access instead of copying the record out (numeric_validate_*).
+// recordPtr borrows a live cell until the next slab allocation. The first
+// record page grows from its scratch capacity to full size on demand.
+// Callers retain NumericCellRef or digit backing across allocations.
 func (s *numericCellSlab) recordPtr(slot arena.Slot) *NumericCell {
 	if s.closed || slot == 0 || uint32(slot) > s.slots {
 		return nil
@@ -265,8 +286,8 @@ func (s *numericCellSlab) TrimFreePages() {
 	for i := range s.pages {
 		p := &s.pages[i]
 		if p.live == 0 && p.records != nil {
+			s.config.Budget.Release(uint64(len(p.records)) * s.recordBytes)
 			p.records = nil
-			s.config.Budget.Release(s.recordPageBytes)
 		}
 	}
 }
@@ -307,7 +328,7 @@ func (s *numericCellSlab) Stats() arena.Stats {
 	for i := range s.pages {
 		if s.pages[i].records != nil {
 			stats.Pages++
-			stats.RecordBytes += s.recordPageBytes
+			stats.RecordBytes += uint64(len(s.pages[i].records)) * s.recordBytes
 		}
 	}
 	return stats

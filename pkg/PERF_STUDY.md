@@ -665,6 +665,23 @@ These are decimal MB. The retained layout saves **193 MB allocated** over the co
 
 Reproduce the worker measurement with `go test ./api -run '^$' -bench '^BenchmarkRaftIdleSolverMemory$' -benchtime=1x -cpu=1`. It measures groups of 1, 8, 32 and 64 independent concrete solvers, and the corresponding groups using the auxiliary order proof. Heap readings follow full collections while all owners are still live. [Worker benchmark](api/api_raft_worker_memory_benchmark_test.go)
 
+#### Numeric storage with 1,024 independent solvers
+
+The first integer allocation previously reserved 1,024 records in each numeric slab. A solver owns several such slabs, most with only a few live values after the first Raft obligation. The default now starts the first page with 64 records, grows it to 1,024 when slot 65 is first used, and allocates subsequent pages at full size. The slot-to-page calculation stays the same at every size. Generation metadata remains at a stable address through promotion, recycling and trimming. Explicit page sizes still govern every page. [Slab implementation](util/numeral/mpz_slab.go) · [Growth and retry tests](util/numeral/mpz_slab_test.go)
+
+| Median per independent owner | Previous first page | Short first page |
+|---|---:|---:|
+| Live heap after a concrete proof and pop | 3.927 MB | **3.423 MB** |
+| Live heap while the successful order-proof batch is open | 4.844 MB | **4.172 MB** |
+| Live heap after closing the batch | 3.592 MB | **3.088 MB** |
+| Budget charged after closing the batch | 2.869 MB | **2.362 MB** |
+
+At 1,024 owners the measured live-heap savings are **492 MiB** after closing the proof batches and **656 MiB** with the batches still open. Owners loaded the same obligation, performed the same checks and stayed reachable through each full GC. They ran sequentially on one CPU. Peak process RSS during the run stayed around 4–5 GiB in both layouts. Reproduce with `G3_RAFT_MEMORY_OWNERS=1024 GOMEMLIMIT=6GiB go test ./api -run '^$' -bench '^BenchmarkRaftIdleSolverMemory$' -benchtime=1x -cpu=1`. [Worker benchmark](api/api_raft_worker_memory_benchmark_test.go) · [64-owner samples](perf/ivy_raft/numeric-owners.csv) · [256- and 1,024-owner samples](perf/ivy_raft/numeric-large-owners.csv)
+
+In nine paired runs, building an eight-cell slab fell from **7.73 to 2.27 µs** and from 102,560 to 18,592 allocated bytes. Reading eight cells in rotation took 21.85 ns per lookup in both layouts. Building 262,144 cells took 8.08 and 8.06 ms respectively. The 419 matching-search Raft checks retired 90.15 billion instructions in both layouts, with medians of 11.23 and 11.28 s. This change addresses retained memory and small-owner setup. [Numeric benchmark](util/numeral/mpz_slab_benchmark_test.go) · [Final layout samples](perf/ivy_raft/numeric-cells.csv) · [Matched Raft replay](perf/ivy_raft/numeric-raft.csv)
+
+Two controls explain the page design. Using 64 records on *every* page raised dense slab creation from 8.06 to 10.40 ms. Giving the first page a different slot-index mapping avoided copying its records on promotion, but added eight instructions to the common eight-cell lookup even with a bit mask. Keeping the ordinary index and copying the first 64 records once preserved the read cost. [Fixed page sizes](perf/ivy_raft/numeric-page-sizes.csv) · [Addressing and promotion counters](perf/ivy_raft/numeric-page-addressing.csv)
+
 #### Reusing a solver for one group of Ivy final conditions
 
 A clean build of GoIvy at `6dabf6e73`, pinned to g3 `df807d946`, verified the original Raft spec in **11.28 s** against **37.73 s** for the same GoIvy source built with native Z3. Each backend ran twelve times across two pinned CPUs. Every run matched all 419 named obligations and the final `OK`. Median peak RSS was 78,454 KiB for g3 and 322,210 KiB for Z3. The native build used the ordinary concrete solver. [Original-input runs](perf/ivy_raft/order-configuration-pinned.csv)
