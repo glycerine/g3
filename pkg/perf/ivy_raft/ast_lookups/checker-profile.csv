@@ -1,0 +1,91 @@
+width,engine,reports,function,median_cycles_percent,minimum_cycles_percent,maximum_cycles_percent
+mixed,before,6,runtime.tryDeferToSpanScan,3.27,3.08,3.36
+mixed,before,6,github.com/glycerine/g3/pkg/ast/rewriter.(*rewriterEngine).processApp,1.77,1.64,1.89
+mixed,before,6,runtime.scanObjectsSmall,1.69,1.61,1.78
+mixed,before,6,github.com/glycerine/g3/pkg/arena.(*descriptorSlab).readLive,1.08,0.86,1.47
+mixed,before,6,runtime.memclrNoHeapPointers,1.025,0.86,1.12
+mixed,before,6,internal/runtime/maps.memHashAES,1.0150000000000001,0.85,1.06
+mixed,before,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).GetArg,1.0,0.92,1.07
+mixed,before,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).registerHashedNode,0.99,0.87,1.13
+mixed,before,6,runtime.scanObject,0.88,0.68,1.14
+mixed,before,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).declIdentity,0.87,0.73,1.06
+mixed,before,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).tableLookup,0.835,0.52,0.99
+mixed,before,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).deleteNodeWorklistBody,0.835,0.6,1.06
+mixed,before,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).DecRefHeldConsumed,0.79,0.52,1.02
+mixed,before,6,runtime.findObject,0.76,0.59,1.04
+mixed,before,6,github.com/glycerine/g3/pkg/ast/rewriter.(*rewriterCore).pushFrameCore,0.755,0.58,0.87
+mixed,after,6,runtime.tryDeferToSpanScan,2.925,2.34,3.17
+mixed,after,6,runtime.scanObjectsSmall,1.55,1.44,1.58
+mixed,after,6,github.com/glycerine/g3/pkg/ast/rewriter.(*rewriterEngine).processApp,1.46,1.36,1.68
+mixed,after,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).GetArg,1.155,0.89,1.24
+mixed,after,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).declIdentity,1.01,0.9,1.15
+mixed,after,6,github.com/glycerine/g3/pkg/arena.(*descriptorSlab).readLive,1.0,0.8,1.3
+mixed,after,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).tableLookup,0.9750000000000001,0.57,1.13
+mixed,after,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).registerHashedNode,0.915,0.75,1.04
+mixed,after,6,runtime.memclrNoHeapPointers,0.905,0.66,1.02
+mixed,after,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).DecRefHeldConsumed,0.885,0.73,1.0
+mixed,after,6,internal/runtime/maps.memHashAES,0.85,0.62,1.06
+mixed,after,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).deleteNodeWorklistBody,0.815,0.69,1.12
+mixed,after,6,github.com/glycerine/g3/pkg/ast/rewriter.(*rewriterCore).pushFrameCore,0.7849999999999999,0.7,0.9
+mixed,after,6,runtime.scanObject,0.745,0.62,0.96
+mixed,after,6,github.com/glycerine/g3/pkg/ast.(*ASTManager).sortOf,0.74,0.63,0.89
+mixed,native,6,smt::relevancy_propagator_imp::is_relevant(expr*) const,6.015000000000001,5.68,6.74
+mixed,native,6,"insdict<ast*, ast_insdict_hash, ast_eq_proc>::put(ast* const&, bool&)",5.255,4.64,7.0
+mixed,native,6,"smt::fingerprint_set::insert(void*, unsigned int, unsigned int, smt::enode* const*)",3.72,3.14,4.49
+mixed,native,6,"smt::interpreter::mk_depth1_vector(smt::enode*, func_decl*, unsigned int)",3.01,2.77,3.15
+mixed,native,6,ast_manager::delete_node(ast*),2.33,1.92,2.71
+mixed,native,6,smt::context::bcp(),1.9899999999999998,1.78,2.3
+mixed,native,6,smt::or_relevancy_eh::operator()(smt::relevancy_propagator&),1.98,1.6,2.5
+mixed,native,6,"unsigned int get_composite_hash<smt::fingerprint*, smt::fingerprint_set::fingerprint_khasher, smt::fingerprint_set::fingerprint_chasher>(smt::fingerprint*, unsigned int, smt::fingerprint_set::fingerprint_khasher const&, smt::fingerprint_set::fingerprint_chasher const&) [clone .isra.0]",1.745,1.42,1.94
+mixed,native,6,"smt::context::get_enode_eq_to(func_decl*, unsigned int, smt::enode* const*)",1.57,1.47,1.72
+mixed,native,6,small_object_allocator::allocate(unsigned long),1.51,1.34,1.73
+mixed,native,6,"expr_substitution::find(expr*, expr*&, app*&, dependency_manager<ast_manager::expr_dependency_config>::dependency*&)",1.44,1.39,1.5
+mixed,native,6,smt::fingerprint_set::pop_scope(unsigned int),1.32,1.02,1.66
+mixed,native,6,"cached_var_subst::operator()(quantifier*, unsigned int, smt::enode* const*, obj_ref<expr, ast_manager>&)",1.22,1.09,1.36
+mixed,native,6,"smt::checker::check_core(expr*, bool)",1.185,1.02,1.4
+mixed,native,6,_int_malloc,1.18,1.05,1.59
+onebit,before,12,github.com/glycerine/g3/pkg/api/internal/order.(*BooleanProblem).Reduce,7.8100000000000005,7.18,9.18
+onebit,before,12,github.com/glycerine/g3/pkg/sat.(*satSolverPropagationState).propagateCore,6.365,5.37,7.37
+onebit,before,12,github.com/glycerine/g3/pkg/api/internal/order.(*bitCompiler).eval,3.575,2.54,4.68
+onebit,before,12,runtime.tryDeferToSpanScan,3.4050000000000002,2.76,4.02
+onebit,before,12,github.com/glycerine/g3/pkg/arena.(*descriptorSlab).readLive,2.7350000000000003,2.3,3.2
+onebit,before,12,runtime.scanObjectsSmall,2.435,1.81,3.08
+onebit,before,12,internal/runtime/maps.memHashAES,1.7650000000000001,1.29,2.57
+onebit,before,12,runtime.memmove,1.565,0.98,2.43
+onebit,before,12,runtime.mapaccess2,1.335,0.89,1.96
+onebit,before,12,github.com/glycerine/g3/pkg/sat.(*satSolverPropagationState).assignCore,1.245,0.91,2.05
+onebit,before,12,runtime.memclrNoHeapPointers,1.18,0.97,1.54
+onebit,before,12,github.com/glycerine/g3/pkg/sat.satSolverWatchListView.ref,1.13,0.56,1.44
+onebit,before,12,github.com/glycerine/g3/pkg/sat.(*satSolverWatchStore).IsLive,1.095,0.82,1.4
+onebit,before,12,runtime.scanObject,1.08,0.49,1.67
+onebit,before,12,github.com/glycerine/g3/pkg/sat.(*satSolverVariableState).valueLiteral,0.9299999999999999,0.77,1.48
+onebit,after,12,github.com/glycerine/g3/pkg/sat.(*satSolverPropagationState).propagateCore,7.915,6.13,8.42
+onebit,after,12,github.com/glycerine/g3/pkg/api/internal/order.(*BooleanProblem).Reduce,4.44,3.06,5.36
+onebit,after,12,runtime.tryDeferToSpanScan,3.675,2.79,4.3
+onebit,after,12,runtime.scanObjectsSmall,2.375,1.36,3.53
+onebit,after,12,github.com/glycerine/g3/pkg/arena.(*descriptorSlab).readLive,2.125,1.69,2.67
+onebit,after,12,github.com/glycerine/g3/pkg/api/internal/order.(*bitCompiler).eval,1.95,1.68,2.56
+onebit,after,12,github.com/glycerine/g3/pkg/sat.(*satSolverPropagationState).assignCore,1.8050000000000002,1.32,2.4
+onebit,after,12,runtime.memmove,1.4649999999999999,1.21,2.2
+onebit,after,12,internal/runtime/maps.memHashAES,1.46,0.68,1.71
+onebit,after,12,github.com/glycerine/g3/pkg/sat.satSolverWatchListView.ref,1.23,0.6,1.65
+onebit,after,12,github.com/glycerine/g3/pkg/sat.(*satSolverWatchStore).IsLive,1.18,0.69,1.53
+onebit,after,12,github.com/glycerine/g3/pkg/sat.(*satSolverTrail).Read,1.15,0.49,1.38
+onebit,after,12,runtime.mapaccess2,1.145,0.76,1.69
+onebit,after,12,github.com/glycerine/g3/pkg/sat.(*satSolverVariableState).valueLiteral,1.06,0.6,1.32
+onebit,after,12,runtime.memclrNoHeapPointers,1.0550000000000002,0.67,1.61
+onebit,native,12,__strcmp_avx2,2.575,2.16,3.22
+onebit,native,12,smt::relevancy_propagator_imp::is_relevant(expr*) const,2.465,1.58,3.12
+onebit,native,12,"insdict<ast*, ast_insdict_hash, ast_eq_proc>::put(ast* const&, bool&)",2.46,1.84,3.77
+onebit,native,12,_int_malloc,1.9249999999999998,0.97,2.52
+onebit,native,12,malloc,1.42,1.1,1.88
+onebit,native,12,"smt::interpreter::mk_depth1_vector(smt::enode*, func_decl*, unsigned int)",1.38,0.72,2.01
+onebit,native,12,ast_manager::delete_node(ast*),1.31,0.92,1.6
+onebit,native,12,GOMP_critical_name_end,1.255,0.48,1.57
+onebit,native,12,"smt::mam_impl::collect_parents(smt::enode*, smt::path_tree*)",1.18,0.9,1.78
+onebit,native,12,"void rewriter_tpl<th_rewriter_cfg>::process_app<false>(app*, rewriter_core::frame&)",1.165,0.85,1.49
+onebit,native,12,_int_free,1.0950000000000002,0.91,1.42
+onebit,native,12,ast_manager::register_node_core(ast*),1.08,0.62,1.44
+onebit,native,12,runtime.tryDeferToSpanScan,1.03,0.65,1.6
+onebit,native,12,"smt::fingerprint_set::insert(void*, unsigned int, unsigned int, smt::enode* const*)",1.0050000000000001,0.75,1.24
+onebit,native,12,"expr_substitution::find(expr*, expr*&, app*&, dependency_manager<ast_manager::expr_dependency_config>::dependency*&)",0.995,0.54,1.36

@@ -1,0 +1,41 @@
+package api
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"testing"
+)
+
+func TestStudyRaftKernelCounters(t *testing.T) {
+	out, err := os.Create(os.Getenv("RAFT_COUNTER_OUTPUT"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := out.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	encode := json.NewEncoder(out)
+	for i, query := range raftOrderKernelQueries(t) {
+		_, _, err := replayRaftOrderQuery(query, func(s *APISimpleSolver) (err error) {
+			stats, err := s.Statistics()
+			if err != nil {
+				return err
+			}
+			defer func() { err = errors.Join(err, stats.Close()) }()
+			values, err := stats.String()
+			if err != nil {
+				return err
+			}
+			return encode.Encode(struct {
+				Obligation int
+				Statistics string
+			}{i + 1, values})
+		})
+		if err != nil {
+			t.Fatalf("obligation %d: %v", i+1, err)
+		}
+	}
+}

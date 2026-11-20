@@ -16,31 +16,12 @@ import (
 // both SMT kernels. Each check gets a fresh context and the same parameters.
 // Decode the fixture outside the measured interval.
 func BenchmarkRaftOrderKernel(b *testing.B) {
-	f, err := os.Open("test_vectors/raft_order/kernel.smt2.gz")
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer f.Close()
-	z, err := gzip.NewReader(f)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer z.Close()
-	data, err := io.ReadAll(z)
-	if err != nil {
-		b.Fatal(err)
-	}
-	const boundary = "(check-sat)\n(reset)\n"
-	body, ok := strings.CutSuffix(string(data), boundary)
-	queries := strings.Split(body, boundary)
-	if !ok || len(queries) != 419 {
-		b.Fatal("incomplete Raft corpus", len(queries))
-	}
+	queries := raftOrderKernelQueries(b)
 	var load, check time.Duration
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j, query := range queries {
-			l, c, err := replayRaftOrderQuery(query)
+			l, c, err := replayRaftOrderQuery(query, nil)
 			if err != nil {
 				b.Fatalf("obligation %d: %v", j+1, err)
 			}
@@ -53,7 +34,32 @@ func BenchmarkRaftOrderKernel(b *testing.B) {
 	b.ReportMetric(float64(len(queries)), "obligations/op")
 }
 
-func replayRaftOrderQuery(query string) (load, check time.Duration, err error) {
+func raftOrderKernelQueries(t testing.TB) []string {
+	t.Helper()
+	f, err := os.Open("test_vectors/raft_order/kernel.smt2.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	z, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer z.Close()
+	data, err := io.ReadAll(z)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const boundary = "(check-sat)\n(reset)\n"
+	body, ok := strings.CutSuffix(string(data), boundary)
+	queries := strings.Split(body, boundary)
+	if !ok || len(queries) != 419 {
+		t.Fatal("incomplete Raft corpus", len(queries))
+	}
+	return queries
+}
+
+func replayRaftOrderQuery(query string, inspect func(*APISimpleSolver) error) (load, check time.Duration, err error) {
 	ctx, err := NewSMTContext()
 	if err != nil {
 		return 0, 0, err
@@ -81,8 +87,12 @@ func replayRaftOrderQuery(query string) (load, check time.Duration, err error) {
 	}
 	loaded := time.Now()
 	answer, err := s.Check()
+	checked := time.Now()
 	if err == nil && answer != lbool.False {
 		err = errors.New("expected UNSAT")
 	}
-	return loaded.Sub(start), time.Since(loaded), err
+	if err == nil && inspect != nil {
+		err = inspect(s)
+	}
+	return loaded.Sub(start), checked.Sub(loaded), err
 }

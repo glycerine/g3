@@ -1,0 +1,58 @@
+package api
+
+import (
+	"encoding/json"
+	"os"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+// StudyCalls is installed on each AST manager by the Python driver. These
+// counts describe the primary manager. The measured solver keeps its own
+// arena and never shares this instrumentation with another worker.
+func TestStudyRaftASTCalls(t *testing.T) {
+	out, err := os.Create(os.Getenv("RAFT_CALL_OUTPUT"))
+	astTestMust(t, err)
+	defer func() { astTestMust(t, out.Close()) }()
+	enc := json.NewEncoder(out)
+	for i, query := range raftOrderKernelQueries(t) {
+		func() {
+			ctx, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, ctx.Close()) }()
+			source, err := ctx.NewSimpleSolver()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, source.Close()) }()
+			params, err := ctx.NewParameterSet()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, params.Close()) }()
+			astTestMust(t, params.SetBool("smt.macro_finder", true))
+			astTestMust(t, source.SetParameters(params))
+			manager, err := ctx.Manager()
+			astTestMust(t, err)
+			start := manager.StudyCalls()
+			astTestMust(t, source.LoadSMT2String(query))
+			loaded := manager.StudyCalls()
+			answer, err := source.Check()
+			checked := manager.StudyCalls()
+			if answer != lbool.False || err != nil {
+				t.Fatalf("obligation %d returned %v, %v", i+1, answer, err)
+			}
+			stats, err := source.Statistics()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, stats.Close()) }()
+			values, err := stats.String()
+			astTestMust(t, err)
+			for j := range checked {
+				checked[j] -= loaded[j]
+				loaded[j] -= start[j]
+			}
+			astTestMust(t, enc.Encode(struct {
+				Obligation  int
+				Load, Check []uint64
+				Statistics  string
+			}{i + 1, loaded[:], checked[:], values}))
+		}()
+	}
+}

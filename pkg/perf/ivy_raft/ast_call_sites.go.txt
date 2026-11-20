@@ -1,0 +1,66 @@
+package main
+
+import (
+	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// Report byte offsets from the parsed source, excluding strings, comments,
+// tests and method declarations. The driver edits only a temporary overlay.
+type site struct {
+	File, Caller         string
+	Line, Offset, Lparen int
+}
+
+func main() {
+	pattern := filepath.Join(os.Args[1], "*.go")
+	paths, err := filepath.Glob(pattern)
+	if err != nil {
+		panic(err)
+	}
+	var sites []site
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		files := token.NewFileSet()
+		file, err := parser.ParseFile(files, path, nil, 0)
+		if err != nil {
+			panic(err)
+		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				sel, ok := call.Fun.(*ast.SelectorExpr)
+				if ok && sel.Sel.Name == os.Args[2] {
+					pos := files.Position(sel.Sel.Pos())
+					sites = append(sites, site{filepath.Base(path), fn.Name.Name, pos.Line,
+						pos.Offset, files.Position(call.Lparen).Offset})
+				}
+				return true
+			})
+		}
+	}
+	sort.Slice(sites, func(i, j int) bool {
+		if sites[i].File == sites[j].File {
+			return sites[i].Offset < sites[j].Offset
+		}
+		return sites[i].File < sites[j].File
+	})
+	if err := json.NewEncoder(os.Stdout).Encode(sites); err != nil {
+		panic(err)
+	}
+}

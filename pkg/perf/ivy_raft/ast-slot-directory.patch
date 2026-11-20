@@ -1,0 +1,213 @@
+diff --git a/pkg/ast/ast_core_pages.go b/pkg/ast/ast_core_pages.go
+index d737b0133..ae375f55a 100644
+--- a/pkg/ast/ast_core_pages.go
++++ b/pkg/ast/ast_core_pages.go
+@@ -3,30 +3,44 @@ package ast
+ // Concrete typed page growth; each actual old/new directory overlap is charged.
+ 
+ import (
++	"math"
+ 	"reflect"
++
++	"github.com/glycerine/g3/pkg/arena"
+ )
+ 
+ func (m *ASTManager) ensureNodePage(slot uint32) error {
+-	index := int((slot - 1) / astPageSize)
+-	if index >= len(m.nodes) {
+-		if index >= cap(m.nodes) {
+-			old := cap(m.nodes)
+-			n, e := m.prepareDirectory(old, index+1)
+-			if e != nil {
+-				return e
+-			}
+-			next := make([]*astNodePage, len(m.nodes), n)
+-			copy(next, m.nodes)
+-			m.nodes = next
+-			m.publishDirectory(old, n)
+-		}
+-		m.nodes = m.nodes[:index+1]
++	if slot == 0 {
++		return ErrASTDomain
++	}
++	if uint64(slot) <= uint64(len(m.nodes)) && m.nodes[slot-1] != nil {
++		return nil
++	}
++	first := uint64(slot-1) / astPageSize * astPageSize
++	end := min(first+astPageSize, uint64(math.MaxUint32))
++	if end > uint64(^uint(0)>>1) {
++		return arena.ErrBounds
+ 	}
+-	if m.nodes[index] == nil {
+-		if e := m.reservePage(astNodePageBytes); e != nil {
++	if end > uint64(cap(m.nodes)) {
++		old := cap(m.nodes)
++		n, e := m.prepareDirectory(old, int(end))
++		if e != nil {
+ 			return e
+ 		}
+-		m.nodes[index] = new(astNodePage)
++		next := make([]*astNodeSlot, len(m.nodes), n)
++		copy(next, m.nodes)
++		m.nodes = next
++		m.publishDirectory(old, n)
++	}
++	if end > uint64(len(m.nodes)) {
++		m.nodes = m.nodes[:end]
++	}
++	if e := m.reservePage(astNodePageBytes); e != nil {
++		return e
++	}
++	page := new(astNodePage)
++	for i := range m.nodes[first:end] {
++		m.nodes[int(first)+i] = &page.slots[i]
+ 	}
+ 	return nil
+ }
+diff --git a/pkg/ast/ast_core_storage.go b/pkg/ast/ast_core_storage.go
+index dc29305fe..75222a329 100644
+--- a/pkg/ast/ast_core_storage.go
++++ b/pkg/ast/ast_core_storage.go
+@@ -7,7 +7,6 @@ package ast
+ import (
+ 	"errors"
+ 	"math"
+-	"reflect"
+ 	"sync/atomic"
+ 	"unsafe"
+ 
+@@ -228,10 +227,10 @@ type astRefRecord struct {
+ 
+ const astPageSize = 64
+ 
+-// astNodePage holds each node slot's application record in the same page as
+-// its node record, indexed by slot, so app reads need neither kindIndex nor a
+-// second page. app[i] is meaningful only while slot i holds a live
+-// application; allocateNode clears it when an application takes the slot.
++// Pages own stable storage. The manager's directory points directly to each
++// slot within its page. Keeping any of those pointers keeps the page live
++// across directory growth. allocateNode clears the application record when
++// an application takes the slot.
+ type astNodePage struct {
+ 	slots [astPageSize]astNodeSlot
+ }
+@@ -309,7 +308,7 @@ type ASTManager struct {
+ 	// Hot: read by lock and by every accessor. Keep these on one cache line.
+ 	Self                                         *ASTManager
+ 	origin                                       uint64
+-	nodes                                        []*astNodePage
++	nodes                                        []*astNodeSlot
+ 	pendingDeletions                             []astDeletionContinuation
+ 	nextNode                                     uint32
+ 	traceExecuting, formatExecuting              bool
+@@ -451,7 +450,7 @@ func astDirectoryGrowth(old, needed uint32, width uint64) (uint32, error) {
+ 	return uint32(n), nil
+ }
+ func (m *ASTManager) nodeAt(slot uint32) *astNodeRecord {
+-	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize].node
++	return &m.nodes[slot-1].node
+ }
+ func (m *ASTManager) sortAt(slot uint32) *astSortRecord {
+ 	index := m.nodeAt(slot).kindIndex
+@@ -462,7 +461,7 @@ func (m *ASTManager) declAt(slot uint32) *astFuncDeclRecord {
+ 	return &m.decls[(index-1)/astPageSize][(index-1)%astPageSize]
+ }
+ func (m *ASTManager) appAt(slot uint32) *astAppRecord {
+-	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize].app
++	return &m.nodes[slot-1].app
+ }
+ func (m *ASTManager) varAt(slot uint32) *astVarRecord {
+ 	index := m.nodeAt(slot).kindIndex
+@@ -543,7 +542,7 @@ func (m *ASTManager) prepareDirectory(old, needed int) (int, error) {
+ 	if old >= needed {
+ 		return old, nil
+ 	}
+-	width := uint64(reflect.TypeOf((*astNodePage)(nil)).Size())
++	const width = uint64(unsafe.Sizeof(uintptr(0)))
+ 	n, e := astDirectoryGrowth(uint32(old), uint32(needed), width)
+ 	if e != nil {
+ 		return 0, e
+@@ -554,7 +553,7 @@ func (m *ASTManager) prepareDirectory(old, needed int) (int, error) {
+ 	return int(n), nil
+ }
+ func (m *ASTManager) publishDirectory(old, next int) {
+-	width := uint64(reflect.TypeOf((*astNodePage)(nil)).Size())
++	const width = uint64(unsafe.Sizeof(uintptr(0)))
+ 	m.BudgetField.Release(uint64(old) * width)
+ 	m.directoryBytes += uint64(next-old) * width
+ }
+diff --git a/pkg/ast/ast_held_constant.go b/pkg/ast/ast_held_constant.go
+index 19ea6590c..22295825b 100644
+--- a/pkg/ast/ast_held_constant.go
++++ b/pkg/ast/ast_held_constant.go
+@@ -8,7 +8,7 @@ func (m *ASTManager) TryIncRefHeldUninterpretedConstant(h ASTHandle) bool {
+ 	if astValidateHandles || h.IsNull() || !m.lockFree() {
+ 		return false
+ 	}
+-	slot := &m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]
++	slot := m.nodes[h.slot-1]
+ 	if slot.node.kind != ASTApp || !slot.app.declCached || slot.app.count != 0 || slot.app.declFamily != NullFamilyID {
+ 		return false
+ 	}
+diff --git a/pkg/ast/ast_rewriter_access.go b/pkg/ast/ast_rewriter_access.go
+index 9c976a20b..804b9dbf4 100644
+--- a/pkg/ast/ast_rewriter_access.go
++++ b/pkg/ast/ast_rewriter_access.go
+@@ -57,7 +57,7 @@ func (m *ASTManager) SubstitutionShape(h ASTHandle) (kind ASTKind, refs, arityOr
+ 			return
+ 		}
+ 	}
+-	slot := &m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]
++	slot := m.nodes[h.slot-1]
+ 	switch slot.node.kind {
+ 	case ASTApp:
+ 		return ASTApp, slot.node.rc, slot.app.count, slot.app.ground, nil
+diff --git a/pkg/ast/ast_node_directory_test.go b/pkg/ast/ast_node_directory_test.go
+new file mode 100644
+index 000000000..6e53f414d
+--- /dev/null
++++ b/pkg/ast/ast_node_directory_test.go
+@@ -0,0 +1,43 @@
++package ast
++
++import (
++	"errors"
++	"math"
++	"testing"
++
++	"github.com/glycerine/g3/pkg/arena"
++)
++
++func TestASTNodeDirectoryGrowthAndPageRetry(t *testing.T) {
++	m := ASTManager{BudgetField: arena.NewBudget(math.MaxUint64)}
++	astTestMust(t, m.ensureNodePage(1))
++	first := m.nodes[0]
++	first.node.id = 7
++	next := uint32(cap(m.nodes) + astPageSize + 1)
++	m.BudgetField.FailAfter(1) // allow the new directory and fail its first page
++	if err := m.ensureNodePage(next); !errors.Is(err, arena.ErrInjectedFailure) {
++		t.Fatal(err)
++	}
++	if m.nodes[next-1] != nil || m.nodes[0] != first || first.node.id != 7 || m.pageBytes != astNodePageBytes {
++		t.Fatal("failed page allocation changed published slots or charges")
++	}
++	if got := m.BudgetField.Used(); got != m.pageBytes+m.directoryBytes {
++		t.Fatal("directory growth charge", got, m.pageBytes, m.directoryBytes)
++	}
++	m.BudgetField.FailAfter(-1)
++	astTestMust(t, m.ensureNodePage(next))
++	newSlot := m.nodes[next-1]
++	if newSlot == nil || newSlot == first || m.nodes[0] != first || m.pageBytes != 2*astNodePageBytes {
++		t.Fatal("page retry changed an earlier slot")
++	}
++	before := m.BudgetField.Used()
++	m.BudgetField.FailAfter(0)
++	astTestMust(t, m.ensureNodePage(next))
++	if m.nodes[next-1] != newSlot || m.BudgetField.Used() != before {
++		t.Fatal("existing slot changed")
++	}
++	m.releasePages()
++	if m.nodes != nil || m.BudgetField.Used() != 0 {
++		t.Fatal("released directory still charged")
++	}
++}
