@@ -470,7 +470,10 @@ func (c *theoryRewriterConfiguration) reduceAppCore(decl ast.ASTHandle, args ast
 				}
 			}
 		}
-		return c.boolean.MkAppCore(decl, args, out)
+		if err := c.boolean.configuredOpen(); err != nil {
+			return RewriteFailed, err
+		}
+		return c.boolean.mkAppCoreKind(kind, args, out)
 	}
 	switch family {
 	case c.arithmetic.family:

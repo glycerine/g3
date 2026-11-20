@@ -146,17 +146,24 @@ func (rw *boolRewriter) mkAppCoreArguments(decl ast.ASTHandle, args ast.AppArgum
 			return brFailed, e
 		}
 	}
-	fid, e := rw.manager.GetFamilyID(decl)
-	if e != nil {
-		return brFailed, e
+	if ast.ASTSourceDebug {
+		family, err := rw.manager.GetFamilyID(decl)
+		if err != nil {
+			return brFailed, err
+		}
+		if family != rw.manager.BasicFamilyID() {
+			return brFailed, ast.ErrASTDomain
+		}
 	}
-	if ast.ASTSourceDebug && fid != 0 {
-		return brFailed, ast.ErrASTDomain
+	op, err := rw.manager.GetDeclKind(decl)
+	if err != nil {
+		return brFailed, err
 	}
-	op, e := rw.manager.GetDeclKind(decl)
-	if e != nil {
-		return brFailed, e
-	}
+	return rw.mkAppCoreKind(op, args, out)
+}
+
+// The theory rewriter already resolved the basic declaration before dispatch.
+func (rw *boolRewriter) mkAppCoreKind(op int32, args ast.AppArguments, out ast.ASTRef) (brStatus, error) {
 	switch op {
 	case ast.ASTOpAnd:
 		if rw.elimAnd {
@@ -184,10 +191,11 @@ func (rw *boolRewriter) mkAppCoreArguments(decl ast.ASTHandle, args ast.AppArgum
 	}
 	var scalar [3]ast.ASTHandle
 	for i := uint32(0); i < args.Count(); i++ {
-		scalar[i], e = args.At(i)
-		if e != nil {
-			return brFailed, e
+		arg, err := args.At(i)
+		if err != nil {
+			return brFailed, err
 		}
+		scalar[i] = arg
 	}
 	switch op {
 	case ast.ASTOpEq, ast.ASTOpIff:
