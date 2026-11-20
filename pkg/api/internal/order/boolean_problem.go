@@ -25,7 +25,7 @@ type bitCompiler struct {
 	m                 *ast.ASTManager
 	gates             map[bitGate]int32
 	values            []int32
-	tables            [][]int32
+	firstVariable     []int32
 }
 type bitRoot struct {
 	after int
@@ -86,24 +86,24 @@ func (t *inference) booleanProblem(steps uint32) (*BooleanProblem, error) {
 	k := &bitCompiler{
 		BooleanProblem: BooleanProblem{Vars: 1},
 		m:              t.m, ceiling: int(min(steps, 500_000)),
-		gates:  make(map[bitGate]int32),
-		values: make([]int32, len(t.declarations)),
-		tables: make([][]int32, len(t.signatures)),
+		gates:         make(map[bitGate]int32),
+		values:        make([]int32, len(t.declarations)),
+		firstVariable: make([]int32, len(t.signatures)),
 	}
 	k.emit(1, 0, 0)
 	for i, s := range t.signatures {
-		if len(s.inputs) > 10 || k.Vars+(1<<uint(len(s.inputs))) > 100_000 {
+		if len(s.inputs) > 10 {
 			return nil, nil
 		}
-		if e := k.charge(1 << uint(len(s.inputs))); e != nil {
+		rows := 1 << uint(len(s.inputs))
+		if k.Vars+rows > 100_000 {
 			return nil, nil
 		}
-		table := make([]int32, 1<<uint(len(s.inputs)))
-		for j := range table {
-			k.Vars++
-			table[j] = int32(k.Vars)
+		if e := k.charge(rows); e != nil {
+			return nil, nil
 		}
-		k.tables[i] = table
+		k.firstVariable[i] = int32(k.Vars + 1)
+		k.Vars += rows
 	}
 	k.firstGate = int32(k.Vars + 1)
 	for _, id := range t.assertions {
@@ -206,20 +206,22 @@ func (k *bitCompiler) ite(c, a, b int32) int32 {
 	return neg * x
 }
 
-// Select one entry of an uninterpreted function's complete truth table.
-func (k *bitCompiler) lookup(args []int32, table []int32) int32 {
-	if len(args) == 0 {
-		return table[0]
+// Each function's truth table occupies consecutive SAT variables. A known
+// argument chooses a half by offset. A symbolic argument needs an ITE gate.
+func (k *bitCompiler) lookup(args []int32, first int32) int32 {
+	for len(args) > 0 {
+		half := int32(1) << uint(len(args)-1)
+		selector := args[0]
+		args = args[1:]
+		switch selector {
+		case 1:
+			first += half
+		case -1:
+		default:
+			return k.ite(selector, k.lookup(args, first+half), k.lookup(args, first))
+		}
 	}
-	half := len(table) / 2
-	sel := args[0]
-	if sel == 1 {
-		return k.lookup(args[1:], table[half:])
-	}
-	if sel == -1 {
-		return k.lookup(args[1:], table[:half])
-	}
-	return k.ite(sel, k.lookup(args[1:], table[half:]), k.lookup(args[1:], table[:half]))
+	return first
 }
 
 func (k *bitCompiler) eval(t *inference, id int32) (int32, error) {
@@ -283,11 +285,10 @@ func (k *bitCompiler) eval(t *inference, id int32) (int32, error) {
 	}
 	switch n.op {
 	case opFunction:
-		table := k.tables[n.value]
-		if e := k.charge(len(table)); e != nil {
+		if e := k.charge(1 << uint(len(args))); e != nil {
 			return 0, e
 		}
-		return k.lookup(args, table), nil
+		return k.lookup(args, k.firstVariable[n.value]), nil
 	case opNot:
 		return -args[0], nil
 	case opAnd, opOr:
