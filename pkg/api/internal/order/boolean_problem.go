@@ -1,0 +1,425 @@
+package order
+
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+// BooleanProblem encodes the retained assertions on two-element domains.
+// Its clauses use signed literals. Before reduction, literal 1 is forced true.
+type BooleanProblem struct {
+	Vars    int
+	Clauses []BooleanClause
+	Work    uint32
+}
+
+// The builder and its truth tables die before the SAT solver is opened.
+type bitCompiler struct {
+	BooleanProblem
+	ceiling, nextPoll int
+	nodes             []bitGate
+	roots             []bitRoot
+	firstGate         int32
+	work              int
+	m                 *ast.ASTManager
+	gates             map[bitGate]int32
+	values            []int32
+	tables            [][]int32
+}
+type bitRoot struct {
+	after int
+	lit   int32
+}
+type bitGate struct{ op, a, b, c int32 }
+
+const (
+	bitAnd int32 = iota
+	bitITE
+)
+
+var errBitLimit = errors.New("one-bit expansion limit")
+
+// ForProof chooses a propositional problem when every retained bit-vector
+// sort has two values. Mixed widths and expensive enumerations use the order
+// relaxation. In either case only a refutation proves the original formula.
+func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (Problem, *BooleanProblem, bool, error) {
+	var t inference
+	if ok, err := t.infer(m, assertions); err != nil || !ok {
+		return Problem{}, nil, false, err
+	}
+	bits, err := t.booleanProblem(steps)
+	if err != nil || m.ResourceLimit().CancelFlag() {
+		return Problem{}, nil, false, err
+	}
+	if bits != nil {
+		return Problem{}, bits, true, nil
+	}
+	return t.render(), nil, true, nil
+}
+
+func (t *inference) booleanProblem(steps uint32) (*BooleanProblem, error) {
+	for _, w := range t.widths {
+		if w != 1 {
+			return nil, nil
+		}
+	}
+	k := &bitCompiler{
+		BooleanProblem: BooleanProblem{Vars: 1},
+		m:              t.m, ceiling: int(min(steps, 500_000)),
+		gates:  make(map[bitGate]int32),
+		values: make([]int32, len(t.declarations)),
+		tables: make([][]int32, len(t.signatures)),
+	}
+	k.emit(1, 0, 0)
+	for i, s := range t.signatures {
+		if len(s.inputs) > 10 || k.Vars+(1<<uint(len(s.inputs))) > 100_000 {
+			return nil, nil
+		}
+		if e := k.charge(1 << uint(len(s.inputs))); e != nil {
+			return nil, nil
+		}
+		table := make([]int32, 1<<uint(len(s.inputs)))
+		for j := range table {
+			k.Vars++
+			table[j] = int32(k.Vars)
+		}
+		k.tables[i] = table
+	}
+	k.firstGate = int32(k.Vars + 1)
+	for _, id := range t.assertions {
+		lit, err := k.eval(t, id)
+		if err == errBitLimit {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if lit != 1 {
+			k.roots = append(k.roots, bitRoot{len(k.nodes), lit})
+		}
+	}
+	if e := k.charge(len(k.roots) + 2*len(k.nodes)); e != nil {
+		return nil, nil
+	}
+	if !k.emitGates() {
+		return nil, nil
+	}
+	return &BooleanProblem{Vars: k.Vars, Clauses: k.Clauses, Work: uint32(k.work)}, nil
+}
+
+func (k *bitCompiler) charge(n int) error {
+	k.work += n
+	if k.work > k.ceiling || len(k.nodes) > 100_000 {
+		return errBitLimit
+	}
+	if k.work >= k.nextPoll {
+		if k.m.ResourceLimit().CancelFlag() {
+			return errBitLimit
+		}
+		k.nextPoll = k.work + 256
+	}
+	return nil
+}
+
+// Interning AND and ITE gates gives every occurrence of the same Boolean
+// operation the same SAT variable. Negation is the sign of the literal.
+func (k *bitCompiler) and(a, b int32) int32 {
+	if a == 1 || a == b {
+		return b
+	}
+	if b == 1 {
+		return a
+	}
+	if a == -1 || b == -1 || a == -b {
+		return -1
+	}
+	if a > b {
+		a, b = b, a
+	}
+	key := bitGate{op: bitAnd, a: a, b: b}
+	if n := k.gates[key]; n != 0 {
+		return n
+	}
+	k.Vars++
+	x := int32(k.Vars)
+	k.gates[key] = x
+	k.nodes = append(k.nodes, key)
+	return x
+}
+
+func (k *bitCompiler) ite(c, a, b int32) int32 {
+	if c == 1 || a == b {
+		return a
+	}
+	if c == -1 {
+		return b
+	}
+	if a == 1 {
+		return -k.and(-c, -b)
+	}
+	if a == -1 {
+		return k.and(-c, b)
+	}
+	if b == 1 {
+		return -k.and(c, -a)
+	}
+	if b == -1 {
+		return k.and(c, a)
+	}
+	if c < 0 {
+		a, b = b, a
+		c = -c
+	}
+	neg := int32(1)
+	if a < 0 {
+		a, b = -a, -b
+		neg = -1
+	}
+	key := bitGate{op: bitITE, a: c, b: a, c: b}
+	if n := k.gates[key]; n != 0 {
+		return neg * n
+	}
+	k.Vars++
+	x := int32(k.Vars)
+	k.gates[key] = x
+	k.nodes = append(k.nodes, key)
+	return neg * x
+}
+
+// Select one entry of an uninterpreted function's complete truth table.
+func (k *bitCompiler) lookup(args []int32, table []int32) int32 {
+	if len(args) == 0 {
+		return table[0]
+	}
+	half := len(table) / 2
+	sel := args[0]
+	if sel == 1 {
+		return k.lookup(args[1:], table[half:])
+	}
+	if sel == -1 {
+		return k.lookup(args[1:], table[:half])
+	}
+	return k.ite(sel, k.lookup(args[1:], table[half:]), k.lookup(args[1:], table[:half]))
+}
+
+func (k *bitCompiler) eval(t *inference, id int32) (int32, error) {
+	if e := k.charge(1); e != nil {
+		return 0, e
+	}
+	n := &t.terms[id]
+	switch n.op {
+	case opTrue:
+		return 1, nil
+	case opFalse:
+		return -1, nil
+	case opVariable:
+		return k.values[n.value], nil
+	case opNumeral:
+		if n.value == 1 {
+			return 1, nil
+		}
+		return -1, nil
+	case opForall, opExists:
+		// Each syntactic binder has its own slot, including shadowed names.
+		binders := t.declarations[n.start : n.start+n.count]
+		if len(binders) > 12 {
+			return 0, errBitLimit
+		}
+		all := n.op == opForall
+		res := int32(1)
+		for mask := 0; mask < 1<<uint(len(binders)); mask++ {
+			for j, b := range binders {
+				v := int32(-1)
+				if mask&(1<<uint(j)) != 0 {
+					v = 1
+				}
+				k.values[b.name] = v
+			}
+			r, e := k.eval(t, n.value)
+			if e != nil {
+				return 0, e
+			}
+			if !all {
+				r = -r
+			}
+			res = k.and(res, r)
+			if res == -1 {
+				break
+			}
+		}
+		if !all {
+			res = -res
+		}
+		return res, nil
+	}
+	var small [8]int32
+	args := small[:0]
+	for _, a := range t.arguments(n) {
+		v, e := k.eval(t, a)
+		if e != nil {
+			return 0, e
+		}
+		args = append(args, v)
+	}
+	switch n.op {
+	case opFunction:
+		table := k.tables[n.value]
+		if e := k.charge(len(table)); e != nil {
+			return 0, e
+		}
+		return k.lookup(args, table), nil
+	case opNot:
+		return -args[0], nil
+	case opAnd, opOr:
+		or := n.op == opOr
+		r := int32(1)
+		for _, a := range args {
+			if or {
+				a = -a
+			}
+			r = k.and(r, a)
+		}
+		if or {
+			r = -r
+		}
+		return r, nil
+	case opXor:
+		return k.ite(args[0], -args[1], args[1]), nil
+	case opEqual, opDistinct:
+		if n.op == opDistinct && len(args) > 2 {
+			return -1, nil
+		}
+		r := int32(1)
+		for _, a := range args[1:] {
+			r = k.and(r, k.ite(args[0], a, -a))
+		}
+		if n.op == opDistinct {
+			r = -r
+		}
+		return r, nil
+	case opIte:
+		return k.ite(args[0], args[1], args[2]), nil
+	case opImplies:
+		return -k.and(args[0], -args[1]), nil
+	case opOrder:
+		a, b := args[0], args[1]
+		switch n.value {
+		case bvULT:
+			return k.and(-a, b), nil
+		case bvUGT:
+			return k.and(a, -b), nil
+		case bvULE:
+			return -k.and(a, -b), nil
+		case bvUGE:
+			return -k.and(-a, b), nil
+		}
+	}
+	return 0, inapplicable
+}
+
+// A positive occurrence of a gate needs only the forward implication.
+// Mark dependencies in reverse construction order before writing clauses.
+func (k *bitCompiler) emitGates() bool {
+	need := make([]uint8, k.Vars+1)
+	mark := func(x int32) {
+		if x < 0 {
+			need[-x] |= 2
+		} else {
+			need[x] |= 1
+		}
+	}
+	for i, root := range k.roots {
+		if i%512 == 0 && k.m.ResourceLimit().CancelFlag() {
+			return false
+		}
+		mark(root.lit)
+	}
+	for i := len(k.nodes) - 1; i >= 0; i-- {
+		if i%512 == 0 && k.m.ResourceLimit().CancelFlag() {
+			return false
+		}
+		g := k.nodes[i]
+		x := k.firstGate + int32(i)
+		flags := need[x]
+		if flags == 0 {
+			continue
+		}
+		a, b := g.a, g.b
+		if g.op == bitITE {
+			mark(a)
+			mark(-a)
+			a, b = g.b, g.c
+		}
+		if flags&1 != 0 {
+			mark(a)
+			mark(b)
+		}
+		if flags&2 != 0 {
+			mark(-a)
+			mark(-b)
+		}
+	}
+	next := 0
+	for i := 0; i <= len(k.nodes); i++ {
+		if i%512 == 0 && k.m.ResourceLimit().CancelFlag() {
+			return false
+		}
+		for next < len(k.roots) && k.roots[next].after == i {
+			lit := k.roots[next].lit
+			k.emit(lit, 0, 0)
+			next++
+			if next%512 == 0 && k.m.ResourceLimit().CancelFlag() {
+				return false
+			}
+		}
+		if i == len(k.nodes) {
+			break
+		}
+		g := k.nodes[i]
+		x := k.firstGate + int32(i)
+		flags := need[x]
+		if g.op == bitAnd {
+			if flags&1 != 0 {
+				k.emit(-x, g.a, 0)
+				k.emit(-x, g.b, 0)
+			}
+			if flags&2 != 0 {
+				k.emit(x, -g.a, -g.b)
+			}
+		} else {
+			if flags&1 != 0 {
+				k.emit(-g.a, -x, g.b)
+			}
+			if flags&2 != 0 {
+				k.emit(-g.a, x, -g.b)
+			}
+			if flags&1 != 0 {
+				k.emit(g.a, -x, g.c)
+			}
+			if flags&2 != 0 {
+				k.emit(g.a, x, -g.c)
+			}
+		}
+	}
+	return true
+}
+
+// BooleanClause contains one to three signed, one-based variable IDs.
+// Zero terminates short clauses. An all-zero row is the empty clause.
+type BooleanClause [3]int32
+
+func (c *BooleanClause) literals() []int32 {
+	if c[2] != 0 {
+		return c[:3]
+	}
+	if c[1] != 0 {
+		return c[:2]
+	}
+	if c[0] != 0 {
+		return c[:1]
+	}
+	return nil
+}
+
+func (k *bitCompiler) emit(a, b, c int32) { k.Clauses = append(k.Clauses, BooleanClause{a, b, c}) }

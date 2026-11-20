@@ -15,7 +15,8 @@ import (
 const orderProofSteps = 3_000_000
 
 // ProveUnsatByOrderAbstraction tries to refute the current assertions by
-// relaxing quantified bit-vector order constraints to uninterpreted sorts.
+// relaxing quantified bit-vector order constraints. Two-element domains can
+// be enumerated directly. Wider domains use uninterpreted ordered sorts.
 // True establishes that the assertions are unsatisfiable. False is inconclusive:
 // callers needing a decision or a concrete model should call Check. The
 // independent proof attempt preserves this solver's last check, model and core.
@@ -28,12 +29,13 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 	return proof.prove(maxSteps, false)
 }
 
-// OrderProofBatch reuses a private SMT kernel across successive refutations
+// OrderProofBatch reuses a private solver across successive refutations
 // on one source solver. Each attempt reads the source's current assertions.
 // Close the batch when the sequence of related checks finishes.
 type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
+	bits     *orderBooleanSolver
 	source   *APISimpleSolver
 	ctx      *SMTContext
 	child    *APISimpleSolver
@@ -49,8 +51,8 @@ func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
 }
 
 // Prove has the same result contract as ProveUnsatByOrderAbstraction.
-// A successful attempt pops its query suffix. Later attempts can reuse a
-// byte-identical prefix in the same generated language. An inconclusive
+// A successful attempt removes or disables its query suffix. Later attempts
+// can reuse identical premises in the same generated language. An inconclusive
 // attempt releases the private kernel before the caller's concrete check.
 func (b *OrderProofBatch) Prove() (bool, error) {
 	if b == nil || b.state == nil || b.state.source == nil {
@@ -117,9 +119,22 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 	if err != nil {
 		return false, err
 	}
-	problem, applicable, err := order.Relax(parent, assertions)
+	problem, bits, applicable, err := order.ForProof(parent, assertions, maxSteps)
 	if err != nil || !applicable || limit.CancelFlag() {
 		return false, err
+	}
+	if bits != nil {
+		if p.ctx != nil {
+			if err := p.release(); err != nil {
+				return false, err
+			}
+		}
+		return p.checkBoolean(parent, bits, maxSteps)
+	}
+	if p.bits != nil {
+		if err := p.release(); err != nil {
+			return false, err
+		}
 	}
 	if reuse && p.needsNewDeclarations(problem) {
 		if err := p.release(); err != nil {
@@ -159,6 +174,12 @@ func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
 }
 
 func (p *orderProofState) release() error {
+	if p.bits != nil {
+		if err := p.bits.close(); err != nil {
+			return err
+		}
+		p.bits = nil
+	}
 	if err := p.closeParser(); err != nil {
 		return err
 	}
