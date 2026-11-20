@@ -298,3 +298,40 @@ func TestBVPolynomialConfigurationDescriptionsAndAdditionCaller(t *testing.T) {
 		t.Fatal("configured AST ordering", first, xs[0])
 	}
 }
+
+func TestBVPolynomialConfigurationRetainsInterruptedSnapshot(t *testing.T) {
+	c, g, _ := bvPolynomialParamsFixture(t)
+	other, _, _ := bvPolynomialParamsFixture(t)
+	p, err := NewBVPolynomialConfiguration(c, g, nil)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, p.Close()) })
+	if p.decrements != nil {
+		t.Fatal("fresh configuration materialized decrement receipts")
+	}
+
+	const index = 3
+	p.snapshots[index], err = c.NewValue()
+	astTestMust(t, err)
+	p.placed[index] = true
+	key, err := c.SymbolsField.Intern("snapshot-numeral")
+	astTestMust(t, err)
+	numerals := c.NumeralsField
+	value, err := numerals.NewValue()
+	astTestMust(t, err)
+	astTestMust(t, c.SetRat(&p.snapshots[index], key, &value))
+	astTestMust(t, numerals.Del(&value))
+
+	// The block consumes its last reference before releasing the numeral.
+	// A foreign numeral owner refuses that release without touching its value.
+	c.NumeralsField = other.NumeralsField
+	err = p.Close()
+	c.NumeralsField = numerals
+	if !errors.Is(err, unumeral.ErrRationalServiceOwner) || !p.placed[index] ||
+		p.decrements == nil || p.decrements[index].Invocation() == 0 {
+		t.Fatal("missing interrupted decrement", err)
+	}
+	astTestMust(t, p.Close())
+	if p.placed[index] || p.decrements != nil {
+		t.Fatal("snapshot remained live after retry")
+	}
+}

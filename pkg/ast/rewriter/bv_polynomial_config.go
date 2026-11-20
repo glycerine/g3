@@ -22,7 +22,7 @@ type BVPolynomialConfiguration struct {
 	bitVector       BVRewriterConfigurationState
 	snapshots       [4]uparams.ParamsRef // poly, arith, optional outer default params_ref, BV
 	placed          [4]bool
-	decrements      [4]uparams.ParamsDecrementReceipt
+	decrements      *[4]uparams.ParamsDecrementReceipt
 	header          uint64
 	passes          uint64
 	stopped, closed bool
@@ -52,7 +52,10 @@ func NewBVPolynomialConfiguration(c *uparams.ParamsContext, g *uparams.GlobalPar
 		}
 		defaultLocal = v
 	}
-	bytes := uint64(reflect.TypeOf(BVPolynomialConfiguration{}).Size())
+	// The budget includes the four possible interrupted decrements.
+	header := reflect.TypeOf(BVPolynomialConfiguration{}).Size()
+	receipts := reflect.TypeOf([4]uparams.ParamsDecrementReceipt{}).Size()
+	bytes := uint64(header - reflect.TypeOf((*[4]uparams.ParamsDecrementReceipt)(nil)).Size() + receipts)
 	if e := c.BudgetField.Reserve(bytes); e != nil {
 		return nil, e
 	}
@@ -98,14 +101,23 @@ func (p *BVPolynomialConfiguration) end(i int) error {
 		return nil
 	}
 	var e error
-	if p.decrements[i].Invocation() != 0 {
+	if p.decrements != nil && p.decrements[i].Invocation() != 0 {
 		e = p.context.CompleteDecrement(&p.snapshots[i], p.decrements[i])
 	} else {
-		e = p.context.DelTracked(&p.snapshots[i], &p.decrements[i])
+		var stopped uparams.ParamsDecrementReceipt
+		e = p.context.DelTracked(&p.snapshots[i], &stopped)
+		if e != nil && stopped.Invocation() != 0 {
+			if p.decrements == nil {
+				p.decrements = new([4]uparams.ParamsDecrementReceipt)
+			}
+			p.decrements[i] = stopped
+		}
 	}
 	if e == nil {
 		p.placed[i] = false
-		p.decrements[i] = uparams.ParamsDecrementReceipt{}
+		if p.decrements != nil {
+			p.decrements[i] = uparams.ParamsDecrementReceipt{}
+		}
 	}
 	return e
 }
@@ -223,6 +235,7 @@ func (p *BVPolynomialConfiguration) Close() error {
 	}
 	p.context.BudgetField.Release(p.header)
 	p.header = 0
+	p.decrements = nil
 	p.closed = true
 	return nil
 }

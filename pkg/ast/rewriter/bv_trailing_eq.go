@@ -35,12 +35,13 @@ func (p *BVTrailing) EqRemoveTrailing(left, right ast.ASTHandle, out ast.ASTRef)
 			return RewriteFailed, ast.ErrASTDomain
 		}
 	}
-	p.eqCall.child = nil
-	min1, max1, e := p.countTracked(left, bvTrailingDepth, &p.eqCall)
+	call := p.callState(trailingEqCall)
+	call.child = nil
+	min1, max1, e := p.countTracked(left, bvTrailingDepth, call)
 	if e != nil {
 		return RewriteFailed, e
 	}
-	min2, max2, e := p.countTracked(right, bvTrailingDepth, &p.eqCall)
+	min2, max2, e := p.countTracked(right, bvTrailingDepth, call)
 	if e != nil {
 		return RewriteFailed, e
 	}
@@ -73,7 +74,7 @@ func (p *BVTrailing) EqRemoveTrailing(left, right ast.ASTHandle, out ast.ASTRef)
 		}
 		return RewriteDone, m.SetRef(out, h)
 	}
-	f, e := p.beginFrame(bvTrailingEqFrame, &p.eqCall)
+	f, e := p.beginFrame(bvTrailingEqFrame, call)
 	if e != nil {
 		return RewriteFailed, e
 	}

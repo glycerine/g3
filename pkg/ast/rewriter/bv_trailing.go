@@ -15,15 +15,36 @@ const bvTrailingDepth uint32 = 5
 // count caches and reached local frames. Its Go header is charged once;
 // do not copy it.
 type BVTrailing struct {
-	self                          *BVTrailing
-	extract                       *MkExtractProc
-	manager                       *ast.ASTManager
-	tables                        [6]*bvTrailingTable
-	header                        uint64
-	running, closed, dtorTraced   bool
-	failure                       error
-	frames                        *bvTrailingFrame
-	countCall, removeCall, eqCall bvTrailingCall
+	self                        *BVTrailing
+	extract                     *MkExtractProc
+	manager                     *ast.ASTManager
+	tables                      [6]*bvTrailingTable
+	header                      uint64
+	running, closed, dtorTraced bool
+	failure                     error
+	frames                      *bvTrailingFrame
+	calls                       *[3]bvTrailingCall
+}
+
+const (
+	trailingCountCall = iota
+	trailingRemoveCall
+	trailingEqCall
+)
+
+func (p *BVTrailing) callState(index int) *bvTrailingCall {
+	if p.calls == nil {
+		p.calls = new([3]bvTrailingCall)
+	}
+	return &p.calls[index]
+}
+
+// Reserve all three call sites at construction, including for managers
+// whose bit-vector operations never need their physical storage.
+func bvTrailingBytes() uint64 {
+	header := reflect.TypeOf(BVTrailing{}).Size()
+	calls := reflect.TypeOf([3]bvTrailingCall{}).Size()
+	return uint64(header - reflect.TypeOf((*[3]bvTrailingCall)(nil)).Size() + calls)
 }
 
 func NewBVTrailing(extract *MkExtractProc) (*BVTrailing, error) {
@@ -34,7 +55,7 @@ func NewBVTrailing(extract *MkExtractProc) (*BVTrailing, error) {
 	if _, e := m.ProofsEnabled(); e != nil {
 		return nil, e
 	}
-	header := uint64(reflect.TypeOf(BVTrailing{}).Size())
+	header := bvTrailingBytes()
 	if e = m.Budget().Reserve(header); e != nil {
 		return nil, e
 	}
@@ -77,7 +98,7 @@ func (p *BVTrailing) Count(arg ast.ASTHandle) (min, max uint32, body error) {
 }
 
 func (p *BVTrailing) count(arg ast.ASTHandle, depth uint32) (min, max uint32, body error) {
-	return p.countTracked(arg, depth, &p.countCall)
+	return p.countTracked(arg, depth, p.callState(trailingCountCall))
 }
 func (p *BVTrailing) countTracked(arg ast.ASTHandle, depth uint32, call *bvTrailingCall) (min, max uint32, body error) {
 	m := p.manager
@@ -215,7 +236,13 @@ func (p *BVTrailing) Close() error {
 		f.header = 0
 		f.retired = true
 	}
-	for _, call := range []*bvTrailingCall{&p.removeCall, &p.eqCall, &p.countCall} {
+	// Even an untouched call validates the manager on cleanup.
+	var empty bvTrailingCall
+	for _, index := range [...]int{trailingRemoveCall, trailingEqCall, trailingCountCall} {
+		call := &empty
+		if p.calls != nil {
+			call = &p.calls[index]
+		}
 		if e := call.cleanup(p.manager); e != nil {
 			return e
 		}
@@ -230,6 +257,7 @@ func (p *BVTrailing) Close() error {
 	p.manager.Budget().Release(p.header)
 	p.header = 0
 	p.traceImpDeallocated()
+	p.calls = nil
 	p.closed = true
 	return nil
 }

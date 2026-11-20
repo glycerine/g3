@@ -21,7 +21,7 @@ func (p *BVTrailing) traceImpAllocated() {
 		func() bool { return true }, func(w io.Writer) error {
 			_, _ = io.WriteString(w, "alloc "+fmt.Sprintf("%p", p)+
 				" src/ast/rewriter/bv_trailing.cpp:384 imp "+
-				strconv.FormatUint(uint64(reflect.TypeOf(BVTrailing{}).Size()), 10)+"\n")
+				strconv.FormatUint(p.header, 10)+"\n")
 			return nil
 		})
 }

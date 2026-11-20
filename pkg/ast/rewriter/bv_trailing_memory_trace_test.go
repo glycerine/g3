@@ -68,7 +68,9 @@ func TestBVTrailingMemoryWrappersFollowLazyCacheLifetime(t *testing.T) {
 	}
 	impID := fmt.Sprintf("%p", p)
 	mapSize := strconv.FormatUint(uint64(reflect.TypeOf(bvTrailingTable{}).Size()), 10)
-	impSize := strconv.FormatUint(uint64(reflect.TypeOf(BVTrailing{}).Size()), 10)
+	// The source charge includes all three call records even before first use.
+	header := reflect.TypeOf(BVTrailing{}).Size() - reflect.TypeOf(p.calls).Size()
+	impSize := strconv.FormatUint(uint64(header+3*reflect.TypeOf(bvTrailingCall{}).Size()), 10)
 	parts := []string{
 		"alloc " + impID + " src/ast/rewriter/bv_trailing.cpp:384 imp " + impSize + "\n",
 		"alloc " + fmt.Sprintf("%p", first) + " src/ast/rewriter/bv_trailing.cpp:342 map " + mapSize + "\n",

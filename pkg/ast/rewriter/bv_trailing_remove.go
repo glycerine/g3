@@ -11,7 +11,7 @@ func (p *BVTrailing) Remove(arg ast.ASTHandle, n uint32, out ast.ASTRef) (remove
 		return 0, e
 	}
 	defer func() { p.leave(body) }()
-	return p.remove(arg, n, out, bvTrailingDepth, &p.removeCall)
+	return p.remove(arg, n, out, bvTrailingDepth, p.callState(trailingRemoveCall))
 }
 func (p *BVTrailing) remove(arg ast.ASTHandle, n uint32, out ast.ASTRef, depth uint32, call *bvTrailingCall) (uint32, error) {
 	removed, err := p.removeCore(arg, n, out, depth, call)
