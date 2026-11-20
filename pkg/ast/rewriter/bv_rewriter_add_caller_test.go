@@ -90,7 +90,7 @@ func TestBVRewriterAdditionCallerUsesAssignedCoreArgsAndPassesFullStatus(t *test
 	astTestPin(t, m, right)
 	st, e = q.RewriteBitVectorAddition(ast.SliceArguments([]ast.ASTHandle{left, right}), out)
 	astTestMust(t, e)
-	if st != RewriteFull || q.additionBits != (ast.ASTBitVectorNumeralInvocation{}) {
+	if st != RewriteFull || q.additionBits.frame != nil {
 		t.Fatal("FULL entered bit reader", st)
 	}
 }

@@ -72,7 +72,7 @@ func TestBVRewriterAdditionCallerEveryActualBitReadReservation(t *testing.T) {
 				if !numericHoistRefusal(body) {
 					t.Fatal(body)
 				}
-				if p.addition == nil && p.additionBits != (ast.ASTBitVectorNumeralInvocation{}) {
+				if p.addition == nil && p.additionBits.frame != nil && *p.additionBits.frame != (ast.ASTBitVectorNumeralInvocation{}) {
 					sawAfterCore = true
 				}
 				cause := p.cause
@@ -88,7 +88,7 @@ func TestBVRewriterAdditionCallerEveryActualBitReadReservation(t *testing.T) {
 				if st != Rewrite1 {
 					t.Fatal(st)
 				}
-				astTestMust(t, m.BitVectorNumeralInvocationSourceReady(&p.additionBits))
+				astTestMust(t, m.BitVectorNumeralInvocationSourceReady(p.additionBits.frame))
 				astTestMust(t, p.Close())
 				got, e := m.RefGet(out)
 				astTestMust(t, e)

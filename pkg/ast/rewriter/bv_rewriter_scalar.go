@@ -6,7 +6,7 @@ package rewriter
 import "github.com/glycerine/g3/pkg/ast"
 
 func (p *BVRewriter) scalarBit(value uint32) (ast.ASTHandle, error) {
-	return p.manager.BitVectorNumeralUnsignedWithInvocation(value, 1, &p.scalarNumeral)
+	return p.manager.BitVectorNumeralUnsignedWithInvocation(value, 1, p.scalarNumeral.acquire())
 }
 func (p *BVRewriter) RewriteReductionOR(arg ast.ASTHandle, out ast.ASTRef) (st RewriteStatus, err error) {
 	if e := p.open(); e != nil {

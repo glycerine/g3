@@ -15,7 +15,7 @@ func (p *BVRewriter) RewriteZeroExtend(n uint32, arg ast.ASTHandle, out ast.ASTR
 	if n == 0 {
 		return RewriteDone, p.manager.SetRef(out, arg)
 	}
-	p.extensionPair[0], err = p.manager.BitVectorNumeralUnsignedWithInvocation(0, n, &p.scalarNumeral)
+	p.extensionPair[0], err = p.manager.BitVectorNumeralUnsignedWithInvocation(0, n, p.scalarNumeral.acquire())
 	if err != nil {
 		return
 	}

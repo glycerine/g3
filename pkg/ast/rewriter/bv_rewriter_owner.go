@@ -43,7 +43,7 @@ type BVRewriter struct {
 	signedModulo          *ast.BitVectorSignedModuloNumerals
 	unsignedRemainder     *ast.BitVectorUnsignedRemainderNumerals
 	uremArgs              [2]ast.ASTHandle
-	scalarNumeral         ast.ASTBitVectorNumeralInvocation
+	scalarNumeral         bvNumeralCall
 	repeatArgs            []ast.ASTHandle
 	bitwiseArgs           []ast.ASTHandle
 	bvor                  *bvOrInvocation
@@ -82,7 +82,7 @@ func NewBVRewriter(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.Globa
 			return nil, e
 		}
 	}
-	bytes := uint64(reflect.TypeOf(BVRewriter{}).Size())
+	bytes := uint64(reflect.TypeOf(BVRewriter{}).Size() + bvNumeralCallExtraBytes())
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return nil, e
 	}
@@ -222,7 +222,7 @@ func (p *BVRewriter) Close() error {
 			return e
 		}
 	}
-	if e := p.manager.CleanupBitVectorNumeralInvocation(&p.scalarNumeral); e != nil {
+	if e := p.scalarNumeral.cleanup(p.manager); e != nil {
 		return e
 	}
 	clear(p.repeatArgs)

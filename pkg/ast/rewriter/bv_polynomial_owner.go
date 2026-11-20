@@ -26,7 +26,7 @@ type BVPolynomialRewriter struct {
 	negation                 *ast.BitVectorPolynomialNegationNumerals
 	subtraction              *bvPolynomialSubtraction
 	cancellation             *bvPolynomialCancellation
-	additionBits             ast.ASTBitVectorNumeralInvocation
+	additionBits             bvNumeralCall
 	multiplicationNumerals   *ast.BitVectorMultiplicationNumerals
 	bitBool                  *bvBitBoolInvocation
 	blastEquality            *bvBlastEqInvocation
@@ -55,7 +55,7 @@ func NewBVPolynomialRewriter(m *ast.ASTManager, c *uparams.ParamsContext, g *upa
 			return nil, e
 		}
 	}
-	bytes := uint64(reflect.TypeOf(BVPolynomialRewriter{}).Size())
+	bytes := uint64(reflect.TypeOf(BVPolynomialRewriter{}).Size() + bvNumeralCallExtraBytes())
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return nil, e
 	}
@@ -320,7 +320,7 @@ func (p *BVPolynomialRewriter) closeInvocations() error {
 		}
 		p.multiplicationNumerals = nil
 	}
-	if e := p.manager.CleanupBitVectorNumeralInvocation(&p.additionBits); e != nil {
+	if e := p.additionBits.cleanup(p.manager); e != nil {
 		return e
 	}
 	return nil

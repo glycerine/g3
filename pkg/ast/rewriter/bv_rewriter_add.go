@@ -14,7 +14,7 @@ func RewriteBitVectorAdditionAfterCore(m *ast.ASTManager, incoming RewriteStatus
 	return rewriteBitVectorAdditionAfterCore(m, incoming, original, out, nil)
 }
 
-func rewriteBitVectorAdditionAfterCore(m *ast.ASTManager, incoming RewriteStatus, original ast.AppArguments, out ast.ASTRef, child *ast.ASTBitVectorNumeralInvocation) (RewriteStatus, error) {
+func rewriteBitVectorAdditionAfterCore(m *ast.ASTManager, incoming RewriteStatus, original ast.AppArguments, out ast.ASTRef, call *bvNumeralCall) (RewriteStatus, error) {
 	if incoming != RewriteFailed && incoming != RewriteDone {
 		return incoming, nil
 	}
@@ -49,6 +49,10 @@ func rewriteBitVectorAdditionAfterCore(m *ast.ASTManager, incoming RewriteStatus
 	width, e := m.BitVectorSize(first)
 	if e != nil {
 		return incoming, e
+	}
+	var child *ast.ASTBitVectorNumeralInvocation
+	if call != nil && width != 0 {
+		child = call.acquire()
 	}
 	for bit := uint32(0); bit < width; bit++ {
 		foundNonZero := false
@@ -105,5 +109,5 @@ func (p *BVPolynomialRewriter) RewriteBitVectorAddition(args ast.AppArguments, o
 	if e != nil {
 		return st, e
 	}
-	return st, p.manager.BitVectorNumeralInvocationSourceReady(&p.additionBits)
+	return st, p.additionBits.sourceReady(p.manager)
 }
