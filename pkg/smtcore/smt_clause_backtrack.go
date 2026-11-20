@@ -45,23 +45,16 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 				saved.bindHead++
 			}
 			literals := saved.clause.literals
-			first, err := s.selectWatchLiteral(literals, 0)
-			if err != nil {
+			if err := s.selectRestoredWatches(literals); err != nil {
 				return err
 			}
-			literals[0], literals[first] = literals[first], literals[0]
-			second, err := s.selectWatchLiteral(literals, 1)
-			if err != nil {
-				return err
-			}
-			literals[1], literals[second] = literals[second], literals[1]
 			record := &s.lemmas[saved.recordIndex]
 			if record.clause != saved.clause || record.closeWatches != 2 {
 				return ast.ErrASTDomain
 			}
 			record.Literals = saved.clause.literals
 			for _, literal := range saved.clause.literals[:2] {
-				if err = s.watches[literal.Negated().Index()].InsertClause(saved.clause); err != nil {
+				if err := s.watches[literal.Negated().Index()].InsertClause(saved.clause); err != nil {
 					return err
 				}
 			}
@@ -122,6 +115,40 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 		saved.clause.discardAtoms()
 		saved.clause.reinit, saved.clause.reinternalizeAtoms = false, false
 	}
+	return nil
+}
+
+// With three undefined literals, each native scan selects the last eligible
+// position. The first swap moves the old first literal there, so the second
+// swap makes it the second watch.
+func (s *SMTInternalizerState) selectRestoredWatches(literals []SMTLiteral) error {
+	if len(literals) == 3 {
+		undefined := true
+		for _, literal := range literals {
+			value, err := s.literalAssignment(literal)
+			if err != nil {
+				return err
+			}
+			if value != lbool.Undef {
+				undefined = false
+				break
+			}
+		}
+		if undefined {
+			literals[0], literals[1], literals[2] = literals[2], literals[0], literals[1]
+			return nil
+		}
+	}
+	first, err := s.selectWatchLiteral(literals, 0)
+	if err != nil {
+		return err
+	}
+	literals[0], literals[first] = literals[first], literals[0]
+	second, err := s.selectWatchLiteral(literals, 1)
+	if err != nil {
+		return err
+	}
+	literals[1], literals[second] = literals[second], literals[1]
 	return nil
 }
 

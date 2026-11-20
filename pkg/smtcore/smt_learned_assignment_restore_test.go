@@ -126,3 +126,32 @@ func TestSMTLearnedUnitRestorePublishesProofAssignmentOnce(t *testing.T) {
 		t.Fatal("restored unit did not constrain subsequent assignments")
 	}
 }
+
+func TestSMTRestoredTernaryWatchOrder(t *testing.T) {
+	var s SMTInternalizerState
+	s.assignment = make([]lbool.LBool, 6)
+	s.booleanData = make([]SMTBoolVarData, 3)
+	lits := [3]SMTLiteral{NewSMTLiteral(0, false), NewSMTLiteral(1, true), NewSMTLiteral(2, false)}
+	values := [...]lbool.LBool{lbool.Undef, lbool.True, lbool.False}
+	for _, a := range values {
+		for _, b := range values {
+			for _, c := range values {
+				for i, v := range [...]lbool.LBool{a, b, c} {
+					s.assignment[lits[i].Index()] = v
+					s.booleanData[i].SetScopeLevel(uint32(2 - i))
+				}
+				want, got := lits, lits
+				for i := 0; i < 2; i++ {
+					j, err := s.selectWatchLiteral(want[:], i)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want[i], want[j] = want[j], want[i]
+				}
+				if err := s.selectRestoredWatches(got[:]); err != nil || got != want {
+					t.Fatalf("assignments %v %v %v produced %v, want %v, error %v", a, b, c, got, want, err)
+				}
+			}
+		}
+	}
+}
