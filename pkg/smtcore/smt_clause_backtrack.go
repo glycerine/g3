@@ -119,7 +119,7 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 		if err := saved.clause.ReleaseAtoms(); err != nil {
 			return err
 		}
-		saved.clause.atoms = nil
+		saved.clause.discardAtoms()
 		saved.clause.reinit, saved.clause.reinternalizeAtoms = false, false
 	}
 	return nil

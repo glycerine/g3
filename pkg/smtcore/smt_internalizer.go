@@ -152,8 +152,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	if len(literals) > smtClauseSeenScanLimit {
 		seen = make(map[SMTLiteral]struct{}, len(literals))
 	}
-	// kept is collected in a scratch buffer and copied out at its final
-	// length once the loop has not found the clause satisfied.
+	// Collect the simplified literals in solver-local storage.
 	kept := s.clauseKeptScratch[:0]
 	removedFalse := s.clauseRemovedScratch[:0]
 	for _, literal := range literals {
@@ -213,11 +212,15 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		kept = append(kept, literal)
 	}
-	s.clauseKeptScratch = kept[:0]
-	// NewSMTUnitResolutionJustification copies removedFalse; nothing below
-	// adds a clause before that copy.
-	s.clauseRemovedScratch = removedFalse[:0]
-	kept = append([]SMTLiteral(nil), kept...)
+	// A proof or assignment callback can add another clause. Keep both
+	// scratch arrays private until this insertion has finished.
+	s.clauseKeptScratch = nil
+	s.clauseRemovedScratch = nil
+	defer func() {
+		s.clauseKeptScratch = kept[:0]
+		s.clauseRemovedScratch = removedFalse[:0]
+	}()
+
 	// mk_clause: j = unit_resolution_justification(j, simp_lits) whenever
 	// false literals were removed; the clause's proof is then built lazily
 	// from that justification (the proof wrapper of pr resolved with the
@@ -322,7 +325,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			_ = s.watches[first.Negated().Index()].RemoveLiteral(second)
 			return err
 		}
-		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
+		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: []SMTLiteral{first, second}, Root: root, Binary: true, Lemma: lemma, Proof: proof})
 		value, err := s.Assignment(second)
 		if err != nil {
 			return err
@@ -375,7 +378,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		s.ownedJustifications = append(s.ownedJustifications, owner)
 		owner = nil
 	}
-	record := SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner}
+	record := SMTInternalizedClause{Literals: clause.literals, Root: root, Proof: proof, clause: clause, owner: owner}
 	if lemma {
 		clause.lemmaIndex = len(s.lemmas)
 		s.lemmas = append(s.lemmas, record) // m_lemmas.push_back(cls)
@@ -1100,10 +1103,10 @@ func (s *SMTInternalizerState) addGateConstraints(expression ast.ASTHandle, oper
 	if err != nil {
 		return err
 	}
-	if operation == ast.ASTOpAnd || operation == ast.ASTOpOr {
+	if gate := s.booleanData[variable].gate; gate != nil {
 		// Children precede their gate in scope order, so these literal indices
 		// remain live for the owning Boolean variable's whole lifetime.
-		s.booleanData[variable].gateLiterals = arguments
+		gate.literals = arguments
 	}
 	add := func(values ...SMTLiteral) error { return s.addGateClause(values) }
 	switch operation {

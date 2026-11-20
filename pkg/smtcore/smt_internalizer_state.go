@@ -135,6 +135,8 @@ type smtPendingEquality struct {
 }
 
 type SMTInternalizerState struct {
+	savedAtoms smtClauseAtomPool
+
 	// clauseSortScratch and clauseKeptScratch are reused work buffers of
 	// addClauseKindWithJustificationAndDeleteHandler.
 	clauseSortScratch, clauseKeptScratch []SMTLiteral
@@ -684,9 +686,9 @@ func (s *SMTInternalizerState) mkBoolVar(expression ast.ASTHandle, header *ast.A
 				}
 			}
 			if data.basicOp == ast.ASTOpAnd || data.basicOp == ast.ASTOpOr {
-				data.gateArgs = make([]ast.ASTHandle, header.NumArgs)
-				for i := range data.gateArgs {
-					data.gateArgs[i], err = s.manager.GetArg(expression, uint32(i))
+				data.gate = newSMTBoolGate(header.NumArgs)
+				for i := range data.gate.args {
+					data.gate.args[i], err = s.manager.GetArg(expression, uint32(i))
 					if err != nil {
 						return SMTNullBoolVar, err
 					}
@@ -722,7 +724,9 @@ func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMT
 			initialActivity = cached
 		}
 	}
-	s.traceMkBoolVar(variable, expression)
+	if smtTraceEnabled("mk_bool_var") {
+		s.traceMkBoolVar(variable, expression)
+	}
 	s.activity = append(s.activity, initialActivity)
 	s.assignment = append(s.assignment, lbool.Undef, lbool.Undef)
 	if n := len(s.watches); cap(s.watches)-n >= 2 {
@@ -737,8 +741,10 @@ func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMT
 	if err := s.basicActivityCreated(variable); err != nil {
 		return SMTNullBoolVar, err
 	}
-	if err := s.relevanceActivityCreated(variable); err != nil {
-		return SMTNullBoolVar, err
+	if s.relevanceActivity.delayed != nil {
+		if err := s.relevanceActivityCreated(variable); err != nil {
+			return SMTNullBoolVar, err
+		}
 	}
 	if s.theoryAwareBranching != nil {
 		if err := s.theoryAwareBranching.created(variable); err != nil {
@@ -1357,8 +1363,10 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	}
 	for len(s.coreTrail) > scope.coreTrailLimit {
 		top := s.coreTrail[len(s.coreTrail)-1]
-		if err := s.undoTheoryAttachments(top.theoryLimit); err != nil {
-			return err
+		if top.theoryLimit != len(s.theoryTrail) {
+			if err := s.undoTheoryAttachments(top.theoryLimit); err != nil {
+				return err
+			}
 		}
 		switch top.kind {
 		case smtCoreTrailAddEq:
@@ -1393,8 +1401,10 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			if err := s.basicActivityDeleted(variable); err != nil {
 				return err
 			}
-			if err := s.relevanceActivityDeleted(variable); err != nil {
-				return err
+			if s.relevanceActivity.delayed != nil {
+				if err := s.relevanceActivityDeleted(variable); err != nil {
+					return err
+				}
 			}
 			if s.theoryAwareBranching != nil {
 				if err := s.theoryAwareBranching.deleted(variable); err != nil {
@@ -1416,10 +1426,15 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 					}
 				}
 			}
-			s.unindexEqualityAtom(variable, expression)
+			if int(variable) < s.equalityAtomCursor {
+				s.unindexEqualityAtom(variable, expression)
+			}
 			s.context.exprs.retireBoolean(expression, s.relevancy == nil)
 			s.boolExpr[variable] = ast.ASTHandle{}
 			s.boolExpr = s.boolExpr[:variable]
+			if s.booleanData[variable].gate != nil {
+				s.booleanData[variable].gate = nil
+			}
 			s.booleanData = s.booleanData[:variable]
 			s.booleanCreation = s.booleanCreation[:variable]
 			s.activity = s.activity[:variable]
@@ -1844,6 +1859,7 @@ func (s *SMTInternalizerState) Close() error {
 		s.relevancy.internalizer = nil
 	}
 	s.closed = true
+	s.savedAtoms = smtClauseAtomPool{}
 	s.theoryRewriter = nil
 	s.assertedPopFlush = nil
 	s.baseScopePop = nil

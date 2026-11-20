@@ -347,7 +347,7 @@ func (h *Int) Insert(v int32) error {
 	if e := h.sassertInsertValue(v); e != nil {
 		return e
 	}
-	if v < 0 || int64(v) >= int64(len(h.indices)) || h.Contains(v) {
+	if v < 0 || int64(v) >= int64(len(h.indices)) || h.indices[v] != 0 {
 		return ErrValue
 	}
 	if len(h.values) == 1<<31-1 {
@@ -417,7 +417,7 @@ func (h *Int) Erase(v int32) error {
 	if e := h.sassert(197, "contains(val)", func() bool { return h.Contains(v) }); e != nil {
 		return e
 	}
-	if !h.Contains(v) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
+	if v < 0 || int64(v) >= int64(len(h.indices)) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
 		// Guard an invalid inverse position before indexing the native slice.
 		return ErrValue
 	}
@@ -511,7 +511,7 @@ func (h *Int) Reserve(n int32) error {
 	if e := h.cassertInvariant(); e != nil {
 		return e
 	}
-	if n > h.Bounds() {
+	if int64(n) > int64(len(h.indices)) {
 		if e := h.SetBounds(n); e != nil {
 			return e
 		}

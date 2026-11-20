@@ -164,7 +164,7 @@ func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(liter
 	}
 	// Like clause::mk, acquire expression roots when the lemma is created,
 	// before any search pop can retire its Boolean bindings.
-	clause, err := NewSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr)
+	clause, err := newSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.savedAtoms)
 	if err != nil {
 		if owner != nil {
 			err = errors.Join(err, owner.Release(s.manager))

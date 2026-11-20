@@ -52,9 +52,6 @@ func (s *SMTInternalizerState) indexEqualityAtoms() error {
 // unindexEqualityAtom retires a variable before its expression is released.
 // Variables retire in reverse creation order, so its entries are last.
 func (s *SMTInternalizerState) unindexEqualityAtom(variable int32, expression ast.ASTHandle) {
-	if int(variable) >= s.equalityAtomCursor {
-		return
-	}
 	s.equalityAtomCursor = int(variable)
 	left, right, isEquality, err := s.equalityAtomTerms(expression)
 	if err != nil || !isEquality {

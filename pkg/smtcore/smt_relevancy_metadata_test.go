@@ -74,7 +74,7 @@ func TestSMTRelevancyCachedGateArgumentsPreserveNegationAndOrder(t *testing.T) {
 		astTestMust(t, s.SetAssignment(av, lbool.FromBool(conjunction)))
 		astTestMust(t, s.SetAssignment(bv, lbool.FromBool(!conjunction)))
 		astTestMust(t, s.SetAssignment(pv, lbool.FromBool(!conjunction)))
-		if len(s.booleanData[pv].gateLiterals) != 2 || s.booleanData[pv].gateLiterals[0] != NewSMTLiteral(av, true) {
+		if gate := s.booleanData[pv].gate; gate == nil || len(gate.literals) != 2 || gate.literals[0] != NewSMTLiteral(av, true) {
 			t.Fatal("cached gate did not normalize its NOT operand")
 		}
 		astTestMust(t, p.MarkRelevant(parent))

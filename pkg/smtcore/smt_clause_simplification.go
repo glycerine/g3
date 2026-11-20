@@ -112,7 +112,7 @@ func (s *SMTInternalizerState) simplifyClause(record *SMTInternalizedClause) (bo
 		if err := clause.SetNumLiterals(kept); err != nil {
 			return false, err
 		}
-		record.Literals = append(record.Literals[:0], clause.literals...)
+		record.Literals = clause.literals
 	}
 	if len(removed) != 0 {
 		proofs, err := s.manager.ProofsEnabled()

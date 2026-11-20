@@ -42,12 +42,16 @@ func (s *SMTInternalizerState) basicActivityCreated(v int32) error {
 	if s.basicActivity == nil {
 		return nil
 	}
-	if err := s.basicActivity.Reserve(v + 1); err != nil {
-		return err
+	if smtcoreSourceDebug || v >= s.basicActivity.Bounds() {
+		if err := s.basicActivity.Reserve(v + 1); err != nil {
+			return err
+		}
 	}
 	if s.delayedActivity != nil {
-		if err := s.delayedActivity.Reserve(v + 1); err != nil {
-			return err
+		if smtcoreSourceDebug || v >= s.delayedActivity.Bounds() {
+			if err := s.delayedActivity.Reserve(v + 1); err != nil {
+				return err
+			}
 		}
 
 		if err := smtCaseSplitAssert(173, "!m_delayed_queue.contains(v)", func() bool { return !s.delayedActivity.Contains(v) }); err != nil {

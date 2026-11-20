@@ -281,9 +281,6 @@ func (s *SMTInternalizerState) traceDecide(variable int32, positive bool) {
 }
 
 func (s *SMTInternalizerState) traceMkBoolVar(variable int32, expression ast.ASTHandle) {
-	if !smtTraceEnabled("mk_bool_var") {
-		return
-	}
 	emitSMTTrace("mk_bool_var", "mk_bool_var", "src/smt/smt_internalizer.cpp", 825,
 		"creating boolean variable: "+strconv.Itoa(int(variable))+" for:\n"+tracePP(s.manager, expression)+"\n")
 }

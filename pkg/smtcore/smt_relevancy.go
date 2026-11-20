@@ -511,8 +511,8 @@ func (p *SMTRelevancyPropagator) propagateAll(expression ast.ASTHandle) error {
 func (p *SMTRelevancyPropagator) gateArguments(expression ast.ASTHandle) (ast.AppArguments, []SMTLiteral, error) {
 	if s := p.internalizer; s != nil {
 		if variable, found := s.boolVar.lookup(expression); found {
-			if args := s.booleanData[variable].gateArgs; args != nil {
-				return ast.SliceArguments(args), s.booleanData[variable].gateLiterals, nil
+			if gate := s.booleanData[variable].gate; gate != nil {
+				return ast.SliceArguments(gate.args), gate.literals, nil
 			}
 		}
 	}

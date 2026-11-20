@@ -46,8 +46,8 @@ func (k SMTBooleanJustificationKind) String() string {
 // low-pointer-bit encoding.
 type SMTBooleanJustification struct {
 	kind          SMTBooleanJustificationKind
-	clause        *SMTClause
 	literal       SMTLiteral
+	clause        *SMTClause
 	justification SMTJustification
 }
 
@@ -140,10 +140,27 @@ type SMTBoolVarData struct {
 	notifyTheory   uint8
 	// Immutable expression metadata replaces repeated arena lookups at the
 	// source's direct expr::is_* access sites. Owned by the Boolean variable.
-	basicOp      int32
-	notChild     ast.ASTHandle
-	gateArgs     []ast.ASTHandle
-	gateLiterals []SMTLiteral
+	basicOp  int32
+	notChild ast.ASTHandle
+	gate     *smtBoolGate
+}
+
+// Only AND and OR variables cache gate arguments and their literal bindings.
+type smtBoolGate struct {
+	args     []ast.ASTHandle
+	literals []SMTLiteral
+}
+
+func newSMTBoolGate(n uint32) *smtBoolGate {
+	if n <= 4 {
+		block := new(struct {
+			gate     smtBoolGate
+			children [4]ast.ASTHandle
+		})
+		block.gate.args = block.children[:n:n]
+		return &block.gate
+	}
+	return &smtBoolGate{args: make([]ast.ASTHandle, n)}
 }
 
 func (d *SMTBoolVarData) updateAtom() {

@@ -5,6 +5,7 @@ package smtcore
 import (
 	"errors"
 	"io"
+	"math/bits"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -29,7 +30,8 @@ type smtClauseAtom struct {
 type SMTClause struct {
 	self               *SMTClause
 	manager            *ast.ASTManager
-	capacity           uint32
+	atomPage           *smtClauseAtomPage
+	atomSlot           uint8
 	kind               SMTClauseKind
 	reinit             bool
 	reinternalizeAtoms bool
@@ -108,6 +110,10 @@ func smtNewClauseStorage(literals []SMTLiteral) *SMTClause {
 }
 
 func NewSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle) (*SMTClause, error) {
+	return newSMTClause(manager, literals, kind, justification, deleteHandler, saveAtoms, expressions, nil)
+}
+
+func newSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle, pool *smtClauseAtomPool) (*SMTClause, error) {
 	if manager == nil || len(literals) < 2 || kind > SMTClauseAuxLemma {
 		return nil, ast.ErrASTDomain
 	}
@@ -125,7 +131,6 @@ func NewSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClause
 	*clause = SMTClause{
 		manager:            manager,
 		literals:           clause.literals,
-		capacity:           uint32(len(literals)),
 		kind:               kind,
 		reinit:             saveAtoms,
 		reinternalizeAtoms: saveAtoms,
@@ -139,7 +144,7 @@ func NewSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClause
 	if !saveAtoms {
 		return clause, nil
 	}
-	clause.atoms = make([]smtClauseAtom, len(literals))
+	pool.allocate(clause, len(literals))
 	for i, literal := range literals {
 		expression, e := smtLiteralExpression(literal, expressions)
 		if e != nil {
@@ -403,8 +408,49 @@ func (c *SMTClause) Close() error {
 		c.closePhase = 3
 	}
 	c.literals = nil
-	c.atoms = nil
+	c.discardAtoms()
 	c.manager = nil
 	c.closed = true
 	return nil
+}
+
+// Each occupied slot belongs to exactly one live clause. Each page contains
+// only scalar handles and sign bits. Long clauses and overflow get ordinary
+// heap storage; a clause of any lifetime can release its slot independently.
+const smtShortClauseAtoms = 4
+
+type smtClauseAtomPage struct {
+	free  uint16
+	slots [16][smtShortClauseAtoms]smtClauseAtom
+}
+
+type smtClauseAtomPool struct{ pages [4]*smtClauseAtomPage }
+
+func (p *smtClauseAtomPool) allocate(c *SMTClause, n int) {
+	if p != nil && n <= smtShortClauseAtoms {
+		for i, page := range p.pages {
+			if page == nil {
+				page = &smtClauseAtomPage{free: ^uint16(0)}
+				p.pages[i] = page
+			}
+			if page.free == 0 {
+				continue
+			}
+			slot := bits.TrailingZeros16(page.free)
+			page.free &^= 1 << slot
+			c.atomPage, c.atomSlot = page, uint8(slot)
+			c.atoms = page.slots[slot][:n:n]
+			return
+		}
+	}
+	c.atoms = make([]smtClauseAtom, n)
+}
+
+// All references in this span have been consumed by ReleaseAtoms.
+func (c *SMTClause) discardAtoms() {
+	c.atoms = nil
+	if c.atomPage != nil {
+		c.atomPage.free |= 1 << c.atomSlot
+		c.atomPage = nil
+	}
 }
