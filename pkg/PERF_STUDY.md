@@ -1000,3 +1000,17 @@ The direct directory also added **4,784 live bytes per idle solver** on the easy
 Holding the direct directory and its logical growth policy fixed, individual Go allocations per slot and pages of 4, 8, 16, 32 or 64 slots all retired 84.8–84.9 billion instructions on the earlier matched replay. Individual allocations and 64-slot pages both took 15.62 s median. Giving the first 64–4,096 slots a separate contiguous fast path added instructions on the same search. The results favor improving high-frequency accesses on the existing pages. [Physical placement and directory controls](perf/ivy_raft/ast_lookups/placement-kernel.csv.gz)
 
 The source-location counters identify which calls to combine. During checking, `GetArg` invoked each of `nodeAt` and `appAt` 28.33 million times. Declaration-identity reads and function-flag reads accounted for 14.20 and 11.48 million of the 36.43 million declaration-record lookups. Of the 66.93 million node validations, conversion from external handles accounted for 26.39 million and expression-substitution keys accounted for 7.11 million. The location totals agree exactly with the independent per-method counts in both phases. [All source locations for the four methods](perf/ivy_raft/ast_lookups/call-sites.csv)
+
+#### Running 2,048 resident solvers
+
+Each worker constructs its own context, loads its query, waits for all other workers to finish loading, proves the query and closes its solver on the same goroutine. A full GC at the barrier measures the live Go heap. The timer starts when the coordinator releases the barrier. The separate process wall time also includes loading the input, the barrier measurement and test setup.
+
+| Query | Resident workers | Live heap per worker | Time from release to last close | Whole process |
+|---|---:|---:|---:|---:|
+| Mixed 001 | 256 | 2.40 MiB | 54 ms | 1.05 s |
+| Mixed 001 | 1,024 | 2.40 MiB | 199 ms | 3.67 s |
+| Mixed 001 | 2,048 | 2.40 MiB | 409 ms | 6.83 s |
+| One-bit 274 | 128 | 2.56 MiB | 558 ms | 1.26 s |
+| Mixed 274 | 128 | 2.56 MiB | 8.90 s | 9.96 s |
+
+Medians of five runs on 12 Go CPUs, with the single-word free lists in production. All workers proved their obligation on both builds in all 60 groups. At 2,048 workers the free-list change reduced loaded heap by 33,537 bytes per worker, or 65.5 MiB for the group. Peak process RSS varied with GC and task scheduling. The workload holds 2,048 independent copies of an easy query. Obligation 274 illustrates how much the cost of proving depends on the input. Run `G3_RAFT_MEMORY_QUERY=mixed/001 G3_RAFT_MEMORY_OWNERS=2048 go test ./api -run '^$' -bench '^BenchmarkRaftResidentWorkerProofs$' -benchtime=1x -cpu=12`. [Benchmark and barrier](api/api_raft_worker_memory_benchmark_test.go) · [Group timings, loaded heap and RSS](perf/ivy_raft/allocator/resident-worker-proofs.csv)
