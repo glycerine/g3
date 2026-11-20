@@ -57,14 +57,12 @@ func (c *SMTCachedVarSubstitution) open() error {
 	return nil
 }
 
-// smtHandleMix folds one AST handle into a tuple hash.
+// smtHandleMix folds one AST handle into a tuple hash. Each table checks the
+// complete tuple for equality on a hash match.
 func smtHandleMix(h uint64, x ast.ASTHandle) uint64 {
-	for _, v := range [3]uint64{uint64(x.Slot()), uint64(x.Generation()), x.Origin()} {
-		h ^= v
-		h *= 0x100000001b3
-		h ^= h >> 29
-	}
-	return h
+	slotGeneration := uint64(x.Generation())<<32 | uint64(x.Slot())
+	h = (h ^ slotGeneration ^ x.Origin()) * 0x9e3779b185ebca87
+	return h ^ (h >> 32)
 }
 
 // smtSubstitutionKeyHash is key_hash_proc: the hash of the quantifier and

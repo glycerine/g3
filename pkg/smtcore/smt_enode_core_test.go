@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func smtEnodeConstant(t *testing.T, m *ast.ASTManager, name uint32, sort ast.ASTHandle, generation uint32) (ast.ASTHandle, *SMTEnode) {
+func smtEnodeConstant(t testing.TB, m *ast.ASTManager, name uint32, sort ast.ASTHandle, generation uint32) (ast.ASTHandle, *SMTEnode) {
 	t.Helper()
 	owner, err := m.MkConst(symbol.Numerical(name), sort)
 	astTestMust(t, err)
