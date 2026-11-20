@@ -665,9 +665,25 @@ These are decimal MB. The retained layout saves **193 MB allocated** over the co
 
 Reproduce the worker measurement with `go test ./api -run '^$' -bench '^BenchmarkRaftIdleSolverMemory$' -benchtime=1x -cpu=1`. It measures groups of 1, 8, 32 and 64 independent concrete solvers, and the corresponding groups using the auxiliary order proof. Heap readings follow full collections while all owners are still live. [Worker benchmark](api/api_raft_worker_memory_benchmark_test.go)
 
+#### Reusing a solver for one group of Ivy final conditions
+
+A clean build of GoIvy at `6dabf6e73`, pinned to g3 `df807d946`, verified the original Raft spec in **11.28 s** against **37.73 s** for the same GoIvy source built with native Z3. Each backend ran twelve times across two pinned CPUs. Every run matched all 419 named obligations and the final `OK`. Median peak RSS was 78,454 KiB for g3 and 322,210 KiB for Z3. The native build used the ordinary concrete solver. [Original-input runs](perf/ivy_raft/order-configuration-pinned.csv)
+
+The next experiment gave each incremental group of final conditions one private proof solver. For every eligible condition the verifier rebuilds the relaxation from the current concrete assertions, pushes a fresh solver frame and pops it after an UNSAT result. A successful proof can reuse kernel storage for the next condition. Any inconclusive check releases the private kernel before the concrete fallback. Leaving the group releases the kernel even when the concrete solver remains live.
+
+| Original Raft, twelve runs per lifetime | Fresh for each attempt | Scoped to a group |
+|---|---:|---:|
+| Median whole-spec time | 13.20 s | **12.06 s** |
+| User instructions | 89.91 billion | **82.80 billion** |
+| Peak RSS | 79,264 KiB | 92,734 KiB |
+
+The comparison alternated lifetime on two pinned CPUs. The machine also ran package tests during these measurements. A separate ten-run prototype crossover gave 11.46 s for a fresh solver, 10.72 s for popping the preceding frame on the next call and 10.47 s for popping on return. Immediate pop also gives the caller a simple lifetime guarantee. [Production crossover](perf/ivy_raft/order-batch-raft.csv) · [Prototype crossover](perf/ivy_raft/order-batch-lifetimes.csv)
+
+Across 64 independent concrete solvers, keeping all batches active after the first proof took **4.844 MB of live Go heap per solver**. Closing every batch while leaving every concrete solver live reduced this to **3.592 MB per solver**, the same as using one fresh proof solver per call. The concrete owners then had the same 2.869 MB of budget charges per solver. Five fresh-process observations per lifetime also cover groups of 1, 8 and 32. [Worker samples](perf/ivy_raft/order-batch-memory.csv) · [Benchmark](api/api_raft_worker_memory_benchmark_test.go)
+
 #### Alternatives tested on the original obligations
 
-* Holding the auxiliary solver until the next proof reduced whole-spec median time from **11.11 to 9.70 s** over eight runs per lifetime. Median peak RSS rose from 81,934 to 94,032 KiB. Across 64 idle owners, the retained auxiliary contexts added **108.8 MB live after GC**. Popping the last frame immediately still added 107.0 MB. All four lifetime variants returned near their initial live heap after closing every owner. The production verifier releases the disposable solver after each attempt. The faster lifetime would be attractive for a dedicated sequential verifier that bounds the number of retained contexts. [Whole-spec samples](perf/ivy_raft/order-reuse.csv) · [Independent owner groups](perf/ivy_raft/order-idle-owners.csv)
+* Holding the auxiliary solver until the next proof reduced whole-spec median time from **11.11 to 9.70 s** over eight runs per lifetime. Median peak RSS rose from 81,934 to 94,032 KiB. Across 64 idle owners, the retained auxiliary contexts added **108.8 MB live after GC**. Popping the last frame immediately still added 107.0 MB. All four lifetime variants returned near their initial live heap after closing every owner. This early experiment kept the auxiliary solver on the persistent concrete owner. The group-scoped measurement above bounds the lifetime to the caller’s sequence of final conditions. [Whole-spec samples](perf/ivy_raft/order-reuse.csv) · [Independent owner groups](perf/ivy_raft/order-idle-owners.csv)
 
 * A prototype constructed the translated terms directly with typed AST factories. It verified all 419 obligations in 18.53 s and retired 160.53 billion instructions. The integrated SMT-LIB path took 11.46 s and retired 94.25 billion. Direct construction changed the order of AST creation and solver setup. Eliminating parsing alone does not predict the cost of the resulting search.
 * Forcing the same simple kernel on the *original* bit-vector checks reached 250 passes in 270.08 s before the experiment's timeout. The ordinary concrete solver completed all 419 in 124.71 s. The kernel selection is specific to the independent order proof.

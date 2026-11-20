@@ -1,9 +1,11 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -144,5 +146,98 @@ func TestOrderAbstractionLimits(t *testing.T) {
 	astTestMust(t, s.SetParameters(p))
 	if yes, err := s.ProveUnsatByOrderAbstraction(); err != nil || yes {
 		t.Fatal("timeout", yes, err)
+	}
+}
+
+func TestOrderProofBatchSeparatesQueries(t *testing.T) {
+	c, s := orderSolver(t, orderPremises)
+	batch := s.BeginOrderProofBatch()
+	t.Cleanup(func() { astTestMust(t, batch.Close()) })
+	m, err := c.Manager()
+	astTestMust(t, err)
+	done := make(chan struct{})
+	m.ResourceLimit().RunSignals = &control.RunSignals{Done: done}
+	defer func() { m.ResourceLimit().RunSignals = nil }()
+
+	astTestMust(t, s.Push())
+	astTestMust(t, s.LoadSMT2String("(declare-const conflict Bool)(assert conflict)(assert (not conflict))"))
+	if yes, err := s.ProveUnsatByOrderAbstraction(); err != nil || !yes {
+		t.Fatal("single proof", yes, err)
+	}
+	var retained *APISimpleSolver
+	for i := 0; i < 2; i++ {
+		if yes, err := batch.Prove(); err != nil || !yes {
+			t.Fatal("batch proof", i, yes, err)
+		}
+		child := batch.state.child
+		if child == nil || i > 0 && child != retained {
+			t.Fatal("missing retained kernel")
+		}
+		retained = child
+		childManager, err := batch.state.ctx.Manager()
+		astTestMust(t, err)
+		level, err := child.ScopeLevel()
+		astTestMust(t, err)
+		assertions, err := child.Assertions()
+		astTestMust(t, err)
+		if level != 0 || len(assertions) != 0 || len(m.ResourceLimit().Children) != 0 || childManager.ResourceLimit().RunSignals != nil {
+			t.Fatal("completed query retained a scope, assertions or cancellation registration")
+		}
+	}
+	astTestMust(t, s.Pop(1))
+	if yes, err := batch.Prove(); err != nil || yes || batch.state.ctx != nil {
+		t.Fatal("satisfiable successor", yes, err)
+	}
+	if answer, err := s.Check(); err != nil || answer != lbool.True {
+		t.Fatal("concrete successor", answer, err)
+	}
+
+	astTestMust(t, s.Push())
+	astTestMust(t, s.LoadSMT2String("(declare-const second Bool)(assert second)(assert (not second))"))
+	if yes, err := batch.Prove(); err != nil || !yes {
+		t.Fatal("retry", yes, err)
+	}
+	if yes, err := batch.state.prove(1, true); err != nil || yes || batch.state.ctx != nil {
+		t.Fatal("exhausted proof", yes, err)
+	}
+	if yes, err := batch.Prove(); err != nil || !yes {
+		t.Fatal("retry after exhaustion", yes, err)
+	}
+	close(done)
+	if yes, err := batch.Prove(); err != nil || yes || batch.state.ctx != nil {
+		t.Fatal("cancelled proof", yes, err)
+	}
+}
+
+func TestOrderProofBatchClosesWithEitherOwnerFirst(t *testing.T) {
+	for _, closeSource := range []bool{false, true} {
+		t.Run(fmt.Sprintf("source_first_%t", closeSource), func(t *testing.T) {
+			c, s := orderSolver(t, orderPremises+"(assert (not (p a)))")
+			m, err := c.Manager()
+			astTestMust(t, err)
+			if yes, err := s.ProveUnsatByOrderAbstraction(); err != nil || !yes {
+				t.Fatal(yes, err)
+			}
+			base := m.Budget().Used()
+			b := s.BeginOrderProofBatch()
+			copyOfBatch := *b
+			if yes, err := b.Prove(); err != nil || !yes {
+				t.Fatal(yes, err)
+			}
+			if closeSource {
+				astTestMust(t, s.Close())
+				if yes, err := b.Prove(); yes || !errors.Is(err, ErrSMTContextOwner) {
+					t.Fatal("closed source", yes, err)
+				}
+			}
+			astTestMust(t, b.Close())
+			astTestMust(t, copyOfBatch.Close())
+			if yes, err := copyOfBatch.Prove(); yes || !errors.Is(err, ErrSMTContextOwner) {
+				t.Fatal("closed batch", yes, err)
+			}
+			if used := m.Budget().Used(); used > base {
+				t.Fatalf("private kernel retained %d excess budget bytes", used-base)
+			}
+		})
 	}
 }

@@ -17,19 +17,23 @@ func BenchmarkRaftIdleSolverMemory(b *testing.B) {
 		b.Fatal(err)
 	}
 	input := string(data)
-	for _, mode := range []string{"Concrete", "Order"} {
+	for _, mode := range []string{"Concrete", "Order", "OrderBatch"} {
 		for _, count := range []int{1, 8, 32, 64} {
 			b.Run(mode+"/"+strconv.Itoa(count), func(b *testing.B) {
 				b.StopTimer()
-				var loaded, idle, budget float64
+				var loaded, active, idle, budget float64
 				for i := 0; i < b.N; i++ {
-					l, h, a := benchRaftIdleGroup(b, input, count, mode == "Order")
+					l, working, h, a := benchRaftIdleGroup(b, input, count, mode)
 					loaded += l
+					active += working
 					idle += h
 					budget += a
 				}
 				n := float64(b.N) * float64(count)
 				b.ReportMetric(loaded/n, "loaded-heap-B/solver")
+				if mode == "OrderBatch" {
+					b.ReportMetric(active/n, "active-heap-B/solver")
+				}
 				b.ReportMetric(idle/n, "idle-heap-B/solver")
 				b.ReportMetric(budget/n, "idle-budget-B/solver")
 			})
@@ -37,7 +41,7 @@ func BenchmarkRaftIdleSolverMemory(b *testing.B) {
 	}
 }
 
-func benchRaftIdleGroup(b *testing.B, input string, count int, order bool) (loaded, idle, budget float64) {
+func benchRaftIdleGroup(b *testing.B, input string, count int, mode string) (loaded, active, idle, budget float64) {
 	heap := func() float64 {
 		runtime.GC()
 		var mem runtime.MemStats
@@ -47,7 +51,13 @@ func benchRaftIdleGroup(b *testing.B, input string, count int, order bool) (load
 	base := heap()
 	contexts := make([]*SMTContext, count)
 	solvers := make([]*APISimpleSolver, count)
+	var batches []*OrderProofBatch
 	defer func() {
+		for _, batch := range batches {
+			if err := batch.Close(); err != nil {
+				b.Error(err)
+			}
+		}
 		for i, c := range contexts {
 			if solvers[i] != nil {
 				if err := solvers[i].Close(); err != nil {
@@ -78,8 +88,14 @@ func benchRaftIdleGroup(b *testing.B, input string, count int, order bool) (load
 	loaded = heap() - base
 	b.StartTimer()
 	for _, s := range solvers {
-		if order {
-			if proved, err := s.ProveUnsatByOrderAbstraction(); err != nil || !proved {
+		if mode != "Concrete" {
+			prove := s.ProveUnsatByOrderAbstraction
+			if mode == "OrderBatch" {
+				batch := s.BeginOrderProofBatch()
+				batches = append(batches, batch)
+				prove = batch.Prove
+			}
+			if proved, err := prove(); err != nil || !proved {
 				b.Fatalf("order proof = %t, err %v", proved, err)
 			}
 			continue
@@ -95,6 +111,15 @@ func benchRaftIdleGroup(b *testing.B, input string, count int, order bool) (load
 		}
 	}
 	b.StopTimer()
+	if len(batches) > 0 {
+		active = heap() - base
+		for _, batch := range batches {
+			if err := batch.Close(); err != nil {
+				b.Fatal(err)
+			}
+		}
+		batches = nil
+	}
 	idle = heap() - base
 	for _, c := range contexts {
 		m, err := c.Manager()
@@ -103,5 +128,5 @@ func benchRaftIdleGroup(b *testing.B, input string, count int, order bool) (load
 		}
 		budget += float64(m.Budget().Used())
 	}
-	return loaded, idle, budget
+	return loaded, active, idle, budget
 }

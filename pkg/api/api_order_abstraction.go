@@ -11,17 +11,71 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+// The largest successful Raft obligation used 2.12 million resource steps.
+const orderProofSteps = 3_000_000
+
 // ProveUnsatByOrderAbstraction tries to refute the current assertions by
 // relaxing quantified bit-vector order constraints to uninterpreted sorts.
 // True establishes that the assertions are unsatisfiable. False is inconclusive:
 // callers needing a decision or a concrete model should call Check. The
 // independent proof attempt preserves this solver's last check, model and core.
 func (s *APISimpleSolver) ProveUnsatByOrderAbstraction() (bool, error) {
-	// Largest successful Raft obligation used 2.12 million resource steps.
-	return s.proveUnsatByOrderAbstraction(3_000_000)
+	return s.proveUnsatByOrderAbstraction(orderProofSteps)
 }
 
 func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, error) {
+	proof := orderProofState{source: s}
+	return proof.prove(maxSteps, false)
+}
+
+// OrderProofBatch reuses a private SMT kernel across successive refutations
+// on one source solver. Each attempt reads the source's current assertions.
+// Close the batch when the sequence of related checks finishes.
+type OrderProofBatch struct{ state *orderProofState }
+
+type orderProofState struct {
+	source *APISimpleSolver
+	ctx    *SMTContext
+	child  *APISimpleSolver
+}
+
+// BeginOrderProofBatch creates a batch confined to the source solver's owner.
+// Its first eligible proof allocates the auxiliary kernel.
+func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
+	return &OrderProofBatch{state: &orderProofState{source: s}}
+}
+
+// Prove has the same result contract as ProveUnsatByOrderAbstraction.
+// A successful attempt pops all its assertions before returning. An
+// inconclusive attempt releases its kernel before the caller's concrete check.
+func (b *OrderProofBatch) Prove() (bool, error) {
+	if b == nil || b.state == nil || b.state.source == nil {
+		return false, ErrSMTContextOwner
+	}
+	return b.state.prove(orderProofSteps, true)
+}
+
+// Close releases the batch's private kernel. The source remains usable.
+func (b *OrderProofBatch) Close() error {
+	if b == nil || b.state == nil {
+		return nil
+	}
+	b.state.source = nil
+	return b.state.release()
+}
+
+func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err error) {
+	defer func() {
+		if !reuse || !proved {
+			if closeErr := p.release(); closeErr != nil {
+				// A failed cleanup can leave assertions in the auxiliary solver.
+				// Only Close may retry cleanup after this point.
+				p.source = nil
+				proved, err = false, errors.Join(err, closeErr)
+			}
+		}
+	}()
+	s := p.source
 	if err := s.use(); err != nil {
 		return false, err
 	}
@@ -63,44 +117,62 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 	if err != nil || !applicable || limit.CancelFlag() {
 		return false, err
 	}
-	return checkOrderAbstraction(parent, script, maxSteps)
+	if p.ctx == nil {
+		if err := p.start(parent); err != nil {
+			return false, err
+		}
+	}
+	return p.check(parent, script, maxSteps, reuse)
 }
 
-func checkOrderAbstraction(parent *ast.ASTManager, script string, maxSteps uint32) (proved bool, err error) {
+func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
 	command, err := cmd_context.NewAuxiliaryContextWithBudget(parent.Budget())
 	if err != nil {
-		return false, err
+		return err
 	}
 	command.UseAPISolverInitialization()
-	ctx := &SMTContext{smtContextState: &smtContextState{command: command}}
-	defer func() {
-		err = errors.Join(err, ctx.Close())
-		if err != nil {
-			proved = false
-		}
-	}()
-	m, err := ctx.Manager()
-	if err != nil {
-		return false, err
+	p.ctx = &SMTContext{smtContextState: &smtContextState{command: command}}
+	if _, err = p.ctx.Manager(); err != nil {
+		return err
 	}
-	child, err := ctx.NewSimpleSolver()
-	if err != nil {
-		return false, err
+	if p.child, err = p.ctx.NewSimpleSolver(); err != nil {
+		return err
 	}
-	defer func() { err = errors.Join(err, child.Close()) }()
-	params, err := ctx.NewParameterSet()
+	params, err := p.ctx.NewParameterSet()
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer func() { err = errors.Join(err, params.Close()) }()
-	if err = params.SetBool("smt.macro_finder", true); err != nil {
-		return false, err
+	if err := params.SetBool("smt.macro_finder", true); err != nil {
+		return err
 	}
-	if err = child.SetParameters(params); err != nil {
+	return p.child.SetParameters(params)
+}
+
+func (p *orderProofState) release() error {
+	if p.child != nil {
+		if err := p.child.Close(); err != nil {
+			return err
+		}
+		p.child = nil
+	}
+	if p.ctx != nil {
+		if err := p.ctx.Close(); err != nil {
+			return err
+		}
+		p.ctx = nil
+	}
+	return nil
+}
+
+func (p *orderProofState) check(parent *ast.ASTManager, script string, maxSteps uint32, reuse bool) (bool, error) {
+	m, err := p.ctx.Manager()
+	if err != nil {
 		return false, err
 	}
 	limit, parentLimit := m.ResourceLimit(), parent.ResourceLimit()
 	limit.RunSignals = parentLimit.RunSignals
+	defer func() { limit.RunSignals = nil }()
 	if err = limit.Push(maxSteps); err != nil {
 		return false, err
 	}
@@ -112,13 +184,26 @@ func checkOrderAbstraction(parent *ast.ASTManager, script string, maxSteps uint3
 	if parentLimit.CancelFlag() {
 		return false, nil
 	}
+	if reuse {
+		if err := p.child.Push(); err != nil {
+			return false, err
+		}
+	}
 	// Assertion preprocessing in the simple solver also polls the limit.
 	var answer lbool.LBool
-	if err = child.LoadSMT2String(script); err == nil {
-		answer, err = child.Check()
+	if err = p.child.LoadSMT2String(script); err == nil {
+		answer, err = p.child.Check()
 	}
 	if !limit.IncOffset(0) || parentLimit.CancelFlag() {
 		return false, nil
 	}
-	return answer == lbool.False && err == nil, err
+	if err != nil || answer != lbool.False {
+		return false, err
+	}
+	if reuse {
+		if err := p.child.Pop(1); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
