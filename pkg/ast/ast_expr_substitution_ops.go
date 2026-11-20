@@ -195,24 +195,25 @@ func (m *ASTManager) substFindOutputs(s ASTExprSubstitution, key astNodeRef, def
 	if def == nil || proof == nil {
 		return false, ErrASTDomain
 	}
-	flags, state, e := m.substStateRecord(s)
+	state, e := m.substStateRecord(s)
 	if e != nil {
 		return false, e
 	}
-	// s is validated; its tables are read without revalidating.
-	t := &state.base
-	token, found, e := m.substFind(t, key)
-	if e != nil || !found {
-		return found, e
+	token, e := m.substKey(key)
+	if e != nil {
+		return false, e
 	}
-	a, _ := t.entries.Get2(token)
+	a, found := state.base.entries.Get2(token)
+	if !found {
+		return false, nil
+	}
 	*def = m.external(a.value)
-	if flags&1 != 0 && state.proof != nil {
+	if state.proof != nil {
 		if a, found := state.proof.entries.Get2(token); found {
 			*proof = m.external(a.value)
 		}
 	}
-	if dep != nil && flags&2 != 0 && state.dep != nil {
+	if dep != nil && state.dep != nil {
 		if a, found := state.dep.entries.Get2(token); found {
 			*dep = m.substDependency(a.value)
 		}
@@ -453,6 +454,9 @@ func (m *ASTManager) DelExprSubstitution(s *ASTExprSubstitution) error {
 	m.releaseExprSubstOptionalTables(state)
 	m.BudgetField.Release(state.header)
 	delete(m.exprSubstitutions, s.record)
+	if m.lastExprSubstitution == state {
+		m.lastExprSubstitution = nil
+	}
 	*s = ASTExprSubstitution{}
 	return failure
 }

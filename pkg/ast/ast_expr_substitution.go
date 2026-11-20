@@ -34,6 +34,7 @@ type astExprSubstPending struct {
 	which uint32
 }
 type astExprSubstState struct {
+	record  arena.SmallBytesRef
 	base    astExprSubstTable
 	proof   *astExprSubstTable
 	dep     *astExprSubstTable
@@ -45,38 +46,59 @@ const astExprSubstBytes uint32 = 16
 const astExprSubstMagic uint32 = 0x45535542
 
 func (m *ASTManager) substState(s ASTExprSubstitution) (uint32, error) {
-	flags, _, e := m.substStateRecord(s)
-	return flags, e
+	state, err := m.substStateRecord(s)
+	if err != nil {
+		return 0, err
+	}
+	return state.flags(), nil
 }
 
-// substStateRecord is substState that also returns s's state, validating
-// the record with one map lookup and one payload view: a live 16-byte
-// record carrying the magic tag.
-func (m *ASTManager) substStateRecord(s ASTExprSubstitution) (uint32, *astExprSubstState, error) {
+func (s *astExprSubstState) flags() uint32 {
+	var flags uint32
+	if s.proof != nil {
+		flags |= 1
+	}
+	if s.dep != nil {
+		flags |= 2
+	}
+	return flags
+}
+
+// The manager owns the registry and its one-entry cache. Both use the
+// generation as part of the key so a recycled slot cannot alias a live owner.
+func (m *ASTManager) substStateRecord(s ASTExprSubstitution) (*astExprSubstState, error) {
 	if s.origin != m.origin {
-		return 0, nil, ErrASTHandle
+		return nil, ErrASTHandle
+	}
+	if !astValidateHandles {
+		if state := m.lastExprSubstitution; state != nil && state.record == s.record {
+			return state, nil
+		}
 	}
 	state := m.exprSubstitutions[s.record]
 	if state == nil {
-		return 0, nil, ErrASTHandle
+		return nil, ErrASTHandle
 	}
-	data, e := m.allocator.View(s.record)
-	if e != nil || uint32(len(data)) != astExprSubstBytes {
-		return 0, nil, ErrASTHandle
+	if astValidateHandles {
+		data, err := m.allocator.View(s.record)
+		if err != nil || len(data) != int(astExprSubstBytes) ||
+			binary.LittleEndian.Uint32(data[4:]) != astExprSubstMagic ||
+			binary.LittleEndian.Uint32(data) != state.flags() {
+			return nil, ErrASTHandle
+		}
+	} else {
+		m.lastExprSubstitution = state
 	}
-	if binary.LittleEndian.Uint32(data[4:]) != astExprSubstMagic {
-		return 0, nil, ErrASTHandle
-	}
-	return binary.LittleEndian.Uint32(data), state, nil
+	return state, nil
 }
 func (m *ASTManager) substTable(s ASTExprSubstitution, which uint32) (*astExprSubstTable, error) {
-	if _, e := m.substState(s); e != nil {
+	state, e := m.substStateRecord(s)
+	if e != nil {
 		return nil, e
 	}
 	if which >= 3 {
 		return nil, ErrASTDomain
 	}
-	state := m.exprSubstitutions[s.record]
 	switch which {
 	case 0:
 		return &state.base, nil
@@ -101,7 +123,7 @@ func (m *ASTManager) newExprSubstitution(cores, proofs, explicit bool) (ASTExprS
 		m.BudgetField.Release(header)
 		return ASTExprSubstitution{}, e
 	}
-	state := &astExprSubstState{header: header}
+	state := &astExprSubstState{record: r, header: header}
 	fail := func(e error) (ASTExprSubstitution, error) {
 		m.releaseExprSubstOptionalTables(state)
 		m.allocator.Deallocate(astExprSubstBytes, r)
@@ -147,6 +169,7 @@ func (m *ASTManager) releaseExprSubstitutionsAfterNodeTeardown() {
 		m.BudgetField.Release(s.header)
 	}
 	m.exprSubstitutions = nil
+	m.lastExprSubstitution = nil
 	for _, s := range m.scopedExprSubstitutions {
 		m.BudgetField.Release(s.header)
 	}

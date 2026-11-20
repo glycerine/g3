@@ -316,6 +316,7 @@ type ASTManager struct {
 	Closed, sourceDTStarted, constructorComplete bool
 
 	exprSubstitutions          map[arena.SmallBytesRef]*astExprSubstState
+	lastExprSubstitution       *astExprSubstState
 	scopedExprSubstitutions    map[arena.SmallBytesRef]*astScopedExprSubstState
 	someValueProc              SomeValueProc
 	ArrayCardinality           *astArrayCardinalityFrame

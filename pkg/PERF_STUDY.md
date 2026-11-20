@@ -522,6 +522,14 @@ The proof-free beta reducer now obtains the expression kind, reference count, gr
 
 In nine alternating runs of 220,000 substitutions on one core, the median fell from **1,938 to 1,768 ns** when instances survived and from **2,597 to 2,433 ns** when each instance retired. Both workloads used zero allocations per operation. The corresponding full Raft experiment retired 933.7 billion user instructions before and 925.1 billion after. Single wall-time observations were 122.58 and 121.21 seconds. The final traversal matched the original 24 search counters on every one of the 419 verification conditions. Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTQuantifierBodySubstitution$' -benchtime=220000x`. [Individual substitution timings](perf/ivy_raft/substitution-shape.csv)
 
+### Expression substitution during theory rewriting
+
+Z3's theory rewriter asks its current substitution table for each term it visits. On g3 this lookup took 3.2% of the matched Raft kernel CPU profile. A hit probed the same dictionary twice. A miss still located the table by looking up its owner and reading a 16-byte arena payload. The AST manager now remembers its most recently used substitution, keyed by the full slot and generation, and clears that reference on destruction. The optional proof and dependency tables already encode the policy for this live owner. Checked and debug builds also validate the arena payload.
+
+In eleven alternating samples on CPU 18, cycling over 512 present and 512 absent keys, median hits went from **48.20 to 24.02 ns** and misses from **43.75 to 25.33 ns**, with zero allocations in either build. Run `go test ./ast -run '^$' -bench '^BenchmarkExprSubstitutionFind$' -benchtime=2000000x -cpu=1`. [Benchmark](ast/ast_expr_substitution_benchmark_test.go) · [Raw lookup timings](perf/ivy_raft/expr-substitution-lookup.csv)
+
+The 419-obligation matched kernel went from **11.75 to 11.53 s** and **94.57 to 92.83 billion** median user instructions over nine alternating pairs on CPU 6. All 18 search counters matched on every obligation. On the original bit-vector solver, a separate pair retired **925.93 and 916.54 billion** user instructions with all 24 search counters matching on every obligation. These runs took 135.34 and 131.64 s on different cores. [Whole-corpus timings and counters](perf/ivy_raft/expr-substitution-raft.csv)
+
 ### Order abstraction for the concrete Raft verifier
 
 The timed input was the original `examples/raft/raft_no_assume_test.ivy`. Its eight abstract types have concrete bit-vector interpretations of widths two, three and four. The GoIvy frontend generated the original assertions for both backends. The proof strategy receives those SMT assertions, with no file names, conjecture names, expected answers or Ivy type metadata. In an earlier diagnostic, checking the separate verification-oriented source without the finite interpretations took 11.96 s on g3. That timing is for a different input.
