@@ -1,6 +1,7 @@
 """Count AST manager accesses on the matched Raft kernel using a Go test overlay."""
 
 import argparse
+from collections import Counter
 import csv
 import json
 import os
@@ -100,13 +101,73 @@ def site_sources(work, method):
     return overlay, sites
 
 
+# These calls originate in several packages. Stack PCs identify the caller
+# even when it was inlined. Each counter belongs to one AST manager.
+CALLERS = {
+    "ast_core_accessors.go": ["GetArg", "NodeShape", "NodeHeader"],
+    "ast_core_query.go": ["GetDecl"],
+    "ast_rewriter_access.go": ["SubstitutionShape"],
+    "ast_expr_substitution_ops.go": ["ExprSubstitutionFindDependency"],
+    "ast_ref.go": ["RefGetHeld"],
+    "ast_core_payload.go": ["appArg"],
+}
+
+
+def caller_sources(work):
+    replacements = {}
+    names = []
+    for filename, methods in CALLERS.items():
+        source = ROOT / "ast" / filename
+        code = source.read_text()
+        for method in methods:
+            start = code.index("func (m *ASTManager) " + method + "(")
+            body = code.index("{", start) + 1
+            code = code[:body] + f" m.studyASTCaller({len(names)});" + code[body:]
+            names.append(method)
+        target = work / filename
+        target.write_text(code)
+        replacements[str(source)] = str(target)
+    storage = ROOT / "ast/ast_core_storage.go"
+    marker = "type ASTManager struct {"
+    target = work / storage.name
+    target.write_text(storage.read_text().replace(marker, marker + f" studySites [{len(names)}]map[uintptr]uint64;", 1))
+    replacements[str(storage)] = str(target)
+    probe = work / "study_ast_caller.go"
+    probe.write_text((HERE / "ast_callers.go.txt").read_text() + "\nvar studyMethodNames = [...]string{" +
+                     ", ".join(json.dumps(name) for name in names) + "}\n")
+    replacements[str(ROOT / "ast" / probe.name)] = str(probe)
+    replacements[str(ROOT / "api/raft_study_calls_test.go")] = str(HERE / "ast_calls_test.go.txt")
+    overlay = work / "callers.json"
+    overlay.write_text(json.dumps({"Replace": replacements}))
+    return overlay, names
+
+
+def write_callers(writer, rows):
+    totals = {"Load": Counter(), "Check": Counter()}
+    for row in rows:
+        for phase, counter in totals.items():
+            counter.update(row[phase])
+    writer.writerow(["method", "caller", "file", "line", "loading_calls", "checking_calls"])
+    for site in sorted(totals["Load"].keys() | totals["Check"].keys()):
+        method, caller, path, line = site.split("|")
+        writer.writerow([method, caller.removeprefix("github.com/glycerine/g3/pkg/"),
+                         os.path.relpath(path, ROOT), line, totals["Load"][site], totals["Check"][site]])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sites", choices=SITE_METHODS, help="sum calls to this method by source location")
+    options = parser.add_mutually_exclusive_group()
+    options.add_argument("--callers", action="store_true", help="count AST method callers across all packages")
+    options.add_argument("--sites", choices=SITE_METHODS, help="sum calls to this method by source location")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        overlay, names = site_sources(work, args.sites) if args.sites else sources(work)
+        if args.callers:
+            overlay, names = caller_sources(work)
+        elif args.sites:
+            overlay, names = site_sources(work, args.sites)
+        else:
+            overlay, names = sources(work)
         output = work / "calls.jsonl"
         subprocess.run(["go", "test", f"-overlay={overlay}", "./api", "-count=1",
                         "-run", "^TestStudyRaftASTCalls$"], cwd=ROOT,
@@ -117,16 +178,18 @@ def main():
     if len(rows) != 419 or len(expected) != len(rows):
         raise ValueError("incomplete Raft replay")
     writer = csv.writer(sys.stdout, lineterminator="\n")
-    if not args.sites:
+    if not args.sites and not args.callers:
         writer.writerow(["obligation", "phase", *names])
     for row, want in zip(rows, expected):
         if row["Obligation"] != int(want["obligation"]):
             raise ValueError("obligations out of order")
         verify("instrumented g3", want, row["Statistics"])
-        if not args.sites:
+        if not args.sites and not args.callers:
             for phase in ["Load", "Check"]:
                 writer.writerow([row["Obligation"], phase.lower(), *row[phase]])
-    if args.sites:
+    if args.callers:
+        write_callers(writer, rows)
+    elif args.sites:
         writer.writerow(["file", "line", "caller", "loading_calls", "checking_calls"])
         for i, name in enumerate(names):
             writer.writerow([name["File"], name["Line"], name["Caller"],

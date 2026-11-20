@@ -1,0 +1,34 @@
+package ast
+
+import (
+	"fmt"
+	"runtime"
+)
+
+// Record the caller of the instrumented AST method. Resolve source locations
+// after each phase so the hot probe only walks the stack and updates a counter.
+//
+//go:noinline
+func (m *ASTManager) studyASTCaller(method int) {
+	var pcs [1]uintptr
+	if runtime.Callers(3, pcs[:]) == 0 {
+		return
+	}
+	if m.studySites[method] == nil {
+		m.studySites[method] = make(map[uintptr]uint64)
+	}
+	m.studySites[method][pcs[0]]++
+}
+
+func (m *ASTManager) StudyCalls() map[string]uint64 {
+	result := make(map[string]uint64)
+	for method, sites := range m.studySites {
+		for pc, count := range sites {
+			frames := runtime.CallersFrames([]uintptr{pc})
+			frame, _ := frames.Next()
+			key := fmt.Sprintf("%s|%s|%s|%d", studyMethodNames[method], frame.Function, frame.File, frame.Line)
+			result[key] += count
+		}
+	}
+	return result
+}

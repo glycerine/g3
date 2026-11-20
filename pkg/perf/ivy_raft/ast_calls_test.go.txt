@@ -46,13 +46,15 @@ func TestStudyRaftASTCalls(t *testing.T) {
 			astTestMust(t, err)
 			for j := range checked {
 				checked[j] -= loaded[j]
+			}
+			for j := range loaded {
 				loaded[j] -= start[j]
 			}
 			astTestMust(t, enc.Encode(struct {
 				Obligation  int
-				Load, Check []uint64
+				Load, Check any // method counters are arrays, cross-package callers are maps
 				Statistics  string
-			}{i + 1, loaded[:], checked[:], values}))
+			}{i + 1, loaded, checked, values}))
 		}()
 	}
 }
