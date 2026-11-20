@@ -2,8 +2,7 @@ package order
 
 // Experimental bounded CDCL on the propositional part of exact one-bit queries.
 type shortWatch struct {
-	id      int
-	blocker int32
+	id, blocker int32
 }
 type shortSolver struct {
 	ledger                      *rupLedger
@@ -66,8 +65,8 @@ func (s *shortSolver) add(lits []int32) int {
 	s.clauses = append(s.clauses, lits)
 	if len(lits) >= 2 {
 		a, b := lits[0], lits[1]
-		s.watches[shortIndex(a)] = append(s.watches[shortIndex(a)], shortWatch{id, b})
-		s.watches[shortIndex(b)] = append(s.watches[shortIndex(b)], shortWatch{id, a})
+		s.watches[shortIndex(a)] = append(s.watches[shortIndex(a)], shortWatch{int32(id), b})
+		s.watches[shortIndex(b)] = append(s.watches[shortIndex(b)], shortWatch{int32(id), a})
 	}
 	return id
 }
@@ -116,10 +115,10 @@ func (s *shortSolver) propagate() int {
 			}
 			watches[out] = w
 			out++
-			if !s.put(other, w.id) {
+			if !s.put(other, int(w.id)) {
 				out += copy(watches[out:], watches[pos+1:])
 				s.watches[index] = watches[:out]
-				return w.id
+				return int(w.id)
 			}
 		}
 		s.watches[index] = watches[:out]
@@ -220,22 +219,51 @@ func (s *shortSolver) choose() int32 {
 
 // CompactSolve returns -1 for UNSAT, +1 for SAT, and 0 when a limit was reached.
 func (k *StudyCNF) CompactSolve(limit int, mode string) (int, int, int, int) {
+	// Expansion caps the number of truth-table and gate variables separately.
+	// Clause IDs and signed literal indices fit in the compact watch record.
+	if k.Vars < 0 || k.Vars > 200001 || len(k.Clauses) > 1000000 || limit < 1 || int64(limit) > 1<<30 {
+		return 0, 0, 0, 0
+	}
 	n := k.Vars + 1
 	s := shortSolver{
 		values: make([]int8, n), saved: make([]int8, n), score: make([]float64, n),
 		level: make([]int, n), reason: make([]int, n), seen: make([]int, n),
-		watches: make([][]shortWatch, 2*n), clauses: [][]int32{nil},
-		limit: limit, mode: mode, increment: 1, valid: true, ledger: newRUPLedger(n),
+		watches: make([][]shortWatch, 2*n), clauses: make([][]int32, 1, len(k.Clauses)+1),
+		limit: limit, mode: mode, increment: 1, valid: true, ledger: newRUPLedger(n, k.Clauses),
 	}
+	// Reserve the initial two-watch lists together. Each full slice has
+	// capacity equal to its own count, so a moved watch cannot overwrite
+	// another literal's list when append grows it.
+	counts := make([]int, 2*n)
+	total := 0
 	for ci := range k.Clauses {
 		row := k.Clauses[ci].literals()
-		// Check duplicates and tautologies before choosing the first two watches.
-		cl := make([]int32, 0, len(row))
-		taut := false
-		for _, lit := range row {
+		for i, lit := range row {
 			if lit == 0 || int64(lit) <= -int64(n) || int64(lit) >= int64(n) {
 				return 0, 0, 0, 0
 			}
+			if len(row) >= 2 && i < 2 {
+				counts[shortIndex(lit)]++
+				total++
+			}
+		}
+	}
+	backing := make([]shortWatch, total)
+	start := 0
+	for i, count := range counts {
+		end := start + count
+		s.watches[i] = backing[start:start:end]
+		start = end
+	}
+	// The search reorders watches in its own fixed-size copy of each input.
+	// Learned clauses can have arbitrary length.
+	mutable := make([]shortInputClause, len(k.Clauses))
+	for ci := range k.Clauses {
+		row := k.Clauses[ci].literals()
+		// Check duplicates and tautologies before choosing the first two watches.
+		cl := mutable[ci][:0]
+		taut := false
+		for _, lit := range row {
 			repeated := false
 			for _, old := range cl {
 				if old == lit {
@@ -255,6 +283,8 @@ func (k *StudyCNF) CompactSolve(limit int, mode string) (int, int, int, int) {
 			}
 		}
 		if taut {
+			// Keep input clause IDs identical in the search and the proof ledger.
+			s.add(nil)
 			continue
 		}
 		if len(cl) == 0 {
@@ -267,7 +297,6 @@ func (k *StudyCNF) CompactSolve(limit int, mode string) (int, int, int, int) {
 			s.score[shortVar(lit)] += 1 / float64(len(cl))
 		}
 		id := s.add(cl)
-		s.ledger.addOriginal(row)
 		if len(cl) == 1 && !s.put(cl[0], id) {
 			if !s.valid || !s.ledger.rootConflict(id) {
 				return 0, 0, 0, 0
@@ -295,7 +324,7 @@ func (k *StudyCNF) CompactSolve(limit int, mode string) (int, int, int, int) {
 			if !s.valid || !s.ledger.prove(learned, s.antecedents) {
 				return 0, s.steps, s.conflicts, s.decisions
 			}
-			s.ledger.rows = append(s.ledger.rows, append([]int32(nil), learned...))
+			s.ledger.learned = append(s.ledger.learned, append([]int32(nil), learned...))
 			s.backtrack(back)
 			id := s.add(learned)
 			if !s.put(learned[0], id) {

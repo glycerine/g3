@@ -82,14 +82,33 @@ func TestStudyCompactDeclinesInvalidLiteral(t *testing.T) {
 }
 
 func TestStudyRefutationRejectsUnprovedClauses(t *testing.T) {
-	l := newRUPLedger(5)
-	l.addOriginal([]int32{1, 2})
-	l.addOriginal([]int32{-1, 3})
-	l.addOriginal([]int32{-2, 3})
+	l := newRUPLedger(5, []shortInputClause{{1, 2}, {-1, 3}, {-2, 3}})
 	if !l.prove([]int32{3}, []int{3, 2, 1}) && !l.prove([]int32{3}, []int{1, 2, 3}) {
 		t.Fatal("valid resolution missing")
 	}
 	if l.prove([]int32{-3}, []int{3, 2, 1}) || l.prove([]int32{3}, []int{2, 1}) || l.rootUnit(2, 3) || l.rootConflict(1) {
 		t.Fatal("invalid reason accepted")
+	}
+}
+
+func TestStudyCompactValidatesTautologyAndLedgerBoundaries(t *testing.T) {
+	for _, row := range []shortInputClause{{1, -1, -1 << 31}, {1, 0, 2}} {
+		k := StudyCNF{Vars: 2, Clauses: []shortInputClause{row}}
+		if ans, _, _, _ := k.CompactSolve(100, "positive"); ans != 0 {
+			t.Fatal(row, ans)
+		}
+	}
+	ledger := newRUPLedger(3, []shortInputClause{{1}, {-1, 2}})
+	if !ledger.rootUnit(1, 1) || ledger.rootUnit(0, 0) || ledger.rootUnit(3, 0) || ledger.rootConflict(3) {
+		t.Fatal("invalid or missing input row ID")
+	}
+	ledger.learned = append(ledger.learned, []int32{-2})
+	if !ledger.rootUnit(2, 2) || !ledger.rootConflict(3) {
+		t.Fatal("learned clause ID after original inputs")
+	}
+	for _, lit := range []int32{0, -1 << 31, 3, -3} {
+		if ledger.prove([]int32{lit}, []int{3}) {
+			t.Fatal("invalid learned literal", lit)
+		}
 	}
 }

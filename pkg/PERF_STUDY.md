@@ -839,3 +839,9 @@ On the original Raft workload the blended profile removed **7.6% of instructions
 go build -mod=readonly -tags=xtrace_off -pgo="$g3pkg/perf/ivy_raft/raft-blended.pprof" -o /tmp/goivy-pgo ./cmd/goivy_check
 go build -mod=readonly -tags=xtrace_off -pgo=off -o /tmp/goivy-no-pgo ./cmd/goivy_check
 ```
+
+#### Watch and proof storage in the one-bit experiment
+
+The checked one-bit prototype now stores original three-literal clauses inline. A watch holds a 32-bit clause index and a 32-bit blocking literal. The first watch lists use adjacent, capacity-limited spans, so a later append to a full list gets its own storage. The proof checker indexes immutable input clauses directly and keeps learned clauses separately. This preserves input clause numbers through tautologies and gives the proof checker an independent view of the formula.
+
+Across 20 rotated runs per layout, the combined changes reduced the complete one-bit check from **15.44 to 14.40 billion instructions** and median user CPU from 1.98 to 1.95 s. In the standalone replay, instructions fell from 22.92 to 21.90 billion and median user CPU moved from 3.11 to 3.13 s. The existing general SAT solver control stayed at 24.51 billion instructions on the generated satisfiable problems. The three-round release replay reproduced all 419 original decision, conflict and step counts and returned the expected answers for each of 2,500 finite models and their contradictory companions. The command was `python3 perf/ivy_raft/onebit/run.py --truth-tables --models 2500 --start 2850000 --rounds 3`. [Eight storage layouts](perf/ivy_raft/onebit-watch-storage.csv) · [Search implementation](perf/ivy_raft/onebit/search.go.txt) · [Proof checker](perf/ivy_raft/onebit/rup.go.txt)

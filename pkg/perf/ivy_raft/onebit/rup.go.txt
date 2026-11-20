@@ -3,21 +3,18 @@ package order
 // A checked clause follows by reverse unit propagation from previously
 // accepted clauses. The search supplies the antecedents in conflict order.
 type rupLedger struct {
-	rows  [][]int32
-	root  []int8
-	mark  []uint32
-	value []int8
-	stamp uint32
+	original []shortInputClause
+	learned  [][]int32
+	root     []int8
+	mark     []uint32
+	value    []int8
+	stamp    uint32
 }
 
-func newRUPLedger(n int) *rupLedger {
-	return &rupLedger{rows: [][]int32{nil}, root: make([]int8, n), mark: make([]uint32, n), value: make([]int8, n)}
+func newRUPLedger(n int, original []shortInputClause) *rupLedger {
+	return &rupLedger{original: original, root: make([]int8, n), mark: make([]uint32, n), value: make([]int8, n)}
 }
 
-func (p *rupLedger) addOriginal(row []int32) {
-	// The input remains immutable. The search has separate writable watches.
-	p.rows = append(p.rows, row)
-}
 func (p *rupLedger) begin() {
 	p.stamp++
 	if p.stamp == 0 {
@@ -53,10 +50,20 @@ func (p *rupLedger) assign(lit int32) {
 // A falsified row returns conflict. A unit returns its only possible literal.
 // Rows that are already true or have several possible literals imply nothing.
 func (p *rupLedger) scan(id int) (unit int32, conflict bool) {
-	if id <= 0 || id >= len(p.rows) {
+	if id <= 0 {
 		return 0, false
 	}
-	for _, lit := range p.rows[id] {
+	var row []int32
+	if id <= len(p.original) {
+		row = p.original[id-1].literals()
+	} else {
+		i := id - len(p.original) - 1
+		if i >= len(p.learned) {
+			return 0, false
+		}
+		row = p.learned[i]
+	}
+	for _, lit := range row {
 		switch p.read(lit) {
 		case 1:
 			return 0, false
@@ -72,7 +79,7 @@ func (p *rupLedger) scan(id int) (unit int32, conflict bool) {
 func (p *rupLedger) rootUnit(id int, lit int32) bool {
 	p.begin()
 	unit, _ := p.scan(id)
-	if unit != lit {
+	if lit == 0 || unit != lit {
 		return false
 	}
 	if lit < 0 {
@@ -90,6 +97,9 @@ func (p *rupLedger) rootConflict(id int) bool {
 func (p *rupLedger) prove(clause []int32, reasons []int) bool {
 	p.begin()
 	for _, q := range clause {
+		if q == 0 || int64(q) <= -int64(len(p.root)) || int64(q) >= int64(len(p.root)) {
+			return false
+		}
 		switch p.read(q) {
 		case 1:
 			return true
