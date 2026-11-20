@@ -157,7 +157,8 @@ func (m *ASTManager) MkVar(index uint32, sort ASTHandle) (ASTHandle, error) {
 	}
 	*m.varAt(r.slot) = astVarRecord{index: index, sort: s}
 	original := r
-	r, e = m.registerNode(r)
+	// Reuse the checked sort and the requested de Bruijn index.
+	r, e = m.registerHashedNode(r, m.variableHash(index, s))
 	if e == nil && r == original {
 		e = m.traceVar(r)
 	}

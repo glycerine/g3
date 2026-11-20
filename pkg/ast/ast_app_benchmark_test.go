@@ -34,3 +34,31 @@ func BenchmarkASTCanonicalApplication(b *testing.B) {
 		})
 	}
 }
+
+// Bound variables with the same de Bruijn index and sort are canonical.
+func BenchmarkASTCanonicalVariable(b *testing.B) {
+	for _, count := range []int{8, 256, 4096} {
+		b.Run(strconv.Itoa(count), func(b *testing.B) {
+			m := astTestManager(b)
+			sort, err := m.MkBoolSort()
+			astTestMust(b, err)
+			want := make([]ASTHandle, count)
+			for i := range want {
+				want[i], err = m.MkVar(uint32(i), sort)
+				astTestMust(b, err)
+				astTestPin(b, m, want[i])
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			var position uint32
+			for i := 0; i < b.N; i++ {
+				position = position*1664525 + 1013904223
+				index := position & uint32(count-1)
+				got, err := m.MkVar(index, sort)
+				if err != nil || got != want[index] {
+					b.Fatalf("index %d returned %v, %v", index, got, err)
+				}
+			}
+		})
+	}
+}

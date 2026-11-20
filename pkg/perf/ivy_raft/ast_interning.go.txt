@@ -1,0 +1,28 @@
+package ast
+
+// An interner hit still allocates a temporary node and compares its structure.
+// Count it before registration releases that storage.
+func (m *ASTManager) studyIntern(r astNodeRef, unique bool) {
+	var i int
+	switch m.nodeAt(r.slot).kind {
+	case ASTApp:
+		i = study_app0_new + 2*int(min(m.appAt(r.slot).count, 4))
+	case ASTVar:
+		i = study_varBelow8_new
+		if m.varAt(r.slot).index >= 8 {
+			i = study_var8Plus_new
+		}
+	case ASTQuantifier:
+		i = study_quantifier_new
+	case ASTSort:
+		i = study_sort_new
+	case ASTFuncDecl:
+		i = study_declaration_new
+	default:
+		panic("unknown AST kind")
+	}
+	if !unique {
+		i++
+	}
+	m.studyCalls[i]++
+}

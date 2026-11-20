@@ -1088,3 +1088,17 @@ The live AST record now remembers whether its current generation has ever been i
 Medians of 70 samples per operation and build on two cores. The fast miss applies to 95.7% of the lookup calls in the matched checking phase. The candidate in the third row correctly performs a table lookup. Run `go test ./ast -run '^$' -bench '^BenchmarkExprSubstitutionFind$' -benchtime=500000x -cpu=1`. [Benchmark](ast/ast_expr_substitution_benchmark_test.go) · [Lookup measurements](perf/ivy_raft/ast_lookups/substitution-miss-lookup.csv.gz)
 
 In 24 paired production runs, the 419-query matched kernel went from **82.99 to 82.74 billion instructions** and from **13.04 to 12.31 s** of user CPU. The complete mixed-width check went from **49.11 to 48.95 billion instructions** and from **8.30 to 8.48 s** elapsed. The one-bit check took 2.05 and 2.04 s. The wall-time improvement is specific to the lookup and this matched-kernel series. Native Z3 and g3 agreed on all 18 per-query search counters. [Production crossover](perf/ivy_raft/ast_lookups/substitution-miss-release.csv)
+
+#### Reusing a bound variable's sort hash
+
+Of the **661,082** variable registrations during the 419 matched checks, **631,049** (95.5%) requested an existing variable. The variable factory already knows the de Bruijn index and has validated its sort. It now supplies the hash computed from those two values to registration. This avoids reading the temporary variable back and validating its sort a second time. Insertion, candidate reclamation, failure handling and tracing still use the common registration code. [Variable factory](ast/ast_core_factories.go) · [Shared hash calculation](ast/ast_table_hash.go)
+
+| Live canonical variables | CPU 10 before → after | CPU 30 before → after |
+|---|---:|---:|
+| 8 | 106.0 → 85.6 ns | 76.3 → 54.2 ns |
+| 256 | 104.0 → 87.5 ns | 76.5 → 56.2 ns |
+| 4,096 | 125.3 → 102.3 ns | 90.8 → 73.0 ns |
+
+These are medians of 35 runs per build on each CPU, with 180,000 lookups and zero allocations per operation. At the observed call count, a 20 ns saving accounts for about 13 ms of a complete matched replay. Run `go test ./ast -run '^$' -bench '^BenchmarkASTCanonicalVariable$' -benchtime=180000x -cpu=1`. [Benchmark](ast/ast_app_benchmark_test.go) · [Raw samples](perf/ivy_raft/ast_lookups/canonical-variable.csv.gz)
+
+Applications are the larger opportunity. The checking phase requested 2,801,475 applications, including 1,293,374 duplicates. Binary and ternary applications accounted for 1,088,858 of those duplicates. For all node kinds combined, 3,575,777 lookups visited 5,950,828 hash-table slots, or 1.66 per lookup. This favors reducing the cost of building and comparing common candidates. The interning probe keeps counters per AST manager and verifies all 18 search counters for each obligation. Run `python3 perf/ivy_raft/ast_calls.py --interning` from `pkg/`. [Per-obligation counts](perf/ivy_raft/ast_lookups/interned-nodes.csv.gz) · [Instrumentation](perf/ivy_raft/ast_calls.py)

@@ -154,11 +154,53 @@ def write_callers(writer, rows):
                          os.path.relpath(path, ROOT), line, totals["Load"][site], totals["Check"][site]])
 
 
+def interning_sources(work):
+    groups = ["app0", "app1", "app2", "app3", "app4Plus", "varBelow8", "var8Plus",
+              "quantifier", "sort", "declaration"]
+    names = [f"{kind}_{outcome}" for kind in groups for outcome in ("new", "duplicate")]
+    probes = ["lookups", "visitedSlots", "matchedTags", "matchedHashes"]
+    names += probes
+    probe_ids = {name: i for i, name in enumerate(names)}
+    changes = {
+        "ast_core_storage.go": [("type ASTManager struct {", f"type ASTManager struct {{\n studyCalls [{len(names)}]uint64")],
+        "ast_core_register.go": [("if e = m.registrationAfter(r, result, contains, unique);",
+                                  "m.studyIntern(r, unique)\n if e = m.registrationAfter(r, result, contains, unique);")],
+        "ast_table.go": [],
+    }
+    for marker, counter in [("tag := astTableTag(h)\n\ti, perturb := h&t.mask, h\n\tfor {", "lookups"),
+                            ("ctrl := t.tags[i]", "visitedSlots"), ("if ctrl == tag {", "matchedTags"),
+                            ("if e.hash == h {", "matchedHashes")]:
+        statement = f"m.studyCalls[{probe_ids[counter]}]++"
+        before = counter in ("lookups", "visitedSlots")
+        changes["ast_table.go"].append((marker, statement + "\n" + marker if before else marker + "\n" + statement))
+    replacements = {}
+    for filename, edits in changes.items():
+        source = ROOT / "ast" / filename
+        code = source.read_text()
+        for old, new in edits:
+            if code.count(old) != 1:
+                raise ValueError(f"{filename} must contain one occurrence of {old!r}")
+            code = code.replace(old, new)
+        target = work / filename
+        target.write_text(code)
+        replacements[str(source)] = str(target)
+    probe = work / "study_ast_intern.go"
+    probe.write_text((HERE / "ast_interning.go.txt").read_text() +
+                     f"\nfunc(m *ASTManager) StudyCalls() [{len(names)}]uint64 {{return m.studyCalls}}\n" +
+                     "const (\n" + "\n".join(f"study_{key} = {i}" for key, i in probe_ids.items()) + "\n)\n")
+    replacements[str(ROOT / "ast" / probe.name)] = str(probe)
+    replacements[str(ROOT / "api/raft_study_calls_test.go")] = str(HERE / "ast_calls_test.go.txt")
+    overlay = work / "interning.json"
+    overlay.write_text(json.dumps({"Replace": replacements}))
+    return overlay, names
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     options = parser.add_mutually_exclusive_group()
     options.add_argument("--callers", action="store_true", help="count AST method callers across all packages")
     options.add_argument("--sites", choices=SITE_METHODS, help="sum calls to this method by source location")
+    options.add_argument("--interning", action="store_true", help="count new and duplicate AST registrations and table probes")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
@@ -166,6 +208,8 @@ def main():
             overlay, names = caller_sources(work)
         elif args.sites:
             overlay, names = site_sources(work, args.sites)
+        elif args.interning:
+            overlay, names = interning_sources(work)
         else:
             overlay, names = sources(work)
         output = work / "calls.jsonl"

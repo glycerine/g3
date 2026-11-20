@@ -71,6 +71,12 @@ func (m *ASTManager) hashPayload(p arena.SmallBytesRef, count, init uint32) (uin
 	})
 	return result, err
 }
+
+// variableHash uses the hash already stored on the variable's live sort.
+func (m *ASTManager) variableHash(index uint32, sort astNodeRef) uint32 {
+	return uhash.Combine(index, m.nodeAt(sort.slot).hash)
+}
+
 func (m *ASTManager) nodeHash(r astNodeRef) (uint32, error) {
 	if e := m.validNode(r); e != nil {
 		return 0, e
@@ -127,7 +133,7 @@ func (m *ASTManager) nodeHash(r astNodeRef) (uint32, error) {
 		if e := m.validNode(v.sort); e != nil {
 			return 0, e
 		}
-		return uhash.Combine(v.index, m.nodeAt(v.sort.slot).hash), nil
+		return m.variableHash(v.index, v.sort), nil
 	case ASTQuantifier:
 		v := m.quantifierAt(r.slot)
 		init := uint32(19)
