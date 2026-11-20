@@ -1,0 +1,81 @@
+engine,widths,profiles,rank,median_user_cycles_pct,function
+bounded,mixed,5,1,2.54,runtime.tryDeferToSpanScan
+bounded,mixed,5,2,1.71,runtime.scanObjectsSmall
+bounded,mixed,5,3,1.46,github.com/glycerine/g3/pkg/ast/rewriter.(*rewriterEngine).processApp
+bounded,mixed,5,4,1.21,runtime.memclrNoHeapPointers
+bounded,mixed,5,5,1.17,runtime.scanObject
+bounded,mixed,5,6,1.06,github.com/glycerine/g3/pkg/ast.(*ASTManager).GetArg
+bounded,mixed,5,7,1.01,github.com/glycerine/g3/pkg/arena.(*descriptorSlab).readLive
+bounded,mixed,5,8,0.94,github.com/glycerine/g3/pkg/ast.(*ASTManager).deleteNodeWorklistBody
+bounded,mixed,5,9,0.92,github.com/glycerine/g3/pkg/ast.(*ASTManager).registerHashedNode
+bounded,mixed,5,10,0.8,github.com/glycerine/g3/pkg/ast.(*ASTManager).tableLookup
+bounded,mixed,5,11,0.8,github.com/glycerine/g3/pkg/ast.(*ASTManager).declIdentity
+bounded,mixed,5,12,0.79,runtime.memmove
+bounded,mixed,5,13,0.75,runtime.mallocgcSmallScanNoHeader
+bounded,mixed,5,14,0.74,runtime.gcmarknewobject
+bounded,mixed,5,15,0.74,github.com/glycerine/g3/pkg/ast.(*ASTManager).DecRefHeldConsumed
+bounded,mixed,5,16,0.7,runtime.growslice
+bounded,mixed,5,17,0.69,github.com/glycerine/g3/pkg/ast.(*ASTManager).sortOf
+bounded,mixed,5,18,0.67,runtime.findObject
+bounded,mixed,5,19,0.66,github.com/glycerine/g3/pkg/ast.(*ASTManager).funcFlags
+bounded,mixed,5,20,0.64,internal/runtime/maps.memHashAES
+bounded,onebit,9,1,6.87,github.com/glycerine/g3/pkg/api/internal/order.(*BooleanProblem).Reduce
+bounded,onebit,9,2,6.04,github.com/glycerine/g3/pkg/sat.(*satSolverPropagationState).propagateCore
+bounded,onebit,9,3,3.03,runtime.tryDeferToSpanScan
+bounded,onebit,9,4,2.69,runtime.scanObjectsSmall
+bounded,onebit,9,5,2.61,github.com/glycerine/g3/pkg/api/internal/order.(*bitCompiler).eval
+bounded,onebit,9,6,2.49,github.com/glycerine/g3/pkg/arena.(*descriptorSlab).readLive
+bounded,onebit,9,7,2.05,runtime.memmove
+bounded,onebit,9,8,1.22,github.com/glycerine/g3/pkg/sat.(*satSolverWatchStore).IsLive
+bounded,onebit,9,9,1.19,runtime.mapaccess2
+bounded,onebit,9,10,1.17,internal/runtime/maps.memHashAES
+bounded,onebit,9,11,1.13,github.com/glycerine/g3/pkg/sat.satSolverWatchListView.ref
+bounded,onebit,9,12,1.05,github.com/glycerine/g3/pkg/sat.(*satSolverWatchStore).Size
+bounded,onebit,9,13,1.0,runtime.scanObject
+bounded,onebit,9,14,0.99,github.com/glycerine/g3/pkg/sat.(*satSolverPropagationState).assignCore
+bounded,onebit,9,15,0.96,runtime.memclrNoHeapPointers
+bounded,onebit,9,16,0.93,runtime.findObject
+bounded,onebit,9,17,0.92,github.com/glycerine/g3/pkg/sat.(*satSolverVariableState).valueLiteral
+bounded,onebit,9,18,0.84,github.com/glycerine/g3/pkg/sat.(*satSolverTrail).Read
+bounded,onebit,9,19,0.81,runtime.gcmarknewobject
+bounded,onebit,9,20,0.8,github.com/glycerine/g3/pkg/api/internal/order.(*bitCompiler).lookup
+native,mixed,3,1,5.75,"insdict<ast*, ast_insdict_hash, ast_eq_proc>::put(ast* const&, bool&)"
+native,mixed,3,2,5.51,smt::relevancy_propagator_imp::is_relevant(expr*) const
+native,mixed,3,3,3.92,"smt::fingerprint_set::insert(void*, unsigned int, unsigned int, smt::enode* const*)"
+native,mixed,3,4,3.57,"smt::interpreter::mk_depth1_vector(smt::enode*, func_decl*, unsigned int)"
+native,mixed,3,5,2.52,ast_manager::delete_node(ast*)
+native,mixed,3,6,2.15,smt::or_relevancy_eh::operator()(smt::relevancy_propagator&)
+native,mixed,3,7,2.02,smt::context::bcp()
+native,mixed,3,8,1.7,"unsigned int get_composite_hash<smt::fingerprint*, smt::fingerprint_set::fingerprint_khasher, smt::fingerprint_set::fingerprint_chasher>(smt::fingerprint*, unsigned int, smt::fingerprint_set::fingerprint_khasher const&, smt::fingerprint_set::fingerprint_chasher const&) [clone .isra.0]"
+native,mixed,3,9,1.47,"smt::relevancy_propagator_imp::assign_eh(expr*, bool)"
+native,mixed,3,10,1.47,small_object_allocator::allocate(unsigned long)
+native,mixed,3,11,1.43,"smt::context::get_enode_eq_to(func_decl*, unsigned int, smt::enode* const*)"
+native,mixed,3,12,1.39,smt::checker::get_enode_eq_to(expr*)
+native,mixed,3,13,1.38,smt::fingerprint_set::pop_scope(unsigned int)
+native,mixed,3,14,1.38,"expr_substitution::find(expr*, expr*&, app*&, dependency_manager<ast_manager::expr_dependency_config>::dependency*&)"
+native,mixed,3,15,1.25,_int_malloc
+native,mixed,3,16,1.22,"smt::checker::check_core(expr*, bool)"
+native,mixed,3,17,1.2,smt::relevancy_propagator_imp::mark_as_relevant(expr*)
+native,mixed,3,18,1.12,"smt::interpreter::execute_core(smt::code_tree*, smt::enode*)"
+native,mixed,3,19,1.11,"cached_var_subst::operator()(quantifier*, unsigned int, smt::enode* const*, obj_ref<expr, ast_manager>&)"
+native,mixed,3,20,1.01,smt::relevancy_propagator_imp::pop(unsigned int)
+native,onebit,9,1,2.66,__strcmp_avx2
+native,onebit,9,2,2.32,"insdict<ast*, ast_insdict_hash, ast_eq_proc>::put(ast* const&, bool&)"
+native,onebit,9,3,2.21,smt::relevancy_propagator_imp::is_relevant(expr*) const
+native,onebit,9,4,1.72,_int_malloc
+native,onebit,9,5,1.49,"smt::interpreter::mk_depth1_vector(smt::enode*, func_decl*, unsigned int)"
+native,onebit,9,6,1.45,ast_manager::register_node_core(ast*)
+native,onebit,9,7,1.39,malloc
+native,onebit,9,8,1.37,ast_manager::delete_node(ast*)
+native,onebit,9,9,1.27,"smt::mam_impl::collect_parents(smt::enode*, smt::path_tree*)"
+native,onebit,9,10,1.08,"smt::interpreter::execute_core(smt::code_tree*, smt::enode*)"
+native,onebit,9,11,1.05,_int_free
+native,onebit,9,12,0.94,"expr_substitution::find(expr*, expr*&, app*&, dependency_manager<ast_manager::expr_dependency_config>::dependency*&)"
+native,onebit,9,13,0.94,act_cache::dec_refs()
+native,onebit,9,14,0.93,small_object_allocator::allocate(unsigned long)
+native,onebit,9,15,0.92,"void rewriter_tpl<th_rewriter_cfg>::process_app<false>(app*, rewriter_core::frame&)"
+native,onebit,9,16,0.91,smt::relevancy_propagator_imp::mark_as_relevant(expr*)
+native,onebit,9,17,0.9,runtime.memmove
+native,onebit,9,18,0.88,runtime.tryDeferToSpanScan
+native,onebit,9,19,0.88,GOMP_critical_name_end
+native,onebit,9,20,0.86,__strlen_avx2
