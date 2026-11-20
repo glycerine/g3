@@ -3,6 +3,7 @@ package smtcore
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -165,6 +166,17 @@ func BenchmarkSMTScopeResolution(b *testing.B) {
 // learned clauses. Formula construction, search setup, checks, and reset are
 // excluded from timings (but still appear in whole-process CPU profiles).
 func BenchmarkSMTScopeRestoration(b *testing.B) {
+	benchmarkSMTScopeRestoration(b, false)
+}
+
+// BenchmarkSMTScopeRestorationWithQueue runs the native benchmark's default
+// delayed activity queue. pop-ns/op uses a monotonic clock around PopScopes
+// like the C++ fixture. ns/op and allocation metrics cover the entire round.
+func BenchmarkSMTScopeRestorationWithQueue(b *testing.B) {
+	benchmarkSMTScopeRestoration(b, true)
+}
+
+func benchmarkSMTScopeRestoration(b *testing.B, withQueue bool) {
 	for _, scoped := range []bool{false, true} {
 		name := "SurvivingAtoms"
 		if scoped {
@@ -186,6 +198,9 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 				benchmarkMust(b, err)
 			}
 			_, p, s := smtInternalizerFixture(b, m, nil)
+			if withQueue {
+				benchmarkMust(b, s.ensureDelayedActivityQueue())
+			}
 			literals := make([]SMTLiteral, len(expressions))
 			internalize := func() {
 				for i, expression := range expressions {
@@ -198,9 +213,13 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 				benchmarkMust(b, p.Propagate())
 			}
 			const clauses = smtHotPathWidth / 2
+			var original [clauses]*SMTClause
+			var elapsed time.Duration
 			b.ReportAllocs()
 			b.ResetTimer()
-			b.StopTimer()
+			if !withQueue {
+				b.StopTimer()
+			}
 			for i := 0; i < b.N; i++ {
 				benchmarkMust(b, s.PushScope()) // user scope owns restored clauses
 				s.pushBaseScope()               // context::push: m_base_lvl++
@@ -213,28 +232,45 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 					internalize()
 				}
 				creation := s.booleanCreation[literals[0].Var()]
-				original := make([]*SMTClause, clauses)
 				for j := 0; j < clauses; j++ {
 					benchmarkMust(b, s.AddLearnedClauseWithProof([]SMTLiteral{
 						literals[2*j], literals[2*j+1].Negated(), literals[(2*j+2)%len(literals)],
 					}, ast.ASTHandle{}))
-					original[j] = s.testClauses()[j].clause
+					original[j] = s.lemmas[j].clause
 				}
-				b.StartTimer()
-				err := s.PopScopes(1)
-				b.StopTimer()
+				var err error
+				if withQueue {
+					start := time.Now()
+					err = s.PopScopes(1)
+					elapsed += time.Since(start)
+				} else {
+					b.StartTimer()
+					err = s.PopScopes(1)
+					b.StopTimer()
+				}
 				benchmarkMust(b, err)
-				if s.scopeLevel != 1 || len(s.testClauses()) != clauses {
-					b.Fatal("search backtrack lost learned clauses", s.scopeLevel, len(s.testClauses()))
+				if s.scopeLevel != 1 || s.inconsistent || len(s.lemmas) != clauses || s.numClauseRecords() != clauses {
+					b.Fatal("incorrect search backtrack", s.scopeLevel, s.inconsistent, len(s.lemmas), s.numClauseRecords())
 				}
-				for _, expression := range expressions {
-					if _, found := s.BoolVar(expression); !found || p.IsRelevant(expression) == scoped {
+				for j, expression := range expressions {
+					variable, found := s.BoolVar(expression)
+					if !found || s.booleanData[variable].InternalLevel() != 1 || p.IsRelevant(expression) == scoped {
 						b.Fatal("restoration lost a learned atom or changed source relevance")
 					}
+					literals[j] = NewSMTLiteral(variable, false)
 				}
-				for j, record := range s.testClauses() {
+				for j, record := range s.lemmas {
 					if record.clause != original[j] {
 						b.Fatal("backtrack replaced a learned clause object")
+					}
+					got := record.clause.literals
+					if len(got) != 3 {
+						b.Fatal("backtrack changed clause length", j, got)
+					}
+					for _, want := range [...]SMTLiteral{literals[2*j], literals[2*j+1].Negated(), literals[(2*j+2)%len(literals)]} {
+						if got[0] != want && got[1] != want && got[2] != want {
+							b.Fatal("backtrack lost clause literal", j, want, got)
+						}
 					}
 				}
 				variable, _ := s.BoolVar(expressions[0])
@@ -243,9 +279,12 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 				}
 				benchmarkMust(b, s.endSearchPersistence())
 				benchmarkMust(b, s.PopScopes(1))
-				if len(s.testClauses()) != 0 || len(s.booleanStack) != 0 {
-					b.Fatal("benchmark round left scoped clauses or atoms behind", len(s.testClauses()), len(s.booleanStack))
+				if s.numClauseRecords() != 0 || len(s.booleanStack) != 0 {
+					b.Fatal("benchmark round left scoped clauses or atoms behind", s.numClauseRecords(), len(s.booleanStack))
 				}
+			}
+			if withQueue {
+				b.ReportMetric(float64(elapsed.Nanoseconds())/float64(b.N), "pop-ns/op")
 			}
 			b.ReportMetric(clauses, "clauses/op")
 			b.ReportMetric(smtHotPathWidth, "atoms/op")
