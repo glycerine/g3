@@ -32,6 +32,8 @@ func (c *Context) NewParserContext() (result *Context, resultErr error) {
 		return result, err
 	}
 	result.runSignals = manager.ResourceLimit().RunSignals
+	// solver_from_stream constructs cmd_context(false, &api_context.m()).
+	result.mainContext = false
 	result.manager = manager
 	result.borrowedManager = true
 	if err = result.initBuiltins(); err != nil {

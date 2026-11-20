@@ -28,7 +28,7 @@ func (m *ASTManager) traceDistinctExpanded(h ASTHandle) error {
 	_ = tags.EmitConditional("distinct", "mk_distinct_expanded", "src/ast/ast.cpp", 2521,
 		func() bool { return true }, func(w io.Writer) (result error) {
 			_, _ = io.WriteString(w, "expanded distinct:\n")
-			g := uparams.BorrowProcessGlobalParamsService()
+			g := m.printerGlobals()
 			if g == nil || g.Context == nil {
 				bodyErr = uparams.ErrGlobalParamsOwner
 				return bodyErr

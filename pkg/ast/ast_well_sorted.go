@@ -27,7 +27,7 @@ type wellSortedWarning struct {
 // parent order. The warning service is borrowed; nil selects the process owner.
 func (m *ASTManager) IsWellSorted(h ASTHandle, warnings *diagnostic.WarningService) (bool, error) {
 	if m != nil {
-		g := uparams.BorrowProcessGlobalParamsService()
+		g := m.printerGlobals()
 		if g != nil && g.Current != nil && g.CheckOwner(g.Context, m.BudgetField) == nil && g.Context.CheckServices(m.Symbols, m.numerals) == nil {
 			p := g.Context.EmptyValue()
 			return m.isWellSorted(h, warnings, g.Context, &p, g)

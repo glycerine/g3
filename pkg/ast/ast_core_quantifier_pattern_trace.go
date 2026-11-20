@@ -25,7 +25,7 @@ func (m *ASTManager) traceQuantifierPattern(i int, pattern ASTHandle) error {
 			if _, err := io.WriteString(w, strconv.Itoa(i)+" "); err != nil {
 				return err
 			}
-			g := uparams.BorrowProcessGlobalParamsService()
+			g := m.printerGlobals()
 			if g == nil || g.Context == nil {
 				return uparams.ErrGlobalParamsOwner
 			}

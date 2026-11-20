@@ -132,3 +132,39 @@ func TestSMT2SetOptionBuiltinKinds(t *testing.T) {
 		}
 	}
 }
+
+func TestSMT2PrivateParserKeepsParametersLocal(t *testing.T) {
+	owner, err := cmd_context.NewAuxiliaryContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := owner.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	parser, err := owner.NewParserContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := parser.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	process := uparams.BorrowProcessGlobalParamsService()
+	observed := false
+	reader := &commandGlobalsReader{input: strings.NewReader("(assert true)")}
+	reader.check = func() {
+		observed = true
+		if uparams.BorrowProcessGlobalParamsService() != process {
+			t.Error("private parser published its solver's parameter service")
+		}
+	}
+	if err := ParseAssertions(parser, reader); err != nil {
+		t.Fatal(err)
+	}
+	if !observed {
+		t.Fatal("private parser did not read its input")
+	}
+}

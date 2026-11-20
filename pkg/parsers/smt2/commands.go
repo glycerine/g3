@@ -120,21 +120,20 @@ func parseCommandsWithStop(context *cmd_context.Context, input io.Reader, out io
 	if err != nil {
 		return err
 	}
-	// Source gparams is process-wide. During this single-goroutine command
-	// session, lazy AST algebraic owners and printers must see this context's
-	// parameter service. Restore the enclosing session after parser cleanup.
-	globals, err := context.GlobalParameters()
-	if err != nil {
-		return err
+	if context.IsMainContext() {
+		globals, err := context.GlobalParameters()
+		if err != nil {
+			return err
+		}
+		previous, err := uparams.BindProcessGlobalParamsService(globals)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			_, err := uparams.BindProcessGlobalParamsService(previous)
+			result = errors.Join(result, err)
+		}()
 	}
-	previous, err := uparams.BindProcessGlobalParamsService(globals)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_, err := uparams.BindProcessGlobalParamsService(previous)
-		result = errors.Join(result, err)
-	}()
 	compliant, err := context.Compliant()
 	if err != nil {
 		return err

@@ -638,6 +638,10 @@ func (c *Context) GlobalParameters() (*uparams.GlobalParamsService, error) {
 	return c.config.Globals, nil
 }
 
+// IsMainContext identifies command sessions that publish process parameters
+// and diagnostic streams. API parsers use their manager's parameter service.
+func (c *Context) IsMainContext() bool { return c.mainContext }
+
 // RefreshGlobalParameters is reached after source command-line assignments
 // and before constructing the AST manager and solver.
 func (c *Context) RefreshGlobalParameters() error {

@@ -252,6 +252,15 @@ func (m *ASTManager) releasePPFrames() error {
 	return nil
 }
 
+// API managers own their parameter service. Standalone managers can use the
+// process service installed by the enclosing command session.
+func (m *ASTManager) printerGlobals() *uparams.GlobalParamsService {
+	if m.globals != nil {
+		return m.globals
+	}
+	return uparams.BorrowProcessGlobalParamsService()
+}
+
 // A nil parameter-owner trio uses the source pp defaults for standalone AST
 // warning and trace callers. Bound owners keep their module-parameter scope.
 // PrintFormatTransient is pp() of a format_ref that dies after printing: an
@@ -284,10 +293,9 @@ func (m *ASTManager) PrintFormat(out *utext.NumericTextStream, h ASTHandle, c *u
 	defaults := c == nil && p == nil && g == nil
 	// Source pp() always builds pp_params p(_p), whose accessors fall back
 	// to gparams::get_module("pp"): an empty params_ref still follows the
-	// process global pp.* settings. Without a bound process service (a
-	// standalone manager) the parameter defaults below apply.
+	// manager's pp.* settings. Standalone managers can use process defaults.
 	if defaults {
-		if svc := uparams.BorrowProcessGlobalParamsService(); svc != nil && svc.Context != nil &&
+		if svc := m.printerGlobals(); svc != nil && svc.Context != nil &&
 			svc.Context.CheckServices(f.Symbols, nil) == nil && svc.CheckOwner(svc.Context, f.BudgetField) == nil {
 			empty := svc.Context.EmptyValue()
 			c, p, g = svc.Context, &empty, svc

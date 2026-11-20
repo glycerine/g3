@@ -65,7 +65,7 @@ func (w *datatypeTraceWriter) ast(r astNodeRef) error {
 		return err
 	}
 	w.inputs = append(w.inputs, ref)
-	g := uparams.BorrowProcessGlobalParamsService()
+	g := w.manager.printerGlobals()
 	if g == nil || g.Context == nil {
 		return uparams.ErrGlobalParamsOwner
 	}

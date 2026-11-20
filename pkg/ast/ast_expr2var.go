@@ -95,7 +95,7 @@ func (x *Expr2Var) traceInsert(h ASTHandle) error {
 			if _, err := io.WriteString(w, "interpreted:\n"); err != nil {
 				return err
 			}
-			g := uparams.BorrowProcessGlobalParamsService()
+			g := x.manager.printerGlobals()
 			if g == nil || g.Context == nil {
 				return uparams.ErrGlobalParamsOwner
 			}
@@ -328,7 +328,7 @@ func (x *Expr2Var) Display(w io.Writer) (result error) {
 		if err != nil {
 			return err
 		}
-		g := uparams.BorrowProcessGlobalParamsService()
+		g := x.manager.printerGlobals()
 		if g == nil || g.Context == nil {
 			return uparams.ErrGlobalParamsOwner
 		}

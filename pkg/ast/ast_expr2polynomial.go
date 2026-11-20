@@ -500,7 +500,7 @@ func (x *Expr2Polynomial) traceFrame(frame *exprPolynomialFrame) error {
 			if _, err := io.WriteString(w, "processing: "+strconv.FormatUint(uint64(frame.next), 10)+"\n"); err != nil {
 				return err
 			}
-			g := uparams.BorrowProcessGlobalParamsService()
+			g := x.ast.printerGlobals()
 			if g == nil || g.Context == nil {
 				return uparams.ErrGlobalParamsOwner
 			}

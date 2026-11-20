@@ -221,3 +221,31 @@ func TestPrintFormatNilOwnersUsesGlobalPP(t *testing.T) {
 		t.Fatal("global pp.single_line ignored", got)
 	}
 }
+
+func TestPrintFormatUsesPrivateManagerParameters(t *testing.T) {
+	c, globals, _, budget := dynAckSourceFixture(t)
+	m, err := NewASTManager(ASTManagerConfig{
+		Symbols: c.SymbolsField, Numerals: c.NumeralsField, Budget: budget,
+		Params: c, Globals: globals,
+	})
+	paramsMust(t, err)
+	defer func() { paramsMust(t, m.Close()) }()
+	paramsMust(t, globals.SourceSetName("pp.single_line", "true"))
+	left, err := m.FormatString("left")
+	paramsMust(t, err)
+	line, err := m.FormatLineBreak()
+	paramsMust(t, err)
+	right, err := m.FormatString("right")
+	paramsMust(t, err)
+	body, err := m.FormatCompose([]ASTHandle{left, line, right})
+	paramsMust(t, err)
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: budget})
+	paramsMust(t, err)
+	defer func() { paramsMust(t, out.Close()) }()
+	paramsMust(t, m.PrintFormat(out, body, nil, nil, nil))
+	got, err := out.String()
+	paramsMust(t, err)
+	if got != "left right" {
+		t.Fatalf("private pp.single_line produced %q", got)
+	}
+}

@@ -31,7 +31,7 @@ func (m *ASTManager) emitFPAToIEEEBVTrace(line int, body func(io.Writer) error) 
 func (m *ASTManager) traceFPAToIEEEBVArgument(h ASTHandle) error {
 	return m.emitFPAToIEEEBVTrace(765, func(w io.Writer) error {
 		writeFPATracePart(w, "to_ieee_bv of ")
-		globals := uparams.BorrowProcessGlobalParamsService()
+		globals := m.printerGlobals()
 		if globals == nil || globals.Context == nil {
 			return uparams.ErrGlobalParamsOwner
 		}
