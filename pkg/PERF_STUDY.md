@@ -822,7 +822,7 @@ Over 13 rotated runs of the 419-obligation matched kernel, the retained variant 
 
 #### Compilation profiles for the current checker
 
-The Go 1.27.3 compiler was trained on three paths through g3. The saved blended profile combines five mixed-width checker runs, five all-one-bit prototype runs and a replay of the 419 matched SMT kernel checks. Six compiler configurations were rotated across two cores, with 18 complete runs of each configuration on each input. Both SHT isolates and both TLS isolates were held out of training. All runs matched their corresponding native transcripts. [Training profile](perf/ivy_raft/raft-blended.pprof) · [Per-run results](perf/ivy_raft/pgo-checker-crossover.csv)
+The saved Go 1.27.3 compilation profile combines five mixed-width checker runs with premise reuse, five all-one-bit prototype runs and one earlier end-to-end Raft run using the direct order kernel. The GoIvy entry point appears in all three sets of CPU samples. Six compiler configurations were rotated across two cores, with 18 complete runs of each configuration on each input. Both SHT isolates and both TLS isolates were held out of training. All runs matched their corresponding native transcripts. [Training profile](perf/ivy_raft/raft-blended.pprof) · [Per-run results](perf/ivy_raft/pgo-checker-crossover.csv)
 
 | Input | Instructions with PGO off | With blended PGO | Median user CPU, off → blended |
 |---|---:|---:|---:|
