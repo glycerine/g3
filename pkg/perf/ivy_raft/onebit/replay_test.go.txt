@@ -1,0 +1,169 @@
+package api
+
+import (
+	"encoding/csv"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/glycerine/g3/pkg/api/internal/order"
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/sat"
+	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+func oneBitSAT(c *SMTContext, m *ast.ASTManager, cnf *order.StudyCNF) (lbool.LBool, error) {
+	services, err := c.command.ModelEvaluatorConfig()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	params, err := services.Context.NewValue()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer services.Context.Del(&params)
+	r, err := sat.NewRuntime(sat.RuntimeConfig{
+		Budget: m.Budget(), ParamsContext: services.Context, Globals: services.Globals,
+		Process: m.NumeralService().RuntimeOwner().ProcessOwner(),
+	})
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer r.Close()
+	s, err := sat.NewSATSolver(sat.SolverConfig{
+		ParamsContext: services.Context, Params: params, RLimit: m.ResourceLimit(),
+		Budget: m.Budget(), Runtime: r, TraceTags: services.Trace,
+	})
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer s.Close()
+	vars := make([]sat.BoolVar, cnf.Vars+1)
+	for i := 1; i <= cnf.Vars; i++ {
+		vars[i], err = s.MkVar(true, true)
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
+	var lits []sat.Literal
+	for _, row := range cnf.Clauses {
+		lits = lits[:0]
+		for _, v := range row {
+			if v == 0 {
+				break
+			}
+			n := v
+			if n < 0 {
+				n = -n
+			}
+			lits = append(lits, sat.MakeLiteral(vars[n], v < 0))
+		}
+		if err = s.MkClause(lits); err != nil {
+			return lbool.Undef, err
+		}
+	}
+	return s.Check(nil)
+}
+
+func replayOneBit(t *testing.T, file, method string) []string {
+	t.Helper()
+	start := time.Now()
+	text, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := NewSMTContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	m, err := c.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := c.NewSimpleSolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if err := s.LoadSMT2String(string(text)); err != nil {
+		t.Fatal(err)
+	}
+	assertions, err := solver.Assertions(s.solver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded := time.Now()
+	cnf, ok, err := order.CompileOneBit(m, assertions)
+	if err != nil || !ok {
+		t.Fatalf("%s: eligible=%t error=%v", file, ok, err)
+	}
+	compiled := time.Now()
+	variables, clauses := cnf.Vars, len(cnf.Clauses)
+	conflict := cnf.StudyUnits(16)
+	reduced := time.Now()
+	var answer lbool.LBool
+	var steps, conflicts, decisions int
+	switch {
+	case conflict:
+		answer = lbool.False
+	case len(cnf.Clauses) == 0:
+		answer = lbool.True
+	case method == "sat":
+		answer, err = oneBitSAT(c, m, cnf)
+		if err != nil {
+			t.Fatal(err)
+		}
+	default:
+		var a int
+		a, steps, conflicts, decisions = cnf.CompactSolve(3000000, method)
+		answer = lbool.LBool(a)
+	}
+	elapsed := time.Since(reduced)
+	if strconv.Itoa(int(answer)) != os.Getenv("ONEBIT_EXPECT") {
+		t.Fatalf("%s: got %d, expected %s", file, answer, os.Getenv("ONEBIT_EXPECT"))
+	}
+	seconds := func(d time.Duration) string { return strconv.FormatFloat(d.Seconds(), 'f', 8, 64) }
+	return []string{
+		filepath.Base(file), method, strconv.Itoa(int(answer)),
+		seconds(loaded.Sub(start)), seconds(compiled.Sub(loaded)), seconds(reduced.Sub(compiled)), seconds(elapsed),
+		strconv.Itoa(variables), strconv.Itoa(clauses), strconv.Itoa(cnf.Vars), strconv.Itoa(len(cnf.Clauses)),
+		strconv.FormatBool(conflict), strconv.Itoa(steps), strconv.Itoa(conflicts), strconv.Itoa(decisions),
+	}
+}
+func TestReplayOneBit(t *testing.T) {
+	files, err := filepath.Glob(filepath.Join(os.Getenv("ONEBIT_INPUT"), "*.smt2"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("input corpus: %v (%d files)", err, len(files))
+	}
+	out, err := os.Create(os.Getenv("ONEBIT_OUTPUT"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	w := csv.NewWriter(out)
+	defer func() {
+		w.Flush()
+		if err := w.Error(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	w.Write([]string{
+		"file", "method", "answer", "load_s", "compile_s", "units_s", "solve_s",
+		"variables", "clauses", "residual_variables", "residual_clauses", "unit_conflict", "steps", "conflicts", "decisions",
+	})
+	for _, file := range files {
+		w.Write(replayOneBit(t, file, os.Getenv("ONEBIT_METHOD")))
+	}
+}

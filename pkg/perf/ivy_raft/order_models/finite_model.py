@@ -100,13 +100,16 @@ class Problem:
         "z": ([], "Bool"), "pick": (["Bool", "B"], "A"), "truth": (["Bool"], "Bool"),
     }
 
-    def __init__(self, seed):
+    def __init__(self, seed, *, one_bit=False):
         self.random = rng = random.Random(seed)
-        self.widths = {"A": rng.randint(1, 3), "B": rng.randint(1, 3)}
-        if seed % 4 == 0:
-            self.widths["B"] = self.widths["A"]
-        if seed % 31 == 0:
-            self.widths["A"] = 4
+        if one_bit:
+            self.widths = {"A": 1, "B": 1}
+        else:
+            self.widths = {"A": rng.randint(1, 3), "B": rng.randint(1, 3)}
+            if seed % 4 == 0:
+                self.widths["B"] = self.widths["A"]
+            if seed % 31 == 0:
+                self.widths["A"] = 4
         self.tables = {}
         for name, (inputs, result) in self.signatures.items():
             domain = itertools.product(*(values(sort, self.widths) for sort in inputs))

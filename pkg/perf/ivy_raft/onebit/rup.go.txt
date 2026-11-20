@@ -1,0 +1,110 @@
+package order
+
+// A checked clause follows by reverse unit propagation from previously
+// accepted clauses. The search supplies the antecedents in conflict order.
+type rupLedger struct {
+	rows  [][]int32
+	root  []int8
+	mark  []uint32
+	value []int8
+	stamp uint32
+}
+
+func newRUPLedger(n int) *rupLedger {
+	return &rupLedger{rows: [][]int32{nil}, root: make([]int8, n), mark: make([]uint32, n), value: make([]int8, n)}
+}
+
+func (p *rupLedger) addOriginal(row []int32) {
+	// The input remains immutable. The search has separate writable watches.
+	p.rows = append(p.rows, row)
+}
+func (p *rupLedger) begin() {
+	p.stamp++
+	if p.stamp == 0 {
+		clear(p.mark)
+		p.stamp = 1
+	}
+}
+func (p *rupLedger) read(lit int32) int8 {
+	i := lit
+	if i < 0 {
+		i = -i
+	}
+	v := p.root[i]
+	if v == 0 && p.mark[i] == p.stamp {
+		v = p.value[i]
+	}
+	if lit < 0 {
+		return -v
+	}
+	return v
+}
+func (p *rupLedger) assign(lit int32) {
+	i := lit
+	v := int8(1)
+	if i < 0 {
+		i = -i
+		v = -1
+	}
+	p.mark[i] = p.stamp
+	p.value[i] = v
+}
+
+// A falsified row returns conflict. A unit returns its only possible literal.
+// Rows that are already true or have several possible literals imply nothing.
+func (p *rupLedger) scan(id int) (unit int32, conflict bool) {
+	if id <= 0 || id >= len(p.rows) {
+		return 0, false
+	}
+	for _, lit := range p.rows[id] {
+		switch p.read(lit) {
+		case 1:
+			return 0, false
+		case 0:
+			if unit != 0 && unit != lit {
+				return 0, false
+			}
+			unit = lit
+		}
+	}
+	return unit, unit == 0
+}
+func (p *rupLedger) rootUnit(id int, lit int32) bool {
+	p.begin()
+	unit, _ := p.scan(id)
+	if unit != lit {
+		return false
+	}
+	if lit < 0 {
+		p.root[-lit] = -1
+	} else {
+		p.root[lit] = 1
+	}
+	return true
+}
+func (p *rupLedger) rootConflict(id int) bool {
+	p.begin()
+	_, conflict := p.scan(id)
+	return conflict
+}
+func (p *rupLedger) prove(clause []int32, reasons []int) bool {
+	p.begin()
+	for _, q := range clause {
+		switch p.read(q) {
+		case 1:
+			return true
+		case 0:
+			p.assign(-q)
+		}
+	}
+	for j := len(reasons) - 1; j >= 0; j-- {
+		unit, conflict := p.scan(reasons[j])
+		if conflict {
+			return true
+		}
+		if unit != 0 {
+			p.assign(unit)
+		}
+	}
+	return false
+}
