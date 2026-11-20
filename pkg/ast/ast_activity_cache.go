@@ -77,24 +77,9 @@ func (c *ActivityCache) open() error {
 	_, e := c.manager.ProofsEnabled()
 	return e
 }
-func (c *ActivityCache) dec(h ASTHandle) (bool, error) {
-	m := c.manager
-	if e := m.lock(); e != nil {
-		return false, e
-	}
-	defer m.mu.Unlock()
-	if h.IsNull() {
-		return true, nil
-	}
-	r, e := m.internal(h)
-	if e != nil {
-		return false, e
-	}
-	return m.decNode(r)
-}
 func (c *ActivityCache) retire(entry *astActivityEntry) error {
 	if entry.keyHeld {
-		consumed, e := c.dec(entry.key)
+		consumed, e := c.manager.DecRefHeldConsumed(entry.key)
 		if consumed {
 			entry.keyHeld = false
 		}
@@ -103,7 +88,7 @@ func (c *ActivityCache) retire(entry *astActivityEntry) error {
 		}
 	}
 	if entry.valueHeld {
-		consumed, e := c.dec(entry.value)
+		consumed, e := c.manager.DecRefHeldConsumed(entry.value)
 		if consumed {
 			entry.valueHeld = false
 		}
@@ -222,7 +207,7 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 		}
 		// Publish after the old-value DEC, preserving source statement order.
 		c.incoming, c.incomingHeld = v, !v.IsNull()
-		consumed, e := c.dec(entry.value)
+		consumed, e := c.manager.DecRefHeldConsumed(entry.value)
 		if consumed {
 			entry.valueHeld = false
 		}
@@ -269,7 +254,7 @@ func (c *ActivityCache) decRefs() error {
 		return nil
 	}
 	if c.incomingHeld {
-		consumed, e := c.dec(c.incoming)
+		consumed, e := c.manager.DecRefHeldConsumed(c.incoming)
 		if consumed {
 			c.incomingHeld = false
 			c.incoming = ASTHandle{}
