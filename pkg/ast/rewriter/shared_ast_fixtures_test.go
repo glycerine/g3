@@ -10,7 +10,7 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func astTestManager(t *testing.T) *ast.ASTManager {
+func astTestManager(t testing.TB) *ast.ASTManager {
 	t.Helper()
 	s, q, b := astTestOwners(t)
 	m, e := ast.NewASTManager(ast.ASTManagerConfig{Symbols: s, Numerals: q, Budget: b})
@@ -19,20 +19,20 @@ func astTestManager(t *testing.T) *ast.ASTManager {
 	return m
 }
 
-func astTestPin(t *testing.T, m *ast.ASTManager, h ast.ASTHandle) ast.ASTRef {
+func astTestPin(t testing.TB, m *ast.ASTManager, h ast.ASTHandle) ast.ASTRef {
 	t.Helper()
 	r, e := m.NewRef(h)
 	astTestMust(t, e)
 	t.Cleanup(func() { astTestMust(t, m.DelRef(&r)) })
 	return r
 }
-func astTestSymbol(t *testing.T, m *ast.ASTManager, text string) usymbol.Symbol {
+func astTestSymbol(t testing.TB, m *ast.ASTManager, text string) usymbol.Symbol {
 	t.Helper()
 	s, e := m.Symbols.Intern(text)
 	astTestMust(t, e)
 	return s
 }
-func astTestOwners(t *testing.T) (*usymbol.Manager, *unumeral.RationalService, *arena.Budget) {
+func astTestOwners(t testing.TB) (*usymbol.Manager, *unumeral.RationalService, *arena.Budget) {
 	t.Helper()
 	b := arena.NewBudget(1 << 30)
 	s, e := usymbol.NewManager(usymbol.Config{Budget: b})
@@ -48,7 +48,7 @@ func astTestOwners(t *testing.T) (*usymbol.Manager, *unumeral.RationalService, *
 	})
 	return s, q, b
 }
-func astTestMust(t *testing.T, e error) {
+func astTestMust(t testing.TB, e error) {
 	t.Helper()
 	if e != nil {
 		t.Fatal(e)

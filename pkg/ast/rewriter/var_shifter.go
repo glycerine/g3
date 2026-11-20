@@ -106,13 +106,9 @@ func (s *variableShifter) InverseShift(t ast.ASTHandle, shift uint32, out ast.AS
 	s.shift = shift
 	return s.mainLoop(t, out)
 }
-func (s *variableShifter) processVar(v ast.ASTHandle) error {
+func (s *variableShifter) processVar(v ast.ASTHandle, index uint32) error {
 	c := &s.core
 	m := c.manager
-	index, e := m.GetVarIndex(v)
-	if e != nil {
-		return e
-	}
 	if index < c.numQVars {
 		return appendRewriterRoot(m, &c.results, v)
 	}
@@ -145,17 +141,17 @@ func (s *variableShifter) processVar(v ast.ASTHandle) error {
 func (s *variableShifter) visit(t ast.ASTHandle) (bool, error) {
 	c := &s.core
 	m := c.manager
-	ground, e := m.IsGround(t)
+	kind, refs, arityOrIndex, ground, e := m.SubstitutionShape(t)
 	if e != nil {
 		return false, e
 	}
 	if ground {
 		return true, appendRewriterRoot(m, &c.results, t)
 	}
-	cache, e := c.mustCache(t)
-	if e != nil {
+	if e = c.open(); e != nil {
 		return false, e
 	}
+	cache := c.mustCacheShape(t, kind, refs, arityOrIndex)
 	if cache {
 		r, e := c.getCached(t)
 		if e != nil {
@@ -168,21 +164,17 @@ func (s *variableShifter) visit(t ast.ASTHandle) (bool, error) {
 			return true, c.setNewChildIfDifferent(t, r)
 		}
 	}
-	kind, e := m.GetKind(t)
-	if e != nil {
-		return false, e
-	}
 	switch kind {
 	case ast.ASTApp, ast.ASTQuantifier:
-		// The inherited push_frame(t,c) source overload takes c as its state argument
-		// and recomputes must_cache. That unused 0/1 state is preserved here.
+		// The source passes the cache flag as the frame state as well. A
+		// cache miss leaves the reference count and the shape unchanged.
 		state := uint32(0)
 		if cache {
 			state = 1
 		}
-		return false, c.pushFrame(t, state)
+		return false, c.pushFrameCore(t, cache, state, 3, kind, arityOrIndex)
 	case ast.ASTVar:
-		return true, s.processVar(t)
+		return true, s.processVar(t, arityOrIndex)
 	default:
 		return false, ast.ErrASTDomain
 	}
@@ -213,10 +205,8 @@ func (s *variableShifter) processApp() error {
 	m := c.manager
 	frameIndex := len(c.frames) - 1
 	t := c.frames[frameIndex].curr
-	n, e := m.GetNumArgs(t)
-	if e != nil {
-		return e
-	}
+	n := c.frames[frameIndex].numArgs
+	var e error
 	for c.frames[frameIndex].index() < n {
 		i := c.frames[frameIndex].index()
 		arg, e := m.GetArg(t, i)
@@ -410,11 +400,7 @@ func (s *variableShifter) mainLoop(t ast.ASTHandle, out ast.ASTRef) error {
 				continue
 			}
 		}
-		kind, e := m.GetKind(t)
-		if e != nil {
-			return e
-		}
-		switch kind {
+		switch fr.kind {
 		case ast.ASTApp:
 			e = s.processApp()
 		case ast.ASTQuantifier:

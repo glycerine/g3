@@ -530,6 +530,12 @@ In eleven alternating samples on CPU 18, cycling over 512 present and 512 absent
 
 The 419-obligation matched kernel went from **11.75 to 11.53 s** and **94.57 to 92.83 billion** median user instructions over nine alternating pairs on CPU 6. All 18 search counters matched on every obligation. On the original bit-vector solver, a separate pair retired **925.93 and 916.54 billion** user instructions with all 24 search counters matching on every obligation. These runs took 135.34 and 131.64 s on different cores. [Whole-corpus timings and counters](perf/ivy_raft/expr-substitution-raft.csv)
 
+### Shifting variables under binders
+
+The variable shifter now reads the kind, reference count, ground flag and arity or variable index together. The traversal frame already holds the kind and arity and can reuse them when it returns from a child. In nine rotated samples of 200,000 shifts, forward shifts fell from **2,586 to 2,422 ns** and inverse shifts from **2,569 to 2,415 ns**, with zero allocations. The benchmark checks the exact result under a binder with a shared subexpression on every iteration. Run `go test ./ast/rewriter -run '^$' -bench '^BenchmarkQuantifiedVariableShift$' -benchtime=200000x -cpu=1`. [Benchmark](ast/rewriter/var_shifter_benchmark_test.go) · [Raw measurements](perf/ivy_raft/variable-shift.csv)
+
+Over 15 alternating pairs on CPU 17, the median for all 419 matched kernel checks fell from **11.52 to 11.40 s** and from **92.74 to 92.33 billion** user instructions. All 18 per-obligation search counters matched in every run. [Individual kernel runs](perf/ivy_raft/variable-shift-raft.csv)
+
 ### Order abstraction for the concrete Raft verifier
 
 The timed input was the original `examples/raft/raft_no_assume_test.ivy`. Its eight abstract types have concrete bit-vector interpretations of widths two, three and four. The GoIvy frontend generated the original assertions for both backends. The proof strategy receives those SMT assertions, with no file names, conjecture names, expected answers or Ivy type metadata. In an earlier diagnostic, checking the separate verification-oriented source without the finite interpretations took 11.96 s on g3. That timing is for a different input.

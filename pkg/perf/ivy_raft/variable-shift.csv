@@ -1,0 +1,91 @@
+sample,implementation,workload,iterations,ns/op,B/op,allocs/op
+1,before,BenchmarkQuantifiedVariableShift/Forward,200000,2579,0,0
+1,before,BenchmarkQuantifiedVariableShift/Inverse,200000,2569,0,0
+1,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,2452,0,0
+1,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,2451,0,0
+1,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,2506,0,0
+1,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,2504,0,0
+1,retained,BenchmarkQuantifiedVariableShift/Forward,200000,2419,0,0
+1,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,2416,0,0
+1,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,2394,0,0
+1,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,2393,0,0
+2,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,2454,0,0
+2,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,2442,0,0
+2,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,2510,0,0
+2,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,2502,0,0
+2,retained,BenchmarkQuantifiedVariableShift/Forward,200000,2420,0,0
+2,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,2414,0,0
+2,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,2409,0,0
+2,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,2391,0,0
+2,before,BenchmarkQuantifiedVariableShift/Forward,200000,2588,0,0
+2,before,BenchmarkQuantifiedVariableShift/Inverse,200000,2563,0,0
+3,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,2522,0,0
+3,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,2503,0,0
+3,retained,BenchmarkQuantifiedVariableShift/Forward,200000,2419,0,0
+3,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,2407,0,0
+3,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,2407,0,0
+3,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,2394,0,0
+3,before,BenchmarkQuantifiedVariableShift/Forward,200000,2586,0,0
+3,before,BenchmarkQuantifiedVariableShift/Inverse,200000,2579,0,0
+3,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,2455,0,0
+3,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,2447,0,0
+4,retained,BenchmarkQuantifiedVariableShift/Forward,200000,2422,0,0
+4,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,2410,0,0
+4,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,2402,0,0
+4,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,2384,0,0
+4,before,BenchmarkQuantifiedVariableShift/Forward,200000,2580,0,0
+4,before,BenchmarkQuantifiedVariableShift/Inverse,200000,2553,0,0
+4,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,2448,0,0
+4,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,2439,0,0
+4,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,2512,0,0
+4,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,2499,0,0
+5,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,2401,0,0
+5,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,2390,0,0
+5,before,BenchmarkQuantifiedVariableShift/Forward,200000,2570,0,0
+5,before,BenchmarkQuantifiedVariableShift/Inverse,200000,2558,0,0
+5,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,2459,0,0
+5,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,2438,0,0
+5,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,2507,0,0
+5,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,2487,0,0
+5,retained,BenchmarkQuantifiedVariableShift/Forward,200000,2423,0,0
+5,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,2409,0,0
+6,before,BenchmarkQuantifiedVariableShift/Forward,200000,2576,0,0
+6,before,BenchmarkQuantifiedVariableShift/Inverse,200000,2556,0,0
+6,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,2446,0,0
+6,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,2441,0,0
+6,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,2504,0,0
+6,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,2497,0,0
+6,retained,BenchmarkQuantifiedVariableShift/Forward,200000,2420,0,0
+6,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,2415,0,0
+6,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,2398,0,0
+6,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,2391,0,0
+7,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,2598,0,0
+7,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,2452,0,0
+7,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,2528,0,0
+7,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,2534,0,0
+7,retained,BenchmarkQuantifiedVariableShift/Forward,200000,2430,0,0
+7,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,3098,0,0
+7,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,2769,0,0
+7,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,2845,0,0
+7,before,BenchmarkQuantifiedVariableShift/Forward,200000,2872,0,0
+7,before,BenchmarkQuantifiedVariableShift/Inverse,200000,2603,0,0
+8,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,2843,0,0
+8,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,2875,0,0
+8,retained,BenchmarkQuantifiedVariableShift/Forward,200000,3088,0,0
+8,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,2864,0,0
+8,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,2739,0,0
+8,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,2822,0,0
+8,before,BenchmarkQuantifiedVariableShift/Forward,200000,3235,0,0
+8,before,BenchmarkQuantifiedVariableShift/Inverse,200000,3231,0,0
+8,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,3613,0,0
+8,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,3604,0,0
+9,retained,BenchmarkQuantifiedVariableShift/Forward,200000,3756,0,0
+9,retained,BenchmarkQuantifiedVariableShift/Inverse,200000,3537,0,0
+9,single cache probe,BenchmarkQuantifiedVariableShift/Forward,200000,3567,0,0
+9,single cache probe,BenchmarkQuantifiedVariableShift/Inverse,200000,3543,0,0
+9,before,BenchmarkQuantifiedVariableShift/Forward,200000,3887,0,0
+9,before,BenchmarkQuantifiedVariableShift/Inverse,200000,3727,0,0
+9,shape only,BenchmarkQuantifiedVariableShift/Forward,200000,3564,0,0
+9,shape only,BenchmarkQuantifiedVariableShift/Inverse,200000,3511,0,0
+9,frame only,BenchmarkQuantifiedVariableShift/Forward,200000,3624,0,0
+9,frame only,BenchmarkQuantifiedVariableShift/Inverse,200000,3576,0,0
