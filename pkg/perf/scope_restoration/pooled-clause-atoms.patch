@@ -1,0 +1,32 @@
+--- a/smtcore/smt_clause.go
++++ b/smtcore/smt_clause.go
+@@ -110,0 +111,4 @@
++	return newClauseInPool(manager, literals, kind, justification, deleteHandler, saveAtoms, expressions, nil)
++}
++
++func newClauseInPool(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle, pool *[9][][]smtClauseAtom) (*SMTClause, error) {
+@@ -142 +146,8 @@
+-	clause.atoms = make([]smtClauseAtom, len(literals))
++	if n := len(literals); pool != nil && n < len(pool) && len(pool[n]) > 0 {
++		i := len(pool[n]) - 1
++		clause.atoms = pool[n][i]
++		pool[n][i] = nil
++		pool[n] = pool[n][:i]
++	} else {
++		clause.atoms = make([]smtClauseAtom, len(literals))
++	}
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -137,0 +138 @@
++	atomPool [9][][]smtClauseAtom
+--- a/smtcore/smt_boolean_propagation.go
++++ b/smtcore/smt_boolean_propagation.go
+@@ -167 +167 @@
+-	clause, err := NewSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr)
++	clause, err := newClauseInPool(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.atomPool)
+--- a/smtcore/smt_clause_backtrack.go
++++ b/smtcore/smt_clause_backtrack.go
+@@ -120,0 +121,3 @@
++		if n := len(saved.clause.atoms); n > 0 && n < len(s.atomPool) {
++			s.atomPool[n] = append(s.atomPool[n], saved.clause.atoms)
++		}

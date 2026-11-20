@@ -1,0 +1,24 @@
+--- a/smtcore/smt_clause.go
++++ b/smtcore/smt_clause.go
+@@ -124 +124,17 @@
+-	clause := smtNewClauseStorage(literals)
++	var clause *SMTClause
++	var atoms []smtClauseAtom
++	if saveAtoms && len(literals) <= 4 {
++		block := new(struct {
++			storage smtClauseStorage4
++			atoms   [4]smtClauseAtom
++		})
++		clause = &block.storage.clause
++		clause.literals = block.storage.lits[:len(literals):len(literals)]
++		copy(clause.literals, literals)
++		atoms = block.atoms[:len(literals):len(literals)]
++	} else {
++		clause = smtNewClauseStorage(literals)
++		if saveAtoms {
++			atoms = make([]smtClauseAtom, len(literals))
++		}
++	}
+@@ -142 +158 @@
+-	clause.atoms = make([]smtClauseAtom, len(literals))
++	clause.atoms = atoms

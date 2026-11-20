@@ -1,0 +1,12 @@
+--- a/smtcore/smt_internalizer.go
++++ b/smtcore/smt_internalizer.go
+@@ -220 +220,2 @@
+-	kept = append([]SMTLiteral(nil), kept...)
++	var short [8]SMTLiteral
++	kept = append(short[:0], kept...)
+@@ -325 +326 @@
+-		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
++		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: append([]SMTLiteral(nil), kept...), Root: root, Binary: true, Lemma: lemma, Proof: proof})
+@@ -378 +379 @@
+-	record := SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner}
++	record := SMTInternalizedClause{Literals: clause.literals, Root: root, Proof: proof, clause: clause, owner: owner}

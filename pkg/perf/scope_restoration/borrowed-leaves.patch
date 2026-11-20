@@ -1,0 +1,68 @@
+--- a/smtcore/smt_hotpath_benchmark_test.go
++++ b/smtcore/smt_hotpath_benchmark_test.go
+@@ -191,0 +192,8 @@
++			for _, h := range expressions {
++				m.StudyPin(h, true)
++			}
++			b.Cleanup(func() {
++				for _, h := range expressions {
++					m.StudyPin(h, false)
++				}
++			})
+--- a/ast/ast_core_storage.go
++++ b/ast/ast_core_storage.go
+@@ -111,4 +111,4 @@
+-	generation, nextFree, id, hash, rc, kindIndex uint32
+-	kind                                          ASTKind
+-	live, mark1, mark2, shared, closeMark         bool
+-	markOwner1, markOwner2                        uint64
++	generation, nextFree, id, hash, rc, kindIndex      uint32
++	kind                                               ASTKind
++	live, mark1, mark2, shared, closeMark, studyPinned bool
++	markOwner1, markOwner2                             uint64
+--- a/ast/ast_core_accessors.go
++++ b/ast/ast_core_accessors.go
+@@ -344 +344,3 @@
+-	n.rc++
++	if !n.studyPinned {
++		n.rc++
++	}
+@@ -353 +355,3 @@
+-		if n := m.nodeAt(h.slot); n.rc > 1 {
++		if n := m.nodeAt(h.slot); n.studyPinned {
++			return true, nil
++		} else if n.rc > 1 {
+@@ -380 +384,3 @@
+-	n.rc++
++	if !n.studyPinned {
++		n.rc++
++	}
+--- a/ast/ast_core_register.go
++++ b/ast/ast_core_register.go
+@@ -21 +21,3 @@
+-	n.rc++
++	if !n.studyPinned {
++		n.rc++
++	}
+--- a/ast/ast_core_delete.go
++++ b/ast/ast_core_delete.go
+@@ -48,0 +49,3 @@
++	if n.studyPinned {
++		return true, nil
++	}
+--- a/ast/ast_held_constant.go
++++ b/ast/ast_held_constant.go
+@@ -15 +15,3 @@
+-	slot.node.rc++
++	if !slot.node.studyPinned {
++		slot.node.rc++
++	}
+@@ -17,0 +20,8 @@
++
++func (m *ASTManager) StudyPin(h ASTHandle, pin bool) {
++	n := m.nodeAt(h.slot)
++	if !n.live || n.rc != 1 || n.generation != h.generation || m.origin != h.origin {
++		panic("unbalanced study root")
++	}
++	n.studyPinned = pin
++}

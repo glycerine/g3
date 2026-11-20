@@ -1,0 +1,46 @@
+--- a/smtcore/smt_clause.go
++++ b/smtcore/smt_clause.go
+@@ -109,0 +110,6 @@
++type shortClauseSlot struct {
++	storage smtClauseStorage4
++	atoms   [4]smtClauseAtom
++}
++type shortClausePage struct{ free []shortClauseSlot }
++
+@@ -110,0 +117,3 @@
++	return newPagedClause(manager, literals, kind, justification, deleteHandler, saveAtoms, expressions, nil)
++}
++func newPagedClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle, page *shortClausePage) (*SMTClause, error) {
+@@ -124 +133,15 @@
+-	clause := smtNewClauseStorage(literals)
++	var clause *SMTClause
++	var atoms []smtClauseAtom
++	if page != nil && saveAtoms && len(literals) <= 4 {
++		if len(page.free) == 0 {
++			page.free = make([]shortClauseSlot, 32)
++		}
++		slot := &page.free[0]
++		page.free = page.free[1:]
++		clause = &slot.storage.clause
++		clause.literals = slot.storage.lits[:len(literals):len(literals)]
++		copy(clause.literals, literals)
++		atoms = slot.atoms[:len(literals):len(literals)]
++	} else {
++		clause = smtNewClauseStorage(literals)
++	}
+@@ -142 +165,5 @@
+-	clause.atoms = make([]smtClauseAtom, len(literals))
++	if atoms != nil {
++		clause.atoms = atoms
++	} else {
++		clause.atoms = make([]smtClauseAtom, len(literals))
++	}
+--- a/smtcore/smt_internalizer_state.go
++++ b/smtcore/smt_internalizer_state.go
+@@ -137,0 +138 @@
++	shortPages shortClausePage
+--- a/smtcore/smt_boolean_propagation.go
++++ b/smtcore/smt_boolean_propagation.go
+@@ -167 +167 @@
+-	clause, err := NewSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr)
++	clause, err := newPagedClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.shortPages)

@@ -1,0 +1,89 @@
+--- a/smtcore/smt_hotpath_benchmark_test.go
++++ b/smtcore/smt_hotpath_benchmark_test.go
+@@ -3,0 +4 @@
++	"context"
+@@ -4,0 +6,2 @@
++	"os"
++	"runtime/pprof"
+@@ -5,0 +9 @@
++	"time"
+@@ -188,0 +193,3 @@
++			if os.Getenv("STUDY_QUEUE") == "1" {
++				benchmarkMust(b, s.ensureDelayedActivityQueue())
++			}
+@@ -199,0 +207,5 @@
++			clock := os.Getenv("STUDY_STOPWATCH") == "1"
++			copies := os.Getenv("STUDY_COPIES") == "1"
++			profile := os.Getenv("STUDY_PROFILE") == "1"
++			label := pprof.WithLabels(context.Background(), pprof.Labels("phase", "pop"))
++			var elapsed time.Duration
+@@ -203 +215,3 @@
+-			b.StopTimer()
++			if !clock {
++				b.StopTimer()
++			}
+@@ -221,5 +235,22 @@
+-					original[j] = s.testClauses()[j].clause
+-				}
+-				b.StartTimer()
+-				err := s.PopScopes(1)
+-				b.StopTimer()
++					if copies {
++						original[j] = s.testClauses()[j].clause
++					} else {
++						original[j] = s.lemmas[j].clause
++					}
++				}
++				if profile {
++					pprof.SetGoroutineLabels(label)
++				}
++				var err error
++				if clock {
++					start := time.Now()
++					err = s.PopScopes(1)
++					elapsed += time.Since(start)
++				} else {
++					b.StartTimer()
++					err = s.PopScopes(1)
++					b.StopTimer()
++				}
++				if profile {
++					pprof.SetGoroutineLabels(context.Background())
++				}
+@@ -227 +258,5 @@
+-				if s.scopeLevel != 1 || len(s.testClauses()) != clauses {
++				records := s.lemmas
++				if copies {
++					records = s.testClauses()
++				}
++				if s.numClauseRecords() != clauses || len(records) != clauses || s.scopeLevel != 1 {
+@@ -235 +270 @@
+-				for j, record := range s.testClauses() {
++				for j, record := range records {
+@@ -246 +281 @@
+-				if len(s.testClauses()) != 0 || len(s.booleanStack) != 0 {
++				if s.numClauseRecords() != 0 || len(s.booleanStack) != 0 {
+@@ -248,0 +284,3 @@
++			}
++			if clock {
++				b.ReportMetric(float64(elapsed.Nanoseconds())/float64(b.N), "pop-ns/op")
+@@ -254,0 +293,19 @@
++
++func BenchmarkStudyASTChurn(b *testing.B) {
++	m := astTestManager(b)
++	sort, err := m.MkBoolSort()
++	benchmarkMust(b, err)
++	var nodes [128]ast.ASTHandle
++	b.ReportAllocs()
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		for j := range nodes {
++			nodes[j], err = m.MkVar(uint32(j), sort)
++			benchmarkMust(b, err)
++			benchmarkMust(b, m.IncRef(nodes[j]))
++		}
++		for _, h := range nodes {
++			benchmarkMust(b, m.DecRef(h))
++		}
++	}
++}

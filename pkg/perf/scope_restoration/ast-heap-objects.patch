@@ -1,0 +1,14 @@
+--- a/ast/ast_core_storage.go
++++ b/ast/ast_core_storage.go
+@@ -236 +236 @@
+-	slots [astPageSize]astNodeSlot
++	slots [astPageSize]*astNodeSlot
+--- a/ast/ast_held_constant.go
++++ b/ast/ast_held_constant.go
+@@ -11 +11 @@
+-	slot := &m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]
++	slot := m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]
+--- a/ast/ast_core_allocate.go
++++ b/ast/ast_core_allocate.go
+@@ -100,0 +101 @@
++	m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize] = new(astNodeSlot)
