@@ -1,0 +1,107 @@
+package api
+
+import (
+	"os"
+	"runtime"
+	"strconv"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+// Run with -cpu=1 in a fresh process. Heap metrics use a full GC before each
+// observation. The timer covers the proof on each independent solver.
+func BenchmarkRaftIdleSolverMemory(b *testing.B) {
+	data, err := os.ReadFile("test_vectors/raft_order/001.smt2")
+	if err != nil {
+		b.Fatal(err)
+	}
+	input := string(data)
+	for _, mode := range []string{"Concrete", "Order"} {
+		for _, count := range []int{1, 8, 32, 64} {
+			b.Run(mode+"/"+strconv.Itoa(count), func(b *testing.B) {
+				b.StopTimer()
+				var loaded, idle, budget float64
+				for i := 0; i < b.N; i++ {
+					l, h, a := benchRaftIdleGroup(b, input, count, mode == "Order")
+					loaded += l
+					idle += h
+					budget += a
+				}
+				n := float64(b.N) * float64(count)
+				b.ReportMetric(loaded/n, "loaded-heap-B/solver")
+				b.ReportMetric(idle/n, "idle-heap-B/solver")
+				b.ReportMetric(budget/n, "idle-budget-B/solver")
+			})
+		}
+	}
+}
+
+func benchRaftIdleGroup(b *testing.B, input string, count int, order bool) (loaded, idle, budget float64) {
+	heap := func() float64 {
+		runtime.GC()
+		var mem runtime.MemStats
+		runtime.ReadMemStats(&mem)
+		return float64(mem.HeapAlloc)
+	}
+	base := heap()
+	contexts := make([]*SMTContext, count)
+	solvers := make([]*APISimpleSolver, count)
+	defer func() {
+		for i, c := range contexts {
+			if solvers[i] != nil {
+				if err := solvers[i].Close(); err != nil {
+					b.Error(err)
+				}
+			}
+			if c != nil {
+				if err := c.Close(); err != nil {
+					b.Error(err)
+				}
+			}
+		}
+	}()
+	for i := range solvers {
+		var err error
+		contexts[i], err = NewSMTContext()
+		if err != nil {
+			b.Fatal(err)
+		}
+		solvers[i], err = contexts[i].NewSolver()
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := solvers[i].LoadSMT2String(input); err != nil {
+			b.Fatal(err)
+		}
+	}
+	loaded = heap() - base
+	b.StartTimer()
+	for _, s := range solvers {
+		if order {
+			if proved, err := s.ProveUnsatByOrderAbstraction(); err != nil || !proved {
+				b.Fatalf("order proof = %t, err %v", proved, err)
+			}
+			continue
+		}
+		if err := s.Push(); err != nil {
+			b.Fatal(err)
+		}
+		if answer, err := s.Check(); err != nil || answer != lbool.False {
+			b.Fatalf("concrete check = %v, err %v", answer, err)
+		}
+		if err := s.Pop(1); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.StopTimer()
+	idle = heap() - base
+	for _, c := range contexts {
+		m, err := c.Manager()
+		if err != nil {
+			b.Fatal(err)
+		}
+		budget += float64(m.Budget().Used())
+	}
+	return loaded, idle, budget
+}

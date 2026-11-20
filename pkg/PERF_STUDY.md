@@ -603,6 +603,21 @@ The check itself accounts for **7.62 s** of the **8.71 s** wall-time gap. Parsin
 
 Reproduce the corpus in one process per backend from `pkg`. Run `go test ./api -run '^$' -bench '^BenchmarkRaftOrderKernel$' -benchtime=1x -cpu=1` and run `python perf/ivy_raft/replay_order_kernel.py` with Ivy's Python environment active. The committed benchmarks check the answers and time loading and solving. The crossover drivers also read the statistics after each check. [Go benchmark](api/api_raft_kernel_benchmark_test.go) · [Native control](perf/ivy_raft/replay_order_kernel.py) · [Compressed SMT-LIB corpus](api/test_vectors/raft_order/kernel.smt2.gz)
 
+#### Memory per quantifier matcher and per solver
+
+An allocation profile of the 419 matched kernel checks attributed about 190 MB to constructing quantifier matchers. Each matcher embedded two 64-by-64 tables of path-tree pointers for finding matching parents and children. Together these used 96 KiB on amd64 before inserting a pattern. Each quantifier manager constructs an eager and a lazy matcher. The new layout allocates one hash row on its first insertion. Each cell has a stable address for scope rollback. [Implementation](smtcore/smt_mam_impl.go)
+
+| Layout | Allocated bytes per 419 checks | Live heap with 64 idle solvers | Median time per 419 checks |
+|---|---:|---:|---:|
+| Embedded tables | 2,832 MB | 305.1 MB | 11.60 s |
+| Allocate a whole table on its first insert | 2,668 MB | 255.0 MB | 11.47 s |
+| Allocate eight rows at a time | 2,665 MB | 251.5 MB | 11.62 s |
+| Allocate individual rows | **2,640 MB** | **251.4 MB** | **11.45 s** |
+
+These are decimal MB. The retained layout saves **193 MB allocated** over the corpus and **53.7 MB live** after 64 independent solvers load obligation 1, push, check UNSAT and pop. The live difference is about **839 kB per solver**. The application budget reports the same 2.95 MB per idle solver for both layouts. The difference is visible on the Go heap. The timings use seven rotated runs per layout with all 18 search counters matched on every obligation. Allocation figures are medians of five runs and idle heap figures are medians of three fresh processes. The additional small allocations increased the corpus allocation count from 14.985 to 14.991 million. [Allocation samples](perf/ivy_raft/quantifier-matcher-allocations.csv) · [Idle heap samples](perf/ivy_raft/quantifier-matcher-owners.csv) · [Kernel timings](perf/ivy_raft/quantifier-matcher-raft.csv)
+
+Reproduce the worker measurement with `go test ./api -run '^$' -bench '^BenchmarkRaftIdleSolverMemory$' -benchtime=1x -cpu=1`. It measures groups of 1, 8, 32 and 64 independent concrete solvers, and the corresponding groups using the auxiliary order proof. Heap readings follow full collections while all owners are still live. [Worker benchmark](api/api_raft_worker_memory_benchmark_test.go)
+
 #### Alternatives tested on the original obligations
 
 * A prototype constructed the translated terms directly with typed AST factories. It verified all 419 obligations in 18.53 s and retired 160.53 billion instructions. The integrated SMT-LIB path took 11.46 s and retired 94.25 billion. Direct construction changed the order of AST creation and solver setup. Eliminating parsing alone does not predict the cost of the resulting search.

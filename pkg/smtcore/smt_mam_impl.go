@@ -51,6 +51,11 @@ type smtMAMQP struct {
 	qa, mp ast.ASTHandle
 }
 
+// A pattern allocates a row on the first insertion for its label hash.
+// The trail can keep a pointer to a cell until its scope is popped.
+type smtMAMParentParentRow [mamApproxSetCapacity][2]*smtMAMPathTree
+type smtMAMParentChildRow [mamApproxSetCapacity]*smtMAMPathTree
+
 // smtMAMImpl is mam_impl.
 type smtMAMImpl struct {
 	state      *SMTInternalizerState
@@ -72,8 +77,8 @@ type smtMAMImpl struct {
 	isPlbl []bool
 	isClbl []bool
 
-	pp [mamApproxSetCapacity][mamApproxSetCapacity][2]*smtMAMPathTree
-	pc [mamApproxSetCapacity][mamApproxSetCapacity]*smtMAMPathTree
+	pp [mamApproxSetCapacity]*smtMAMParentParentRow
+	pc [mamApproxSetCapacity]*smtMAMParentChildRow
 
 	varPaths [][]*smtMAMPath
 	todo     []*smtMAMPathTree
@@ -324,8 +329,8 @@ func (r *smtMAMImpl) updatePlbls(lbl ast.ASTHandle) {
 }
 
 func (r *smtMAMImpl) resetPPPC() {
-	r.pp = [mamApproxSetCapacity][mamApproxSetCapacity][2]*smtMAMPathTree{}
-	r.pc = [mamApproxSetCapacity][mamApproxSetCapacity]*smtMAMPathTree{}
+	clear(r.pp[:])
+	clear(r.pc[:])
 }
 
 func (r *smtMAMImpl) mkCode(qa, mp ast.ASTHandle, patIdx uint32) *smtMAMCodeTree {
@@ -414,17 +419,32 @@ func (r *smtMAMImpl) insertPath(t *smtMAMPathTree, p *smtMAMPath, qa, mp ast.AST
 }
 
 func (r *smtMAMImpl) updatePC(h1, h2 uint32, p *smtMAMPath, qa, mp ast.ASTHandle) {
-	if r.pc[h1][h2] != nil {
-		r.insertPath(r.pc[h1][h2], p, qa, mp)
+	row := r.pc[h1]
+	if row == nil {
+		row = new(smtMAMParentChildRow)
+		r.pc[h1] = row
+	}
+	cell := &row[h2]
+	if *cell != nil {
+		r.insertPath(*cell, p, qa, mp)
 	} else {
-		r.setPathTreePtr(&r.pc[h1][h2])
-		r.pc[h1][h2] = r.mkPathTree(p, qa, mp)
+		r.setPathTreePtr(cell)
+		*cell = r.mkPathTree(p, qa, mp)
 	}
 }
 
 func (r *smtMAMImpl) updatePP(h1, h2 uint32, p1, p2 *smtMAMPath, qa, mp ast.ASTHandle) {
+	if h1 > h2 {
+		h1, h2 = h2, h1
+		p1, p2 = p2, p1
+	}
+	row := r.pp[h1]
+	if row == nil {
+		row = new(smtMAMParentParentRow)
+		r.pp[h1] = row
+	}
+	slot := &row[h2]
 	if h1 == h2 {
-		slot := &r.pp[h1][h2]
 		if slot[0] != nil {
 			r.insertPath(slot[0], p1, qa, mp)
 			if !mamPathIsEqual(p1, p2) {
@@ -437,11 +457,6 @@ func (r *smtMAMImpl) updatePP(h1, h2 uint32, p1, p2 *smtMAMPath, qa, mp ast.ASTH
 		}
 		return
 	}
-	if h1 > h2 {
-		h1, h2 = h2, h1
-		p1, p2 = p2, p1
-	}
-	slot := &r.pp[h1][h2]
 	if slot[0] != nil {
 		r.insertPath(slot[0], p1, qa, mp)
 		r.insertPath(slot[1], p2, qa, mp)
@@ -642,7 +657,11 @@ func (r *smtMAMImpl) processPP(r1, r2 *SMTEnode) {
 				nPlbl1, nPlbl2 = nPlbl2, nPlbl1
 				nR1, nR2 = nR2, nR1
 			}
-			slot := &r.pp[nPlbl1][nPlbl2]
+			row := r.pp[nPlbl1]
+			if row == nil {
+				return true
+			}
+			slot := &row[nPlbl2]
 			if nPlbl1 == nPlbl2 {
 				if len(nR1.sourceParents) <= len(nR2.sourceParents) {
 					r.collectParents(nR1, slot[0])
@@ -673,8 +692,12 @@ func (r *smtMAMImpl) processPC(r1, r2 *SMTEnode) {
 			r.fail(r.interp.takeErr())
 			return false
 		}
+		row := r.pc[plbl1]
+		if row == nil {
+			return true
+		}
 		clbls.ForEach(func(lbl2 uint32) bool {
-			r.collectParents(r1, r.pc[plbl1][lbl2])
+			r.collectParents(r1, row[lbl2])
 			return true
 		})
 		return true
