@@ -11,6 +11,36 @@ func smtEnodeMapLookup(nodes map[ast.ASTHandle]*SMTEnode) func(ast.ASTHandle) *S
 	return func(h ast.ASTHandle) *SMTEnode { return nodes[h] }
 }
 
+func TestExprTableEnodesAcrossPageGap(t *testing.T) {
+	m := astTestManager(t)
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	var first, middle, last ast.ASTHandle
+	for i := 0; i <= 3*smtExprPageSize; i++ {
+		h, err := m.MkVar(uint32(i), sort)
+		astTestMust(t, err)
+		switch i {
+		case 0:
+			first = h
+		case smtExprPageSize:
+			middle = h
+		case 3 * smtExprPageSize:
+			last = h
+		}
+	}
+	nodes := smtEnodeTable{newSMTExprTable()}
+	low, high := &SMTEnode{owner: first}, &SMTEnode{owner: last}
+	nodes.set(last, high)
+	nodes.set(first, low)
+	if nodes.get(middle) != nil || nodes.t.pages[middle.Slot()/smtExprPageSize] != nil {
+		t.Fatal("reading an untouched page should leave it empty")
+	}
+	all := nodes.all()
+	if len(all) != 2 || all[0] != low || all[1] != high {
+		t.Fatalf("unordered enodes across page gap: %v", all)
+	}
+}
+
 func TestExprTableAbsentHandlesReadAsZero(t *testing.T) {
 	m := astTestManager(t)
 	context, err := NewSMTCheckerContext(m)

@@ -25,14 +25,19 @@ type smtExprRecord struct {
 	// cachedGeneration is m_cached_generation's value when
 	// smtExprHasCachedGeneration is set.
 	cachedGeneration uint32
-	assignment       lbool.LBool
+	assignment       int8 // SetAssignment accepts the three lbool values.
 	flags            uint8
 }
 
+const smtExprPageSize = 256
+
+type smtExprPage [smtExprPageSize]smtExprRecord
+
 // smtExprTable is owned by one SMTCheckerContext and borrows nothing. A record
 // whose generation differs from a handle's describes a retired expression.
+// Only touched pages are allocated. Their records stay in slot order.
 type smtExprTable struct {
-	records           []smtExprRecord
+	pages             []*smtExprPage
 	origin            uint64
 	enodeCount        int
 	boolVarCount      int
@@ -44,10 +49,15 @@ func newSMTExprTable() *smtExprTable { return &smtExprTable{} }
 // read returns the live record for a handle, or nil.
 func (t *smtExprTable) read(h ast.ASTHandle) *smtExprRecord {
 	slot := h.Slot()
-	if uint64(slot) >= uint64(len(t.records)) || h.Origin() != t.origin {
+	index := slot / smtExprPageSize
+	if uint64(index) >= uint64(len(t.pages)) || h.Origin() != t.origin {
 		return nil
 	}
-	record := &t.records[slot]
+	page := t.pages[index]
+	if page == nil {
+		return nil
+	}
+	record := &page[slot%smtExprPageSize]
 	if record.generation != h.Generation() {
 		return nil
 	}
@@ -61,11 +71,17 @@ func (t *smtExprTable) write(h ast.ASTHandle) *smtExprRecord {
 	} else if h.Origin() != t.origin {
 		panic("smtcore: expression table used with a foreign manager's handle")
 	}
-	slot := int(h.Slot())
-	if slot >= len(t.records) {
-		t.records = append(t.records, make([]smtExprRecord, slot+1-len(t.records))...)
+	slot := h.Slot()
+	index := int(slot / smtExprPageSize)
+	if index >= len(t.pages) {
+		t.pages = append(t.pages, make([]*smtExprPage, index+1-len(t.pages))...)
 	}
-	record := &t.records[slot]
+	page := t.pages[index]
+	if page == nil {
+		page = new(smtExprPage)
+		t.pages[index] = page
+	}
+	record := &page[slot%smtExprPageSize]
 	if record.generation != h.Generation() {
 		if record.flags&smtExprRelevant != 0 {
 			t.relevanceRemovals++
@@ -113,9 +129,14 @@ func (e smtEnodeTable) count() int { return e.t.enodeCount }
 // all lists live enodes in slot order, which is deterministic.
 func (e smtEnodeTable) all() []*SMTEnode {
 	result := make([]*SMTEnode, 0, e.t.enodeCount)
-	for i := range e.t.records {
-		if node := e.t.records[i].enode; node != nil {
-			result = append(result, node)
+	for _, page := range e.t.pages {
+		if page == nil {
+			continue
+		}
+		for i := range page {
+			if node := page[i].enode; node != nil {
+				result = append(result, node)
+			}
 		}
 	}
 	return result
@@ -192,7 +213,7 @@ func (a smtAssignmentTable) lookupRecord(record *smtExprRecord) (lbool.LBool, bo
 		return 0, false
 	}
 	if record.flags&smtExprHasAssignment != 0 {
-		return record.assignment, true
+		return lbool.LBool(record.assignment), true
 	}
 	if a.s != nil && record.flags&smtExprHasBoolVar != 0 {
 		return a.s.assignment[record.boolVar<<1], true
@@ -205,7 +226,7 @@ func (a smtAssignmentTable) get(h ast.ASTHandle) lbool.LBool {
 }
 func (a smtAssignmentTable) set(h ast.ASTHandle, value lbool.LBool) {
 	record := a.t.write(h)
-	record.assignment = value
+	record.assignment = int8(value)
 	record.flags |= smtExprHasAssignment
 }
 func (a smtAssignmentTable) del(h ast.ASTHandle) {

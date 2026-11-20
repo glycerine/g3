@@ -487,3 +487,18 @@ Native Z3 resets the length of its vector of pending quantifier instances after 
 | 1,024 entries | 21.17 µs | 6.47 µs | 59,368 B, 11 allocations | 3 B, 0 allocations |
 
 The benchmark inserts and consumes each entry in order through the production scheduler. Medians cover nine rotated runs with 15,000 batches, including initial growth. In complete, instrumented Raft processes, allocation through check 419 fell from 12,761,535,144 to 12,187,276,536 bytes, **574 MB less (4.5%)**. Post-GC live heap at completion was 205.35 MB in both runs. Uninstrumented wall time in one concurrent comparison was 135.62 s before and 140.36 s after on different cores, with 941.0 and 939.3 billion user instructions. The case for this change is repeatable batch speed and lower cumulative allocation. [Raw samples](perf/ivy_raft/quantifier-queue.csv) · [Queue benchmark](smtcore/smt_fingerprint_benchmark_test.go)
+
+### Expression-table storage on Raft
+
+Auxiliary solvers share an AST manager and each owns its expression table. A write at a high AST slot used to grow and copy a flat array through that slot, including every untouched slot below it. We compared the original 32-byte record, a 24-byte flat record and 256-entry pages of 24-byte records on amd64. The smaller record stores the standalone three-valued assignment in one signed byte. The page directory grows on demand and enodes still iterate in slot order.
+
+| Measurement | Flat 32 B | Flat 24 B | Paged 24 B |
+|---|---:|---:|---:|
+| Fill 8,192 adjacent slots | 370.2 µs | 326.1 µs | 108.2 µs |
+| Fill eight slots spaced 1,024 apart | 119.3 µs | 104.6 µs | 9.41 µs |
+| Dense, populated lookup | 2.29 ns | 2.52 ns | 3.62 ns |
+| Sparse, populated lookup | 2.01 ns | 2.20 ns | 3.30 ns |
+| Full Raft cumulative allocation through check 419, GB | 12.19 | 11.84 | 11.08 |
+| Full Raft live heap after GC at check 419, MB | 205.35 | 199.77 | 183.68 |
+
+Medians cover nine rotated allocation or lookup samples per build. Filling the dense table allocated 1,102,016 bytes in the original and 216,440 bytes with pages. The sparse fixture fell from 860,736 to 52,952 bytes. The flat-32 whole-process allocation baseline includes the retained queue change. The 24-byte heap runs include the same change and the new tuple mixer. Full uninstrumented runs with the mixer and the three layouts, before the queue change, took 132.68, 131.74 and 131.57 seconds on pinned cores 3, 6 and 3. User instructions were 933.0, 935.4 and 936.0 billion. All produced the reference proof transcript. We kept the paged layout for the 1.11 GB reduction in allocation and 22 MB reduction in live memory. The lookup penalty makes this a memory improvement with a measurable CPU tradeoff. [Benchmark](smtcore/smt_expr_table_benchmark_test.go) · [Raw samples](perf/ivy_raft/expr-table.csv)
