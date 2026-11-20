@@ -345,5 +345,5 @@ func (s *satSolverPropagationState) finishPropagationList(i *satSolverWatchItera
 	if x.backing != i.backing {
 		return arena.ErrInvalidSlot
 	}
-	return w.SetEnd(n)
+	return x.setEnd(n)
 }

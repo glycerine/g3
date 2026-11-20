@@ -169,14 +169,19 @@ func (s *satSolverWatchStore) SetEnd(r satSolverWatchListRef, n uint32) error {
 	if e != nil {
 		return e
 	}
+	return x.setEnd(n)
+}
+
+func (x *satSolverWatchListRecord) setEnd(n uint32) error {
 	data := x.values()
+	if uint64(n) == uint64(len(data)) {
+		return nil
+	}
 	if uint64(n) > uint64(len(data)) {
 		return arena.ErrBounds
 	}
 	clear(data[n:])
-	if x.backing != nil {
-		x.backing.data = data[:n]
-	}
+	x.backing.data = data[:n]
 	return nil
 }
 func (s *satSolverWatchStore) Shrink(r satSolverWatchListRef, n uint32) error {
