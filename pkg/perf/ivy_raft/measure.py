@@ -22,7 +22,8 @@ def transcript(lines):
             reported_ok = True
             break
         elif normalized and line and not re.fullmatch(r"#+", line):
-            normalized.append(re.sub(r"/[^\s:]+/examples/raft/", "raft/", line))
+            # The trace-capable GoIvy build can normalize paths itself.
+            normalized.append(re.sub(r"(?:<IVY_EXAMPLES>|/[^\s:]+)/examples/raft/", "raft/", line))
     if not reported_ok or normalized.count("PASS") != 419:
         raise ValueError("incomplete Raft proof transcript")
     return normalized

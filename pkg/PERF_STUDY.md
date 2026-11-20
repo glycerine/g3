@@ -1,14 +1,10 @@
 # SMT scope restoration performance study
 
-**The original Raft spec took 6.91 seconds with g3 and 41.96 seconds with native Z3.** These are medians of 16 runs of each backend with the same GoIvy frontend. All 419 named obligations agreed with Python Ivy. g3 retired 49.37 billion instructions versus 215.53 billion, and its median peak RSS was 77.3 MiB versus 314.4 MiB. On this specification g3 can prove many obligations before running the general SMT search. A matched replay of the general search still costs about four times as many instructions in Go. [Checker runs at af769fa16](perf/ivy_raft/frontier-af769fa16.csv) · [Matched SMT work](#what-a-matched-smt-search-costs-in-go-and-c)
+**GoIvy with g3 beats native Z3 on the original Raft specification.** With normal CPU affinity and the default Go runtime, the median was **8.91 s with g3 and 44.40 s with native Z3** in the same GoIvy frontend. g3 won all nine pairs. In a separate pinned comparison with both frontends, the medians were **6.83 s for GoIvy/g3, 42.14 s for GoIvy/Z3 and 43.95 s for Python Ivy/Z3**. All 419 named proof outcomes agreed in every run. The measured g3 revision is `4f0c0457b`. [Final comparison and reproduction](#final-raft-comparison) · [Default-affinity runs](perf/ivy_raft/frontier-4f0c0457b/host-default.csv) · [Three-checker runs](perf/ivy_raft/frontier-4f0c0457b/three-checkers.csv)
 
-**g3 matches Z3’s 16-byte SMT Boolean variable and 8-byte justification.** In 18 current pinned runs per engine with the branching queue active, scoped pop took 20.19 µs in g3 and 13.40 µs in Z3. Surviving pop took 311 ns and 507 ns respectively. The hardware, queue and timer all affect this benchmark. [Current scope samples](perf/scope_restoration/frontier-af769fa16.csv) · [Record layout](#matching-the-native-boolean-record)
+**The proof trace explains where the time went.** g3 discharged 234 obligations by finding contradictory ground instances. Its private order solver proved the other 185. On the original mixed-width input, search took 75.5% and loading formulas into that solver took 20.5% of g3’s measured proof-attempt time. A separate benchmark that gives the same search to Go and C++ still shows about four times as many retired instructions in Go. The measurements favor keeping the paged AST arena. [Live proof measurements](#where-the-final-checker-spends-its-time) · [Matched SMT work and hardware counters](#what-a-matched-smt-search-costs-in-go-and-c)
 
-**The ordinary g3 solver completed Raft in 124.71 seconds**, down from 223.30 seconds on the same core. Resetting an exhausted GoIvy solver cut peak RSS from 3,665,916 to 988,940 KiB. All 419 proof results agree. The same change took GoIvy with C++ Z3 from 65.08 to 32.70 seconds. Python Ivy with C++ Z3 took 34.40 seconds. [Solver lifetime experiment](#solver-lifetimes-change-the-raft-search) · [Earlier Raft profiles and trials](#raft-verification-with-python-z3-and-goivy-g3)
-
-The preceding follow-up measures the revised solver through 1,024 workers and includes the committed benchmarks. [Follow-up results and reproduction](#follow-up-on-clause-storage-boolean-variables-and-independent-solvers)
-
-**Keep the paged AST arena. Your roughly 3× gap reproduces.** With one solver, the default 48-processor Go runtime, and the same branching queue, the final g3 takes **38.54 µs** per scoped pop versus **12.27 µs** for Z3. With one CPU available to each process, g3 takes **22.89 µs** versus **12.31 µs**. That leaves **10.59 µs** of single-CPU work to remove, about 83 ns per retired and recreated Boolean variable. The additional gap on the unrestricted runtime is highly sensitive to GC pacing. Separate Go heap objects for AST nodes bought 4% on pinned pop and cost 24% on real AST creation and deletion.
+**g3 matches Z3’s 16-byte SMT Boolean variable and 8-byte justification.** In 18 final pinned samples per engine with the branching queue active, scoped pop took **19.39 µs in g3 versus 12.70 µs in Z3**. Surviving pop took **306 ns versus 488 ns**. The original Makefile comparison and the experiments that reduced scoped-pop cost follow below. [Final scope samples](perf/scope_restoration/frontier-4f0c0457b.csv) · [Record layout](#matching-the-native-boolean-record) · [Independent-worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
 
 ## What the benchmark measures
 
@@ -1117,3 +1113,45 @@ The variable shifter saw 212,804 non-ground roots in the matched checking phase.
 | Cache four individual shifted variables | 0 | 86.59 B | 49.20 B |
 
 The complete-checker figures are medians of 20 runs per policy. All 419 answers agreed. Reusing a whole result changed the instantiation and decision counts on obligations 134, 275 and 321. With a one-entry cache, decisions at 134 increased from 2,055 to 2,711. Skipping the traversal also skips its temporary node construction and reference-count activity. The measurements establish the change in search. They do not identify the first internal operation that changed a decision. The four-variable policy avoided these three divergences, but a separate 15-pair matched replay took 11.96 s of user CPU versus 11.47 s. A cache hit would also bypass the ordinary temporary-node allocation under finite budgets. The production shifter keeps the original traversal. [All changed counters](perf/ivy_raft/ast_lookups/shift-cache-search.csv) · [Thirteen rotated kernel comparisons](perf/ivy_raft/ast_lookups/shifter-search-cost.csv.gz) · [Complete checker comparisons](perf/ivy_raft/ast_lookups/ast-lookup-checker-trials.csv.gz) · [Sixteen-entry prototype for 058660be8](perf/ivy_raft/ast_lookups/shift-cache-16.patch.gz)
+
+## Final Raft comparison
+
+The original mixed-width input is `examples/raft/raft_no_assume_test.ivy`. Each timed process loads the specification, checks it, prints all 419 named proof results in order and exits successfully with `OK`. The comparison verifies the entire ordered proof transcript against Python Ivy. GoIvy's ordinary g3 and `classic_z3` builds use the same frontend. Both were built with the user's local module replacement and `-mod=readonly`. Timings use the shared Ryzen Threadripper 3960X on Linux/amd64, Go 1.27.3, with tracing compiled out and PGO off. [Checker harness](perf/ivy_raft/compare_checkers.py) · [Transcript comparison](perf/ivy_raft/measure.py)
+
+| Original spec | Runs per engine | GoIvy/g3 | GoIvy/native Z3 | Python Ivy/native Z3 |
+|---|---:|---:|---:|---:|
+| Default runtime, CPUs 0–47 available | 9 | **8.91 s** | 44.40 s | — |
+| Alternating all three, pinned to CPU 18 or 34 | 18 | **6.83 s** | 42.14 s | 43.95 s |
+| Hardware counters, pinned to CPU 0 or 10 | 16 | **8.13 s** | 49.98 s | — |
+
+The table gives median elapsed times. The median **within-pair** speedups over native GoIvy were **5.07×, 5.91× and 5.96×** respectively. g3 won all 43 pairs. In the three-checker comparison, it also won all 18 pairs against Python Ivy, with a median within-pair speedup of 6.40×. Both GoIvy timings varied substantially by core. For example, g3 took 6.29 s on CPU 0 and 9.67 s on CPU 10. The hardware counters were much steadier at **49.06 billion instructions with g3 versus 215.52 billion with native Z3**. Median peak RSS in that run was 75.7 versus 314.7 MiB. The default-runtime and three-checker series used GoIvy `594f703d0`; the final hardware and trace checks used `ee84dd456`, with the same GoIvy directory contents. [Default runtime](perf/ivy_raft/frontier-4f0c0457b/host-default.csv) · [Both frontends](perf/ivy_raft/frontier-4f0c0457b/three-checkers.csv) · [Hardware counters and revisions](perf/ivy_raft/frontier-4f0c0457b/paired-pmu.csv)
+
+The all-one-bit variant exercises a different backend. g3 won **15 of 16 pairs** against GoIvy/native Z3, with a median within-pair speedup of **1.38×**. The medians on CPU 17 were 1.54 and 2.11 s. CPU 37 gave 4.72 and 6.50 s under contention. The retired instruction counts were close at 13.13 and 13.34 billion respectively. [One-bit paired runs](perf/ivy_raft/frontier-4f0c0457b/onebit-pmu.csv)
+
+To repeat the default-runtime comparison on a remote Linux machine, activate the Ivy Python environment and run the following from `g3/pkg`. The `go list` line prints the directory selected by the remote machine's replacement. The runner writes one complete transcript and timing record per execution. Add `--cpu N` to the runner to pin the checkers to the same logical CPU.
+
+```sh
+ivy_dir="$HOME/ivy/goivy"
+input="$HOME/ivy/ivy-lang-examples/examples/raft/raft_no_assume_test.ivy"
+out=$(mktemp -d)
+go -C "$ivy_dir" list -mod=readonly -f '{{.Dir}}' github.com/glycerine/g3/pkg/ast
+go -C "$ivy_dir" build -mod=readonly -tags=xtrace_off -o "$out/g3" ./cmd/goivy_check
+go -C "$ivy_dir" build -mod=readonly -tags=xtrace_off,classic_z3 -o "$out/native" ./cmd/goivy_check
+XTRACE_OFF=1 python -O "$(command -v ivy_check)" "$input" > "$out/reference.log"
+python3 perf/ivy_raft/compare_checkers.py --rounds 9 \
+    --g3 "$out/g3" --native "$out/native" --python-ivy "$(command -v ivy_check)" \
+    --reference "$out/reference.log" --output "$out/runs" "$input" > "$out/runs.csv"
+```
+
+### Where the final checker spends its time
+
+In 24 instrumented executions of each specification, 234 of the 419 obligations had a contradictory ground instance. On mixed widths the other 185 proved unsatisfiable in the private order solver. On one-bit the other 185 used the Boolean solver. All proof attempts succeeded. The instrumented build recorded elapsed time inside each attempt separately from the timings in the main comparison. [Per-obligation measurements](perf/ivy_raft/frontier-4f0c0457b/proof-phases.csv.gz) · [Timing instrumentation for 4f0c0457b](perf/ivy_raft/frontier-4f0c0457b/proof-phases.patch.gz)
+
+| Median accumulated time over 419 attempts | Original mixed widths | All one-bit |
+|---|---:|---:|
+| Read assertions and prepare proof input | 0.103 s | 0.184 s |
+| Load the translated query into the order solver | 1.154 s | — |
+| Order solver's `Check` or complete Boolean check | 4.244 s | 0.686 s |
+| Total inside the proof attempts, including setup and cleanup | 5.624 s | 0.869 s |
+
+The five most expensive mixed-width attempts consumed 43.3% of the measured proof time. Obligation 321, `choosable_vote_msg`, took 0.78 s median inside its proof. It added **4,012 of 16,900 decisions** and **4,676 of 34,716 quantifier instantiations** across the 185 order checks. Obligation 251 generated the most instantiations, **9,198**. These are differences between the counters immediately before and after each private solver check. Six separate executions agreed on all 18 raw counters at both points for every query. On GoIvy/native Z3, obligation 134 still dominated the actual spec at 14.95 s and 18.14 s median on the two cores. The corresponding g3 intervals were 0.32 and 0.35 s. [Before and after each auxiliary check](perf/ivy_raft/frontier-4f0c0457b/auxiliary-search.csv.gz) · [Pass-to-pass timings for all 419 named obligations](perf/ivy_raft/frontier-4f0c0457b/per-obligation.csv.gz)
