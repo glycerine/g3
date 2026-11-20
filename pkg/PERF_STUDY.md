@@ -1074,3 +1074,17 @@ Each timing is the median of 24 runs across two cores. All 419 named results agr
 The ordinary GoIvy executable at `594f703d0` resolved g3 from the user's local `go.mod` replacement. I built both backends with `-mod=readonly` and timed the original mixed-width specification on CPUs 0 and 10 with one Go CPU. At `af769fa16`, g3 won every paired run. The native/g3 wall-time ratio ranged from 4.77 to 7.74, with a median paired ratio of 5.87. The ratio of the two overall medians is 6.08. Separately, a tracing-enabled GoIvy executable matched all 27,855 normalized Python output lines, including all 27,782 trace events, and reported the expected Multi-Paxos fragment error at line 253. GoIvy’s SMT and bridge tests also passed. [Timings, memory, hardware counters and both revisions](perf/ivy_raft/frontier-af769fa16.csv)
 
 On the unrestricted 48-CPU configuration, one invocation of `make bench` measured 865 ns for surviving and 23.78 µs for scoped atoms. `make cppbench` measured 513 ns and 14.10 µs. Pinning both backends and activating the same branching queue gave a scoped-pop ratio of 1.51 across 18 runs per build. The 16-byte record solved the storage difference. Scope restoration and a generic matched SMT search remain performance targets in their own right. [Three scope controls on two cores](perf/scope_restoration/frontier-af769fa16.csv) · [Go benchmark with independent workers](smtcore/smt_scope_workers_benchmark_test.go)
+
+#### Rejecting impossible expression-substitution lookups
+
+The live AST record now remembers whether its current generation has ever been inserted into a substitution. The first insertion sets the flag. Erasing a key from one substitution can leave it present in another, so the flag stays set for the lifetime of the node. Reusing an AST slot starts a fresh record with the flag cleared. On amd64 the Boolean fits in the existing node padding. All lookups still check the substitution owner, key generation and expression kind before inspecting the flag. [Implementation](ast/ast_expr_substitution_table.go) · [Two-table regression](ast/ast_expr_substitution_test.go)
+
+| Lookup against a 512-entry substitution | Before | After |
+|---|---:|---:|
+| Key present | 26.36 ns | 25.69 ns |
+| Node never used as a key | 26.48 ns | 13.80 ns |
+| Key present only in another substitution | 26.28 ns | 27.72 ns |
+
+Medians of 70 samples per operation and build on two cores. The fast miss applies to 95.7% of the lookup calls in the matched checking phase. The candidate in the third row correctly performs a table lookup. Run `go test ./ast -run '^$' -bench '^BenchmarkExprSubstitutionFind$' -benchtime=500000x -cpu=1`. [Benchmark](ast/ast_expr_substitution_benchmark_test.go) · [Lookup measurements](perf/ivy_raft/ast_lookups/substitution-miss-lookup.csv.gz)
+
+In 24 paired production runs, the 419-query matched kernel went from **82.99 to 82.74 billion instructions** and from **13.04 to 12.31 s** of user CPU. The complete mixed-width check went from **49.11 to 48.95 billion instructions** and from **8.30 to 8.48 s** elapsed. The one-bit check took 2.05 and 2.04 s. The wall-time improvement is specific to the lookup and this matched-kernel series. Native Z3 and g3 agreed on all 18 per-query search counters. [Production crossover](perf/ivy_raft/ast_lookups/substitution-miss-release.csv)

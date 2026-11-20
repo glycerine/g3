@@ -334,3 +334,33 @@ func TestASTExprSubstitutionNativeWarmOperationsUnderRefusal(t *testing.T) {
 	astTestMust(t, m.DelScopedExprSubstitution(&scope))
 	astTestMust(t, m.DelExprSubstitution(&s))
 }
+
+func TestASTExprSubstitutionKeyUsedByTwoTables(t *testing.T) {
+	m := astTestManager(t)
+	key := astDependencyExpr(t, m, 87000)
+	left, err := m.NewExprSubstitutionPolicy(false, false)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelExprSubstitution(&left)) }()
+	right, err := m.NewExprSubstitutionPolicy(false, false)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelExprSubstitution(&right)) }()
+	for _, table := range []ASTExprSubstitution{left, right} {
+		astTestMust(t, m.ExprSubstitutionInsert(table, key, key, ASTHandle{}, ASTDependency{}))
+	}
+	astTestMust(t, m.ExprSubstitutionErase(left, key))
+	var def, proof ASTHandle
+	found, err := m.ExprSubstitutionFindProof(right, key, &def, &proof)
+	if err != nil || !found || def != key {
+		t.Fatal("key lost from second substitution", found, def, err)
+	}
+	def = ASTHandle{}
+	found, err = m.ExprSubstitutionFindProof(left, key, &def, &proof)
+	if err != nil || found || !def.IsNull() {
+		t.Fatal("erased key found in first substitution", found, def, err)
+	}
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	if _, err := m.ExprSubstitutionContains(left, sort); err != ErrASTDomain {
+		t.Fatal("invalid key kind", err)
+	}
+}

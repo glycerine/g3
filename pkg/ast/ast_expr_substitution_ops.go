@@ -76,7 +76,7 @@ func (m *ASTManager) substInsert(s ASTExprSubstitution, key, def, proof, dep ast
 	if e := m.substMutation(s); e != nil {
 		return e
 	}
-	token, e := m.substKey(key)
+	token, record, e := m.substKey(key)
 	if e != nil {
 		return e
 	}
@@ -85,6 +85,7 @@ func (m *ASTManager) substInsert(s ASTExprSubstitution, key, def, proof, dep ast
 	entry, found := t.entries.Get2(token)
 	if !found {
 		entry = astExprSubstEntry{key: key}
+		record.wasSubstitutionKey = true
 		t.entries.Put(token, entry)
 		// m_subst.insert_if_not_there2(c, 0)
 		if t.layout == nil {
@@ -199,9 +200,12 @@ func (m *ASTManager) substFindOutputs(s ASTExprSubstitution, key astNodeRef, def
 	if e != nil {
 		return false, e
 	}
-	token, e := m.substKey(key)
+	token, record, e := m.substKey(key)
 	if e != nil {
 		return false, e
+	}
+	if !record.wasSubstitutionKey {
+		return false, nil
 	}
 	a, found := state.base.entries.Get2(token)
 	if !found {
@@ -277,7 +281,7 @@ func (m *ASTManager) substErase(s ASTExprSubstitution, key astNodeRef) error {
 	if e := m.substMutation(s); e != nil {
 		return e
 	}
-	token, e := m.substKey(key)
+	token, _, e := m.substKey(key)
 	if e != nil {
 		return e
 	}

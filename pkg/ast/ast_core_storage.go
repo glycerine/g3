@@ -111,6 +111,7 @@ type astNodeRecord struct {
 	generation, nextFree, id, hash, rc, kindIndex uint32
 	kind                                          ASTKind
 	live, mark1, mark2, shared, closeMark         bool
+	wasSubstitutionKey                            bool // May occur in a substitution. Cleared on slot reuse.
 	markOwner1, markOwner2                        uint64
 }
 type astSortRecord struct {

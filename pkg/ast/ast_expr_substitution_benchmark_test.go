@@ -21,7 +21,7 @@ func BenchmarkExprSubstitutionFind(b *testing.B) {
 		}
 	}
 	b.Cleanup(func() { astTestMust(b, m.DelExprSubstitution(&subst)) })
-	for offset, name := range []string{"Hit", "Miss"} {
+	find := func(name string, offset int) {
 		b.Run(name, func(b *testing.B) {
 			b.ReportAllocs()
 			var def, proof ASTHandle
@@ -35,4 +35,14 @@ func BenchmarkExprSubstitutionFind(b *testing.B) {
 			}
 		})
 	}
+	find("Hit", 0)
+	find("Miss", 1)
+
+	other, err := m.NewExprSubstitutionPolicy(false, false)
+	astTestMust(b, err)
+	b.Cleanup(func() { astTestMust(b, m.DelExprSubstitution(&other)) })
+	for i := 1; i < size; i += 2 {
+		astTestMust(b, m.ExprSubstitutionInsert(other, keys[i], keys[i], ASTHandle{}, ASTDependency{}))
+	}
+	find("KeyInOtherTable", 1)
 }

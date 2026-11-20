@@ -4,20 +4,24 @@ package ast
 
 import "github.com/glycerine/g3/pkg/arena"
 
-func (m *ASTManager) substKey(key astNodeRef) (uint64, error) {
+func (m *ASTManager) substKey(key astNodeRef) (uint64, *astNodeRecord, error) {
 	if e := m.validNode(key); e != nil {
-		return 0, e
+		return 0, nil, e
 	}
-	kind := m.nodeAt(key.slot).kind
+	record := m.nodeAt(key.slot)
+	kind := record.kind
 	if kind != ASTApp && kind != ASTVar && kind != ASTQuantifier {
-		return 0, ErrASTDomain
+		return 0, nil, ErrASTDomain
 	}
-	return uint64(key.slot)<<32 | uint64(key.generation), nil
+	return uint64(key.slot)<<32 | uint64(key.generation), record, nil
 }
 func (m *ASTManager) substFind(t *astExprSubstTable, key astNodeRef) (uint64, bool, error) {
-	token, e := m.substKey(key)
+	token, record, e := m.substKey(key)
 	if e != nil {
 		return 0, false, e
+	}
+	if !record.wasSubstitutionKey {
+		return token, false, nil
 	}
 	_, found := t.entries.Get2(token)
 	return token, found, nil
