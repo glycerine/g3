@@ -11,41 +11,82 @@ import (
 // A Boolean expression needs no abstract domain. Each bit-vector function
 // position, binder and numeral occurrence starts in its own domain. Only
 // positions that exchange values are unified.
-const boolean = -1
+type domainID int32
+
+const boolean domainID = -1
 
 const maxWork = 100000
 
 type binding struct {
-	name, domain int
+	name   int32
+	domain domainID
 }
 
+type operator uint8
+
+const (
+	opVariable operator = iota
+	opNumeral
+	opForall
+	opExists
+	opOrder
+	opFunction
+	opTrue
+	opFalse
+	opNot
+	opAnd
+	opOr
+	opImplies
+	opXor
+	opEqual
+	opDistinct
+	opIte
+)
+
+// Only operators printed as SMT-LIB symbols have a spelling here.
+var operatorNames = [...]string{
+	opForall: "forall", opExists: "exists", opTrue: "true", opFalse: "false",
+	opNot: "not", opAnd: "and", opOr: "or", opImplies: "=>", opXor: "xor",
+	opEqual: "=", opDistinct: "distinct", opIte: "ite",
+}
+
+// Applications index the child table. Quantifiers use the same span for
+// their declarations and keep their single body in value. All indices fit
+// in 32 bits because inference charges each occurrence against maxWork.
 type expression struct {
-	op            string
-	domain, value int
-	args          []int
-	binders       []binding
+	op           operator
+	domain       domainID
+	value        int32
+	start, count uint32
+}
+
+func (t *inference) arguments(n *expression) []int32 {
+	return t.children[n.start : n.start+n.count]
 }
 
 type signature struct {
-	inputs []int
-	result int
+	inputs []domainID
+	result domainID
 }
 
 type inference struct {
-	m                  *ast.ASTManager
-	boolSort           ast.ASTHandle
-	bvFamily           ast.FamilyID
-	widths             map[ast.ASTHandle]uint32
-	parents            []int
-	domainSorts        []ast.ASTHandle
-	declIDs            map[ast.ASTHandle]int
-	signatures         []signature
-	numerals           map[ast.ASTHandle]int
-	containsFunction   map[ast.ASTHandle]bool
-	terms              []expression
-	assertions         []int
-	nextBinder, visits int
-	quantified         bool
+	m                *ast.ASTManager
+	boolSort         ast.ASTHandle
+	bvFamily         ast.FamilyID
+	widths           map[ast.ASTHandle]uint32
+	sortNames        []string
+	parents          []domainID
+	domainSorts      []ast.ASTHandle
+	declIDs          map[ast.ASTHandle]int32
+	signatures       []signature
+	numerals         map[ast.ASTHandle]int32
+	containsFunction map[ast.ASTHandle]bool
+	terms            []expression
+	children         []int32
+	declarations     []binding
+	assertions       []int32
+	visits           int
+	quantified       bool
 }
 
 var inapplicable = errors.New("outside the order abstraction")
@@ -87,8 +128,8 @@ func (t *inference) infer(m *ast.ASTManager, assertions []ast.ASTHandle) (bool, 
 	}
 	*t = inference{
 		m: m, boolSort: b, bvFamily: ast.NullFamilyID,
-		widths: make(map[ast.ASTHandle]uint32), declIDs: make(map[ast.ASTHandle]int),
-		numerals: make(map[ast.ASTHandle]int), containsFunction: make(map[ast.ASTHandle]bool),
+		widths: make(map[ast.ASTHandle]uint32), declIDs: make(map[ast.ASTHandle]int32),
+		numerals: make(map[ast.ASTHandle]int32), containsFunction: make(map[ast.ASTHandle]bool),
 	}
 	for _, h := range assertions {
 		if err := t.conjunct(h, 0); err != nil {
@@ -114,7 +155,7 @@ func (t *inference) visit(depth int) error {
 	return nil
 }
 
-func (t *inference) domain(sort ast.ASTHandle) (int, error) {
+func (t *inference) domain(sort ast.ASTHandle) (domainID, error) {
 	if sort == t.boolSort {
 		return boolean, nil
 	}
@@ -139,13 +180,13 @@ func (t *inference) domain(sort ast.ASTHandle) (int, error) {
 			return 0, err
 		}
 	}
-	id := len(t.parents)
+	id := domainID(len(t.parents))
 	t.parents = append(t.parents, id)
 	t.domainSorts = append(t.domainSorts, sort)
 	return id, nil
 }
 
-func (t *inference) root(i int) int {
+func (t *inference) root(i domainID) domainID {
 	for i != boolean && t.parents[i] != i {
 		t.parents[i] = t.parents[t.parents[i]]
 		i = t.parents[i]
@@ -153,7 +194,7 @@ func (t *inference) root(i int) int {
 	return i
 }
 
-func (t *inference) unify(a, b int) error {
+func (t *inference) unify(a, b domainID) error {
 	a, b = t.root(a), t.root(b)
 	if a == b {
 		return nil
@@ -168,7 +209,7 @@ func (t *inference) unify(a, b int) error {
 	return nil
 }
 
-func (t *inference) declaration(h ast.ASTHandle) (int, error) {
+func (t *inference) declaration(h ast.ASTHandle) (int32, error) {
 	if id, ok := t.declIDs[h]; ok {
 		return id, nil
 	}
@@ -180,7 +221,7 @@ func (t *inference) declaration(h ast.ASTHandle) (int, error) {
 		return 0, inapplicable
 	}
 	t.visits += int(n)
-	d := signature{inputs: make([]int, n)}
+	d := signature{inputs: make([]domainID, n)}
 	for i := range d.inputs {
 		s, err := t.m.GetDomain(h, uint32(i))
 		if err != nil {
@@ -199,7 +240,7 @@ func (t *inference) declaration(h ast.ASTHandle) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	id := len(t.signatures)
+	id := int32(len(t.signatures))
 	t.declIDs[h] = id
 	t.signatures = append(t.signatures, d)
 	return id, nil

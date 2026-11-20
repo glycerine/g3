@@ -750,3 +750,18 @@ Each row changes only the eight bit-vector interpretations in a copy of the orig
 | All widths 16 | 12.40 s | 107.47 s |
 
 Finite domain size changes the native search enough to reverse the winner. Encoding one-bit domains as Booleans in the auxiliary g3 proof took 10.17 s. Preserving concrete two-bit domains in the auxiliary reduced the original mixed-width Raft input to 10.81 s, but raised the all-two-bit input to 222.98 s. Selecting exact three-bit domains raised the original input to 100.13 s. These results favor retaining the general order encoding for the original benchmark. A fast one-bit concrete path remains an open opportunity. [Partial-width controls](perf/ivy_raft/order-partial-widths.csv)
+
+#### Compact expressions for the order translation
+
+The temporary expression used to translate a quantified assertion occupied 80 bytes on amd64. It included an operator string, two integers and two slice headers. The new 20-byte record identifies its operator and sort by number. An application indexes one contiguous array of children. A quantifier uses the same two fields for its bound declarations and stores its single body in the value field. Every child, binder and sort belongs to one inference. The existing expanded-tree work limit bounds their indices. [Expression layout](api/internal/order/relax.go) · [Construction and binder lookup](api/internal/order/terms.go)
+
+| Translating obligation 274 | Time per translation | Allocated bytes | Allocations |
+|---|---:|---:|---:|
+| Previous 80-byte record | 636 µs | 636,187 | 2,148 |
+| 28-byte record with separate child and binder spans | 448 µs | 353,627 | 949 |
+| 20-byte record with one shared span | 472 µs | **274,933** | **947** |
+| 16-byte record with tagged operator and value | **419 µs** | 286,830 | 948 |
+
+The 20-byte layout cut allocated bytes by **57%** on obligation 274 and **43%** on obligation 1. Whole-spec medians over eight rotated runs were 64.78 billion instructions for the original, **64.44 billion** for the 20-byte record and 64.45 billion for the tagged record. Elapsed times were 10.07, 10.01 and 10.17 seconds on the shared host. The translator accounts for a small fraction of the complete proof. The 20-byte layout keeps the operator separate from its operand, uses the least memory on the larger case, and produces byte-identical SMT-LIB on all 419 actual GoIvy queries. This record is private to translation. The SMT solver uses a separate 16-byte Boolean variable record. [Per-obligation samples](perf/ivy_raft/order-expression-micro.csv) · [Whole-spec samples](perf/ivy_raft/order-expression-raft.csv)
+
+Run `go test ./api -run '^$' -bench '^BenchmarkRaftOrderInference$' -benchtime=1200x -cpu=1` to compare the two captured obligations. The benchmark times translation after parsing and checks every generated problem against the initial result. [Benchmark](api/api_raft_order_inference_benchmark_test.go)

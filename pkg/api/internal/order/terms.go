@@ -6,7 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int, error) {
+func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int32, error) {
 	if err := t.visit(depth); err != nil {
 		return 0, err
 	}
@@ -25,7 +25,7 @@ func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int, erro
 			return 0, inapplicable
 		}
 		v := scope[len(scope)-1-int(index)]
-		n.op, n.value, n.domain = "var", v.name, v.domain
+		n.op, n.value, n.domain = opVariable, v.name, v.domain
 		// A source factory can construct an open or ill-sorted term.
 		s, err := t.m.GetSort(h)
 		if err != nil {
@@ -43,19 +43,23 @@ func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int, erro
 			return 0, err
 		}
 	case ast.ASTApp:
-		if hd.NumArgs > uint32(maxWork-t.visits) {
+		if hd.NumArgs > uint32(maxWork-t.visits) || hd.NumArgs > maxWork-uint32(len(t.children)) {
 			return 0, inapplicable
 		}
-		n.args = make([]int, hd.NumArgs)
-		for i := range n.args {
-			a, err := t.m.GetArg(h, uint32(i))
+		// Recursing can grow the backing array. Keep the first index and
+		// publish each result into the current slice after its child returns.
+		n.start, n.count = uint32(len(t.children)), hd.NumArgs
+		t.children = append(t.children, make([]int32, hd.NumArgs)...)
+		for i := uint32(0); i < hd.NumArgs; i++ {
+			a, err := t.m.GetArg(h, i)
 			if err != nil {
 				return 0, err
 			}
-			n.args[i], err = t.read(a, scope, depth+1)
+			child, err := t.read(a, scope, depth+1)
 			if err != nil {
 				return 0, err
 			}
+			t.children[n.start+i] = child
 		}
 		if err = t.application(h, hd, &n); err != nil {
 			return 0, err
@@ -63,7 +67,7 @@ func (t *inference) read(h ast.ASTHandle, scope []binding, depth int) (int, erro
 	default:
 		return 0, inapplicable
 	}
-	id := len(t.terms)
+	id := int32(len(t.terms))
 	t.terms = append(t.terms, n)
 	return id, nil
 }
@@ -77,8 +81,10 @@ func (t *inference) quantifier(h ast.ASTHandle, scope []binding, depth int, n *e
 		return inapplicable
 	}
 	t.visits += int(count)
-	n.binders = make([]binding, count)
-	for i := range n.binders {
+	n.start, n.count = uint32(len(t.declarations)), count
+	t.declarations = append(t.declarations, make([]binding, count)...)
+	binders := t.declarations[n.start : n.start+count]
+	for i := range binders {
 		s, err := t.m.GetDeclarationSort(h, uint32(i))
 		if err != nil {
 			return err
@@ -87,14 +93,13 @@ func (t *inference) quantifier(h ast.ASTHandle, scope []binding, depth int, n *e
 		if err != nil {
 			return err
 		}
-		n.binders[i] = binding{name: t.nextBinder, domain: d}
-		t.nextBinder++
+		binders[i] = binding{name: int32(n.start) + int32(i), domain: d}
 	}
 	b, err := t.m.GetQuantifierBody(h)
 	if err != nil {
 		return err
 	}
-	body, err := t.read(b, append(scope, n.binders...), depth+1)
+	body, err := t.read(b, append(scope, binders...), depth+1)
 	if err != nil {
 		return err
 	}
@@ -105,11 +110,11 @@ func (t *inference) quantifier(h ast.ASTHandle, scope []binding, depth int, n *e
 	if err != nil {
 		return err
 	}
-	n.op = "exists"
+	n.op = opExists
 	if forall {
-		n.op = "forall"
+		n.op = opForall
 	}
-	n.args = []int{body}
+	n.value = body
 	t.quantified = true
 	return nil
 }
@@ -124,6 +129,7 @@ const (
 )
 
 func (t *inference) application(h ast.ASTHandle, hd ast.ASTNodeHeader, n *expression) error {
+	args := t.arguments(n)
 	switch hd.Family {
 	case ast.NullFamilyID:
 		id, err := t.declaration(hd.Decl)
@@ -131,20 +137,20 @@ func (t *inference) application(h ast.ASTHandle, hd ast.ASTNodeHeader, n *expres
 			return err
 		}
 		d := &t.signatures[id]
-		if len(n.args) != len(d.inputs) {
+		if len(args) != len(d.inputs) {
 			return inapplicable
 		}
-		for i, a := range n.args {
+		for i, a := range args {
 			if err = t.unify(d.inputs[i], t.terms[a].domain); err != nil {
 				return err
 			}
 		}
-		n.op, n.value, n.domain = "fun", id, d.result
+		n.op, n.value, n.domain = opFunction, id, d.result
 		return nil
 	case t.m.BasicFamilyID():
 		return t.booleanApp(hd.DeclKind, n)
 	}
-	if hd.DeclKind == bvNumeral && len(n.args) == 0 {
+	if hd.DeclKind == bvNumeral && len(args) == 0 {
 		s, err := t.m.GetSort(h)
 		if err != nil {
 			return err
@@ -169,87 +175,88 @@ func (t *inference) application(h ast.ASTHandle, hd ast.ASTNodeHeader, n *expres
 			if err != nil {
 				return inapplicable
 			}
-			v = int(u)
+			v = int32(u)
 			t.numerals[h] = v
 		}
-		n.op, n.value = "num", v
+		n.op, n.value = opNumeral, v
 		return nil
 	}
-	if hd.Family != t.bvFamily || len(n.args) != 2 {
+	if hd.Family != t.bvFamily || len(args) != 2 {
 		return inapplicable
 	}
 	switch hd.DeclKind {
 	case bvULE, bvUGE, bvULT, bvUGT:
-		a, b := t.terms[n.args[0]].domain, t.terms[n.args[1]].domain
+		a, b := t.terms[args[0]].domain, t.terms[args[1]].domain
 		if a == boolean {
 			return inapplicable
 		}
-		n.op, n.value = "order", int(hd.DeclKind)
+		n.op, n.value = opOrder, hd.DeclKind
 		return t.unify(a, b)
 	}
 	return inapplicable
 }
 
 func (t *inference) booleanApp(op int32, n *expression) error {
-	size := len(n.args)
+	args := t.arguments(n)
+	size := len(args)
 	switch op {
 	case ast.ASTOpTrue, ast.ASTOpFalse:
 		if size != 0 {
 			return inapplicable
 		}
-		n.op = "true"
+		n.op = opTrue
 		if op == ast.ASTOpFalse {
-			n.op = "false"
+			n.op = opFalse
 		}
 	case ast.ASTOpEq, ast.ASTOpIff, ast.ASTOpDistinct:
 		if size < 2 {
 			return inapplicable
 		}
-		n.op = "="
+		n.op = opEqual
 		if op == ast.ASTOpDistinct {
-			n.op = "distinct"
+			n.op = opDistinct
 		}
-		d := t.terms[n.args[0]].domain
-		for _, a := range n.args[1:] {
+		d := t.terms[args[0]].domain
+		for _, a := range args[1:] {
 			if err := t.unify(d, t.terms[a].domain); err != nil {
 				return err
 			}
 		}
 	case ast.ASTOpIte:
-		if size != 3 || t.terms[n.args[0]].domain != boolean {
+		if size != 3 || t.terms[args[0]].domain != boolean {
 			return inapplicable
 		}
-		n.op = "ite"
-		n.domain = t.terms[n.args[1]].domain
-		return t.unify(n.domain, t.terms[n.args[2]].domain)
+		n.op = opIte
+		n.domain = t.terms[args[1]].domain
+		return t.unify(n.domain, t.terms[args[2]].domain)
 	default:
 		switch op {
 		case ast.ASTOpAnd:
-			n.op = "and"
+			n.op = opAnd
 		case ast.ASTOpOr:
-			n.op = "or"
+			n.op = opOr
 		case ast.ASTOpImplies:
-			n.op = "=>"
+			n.op = opImplies
 		case ast.ASTOpXor:
-			n.op = "xor"
+			n.op = opXor
 		case ast.ASTOpNot:
-			n.op = "not"
+			n.op = opNot
 		default:
 			return inapplicable
 		}
 		if (op == ast.ASTOpNot && size != 1) || (op == ast.ASTOpImplies || op == ast.ASTOpXor) && size != 2 {
 			return inapplicable
 		}
-		for _, a := range n.args {
+		for _, a := range args {
 			if t.terms[a].domain != boolean {
 				return inapplicable
 			}
 		}
 		if size == 0 {
 			if op == ast.ASTOpAnd {
-				n.op = "true"
+				n.op = opTrue
 			} else {
-				n.op = "false"
+				n.op = opFalse
 			}
 		}
 	}

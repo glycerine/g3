@@ -9,11 +9,11 @@ import (
 
 // All identifiers are generated from integers in disjoint namespaces. No
 // source symbol names or source SMT-LIB text enter the generated script.
-func (t *inference) sortName(d int) string {
+func (t *inference) sortName(d domainID) string {
 	if d == boolean {
 		return "Bool"
 	}
-	return "s" + strconv.Itoa(t.root(d))
+	return t.sortNames[d]
 }
 
 func constantName(d, v int) string { return "n" + strconv.Itoa(d) + "_" + strconv.Itoa(v) }
@@ -46,19 +46,30 @@ func (p Problem) Premises() string     { return p.Text[p.AssertionsStart:p.LastA
 func (t *inference) render() Problem {
 	var out, axioms strings.Builder
 	var p Problem
+	// unify always links the larger root to the smaller one. Every root
+	// spelling is available when its descendants are visited in index order.
+	t.sortNames = make([]string, len(t.parents))
+	for i := range t.parents {
+		root := t.root(domainID(i))
+		if root == domainID(i) {
+			t.sortNames[i] = "s" + strconv.Itoa(i)
+		} else {
+			t.sortNames[i] = t.sortNames[root]
+		}
+	}
 	sorts := make([]orderSort, len(t.parents))
 	for _, n := range t.terms {
 		switch n.op {
-		case "order":
-			d := t.root(t.terms[n.args[0]].domain)
+		case opOrder:
+			d := t.root(t.terms[t.arguments(&n)[0]].domain)
 			sorts[d].ordered = true
 			sorts[d].numeral(0)
-		case "num":
-			sorts[t.root(n.domain)].numeral(n.value)
+		case opNumeral:
+			sorts[t.root(n.domain)].numeral(int(n.value))
 		}
 	}
 	for i := range sorts {
-		if t.root(i) == i {
+		if t.root(domainID(i)) == domainID(i) {
 			p.DeclarationCount++
 			fmt.Fprintf(&out, "(declare-sort s%d 0)\n", i)
 		}
@@ -76,7 +87,7 @@ func (t *inference) render() Problem {
 		if !s.ordered {
 			continue
 		}
-		d, r := t.sortName(i), "lt"+strconv.Itoa(i)
+		d, r := t.sortName(domainID(i)), "lt"+strconv.Itoa(i)
 		p.DeclarationCount++
 		fmt.Fprintf(&out, "(declare-fun %s (%s %s) Bool)\n", r, d, d)
 		fmt.Fprintf(&axioms, "(assert (forall ((x %s)) (not (%s x x))))\n", d, r)
@@ -95,7 +106,7 @@ func (t *inference) render() Problem {
 		sort.Ints(values)
 		for j, v := range values {
 			p.DeclarationCount++
-			fmt.Fprintf(&out, "(declare-const %s %s)\n", constantName(i, v), t.sortName(i))
+			fmt.Fprintf(&out, "(declare-const %s %s)\n", constantName(i, v), t.sortName(domainID(i)))
 			if j > 0 && s.ordered {
 				fmt.Fprintf(&axioms, "(assert (lt%d %s %s))\n", i, constantName(i, values[j-1]), constantName(i, v))
 			}
@@ -121,29 +132,30 @@ func (t *inference) render() Problem {
 	return p
 }
 
-func (t *inference) writeTerm(b *strings.Builder, id int) {
+func (t *inference) writeTerm(b *strings.Builder, id int32) {
 	n := &t.terms[id]
 	switch n.op {
-	case "var":
+	case opVariable:
 		b.WriteByte('v')
-		b.WriteString(strconv.Itoa(n.value))
+		b.WriteString(strconv.Itoa(int(n.value)))
 		return
-	case "num":
-		b.WriteString(constantName(t.root(n.domain), n.value))
+	case opNumeral:
+		b.WriteString(constantName(int(t.root(n.domain)), int(n.value)))
 		return
-	case "forall", "exists":
+	case opForall, opExists:
 		b.WriteByte('(')
-		b.WriteString(n.op)
+		b.WriteString(operatorNames[n.op])
 		b.WriteString(" (")
-		for _, v := range n.binders {
+		for _, v := range t.declarations[n.start : n.start+n.count] {
 			fmt.Fprintf(b, "(v%d %s)", v.name, t.sortName(v.domain))
 		}
 		b.WriteString(") ")
-		t.writeTerm(b, n.args[0])
+		t.writeTerm(b, n.value)
 		b.WriteByte(')')
 		return
-	case "order":
-		left, right := n.args[0], n.args[1]
+	case opOrder:
+		args := t.arguments(n)
+		left, right := args[0], args[1]
 		d := t.root(t.terms[left].domain)
 		if n.value == bvUGT || n.value == bvULE {
 			left, right = right, left
@@ -162,20 +174,21 @@ func (t *inference) writeTerm(b *strings.Builder, id int) {
 		}
 		return
 	}
-	if len(n.args) > 0 {
+	args := t.arguments(n)
+	if len(args) > 0 {
 		b.WriteByte('(')
 	}
-	if n.op == "fun" {
+	if n.op == opFunction {
 		b.WriteByte('f')
-		b.WriteString(strconv.Itoa(n.value))
+		b.WriteString(strconv.Itoa(int(n.value)))
 	} else {
-		b.WriteString(n.op)
+		b.WriteString(operatorNames[n.op])
 	}
-	for _, a := range n.args {
+	for _, a := range args {
 		b.WriteByte(' ')
 		t.writeTerm(b, a)
 	}
-	if len(n.args) > 0 {
+	if len(args) > 0 {
 		b.WriteByte(')')
 	}
 }

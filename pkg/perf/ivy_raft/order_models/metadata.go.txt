@@ -25,7 +25,7 @@ func ModelStudyRelax(m *ast.ASTManager, assertions []ast.ASTHandle) (string, boo
 func (t *inference) modelStudyMetadata() (string, error) {
 	var out strings.Builder
 	for i := range t.parents {
-		if t.root(i) == i {
+		if t.root(domainID(i)) == domainID(i) {
 			fmt.Fprintf(&out, ";domain s%d %d\n", i, t.widths[t.domainSorts[i]])
 		}
 	}
