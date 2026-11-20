@@ -25,7 +25,7 @@ func TestSMTLearnedPersistenceNativeReleaseRetries(t *testing.T) {
 			unit := smtPersistentLearnedUnit{expression: expression, proof: proof, ownerLevel: 1, installedLevel: 1}
 			var saved []smtPreservedLearnedClause
 			if stage == "preserved" {
-				saved = []smtPreservedLearnedClause{{proof: proof, atoms: []smtRetainedLemmaAtom{{expression: expression, sign: literal.Sign()}}}}
+				saved = []smtPreservedLearnedClause{{snapshot: &smtLearnedClauseSnapshot{proof: proof, atoms: []smtRetainedLemmaAtom{{expression: expression, sign: literal.Sign()}}}}}
 			} else if stage != "unit" {
 				state.learnedUnits = []smtPersistentLearnedUnit{unit}
 			}
@@ -58,7 +58,7 @@ func TestSMTLearnedPersistenceNativeReleaseRetries(t *testing.T) {
 				t.Fatal("refusal consumed proof owner", beforeProof, afterProof)
 			}
 			if stage == "preserved" {
-				if saved[0].proof != proof || saved[0].atoms[0].expression != expression {
+				if saved[0].snapshot.proof != proof || saved[0].snapshot.atoms[0].expression != expression {
 					t.Fatal("refusal dropped preserved clause")
 				}
 			} else if stage == "unit" {
@@ -70,7 +70,7 @@ func TestSMTLearnedPersistenceNativeReleaseRetries(t *testing.T) {
 			}
 			astTestMust(t, release())
 			astTestMust(t, release())
-			if stage == "preserved" && (!saved[0].proof.IsNull() || !saved[0].atoms[0].expression.IsNull()) {
+			if stage == "preserved" && (!saved[0].snapshot.proof.IsNull() || !saved[0].snapshot.atoms[0].expression.IsNull()) {
 				t.Fatal("retry left clause roots")
 			}
 			if stage == "unit" && (!unit.proof.IsNull() || !unit.expression.IsNull()) {
@@ -114,7 +114,7 @@ func TestSMTLearnedClauseRestoreFailureResumesWithoutDuplicates(t *testing.T) {
 	astTestMust(t, state.restoreLearnedClauses(saved[:1]))
 	var cause error
 	f.refuse(t, func() { cause = state.restoreLearnedClauses(saved) })
-	if !errors.Is(cause, ast.ErrASTPending) || !saved[0].installed || saved[1].installed || len(state.testClauses()) != 1 || saved[1].atoms[0].expression.IsNull() {
+	if !errors.Is(cause, ast.ErrASTPending) || !saved[0].installed || saved[1].installed || len(state.testClauses()) != 1 || saved[1].snapshot.atoms[0].expression.IsNull() {
 		t.Fatal("refusal lost partial installation or pending roots", cause, len(state.testClauses()))
 	}
 	astTestMust(t, state.restoreLearnedClauses(saved))
@@ -128,7 +128,7 @@ func TestSMTLearnedClauseRestoreFailureResumesWithoutDuplicates(t *testing.T) {
 		if activity != uint32(7+i) {
 			t.Fatal("retry lost activity", i, activity)
 		}
-		for _, atom := range saved[i].atoms {
+		for _, atom := range saved[i].snapshot.atoms {
 			if !atom.expression.IsNull() {
 				t.Fatal("completed restoration kept root")
 			}

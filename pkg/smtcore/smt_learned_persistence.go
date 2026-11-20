@@ -20,17 +20,22 @@ type smtPersistentLearnedUnit struct {
 	pending                    smtLearnedAssignment
 }
 
+// A live search pop holds the existing clause object. Only a standalone
+// snapshot owns an additional proof and atom references.
+type smtLearnedClauseSnapshot struct {
+	atoms    []smtRetainedLemmaAtom
+	proof    ast.ASTHandle
+	activity uint32
+}
+
 type smtPreservedLearnedClause struct {
-	atoms       []smtRetainedLemmaAtom
-	proof       ast.ASTHandle
-	activity    uint32
-	installed   bool
 	clause      *SMTClause
-	pending     smtLearnedAssignment
-	inPlace     bool
-	recordIndex int  // index of the in-place lemma in s.lemmas
-	retired     bool // the pop retires one of its atoms: popTo detaches it
+	recordIndex int // index of an in-place lemma in s.lemmas
 	bindHead    int
+	snapshot    *smtLearnedClauseSnapshot // nil when restoring the live clause in place
+	pending     *smtLearnedAssignment     // set only if a published assignment needs retry
+	retired     bool                      // popTo detaches the watches of a clause with a retired variable
+	installed   bool
 	keepReinit  bool
 }
 
@@ -50,7 +55,7 @@ const (
 )
 
 func (s *SMTInternalizerState) finishLearnedAssignment(p *smtLearnedAssignment) error {
-	if p.stage == smtLearnedAssignmentDone {
+	if p == nil || p.stage == smtLearnedAssignmentDone {
 		return nil
 	}
 	literal := p.literal
@@ -224,21 +229,21 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		if clause == nil || !clause.IsLemma() {
 			continue
 		}
-		result = append(result, smtPreservedLearnedClause{})
+		result = append(result, smtPreservedLearnedClause{snapshot: new(smtLearnedClauseSnapshot)})
 		saved := &result[len(result)-1]
 		var err error
-		saved.atoms, err = s.captureLemmaAtoms(clause.literals)
+		saved.snapshot.atoms, err = s.captureLemmaAtoms(clause.literals)
 		if err != nil {
 			return result, err
 		}
 		proof, err := s.learnedClauseProof(clause)
 		if err == nil {
-			saved.proof, err = s.retainProof(proof)
+			saved.snapshot.proof, err = s.retainProof(proof)
 		}
 		if err != nil {
 			return result, err
 		}
-		saved.activity, err = clause.Activity()
+		saved.snapshot.activity, err = clause.Activity()
 		if err != nil {
 			return result, err
 		}
@@ -301,7 +306,7 @@ func (s *SMTInternalizerState) reinitCandidates(level int, result []smtPreserved
 			// There is no snapshot or reconstruction for surviving bindings.
 			// Source clause objects already own their atoms and proof. Do not
 			// acquire a second snapshot merely to keep the same object alive.
-			result = append(result, smtPreservedLearnedClause{inPlace: true, clause: clause, recordIndex: index, retired: retired})
+			result = append(result, smtPreservedLearnedClause{clause: clause, recordIndex: index, retired: retired})
 		}
 	}
 	return result, nil
@@ -309,10 +314,13 @@ func (s *SMTInternalizerState) reinitCandidates(level int, result []smtPreserved
 
 func (s *SMTInternalizerState) releasePreservedLearnedClauses(clauses []smtPreservedLearnedClause) (result error) {
 	for index := len(clauses) - 1; index >= 0; index-- {
-		if err := s.releaseLearnedRoot(&clauses[index].proof); err != nil {
+		if clauses[index].snapshot == nil {
+			continue
+		}
+		if err := s.releaseLearnedRoot(&clauses[index].snapshot.proof); err != nil {
 			return err
 		}
-		if err := s.releaseLemmaAtoms(clauses[index].atoms); err != nil {
+		if err := s.releaseLemmaAtoms(clauses[index].snapshot.atoms); err != nil {
 			return err
 		}
 	}
@@ -322,21 +330,21 @@ func (s *SMTInternalizerState) releasePreservedLearnedClauses(clauses []smtPrese
 func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearnedClause) error {
 	for index := range clauses {
 		saved := &clauses[index]
-		if saved.inPlace {
+		if saved.snapshot == nil {
 			if err := s.reinitializeLearnedClause(saved); err != nil {
 				return err
 			}
 			continue
 		}
 		if !saved.installed {
-			literals, err := s.reinternalizeLemmaAtoms(saved.atoms)
+			literals, err := s.reinternalizeLemmaAtoms(saved.snapshot.atoms)
 			if err != nil {
 				return err
 			}
 			lemmas, binaries, assigned := len(s.lemmas), len(s.binaryClauses), len(s.assignedLiterals)
 			first := literals[0]
 			assignment := s.assignment[first.Index()]
-			err = s.addLearnedClauseWithProof(literals, saved.proof, false)
+			err = s.addLearnedClauseWithProof(literals, saved.snapshot.proof, false)
 			var added *SMTInternalizedClause
 			if len(s.lemmas) > lemmas {
 				added = &s.lemmas[len(s.lemmas)-1]
@@ -352,7 +360,8 @@ func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearn
 					if record.Binary {
 						justification = NewSMTBooleanBinaryClause(record.Literals[1].Negated())
 					}
-					saved.pending = s.learnedAssignmentRemainder(first, assignment, assigned, justification)
+					remaining := s.learnedAssignmentRemainder(first, assignment, assigned, justification)
+					saved.pending = &remaining
 				}
 			}
 			if err != nil {
@@ -360,11 +369,11 @@ func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearn
 			}
 			saved.installed = true
 		}
-		if err := s.finishLearnedAssignment(&saved.pending); err != nil {
+		if err := s.finishLearnedAssignment(saved.pending); err != nil {
 			return err
 		}
 		if saved.clause != nil && saved.clause.IsLearned() {
-			if err := saved.clause.SetActivity(saved.activity); err != nil {
+			if err := saved.clause.SetActivity(saved.snapshot.activity); err != nil {
 				return err
 			}
 		}

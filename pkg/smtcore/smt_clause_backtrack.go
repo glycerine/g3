@@ -101,12 +101,13 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 			saved.keepReinit = true
 			assigned := len(s.assignedLiterals)
 			if err = s.AssignLiteral(literals[0], justification); err != nil {
-				saved.pending = s.learnedAssignmentRemainder(literals[0], firstValue, assigned, justification)
+				remaining := s.learnedAssignmentRemainder(literals[0], firstValue, assigned, justification)
+				saved.pending = &remaining
 				return err
 			}
 		}
 	}
-	if err := s.finishLearnedAssignment(&saved.pending); err != nil {
+	if err := s.finishLearnedAssignment(saved.pending); err != nil {
 		return err
 	}
 	// reinit_clauses keeps a clause on the reinit stack only while

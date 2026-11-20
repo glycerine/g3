@@ -115,7 +115,7 @@ func TestSMTInternalizerCloseDiscardsPreservedLearnedRoots(t *testing.T) {
 	astTestMust(t, err)
 	state.pendingPop = &smtInternalizerPendingPop{count: 1, preserve: true, stage: 1, learned: learned}
 	trigger()
-	if !errors.Is(failure, ast.ErrASTPending) || state.pendingPop == nil || state.pendingPop.learned[0].proof.IsNull() || len(state.testClauses()) != 1 {
+	if !errors.Is(failure, ast.ErrASTPending) || state.pendingPop == nil || state.pendingPop.learned[0].snapshot.proof.IsNull() || len(state.testClauses()) != 1 {
 		t.Fatal("refused destruction lost preserved or installed clause owners", failure)
 	}
 	created := state.statistics.NumMkBoolVar
