@@ -404,11 +404,11 @@ func (q *SMTQuantifierManager) promoteUnsatEntry(entry SMTQIQueueEntry) (bool, e
 
 func (q *SMTQuantifierManager) instantiate(entries []SMTQIQueueEntry) (resultErr error) {
 	for _, entry := range entries {
-		prepared, err := q.builder.Prepare(entry)
-		if err != nil {
+		var prepared SMTQIPreparedInstance
+		if err := q.builder.prepare(entry, &prepared); err != nil {
 			return fmt.Errorf("prepare quantified instance: %w", err)
 		}
-		instance, err := q.builder.MaterializeAndInternalize(prepared, q.rewriter, q.registry.statistics[entry.Fingerprint.data], q.state.scopeLevel, q.state)
+		instance, err := q.builder.MaterializeAndInternalize(&prepared, q.rewriter, q.registry.statistics[entry.Fingerprint.data], q.state.scopeLevel, q.state)
 		err = errors.Join(err, prepared.Close())
 		if err != nil {
 			return fmt.Errorf("materialize quantified instance: %w", err)

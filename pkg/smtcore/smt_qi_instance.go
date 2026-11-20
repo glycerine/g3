@@ -139,41 +139,51 @@ func NewSMTQIInstanceBuilder(manager *ast.ASTManager, checker *SMTChecker, subst
 }
 
 func (b *SMTQIInstanceBuilder) Prepare(entry SMTQIQueueEntry) (*SMTQIPreparedInstance, error) {
+	var prepared SMTQIPreparedInstance
+	if err := b.prepare(entry, &prepared); err != nil {
+		return nil, err
+	}
+	return &prepared, nil
+}
+
+// During queue processing the prepared instance lives only until the current
+// candidate is materialized. The public Prepare result has its own lifetime.
+func (b *SMTQIInstanceBuilder) prepare(entry SMTQIQueueEntry, prepared *SMTQIPreparedInstance) error {
 	if b == nil || b.manager == nil || b.checker == nil || b.substitution == nil {
-		return nil, ast.ErrASTHandle
+		return ast.ErrASTHandle
 	}
 	if entry.Fingerprint == nil || entry.Fingerprint.data.IsNull() {
-		return nil, ast.ErrASTDomain
+		return ast.ErrASTDomain
 	}
 	quantifier := entry.Fingerprint.data
 	kind, err := b.manager.GetKind(quantifier)
 	if err != nil || kind != ast.ASTQuantifier {
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return nil, ast.ErrASTDomain
+		return ast.ErrASTDomain
 	}
 	body, err := b.manager.GetQuantifierBody(quantifier)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	bindings := entry.Fingerprint.args
 	satisfied, err := b.checker.IsSatisfiable(body, bindings)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	prepared := &SMTQIPreparedInstance{manager: b.manager, entry: entry, quantifier: quantifier, alreadySatisfied: satisfied}
+	*prepared = SMTQIPreparedInstance{manager: b.manager, entry: entry, quantifier: quantifier, alreadySatisfied: satisfied}
 	if satisfied {
-		return prepared, nil
+		return nil
 	}
 	prepared.instance, err = b.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if _, err = b.substitution.Instantiate(quantifier, bindings, prepared.instance); err != nil {
-		return nil, errors.Join(err, prepared.Close())
+		return errors.Join(err, prepared.Close())
 	}
-	return prepared, nil
+	return nil
 }
 
 // Materialize invokes the context theory rewriter and completes the source

@@ -274,18 +274,8 @@ func smtHandleKey(h ast.ASTHandle) uint64 {
 	return uint64(h.Slot())<<32 | uint64(h.Generation())
 }
 
-// shared is n->get_ref_count() > 1, the source's cache condition.
-func (c *SMTChecker) shared(expression ast.ASTHandle) bool {
-	rc, err := c.context.manager.GetRefCount(expression)
-	return err == nil && rc > 1
-}
-
-func (c *SMTChecker) allArgs(expression ast.ASTHandle, value bool) (bool, error) {
+func (c *SMTChecker) allArgs(expression ast.ASTHandle, n uint32, value bool) (bool, error) {
 	m := c.context.manager
-	n, err := m.GetNumArgs(expression)
-	if err != nil {
-		return false, err
-	}
 	for i := uint32(0); i < n; i++ {
 		argument, err := m.GetArg(expression, i)
 		if err != nil {
@@ -299,12 +289,8 @@ func (c *SMTChecker) allArgs(expression ast.ASTHandle, value bool) (bool, error)
 	return true, nil
 }
 
-func (c *SMTChecker) anyArg(expression ast.ASTHandle, value bool) (bool, error) {
+func (c *SMTChecker) anyArg(expression ast.ASTHandle, n uint32, value bool) (bool, error) {
 	m := c.context.manager
-	n, err := m.GetNumArgs(expression)
-	if err != nil {
-		return false, err
-	}
 	for i := uint32(0); i < n; i++ {
 		argument, err := m.GetArg(expression, i)
 		if err != nil {
@@ -320,28 +306,22 @@ func (c *SMTChecker) anyArg(expression ast.ASTHandle, value bool) (bool, error) 
 
 // fixedArgs reads the arguments of a basic operator with a fixed arity
 // (not, iff, ite, =) into out; a different arity is a domain error.
-func (c *SMTChecker) fixedArgs(expression ast.ASTHandle, out []ast.ASTHandle) error {
+func (c *SMTChecker) fixedArgs(expression ast.ASTHandle, n uint32, out []ast.ASTHandle) error {
 	m := c.context.manager
-	n, err := m.GetNumArgs(expression)
-	if err != nil {
-		return err
-	}
 	if int(n) != len(out) {
 		return ast.ErrASTDomain
 	}
 	for i := range out {
-		if out[i], err = m.GetArg(expression, uint32(i)); err != nil {
+		arg, err := m.GetArg(expression, uint32(i))
+		if err != nil {
 			return err
 		}
+		out[i] = arg
 	}
 	return nil
 }
 
-func (c *SMTChecker) congruentEnode(expression ast.ASTHandle, arguments []*SMTEnode) (*SMTEnode, error) {
-	declaration, err := c.context.manager.GetDecl(expression)
-	if err != nil {
-		return nil, err
-	}
+func (c *SMTChecker) congruentEnode(declaration ast.ASTHandle, arguments []*SMTEnode) (*SMTEnode, error) {
 	if table := c.context.congruence; table != nil {
 		// context::get_enode_eq_to: the m_cg_table entry, which holds only
 		// congruence roots with congruence closure enabled.
@@ -377,11 +357,11 @@ func (c *SMTChecker) congruentEnode(expression ast.ASTHandle, arguments []*SMTEn
 }
 
 func (c *SMTChecker) enodeEqualTo(expression ast.ASTHandle) (*SMTEnode, error) {
-	kind, err := c.context.manager.GetKind(expression)
+	header, err := c.context.manager.NodeHeader(expression)
 	if err != nil {
 		return nil, err
 	}
-	if kind == ast.ASTVar {
+	if header.Kind == ast.ASTVar {
 		index, err := c.context.manager.GetVarIndex(expression)
 		if err != nil || int(index) >= len(c.bindings) {
 			return nil, err
@@ -391,20 +371,16 @@ func (c *SMTChecker) enodeEqualTo(expression ast.ASTHandle) (*SMTEnode, error) {
 	if node := c.context.enodes.get(expression); node != nil && c.context.isRelevant(expression) {
 		return node, nil
 	}
-	if kind != ast.ASTApp {
+	if header.Kind != ast.ASTApp || header.NumArgs == 0 {
 		return nil, nil
 	}
-	n, err := c.context.manager.GetNumArgs(expression)
-	if err != nil || n == 0 {
-		return nil, err
-	}
-	shared := c.shared(expression)
+	shared := header.RefCount > 1
 	if shared {
 		if s := c.cache.find(smtHandleKey(expression)); s != nil && s.hasEnode {
 			return s.enode, nil
 		}
 	}
-	node, err := c.enodeEqualToCore(expression, n)
+	node, err := c.enodeEqualToCore(expression, header)
 	if err == nil && shared {
 		s := c.cache.slot(smtHandleKey(expression))
 		s.enode, s.hasEnode = node, true
@@ -414,7 +390,8 @@ func (c *SMTChecker) enodeEqualTo(expression ast.ASTHandle) (*SMTEnode, error) {
 
 // enodeEqualToCore is get_enode_eq_to_core; congruentEnode applies the
 // final relevancy test.
-func (c *SMTChecker) enodeEqualToCore(expression ast.ASTHandle, n uint32) (*SMTEnode, error) {
+func (c *SMTChecker) enodeEqualToCore(expression ast.ASTHandle, header ast.ASTNodeHeader) (*SMTEnode, error) {
+	n := header.NumArgs
 	base := len(c.argBuffer)
 	defer func() {
 		clear(c.argBuffer[base:])
@@ -431,10 +408,10 @@ func (c *SMTChecker) enodeEqualToCore(expression ast.ASTHandle, n uint32) (*SMTE
 		}
 		c.argBuffer = append(c.argBuffer, node)
 	}
-	return c.congruentEnode(expression, c.argBuffer[base:base+int(n)])
+	return c.congruentEnode(header.Decl, c.argBuffer[base:base+int(n)])
 }
 
-func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, error) {
+func (c *SMTChecker) checkCore(expression ast.ASTHandle, header ast.ASTNodeHeader, value bool) (bool, error) {
 	manager := c.context.manager
 	if smtcoreSourceDebug { // SASSERT(m_manager.is_bool(n))
 		sort, err := manager.GetSort(expression)
@@ -453,19 +430,11 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 		assignment := c.context.getAssignment(expression)
 		return assignment != lbool.Undef && value == (assignment == lbool.True), nil
 	}
-	kind, err := manager.GetKind(expression)
-	if err != nil || kind != ast.ASTApp {
-		return false, err
+	if header.Kind != ast.ASTApp {
+		return false, nil
 	}
-	family, err := manager.GetFamilyID(expression)
-	if err != nil {
-		return false, err
-	}
-	if family == manager.BasicFamilyID() {
-		op, err := manager.GetDeclKind(expression)
-		if err != nil {
-			return false, err
-		}
+	if header.Family == manager.BasicFamilyID() {
+		op := header.DeclKind
 		var arguments [3]ast.ASTHandle
 		switch op {
 		case ast.ASTOpTrue:
@@ -473,22 +442,22 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 		case ast.ASTOpFalse:
 			return !value, nil
 		case ast.ASTOpNot:
-			if err := c.fixedArgs(expression, arguments[:1]); err != nil {
+			if err := c.fixedArgs(expression, header.NumArgs, arguments[:1]); err != nil {
 				return false, err
 			}
 			return c.check(arguments[0], !value)
 		case ast.ASTOpOr:
 			if value {
-				return c.anyArg(expression, true)
+				return c.anyArg(expression, header.NumArgs, true)
 			}
-			return c.allArgs(expression, false)
+			return c.allArgs(expression, header.NumArgs, false)
 		case ast.ASTOpAnd:
 			if value {
-				return c.allArgs(expression, true)
+				return c.allArgs(expression, header.NumArgs, true)
 			}
-			return c.anyArg(expression, false)
+			return c.anyArg(expression, header.NumArgs, false)
 		case ast.ASTOpIff:
-			if err := c.fixedArgs(expression, arguments[:2]); err != nil {
+			if err := c.fixedArgs(expression, header.NumArgs, arguments[:2]); err != nil {
 				return false, err
 			}
 			leftTrue, err := c.check(arguments[0], true)
@@ -504,7 +473,7 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 			}
 			return c.check(arguments[1], !value)
 		case ast.ASTOpIte:
-			if err := c.fixedArgs(expression, arguments[:3]); err != nil {
+			if err := c.fixedArgs(expression, header.NumArgs, arguments[:3]); err != nil {
 				return false, err
 			}
 			if c.context.litInternalized(arguments[0]) && c.context.isRelevant(arguments[0]) {
@@ -523,7 +492,7 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 			}
 			return c.check(arguments[2], value)
 		case ast.ASTOpEq:
-			if err := c.fixedArgs(expression, arguments[:2]); err != nil {
+			if err := c.fixedArgs(expression, header.NumArgs, arguments[:2]); err != nil {
 				return false, err
 			}
 			left, err := c.enodeEqualTo(arguments[0])
@@ -553,13 +522,17 @@ func (c *SMTChecker) check(expression ast.ASTHandle, value bool) (bool, error) {
 	if value {
 		v = 1
 	}
-	shared := c.shared(expression)
+	header, err := c.context.manager.NodeHeader(expression)
+	if err != nil {
+		return false, err
+	}
+	shared := header.RefCount > 1
 	if shared {
 		if s := c.cache.find(smtHandleKey(expression)); s != nil && s.truth[v] != 0 {
 			return s.truth[v] == 2, nil
 		}
 	}
-	result, err := c.checkCore(expression, value)
+	result, err := c.checkCore(expression, header, value)
 	if err == nil && shared {
 		s := c.cache.slot(smtHandleKey(expression))
 		s.truth[v] = 1

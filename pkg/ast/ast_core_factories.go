@@ -249,6 +249,9 @@ func (m *ASTManager) mkAppCoreCoerced(decl astNodeRef, args AppArguments, frame 
 func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (astNodeRef, error) {
 	v := m.appAt(r.slot)
 	var e error
+	// A short application owns all its arguments inline. A slice input is
+	// immutable during construction, so copy the validated child once.
+	inlineSlice := !ASTSourceDebug && args.count <= astInlineArgs && args.appOwner == nil && !args.raw
 	for i := uint32(0); i < args.count; i++ {
 		h, e := args.at(i)
 		if e != nil {
@@ -282,11 +285,16 @@ func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame 
 			m.freeNodeStorage(r)
 			return astNodeRef{}, &astArgumentSortError{decl: decl, actual: actual, index: i}
 		}
+		if inlineSlice {
+			v.inlineArgs[i] = child
+		}
 	}
-	v.args, e = m.newASTPayloadArguments(args, &v.inlineArgs)
-	if e != nil {
-		m.freeNodeStorage(r)
-		return astNodeRef{}, e
+	if !inlineSlice {
+		v.args, e = m.newASTPayloadArguments(args, &v.inlineArgs)
+		if e != nil {
+			m.freeNodeStorage(r)
+			return astNodeRef{}, e
+		}
 	}
 	original := r
 	if frame != nil {
