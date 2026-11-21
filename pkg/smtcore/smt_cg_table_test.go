@@ -30,6 +30,49 @@ func smtCGTestApplication(t *testing.T, manager *ast.ASTManager, declaration ast
 	return node
 }
 
+func TestSMTCongruenceTableRegistersDeclarationsOnLookupMiss(t *testing.T) {
+	m := astTestManager(t)
+	sort, err := m.MkSort(symbol.Numerical(2590), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	a, an := smtEnodeConstant(t, m, 2591, sort, 0)
+	args, nodes := []ast.ASTHandle{a, a}, []*SMTEnode{an, an}
+	f := smtCGTestDeclaration(t, m, 2592, sort, ast.ASTFuncFlags{})
+	g := smtCGTestDeclaration(t, m, 2593, sort, ast.ASTFuncFlags{})
+	faa := smtCGTestApplication(t, m, f, args, nodes)
+	gaa := smtCGTestApplication(t, m, g, args, nodes)
+	refs := func(h ast.ASTHandle) uint32 {
+		n, err := m.GetRefCount(h)
+		astTestMust(t, err)
+		return n
+	}
+	beforeF, beforeG := refs(f), refs(g)
+	table, err := NewSMTCongruenceTable(m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, table.Close()) }()
+
+	if found, err := table.FindApp(g, nodes, false); err != nil || found != nil {
+		t.Fatalf("find g(a,a) in empty table: %p, %v", found, err)
+	}
+	if found, _, err := table.Find(faa); err != nil || found != nil {
+		t.Fatalf("find f(a,a) in empty table: %p, %v", found, err)
+	}
+	if refs(g) != beforeG+1 || refs(f) != beforeF+1 {
+		t.Fatalf("lookup references on g, f: got %d, %d, want %d, %d", refs(g), refs(f), beforeG+1, beforeF+1)
+	}
+	// Insert in reverse order. The first lookups already assigned the IDs.
+	_, err = table.Insert(faa)
+	astTestMust(t, err)
+	_, err = table.Insert(gaa)
+	astTestMust(t, err)
+	if gaa.FunctionDeclID() != 0 || faa.FunctionDeclID() != 1 {
+		t.Fatalf("IDs in first lookup order: g=%d f=%d", gaa.FunctionDeclID(), faa.FunctionDeclID())
+	}
+	astTestMust(t, table.Reset())
+	if refs(f) != beforeF || refs(g) != beforeG {
+		t.Fatalf("references after reset: f=%d g=%d, want %d, %d", refs(f), refs(g), beforeF, beforeG)
+	}
+}
+
 func TestSMTCongruenceTableExactCommutativeInsertFindEraseReset(t *testing.T) {
 	manager := astTestManager(t)
 	sort, err := manager.MkSort(symbol.Numerical(2600), ast.ASTSortInfo{})

@@ -115,11 +115,10 @@ type SMTCongruenceInsertResult struct {
 }
 
 type SMTCongruenceTable struct {
-	self         *SMTCongruenceTable
-	manager      *ast.ASTManager
-	tables       map[uint64]*smtCongruenceBucket // m_func_decl2table, keyed by smtHandleKey(decl)
-	buckets      []*smtCongruenceBucket          // by enode functionDeclID, to skip the map
-	declarations []ast.ASTHandle
+	self    *SMTCongruenceTable
+	manager *ast.ASTManager
+	tables  map[uint64]*smtCongruenceBucket // m_func_decl2table, keyed by smtHandleKey(decl)
+	buckets []*smtCongruenceBucket          // by enode functionDeclID, to skip the map
 	// declarationOrder is m_func_decl2id (obj_map<func_decl, unsigned>),
 	// whose table order reset() releases the declarations in;
 	// resetOrder and resetIndex resume a refused release.
@@ -179,8 +178,7 @@ func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, 
 	if err := t.manager.IncRef(node.declaration); err != nil {
 		return nil, err
 	}
-	node.functionDeclID = uint32(len(t.declarations))
-	t.declarations = append(t.declarations, node.declaration)
+	node.functionDeclID = uint32(len(t.buckets))
 	if t.declarationOrder == nil {
 		t.declarationOrder = ast.NewObjMap(t.manager)
 	}
@@ -220,9 +218,9 @@ func (t *SMTCongruenceTable) Find(node *SMTEnode) (*SMTEnode, bool, error) {
 	if err := t.validateNode(node); err != nil {
 		return nil, false, err
 	}
-	bucket := t.bucketFor(node)
-	if bucket == nil {
-		return nil, false, nil
+	bucket, err := t.ensureTable(node)
+	if err != nil {
+		return nil, false, err
 	}
 	return bucket.find(node)
 }
@@ -285,7 +283,7 @@ func (t *SMTCongruenceTable) Reset() error {
 	if t.declarationOrder != nil {
 		t.declarationOrder.Reset()
 	}
-	t.declarations, t.buckets = nil, nil
+	t.buckets = nil
 	t.tables = make(map[uint64]*smtCongruenceBucket)
 	return nil
 }
@@ -338,11 +336,13 @@ func (t *SMTCongruenceTable) FindApp(decl ast.ASTHandle, args []*SMTEnode, commu
 	if len(args) == 0 {
 		return nil, nil
 	}
-	bucket := t.tables[smtHandleKey(decl)]
-	if bucket == nil {
-		return nil, nil
+	// cg_table::get_table registers the declaration even when this lookup
+	// misses. Its reference lives until Reset, which affects AST ID reuse.
+	tmp := SMTEnode{manager: t.manager, declaration: decl, arguments: args, commutative: commutative && len(args) == 2}
+	bucket, err := t.ensureTable(&tmp)
+	if err != nil {
+		return nil, err
 	}
-	tmp := &SMTEnode{manager: t.manager, declaration: decl, arguments: args, commutative: commutative && len(args) == 2}
-	found, _, err := bucket.find(tmp)
+	found, _, err := bucket.find(&tmp)
 	return found, err
 }
