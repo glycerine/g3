@@ -84,11 +84,28 @@ def summarize(path, engine):
     return total, inclusive, nearest, leaf
 
 
+def rewriter_callees(path, engine):
+    callees = Counter()
+    total = 0
+    for stack in samples(path):
+        total += 1
+        for i, symbol in enumerate(stack):
+            if "solver rewriter" in categories(engine, symbol):
+                callees[stack[i-1] if i else "(rewriter itself)"] += 1
+                break
+    if not total:
+        raise ValueError(f"{path}: no samples")
+    return total, callees
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("runs", type=Path, nargs="+", help="completed directories named PHASE-PAIR-ENGINE")
     p.add_argument("--period", type=int, required=True, help="user-mode instructions per sample")
-    p.add_argument("--leaf", action="store_true", help="emit physical leaf symbols instead of operation groups")
+    view = p.add_mutually_exclusive_group()
+    view.add_argument("--leaf", action="store_true", help="emit physical leaf symbols instead of operation groups")
+    view.add_argument("--rewriter-callees", action="store_true",
+                      help="attribute each sampled rewriter stack to its nearest physical callee")
     args = p.parse_args()
     if args.period < 1:
         p.error("a positive sampling period is required")
@@ -99,8 +116,12 @@ def main():
         if not match:
             p.error(f"unrecognized run directory {run}")
         selection, pair, engine = match.groups()
-        total, inclusive, nearest, leaf = summarize(run / "stacks.gz", engine)
-        counts = [("leaf", leaf)] if args.leaf else [("inclusive", inclusive), ("nearest", nearest)]
+        if args.rewriter_callees:
+            total, callees = rewriter_callees(run / "stacks.gz", engine)
+            counts = [("rewriter callee", callees)]
+        else:
+            total, inclusive, nearest, leaf = summarize(run / "stacks.gz", engine)
+            counts = [("leaf", leaf)] if args.leaf else [("inclusive", inclusive), ("nearest", nearest)]
         for kind, votes in counts:
             for name, count in sorted(votes.items()):
                 out.writerow([selection, pair, engine, args.period, total, kind, name, count])

@@ -1972,3 +1972,21 @@ To repeat both sets of boundaries in one run with a fresh output directory, use 
 python3 perf/scope_restoration/pop_phases/clauses.py --cpu 0 --iterations 1808 \
   --pairs 11 --dir /tmp/g3-restored-clauses > /tmp/g3-restored-clauses.csv
 ```
+
+
+### Where the rewriter spends instructions on the difficult Apple checks
+
+On `rfn2` check 4, **24% of g3's instruction samples** had the solver rewriter on the stack. On `dramc_nb2` check 71 the share was **31–32%**. Two frame-pointer profiles per check sampled every 800,011 user instructions. They cover only the selected solve call and verify the complete isolate output. These runs include the prepared candidate checker, activity-queue change and batched root retirement, preceding the interrupted-relevance query guards. [Operation counts](perf/ivy_apple/rewriter_profiles/frame-solver-operations.csv) · [Sampling driver](perf/ivy_apple/phase_stacks.py)
+
+| Physical frame directly below the innermost rewriter frame | `rfn2` check 4, two runs | `dramc_nb2` check 71, two runs |
+|---|---:|---:|
+| RewriterMakeApp | 3,948 / 4,090 | 3,169 / 2,840 |
+| ReduceApp | 3,324 / 3,185 | 1,300 / 1,238 |
+| cacheResult | 1,401 / 1,349 | 760 / 735 |
+| GetSubst | 1,199 / 1,191 | 711 / 788 |
+| All samples with a rewriter frame | 16,824 / 16,619 | 9,352 / 9,036 |
+| All samples in the selected call | 68,991 / 68,971 | 28,820 / 29,374 |
+
+One stack contributes to one callee row. A sample attributed to `RewriterMakeApp` includes work deeper in that call, such as checking argument sorts, finding the canonical application and handling references. The two profiles per check independently identify application construction as a larger target than the result cache. Physical frames omit inlined calls. The operation CSV also provides inclusive categories that can overlap. Use `phase_stacks.py --engines g3 --call-graph fp --period 800011` and pass the completed run directories to `stack_costs.py --rewriter-callees --period 800011` to reproduce the classification. [All callee samples](perf/ivy_apple/rewriter_profiles/frame-rewriter-callees.csv) · [Classification code](perf/ivy_apple/stack_costs.py)
+
+A separate eight-pair release-binary timing series measured the original prepared-candidate change on five complete workloads. Median within-pair elapsed changes were −5.39% on `rfn`, −2.38% on `rfn2`, −2.27% on `dramc_nb2`, +1.89% on `cf_live` and +2.03% on Raft. Each row records host and sibling activity. The direct queue and solver-thread instruction measurements above isolate the checker improvement more precisely than these whole-process times. [All 80 release runs](perf/ivy_apple/candidate_checker/prepared-release-wall.csv)

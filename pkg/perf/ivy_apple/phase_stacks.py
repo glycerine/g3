@@ -20,7 +20,7 @@ def record(args, binary, selection, directory, reference):
                IVY_PERF_CONTROL=str(ctl), IVY_PERF_ACK=str(ack))
     profile = directory / "perf.data"
     command = ["taskset", "-c", str(args.cpu), args.perf, "record", "--no-buildid",
-               "--call-graph", "dwarf,8192", "-e", "instructions:u", "-c", str(args.period),
+               "--call-graph", args.call_graph, "-e", "instructions:u", "-c", str(args.period),
                "-m", "512", "-D", "-1", "--control", f"fifo:{ctl},{ack}", "-o", str(profile),
                "--", str(binary), f"isolate={args.isolate}", str(args.spec)]
     try:
@@ -65,6 +65,9 @@ def main():
     p.add_argument("--modfile", type=Path)
     p.add_argument("--keep-raw", action="store_true", help="keep perf.data after symbolizing stacks")
     p.add_argument("--inline", action="store_true", help="include inline frames when symbolizing")
+    p.add_argument("--call-graph", choices=["dwarf,8192", "fp"], default="dwarf,8192",
+                   help="use frame pointers for binaries built with them, or DWARF stacks")
+    p.add_argument("--go-overlay", type=Path, help="optional Go source overlay for the g3 build")
     args = p.parse_args()
     if len(set(args.engines)) != len(args.engines) or len(set(args.select)) != len(args.select):
         p.error("each engine and check selection must appear only once")
@@ -84,7 +87,8 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     with tempfile.TemporaryDirectory() as scratch:
-        binaries = [build(engine, args, Path(scratch)) for engine in args.engines]
+        binaries = [build(engine, args, Path(scratch), go_overlay=args.go_overlay if engine == "g3" else None)
+                    for engine in args.engines]
         for i in range(args.pairs):
             for select in args.select:
                 for binary in binaries[::1 if i % 2 == 0 else -1]:
