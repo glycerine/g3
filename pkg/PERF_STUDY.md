@@ -1949,3 +1949,26 @@ The error tests exercise both possible ownership outcomes. A numeric destructor 
 The complete release-binary instruction measurements compare the heap change alone (`heap`) with the additional batched decrements (`roots`), before the interrupted-query guards. Median within-pair reductions were **0.35% on Apple `rfn`**, **0.33% on `rfn2`**, **0.08% on `cf_live`**, and **0.58% on the 419 Raft obligations**. The lower count occurred in 7/7, 7/7, 3/5 and 13/14 pairs respectively. On `cf_live` the change was smaller than the run-to-run variation. [Apple process counters](perf/scope_restoration/held_references/apple.csv) · [Raft process counters](perf/scope_restoration/held_references/raft.csv)
 
 With the query guards in place, all 10,342 Apple results and their 18 search counters matched. The 28 Raft variant outputs and 188 private search records also matched.
+
+### Where time goes inside one restored learned clause
+
+The fixture restores 64 learned ternary clauses per pop. A pair of hardware reads bracketed one operation in every clause, in separate Go and in-tree native builds. Each row is the median of eleven alternating pairs on CPU 15. Every process measured **115,200 clause visits** after warmup. Counts below subtract the same engine's empty interval for that round. The phases have separate instrumented binaries, so instruction scheduling and call boundaries can differ slightly. [Go clause restoration](smtcore/smt_clause_backtrack.go) · [Native restoration](../src/smt/smt_context.cpp) · [Observer and build driver](perf/scope_restoration/pop_phases/clauses.py)
+
+| Work measured per restored clause | g3 instructions | Z3 instructions |
+|---|---:|---:|
+| Complete clause | 1,727 | 1,382 |
+| Restore literal bindings | 1,116 | 1,040 |
+| Select watches | 99 | 117 |
+| Install watches | 91 | 63 |
+| Complete the clause after installing watches | 385 | 150 |
+| ↳ Check assignments on the watched literals | 47 | 9 |
+| ↳ Release the three retained atom references | 310 | 137 |
+
+Releasing the saved atoms accounts for **173 of the 345 additional instructions per restored clause**, about half the gap within that operation. The independent second series reproduced the enclosing post-watch interval at 384 instructions in g3 and 150 in Z3. In native code `clause::release_atoms` walks tagged expression pointers. In this g3 build every saved atom carries a 16-byte AST handle and a sign, and each decrement independently checks the manager's state. Solver-local references that preserve the arena's ownership and retry rules are a concrete target. [First series](perf/scope_restoration/pop_phases/clause-instructions.csv) · [Assignment and reference-release series](perf/scope_restoration/pop_phases/clause-retirement.csv) · [Native reference release](../src/smt/smt_clause.cpp)
+
+To repeat both sets of boundaries in one run with a fresh output directory, use an available Linux/amd64 CPU and the in-tree release build.
+
+```sh
+python3 perf/scope_restoration/pop_phases/clauses.py --cpu 0 --iterations 1808 \
+  --pairs 11 --dir /tmp/g3-restored-clauses > /tmp/g3-restored-clauses.csv
+```

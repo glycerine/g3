@@ -106,7 +106,7 @@ def build_native(output, phase, build, compiler, flags, link, main):
                     build / "libz3.a", *link], cwd=build, check=True)
 
 
-def run(binary, engine, args):
+def run(binary, engine, args, visits_per_pop=VARIABLES):
     command = ["taskset", "-c", str(args.cpu), binary]
     if engine == "g3":
         command.extend(["-test.run", "^$", "-test.bench",
@@ -117,9 +117,9 @@ def run(binary, engine, args):
     env = dict(os.environ, SCOPE_THREAD_EVENT="1", SCOPE_PHASE="3", GOMAXPROCS="1")
     result = subprocess.check_output(command, cwd=binary.parent, env=env, text=True)
     matches = re.findall(r"(\d+) intervals" if engine == "g3" else r"intervals (\d+)", result)
-    expected = VARIABLES * (args.iterations - WARMUP)
+    expected = visits_per_pop * (args.iterations - WARMUP)
     if not matches or int(matches[-1]) != expected:
-        raise ValueError(f"expected {expected} variable intervals from {binary}")
+        raise ValueError(f"expected {expected} intervals from {binary}")
     counters = re.findall(r"SCOPE-THREAD (\d+) (\d+) (\d+)$", result, re.MULTILINE)
     if not counters:
         raise ValueError(f"missing thread counter from {binary}")
