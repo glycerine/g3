@@ -11,7 +11,8 @@ type pointUpdate struct {
 
 type frameMatcher struct {
 	instanceMatcher
-	updates []pointUpdate
+	updates     []pointUpdate
+	definitions []updateDefinition
 }
 
 // Specialize a ground counterexample to an argument changed by the transition.
@@ -54,6 +55,9 @@ func (m *inductionMatcher) specialize(lemma, goal int32, steps uint32) (int32, i
 				if len(witnesses) == 2 {
 					other := min(witnesses[0], witnesses[1])
 					facts = f.offPivotEqualities(oldLemma, newGoal, other, update.pivot)
+					if len(facts) != 0 {
+						facts = f.requireChangedUpdates(facts)
+					}
 				}
 				return oldLemma, newGoal, facts, f.work
 			}
@@ -65,7 +69,7 @@ func (m *inductionMatcher) specialize(lemma, goal int32, steps uint32) (int32, i
 
 func (f *frameMatcher) findUpdates(pair functionPair) bool {
 	t := f.t
-	for _, id := range t.assertions[:len(t.assertions)-1] {
+	for index, id := range t.assertions[:len(t.assertions)-1] {
 		if !f.visit() {
 			return false
 		}
@@ -107,6 +111,7 @@ func (f *frameMatcher) findUpdates(pair functionPair) bool {
 		}
 		f.updates = f.updates[:i]
 		if i > start {
+			f.definitions = append(f.definitions, updateDefinition{index, pair.premise})
 			return true
 		}
 	}
@@ -190,7 +195,12 @@ func (f *frameMatcher) outside(id int32, params []int32, u pointUpdate) bool {
 		return f.outside(args[2], params, u) && (f.guardFalse(args[0], t.terms[params[u.at]].value, t.terms[u.pivot].value) ||
 			f.outside(args[1], params, u))
 	}
-	if n.op != opFunction || n.value != u.before || int(n.count) != len(params) {
+	return f.oldApplication(n, params, u.before)
+}
+
+func (f *frameMatcher) oldApplication(n expression, params []int32, old int32) bool {
+	t := f.t
+	if n.op != opFunction || n.value != old || int(n.count) != len(params) {
 		return false
 	}
 	for i, child := range t.arguments(&n) {

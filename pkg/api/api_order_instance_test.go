@@ -381,3 +381,52 @@ func TestOrderProofLiftsImplicationThroughQuantifiedPredicates(t *testing.T) {
 		})
 	}
 }
+
+func TestOrderProofCommonUpdateGuard(t *testing.T) {
+	const decls = `(define-sort A () (_ BitVec 2))
+(declare-const a A)(declare-const b A)(declare-const c A)(declare-const d A)(declare-const p A)
+(declare-const action Bool)(declare-const second Bool)
+(declare-fun gate (A A) Bool)(declare-fun old (A A) A)(declare-fun next (A A) A)
+(declare-fun oldFlag (A A) Bool)(declare-fun nextFlag (A A) Bool)
+(assert (forall ((i A)(j A)) (= (next i j) (ite action (ite (= i p) p (old i j)) (old i j)))))
+`
+	const invariant = `(=> (and (gate x z) (gate y z)) (and (= (old x w) (old y w)) (= (oldFlag x w) (oldFlag y w))))`
+	goal := strings.NewReplacer("old", "next", " x", " a", " y", " b", " z", " c", " w", " d").Replace(invariant)
+	for _, tc := range []struct {
+		name, condition string
+		shared          bool
+	}{
+		{"shared action", "action", true},
+		{"independent actions", "second", false},
+		{"opposite actions", "(not action)", false},
+		{"guard varies by argument", "(gate i j)", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, s := orderSolver(t, decls+
+				"(assert (forall ((i A)(j A)) (= (nextFlag i j) (ite "+tc.condition+
+				" (ite (= i p) true (oldFlag i j)) (oldFlag i j)))))"+
+				"(assert (forall ((x A)(y A)(z A)(w A)) "+invariant+"))(assert (not "+goal+"))")
+			m, err := c.Manager()
+			astTestMust(t, err)
+			assertions, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			before, ok, err := order.Relax(m, assertions)
+			astTestMust(t, err)
+			if !ok {
+				t.Fatal("expected an order relaxation")
+			}
+			after, ok, err := order.ForProof(m, assertions, orderProofSteps)
+			astTestMust(t, err)
+			if !ok || after.Refuted || after.Order.Text == "" || (before.Premises() != after.Order.Premises()) != tc.shared {
+				t.Fatalf("unexpected update specialization for %s", tc.condition)
+			}
+			proved, err := s.ProveUnsatByOrderAbstraction()
+			astTestMust(t, err)
+			got, err := s.Check()
+			astTestMust(t, err)
+			if proved || got != lbool.True {
+				t.Fatalf("expected an active transition with a counterexample, got proved=%v, concrete=%v", proved, got)
+			}
+		})
+	}
+}
