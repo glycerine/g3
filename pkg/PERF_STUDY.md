@@ -8,6 +8,8 @@
 
 **g3 matches Z3’s 16-byte SMT Boolean variable and 8-byte justification.** In 18 final pinned samples per engine with the branching queue active, scoped pop took **19.39 µs in g3 versus 12.70 µs in Z3**. Surviving pop took **306 ns versus 488 ns**. The original Makefile comparison and the experiments that reduced scoped-pop cost follow below. [Final scope samples](perf/scope_restoration/frontier-4f0c0457b.csv) · [Record layout](#matching-the-native-boolean-record) · [Independent-worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
 
+**Apple’s `dramc_nb2` isolate finished in 174 s with g3 and 225 s with native Z3** using the same GoIvy frontend. Isolating solver time reversed the ranking. Across its 2,479 checks g3 spent 6.93 s and Z3 spent 3.05 s. On the sibling isolate `cf_live`, a single check consumed 12.02 CPU seconds with g3 and 2.19 with Z3. [Apple isolate study](#apple-ordering-and-liveness)
+
 ## What the benchmark measures
 
 Each round adds 64 three-literal learned clauses over 128 Boolean constants. It pops the inner search scope, verifies the clauses, then discards the outer user scope. The constants have external roots for the entire run. In `ScopedAtoms`, pop retires 128 Boolean bindings, restores 192 literal occurrences and reinstalls 128 watches. **The underlying AST nodes survive.** In `SurvivingAtoms`, even the Boolean bindings survive. This makes it a good control for the fixed cost of pop. These timings describe Boolean backtracking. An arithmetic or quantified solve exercises other paths. [Go fixture](smtcore/smt_hotpath_benchmark_test.go) · [C++ fixture](../src/test/smt_scope_restoration.cpp)
@@ -1222,3 +1224,27 @@ g3 now looks for this correspondence when an order proof reaches a negated groun
 In 22 alternating pairs on CPUs 4 and 10 of the shared Threadripper host, the ordinary release build took a median of 5.70 s against 6.67 s for the previous g3 binary. The new build won all 22 pairs, with a median within-pair speedup of 1.18×. Both used GoIvy `ee84dd456`, one Go CPU, the local g3 replacement, and identical 419-result transcripts. [Per-process timings](perf/ivy_raft/induction/paired.csv) · [Per-obligation search counts](perf/ivy_raft/induction/search.csv.gz)
 
 Of the 185 residual queries, 54 received a lemma. For each, an independent checker reconstructed a substitution into one original universal premise. Native Z3 proved that the premise alone entails the emitted lemma, with the goal and every other premise removed. The 28 modified Raft specifications agreed with both native reference frontends on 11,732 outcomes, including all 77 expected failures. To repeat the independent lemma checks from `pkg`, run `python3 perf/ivy_raft/induction/verify.py --native ../build/z3`. [Archived assertions](perf/ivy_raft/induction/final-assertions.csv.gz) · [Verifier](perf/ivy_raft/induction/verify.py) · [Negative protocol controls](perf/ivy_raft/induction/protocol-mutations.csv)
+
+## Apple ordering and liveness
+
+The input was `ivy-lang-examples/doc/examples/apple/ord_live.ivy`, last changed in Ivy commit `40fdb8ac3`. Each backend used the same GoIvy frontend with tracing compiled out, `GOMAXPROCS=1`, and one pinned logical CPU on a Ryzen Threadripper 3960X. We alternated the order of the two binaries on each CPU. On `isolate=dramc_nb2`, g3 beat native Z3 in all six pairs. All twelve runs exited successfully and produced byte-identical complete output, with 2,479 passes and a final `OK`. [Paired runs](perf/ivy_apple/dramc_nb2-backends.csv) · [Reproduction driver](perf/ivy_apple/compare.py)
+
+| `dramc_nb2` | GoIvy + g3 | GoIvy + native Z3 |
+|---|---:|---:|
+| Median whole process, six runs | 173.79 s | 224.89 s |
+| Total time in verification checks, separate instrumented run | 6.93 s | 3.05 s |
+| Longest check, number 71 | 1.91 s | 1.75 s |
+
+The Python/Go golden test reads one trace record from each child before advancing. The live comparison continued to advance while it appeared stalled. Two independent trace-enabled Go builds, before and after the frontend changes below, produced identical streams from start to finish. Each emitted 8,599,630 trace records and 21,638,409,694 bytes of output. That run compared 8,622,828 lines, including ordinary checker output, in 481 s. This measures two Go processes and their streaming comparator. The Python/Go golden test has its own elapsed time. [Golden reader](https://github.com/glycerine/ivy/blob/f9b70a4bc/goivy/parser_golden_test.go#L985)
+
+The baseline Go CPU profile contained 160.28 sampled seconds. Of those, 40.04 s were spent collecting names in `usedSymbolNamesClauses`, and 20.82 s comparing actions during graph name lookup. Both the sequence and environment action equality methods serialized their entire subtree. Their canonical forms always begin with distinct tags, so GoIvy can answer this particular comparison immediately. With symbol handling held fixed across the pair, the change reduced median time from 136.80 s to 98.81 s and won all six end-to-end pairs on two CPUs. On a 128-statement input a single such comparison went from about 186 µs and 2,074 allocations to 5.82 ns and zero allocations. GoIvy commit `f9b70a4bc` includes the implementation, regression and benchmark. [Complete isolate runs](perf/ivy_apple/action-lookup.csv) · [Microbenchmark samples](perf/ivy_apple/action-lookup-micro.csv)
+
+**For improving the solver, use the sibling isolate `cf_live`.** Both backends passed its 336 checks with identical output. On the same logical CPU, separate instrumented runs spent 27.62 process CPU seconds across verification checks in g3 and 6.04 in native Z3. Check 130 alone consumed 12.02 and 2.19 CPU seconds respectively. For `dramc_nb2`, all 2,479 attempts at the optional order abstraction declined and the concrete solver decided them. Timings of individual Apple checks depend on the incremental solver state. [Measured check times and clock types](perf/ivy_apple/solver-times.csv)
+
+Run the comparison in a new output directory. Supply a standard GoIvy binary and one built with `-tags=classic_z3,xtrace_off`, linked to the native fork. Build the Go backend with `-tags=xtrace_off`. The driver keeps both outputs, checks every byte and reports wall time, CPU time, peak RSS and pass count.
+
+```sh
+python3 perf/ivy_apple/compare.py --spec ~/ivy/ivy-lang-examples/doc/examples/apple/ord_live.ivy \
+  --isolate dramc_nb2 --cpu 5 --pairs 3 --output /tmp/ord-live-pairs \
+  /path/to/goivy-g3 /path/to/goivy-native-z3
+```

@@ -1,0 +1,5 @@
+isolate,checker,measure,calls,elapsed_s,solver_s,slowest_check,slowest_s
+dramc_nb2,g3,wall,2479,160.86,6.926472,71,1.914953
+dramc_nb2,native,wall,2479,222.05,3.047008,71,1.745764
+cf_live,g3,process_CPU,336,55.05,27.622885,130,12.01614
+cf_live,native,process_CPU,336,30.06,6.040054,130,2.192023
