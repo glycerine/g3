@@ -1,0 +1,85 @@
+// This observer is installed only in the temporary proof-comparison build.
+package smtcore
+
+import (
+	"bufio"
+	"encoding/binary"
+	"os"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+var effectFile *os.File
+var effectWriter *bufio.Writer
+var effectCandidate uint32
+var effectInside bool
+
+func BeginCandidateObservation() {
+	var err error
+	effectFile, err = os.Create("effects.bin")
+	if err != nil {
+		panic(err)
+	}
+	effectWriter = bufio.NewWriterSize(effectFile, 1<<20)
+	effectCandidate = 0
+}
+
+func EndCandidateObservation() {
+	if err := effectWriter.Flush(); err != nil {
+		panic(err)
+	}
+	effectWriter = nil
+	if err := effectFile.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func recordCandidateEffect(kind, a, b, c uint32) {
+	var data [24]byte
+	var inside uint32
+	if effectInside {
+		inside = 1
+	}
+	for i, v := range [6]uint32{effectCandidate, inside, kind, a, b, c} {
+		binary.LittleEndian.PutUint32(data[i*4:], v)
+	}
+	if _, err := effectWriter.Write(data[:]); err != nil {
+		panic(err)
+	}
+}
+
+func candidateEffectID(m *ast.ASTManager, h ast.ASTHandle) uint32 {
+	if h.IsNull() {
+		return 0
+	}
+	id, err := m.GetASTID(h)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
+func startObservedCandidate(m *ast.ASTManager, q ast.ASTHandle, n int) {
+	if effectWriter != nil {
+		effectCandidate++
+		effectInside = true
+		recordCandidateEffect(0, candidateEffectID(m, q), uint32(n), 0)
+	}
+}
+
+func endObservedCandidate(satisfied bool) {
+	if effectWriter != nil {
+		var result uint32
+		if satisfied {
+			result = 1
+		}
+		recordCandidateEffect(1, result, 0, 0)
+		effectInside = false
+	}
+}
+
+func observeCandidateASTs(m *ast.ASTManager, kind uint32, a, b, c ast.ASTHandle) {
+	if effectWriter != nil {
+		recordCandidateEffect(kind, candidateEffectID(m, a), candidateEffectID(m, b), candidateEffectID(m, c))
+	}
+}

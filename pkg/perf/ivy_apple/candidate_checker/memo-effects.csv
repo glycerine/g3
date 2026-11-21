@@ -1,0 +1,9 @@
+experiment,variant,isolate,check,total,candidate_start,candidate_result,temporary_equality,disequality_request,congruence_bucket,matches_first
+reference-count,before,rfn,29,611204,157133,157133,79885,217022,31,1
+reference-count,needed,rfn,29,611204,157133,157133,79885,217022,31,1
+reference-count,shared,rfn,29,611204,157133,157133,79885,217022,31,1
+reference-count,combined,rfn,29,611204,157133,157133,79885,217022,31,1
+memo-lookup,before,rfn,29,611204,157133,157133,79885,217022,31,1
+memo-lookup,share,rfn,29,611204,157133,157133,79885,217022,31,1
+memo-lookup,variable,rfn,29,611204,157133,157133,79885,217022,31,1
+memo-lookup,slots,rfn,29,611204,157133,157133,79885,217022,31,1
