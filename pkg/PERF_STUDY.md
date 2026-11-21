@@ -2131,3 +2131,15 @@ Two earlier paired DWARF profiles per backend isolated the hardest individual ca
 | Scope pop | 2.92 / 1.20 | 1.32 / 0.42 |
 
 On `rfn2` check 4, the solver rewriter, quantifier queue and application constructor together account for about 17.7 billion of the 34.4 billion additional instructions. The queue’s leaves include Boolean-variable lookup, clause construction and internalization. The rewriter’s include expression-substitution key validation, application traversal and activity-cache lookup. The largest candidate-checker leaf on both calls is the reference-count accessor, estimated at 1.45 billion instructions on `rfn2` and 0.69 billion on `dramc_nb2`. These measurements favor reusing validated arena records and eliminating repeated property reads along the existing solver paths. [Attribution rules and `--operation-leaves` option](perf/ivy_apple/stack_costs.py)
+
+### Quantifier fingerprints after scope retirement
+
+A long-lived fingerprint set reused a temporary slice of equivalence-class roots. A narrower lookup shortened its length but left roots reachable in the backing array. Popping all the fingerprints or resetting the set still kept those enodes alive. The set now tracks the widest part of the buffer used since the last pop, clears those references on pop, and releases the buffer on reset. A published fingerprint owns its copy of the roots, including when a caller keeps that fingerprint across a pop. [Implementation](smtcore/fingerprints.go) · [Wide tuple followed by a narrow miss, nested pop and reset](smtcore/fingerprints_test.go)
+
+| Additional live Go heap per worker | Before | After |
+|---|---:|---:|
+| Wide fingerprint installed | 5,488 B | 5,488 B |
+| Last fingerprint scope popped | 5,264 B | 656 B |
+| Fingerprint set reset | 4,744 B | 8 B |
+
+Each work group held 1,024 independent AST managers. Each worker inserted a tuple with 16 distinct roots, performed a one-argument miss, and popped the scope. Eight fresh processes per build returned the same values after forced collections. This saves 4.5 MiB across the 1,024 workers after pop. The 656 bytes include the table and scratch capacity retained for reuse. The benchmark measures incremental heap over the worker’s live ASTs. The separate arity-one, three and six timing fixtures had mixed results on the shared machine. The reason to keep this change is bounded memory after a worker retires its scope. Reproduce the heap measurement with `GOMAXPROCS=1 go test ./smtcore -run '^$' -bench '^BenchmarkFingerprintWorkerMemory$' -benchtime=1x -count=1`. [Worker benchmark](smtcore/smt_fingerprint_worker_memory_benchmark_test.go) · [Raw heap measurements](perf/ivy_apple/fingerprints/memory.csv) · [Lookup and insertion timings](perf/ivy_apple/fingerprints/micro.csv)

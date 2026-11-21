@@ -1,0 +1,17 @@
+round,cpu,variant,case,workers,roots/worker,active-B/worker,popped-B/worker,reset-B/worker
+1,38,before,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,5264,4744
+1,38,watermark,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,656.0,8.000
+2,38,before,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,5264,4744
+2,38,watermark,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,656.0,8.000
+3,38,watermark,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,656.0,8.000
+3,38,before,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,5264,4744
+4,38,watermark,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,656.0,8.000
+4,38,before,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,5264,4744
+5,38,before,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,5264,4744
+5,38,watermark,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,656.0,8.000
+6,38,watermark,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,656.0,8.000
+6,38,before,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,5264,4744
+7,38,before,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,5264,4744
+7,38,watermark,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,656.0,8.000
+8,38,watermark,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,656.0,8.000
+8,38,before,BenchmarkFingerprintWorkerMemory,1024,16.00,5488,5264,4744

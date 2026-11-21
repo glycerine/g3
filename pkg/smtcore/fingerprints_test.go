@@ -79,3 +79,51 @@ func TestSMTFingerprintResetAndGuards(t *testing.T) {
 		t.Fatal("reset retained fingerprints")
 	}
 }
+
+func TestSMTFingerprintScratchReleasesRootsOnPopAndReset(t *testing.T) {
+	m := astTestManager(t)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	body, err := m.MkVar(0, boolean)
+	astTestMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body,
+	})
+	astTestMust(t, err)
+	const width = 8
+	var args [width]*SMTEnode
+	for i := range args {
+		_, args[i] = smtEnodeConstant(t, m, uint32(2200+i), boolean, 0)
+	}
+	set := NewSMTFingerprintSet()
+	base, err := set.Insert(q, 0, args[:1])
+	astTestMust(t, err)
+	astTestMust(t, set.PushScope())
+	wide, err := set.Insert(q, 0, args[:])
+	astTestMust(t, err)
+	astTestMust(t, set.PushScope())
+	if found, err := set.Contains(q, 0, args[1:2]); err != nil || found {
+		t.Fatal("narrow miss", found, err)
+	}
+	astTestMust(t, set.PopScopes(2))
+	for i, node := range set.dummy[:cap(set.dummy)] {
+		if node != nil {
+			t.Fatalf("scratch slot %d retained a root after pop", i)
+		}
+	}
+	if set.Size() != 1 || base == nil || wide == nil || wide.NumArgs() != width {
+		t.Fatal("popping removed an outer fingerprint or changed the returned tuple")
+	}
+	for i := range args {
+		if node, err := wide.Arg(uint32(i)); err != nil || node != args[i] {
+			t.Fatal("saved argument", i, node, err)
+		}
+	}
+	if found, err := set.Contains(q, 0, args[1:]); err != nil || found {
+		t.Fatal("miss before reset", found, err)
+	}
+	set.Reset()
+	if set.dummy != nil || set.Size() != 0 {
+		t.Fatal("reset retained fingerprint storage")
+	}
+}

@@ -44,8 +44,8 @@ type SMTFingerprintSet struct {
 	buckets      []*SMTFingerprint
 	fingerprints []*SMTFingerprint
 	scopes       []int
-	// dummy is the argument buffer of fingerprint_set::mk_dummy; the
-	// stored fingerprint copies it.
+	// dummy holds roots for fingerprint_set::mk_dummy. Its length covers every
+	// slot touched since the last pop, including the tail of an earlier, wider lookup.
 	dummy []*SMTEnode
 }
 
@@ -119,14 +119,17 @@ func (s *SMTFingerprintSet) grow() {
 
 // dummyRoots fills the mk_dummy buffer with the roots of args.
 func (s *SMTFingerprintSet) dummyRoots(args []*SMTEnode) ([]*SMTEnode, error) {
-	s.dummy = s.dummy[:0]
-	for _, argument := range args {
+	if len(args) > len(s.dummy) {
+		s.dummy = append(s.dummy, make([]*SMTEnode, len(args)-len(s.dummy))...)
+	}
+	roots := s.dummy[:len(args)]
+	for i, argument := range args {
 		if argument == nil || argument.root == nil {
 			return nil, ast.ErrASTDomain
 		}
-		s.dummy = append(s.dummy, argument.root)
+		roots[i] = argument.root
 	}
-	return s.dummy, nil
+	return roots, nil
 }
 
 func (s *SMTFingerprintSet) Insert(data ast.ASTHandle, dataHash uint32, args []*SMTEnode) (*SMTFingerprint, error) {
@@ -190,6 +193,7 @@ func (s *SMTFingerprintSet) Reset() {
 	if s == nil {
 		return
 	}
+	s.dummy = nil
 	s.buckets = nil
 	s.fingerprints = nil
 }
@@ -219,6 +223,8 @@ func (s *SMTFingerprintSet) PopScopes(count uint32) error {
 		fingerprint.next = nil
 		s.fingerprints[i] = nil
 	}
+	clear(s.dummy)
+	s.dummy = s.dummy[:0]
 	s.fingerprints = s.fingerprints[:oldSize]
 	s.scopes = s.scopes[:newLevel]
 	return nil
