@@ -1796,3 +1796,14 @@ go tool pprof -proto -output /tmp/g3-apple-raft.pprof \
 go build -mod=readonly -buildvcs=false -tags=xtrace_off -pgo=/tmp/g3-apple-raft.pprof \
   -o /tmp/goivy_check_pgo ./cmd/goivy_check
 ```
+
+### Live memory per solver for scoped candidate checks
+
+I measured 1,024 independent solvers to establish the per-worker cost of storing reusable quantifier syntax. Each solver already owns the quantified AST and its 16-arm fixture at the first forced GC. Each then pushes one scope, registers the quantifier and checks 32 satisfied candidates through the queue. I sampled live heap again with the scope active and after every solver popped its scope. All solvers stayed reachable through the final sample. The benchmark verifies the number of instances and the removal of every registration. [Go benchmark](smtcore/smt_quantifier_candidate_benchmark_test.go)
+
+Across eight fresh single-goroutine processes pinned to CPU 16, the baseline at `9509d8fe6` used **2,688 additional live bytes per solver in scope and 2,640 after pop** in every run. These are deltas from the prepared fixture. They include the solver's reusable high-water storage. A candidate optimization can use this same fixture to measure its added cost after a registration has been retired. [Eight population measurements](perf/ivy_apple/candidate_checker/worker-memory.csv) · [Comparison driver](perf/ivy_apple/candidate_checker/worker_memory.py)
+
+```sh
+go test -c -o /tmp/g3-worker.test ./smtcore
+python3 perf/ivy_apple/candidate_checker/worker_memory.py --go baseline /tmp/g3-worker.test --cpu 16
+```
