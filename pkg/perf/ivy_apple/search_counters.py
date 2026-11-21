@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Compare per-check search work for complete, incremental GoIvy Apple isolates."""
+
+import argparse
+import csv
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[3]
+COUNTERS = ("decisions quant-instantiations conflicts rlimit-count added-eqs binary-propagations "
+            "del-clause max-generation minimized-lits mk-bool-var mk-clause propagations num-checks "
+            "datatype-accessor-ax datatype-constructor-ax datatype-splits restarts final-checks").split()
+GO_METHOD = "func (s *Z3Solver) checkVerificationCondition(prove func() (bool, error)) Z3CheckResult {"
+GO_OBSERVER = """
+    ivyCounterSequence++
+    n := ivyCounterSequence
+    before := ivyCounterStats(s)
+    defer func() {
+        fmt.Fprintln(os.Stderr, "IVY-STATS", n, strconv.Quote(before), strconv.Quote(ivyCounterStats(s)))
+    }()
+"""
+GO_HELPER = """
+var ivyCounterSequence int
+func ivyCounterStats(s *Z3Solver) string {
+    stats, err := s.c.Statistics()
+    fail(err)
+    text, err := stats.String()
+    fail(err)
+    fail(stats.Close())
+    return text
+}
+"""
+
+
+def build(ivy, tmp, name, native):
+    common = ["go", "build", "-mod=readonly", "-buildvcs=false", "-pgo=off"]
+    if native:
+        obj = tmp / "observer.o"
+        subprocess.run(["c++", "-O2", "-fPIC", "-c", "-I", ROOT / "src/api",
+                        ROOT / "src/test/perf/ivy_solver_statistics.cpp", "-o", obj], check=True)
+        lib = ivy / "z3vendor/native_lib/libz3.a"
+        flags = ["-tags=xtrace_off,classic_z3",
+                 "-ldflags", f"-linkmode=external '-extldflags=-Wl,--wrap=Z3_solver_check {obj} {lib} -lstdc++ -lm -lgomp'"]
+    else:
+        src = ivy / "smt/g3_solver.go"
+        code = src.read_text()
+        if code.count(GO_METHOD) != 1 or code.count('import (') != 1:
+            raise ValueError(f"unrecognized GoIvy solver adapter {src}")
+        extras = [s for s in ("fmt", "os") if f'"{s}"' not in code]
+        code = code.replace('import (', 'import (\n' + '\n'.join(f'"{s}"' for s in extras), 1)
+        patched = tmp / "g3_solver.go"
+        patched.write_text(code.replace(GO_METHOD, GO_METHOD + GO_OBSERVER) + GO_HELPER)
+        overlay = tmp / "overlay.json"
+        overlay.write_text(json.dumps({"Replace": {str(src): str(patched)}}))
+        flags = ["-tags=xtrace_off", f"-overlay={overlay}"]
+    binary = tmp / name
+    subprocess.run([*common, *flags, "-o", binary, "./cmd/goivy_check"], cwd=ivy, check=True)
+    return binary
+
+
+def measurements(lines):
+    before = {}
+    after = {}
+    decoder = json.JSONDecoder()
+    for line in lines:
+        if line.startswith("NATIVE-STATS "):
+            header, *fields = line.split("|")
+            _, num, side = header.split()
+            values = {k.replace(" ", "-"): int(v) for k, v in (f.rsplit("=", 1) for f in fields)}
+            (before if side == "before" else after)[int(num)] = values
+        elif line.startswith("IVY-STATS "):
+            _, num, pair = line.split(" ", 2)
+            first, end = decoder.raw_decode(pair)
+            last = decoder.decode(pair[end:].strip())
+            for output, stats in [(before, first), (after, last)]:
+                output[int(num)] = {k: int(v) for k, v in re.findall(r":([\w-]+)\s+(\d+)(?=[)\s])", stats)}
+    if before.keys() != after.keys() or set(after) != set(range(1, len(after) + 1)):
+        raise ValueError("incomplete sequence of solver statistics")
+    return [[after[i].get(k, 0) - before[i].get(k, 0) for k in COUNTERS]
+            for i in range(1, len(after) + 1)]
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--goivy", type=Path, required=True, help="GoIvy directory with its local g3 replacement")
+    p.add_argument("--spec", type=Path, required=True)
+    p.add_argument("--cpu", type=int, required=True)
+    p.add_argument("isolates", nargs="+")
+    args = p.parse_args()
+    spec = args.spec.resolve(strict=True)
+    ivy = args.goivy.resolve(strict=True)
+    writer = csv.writer(sys.stdout, lineterminator="\n")
+    writer.writerow(["isolate", "engine", "check", *COUNTERS])
+    with tempfile.TemporaryDirectory() as scratch:
+        tmp = Path(scratch)
+        engines = {name: build(ivy, tmp, name, name == "native") for name in ["g3", "native"]}
+        for isolate in args.isolates:
+            reference = None
+            for engine, checker in engines.items():
+                got = subprocess.run(["taskset", "-c", str(args.cpu), checker, f"isolate={isolate}", spec],
+                                     cwd=tmp, env=dict(os.environ, GOMAXPROCS="1", XTRACE_OFF="1"),
+                                     capture_output=True, check=True)
+                lines = got.stdout.splitlines()
+                rows = measurements(got.stderr.decode().splitlines())
+                if not rows or lines[-1:] != [b"OK"] or len(rows) != lines.count(b"PASS"):
+                    raise ValueError(f"incomplete run of {isolate} on {engine}")
+                if reference is not None and got.stdout != reference:
+                    raise ValueError(f"{isolate} checker transcripts differ")
+                reference = got.stdout
+                for i, counters in enumerate(rows, 1):
+                    writer.writerow([isolate, engine, i, *counters])
+                sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    main()
