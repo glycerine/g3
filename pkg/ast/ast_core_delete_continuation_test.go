@@ -83,7 +83,7 @@ func deletionContinuationCounts(m *ASTManager) [4]uint32 {
 }
 
 func TestASTDeletionContinuationParameterPrefixAndRemainingLIFO(t *testing.T) {
-	for _, resume := range []string{"lock", "close"} {
+	for _, resume := range []string{"lock", "close", "vector"} {
 		t.Run(resume, func(t *testing.T) {
 			f := newDeletionContinuationFixture(t)
 			m := f.m
@@ -150,19 +150,37 @@ func TestASTDeletionContinuationParameterPrefixAndRemainingLIFO(t *testing.T) {
 			astTestMust(t, err)
 			rootID, err := m.GetASTID(root)
 			astTestMust(t, err)
-			ref, err := m.NewRef(root)
-			astTestMust(t, err)
+			var ref ASTRef
+			if resume == "vector" {
+				astTestMust(t, m.IncRef(root))
+			} else {
+				ref, err = m.NewRef(root)
+				astTestMust(t, err)
+			}
 			freeExpr, freeDecl := m.ExprIDs.FreeLen(), m.declIDs.FreeLen()
 			if m.nodeAt(sentinelNode.slot).rc != 2 {
 				t.Fatal("fixture missed info-owned AST parameter")
 			}
 			f.nearMinimum()
 			blocks := f.runtime.Stats().LiveBlocks
-			cause := m.DelRef(&ref)
+			var cause error
+			var roots []ASTHandle
+			wantSentinel := uint32(1)
+			if resume == "vector" {
+				astTestMust(t, m.IncRef(sentinel))
+				astTestMust(t, m.IncRef(sentinel))
+				roots, cause = m.ShrinkHeldRefs([]ASTHandle{sentinel, root, sentinel}, 0)
+				if len(roots) != 1 || roots[0] != sentinel {
+					t.Fatal("vector retained incorrect owners", roots)
+				}
+				wantSentinel++
+			} else {
+				cause = m.DelRef(&ref)
+			}
 			if !errors.Is(cause, arena.ErrBounds) || ref != (ASTRef{}) || f.runtime.Stats().LiveBlocks >= blocks {
 				t.Fatal("missed consumed reference and physical native deallocation", cause, ref)
 			}
-			if m.nodeAt(sentinelNode.slot).rc != 1 || m.parameterAt(ownedParameters[0].slot).Live || m.parameterAt(ownedParameters[1].slot).Live {
+			if m.nodeAt(sentinelNode.slot).rc != wantSentinel || m.parameterAt(ownedParameters[0].slot).Live || m.parameterAt(ownedParameters[1].slot).Live {
 				t.Fatal("deletion did not consume the AST callback and scalar parameter prefix exactly once")
 			}
 			if !m.parameterAt(ownedParameters[2].slot).Live || !m.parameterAt(ownedParameters[3].slot).Live || !m.nodeAt(declNode.slot).live {
@@ -174,6 +192,15 @@ func TestASTDeletionContinuationParameterPrefixAndRemainingLIFO(t *testing.T) {
 				astTestMust(t, m.Close())
 				astTestMust(t, m.Close())
 				return
+			}
+			if resume == "vector" {
+				// A pending deletion must resume before decrementing the shared
+				// sentinel that remains after the failed root destructor.
+				roots, err = m.ShrinkHeldRefs(roots, 0)
+				astTestMust(t, err)
+				if len(roots) != 0 {
+					t.Fatal("vector retry retained suffix", roots)
+				}
 			}
 			count, err := m.GetRefCount(sentinel)
 			astTestMust(t, err)

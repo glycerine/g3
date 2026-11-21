@@ -43,6 +43,7 @@ const (
 	smtRelevancyHandlerTrail smtRelevancyTrailKind = iota
 	smtRelevancyPositiveWatchTrail
 	smtRelevancyNegativeWatchTrail
+	smtRelevancyUnlinkedTrail
 )
 
 type smtRelevancyTrail struct {
@@ -74,6 +75,9 @@ type SMTRelevancyPropagator struct {
 	newlyRelevant         []ast.ASTHandle
 	newlyRelevantRemovals uint64
 	propagating           bool
+	// An interrupted pop has already unmarked the expressions of this scope.
+	// Zero means idle; otherwise retry at scopes[interruptedPop-1].
+	interruptedPop int
 }
 
 func NewSMTRelevancyPropagator(context *SMTCheckerContext, enabled bool) (*SMTRelevancyPropagator, error) {
@@ -160,6 +164,9 @@ func (p *SMTRelevancyPropagator) MarkRelevant(expression ast.ASTHandle) error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
+	if p.interruptedPop != 0 {
+		return ast.ErrASTPending
+	}
 	if !p.enabled || p.context.relevant.get(expression) {
 		return nil
 	}
@@ -188,7 +195,7 @@ func (p *SMTRelevancyPropagator) MarkRelevant(expression ast.ASTHandle) error {
 }
 
 func (p *SMTRelevancyPropagator) DrainNewlyRelevant() []ast.ASTHandle {
-	if p == nil {
+	if p == nil || p.interruptedPop != 0 {
 		return nil
 	}
 	result := append([]ast.ASTHandle(nil), p.newlyRelevant...)
@@ -286,6 +293,9 @@ func (p *SMTRelevancyPropagator) addHandler(source ast.ASTHandle, handler *smtRe
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
+	if p.interruptedPop != 0 {
+		return ast.ErrASTPending
+	}
 	if !p.enabled {
 		return nil
 	}
@@ -349,6 +359,9 @@ func (p *SMTRelevancyPropagator) AddTermITEHandler(parent, thenEquality, elseEqu
 func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, handler *smtRelevancyHandler) error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
+	}
+	if p.interruptedPop != 0 {
+		return ast.ErrASTPending
 	}
 	if !p.enabled {
 		return nil
@@ -651,6 +664,9 @@ func (p *SMTRelevancyPropagator) Propagate() error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
+	if p.interruptedPop != 0 {
+		return ast.ErrASTPending
+	}
 	if !p.enabled || p.propagating {
 		return nil
 	}
@@ -699,14 +715,18 @@ func (p *SMTRelevancyPropagator) Propagate() error {
 }
 
 func (p *SMTRelevancyPropagator) CanPropagate() bool {
-	return p != nil && p.qhead < len(p.relevant)
+	return p != nil && p.interruptedPop == 0 && p.qhead < len(p.relevant)
 }
 
 func (p *SMTRelevancyPropagator) RelevantExpressions() []ast.ASTHandle {
 	if p == nil || !p.enabled {
 		return nil
 	}
-	return append([]ast.ASTHandle(nil), p.relevant...)
+	expressions := p.relevant
+	if p.interruptedPop != 0 {
+		expressions = expressions[:p.scopes[p.interruptedPop-1].relevantLimit]
+	}
+	return append([]ast.ASTHandle(nil), expressions...)
 }
 
 func (p *SMTRelevancyPropagator) checkAllArguments(expression ast.ASTHandle) error {
@@ -887,6 +907,9 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
+	if p.interruptedPop != 0 {
+		return ast.ErrASTPending
+	}
 	if !p.enabled {
 		return nil
 	}
@@ -953,6 +976,9 @@ func (p *SMTRelevancyPropagator) PushScope() error {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
+	if p.interruptedPop != 0 {
+		return ast.ErrASTPending
+	}
 	p.scopes = append(p.scopes, smtRelevancyScope{relevantLimit: len(p.relevant), trailLimit: len(p.trail), ehLimit: len(p.ehs)})
 	return nil
 }
@@ -961,19 +987,37 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 	if p == nil || p.context == nil || count == 0 || count > uint32(len(p.scopes)) {
 		return ast.ErrASTDomain
 	}
-	newLevel := len(p.scopes) - int(count)
-	scope := p.scopes[newLevel]
-	for index := len(p.relevant); index > scope.relevantLimit; index-- {
-		p.context.relevant.del(p.relevant[index-1])
-		p.traceUnmark(p.relevant[index-1])
-	}
-	// m_relevant_exprs.shrink releases the popped references first to last.
-	for index := scope.relevantLimit; index < len(p.relevant); index++ {
-		if _, err := p.context.manager.DecRefHeldConsumed(p.relevant[index]); err != nil {
+	target := len(p.scopes) - int(count)
+	for len(p.scopes) > target {
+		level := target
+		if p.interruptedPop != 0 {
+			level = p.interruptedPop - 1
+			if target > level {
+				return ast.ErrASTPending
+			}
+		} else {
+			for i := len(p.relevant); i > p.scopes[level].relevantLimit; i-- {
+				h := p.relevant[i-1]
+				p.context.relevant.del(h)
+				p.traceUnmark(h)
+			}
+		}
+		if err := p.finishPop(level); err != nil {
+			p.interruptedPop = level + 1
 			return err
 		}
+		p.interruptedPop = 0
 	}
-	p.relevant = p.relevant[:scope.relevantLimit]
+	return nil
+}
+
+func (p *SMTRelevancyPropagator) finishPop(newLevel int) error {
+	scope := p.scopes[newLevel]
+	var err error
+	p.relevant, err = p.context.manager.ShrinkHeldRefs(p.relevant, scope.relevantLimit)
+	if err != nil {
+		return err
+	}
 	p.qhead = len(p.relevant)
 	// A pop that removed no relevance marks cannot invalidate queued work.
 	// Count explicit mark removals too, since the checker can update them.
@@ -988,8 +1032,21 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 		p.newlyRelevant = kept
 		p.newlyRelevantRemovals = removals
 	}
-	for index := len(p.trail); index > scope.trailLimit; index-- {
-		entry := p.trail[index-1]
+	if err := p.undoTrail(scope.trailLimit); err != nil {
+		return err
+	}
+	clear(p.ehs[scope.ehLimit:])
+	p.ehs = p.ehs[:scope.ehLimit]
+	p.scopes = p.scopes[:newLevel]
+	return nil
+}
+
+// Unlink each handler once. A refused decrement keeps only its ownership
+// on the trail, so retry cannot unlink an older handler for the same term.
+func (p *SMTRelevancyPropagator) undoTrail(limit int) error {
+	for len(p.trail) > limit {
+		i := len(p.trail) - 1
+		entry := p.trail[i]
 		switch entry.kind {
 		case smtRelevancyHandlerTrail:
 			p.handlers.pop(entry.expression)
@@ -997,18 +1054,23 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 			p.positiveWatch.pop(entry.expression)
 		case smtRelevancyNegativeWatchTrail:
 			p.negativeWatch.pop(entry.expression)
+		case smtRelevancyUnlinkedTrail:
 		default:
 			return ast.ErrASTDomain
 		}
-		p.trail = p.trail[:index-1]
-		if err := p.context.manager.DecRef(entry.expression); err != nil {
+		p.trail = p.trail[:i]
+		consumed, err := p.context.manager.DecRefConsumed(entry.expression)
+		if !consumed {
+			entry.kind = smtRelevancyUnlinkedTrail
+			p.trail = append(p.trail, entry)
+			if err == nil {
+				return ast.ErrASTPending
+			}
+		}
+		if err != nil {
 			return err
 		}
 	}
-	p.trail = p.trail[:scope.trailLimit]
-	clear(p.ehs[scope.ehLimit:])
-	p.ehs = p.ehs[:scope.ehLimit]
-	p.scopes = p.scopes[:newLevel]
 	return nil
 }
 
@@ -1029,27 +1091,27 @@ func (p *SMTRelevancyPropagator) release() error {
 	if p == nil || p.context == nil {
 		return nil
 	}
-	for index := len(p.trail); index > 0; index-- {
-		entry := p.trail[index-1]
-		switch entry.kind {
-		case smtRelevancyHandlerTrail:
-			p.handlers.pop(entry.expression)
-		case smtRelevancyPositiveWatchTrail:
-			p.positiveWatch.pop(entry.expression)
-		case smtRelevancyNegativeWatchTrail:
-			p.negativeWatch.pop(entry.expression)
-		}
-		p.trail = p.trail[:index-1]
-		if err := p.context.manager.DecRef(entry.expression); err != nil {
+	if p.interruptedPop != 0 {
+		if err := p.finishPop(p.interruptedPop - 1); err != nil {
 			return err
 		}
+		p.interruptedPop = 0
+	}
+	if err := p.undoTrail(0); err != nil {
+		return err
 	}
 	for len(p.relevant) != 0 {
 		expression := p.relevant[0]
 		p.context.relevant.del(expression)
-		p.relevant = p.relevant[1:]
-		if err := p.context.manager.DecRef(expression); err != nil {
+		consumed, err := p.context.manager.DecRefConsumed(expression)
+		if consumed {
+			p.relevant = p.relevant[1:]
+		}
+		if err != nil {
 			return err
+		}
+		if !consumed {
+			return ast.ErrASTPending
 		}
 	}
 	p.relevant = nil

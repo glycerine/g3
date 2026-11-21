@@ -12,30 +12,9 @@ func appendRewriterRoot(m *ast.ASTManager, roots *[]ast.ASTHandle, h ast.ASTHand
 	return nil
 }
 func shrinkRewriterRoots(m *ast.ASTManager, roots *[]ast.ASTHandle, n uint32) error {
-	if uint64(n) > uint64(len(*roots)) {
-		return ast.ErrASTDomain
-	}
-	values := *roots
-	for i := int(n); i < len(values); i++ {
-		consumed, e := m.DecRefHeldConsumed(values[i])
-		next := i
-		if consumed {
-			values[i] = ast.ASTHandle{}
-			next++
-		}
-		if e != nil || !consumed {
-			// Transfer remaining ownership after the preserved prefix. Consumed roots
-			// never reappear in the retry, even if their destructor returned an error.
-			*roots = append(values[:n], values[next:]...)
-			clear(values[len(*roots):])
-			if e != nil {
-				return e
-			}
-			return ast.ErrASTPending
-		}
-	}
-	*roots = values[:n]
-	return nil
+	var err error
+	*roots, err = m.ShrinkHeldRefs(*roots, int(n))
+	return err
 }
 func replaceRewriterRoot(m *ast.ASTManager, roots *[]ast.ASTHandle, i uint32, h ast.ASTHandle) error {
 	if uint64(i) >= uint64(len(*roots)) {

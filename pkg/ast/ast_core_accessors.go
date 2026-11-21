@@ -358,6 +358,52 @@ func (m *ASTManager) DecRefHeldConsumed(h ASTHandle) (bool, error) {
 	return m.DecRefConsumed(h)
 }
 
+// ShrinkHeldRefs releases the owned suffix in first-to-last order, as an
+// AST reference vector does. On error the returned slice contains the
+// preserved prefix followed by the references that still need a decrement.
+// All non-null handles must be held references from this manager.
+func (m *ASTManager) ShrinkHeldRefs(values []ASTHandle, limit int) ([]ASTHandle, error) {
+	if limit < 0 || limit > len(values) {
+		return values, ErrASTDomain
+	}
+	for i := limit; i < len(values); {
+		// Shared references cannot run a destructor. No manager callback can
+		// interrupt this single-goroutine stretch or change manager readiness.
+		if !astValidateHandles && m != nil && m.lockFree() {
+			for i < len(values) {
+				h := values[i]
+				if h.slot == 0 {
+					break
+				}
+				n := m.nodeAt(h.slot)
+				if n.rc <= 1 {
+					break
+				}
+				n.rc--
+				values[i] = ASTHandle{}
+				i++
+			}
+			if i == len(values) {
+				break
+			}
+		}
+		consumed, err := m.DecRefConsumed(values[i])
+		if consumed {
+			values[i] = ASTHandle{}
+			i++
+		}
+		if err != nil || !consumed {
+			remaining := append(values[:limit], values[i:]...)
+			clear(values[len(remaining):])
+			if err == nil {
+				err = ErrASTPending
+			}
+			return remaining, err
+		}
+	}
+	return values[:limit], nil
+}
+
 func (m *ASTManager) IncRef(h ASTHandle) error {
 	if e := m.lock(); e != nil {
 		return e
