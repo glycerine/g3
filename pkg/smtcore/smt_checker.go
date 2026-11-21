@@ -11,13 +11,16 @@ import (
 // The complete SMT context can own this component and update it as terms are
 // internalized, assigned, and merged.
 type SMTCheckerContext struct {
-	manager       *ast.ASTManager
-	relevancy     *SMTRelevancyPropagator
-	exprs         *smtExprTable
-	relevant      smtRelevantTable
-	assignments   smtAssignmentTable
-	enodes        smtEnodeTable
-	byDeclaration map[ast.ASTHandle][]*SMTEnode
+	// A caller may register borrowed enodes alongside the internalizer's owned
+	// enodes. Only such a context needs a separate list in registration order.
+	registeredEnodes []*SMTEnode
+	manager          *ast.ASTManager
+	relevancy        *SMTRelevancyPropagator
+	exprs            *smtExprTable
+	relevant         smtRelevantTable
+	assignments      smtAssignmentTable
+	enodes           smtEnodeTable
+	byDeclaration    map[ast.ASTHandle][]*SMTEnode
 	// decl2enodes is context::m_decl2enodes: per declaration, the enodes
 	// with arguments that are not equalities, in creation order.
 	// enodes_of(lbl) reads it directly.
@@ -126,6 +129,10 @@ func (c *SMTCheckerContext) getAssignment(n ast.ASTHandle) lbool.LBool {
 }
 
 func (c *SMTCheckerContext) RegisterEnode(node *SMTEnode, relevant bool) error {
+	return c.registerEnode(node, relevant, true)
+}
+
+func (c *SMTCheckerContext) registerEnode(node *SMTEnode, relevant, borrowed bool) error {
 	if c == nil || c.manager == nil {
 		return ast.ErrASTHandle
 	}
@@ -135,10 +142,17 @@ func (c *SMTCheckerContext) RegisterEnode(node *SMTEnode, relevant bool) error {
 	if err := node.valid(); err != nil {
 		return err
 	}
-	if prior := c.enodes.get(node.owner); prior != nil && prior != node {
+	prior := c.enodes.get(node.owner)
+	if prior != nil && prior != node {
 		return ast.ErrASTDomain
 	}
-	if c.enodes.get(node.owner) == nil {
+	if prior == nil {
+		if borrowed && c.registeredEnodes == nil && c.assignments.s != nil {
+			c.registeredEnodes = append([]*SMTEnode(nil), c.assignments.s.enodeStack...)
+		}
+		if borrowed || c.registeredEnodes != nil {
+			c.registeredEnodes = append(c.registeredEnodes, node)
+		}
 		c.enodes.set(node.owner, node)
 		c.byDeclaration[node.declaration] = append(c.byDeclaration[node.declaration], node)
 		if len(node.arguments) != 0 && !node.IsEquality() {

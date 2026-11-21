@@ -1013,7 +1013,7 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 	// Source mk_enode does not reset an expression's existing relevance.
 	// Gate-context Boolean atoms can be marked before a term-context enode
 	// is needed, including during a later search scope.
-	if err = s.context.RegisterEnode(node, s.context.relevant.get(expression)); err != nil {
+	if err = s.context.registerEnode(node, s.context.relevant.get(expression), false); err != nil {
 		if node.congruence == node && count != 0 && congruenceEnabled && !node.IsTrueEquality() {
 			_, _ = s.congruence.Erase(node)
 		}
@@ -1168,6 +1168,18 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 		}
 	}
 	s.context.enodes.del(node.owner)
+	if nodes := s.context.registeredEnodes; nodes != nil {
+		// Owned enodes leave in reverse creation order. Borrowed nodes can
+		// follow this one and remain registered after this scope is popped.
+		for i := len(nodes) - 1; i >= 0; i-- {
+			if nodes[i] == node {
+				copy(nodes[i:], nodes[i+1:])
+				nodes[len(nodes)-1] = nil
+				s.context.registeredEnodes = nodes[:len(nodes)-1]
+				break
+			}
+		}
+	}
 	// Popped tails are cleared: a Go backing array would keep the
 	// deleted enode reachable.
 	bucket[len(bucket)-1] = nil

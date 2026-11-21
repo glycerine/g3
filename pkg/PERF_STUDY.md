@@ -1344,3 +1344,18 @@ python3 -B perf/ivy_apple/search_counters.py --goivy ~/ivy/goivy --cpu 5 \
 ```
 
 On `dramc_nb2`, independent trace-disabled runs of **Python Ivy with native Z3** took 6,657.22 s with the ordinary interpreter and 3,013.84 s with `python -O`. Their user CPU times were 5,429.88 s and 2,625.15 s. Both transcripts matched GoIvy’s 2,479 results and final `OK` after normalizing the include and specification paths. These measurements put the 102-minute lockstep golden test in context. The live GoIvy solver comparisons and standalone Python timings measure different executables and execution modes.
+
+### Registration order in model-based quantifier instantiation
+
+In the incremental Apple `rfn` trace, the first 6,979,998 normalized events agreed. When the model checker restricted a fresh Skolem constant to its instantiation set, g3 selected `addr_type!val!0` and native Z3 selected `addr_type!val!5` in the same disjunction. Both had constructed the same terms. For an equality on an uninterpreted sort, Z3 visits the relevant context terms in enode registration order. g3 enumerated the AST arena slots. When two terms collide in the instantiation set’s hash table, visitation order affects which value the inverse map encounters first. g3 now reads the internalizer’s existing ordered enode stack. A context that also accepts caller-owned enodes tracks their insertion and removal in that same order. [Model finder](smtcore/smt_model_finder_auf_literals.go) · [Collision and scope regression](smtcore/smt_model_finder_auf_graph_test.go)
+
+This change reproduced three more native searches, bringing the exact matches on all 18 counters to **10,314 of 10,342**. On `rfn`, the first trace difference moved to event 10,878,688, and 31 of 33 checks now match. g3 made 617,667 decisions on that isolate versus 617,670 in Z3. `rfn2` still had six divergent searches and `sys_live` had twenty. All nine checker transcripts agreed, as did the original 419 standalone Raft kernels on all retained search counters. [Per-check candidate counters](perf/ivy_apple/enode-order-search.csv.gz) · [Parent and native reference](perf/ivy_apple/enum-lifetime-search.csv.gz) · [Reproduction driver](perf/ivy_apple/search_counters.py)
+
+| Complete isolate | Alternating pairs | Previous g3 median wall, s | Registration order median wall, s |
+|---|---:|---:|---:|
+| `rfn` | 10 | 23.75 | 26.66 |
+| `rfn2` | 10 | 32.19 | 32.47 |
+| `sys_live` | 6 | 85.08 | 80.81 |
+| `dramc_nb2` | 4 | 98.92 | 95.01 |
+
+Registration order restores native behavior and removes a temporary slice from the model finder. Its effect on elapsed time varies. On `rfn`, the previous search used 487,858 decisions, and reproducing the native search made g3 **15.3% slower** by median within-pair elapsed time. On `rfn2`, decisions fell from 752,558 to 703,015 and the median paired time changed by 0.3%. This makes the now-matched `rfn` checks suitable for studying the cost of executing the same proof in each implementation. [All 60 timing samples](perf/ivy_apple/enode-order-pairs.csv)

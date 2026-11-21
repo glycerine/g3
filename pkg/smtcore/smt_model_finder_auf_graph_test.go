@@ -157,3 +157,72 @@ func TestSMTModelFinderAUFGraphEqualityAndDisequalityConstraints(t *testing.T) {
 		})
 	}
 }
+
+func TestSMTModelFinderEqualityUsesEnodeRegistrationOrder(t *testing.T) {
+	for _, mixed := range []bool{false, true} {
+		name := "internalized"
+		if mixed {
+			name = "borrowed after scoped enode"
+		}
+		t.Run(name, func(t *testing.T) {
+			m, state, _, qm := smtQuantifierManagerFixture(t, 10, 20, SMTQuantifierManagerConfig{})
+			sort, err := m.MkUninterpretedSort(astTestSymbol(t, m, "registration-order"), nil)
+			astTestMust(t, err)
+			// With a collision, the order of insertion is observable in the inverse map.
+			var buckets [8]ast.ASTHandle
+			var older, newer ast.ASTHandle
+			for i := uint32(0); newer.IsNull(); i++ {
+				term, err := m.MkConst(symbol.Numerical(16600+i), sort)
+				astTestMust(t, err)
+				h, err := m.GetHash(term)
+				astTestMust(t, err)
+				at := h % uint32(len(buckets))
+				if !buckets[at].IsNull() {
+					older, newer = buckets[at], term
+				} else {
+					buckets[at] = term
+				}
+			}
+			if mixed {
+				astTestMust(t, state.PushScope())
+			}
+			astTestMust(t, state.Internalize(newer, false))
+			if mixed {
+				node, err := NewSMTEnode(m, older, nil, SMTEnodeOptions{CongruenceEnabled: true})
+				astTestMust(t, err)
+				astTestMust(t, state.context.RegisterEnode(node, true))
+				astTestMust(t, state.context.RegisterEnode(node, true))
+			} else {
+				astTestMust(t, state.Internalize(older, false))
+			}
+			for _, term := range []ast.ASTHandle{older, newer} {
+				astTestMust(t, state.context.SetRelevant(term, true))
+			}
+			x, err := m.MkVar(0, sort)
+			astTestMust(t, err)
+			body, err := m.MkEq(x, older)
+			astTestMust(t, err)
+			q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{astTestSymbol(t, m, "x")}, Body: body})
+			astTestMust(t, err)
+			astTestMust(t, state.Internalize(q, true))
+			graph := newSMTModelFinderAUFGraph(qm.modelFinder)
+			t.Cleanup(func() { astTestMust(t, graph.close()) })
+			astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
+			expected := ast.NewObjMap(m)
+			astTestMust(t, expected.InsertNum(newer, 0))
+			astTestMust(t, expected.InsertNum(older, 0))
+			got := graph.uvars[smtModelFinderAUFKey{q, 0}].root().set.entries()
+			want := expected.Entries()
+			if len(got) != 2 || got[0].Key != want[0].Key || got[1].Key != want[1].Key {
+				t.Fatalf("equality set order %v, want %v", got, want)
+			}
+			if mixed {
+				astTestMust(t, state.PopScopes(1))
+				nodes := state.context.registeredEnodes
+				if len(nodes) != state.initEnodes+1 || nodes[len(nodes)-1].owner != older {
+					t.Fatal("scope pop lost or duplicated a borrowed enode")
+				}
+			}
+		})
+	}
+}

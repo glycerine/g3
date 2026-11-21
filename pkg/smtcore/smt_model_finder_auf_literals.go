@@ -173,7 +173,13 @@ func (g *smtModelFinderAUFGraph) populateLiteral(info smtModelFinderAUFLiteral) 
 		}
 		// For x=t on an uninterpreted sort, the source includes every
 		// relevant context term of that sort (paper section 4.1).
-		for _, enode := range g.finder.state.context.enodes.all() {
+		// begin_enodes() traverses the context in internalization order.
+		state := g.finder.state
+		enodes := state.enodeStack
+		if state.context.registeredEnodes != nil {
+			enodes = state.context.registeredEnodes
+		}
+		for _, enode := range enodes {
 			if !g.finder.state.isRelevant(enode.owner) {
 				continue
 			}
