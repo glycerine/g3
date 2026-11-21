@@ -55,7 +55,7 @@ func TestSMTClauseAtomPoolMixedLifetimes(t *testing.T) {
 	}
 	short := []SMTLiteral{lit, lit.Negated()}
 	var live []*SMTClause
-	for range len(pool.pages) * len(smtClauseAtomPage{}.slots) {
+	for range len(pool.pages) * smtAtomSlotsPerPage {
 		live = append(live, makeClause(short))
 	}
 	if makeClause(short).atomPage != nil || makeClause([]SMTLiteral{lit, lit, lit, lit, lit}).atomPage != nil {

@@ -366,8 +366,9 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	if clause.ReinternalizeAtoms() {
 		// C++ saves atoms before selecting watch positions. Restore that
 		// original order in the atom owner, without changing the live watches.
-		clause.atoms[1], clause.atoms[secondWatch] = clause.atoms[secondWatch], clause.atoms[1]
-		clause.atoms[0], clause.atoms[firstWatch] = clause.atoms[firstWatch], clause.atoms[0]
+		off := clause.atomOffset()
+		clause.atoms.Swap(off+1, off+secondWatch)
+		clause.atoms.Swap(off, off+firstWatch)
 	}
 	if kind == SMTClauseAux && owner != nil && owner == s.registeredJustification {
 		owner = nil

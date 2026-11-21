@@ -117,7 +117,7 @@ func TestSMTScopeRestorationCrossesMultipleSearchScopes(t *testing.T) {
 		t.Fatal("scoped lemma did not acquire its source atom owners")
 	}
 	astTestMust(t, s.PopScopes(2))
-	if s.scopeLevel != 1 || len(s.testClauses()) != 1 || s.testClauses()[0].clause != original || original.ReinternalizeAtoms() || len(original.atoms) != 0 {
+	if s.scopeLevel != 1 || len(s.testClauses()) != 1 || s.testClauses()[0].clause != original || original.ReinternalizeAtoms() || original.atoms != nil {
 		t.Fatal("multi-pop lost clause identity or kept temporary atom roots")
 	}
 	if p.IsRelevant(b) || p.IsRelevant(c) {
@@ -149,7 +149,7 @@ func TestSMTScopeRestorationSavesAtomsBeforeWatchSelection(t *testing.T) {
 		t.Fatal("setup did not move the second watch")
 	}
 	for i, e := range expressions {
-		if original.atoms[i].expression != e || original.atoms[i].sign {
+		if h, sign, err := original.Atom(i); h != e || sign || err != nil {
 			t.Fatal("saved atoms followed watch order instead of original clause order", i)
 		}
 	}

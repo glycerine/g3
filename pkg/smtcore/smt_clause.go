@@ -22,11 +22,6 @@ type SMTClauseDeleteHandler interface {
 	ClauseDeleted(*ast.ASTManager, *SMTClause) error
 }
 
-type smtClauseAtom struct {
-	expression ast.ASTHandle
-	sign       bool
-}
-
 type SMTClause struct {
 	self               *SMTClause
 	manager            *ast.ASTManager
@@ -41,7 +36,7 @@ type SMTClause struct {
 	reinitSeq   uint64
 	// lemmaIndex is the position in the internalizer's live lemma vector.
 	lemmaIndex    int
-	atoms         []smtClauseAtom
+	atoms         *ast.RetainedLiteralBuffer
 	deleteHandler SMTClauseDeleteHandler
 	justification SMTJustification
 	activity      uint32
@@ -144,16 +139,18 @@ func newSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClause
 	if !saveAtoms {
 		return clause, nil
 	}
-	pool.allocate(clause, len(literals))
+	if err := pool.allocate(clause, len(literals)); err != nil {
+		return nil, errors.Join(err, clause.Close())
+	}
+	offset := clause.atomOffset()
 	for i, literal := range literals {
 		expression, e := smtLiteralExpression(literal, expressions)
 		if e != nil {
 			return nil, errors.Join(e, clause.Close())
 		}
-		if e = manager.IncRef(expression); e != nil {
+		if e = clause.atoms.Retain(offset+i, expression, literal.Sign()); e != nil {
 			return nil, errors.Join(e, clause.Close())
 		}
-		clause.atoms[i] = smtClauseAtom{expression: expression, sign: literal.Sign()}
 	}
 	return clause, nil
 }
@@ -288,10 +285,10 @@ func (c *SMTClause) Atom(index int) (ast.ASTHandle, bool, error) {
 	if err := c.open(); err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	if index < 0 || index >= c.NumAtoms() || index >= len(c.atoms) {
+	if index < 0 || index >= c.NumAtoms() || c.atoms == nil {
 		return ast.ASTHandle{}, false, ast.ErrASTDomain
 	}
-	return c.atoms[index].expression, c.atoms[index].sign, nil
+	return c.atoms.At(c.atomOffset() + index)
 }
 
 func (c *SMTClause) ReleaseAtoms() error {
@@ -299,20 +296,10 @@ func (c *SMTClause) ReleaseAtoms() error {
 		return err
 	}
 	// clause::deallocate and release_atoms dec_ref the atoms first to last.
-	for i := range c.atoms {
-		handle := c.atoms[i].expression
-		if handle.IsNull() {
-			continue
-		}
-		consumed, err := c.manager.DecRefHeldConsumed(handle)
-		if consumed {
-			c.atoms[i].expression = ast.ASTHandle{}
-		}
-		if err != nil {
-			return err
-		}
+	if c.atoms == nil {
+		return nil
 	}
-	return nil
+	return c.atoms.Release(c.atomOffset(), len(c.literals))
 }
 
 func (c *SMTClause) MarkDeleted() error {
@@ -414,23 +401,28 @@ func (c *SMTClause) Close() error {
 	return nil
 }
 
-// Each occupied slot belongs to exactly one live clause. Each page contains
-// only scalar handles and sign bits. Long clauses and overflow get ordinary
-// heap storage; a clause of any lifetime can release its slot independently.
+// Each occupied slot belongs to exactly one live clause. Each page shares one
+// manager across compact references and their sign bits. Long clauses and
+// overflow get their own buffer. Each clause returns its slot independently.
 const smtShortClauseAtoms = 4
+const smtAtomSlotsPerPage = 16 // one per bit of smtClauseAtomPage.free
 
 type smtClauseAtomPage struct {
-	free  uint16
-	slots [16][smtShortClauseAtoms]smtClauseAtom
+	free   uint16
+	buffer *ast.RetainedLiteralBuffer
 }
 
 type smtClauseAtomPool struct{ pages [4]*smtClauseAtomPage }
 
-func (p *smtClauseAtomPool) allocate(c *SMTClause, n int) {
+func (p *smtClauseAtomPool) allocate(c *SMTClause, n int) error {
 	if p != nil && n <= smtShortClauseAtoms {
 		for i, page := range p.pages {
 			if page == nil {
-				page = &smtClauseAtomPage{free: ^uint16(0)}
+				buffer, err := c.manager.NewRetainedLiteralBuffer(smtAtomSlotsPerPage * smtShortClauseAtoms)
+				if err != nil {
+					return err
+				}
+				page = &smtClauseAtomPage{free: ^uint16(0), buffer: buffer}
 				p.pages[i] = page
 			}
 			if page.free == 0 {
@@ -439,11 +431,13 @@ func (p *smtClauseAtomPool) allocate(c *SMTClause, n int) {
 			slot := bits.TrailingZeros16(page.free)
 			page.free &^= 1 << slot
 			c.atomPage, c.atomSlot = page, uint8(slot)
-			c.atoms = page.slots[slot][:n:n]
-			return
+			c.atoms = page.buffer
+			return nil
 		}
 	}
-	c.atoms = make([]smtClauseAtom, n)
+	var err error
+	c.atoms, err = c.manager.NewRetainedLiteralBuffer(n)
+	return err
 }
 
 // All references in this span have been consumed by ReleaseAtoms.
@@ -452,5 +446,8 @@ func (c *SMTClause) discardAtoms() {
 	if c.atomPage != nil {
 		c.atomPage.free |= 1 << c.atomSlot
 		c.atomPage = nil
+		c.atomSlot = 0
 	}
 }
+
+func (c *SMTClause) atomOffset() int { return int(c.atomSlot) * smtShortClauseAtoms }

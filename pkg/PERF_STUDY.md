@@ -2,6 +2,8 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
+**Compact saved clause atoms cut post-pop heap use by 4,760 bytes per solver across 1,024 solvers.** Releasing three saved atoms took about a third fewer instructions. In 32 timed pairs, scoped pop took 20.04 µs before, 19.18 µs after and 13.06 µs in native Z3. [Clause layout, timings and controls](#compact-saved-atoms-in-learned-clauses)
+
 **Batching reference decrements reduced scoped relevance rollback from 25,200 to 19,357 instructions.** Native Z3 used 8,036. The complete scoped pop used 2.4% fewer instructions in the final nine-round comparison. [Reference retirement and proof measurements](#releasing-owned-references-during-relevance-rollback)
 
 **Reusing a Boolean variable’s heap position cut a scoped pop from 21.81 to 19.21 µs.** Z3 took 13.46 µs in the same 36-pair comparison. The activity queue now uses 192 instructions per removal, down from 208. [Heap deletion and controls](#removing-a-boolean-variable-from-the-activity-heap)
@@ -1990,3 +1992,23 @@ On `rfn2` check 4, **24% of g3's instruction samples** had the solver rewriter o
 One stack contributes to one callee row. A sample attributed to `RewriterMakeApp` includes work deeper in that call, such as checking argument sorts, finding the canonical application and handling references. The two profiles per check independently identify application construction as a larger target than the result cache. Physical frames omit inlined calls. The operation CSV also provides inclusive categories that can overlap. Use `phase_stacks.py --engines g3 --call-graph fp --period 800011` and pass the completed run directories to `stack_costs.py --rewriter-callees --period 800011` to reproduce the classification. [All callee samples](perf/ivy_apple/rewriter_profiles/frame-rewriter-callees.csv) · [Classification code](perf/ivy_apple/stack_costs.py)
 
 A separate eight-pair release-binary timing series measured the original prepared-candidate change on five complete workloads. Median within-pair elapsed changes were −5.39% on `rfn`, −2.38% on `rfn2`, −2.27% on `dramc_nb2`, +1.89% on `cf_live` and +2.03% on Raft. Each row records host and sibling activity. The direct queue and solver-thread instruction measurements above isolate the checker improvement more precisely than these whole-process times. [All 80 release runs](perf/ivy_apple/candidate_checker/prepared-release-wall.csv)
+
+### Compact saved atoms in learned clauses
+
+A learned clause can survive the Boolean variables that originally supplied its literals. It therefore retains the original expressions and their signs. The previous representation stored a 16-byte public handle and one sign in a 24-byte record. The clause now keeps the arena slot and its full generation in eight bytes, with one additional bit per sign. The buffer stores the common AST manager once. Acquiring a reference validates ownership. Reading a position supplies the original public handle. Release walks forward, stops at the first failure, and clears each position as soon as it consumes the reference. [Clause storage](smtcore/smt_clause.go) · [Manager-owned references](ast/ast_retained_literals.go) · [Generation, cross-manager and sign tests](ast/ast_retained_literals_test.go) · [Interrupted destructor test](ast/ast_core_delete_continuation_test.go)
+
+Across ten paired runs of 1,024 solvers, the median additional live heap per solver after pop fell from **64,141 to 59,381 bytes**. At 48 solvers with 2,048 atoms each the medians were 832,643 and 827,884 bytes. The similar absolute saving reflects the fixed short-clause pool capacity. In an earlier eight-round layout comparison, a 12-byte record saved 3,904 bytes per worker. Keeping the first 64 sign bits inline saved a further 40 bytes over the selected bit slice. [Final worker measurements](perf/scope_restoration/saved_clause_atoms/workers.csv) · [Four layouts](perf/scope_restoration/saved_clause_atoms/layout-workers.csv) · [Worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
+
+Each of nine paired instruction runs per CPU measured 115,200 three-atom releases and 1,800 complete pops per process. Reading and reconstituting handles costs extra instructions when rebinding the original expressions. Release recovers that cost in this fixture. The complete-pop counter varied more than the measured clause phase and moved in opposite directions across the two CPUs. [Per-round counters and empty controls](perf/scope_restoration/saved_clause_atoms/instructions.csv) · [Clause phase driver](perf/scope_restoration/pop_phases/clauses.py) · [Complete pop driver](perf/scope_restoration/pop_phases/measure.py)
+
+| Instructions, median after subtracting the empty interval | CPU 33 before → after | CPU 38 before → after |
+|---|---:|---:|
+| Rebind one ternary clause's atoms | 1,114 → 1,164 | 1,078 → 1,137 |
+| Release its three atoms | 310 → 207 | 305 → 201 |
+| Complete the clause after installing watches | 386 → 282 | 381 → 277 |
+| Restore all clauses in one pop | 116,919 → 115,495 | 112,164 → 109,806 |
+| Complete scoped pop | 213,240 → 215,695 | 205,965 → 202,705 |
+
+In a separate elapsed series, queue-enabled scoped pop improved in 25 of 32 pairs, with a median within-pair reduction of **5.28%**. For surviving atoms, the medians were 326 ns before, 344 ns after and 512 ns in Z3. That control was 4.29% slower within pairs. All timings used the same in-tree native fixture, 2,800 iterations per run and alternating build order on CPUs 12 and 46. [Elapsed runs, including the queue-disabled control](perf/scope_restoration/saved_clause_atoms/elapsed.csv) · [Timing driver](perf/scope_restoration/watch_selection/compare.py)
+
+The final build reproduced the verdict and all 18 search counters for every one of the 10,342 Apple checks. It also matched all 28 Raft variant outcomes and 188 private Raft search records. Both AST and SMT core package suites passed, along with focused runs using checked and debug/trace builds. [Release and partial-failure tests](ast/ast_retained_literals_test.go) · [Pool reuse with mixed clause lifetimes](smtcore/smt_clause_storage_test.go)

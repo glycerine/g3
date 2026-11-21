@@ -19,8 +19,9 @@ func (s *SMTInternalizerState) keepClauseAcrossPop(record *SMTInternalizedClause
 func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLearnedClause) error {
 	if !saved.installed {
 		atoms := saved.clause.atoms
-		if len(atoms) != 0 {
-			if len(atoms) != len(saved.clause.literals) {
+		if atoms != nil {
+			offset := saved.clause.atomOffset()
+			if atoms.Len()-offset < len(saved.clause.literals) {
 				return ast.ErrASTDomain
 			}
 			// A clause whose watched variables survived the pop is still
@@ -35,13 +36,16 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 					record.closeWatches++
 				}
 			}
-			for saved.bindHead < len(atoms) {
-				atom := atoms[saved.bindHead]
-				variable, err := s.restoreLearnedAtom(atom.expression)
+			for saved.bindHead < len(saved.clause.literals) {
+				expression, sign, err := atoms.At(offset + saved.bindHead)
 				if err != nil {
 					return err
 				}
-				saved.clause.literals[saved.bindHead] = NewSMTLiteral(variable, atom.sign)
+				variable, err := s.restoreLearnedAtom(expression)
+				if err != nil {
+					return err
+				}
+				saved.clause.literals[saved.bindHead] = NewSMTLiteral(variable, sign)
 				saved.bindHead++
 			}
 			literals := saved.clause.literals
@@ -74,7 +78,7 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 		allOtherFalse := secondValue == lbool.False
 		// After reselecting both watches, a false second watch means every
 		// remaining literal is false. Stable watches need the full check.
-		if allOtherFalse && len(atoms) == 0 {
+		if allOtherFalse && atoms == nil {
 			for _, literal := range literals[2:] {
 				value, e := s.literalAssignment(literal)
 				if e != nil {

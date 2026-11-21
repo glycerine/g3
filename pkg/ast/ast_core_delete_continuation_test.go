@@ -83,7 +83,7 @@ func deletionContinuationCounts(m *ASTManager) [4]uint32 {
 }
 
 func TestASTDeletionContinuationParameterPrefixAndRemainingLIFO(t *testing.T) {
-	for _, resume := range []string{"lock", "close", "vector"} {
+	for _, resume := range []string{"lock", "close", "vector", "literals"} {
 		t.Run(resume, func(t *testing.T) {
 			f := newDeletionContinuationFixture(t)
 			m := f.m
@@ -151,7 +151,12 @@ func TestASTDeletionContinuationParameterPrefixAndRemainingLIFO(t *testing.T) {
 			rootID, err := m.GetASTID(root)
 			astTestMust(t, err)
 			var ref ASTRef
-			if resume == "vector" {
+			var literals *RetainedLiteralBuffer
+			if resume == "literals" {
+				literals, err = m.NewRetainedLiteralBuffer(3)
+				astTestMust(t, err)
+				astTestMust(t, literals.Retain(1, root, true))
+			} else if resume == "vector" {
 				astTestMust(t, m.IncRef(root))
 			} else {
 				ref, err = m.NewRef(root)
@@ -172,6 +177,17 @@ func TestASTDeletionContinuationParameterPrefixAndRemainingLIFO(t *testing.T) {
 				roots, cause = m.ShrinkHeldRefs([]ASTHandle{sentinel, root, sentinel}, 0)
 				if len(roots) != 1 || roots[0] != sentinel {
 					t.Fatal("vector retained incorrect owners", roots)
+				}
+				wantSentinel++
+			} else if resume == "literals" {
+				astTestMust(t, literals.Retain(0, sentinel, false))
+				astTestMust(t, literals.Retain(2, sentinel, true))
+				cause = literals.Release(0, 3)
+				for i, want := range []ASTHandle{{}, {}, sentinel} {
+					got, sign, err := literals.At(i)
+					if err != nil || got != want || sign != (i != 0) {
+						t.Fatalf("atom %d after failed destructor: %v %v %v", i, got, sign, err)
+					}
 				}
 				wantSentinel++
 			} else {
@@ -201,6 +217,9 @@ func TestASTDeletionContinuationParameterPrefixAndRemainingLIFO(t *testing.T) {
 				if len(roots) != 0 {
 					t.Fatal("vector retry retained suffix", roots)
 				}
+			}
+			if resume == "literals" {
+				astTestMust(t, literals.Release(0, 3))
 			}
 			count, err := m.GetRefCount(sentinel)
 			astTestMust(t, err)

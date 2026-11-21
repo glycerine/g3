@@ -32,7 +32,7 @@ def insert_events(source, function, end, phase, native):
         event = "scope_phase_event"
     else:
         first = body.index("if !saved.installed {")
-        atoms = body.index("for saved.bindHead < len(atoms) {")
+        atoms = body.index("for saved.bindHead < len(")
         choose = body.index("literals := saved.clause.literals", atoms)
         install = body.index("record := &s.lemmas[saved.recordIndex]", choose)
         finish = body.index("literals := saved.clause.literals", install)
