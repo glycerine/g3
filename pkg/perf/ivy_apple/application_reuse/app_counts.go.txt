@@ -1,0 +1,55 @@
+package ast
+
+func (m *ASTManager) countLookupApp(decl astNodeRef, args []ASTHandle) (astNodeRef, bool) {
+	t := &m.table
+	if len(t.entries) == 0 {
+		return astNodeRef{}, false
+	}
+	var refs [astInlineArgs]astNodeRef
+	var hashes [astInlineArgs]uint32
+	for i, a := range args {
+		if a.origin != m.origin || a.slot == 0 || a.slot >= m.nextNode {
+			return astNodeRef{}, false
+		}
+		n := m.nodeAt(a.slot)
+		if !n.live || n.generation != a.generation {
+			return astNodeRef{}, false
+		}
+		refs[i] = astNodeRef{a.slot, a.generation}
+		hashes[i] = n.hash
+	}
+	hash := astTableHash(astHashArray(uint32(len(args)), m.nodeAt(decl.slot).hash, func(i uint32) uint32 { return hashes[i] }))
+	tag := astTableTag(hash)
+	first := true
+	for i, perturb := hash&t.mask, hash; ; {
+		if t.tags[i] == astTagEmpty {
+			return astNodeRef{}, false
+		}
+		if t.tags[i] == tag {
+			entry := t.entries[t.indices[i]]
+			if entry.hash == hash && m.validNode(entry.ref) == nil && m.nodeAt(entry.ref.slot).kind == ASTApp {
+				a := m.appAt(entry.ref.slot)
+				if a.decl == decl && int(a.count) == len(args) && a.inlineArgs == refs {
+					return entry.ref, first
+				}
+			}
+		}
+
+		first = false
+		perturb >>= 5
+		i = (i*5 + perturb + 1) & t.mask
+	}
+}
+
+var studyAppActive bool
+var studyAppValues [5][5]uint64
+
+func StudyAppBegin() {
+	studyAppValues = [5][5]uint64{}
+	studyAppActive = true
+}
+
+func StudyAppEnd() [5][5]uint64 {
+	studyAppActive = false
+	return studyAppValues
+}

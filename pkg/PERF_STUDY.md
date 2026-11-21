@@ -1899,3 +1899,23 @@ The worker measurements cover nine alternating pairs of fresh processes. Each wo
 On two physical cores, median instructions in the scoped trail-undo loop fell from 62,797 to 61,373 and from 62,906 to 61,215. Native used 19,653 on each core. Complete-pop medians increased 1.60% and 0.16% respectively. Across 24 paired timings, the queue-enabled scoped pop took 2.01% less elapsed time in the median and won 14 pairs. The shorter surviving-atom control took 4.52% longer in the median. The repeatable benefit is the reduction in resident memory. Every process verified restored clause identity and bindings. The final solver matched all 10,342 Apple checks and their search counters, the 28 Raft variants and the 188 private search records. [Hardware counters](perf/scope_restoration/compact_trail/thread-instructions.csv) · [Elapsed samples](perf/scope_restoration/compact_trail/times.csv)
 
 A forced failure between removing a theory variable from a node and removing it from the equivalence root exposed a separate ownership issue. The previous implementation had already discarded the payload. The compact trail leaves it in place and marks the first removal complete, so a retry can finish the second removal before undoing the older equality. The regression test makes the root attachment temporarily unavailable, restores it, and checks both final classes and their theory variables. [Interrupted-pop test](smtcore/smt_theory_equality_rollback_test.go)
+
+### How often proofs rebuild an existing AST application
+
+On `dramc_nb2`, 4,015,983 of 4,675,807 eligible application requests (85.9%) identified a term already in the solver’s canonical table. Check 71 alone found 706,419 existing terms. For this measurement an observer probed the unchanged table before the usual construction and registration. It compared the declaration, arity and complete argument handles. The ordinary registration still ran on every request. The observer covered the full release-mode constructor taking up to three inline arguments from a slice. The final column counts duplicates found by ordinary registration across **all** recorded arities and input forms. Each isolate reproduced native’s full transcript and 18 search counters per check. A second run with the checked-in driver reproduced all 130 check-by-arity rows for `rfn2`. [All 2,874 checks by arity](perf/ivy_apple/application_reuse/counts.csv.gz) · [Counting driver](perf/ivy_apple/application_reuse/count.py)
+
+| Isolate | Constructor requests | Eligible requests | Existing terms | Found in first bucket | All registration duplicates |
+|---|---:|---:|---:|---:|---:|
+| `dramc_nb2` | 5,105,239 | 4,675,807 | 4,015,983 | 3,320,863 | 4,031,934 |
+| `rfn2` | 3,892,613 | 3,501,523 | 2,668,746 | 2,256,428 | 2,678,024 |
+| `rfn` | 3,473,503 | 3,082,253 | 2,217,110 | 1,860,877 | 2,223,577 |
+| `cf_live` | 8,979,881 | 8,361,692 | 7,193,276 | 6,383,958 | 7,220,944 |
+
+The corresponding microbenchmarks construct the same applications with the two arena-backed AST managers. Repeating the same binary application took **155.0 ns in g3 and 38.20 ns in native Z3**. Rotating through 256 binary applications and retaining them all raised those medians to 184.1 and 39.23 ns, including acquisition and release of the result. Releasing the last owner every time raised the cost to 406.9 and 54.85 ns. Four arguments cross the inline-storage boundary in Go. At that arity, the single repeated application took 362.8 and 42.74 ns. Nine alternating pairs used CPU 30 and 200,000 calls per workload. These times measure a constructor and its specified ownership operations. They do not estimate the percentage of a whole proof spent there. [Timings for all 16 workloads](perf/ivy_apple/application_reuse/baseline.csv) · [Go fixtures](ast/ast_app_benchmark_test.go) · [Native fixtures](../src/test/perf/ast_application_reuse.cpp)
+
+To repeat the timing from `pkg/` with the project's release C++ build in `../build`, use a permitted logical CPU for this machine.
+
+```sh
+go test -pgo=off -c -o /tmp/g3-ast-reuse.test ./ast
+python3 perf/ivy_apple/application_reuse/compare.py --cpu 0 --rounds 9 --go g3 /tmp/g3-ast-reuse.test
+```

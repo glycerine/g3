@@ -62,3 +62,54 @@ func BenchmarkASTCanonicalVariable(b *testing.B) {
 		})
 	}
 }
+
+// Rebuild applications over 256 bindings. Retained applications already have
+// an owner. Each fresh result loses its last reference in the timed loop.
+func BenchmarkASTApplicationReuse(b *testing.B) {
+	const width = 256
+	for _, arity := range []int{1, 2, 3, 4} {
+		for _, resident := range []int{0, 192, 256} {
+			b.Run(strconv.Itoa(arity)+"/Resident"+strconv.Itoa(resident), func(b *testing.B) {
+				m := astTestManager(b)
+				boolean, err := m.MkBoolSort()
+				astTestMust(b, err)
+				variables := make([]ASTHandle, width+arity)
+				for i := range variables {
+					variables[i], err = m.MkVar(uint32(i), boolean)
+					astTestMust(b, err)
+					astTestPin(b, m, variables[i])
+				}
+				domain, args := make([]ASTHandle, arity), make([]ASTHandle, arity)
+				for i := range domain {
+					domain[i], args[i] = boolean, variables[width+i]
+				}
+				decl, err := m.MkFuncDecl(astTestSymbol(b, m, "canonical-app"), domain, boolean, ASTFuncDeclInfo{})
+				astTestMust(b, err)
+				astTestPin(b, m, decl)
+				roots := make([]ASTHandle, resident)
+				for i := range roots {
+					args[0] = variables[i]
+					roots[i], err = m.MkApp(decl, args)
+					astTestMust(b, err)
+					astTestPin(b, m, roots[i])
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					index := (uint(i) * 197) & (width - 1)
+					args[0] = variables[index]
+					result, err := m.MkApp(decl, args)
+					if err != nil || (int(index) < resident && result != roots[index]) {
+						b.Fatal(index, result, err)
+					}
+					if err = m.IncRef(result); err != nil {
+						b.Fatal(err)
+					}
+					if err = m.DecRef(result); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+	}
+}
