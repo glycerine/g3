@@ -22,7 +22,7 @@ func cloneSMTTheoryVariables(source SMTTheoryVarList) SMTTheoryVarList {
 
 // pushCoreTrail is m_trail_stack.push_back for the e-graph entries.
 func (s *SMTInternalizerState) pushCoreTrail(kind smtCoreTrailKind) {
-	s.coreTrail = append(s.coreTrail, smtCoreTrailEntry{kind: kind, theoryLimit: len(s.theoryTrail)})
+	s.coreTrail = append(s.coreTrail, kind)
 }
 
 // recordEqualityUndo follows source add_eq_trail. The class links, roots, and

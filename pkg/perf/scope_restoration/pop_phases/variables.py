@@ -30,7 +30,7 @@ def instrument(source, first, last, boundaries, phase, event):
 def go_boundaries(body):
     queue = body.index("if (s.cachedActivity")
     binding = body.index("if s.quantifiers != nil")
-    slots = body.index("s.boolExpr[variable] = ast.ASTHandle{}")
+    slots = body.index("s.boolExpr = s.boolExpr[:variable]")
     retry = body.index("s.retiringBoolean, s.retiringBooleanRoot = true")
     release = body.index("if !s.retiringBooleanRoot.IsNull()")
     done = body.index("s.retiringBoolean = false")

@@ -58,11 +58,10 @@ type smtInternalizerAssignmentTrail struct {
 }
 
 type smtInternalizerTheoryTrail struct {
-	node      *SMTEnode
-	root      *SMTEnode
-	theory    SMTTheoryID
-	old       SMTTheoryVar
-	rootAdded bool
+	node   *SMTEnode
+	root   *SMTEnode
+	theory SMTTheoryID
+	old    SMTTheoryVar
 }
 
 type smtInternalizerNotifyTrail struct {
@@ -80,18 +79,11 @@ type smtDisequalityUndo struct {
 type smtCoreTrailKind uint8
 
 const (
-	smtCoreTrailBoolVar smtCoreTrailKind = iota // mk_bool_var_trail
-	smtCoreTrailEnode                           // mk_enode_trail
-	smtCoreTrailAddEq                           // add_eq_trail
+	smtCoreTrailBoolVar   smtCoreTrailKind = iota // mk_bool_var_trail
+	smtCoreTrailEnode                             // mk_enode_trail
+	smtCoreTrailAddEq                             // add_eq_trail
+	smtCoreTrailTheoryVar                         // add_th_var_trail or replace_th_var_trail
 )
-
-// smtCoreTrailEntry records one e-graph trail entry. theoryLimit is the
-// theory trail length when it was pushed: the add_th_var_trail and
-// replace_th_var_trail entries pushed after it are undone before it.
-type smtCoreTrailEntry struct {
-	kind        smtCoreTrailKind
-	theoryLimit int
-}
 
 // smtEqualityUndo is one source add_eq_trail entry.
 type smtEqualityUndo struct {
@@ -229,13 +221,12 @@ type SMTInternalizerState struct {
 	activityCache              map[ast.ASTHandle]float64
 	assignment                 []lbool.LBool
 	watches                    []SMTWatchList
-	booleanStack               []ast.ASTHandle
+	booleanStack               []ast.ASTHandle // borrowed view of boolExpr after the reserved variable
 	enodeStack                 []*SMTEnode
-	// coreTrail is the order of the m_trail_stack entries that build the
-	// e-graph: mk_bool_var_trail, mk_enode_trail and add_eq_trail. Their
-	// data stay on booleanStack, enodeStack and equalityTrail; a pop undoes
-	// the three interleaved, newest first, as undo_trail_stack does.
-	coreTrail           []smtCoreTrailEntry
+	// coreTrail records the order of the source m_trail_stack entries.
+	// Payloads live on their typed stacks. Interleaved theory attachments
+	// must be undone before restoring an older equality snapshot.
+	coreTrail           []smtCoreTrailKind
 	scopes              []smtInternalizerScope
 	pendingPop          *smtInternalizerPendingPop
 	popSlot             smtInternalizerPendingPop
@@ -526,11 +517,11 @@ func (s *SMTInternalizerState) attachTheoryVariable(node *SMTEnode, theory SMTTh
 				_ = node.DeleteTheoryVar(theory)
 				return err
 			}
-			trail.root, trail.rootAdded = root, true
+			trail.root = root
 		}
 		if rootVariable == SMTNullTheoryVar {
 			if err := s.enqueueExistingDisequalities(root, variable, plugin); err != nil {
-				if trail.rootAdded {
+				if trail.root != nil {
 					_ = root.DeleteTheoryVar(theory)
 				}
 				_ = node.DeleteTheoryVar(theory)
@@ -549,32 +540,34 @@ func (s *SMTInternalizerState) attachTheoryVariable(node *SMTEnode, theory SMTTh
 		return err
 	}
 	s.theoryTrail = append(s.theoryTrail, trail)
+	s.pushCoreTrail(smtCoreTrailTheoryVar)
 	return nil
 }
 
-// undoTheoryAttachments must run before restoring an older equality snapshot,
-// which also contains copies of the affected nodes' theory-variable lists.
-func (s *SMTInternalizerState) undoTheoryAttachments(limit int) error {
-	if limit < 0 || limit > len(s.theoryTrail) {
-		return ast.ErrASTDomain
-	}
-	for len(s.theoryTrail) > limit {
-		index := len(s.theoryTrail) - 1
-		entry := s.theoryTrail[index]
-		s.theoryTrail = s.theoryTrail[:index]
-		if entry.old == SMTNullTheoryVar {
+// A theory attachment can cover both a node and its equivalence root.
+// A retry resumes at the first remaining change.
+func (s *SMTInternalizerState) undoTheoryAttachment() error {
+	i := len(s.theoryTrail) - 1
+	entry := &s.theoryTrail[i]
+	if entry.old != SMTNullTheoryVar {
+		if err := entry.node.ReplaceTheoryVar(entry.theory, entry.old); err != nil {
+			return fmt.Errorf("restore node theory variable: %w", err)
+		}
+	} else {
+		if entry.node != nil {
 			if err := entry.node.DeleteTheoryVar(entry.theory); err != nil {
 				return fmt.Errorf("delete node theory variable: %w", err)
 			}
-			if entry.rootAdded {
-				if err := entry.root.DeleteTheoryVar(entry.theory); err != nil {
-					return fmt.Errorf("delete root theory variable: %w", err)
-				}
+			entry.node = nil
+		}
+		if entry.root != nil {
+			if err := entry.root.DeleteTheoryVar(entry.theory); err != nil {
+				return fmt.Errorf("delete root theory variable: %w", err)
 			}
-		} else if err := entry.node.ReplaceTheoryVar(entry.theory, entry.old); err != nil {
-			return fmt.Errorf("restore node theory variable: %w", err)
 		}
 	}
+	*entry = smtInternalizerTheoryTrail{}
+	s.theoryTrail = s.theoryTrail[:i]
 	return nil
 }
 
@@ -832,7 +825,7 @@ func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMT
 	} else {
 		s.watches = append(s.watches, SMTWatchList{}, SMTWatchList{})
 	}
-	s.booleanStack = append(s.booleanStack, expression)
+	s.booleanStack = s.boolExpr[SMTFirstBoolVar:]
 	s.pushCoreTrail(smtCoreTrailBoolVar)
 	s.statistics.NumMkBoolVar++
 	if err := s.basicActivityCreated(variable); err != nil {
@@ -1466,22 +1459,26 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.pendingPop.relevancyPopped = true
 		}
 	}
-	// undo_trail_stack: the mk_bool_var, mk_enode and add_eq entries, with
-	// the theory-variable entries pushed after each, newest first.
+	// undo_trail_stack runs the interleaved e-graph entries newest first.
 	if scope.coreTrailLimit < 0 || scope.coreTrailLimit > len(s.coreTrail) ||
 		scope.enodeLimit < 0 || scope.enodeLimit > len(s.enodeStack) ||
 		scope.booleanLimit < 0 || scope.booleanLimit > len(s.booleanStack) ||
-		scope.equalityLimit < 0 || scope.equalityLimit > len(s.equalityTrail) {
+		scope.equalityLimit < 0 || scope.equalityLimit > len(s.equalityTrail) ||
+		scope.theoryLimit < 0 || scope.theoryLimit > len(s.theoryTrail) {
 		return ast.ErrASTDomain
 	}
 	for len(s.coreTrail) > scope.coreTrailLimit {
 		top := s.coreTrail[len(s.coreTrail)-1]
-		if top.theoryLimit != len(s.theoryTrail) {
-			if err := s.undoTheoryAttachments(top.theoryLimit); err != nil {
+		switch top {
+		case smtCoreTrailTheoryVar:
+			if len(s.theoryTrail) <= scope.theoryLimit {
+				return ast.ErrASTDomain
+			}
+			if err := s.undoTheoryAttachment(); err != nil {
 				return err
 			}
-		}
-		switch top.kind {
+			s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
+			continue
 		case smtCoreTrailAddEq:
 			index := len(s.equalityTrail) - 1
 			entry := &s.equalityTrail[index]
@@ -1543,7 +1540,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 				s.unindexEqualityAtom(variable, expression)
 			}
 			s.context.exprs.retireBoolean(expression, s.relevancy == nil)
-			s.boolExpr[variable] = ast.ASTHandle{}
+			// The owning trail still exposes the expression if reference release is interrupted.
 			s.boolExpr = s.boolExpr[:variable]
 			if page := s.gatePage(variable); page != nil {
 				slot := uint32(variable) % smtBoolGatesPerPage
@@ -1578,11 +1575,9 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 		s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
 		s.statistics.NumDelBoolVar++
 	}
-	if len(s.enodeStack) != scope.enodeLimit || len(s.booleanStack) != scope.booleanLimit || len(s.equalityTrail) != scope.equalityLimit {
+	if len(s.enodeStack) != scope.enodeLimit || len(s.booleanStack) != scope.booleanLimit ||
+		len(s.equalityTrail) != scope.equalityLimit || len(s.theoryTrail) != scope.theoryLimit {
 		return fmt.Errorf("e-graph trail out of step with its stacks: %w", ast.ErrASTDomain)
-	}
-	if err := s.undoTheoryAttachments(scope.theoryLimit); err != nil {
-		return err
 	}
 	if s.flushQuantifiersInPop {
 		if err := s.flushQuantifiers(); err != nil {
