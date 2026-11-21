@@ -1,0 +1,43 @@
+// Diagnostic for one solver. Cache only an exact negative answer under the
+// current macro declarations. Each entry is an arena handle without ownership.
+func (m *Manager) observedContainsMacro(h ast.ASTHandle) (bool, error) {
+	if m.observedNegative == nil {
+		m.observedNegative = new([1024]ast.ASTHandle)
+	}
+	index := h.Slot() % uint32(len(m.observedNegative))
+	if m.observedNegative[index] == h {
+		return false, nil
+	}
+	node, err := m.manager.NodeHeader(h)
+	if err != nil {
+		return false, err
+	}
+	switch node.Kind {
+	case ast.ASTApp:
+		if _, installed := m.byDeclaration[node.Decl]; installed {
+			return true, nil
+		}
+		for i := uint32(0); i < node.NumArgs; i++ {
+			arg, err := m.manager.GetArg(h, i)
+			if err != nil {
+				return false, err
+			}
+			found, err := m.observedContainsMacro(arg)
+			if err != nil || found {
+				return found, err
+			}
+		}
+	case ast.ASTQuantifier:
+		// The macro expander leaves patterns alone.
+		body, err := m.manager.GetQuantifierBody(h)
+		if err != nil {
+			return false, err
+		}
+		found, err := m.observedContainsMacro(body)
+		if err != nil || found {
+			return found, err
+		}
+	}
+	m.observedNegative[index] = h
+	return false, nil
+}

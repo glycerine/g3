@@ -1,0 +1,13 @@
+isolate,unchanged_without_macro,previously_stable,in_128_slots,passes,lookups,hits,instructions
+rfn2,false,false,false,1561,64100,4487,321406723
+rfn2,true,false,false,7038,272054,0,522598147
+rfn2,true,true,false,1179,13635,0,27404448
+rfn2,true,true,true,200,2115,0,4053456
+dramc_nb2,false,false,false,3928,141823,10304,703156627
+dramc_nb2,true,false,false,18835,605422,0,1159058601
+dramc_nb2,true,true,false,3640,34810,0,72460243
+dramc_nb2,true,true,true,1801,7878,0,16281454
+cf_live,false,false,false,1977,72223,4987,363319822
+cf_live,true,false,false,9416,329633,0,640285383
+cf_live,true,true,false,1667,17062,0,32969781
+cf_live,true,true,true,1371,10107,0,18865799
