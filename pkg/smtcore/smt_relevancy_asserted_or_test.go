@@ -1,0 +1,127 @@
+package smtcore
+
+import (
+	"slices"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+func TestSMTAssertedOrWitnessAcrossScopes(t *testing.T) {
+	m := astTestManager(t)
+	ctx, p, s := smtInternalizerFixture(t, m, nil)
+	terms, literals := benchmarkSMTBooleansForTest(t, m, s, "asserted-or", 5)
+	root, err := m.MkOrArray(terms)
+	astTestMust(t, err)
+	astTestMust(t, s.Assert(root, ast.ASTHandle{}, 0))
+	astTestMust(t, s.PushScope())
+	astTestMust(t, s.SetAssignment(literals[4].Var(), lbool.True))
+	astTestMust(t, p.AssignmentEvent(terms[4], true))
+	astTestMust(t, s.SetAssignment(literals[0].Var(), lbool.True))
+	astTestMust(t, p.AssignmentEvent(terms[0], true))
+	if got := p.RelevantExpressions(); !slices.Equal(got, []ast.ASTHandle{root, terms[4]}) {
+		t.Fatalf("an existing true witness should suffice: %v", got)
+	}
+	astTestMust(t, s.PopScopes(1))
+	astTestMust(t, s.SetAssignment(literals[4].Var(), lbool.True))
+	astTestMust(t, s.SetAssignment(literals[0].Var(), lbool.True))
+	astTestMust(t, p.AssignmentEvent(terms[4], true))
+	if got := p.RelevantExpressions(); !slices.Equal(got, []ast.ASTHandle{root, terms[0]}) {
+		t.Fatalf("after pop the first true child should be selected: %v", got)
+	}
+	astTestMust(t, ctx.SetAssignment(root, lbool.False))
+	astTestMust(t, p.AssignmentEvent(terms[4], true))
+	want := []ast.ASTHandle{root, terms[0], terms[4], terms[3], terms[2], terms[1]}
+	if got := p.RelevantExpressions(); !slices.Equal(got, want) {
+		t.Fatalf("a false parent marks its remaining children in reverse order: %v", got)
+	}
+}
+
+func TestSMTAssertedOrUsesCurrentBinding(t *testing.T) {
+	for _, mode := range []string{"unbound", "bound", "detached", "rebound"} {
+		t.Run(mode, func(t *testing.T) {
+			m := astTestManager(t)
+			ctx, p, s := smtInternalizerFixture(t, m, nil)
+			terms, literals := benchmarkSMTBooleansForTest(t, m, s, "signed-root", 2)
+			negated, err := m.MkNot(terms[0])
+			astTestMust(t, err)
+			root, err := m.MkOr(negated, terms[1])
+			astTestMust(t, err)
+			astTestMust(t, s.Assert(root, ast.ASTHandle{}, 0))
+			if mode == "bound" {
+				astTestMust(t, s.Internalize(root, true))
+			}
+			if mode == "detached" || mode == "rebound" {
+				astTestMust(t, s.SetRelevancy(nil))
+				t.Cleanup(func() { astTestMust(t, s.SetRelevancy(p)) })
+				if mode == "rebound" {
+					astTestMust(t, s.SetRelevancy(p))
+				}
+			}
+			astTestMust(t, s.SetAssignment(literals[0].Var(), lbool.True))
+			astTestMust(t, ctx.SetAssignment(terms[0], lbool.False))
+			astTestMust(t, s.SetAssignment(literals[1].Var(), lbool.True))
+			astTestMust(t, p.AssignmentEvent(terms[1], true))
+			// A bound OR reads its signed SAT literals. An asserted OR
+			// without a variable reads the NOT operand's context assignment.
+			wantNegative := mode != "bound"
+			if p.IsRelevant(negated) != wantNegative || p.IsRelevant(terms[1]) == wantNegative {
+				t.Fatalf("signed witness for %s: %v", mode, p.RelevantExpressions())
+			}
+		})
+	}
+}
+
+func TestSMTAssertedOrNestedNot(t *testing.T) {
+	m := astTestManager(t)
+	ctx, p, s := smtInternalizerFixture(t, m, nil)
+	terms, literals := benchmarkSMTBooleansForTest(t, m, s, "nested-root", 2)
+	inner, err := m.MkNot(terms[0])
+	astTestMust(t, err)
+	astTestMust(t, s.Internalize(inner, false))
+	outer, err := m.MkNot(inner)
+	astTestMust(t, err)
+	root, err := m.MkOr(outer, terms[1])
+	astTestMust(t, err)
+	astTestMust(t, s.Assert(root, ast.ASTHandle{}, 0))
+	astTestMust(t, ctx.SetAssignment(inner, lbool.False))
+	astTestMust(t, s.SetAssignment(literals[1].Var(), lbool.True))
+	astTestMust(t, p.AssignmentEvent(terms[1], true))
+	if !p.IsRelevant(outer) || p.IsRelevant(terms[1]) {
+		t.Fatalf("the immediate NOT operand determines the first witness: %v", p.RelevantExpressions())
+	}
+}
+
+func TestSMTAssertedOrAfterParentVariableReuse(t *testing.T) {
+	m := astTestManager(t)
+	ctx, p, s := smtInternalizerFixture(t, m, nil)
+	terms, literals := benchmarkSMTBooleansForTest(t, m, s, "reuse-root", 3)
+	root, err := m.MkOrArray(terms)
+	astTestMust(t, err)
+	astTestMust(t, s.Assert(root, ast.ASTHandle{}, 0))
+	astTestMust(t, s.PushScope())
+	astTestMust(t, s.Internalize(root, true))
+	old, ok := s.BoolVar(root)
+	if !ok {
+		t.Fatal("the scoped root needs a Boolean variable")
+	}
+	astTestMust(t, s.PopScopes(1))
+	fresh := smtRelevancyBool(t, m, "reused-parent-variable")
+	astTestMust(t, s.Internalize(fresh, true))
+	if v, ok := s.BoolVar(fresh); !ok || v != old {
+		t.Fatalf("variable reuse control: got %d, want %d", v, old)
+	}
+	astTestMust(t, s.SetAssignment(old, lbool.False))
+	astTestMust(t, s.SetAssignment(literals[2].Var(), lbool.True))
+	astTestMust(t, p.AssignmentEvent(terms[2], true))
+	if got := p.RelevantExpressions(); !slices.Equal(got, []ast.ASTHandle{root, terms[2]}) {
+		t.Fatalf("false on the replacement variable affected the old disjunction: %v", got)
+	}
+	astTestMust(t, ctx.SetRelevant(terms[2], false))
+	astTestMust(t, s.SetAssignment(literals[0].Var(), lbool.True))
+	astTestMust(t, p.AssignmentEvent(terms[0], true))
+	if !p.IsRelevant(terms[0]) || p.IsRelevant(terms[2]) {
+		t.Fatal("a cleared witness must be reselected in argument order")
+	}
+}

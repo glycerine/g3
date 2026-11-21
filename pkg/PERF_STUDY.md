@@ -1651,3 +1651,24 @@ The native and Go fixtures assert the same disjunction of alternating positive a
 | 64, last | 214.2 | 2,240.5 | 69.7 | 160.5 | 17.5 |
 
 The Go control spends about 10× native time finding a true final child at width 64. Direct SAT literals cut that case below native time while preserving the linear scan. Remembering the child avoids the scan when its current assignment and relevance mark still qualify it. This fixture always repeats the same event. The whole-isolate measurements exercise changes of assignment, relevance, and scope. Reproduce the current checkout and native control with `python3 perf/ivy_apple/root_watches/compare.py --cpu 23 --rounds 12` from `pkg`. The driver also accepts previously built Go test executables. Each experimental patch applies independently to g3 `681bb232d` from the repository root. [Paired benchmark driver](perf/ivy_apple/root_watches/compare.py) · [SAT literals](perf/ivy_apple/root_watches/dense.patch) · [Current records](perf/ivy_apple/root_watches/refs.patch) · [Remembered witness](perf/ivy_apple/root_watches/witness.patch)
+
+### Reusing child records in asserted-disjunction watches
+
+On Apple `rfn2`, remembering the last true, relevant child reduced the number of child tests from **28,092,262 to 14,222,885** across 26 incremental checks, a **49.37% reduction**. Native Z3 and g3 still visited 9,676,384 disjunctions, found 8,637,852 existing witnesses, and selected 474,601 new witnesses. Each of those three counts matched on every check. The previous observer counted the generic OR path. The updated observer also counts the cached-witness test and every subsequent child examined. [Native and Go operations](perf/ivy_apple/root_watches/operations.csv.gz) · [Counts by gate type](perf/ivy_apple/root_watches/paths.csv.gz)
+
+An asserted OR usually has no Boolean variable of its own. During assertion, g3 already identifies each child's literal and its underlying expression. The shared watch now keeps pointers into the solver's existing expression pages. It rechecks both the relevance and assignment of its last witness. If the witness has changed, it scans in source order and marks the first true child only after ruling out an existing true, relevant child. When the parent later acquires a Boolean variable, the existing gate supplies its signed SAT literals. The focused tests cover scope pop, Boolean ID reuse, explicit assignments, nested negation, and detaching and rebinding relevance. Generic pair and term-ITE handlers keep their additional operands in a separate record.
+
+In 21 rotated rounds on CPU 23, each sample delivered 500,000 callbacks. The release g3 baseline was `fa19e73c8`. The updated build used the same Go toolchain and fixture. The first and last child positions measure how much work depends on the location of an existing witness. [All 378 measurements](perf/ivy_apple/root_watches/current-micro.csv)
+
+| Width | True child | Original g3 ns/callback | Updated g3 ns/callback | Native Z3 ns/callback |
+|---|---|---:|---:|---:|
+| 4 | First | 101.20 | 25.48 | 23.18 |
+| 4 | Last | 222.20 | 26.07 | 35.33 |
+| 16 | First | 114.90 | 25.84 | 23.49 |
+| 16 | Last | 744.80 | 26.64 | 79.83 |
+| 64 | First | 101.60 | 24.95 | 22.02 |
+| 64 | Last | 2,689.00 | 28.45 | 294.01 |
+
+A separate worker benchmark keeps 1,024 independent single-goroutine solver contexts live and asserts eight four-child clauses per context. Across ten fresh processes per build, the median additional live heap per solver with the scopes active rose from **13,592.5 B to 13,781 B**. After popping the scopes, it fell from **12,312.5 B to 11,605 B**. These are increments over the same fixture with its AST roots already held. Use `go test ./smtcore -run '^$' -bench '^BenchmarkSMTAssertedOrWorkerMemory$' -benchtime=1x` for this fixture. [Worker measurements](perf/ivy_apple/root_watches/workers.csv)
+
+All nine Apple isolates reproduced their native transcripts and matched all 18 native search counters at each of 10,342 checks. All 188 retained Raft private proof searches matched the preceding frontier. The 28 Raft mutation controls reproduced all 11,655 expected passes and 77 expected failures.

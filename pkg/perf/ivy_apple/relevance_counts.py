@@ -51,6 +51,9 @@ def build_go(args, tmp):
     source = module / "smtcore/smt_relevancy.go"
     patch = DATA / ("root-gates.patch" if args.root_gates else "go-relevance.patch")
     s = patched(source, patch, tmp / source.name)
+    asserted_or = source.with_name("smt_relevancy_asserted_or.go")
+    watching = DATA / ("asserted-or-paths.patch" if args.root_gates else "asserted-or-counts.patch")
+    observed_or = patched(asserted_or, watching, tmp / asserted_or.name)
     adapter = args.goivy / "smt/g3_solver.go"
     code = adapter.read_text()
     if code.count(GO_METHOD) != 1:
@@ -59,7 +62,8 @@ def build_go(args, tmp):
         code = code.replace("import (", 'import (\n"github.com/glycerine/g3/pkg/smtcore"', 1)
     g = tmp / adapter.name
     g.write_text(code.replace(GO_METHOD, GO_METHOD + "\n defer smtcore.ReportRelevanceCounts()"))
-    replacements = {str(k): str(v) for f, v in [(source, s), (adapter, g)] for k in [f, f.resolve()]}
+    files = [(source, s), (asserted_or, observed_or), (adapter, g)]
+    replacements = {str(k): str(v) for f, v in files for k in [f, f.resolve()]}
     overlay = tmp / "overlay.json"
     overlay.write_text(json.dumps({"Replace": replacements}))
     return go_build(args, ["-tags=xtrace_off", f"-overlay={overlay}"], tmp / "g3")

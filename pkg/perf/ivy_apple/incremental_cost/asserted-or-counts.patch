@@ -1,0 +1,45 @@
+--- a/pkg/smtcore/smt_relevancy_asserted_or.go
++++ b/pkg/smtcore/smt_relevancy_asserted_or.go
+@@ -71,6 +71,7 @@
+ }
+ 
+ func (p *SMTRelevancyPropagator) propagateAssertedOr(parent ast.ASTHandle, gate *smtAssertedOr) error {
++	relevanceCounts[countOrHandlers].Add(1)
+ 	record := gate.parent
+ 	if record.generation != parent.Generation() || record.flags&smtExprRelevant == 0 {
+ 		return nil
+@@ -80,21 +81,26 @@
+ 		// Boolean literals. Use that gate's assignment rules while bound.
+ 		return p.propagateOr(parent)
+ 	}
++	relevanceCounts[countOrCalls].Add(1)
+ 	if record.flags&smtExprHasAssignment != 0 && lbool.LBool(record.assignment) == lbool.False {
+ 		return p.propagateAll(parent)
+ 	}
+ 	if gate.witness >= 0 {
++		relevanceCounts[countOrTest].Add(1)
+ 		child := gate.children[gate.witness]
+ 		if child.mark.flags&smtExprRelevant != 0 && p.assertedOrChildValue(child) == lbool.True {
++			relevanceCounts[countOrWitness].Add(1)
+ 			return nil
+ 		}
+ 	}
+ 	first := -1
+ 	for i, child := range gate.children {
++		relevanceCounts[countOrTest].Add(1)
+ 		if p.assertedOrChildValue(child) != lbool.True {
+ 			continue
+ 		}
+ 		if child.mark.flags&smtExprRelevant != 0 {
++			relevanceCounts[countOrWitness].Add(1)
+ 			gate.witness = i
+ 			return nil
+ 		}
+@@ -109,6 +115,7 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	relevanceCounts[countOrSelect].Add(1)
+ 	gate.witness = first
+ 	return p.MarkRelevant(argument)
+ }

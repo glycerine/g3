@@ -1,0 +1,39 @@
+--- a/pkg/smtcore/smt_relevancy_asserted_or.go
++++ b/pkg/smtcore/smt_relevancy_asserted_or.go
+@@ -80,21 +80,28 @@
+ 		// Boolean literals. Use that gate's assignment rules while bound.
+ 		return p.propagateOr(parent)
+ 	}
++	counts := &disjunctionCounts[noVariable]
++	counts[orCalls].Add(1)
+ 	if record.flags&smtExprHasAssignment != 0 && lbool.LBool(record.assignment) == lbool.False {
++		counts[markAll].Add(1)
+ 		return p.propagateAll(parent)
+ 	}
+ 	if gate.witness >= 0 {
++		counts[childTests].Add(1)
+ 		child := gate.children[gate.witness]
+ 		if child.mark.flags&smtExprRelevant != 0 && p.assertedOrChildValue(child) == lbool.True {
++			counts[relevantWitness].Add(1)
+ 			return nil
+ 		}
+ 	}
+ 	first := -1
+ 	for i, child := range gate.children {
++		counts[childTests].Add(1)
+ 		if p.assertedOrChildValue(child) != lbool.True {
+ 			continue
+ 		}
+ 		if child.mark.flags&smtExprRelevant != 0 {
++			counts[relevantWitness].Add(1)
+ 			gate.witness = i
+ 			return nil
+ 		}
+@@ -109,6 +116,7 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	counts[selectedChild].Add(1)
+ 	gate.witness = first
+ 	return p.MarkRelevant(argument)
+ }

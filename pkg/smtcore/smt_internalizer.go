@@ -1418,7 +1418,7 @@ func (s *SMTInternalizerState) Assert(expression, proof ast.ASTHandle, generatio
 				return err
 			}
 			if s.relevancy != nil {
-				if err = s.relevancy.AddOrWatches(expression); err != nil {
+				if err = s.relevancy.addAssertedOrWatches(expression, arguments, literals); err != nil {
 					return err
 				}
 			}
