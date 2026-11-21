@@ -2192,3 +2192,20 @@ On the rebased GoIvy frontend, uninstrumented builds running at the default Go G
 Each cell is a median of three `dramc_nb2` or four `rfn2` observations. Counters cover the entire process. Runtime metrics cover the Go heap in each executable, excluding the C++ heap. On `dramc_nb2`, g3 and Z3 allocated 114.92 and 112.99 GB on the Go heap. At GOGC=100 the Go runtime attributed 30.94 and 68.37 CPU seconds to GC. At GOGC=400 those times fell to 6.07 and 9.32 seconds and the whole-process instruction ordering reversed. A bound on per-worker memory matters for the intended parallel workload. These runs support reducing the frontend allocations that drive collections. [GC and allocation observations](perf/ivy_apple/frontend_memory/gc-pacing.csv) · [Reproduction driver](perf/ivy_apple/frontend_memory.py)
 
 Two independent instrumented pairs for each isolate had identical call counts across backends. On `dramc_nb2` there were 323,761,938 `symbolsIluAstRec` visits, 61,366,444 `renameASTRec` visits, and 2,323,722 `sliceSexp` calls. On `rfn2` the corresponding counts were 32,879,610, 3,486,885 and 32,630. The much smaller frontend workload on `rfn2` makes the cost of its fourth solver check easier to see. [Six shared frontend counters](perf/ivy_apple/frontend_memory/call-counts.csv)
+
+### Four application operands in a 128-byte arena slot
+
+A node slot already had room for a fourth 8-byte operand reference. A four-argument application can now keep its full key in that slot. Repeating it avoids allocating and releasing a separate argument payload. The page size, reservation and generation sequence remain the same. Checked construction, tracing and armed allocation failures keep their original payload paths where required. Exact-arity construction also carries the validated declaration through coercion and registration. The constructor still shapes variadic, associative and chainable applications according to their flags. [Slot layout](ast/ast_core_storage.go) · [Constructor](ast/ast_core_factories.go) · [Fourth-child identity and allocation tests](ast/ast_inline_four_test.go)
+
+| Repeated application | Before, instructions | After, instructions | Native Z3, instructions |
+|---|---:|---:|---:|
+| One operand | 1,071 | 830 | 406 |
+| Two | 1,177 | 935 | 456 |
+| Three | 1,241 | 996 | 500 |
+| Four | 2,970 | 1,265 | 605 |
+
+These are medians from nine matched rounds of 200,000 operations on CPU 5, after subtracting the empty interval on the same thread. All counters had full coverage. Ten separate timing rounds on CPU 33 put repeated four-operand construction at 297.7 ns before, 120.0 ns after and 52.2 ns in native Z3. The four-operand kernel took 57.4% fewer instructions. In the same timing comparison, changing the layout alone yielded 174.7 ns and carrying the declaration alone yielded 269.0 ns. [Timed Go and C++ fixtures](perf/ivy_apple/application_reuse/compare.py) · [Thread-counter driver](perf/ivy_apple/application_reuse/instructions.py) · [Every interval](perf/ivy_apple/application_reuse/fourth-operand-instructions.csv.gz) · [Timing alternatives](perf/ivy_apple/application_reuse/declaration-dispatch-timings.csv.gz)
+
+All 32 full-proof pairs retired fewer instructions. The median within-pair reductions were 0.98% on ordinary Raft (12 pairs), 0.90% on Apple `rfn2` (7), 1.09% on `rfn` (7) and 1.43% on `cf_live` (6). Elapsed time on `rfn2` rose 0.95% across those pairs. Both builds used the substitution optimization and the same pre-streaming GoIvy frontend. Nine Apple transcripts and their 18 search counters, 28 Raft mutations and 188 Raft search records agreed. [Complete arena proof runs](perf/ivy_apple/application_reuse/fourth-operand-proofs.csv)
+
+The independent substitution comparisons finished with 0.49% fewer instructions on `rfn` and 0.63% fewer on `rfn2` in all seven pairs for each. On `cf_live` the median reduction was 0.39% across six pairs. [All substitution proof pairs](perf/ivy_raft/ast_lookups/substitution-cached-proofs.csv)

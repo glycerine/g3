@@ -176,9 +176,8 @@ type astAppRecord struct {
 	inlineArgs [astInlineArgs]astNodeRef
 }
 
-// astInlineArgs is the number of arguments an app record copies; three
-// keep astNodeSlot within 128 bytes.
-const astInlineArgs = 3
+// Four compact references fit in the existing 128-byte node slot.
+const astInlineArgs = 4
 
 type astVarRecord struct {
 	nextFree, index uint32
@@ -249,9 +248,10 @@ type astNodeSlot struct {
 
 const astNodeSlotPad = 128 - unsafe.Sizeof(astNodeRecord{}) - unsafe.Sizeof(astAppRecord{})
 
-// astNodePageBytes is the budget charge of a node page: its node and
-// application records, as before slots were padded.
-const astNodePageBytes = uint64(astPageSize) * uint64(unsafe.Sizeof(astNodeRecord{})+unsafe.Sizeof(astAppRecord{}))
+// The owner budget charges the original records, including three child
+// references. The fourth uses existing slot padding, so the page reservation
+// and fault-injection boundary stay the same.
+const astNodePageBytes = uint64(astPageSize) * uint64(unsafe.Sizeof(astNodeRecord{})+unsafe.Offsetof(astAppRecord{}.inlineArgs)+3*unsafe.Sizeof(astNodeRef{}))
 
 type astSortPage [astPageSize]astSortRecord
 type astFuncDeclPage [astPageSize]astFuncDeclRecord

@@ -227,6 +227,8 @@ func (m *ASTManager) compareNodes(a, b astNodeRef) (bool, error) {
 			case 2:
 				return x.inlineArgs[0] == y.inlineArgs[0] && x.inlineArgs[1] == y.inlineArgs[1], nil
 			case 3:
+				return *(*[3]astNodeRef)(x.inlineArgs[:]) == *(*[3]astNodeRef)(y.inlineArgs[:]), nil
+			case 4:
 				return x.inlineArgs == y.inlineArgs, nil
 			}
 		}
@@ -278,8 +280,10 @@ func astInlineHash(n, init uint32, v *[astInlineArgs]uint32) uint32 {
 		return uhash.Combine(v[0], init)
 	case 2:
 		return appPairHash(init, v[0], v[1])
-	default:
+	case 3:
 		return appTripleHash(init, v[0], v[1], v[2])
+	default:
+		return astHashArray(n, init, func(i uint32) uint32 { return v[i] })
 	}
 }
 

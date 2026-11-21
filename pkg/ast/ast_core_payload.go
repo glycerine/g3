@@ -181,7 +181,7 @@ func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[astInlineA
 	if hs.count == 0 {
 		return arena.SmallBytesRef{}, nil
 	}
-	if inline != nil && hs.count <= astInlineArgs && !ASTSourceDebug {
+	if inline != nil && (hs.count <= 3 || (!astValidateHandles && hs.count == 4 && !m.BudgetField.InjectionArmed() && m.TraceStream == nil)) && !ASTSourceDebug {
 		// The record's copy holds every argument: normal builds keep no
 		// payload for it (appArg, hashing, comparison and the printers
 		// read the copy; the null payload frees as a no-op).

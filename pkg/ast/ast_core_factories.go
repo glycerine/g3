@@ -193,7 +193,7 @@ func (m *ASTManager) mkAppCore(decl astNodeRef, args []ASTHandle) (astNodeRef, e
 }
 func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args *AppArguments) (result astNodeRef, err error) {
 	if m.TraceStream == nil {
-		return m.mkAppCoreArgumentsFramed(decl, args, nil)
+		return m.mkAppCoreArgumentsFramed(decl, args, nil, nil, false)
 	}
 	frame, prepareError := m.prepareTraceAcquisition(args.count)
 	if prepareError != nil {
@@ -202,12 +202,12 @@ func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args *AppArguments) (re
 	// One defer and few returns here keep the defer open-coded; the body's
 	// many returns would otherwise run the runtime defer path on each exit.
 	defer m.finishTraceAcquisition(frame)
-	return m.mkAppCoreArgumentsFramed(decl, args, frame)
+	return m.mkAppCoreArgumentsFramed(decl, args, frame, nil, false)
 }
 
 // mkAppCoreArgumentsFramed is mkAppCoreArguments after the trace
 // acquisition frame (finished by the caller) is prepared.
-func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition) (result astNodeRef, err error) {
+func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition, known *astFuncDeclRecord, associative bool) (result astNodeRef, err error) {
 	// Source allocates app storage before coercion and check_args.
 	r, e := m.allocateNode(ASTApp)
 	if e != nil {
@@ -216,20 +216,25 @@ func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args *AppArgument
 	v := m.appAt(r.slot)
 	v.decl = decl
 	v.count = args.count
-	flags, e := m.funcFlags(decl)
-	if e != nil {
-		m.freeNodeStorage(r)
-		return astNodeRef{}, e
+	d := known
+	if d == nil {
+		var flags ASTFuncFlags
+		flags, e = m.funcFlags(decl)
+		associative = flags.LeftAssociative && flags.RightAssociative
+		if e != nil {
+			m.freeNodeStorage(r)
+			return astNodeRef{}, e
+		}
+		d = m.declAt(decl.slot)
 	}
-	d := m.declAt(decl.slot)
 	if !astValidateHandles && !udiag.TraceCompiled() && frame == nil && !m.BudgetField.InjectionArmed() &&
 		args.hasPreparedSlice() {
 		input := args.slice[args.argumentOffset:][:args.count]
-		if result, handled, err := m.registerSliceApp(r, decl, d, flags.LeftAssociative && flags.RightAssociative, input); handled {
+		if result, handled, err := m.registerSliceApp(r, decl, d, associative, input); handled {
 			return result, err
 		}
 	}
-	needed, e := m.appCoercionNeeded(decl, args, flags.LeftAssociative && flags.RightAssociative)
+	needed, e := m.appCoercionNeeded(decl, args, associative)
 	if e != nil {
 		m.freeNodeStorage(r)
 		return astNodeRef{}, e
@@ -239,32 +244,32 @@ func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args *AppArgument
 			m.freeNodeStorage(r)
 			return astNodeRef{}, ErrASTPending
 		}
-		return m.mkAppCoreCoerced(decl, args, frame, r, d, flags)
+		return m.mkAppCoreCoerced(decl, args, frame, r, d, associative)
 	}
-	return m.mkAppCoreChecked(decl, args, frame, r, d, flags)
+	return m.mkAppCoreChecked(decl, args, frame, r, d, associative)
 }
 
 // mkAppCoreCoerced is the coercion branch of mkAppCoreArgumentsFramed: the
 // coerced arguments are cleaned up when the app is complete.
-func (m *ASTManager) mkAppCoreCoerced(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (result astNodeRef, err error) {
+func (m *ASTManager) mkAppCoreCoerced(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, associative bool) (result astNodeRef, err error) {
 	defer func() { err = errors.Join(err, m.cleanupAppCoercion(false)) }()
-	coerced, e := m.coerceAppArguments(decl, *args, flags.LeftAssociative && flags.RightAssociative)
+	coerced, e := m.coerceAppArguments(decl, *args, associative)
 	if e != nil {
 		m.freeNodeStorage(r)
 		return astNodeRef{}, e
 	}
-	return m.mkAppCoreChecked(decl, &coerced, frame, r, d, flags)
+	return m.mkAppCoreChecked(decl, &coerced, frame, r, d, associative)
 }
 
 // mkAppCoreChecked is the rest of mkAppCoreArgumentsFramed: check_args,
 // payload and registration of the allocated app r.
-func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (astNodeRef, error) {
+func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, associative bool) (astNodeRef, error) {
 	v := m.appAt(r.slot)
 	var e error
 	var childHashes [astInlineArgs]uint32
 	// A short application owns all its arguments inline. A slice input is
 	// immutable during construction, so copy the validated child once.
-	inlineSlice := !ASTSourceDebug && args.count <= astInlineArgs && args.appOwner == nil && !args.raw
+	inlineSlice := !ASTSourceDebug && (args.count <= 3 || (!astValidateHandles && args.count == 4 && !m.BudgetField.InjectionArmed() && frame == nil)) && args.appOwner == nil && !args.raw
 	for i := uint32(0); i < args.count; i++ {
 		h, e := args.at(i)
 		if e != nil {
@@ -282,7 +287,7 @@ func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args *AppArguments, frame
 			return astNodeRef{}, e
 		}
 		index := uint32(i)
-		if flags.LeftAssociative && flags.RightAssociative {
+		if associative {
 			index = 0
 		}
 		if index >= d.arity {
@@ -338,6 +343,29 @@ func (m *ASTManager) mkApp(decl astNodeRef, args []ASTHandle) (astNodeRef, error
 	return m.mkAppArguments(decl, AppArguments{slice: args, count: uint32(len(args))})
 }
 func (m *ASTManager) mkAppArguments(decl astNodeRef, args AppArguments) (result astNodeRef, cause error) {
+	// For an ordinary exact-arity call, validate the declaration once and
+	// carry its record through placement, coercion and registration.
+	if !astValidateHandles && !udiag.TraceCompiled() && m.TraceStream == nil && decl.slot != 0 && decl.slot < m.nextNode {
+		node := m.nodeAt(decl.slot)
+		if node.live && node.generation == decl.generation && node.kind == ASTFuncDecl {
+			d := m.declAt(decl.slot)
+			if args.count == d.arity {
+				var flags ASTFuncFlags
+				if d.identityCached {
+					flags = d.identityFlags
+				} else if d.info != (ASTFuncDeclInfo{}) {
+					return m.mkAppArgumentsGeneral(decl, args)
+				}
+				if args.count <= 2 || flags.FlatAssociative || !(flags.LeftAssociative || flags.RightAssociative || flags.Chainable) {
+					return m.mkAppCoreArgumentsFramed(decl, &args, nil, d, flags.LeftAssociative && flags.RightAssociative)
+				}
+			}
+		}
+	}
+	return m.mkAppArgumentsGeneral(decl, args)
+}
+
+func (m *ASTManager) mkAppArgumentsGeneral(decl astNodeRef, args AppArguments) (result astNodeRef, cause error) {
 	f, e := m.funcFlags(decl)
 	if e != nil {
 		return astNodeRef{}, e
