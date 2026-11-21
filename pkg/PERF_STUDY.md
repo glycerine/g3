@@ -2143,3 +2143,18 @@ A long-lived fingerprint set reused a temporary slice of equivalence-class roots
 | Fingerprint set reset | 4,744 B | 8 B |
 
 Each work group held 1,024 independent AST managers. Each worker inserted a tuple with 16 distinct roots, performed a one-argument miss, and popped the scope. Eight fresh processes per build returned the same values after forced collections. This saves 4.5 MiB across the 1,024 workers after pop. The 656 bytes include the table and scratch capacity retained for reuse. The benchmark measures incremental heap over the worker’s live ASTs. The separate arity-one, three and six timing fixtures had mixed results on the shared machine. The reason to keep this change is bounded memory after a worker retires its scope. Reproduce the heap measurement with `GOMAXPROCS=1 go test ./smtcore -run '^$' -bench '^BenchmarkFingerprintWorkerMemory$' -benchtime=1x -count=1`. [Worker benchmark](smtcore/smt_fingerprint_worker_memory_benchmark_test.go) · [Raw heap measurements](perf/ivy_apple/fingerprints/memory.csv) · [Lookup and insertion timings](perf/ivy_apple/fingerprints/micro.csv)
+
+### Ordinary Raft and incremental Apple mutations
+
+On the ordinary 419-obligation `raft_no_assume_test.ivy`, g3 finished sooner in all 14 matched pairs across two CPUs. Median elapsed times were 6.04 s for g3 and 59.74 s for linked native Z3. The median within-pair speedup was 10.13×. g3 retired 29.06 billion instructions and used 70,422 KiB peak RSS, compared with 215.26 billion and 321,100 KiB for native. These are whole-checker measurements at g3 `ed3be7f3c` and GoIvy `3ef4b9020`, with the same 419 outcomes as the reference. They include the Raft-specific solving improvements documented above. [Raw runs](perf/ivy_raft/release-native-checks.csv) · [Raft measurement driver](perf/ivy_raft/measure.py)
+
+Apple also exercises the incremental solver *between* verification conditions. The following measurements instrument the shared adapter's Push, Assert, Pop and Reset API boundaries. The observer excludes calls made inside a verification condition and measures the calling thread, including synchronous preprocessing. Each entry is the median per-run sum in **billions of instructions, g3 / native**, after subtracting the corresponding empty intervals.
+
+| Isolate | Pairs | Push | Assert | Pop | Reset |
+|---|---:|---:|---:|---:|---:|
+| `dramc_nb2` | 3 | 36.895 / 9.469 | 9.964 / 2.296 | 0.826 / 0.185 | 1.194 / 0.484 |
+| `rfn2` | 4 | 13.140 / 3.531 | 1.243 / 0.290 | 0.220 / 0.053 | 0.462 / 0.155 |
+| `rfn` | 4 | 11.981 / 3.215 | 1.130 / 0.264 | 0.147 / 0.037 | 0.422 / 0.136 |
+| `cf_live` | 3 | 19.590 / 5.356 | 1.522 / 0.354 | 1.182 / 0.274 | 0.731 / 0.213 |
+
+Each pair used the same GoIvy source at `a6d3417b1`, g3 at `ed3be7f3c`, and GoIvy’s linked native library. The complete ordered mutation sequences and proof transcripts matched. All intervals had full hardware-counter coverage. On `dramc_nb2` both engines executed 2,479 pushes, 2,586 assertions, 2,479 pops and 87 resets. Push alone accounted for 27.43 billion extra instructions. On `rfn2` there were only 26 pushes, with an excess of 9.61 billion instructions across them. Optimizing synchronous assertion processing at push will affect both workloads. [Mutation boundary driver](perf/ivy_apple/incremental_cost/mutation_costs.py) · [Every timed operation](perf/ivy_apple/incremental_cost/mutation-instructions.csv.gz)
