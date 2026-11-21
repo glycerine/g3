@@ -1770,3 +1770,29 @@ All 18 counters at each of the 10,342 Apple checks, the 188 Raft proof searches 
 python3 perf/scope_restoration/pop_phases/measure.py --cpu 0 --thread-event instructions:u \
   --pairs 11 --iterations 5008 --dir /tmp/g3-scoped-pop > /tmp/g3-scoped-pop.csv
 ```
+
+### Compiler profiles across Raft and Apple
+
+I combined the checked-in Raft and Apple `rfn2` Go CPU profiles and used the result as an explicit `go build -pgo` input. In 47 sets of five complete executions, each set used one CPU, the same GoIvy revision and the same specification. The five builds were the g3 revision before the watch change (`fa19e73c8`), the watch change (`0a27fdff9`), each of those with the combined compiler profile, and native Z3 through GoIvy. All 235 executions reproduced the reference outcomes. The table compares the two builds of `0a27fdff9` and gives the native instruction count for scale. Differences are median within-set changes. [All five builds and 235 runs](perf/ivy_apple/compiler_profiles/watches-raft-apple.csv)
+
+| Specification or isolate | Sets | g3 PGO off, billion instructions | g3 blended PGO, billion | Native, billion | Paired g3 instruction change | Paired g3 elapsed change |
+|---|---:|---:|---:|---:|---:|---:|
+| Original mixed-width Raft | 10 | 30.60 | 28.15 | 215.25 | −8.03% | −3.93% |
+| `rfn2` | 10 | 161.41 | 148.54 | 73.18 | −7.94% | −3.99% |
+| `rfn` | 6 | 140.39 | 129.27 | 60.93 | −7.90% | +9.59% |
+| `cf_live` | 5 | 231.74 | 214.44 | 124.55 | −7.46% | −1.40% |
+| `dramc_nb2` | 6 | 524.92 | 504.11 | 589.76 | −4.00% | −16.56% |
+| `sys_live` | 5 | 441.63 | 420.62 | 412.16 | −4.67% | −4.94% |
+| `e2e` | 5 | 561.82 | 534.86 | 527.13 | −4.78% | +12.91% |
+
+The profile lowered instruction counts on each workload, including five Apple isolates outside the training pair. Elapsed results varied. These lanes ran concurrently with other measurements, and `rfn` and `e2e` both took longer with PGO in this series. On `dramc_nb2`, the elapsed medians were 146.28 s for g3, 122.70 s for g3 with PGO and 132.53 s for native. Those times include the frontend and all 2,479 proofs. The separate solver-only measurements above account for the much larger g3 instruction count on check 71.
+
+To build the same profile from `pkg/`, run the first command below. Run the build command in the GoIvy checkout with its local g3 replacement. For a paired control, substitute `-pgo=off` and choose another output binary. The comparison driver accepts both binaries and the original reference transcript. It records how busy the chosen logical CPU and its SMT sibling were during each timed process. [Apple input profile](perf/ivy_apple/expression_pages/rfn2.pprof) · [Raft input profile](perf/ivy_raft/quantifier_profile/raft.pprof) · [Elapsed-time comparison driver](perf/ivy_apple/compiler_profiles/compare.py)
+
+```sh
+go tool pprof -proto -output /tmp/g3-apple-raft.pprof \
+  perf/ivy_apple/expression_pages/rfn2.pprof perf/ivy_raft/quantifier_profile/raft.pprof
+
+go build -mod=readonly -buildvcs=false -tags=xtrace_off -pgo=/tmp/g3-apple-raft.pprof \
+  -o /tmp/goivy_check_pgo ./cmd/goivy_check
+```
