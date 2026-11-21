@@ -1296,3 +1296,23 @@ python3 -B perf/ivy_apple/kernel.py --cpu 5 --rounds 9 /path/to/g3 /path/to/z3
 ```
 
 GoIvy commit `916881ab7` also delays collecting destination symbols until the first local skolem actually requires renaming. With the action lookup improvement in both builds, `dramc_nb2` median elapsed time went from 154.92 to 100.63 s across eight paired runs, and median process CPU went from 149.97 to 100.50 s. All 2,479 checks agreed. The full traced run matched the original 8,599,630 records, 8,622,828 output lines and 21,638,409,694 bytes. On a 128-symbol destination the no-skolem benchmark went from 108,816 B and 660 allocations per call to 416 B and three allocations. [Complete runs](perf/ivy_apple/skolem-renaming.csv) · [Microbenchmark](perf/ivy_apple/skolem-renaming-micro.csv)
+
+### The 102-minute golden run and all nine Apple isolates
+
+The live `TestGoldenAll` log brackets `dramc_nb2` between 23:39:40.362 and 01:22:08.865 UTC on November 20–21, 2026. The test matched 8,599,630 trace events. Python Ivy with native Z3 and GoIvy with g3 each printed 2,479 passes and a final `OK`. The two child exit timestamps were 1.23 s apart, and the test advanced to `e2e`. Both producers feed bounded pipes and the parent compares one event from each before advancing. The **102 min 28 s** measures this joint run. To measure a trace producer independently, the standalone driver drains its output, keeps ordinary checker messages, and records elapsed time, child CPU time, trace bytes, event count and progress. [Golden comparison loop](https://github.com/glycerine/ivy/blob/916881ab7/goivy/parser_golden_test.go#L985) · [Independent trace driver](perf/ivy_apple/trace_single.py)
+
+With tracing compiled out, 135 complete runs covered every isolate declared by the same Apple specification. All three binaries used GoIvy `916881ab7`, one pinned CPU per isolate, and `GOMAXPROCS=1`. Each round rotated the order of the binaries. Every execution exited successfully and matched its isolate’s complete reference output byte for byte. The table gives median whole-process elapsed seconds. Concurrent work on the host varied by core, so compare engines within each row. [All samples including CPU time and RSS](perf/ivy_apple/isolate-backends.csv) · [Two-backend reproduction driver](perf/ivy_apple/compare.py)
+
+| Isolate | Checks | Runs per engine | g3 before equality lookup | g3 at `31c87480f` | Native Z3 |
+|---|---:|---:|---:|---:|---:|
+| `dramc_nb2` | 2,479 | 3 | 92.38 | **93.01** | 99.86 |
+| `cf_live` | 336 | 9 | 48.50 | **38.52** | 21.27 |
+| `rfn` | 33 | 9 | 17.63 | **22.63** | 12.36 |
+| `rfn2` | 26 | 9 | 35.14 | **25.32** | 16.04 |
+| `cmpl_live` | 437 | 3 | 32.80 | **26.78** | 25.10 |
+| `cf_pio_live` | 2,215 | 3 | 113.42 | **117.39** | 117.35 |
+| `e2e` | 2,378 | 3 | 94.23 | **99.98** | 91.38 |
+| `sys_live` | 1,738 | 3 | 79.40 | **79.49** | 72.89 |
+| `tprops` | 700 | 3 | 37.18 | **35.27** | 35.61 |
+
+The largest median gaps to native Z3 in this panel occur on `cf_live` (17.25 s) and `rfn` (10.27 s). The equality lookup improved the first and lengthened the proof search on the second. Keep both as end-to-end controls for changes to quantifier matching, substitution and incremental search. `dramc_nb2` remains the frontend and trace-throughput control. In the earlier instrumented `dramc_nb2` run, the actual solver checks took 6.93 s in g3 and 3.05 s in native Z3. [Solver-call measurements](perf/ivy_apple/solver-times.csv)
