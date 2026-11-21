@@ -268,3 +268,60 @@ func TestOrderProofUnchangedAccessAtOtherWitness(t *testing.T) {
 		})
 	}
 }
+
+func TestOrderProofConditionalPointUpdate(t *testing.T) {
+	const decls = `(define-sort A () (_ BitVec 2))
+(declare-const a A)(declare-const b A)(declare-const c A)(declare-const d A)
+(declare-const p A)(declare-const q A)
+(declare-fun old (A A) Bool)(declare-fun updated (A A) Bool)
+(declare-fun oldD (A) Bool)(declare-fun newD (A) Bool)
+(declare-fun member (A A) Bool)(declare-fun end (A) Bool)
+(assert (forall ((i A)(j A)) (= (updated i j) (ite (and (= i p) (= j q)) false (old i j)))))
+(assert (forall ((z A)) (= (newD z) (exists ((u A)) (member u z)))))
+(assert (forall ((x A)(y A)(z A)(w A)) (=> (and (old x y) (oldD z)) (end w))))
+(assert (distinct a p))(assert (old a b))(assert (member q c))(assert (not (end d)))
+`
+	const final = "(assert (not (=> (and (updated a b) (newD c)) (end d))))"
+	for _, tc := range []struct {
+		name, extra string
+		wantProof   bool
+	}{
+		{"change away from the point", "(assert (not (oldD c)))", false},
+		{"one possible changed atom", "(assert (forall ((z A)) (=> (newD z) (oldD z))))", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, s := orderSolver(t, decls+tc.extra+final)
+			manager, err := c.Manager()
+			astTestMust(t, err)
+			assertions, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			proof, ok, err := order.ForProof(manager, assertions, orderProofSteps)
+			astTestMust(t, err)
+			if !ok || proof.Conditional == nil {
+				t.Fatalf("expected a conditional point update (applicable %v, refuted %v)\n%s", ok, proof.Refuted, proof.Order.Text)
+			}
+			// The specialized counterexample is impossible at (p,q) even
+			// when the actual counterexample away from (p,q) is satisfiable.
+			trial := orderProofState{source: s}
+			astTestMust(t, trial.start(manager))
+			t.Cleanup(func() { astTestMust(t, trial.release()) })
+			established, err := trial.check(manager, proof.Conditional.Condition, 100_000, false)
+			astTestMust(t, err)
+			if established != tc.wantProof {
+				t.Fatalf("direction check = %v, want %v", established, tc.wantProof)
+			}
+			batch := s.BeginOrderProofBatch()
+			t.Cleanup(func() { astTestMust(t, batch.Close()) })
+			got, err := batch.Prove()
+			astTestMust(t, err)
+			if got != tc.wantProof {
+				t.Fatalf("private proof = %v, want %v", got, tc.wantProof)
+			}
+			result, err := s.Check()
+			astTestMust(t, err)
+			if result == lbool.Undef || (result == lbool.False) != tc.wantProof {
+				t.Fatalf("concrete solver result %v", result)
+			}
+		})
+	}
+}

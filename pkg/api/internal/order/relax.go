@@ -71,6 +71,7 @@ type signature struct {
 
 type inference struct {
 	m                *ast.ASTManager
+	transition       *transitionCase
 	boolSort         ast.ASTHandle
 	bvFamily         ast.FamilyID
 	widths           map[ast.ASTHandle]uint32

@@ -44,10 +44,14 @@ func (t *inference) addInductionInstance(steps uint32) uint32 {
 		if m.similar(q.value, target) && len(m.touched) == int(q.count) &&
 			m.changed > 0 && m.changed < len(m.touched) {
 			lemma := m.instantiate(q.value)
+			oldLemma, oldGoal := lemma, goal
 			var spent uint32
 			var facts []int32
 			lemma, goal, facts, spent = m.specialize(lemma, goal, steps-m.work)
 			m.work += spent
+			if lemma == oldLemma && goal == oldGoal {
+				m.work += m.proposeCase(lemma, goal, steps-m.work)
+			}
 			start := uint32(len(t.children))
 			t.children = append(t.children, goal, lemma)
 			t.children = append(t.children, facts...)

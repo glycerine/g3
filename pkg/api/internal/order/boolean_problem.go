@@ -45,6 +45,7 @@ var errBitLimit = errors.New("one-bit expansion limit")
 type ProofProblem struct {
 	Order       Problem
 	Boolean     *BooleanProblem
+	Conditional *ConditionalGoal
 	Refuted     bool
 	SearchSteps uint32
 }
@@ -78,7 +79,13 @@ func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (Proo
 	if spent >= remaining || m.ResourceLimit().CancelFlag() {
 		return ProofProblem{}, false, nil
 	}
-	return ProofProblem{Order: t.render(), SearchSteps: remaining - spent}, true, nil
+	proof := ProofProblem{Order: t.render(), SearchSteps: remaining - spent}
+	if c := t.transition; c != nil {
+		goal := t.renderAssertion(c.specialized)
+		t.assertions = append(c.premises, c.negatedFacts)
+		proof.Conditional = &ConditionalGoal{Condition: t.render(), Assertion: goal}
+	}
+	return proof, true, nil
 }
 
 func (t *inference) booleanProblem(steps uint32) (*BooleanProblem, error) {

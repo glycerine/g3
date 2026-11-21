@@ -1359,3 +1359,28 @@ This change reproduced three more native searches, bringing the exact matches on
 | `dramc_nb2` | 4 | 98.92 | 95.01 |
 
 Registration order restores native behavior and removes a temporary slice from the model finder. Its effect on elapsed time varies. On `rfn`, the previous search used 487,858 decisions, and reproducing the native search made g3 **15.3% slower** by median within-pair elapsed time. On `rfn2`, decisions fell from 752,558 to 703,015 and the median paired time changed by 0.3%. This makes the now-matched `rfn` checks suitable for studying the cost of executing the same proof in each implementation. [All 60 timing samples](perf/ivy_apple/enode-order-pairs.csv)
+
+## Checking the update in Raft obligation 321
+
+The pre- and post-state properties read three changed predicates. One is a vote message that can change only at a particular node, term and destination. The other two describe the term bound and whether a log entry is choosable. If those two predicates change only in directions that preserve the property, a counterexample must involve the vote message at the updated tuple. The original point-update rule could establish the vote message’s footprint but could not look through the nested quorum quantifiers.
+
+g3 now proposes the two direction implications from the ground property and tries to refute their negation on a fresh private solver. The check uses a subset of the original premises and at most one eighth of the remaining search allowance, capped at 150,000 resource steps. If the side condition is proved, g3 substitutes the verified update coordinates into the ground counterexample. Otherwise it checks the original problem. Raft obligations 321 and 413 satisfied their conditions. Obligation 367 had a genuine countermodel to its condition and used the ordinary proof. [Candidate construction](api/internal/order/transition_case.go) · [Captured conditions, original inputs and specialized assertions](perf/ivy_raft/conditional/cases.json.gz)
+
+| Search work | Decisions | Quantifier instances | Conflicts | Resource counts |
+|---|---:|---:|---:|---:|
+| 321 before | 1,109 | 1,106 | 55 | 198,951 |
+| 321 side condition | 119 | 53 | 11 | 10,337 |
+| 321 specialized query | 228 | 383 | 19 | 76,624 |
+| **321 combined** | **347** | **436** | **30** | **86,961** |
+| All 185 residual queries before | 11,843 | 20,603 | 1,805 | 3,105,501 |
+| **All queries including side checks** | **10,788** | **19,372** | **1,757** | **2,904,525** |
+
+A first experiment used all original premises for the side proof. Including both solver calls, it used 390 decisions and 519 instantiations on 321. Selecting the ground clauses, definitions and short related axioms reduced the cost of the side proof. The older single-query disjunction formulations generally took as much search as the original query. The standalone statistics driver collects the actual incremental calls and their before/after counters. [Per-obligation search deltas](perf/ivy_raft/conditional/search.csv) · [Measurement driver](perf/ivy_raft/conditional/search.py)
+
+On the ordinary 419-check Raft specification, the production candidate won all 32 alternating pairs on CPUs 4 and 9. Median wall time went from 4.73 s to 4.58 s. Median paired reductions were **3.4% elapsed and 3.6% user CPU**. The parent build was g3 `7dbe1e9d4`. Both used GoIvy `f3dee089f` with one Go CPU. All 11,732 results on 28 mutated protocols agreed with both reference frontends, including 77 intentional failures. Native Z3 also verified each side condition or counterexample and independently proved both accepted substitutions using satisfiable local assumptions. [Paired timings](perf/ivy_raft/conditional/paired.csv) · [Mutation controls](perf/ivy_raft/conditional/protocol-mutations.csv) · [Independent verifier](perf/ivy_raft/conditional/verify.py)
+
+```sh
+python3 -B perf/ivy_raft/conditional/verify.py --native ../build/z3
+python3 -B perf/ivy_raft/conditional/search.py --goivy ~/ivy/goivy --cpu 4 \
+  --spec ~/ivy/ivy-lang-examples/examples/raft/raft_no_assume_test.ivy
+```

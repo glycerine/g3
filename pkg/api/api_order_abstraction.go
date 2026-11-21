@@ -36,13 +36,15 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
-	bits     *orderBooleanSolver
-	source   *APISimpleSolver
-	ctx      *SMTContext
-	child    *APISimpleSolver
-	parser   *cmd_context.Context
-	declared map[string]string
-	premises string
+	bits *orderBooleanSolver
+	// Keep a failed side-condition cleanup reachable for release's retry.
+	pendingCondition *orderProofState
+	source           *APISimpleSolver
+	ctx              *SMTContext
+	child            *APISimpleSolver
+	parser           *cmd_context.Context
+	declared         map[string]string
+	premises         string
 }
 
 // BeginOrderProofBatch creates a batch confined to the source solver's owner.
@@ -150,6 +152,26 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 			return false, err
 		}
 	}
+	if c := proof.Conditional; c != nil && proof.SearchSteps >= 8 {
+		allowance := min(proof.SearchSteps/8, 150_000)
+		proof.SearchSteps -= allowance
+		side := orderProofState{source: s}
+		err := side.start(parent)
+		var established bool
+		if err == nil {
+			established, err = side.check(parent, c.Condition, allowance, false)
+		}
+		if closeErr := side.release(); closeErr != nil {
+			p.pendingCondition = &side
+			return false, errors.Join(err, closeErr)
+		}
+		if err != nil || limit.CancelFlag() {
+			return false, err
+		}
+		if established {
+			proof.Order.Text = proof.Order.Text[:proof.Order.LastAssertionStart] + c.Assertion
+		}
+	}
 	return p.check(parent, proof.Order, proof.SearchSteps, reuse)
 }
 
@@ -178,6 +200,12 @@ func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
 }
 
 func (p *orderProofState) release() error {
+	if p.pendingCondition != nil {
+		if err := p.pendingCondition.release(); err != nil {
+			return err
+		}
+		p.pendingCondition = nil
+	}
 	if p.bits != nil {
 		if err := p.bits.close(); err != nil {
 			return err

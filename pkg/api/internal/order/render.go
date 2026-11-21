@@ -39,6 +39,21 @@ type Problem struct {
 	DeclarationCount                    int
 }
 
+// ConditionalGoal replaces the final assertion only after the private solver
+// refutes Condition, which contains the negated directional implications.
+type ConditionalGoal struct {
+	Condition Problem
+	Assertion string
+}
+
+func (t *inference) renderAssertion(id int32) string {
+	var out strings.Builder
+	out.WriteString("(assert ")
+	t.writeTerm(&out, id)
+	out.WriteString(")\n")
+	return out.String()
+}
+
 func (p Problem) Declarations() string { return p.Text[:p.AssertionsStart] }
 func (p Problem) Assertions() string   { return p.Text[p.AssertionsStart:] }
 func (p Problem) Premises() string     { return p.Text[p.AssertionsStart:p.LastAssertionStart] }
