@@ -1,0 +1,15 @@
+--- a/pkg/smtcore/smt_clause_backtrack.go
++++ b/pkg/smtcore/smt_clause_backtrack.go
+@@ -37,6 +37,12 @@
+ 			}
+ 			for saved.bindHead < len(atoms) {
+ 				atom := atoms[saved.bindHead]
++				previous := saved.clause.literals[saved.bindHead].Var()
++				if uint(previous) < uint(len(s.boolExpr)) && s.boolExpr[previous] == atom.expression && s.notChild(previous).IsNull() {
++					saved.clause.literals[saved.bindHead] = NewSMTLiteral(previous, atom.sign)
++					saved.bindHead++
++					continue
++				}
+ 				variable, err := s.restoreLearnedAtom(atom.expression)
+ 				if err != nil {
+ 					return err

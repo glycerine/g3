@@ -1,0 +1,37 @@
+--- a/pkg/smtcore/smt_clause_backtrack.go
++++ b/pkg/smtcore/smt_clause_backtrack.go
+@@ -37,6 +37,12 @@
+ 			}
+ 			for saved.bindHead < len(atoms) {
+ 				atom := atoms[saved.bindHead]
++				previous := saved.clause.literals[saved.bindHead].Var()
++				if uint(previous) < uint(len(s.boolExpr)) && s.boolExpr[previous] == atom.expression && s.notChild(previous).IsNull() {
++					saved.clause.literals[saved.bindHead] = NewSMTLiteral(previous, atom.sign)
++					saved.bindHead++
++					continue
++				}
+ 				variable, err := s.restoreLearnedAtom(atom.expression)
+ 				if err != nil {
+ 					return err
+@@ -63,14 +69,17 @@
+ 		}
+ 		literals := saved.clause.literals
+ 		saved.installed = true
+-		firstValue, err := s.literalAssignment(literals[0])
+-		if err != nil {
+-			return err
+-		}
+ 		secondValue, err := s.literalAssignment(literals[1])
+ 		if err != nil {
+ 			return err
+ 		}
++		var firstValue lbool.LBool
++		if secondValue == lbool.False || len(atoms) == 0 {
++			firstValue, err = s.literalAssignment(literals[0])
++			if err != nil {
++				return err
++			}
++		}
+ 		allOtherFalse := secondValue == lbool.False
+ 		// After reselecting both watches, a false second watch means every
+ 		// remaining literal is false. Stable watches need the full check.

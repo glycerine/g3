@@ -1,0 +1,131 @@
+--- a/pkg/smtcore/smt_checker.go
++++ b/pkg/smtcore/smt_checker.go
+@@ -414,8 +414,10 @@
+ 		}
+ 		return c.bindings[len(c.bindings)-int(index)-1], nil
+ 	}
+-	if record := c.context.exprs.read(expression); record != nil && record.enode != nil && c.context.recordRelevant(record) {
+-		return record.enode, nil
++	if record := c.context.exprs.read(expression); record != nil && c.context.recordRelevant(record) {
++		if node := c.context.exprs.node(record, expression); node != nil {
++			return node, nil
++		}
+ 	}
+ 	if header.Kind != ast.ASTApp || header.NumArgs == 0 {
+ 		return nil, nil
+--- a/pkg/smtcore/smt_expr_table.go
++++ b/pkg/smtcore/smt_expr_table.go
+@@ -16,10 +16,10 @@
+ 	smtExprRelevant
+ 	smtExprHasCachedGeneration
+ 	smtExprCacheGenerationVisited
++	smtExprHasEnode
+ )
+ 
+ type smtExprRecord struct {
+-	enode      *SMTEnode
+ 	generation uint32
+ 	boolVar    int32
+ 	// cachedGeneration is m_cached_generation's value when
+@@ -31,7 +31,19 @@
+ 
+ const smtExprPageSize = 256
+ 
+-type smtExprPage [smtExprPageSize]smtExprRecord
++type smtExprPage struct {
++	nodes   *[smtExprPageSize]*SMTEnode
++	records [smtExprPageSize]smtExprRecord
++}
++
++func (t *smtExprTable) node(r *smtExprRecord, h ast.ASTHandle) *SMTEnode {
++
++	p := t.pages[h.Slot()/smtExprPageSize]
++	if p.nodes == nil {
++		return nil
++	}
++	return p.nodes[h.Slot()%smtExprPageSize]
++}
+ 
+ // smtExprTable is owned by one SMTCheckerContext and borrows nothing. A record
+ // whose generation differs from a handle's describes a retired expression.
+@@ -57,7 +69,7 @@
+ 	if page == nil {
+ 		return nil
+ 	}
+-	record := &page[slot%smtExprPageSize]
++	record := &page.records[slot%smtExprPageSize]
+ 	if record.generation != h.Generation() {
+ 		return nil
+ 	}
+@@ -81,12 +93,13 @@
+ 		page = new(smtExprPage)
+ 		t.pages[index] = page
+ 	}
+-	record := &page[slot%smtExprPageSize]
++	record := &page.records[slot%smtExprPageSize]
+ 	if record.generation != h.Generation() {
+ 		if record.flags&smtExprRelevant != 0 {
+ 			t.relevanceRemovals++
+ 		}
+-		if record.enode != nil {
++		if page.nodes != nil && page.nodes[slot%smtExprPageSize] != nil {
++			page.nodes[slot%smtExprPageSize] = nil
+ 			t.enodeCount--
+ 		}
+ 		if record.flags&smtExprHasBoolVar != 0 {
+@@ -101,7 +114,7 @@
+ 
+ func (e smtEnodeTable) get(h ast.ASTHandle) *SMTEnode {
+ 	if record := e.t.read(h); record != nil {
+-		return record.enode
++		return e.t.node(record, h)
+ 	}
+ 	return nil
+ }
+@@ -110,17 +123,26 @@
+ 	return node, node != nil
+ }
+ func (e smtEnodeTable) set(h ast.ASTHandle, node *SMTEnode) {
+-	record := e.t.write(h)
+-	if record.enode == nil && node != nil {
++	e.t.write(h)
++	p := e.t.pages[h.Slot()/smtExprPageSize]
++	if p.nodes == nil {
++		if node == nil {
++			return
++		}
++		p.nodes = new([smtExprPageSize]*SMTEnode)
++	}
++	slot := &p.nodes[h.Slot()%smtExprPageSize]
++	if *slot == nil && node != nil {
+ 		e.t.enodeCount++
+-	} else if record.enode != nil && node == nil {
++	} else if *slot != nil && node == nil {
+ 		e.t.enodeCount--
+ 	}
+-	record.enode = node
++	*slot = node
++
+ }
+ func (e smtEnodeTable) del(h ast.ASTHandle) {
+-	if record := e.t.read(h); record != nil && record.enode != nil {
+-		record.enode = nil
++	if record := e.t.read(h); record != nil && e.t.node(record, h) != nil {
++		e.t.pages[h.Slot()/smtExprPageSize].nodes[h.Slot()%smtExprPageSize] = nil
+ 		e.t.enodeCount--
+ 	}
+ }
+@@ -133,8 +155,11 @@
+ 		if page == nil {
+ 			continue
+ 		}
+-		for i := range page {
+-			if node := page[i].enode; node != nil {
++		if page.nodes == nil {
++			continue
++		}
++		for _, node := range page.nodes {
++			if node != nil {
+ 				result = append(result, node)
+ 			}
+ 		}

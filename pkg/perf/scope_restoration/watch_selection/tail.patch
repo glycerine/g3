@@ -1,0 +1,24 @@
+--- a/pkg/smtcore/smt_clause_backtrack.go
++++ b/pkg/smtcore/smt_clause_backtrack.go
+@@ -63,14 +63,17 @@
+ 		}
+ 		literals := saved.clause.literals
+ 		saved.installed = true
+-		firstValue, err := s.literalAssignment(literals[0])
+-		if err != nil {
+-			return err
+-		}
+ 		secondValue, err := s.literalAssignment(literals[1])
+ 		if err != nil {
+ 			return err
+ 		}
++		var firstValue lbool.LBool
++		if secondValue == lbool.False || len(atoms) == 0 {
++			firstValue, err = s.literalAssignment(literals[0])
++			if err != nil {
++				return err
++			}
++		}
+ 		allOtherFalse := secondValue == lbool.False
+ 		// After reselecting both watches, a false second watch means every
+ 		// remaining literal is false. Stable watches need the full check.

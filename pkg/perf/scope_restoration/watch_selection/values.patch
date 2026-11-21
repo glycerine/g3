@@ -1,0 +1,87 @@
+--- a/pkg/smtcore/smt_clause_backtrack.go
++++ b/pkg/smtcore/smt_clause_backtrack.go
+@@ -18,6 +18,8 @@
+ 
+ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLearnedClause) error {
+ 	if !saved.installed {
++		var firstValue, secondValue lbool.LBool
++		var err error
+ 		atoms := saved.clause.atoms
+ 		if len(atoms) != 0 {
+ 			if len(atoms) != len(saved.clause.literals) {
+@@ -45,7 +47,8 @@
+ 				saved.bindHead++
+ 			}
+ 			literals := saved.clause.literals
+-			if err := s.selectRestoredWatches(literals); err != nil {
++			firstValue, secondValue, err = s.selectRestoredWatchValues(literals)
++			if err != nil {
+ 				return err
+ 			}
+ 			record := &s.lemmas[saved.recordIndex]
+@@ -63,13 +66,15 @@
+ 		}
+ 		literals := saved.clause.literals
+ 		saved.installed = true
+-		firstValue, err := s.literalAssignment(literals[0])
+-		if err != nil {
+-			return err
+-		}
+-		secondValue, err := s.literalAssignment(literals[1])
+-		if err != nil {
+-			return err
++		if len(atoms) == 0 {
++			firstValue, err = s.literalAssignment(literals[0])
++			if err != nil {
++				return err
++			}
++			secondValue, err = s.literalAssignment(literals[1])
++			if err != nil {
++				return err
++			}
+ 		}
+ 		allOtherFalse := secondValue == lbool.False
+ 		// After reselecting both watches, a false second watch means every
+@@ -122,12 +127,16 @@
+ // position. The first swap moves the old first literal there, so the second
+ // swap makes it the second watch.
+ func (s *SMTInternalizerState) selectRestoredWatches(literals []SMTLiteral) error {
++	_, _, err := s.selectRestoredWatchValues(literals)
++	return err
++}
++func (s *SMTInternalizerState) selectRestoredWatchValues(literals []SMTLiteral) (lbool.LBool, lbool.LBool, error) {
+ 	if len(literals) == 3 {
+ 		undefined := true
+ 		for _, literal := range literals {
+ 			value, err := s.literalAssignment(literal)
+ 			if err != nil {
+-				return err
++				return lbool.Undef, lbool.Undef, err
+ 			}
+ 			if value != lbool.Undef {
+ 				undefined = false
+@@ -136,20 +145,20 @@
+ 		}
+ 		if undefined {
+ 			literals[0], literals[1], literals[2] = literals[2], literals[0], literals[1]
+-			return nil
++			return lbool.Undef, lbool.Undef, nil
+ 		}
+ 	}
+ 	first, err := s.selectWatchLiteral(literals, 0)
+ 	if err != nil {
+-		return err
++		return lbool.Undef, lbool.Undef, err
+ 	}
+ 	literals[0], literals[first] = literals[first], literals[0]
+ 	second, err := s.selectWatchLiteral(literals, 1)
+ 	if err != nil {
+-		return err
++		return lbool.Undef, lbool.Undef, err
+ 	}
+ 	literals[1], literals[second] = literals[second], literals[1]
+-	return nil
++	return s.assignment[literals[0].Index()], s.assignment[literals[1].Index()], nil
+ }
+ 
+ // A clause holds a reference to each atom and captured it from a Boolean
