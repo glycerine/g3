@@ -1,0 +1,61 @@
+// Private Linux/amd64 instrumentation compiled into each GoIvy backend.
+var ivyThreadCheck int
+
+func ivyThreadIoctl(fd, command uintptr) {
+	_, _, errno := syscall.RawSyscall(syscall.SYS_IOCTL, fd, command, 0)
+	if errno != 0 {
+		panic(errno)
+	}
+}
+
+func ivyThreadRead(fd uintptr) [3]uint64 {
+	var counts [3]uint64
+	n, _, errno := syscall.RawSyscall(syscall.SYS_READ, fd,
+		uintptr(unsafe.Pointer(&counts[0])), unsafe.Sizeof(counts))
+	if errno != 0 || n != unsafe.Sizeof(counts) {
+		panic("incomplete verification condition counter read")
+	}
+	return counts
+}
+
+func beginMeasuredCheck() func() {
+	runtime.LockOSThread()
+	ivyThreadCheck++
+	check := ivyThreadCheck
+	event, err := strconv.Atoi(os.Getenv("IVY_THREAD_EVENT"))
+	if err != nil {
+		panic(err)
+	}
+	// First 64 bytes of Linux perf_event_attr, with PERF_TYPE_HARDWARE.
+	var attr struct {
+		Type, Size                                    uint32
+		Config, Period, SampleType, ReadFormat, Flags uint64
+		Reserved                                      [16]byte
+	}
+	attr.Size = uint32(unsafe.Sizeof(attr))
+	attr.Config = uint64(event)
+	attr.ReadFormat = 3 // total time enabled and total time running
+	attr.Flags = 1 | 1<<5 | 1<<6 // disabled, exclude kernel and hypervisor
+	fd, _, errno := syscall.RawSyscall6(syscall.SYS_PERF_EVENT_OPEN,
+		uintptr(unsafe.Pointer(&attr)), 0, ^uintptr(0), ^uintptr(0), 0, 0)
+	if errno != 0 {
+		panic(errno)
+	}
+	const enable, disable = 0x2400, 0x2401
+	ivyThreadIoctl(fd, enable)
+	ivyThreadIoctl(fd, disable)
+	empty := ivyThreadRead(fd)
+	start := time.Now()
+	ivyThreadIoctl(fd, enable)
+	return func() {
+		ivyThreadIoctl(fd, disable)
+		elapsed := time.Since(start)
+		total := ivyThreadRead(fd)
+		if err := syscall.Close(int(fd)); err != nil {
+			panic(err)
+		}
+		runtime.UnlockOSThread()
+		fmt.Fprintln(os.Stderr, "IVY-THREAD-CHECK", check, total[0]-empty[0],
+			empty[0], total[1]-empty[1], total[2]-empty[2], elapsed.Nanoseconds())
+	}
+}

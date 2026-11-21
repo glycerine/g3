@@ -1831,3 +1831,26 @@ Run the following command on Linux/amd64 from `pkg/` with the in-tree native bui
 python3 perf/scope_restoration/pop_phases/variables.py --cpu 0 --pairs 9 --iterations 1808 \
   --dir /tmp/g3-retired-variables > /tmp/g3-retired-variables.csv
 ```
+
+### Instructions on the solver thread for each Apple check
+
+GoIvy runs each incremental check on a locked OS thread for this measurement. A Linux hardware counter measures user-mode instructions on that thread between entry and return from the same adapter call in each backend. Each check also has an immediately preceding empty interval. The analysis subtracts that control and rejects multiplexed readings. Other threads, including concurrent GC workers, can contribute to the existing process-wide measurements. Each binary must reproduce the entire reference stdout before the driver emits any data. These are the first paired runs at g3 `dc99ddee8` and GoIvy `3ef4b9020`. [Measurements for all 2,874 checks in both engines](perf/ivy_apple/incremental_cost/solver-thread-counts.csv.gz) · [Measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py) · [Counter boundaries](perf/ivy_apple/incremental_cost/thread_counter.go.txt)
+
+| Isolate | Checks | g3, all checks (B instructions) | Z3, all checks (B) | Largest excess at check | g3 there (B) | Z3 there (B) | Share of isolate gap |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `dramc_nb2` | 2,479 | 60.95 | 15.70 | 71 | 24.90 | 6.99 | 40% |
+| `rfn2` | 26 | 111.39 | 35.48 | 4 | 59.05 | 20.86 | 50% |
+| `rfn` | 33 | 97.41 | 29.50 | 5 | 51.48 | 17.02 | 51% |
+| `cf_live` | 336 | 123.17 | 34.00 | 130 | 39.99 | 12.70 | 31% |
+
+The largest gap on each isolate is the same obligation identified by process-wide sampling. On `dramc_nb2` check 71 alone, matching Z3 would save 17.91 billion of the 45.25 billion extra instructions g3 executed in solver calls. Frontend translation and time spent on other threads lie outside these intervals. [Obligation names and source locations](perf/ivy_apple/incremental_cost/nine-isolate-largest-gaps.csv)
+
+Run from `pkg/` on Linux/amd64 with access to hardware counters, passing complete known-good stdout from the same input path.
+
+```sh
+python3 perf/ivy_apple/incremental_cost/thread_checks.py --goivy "$HOME/ivy/goivy" \
+  --spec "$HOME/ivy/ivy-lang-examples/doc/examples/apple/ord_live.ivy" \
+  --isolate dramc_nb2 /tmp/ord-dramc-native.stdout --cpu 0 --pairs 3 \
+  --output /tmp/ord-thread-runs > /tmp/ord-thread-counts.csv
+python3 perf/ivy_apple/incremental_cost/rank_checks.py /tmp/ord-thread-counts.csv
+```

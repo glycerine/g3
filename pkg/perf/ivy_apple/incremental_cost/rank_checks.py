@@ -32,43 +32,54 @@ def transcript_labels(path):
     return labels
 
 
-def estimate(path):
+def measure_pairs(path, engines):
     costs = defaultdict(dict)
     with (gzip.open(path, "rt") if path.suffix == ".gz" else path.open()) as inp:
-        for row in csv.DictReader(inp):
+        rows = csv.DictReader(inp)
+        gated = "count" in (rows.fieldnames or ())
+        for row in rows:
+            engine = row["engine"]
+            if engine not in engines:
+                continue
             check = int(row["check"])
             if check == 0:  # Samples outside calls have no obligation number.
                 continue
-            period, votes = int(row["period"]), int(row["samples"])
-            value = int(row["estimated_instructions"])
-            key = row["isolate"], check, int(row["round"])
-            engine = row["engine"]
-            if engine not in ("g3", "native") or engine in costs[key] or value != period * votes:
+            if gated:
+                if row["event"] != "instructions" or int(row["enabled_ns"]) != int(row["running_ns"]):
+                    raise ValueError("ranking requires unmultiplexed instruction counts")
+                value = int(row["count"]) - int(row["empty"])
+            else:
+                value = int(row["estimated_instructions"])
+                if value != int(row["period"]) * int(row["samples"]):
+                    raise ValueError(f"unexpected estimate for check {check}")
+            key = row["isolate"], row.get("cpu"), check, int(row["round"])
+            if engine in costs[key]:
                 raise ValueError(f"invalid or repeated measurement for {key}, {engine}")
             costs[key][engine] = value
     paired = defaultdict(list)
-    for (isolate, number, _), pair in costs.items():
-        paired[isolate, number].append((pair["g3"], pair["native"]))
+    for (isolate, _, number, _), pair in costs.items():
+        paired[isolate, number].append(tuple(pair[e] for e in engines))
     return paired
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("samples", type=Path, help="CSV from check_samples.py, optionally gzip-compressed")
+    parser.add_argument("samples", type=Path, help="CSV from check_samples.py or thread_checks.py, optionally gzipped")
+    parser.add_argument("--engines", nargs=2, default=["g3", "native"], metavar=("BASE", "COMPARISON"))
     parser.add_argument("--transcript", action="append", nargs=2, default=[], metavar=("ISOLATE", "STDOUT"))
     parser.add_argument("--top", type=int, default=5, help="number of checks per isolate")
     args = parser.parse_args()
-    if args.top <= 0:
-        parser.error("--top must be positive")
+    if args.top <= 0 or len(set(args.engines)) != 2:
+        parser.error("supply a positive --top and two distinct engines")
     labels = {name: transcript_labels(Path(path)) for name, path in args.transcript}
     ranked = defaultdict(list)
-    for (isolate, number), pairs in estimate(args.samples).items():
+    for (isolate, number), pairs in measure_pairs(args.samples, args.engines).items():
         delta = median(g-n for g, n in pairs)
         label = labels[isolate][number] if isolate in labels else ("", "")
         ranked[isolate].append((delta, number, len(pairs), median(g for g, _ in pairs),
                                 median(n for _, n in pairs), label))
     out = csv.writer(sys.stdout, lineterminator="\n")
-    out.writerow(["isolate", "rank", "check", "pairs", "g3_instructions", "native_instructions",
+    out.writerow(["isolate", "rank", "check", "pairs", *(e + "_instructions" for e in args.engines),
                   "paired_excess_instructions", "action", "obligation"])
     for isolate in sorted(ranked):
         if isolate in labels and len(labels[isolate]) != len(ranked[isolate]):

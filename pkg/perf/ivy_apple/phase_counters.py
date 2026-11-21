@@ -61,7 +61,8 @@ def replace_once(source, old, new):
     return source.replace(old, new)
 
 
-def build(engine, args, scratch, observer=OBSERVER, packages=("fmt", "io", "os", "strconv", "time")):
+def build(engine, args, scratch, observer=OBSERVER, packages=("fmt", "io", "os", "strconv", "time"),
+          go_overlay=None):
     native = engine == "native"
     filename = "native_verification_condition.go" if native else "g3_solver.go"
     original = args.goivy / "smt" / filename
@@ -78,7 +79,12 @@ def build(engine, args, scratch, observer=OBSERVER, packages=("fmt", "io", "os",
     patched = scratch / filename
     patched.write_text(code + observer)
     overlay = scratch / (engine + ".json")
-    overlay.write_text(json.dumps({"Replace": {str(original): str(patched)}}))
+    paths = json.loads(go_overlay.read_text())["Replace"] if go_overlay else {}
+    for path in {original, original.resolve()}:
+        if str(path) in paths:
+            raise ValueError(f"Go overlay already replaces the measured entry point {path}")
+        paths[str(path)] = str(patched)
+    overlay.write_text(json.dumps({"Replace": paths}))
     tags = "xtrace_off,classic_z3" if native else "xtrace_off"
     binary = scratch / engine
     cmd = ["go", "build", "-pgo=off", "-mod=readonly", "-buildvcs=false", f"-tags={tags}",
