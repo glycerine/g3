@@ -2063,3 +2063,19 @@ Nine rounds on CPU 33 measured instructions on the benchmark thread. Twelve timi
 | Raft, 419 obligations | 12 | 30.36 | 29.44 | −3.08% | −0.11% |
 
 All 32 before-and-after pairs retired fewer instructions. The shared machine gave mixed elapsed times for Raft and `cf_live`. A separate verification compared all 10,342 Apple outcomes and 18 counters per check with native Z3, all 28 Raft variants with their reference transcripts, and all 188 private Raft search records with the previous g3. The independent application observer reproduced all 130 `rfn2` check-by-arity rows, including registration duplicates. [Whole-proof times and PMU counts](perf/ivy_apple/application_reuse/release-proofs.csv) · [Application observer](perf/ivy_apple/application_reuse/count.py)
+
+### Instructions inside one repeated application
+
+For a repeated binary application at `5719b5678`, dispatch and preparation show the largest measured differences from Z3. Dispatch runs from public constructor entry to the arena placement call. Preparation starts when placement returns and ends at the canonical table lookup. It includes declaration checks, child identity and hash reads, and, at arity four, the separately owned argument payload. The Go implementation spends 241 more instructions in binary dispatch and 197 more in preparation. Placement itself differs by 45. At arity four, preparation alone differs by 1,252 instructions. [Per-stage measurements](perf/ivy_apple/application_reuse/release-phases.csv.gz) · [Phase driver and instrumentation boundaries](perf/ivy_apple/application_reuse/phases.py)
+
+| Stage, instructions per request | Binary before | Binary after | Binary native | Four before | Four after | Four native |
+|---|---:|---:|---:|---:|---:|---:|
+| Dispatch | 359 | 283 | 42 | 374 | 298 | 45 |
+| Place candidate node | 83 | 82 | 37 | 83 | 82 | 37 |
+| Prepare candidate for lookup | 864 | 408 | 211 | 2,812 | 1,605 | 353 |
+| Look up the existing application | 352 | 256 | 163 | 584 | 505 | 166 |
+| Return duplicate storage | 116 | 30 | 34 | 330 | 352 | 34 |
+
+Each stage used its own instrumented executable, with one counter interval per constructor request and an empty interval measured in a separate executable. Eight rounds on each of CPUs 37 and 41 counted 50,000 intervals per arity in every run. Both cores produced the same rounded medians in the table. Instrumentation changes code generation around the boundaries. Use whole-loop counts for the total cost and compare individual rows across engines to locate the differences.
+
+A separate sampling run used the ordinary executables, four million requests per case and three rounds. In the repeated binary fixture, the largest Go leaf counts were in slice registration, declaration flags and the application constructor. For four arguments, arena descriptor access and sort lookup also ranked highly. When every result immediately lost its last reference, publishing and deleting the node accounted for about 351 and 339 sampled instructions per request. Native Z3’s corresponding registration and deletion functions accounted for about 141 and 125. Each estimate multiplies leaf samples by the sampling period and divides by requests. Inlining assigns work to the containing native symbol. The most promising follow-ups for duplicates are passing already-read declaration flags into the constructor and using the wide payload’s existing descriptor validation. Fresh nodes also warrant a separate measurement of publication and deletion. [Raw leaf counts by executable and round](perf/ivy_apple/application_reuse/release-leaf-samples.csv.gz) · [Sampling driver](perf/ivy_apple/application_reuse/leaves.py)
