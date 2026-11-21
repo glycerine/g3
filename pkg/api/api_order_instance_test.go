@@ -325,3 +325,59 @@ func TestOrderProofConditionalPointUpdate(t *testing.T) {
 		})
 	}
 }
+
+func TestOrderProofLiftsImplicationThroughQuantifiedPredicates(t *testing.T) {
+	const prefix = `(define-sort A () (_ BitVec 2))
+(declare-const a A)(declare-const b A)(declare-const c A)(declare-const d A)
+(declare-const p A)(declare-const q A)
+(declare-fun old (A A) Bool)(declare-fun updated (A A) Bool)
+(declare-fun oldD (A) Bool)(declare-fun newD (A) Bool)
+(declare-fun oldP (A A) Bool)(declare-fun newP (A A) Bool)
+(declare-fun edge (A A) Bool)(declare-fun end (A) Bool)
+(assert (forall ((x A)(y A)) (= (updated x y) (ite (and (= x p) (= y q)) true (old x y)))))
+(assert (forall ((u A)(v A)) (= (newP u v) (or (oldP u v) (edge u v)))))
+(assert (forall ((z A)) (= (oldD z) (exists ((u A)) (forall ((t A)) (=> (edge t u) (not (oldP t z))))))))
+`
+	const suffix = `
+(assert (forall ((x A)(y A)(z A)(w A))
+ (=> (and (old x y) (oldD z) (not (oldP w z))) (end w))))
+(assert (not (=> (and (updated a b) (newD c) (not (newP d c))) (end d))))`
+	for _, tc := range []struct {
+		name, formula string
+		lift          bool
+	}{
+		{"opposite polarity under two binders", "(=> (edge s r) (not (newP s k)))", true},
+		{"changed sign", "(=> (edge s r) (newP s k))", false},
+		{"changed bound variable", "(=> (edge s r) (not (newP r k)))", false},
+		{"changed fixed argument", "(=> (edge s r) (not (newP s p)))", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			definition := "(assert (forall ((k A)) (= (newD k) (exists ((r A)) (forall ((s A)) " + tc.formula + ")))))"
+			c, s := orderSolver(t, prefix+definition+suffix)
+			manager, err := c.Manager()
+			astTestMust(t, err)
+			assertions, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			proof, ok, err := order.ForProof(manager, assertions, orderProofSteps)
+			astTestMust(t, err)
+			if !ok || proof.Conditional == nil {
+				t.Fatal("missing conditional point-update proof")
+			}
+			side := proof.Conditional.Condition
+			goal := side.Text[side.LastAssertionStart:]
+			if strings.HasPrefix(goal, "(assert (not (forall ") != tc.lift {
+				t.Fatalf("lift = %v, got %s", tc.lift, goal)
+			}
+			if tc.lift {
+				check := orderProofState{source: s}
+				astTestMust(t, check.start(manager))
+				t.Cleanup(func() { astTestMust(t, check.release()) })
+				established, err := check.check(manager, side, 100_000, false)
+				astTestMust(t, err)
+				if !established {
+					t.Fatal("failed to prove the pointwise inclusion")
+				}
+			}
+		})
+	}
+}

@@ -85,13 +85,44 @@ def verify(case, native):
     print(f"{number} verified both the side condition and the specialized goal")
 
 
+def verify_inclusion(case, lifted, native):
+    number = case["obligation"]
+    ground = case["condition"].splitlines()
+    universal = lifted.splitlines()
+    if ground == universal:
+        if case["established"]:
+            raise ValueError(f"{number} unexpectedly retained its ground condition")
+        return
+    if not set(universal[:-1]) <= set(ground[:-1]):
+        raise ValueError(f"{number} added a premise to the inclusion check")
+    definitions = [parse(line)[1] for line in ground[:-1] if line not in universal[:-1]]
+    declarations = [line for line in universal if line.startswith("(declare-")]
+    premises = [parse(line)[1] for line in universal[:-1] if line.startswith("(assert ")]
+    negated = parse(universal[-1])[1]
+    exception = parse(ground[-1])[1]
+    if negated[0] != "not" or negated[1][0] != "forall" or len(definitions) != 2:
+        raise ValueError(f"{number} has an unexpected inclusion or definition")
+    # Use only the two wrapper definitions to check the implication itself.
+    # The protocol axioms could otherwise make an incorrect inference vacuous.
+    inclusion = negated[1]
+    for inputs, answer in [(premises, "sat"), ([*premises, negated], "unsat"),
+                           ([*definitions, exception], "sat"), ([*definitions, inclusion], "sat"),
+                           ([*definitions, inclusion, exception], "unsat")]:
+        if solve(native, declarations, inputs) != answer:
+            raise ValueError(f"{number} failed the inclusion control expecting {answer}")
+    print(f"{number} verified pointwise inclusion and both ground consequences")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--native", type=Path, required=True)
     native = p.parse_args().native.resolve()
+    with gzip.open(HERE / "inclusion-conditions.json.gz", "rt") as f:
+        inclusions = json.load(f)
     with gzip.open(HERE / "cases.json.gz", "rt") as f:
         for case in json.load(f):
             verify(case, native)
+            verify_inclusion(case, inclusions[str(case["obligation"])], native)
 
 
 if __name__ == "__main__":

@@ -71,6 +71,9 @@ func (m *inductionMatcher) proposeCase(lemma, goal int32, steps uint32) uint32 {
 			replaced++
 		}
 		if replaced >= 2 {
+			if subset, lifted, ok := f.liftCase(premises, facts); ok {
+				premises, negated = subset, lifted
+			}
 			t.transition = &transitionCase{premises: premises, negatedFacts: negated, specialized: f.booleanTerm(opAnd, args...)}
 			break
 		}
