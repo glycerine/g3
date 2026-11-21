@@ -1,0 +1,134 @@
+diff --git a/pkg/api/internal/order/induction_instance.go b/pkg/api/internal/order/induction_instance.go
+index 7bcab169b..ad449a5dc 100644
+--- a/pkg/api/internal/order/induction_instance.go
++++ b/pkg/api/internal/order/induction_instance.go
+@@ -30,7 +30,7 @@ func (t *inference) addInductionInstance(steps uint32) uint32 {
+ 	if !m.ground(target) {
+ 		return m.work
+ 	}
+-	for _, id := range t.assertions[:last] {
++	for index, id := range t.assertions[:last] {
+ 		if !m.visit() {
+ 			break
+ 		}
+@@ -47,7 +47,7 @@ func (t *inference) addInductionInstance(steps uint32) uint32 {
+ 			oldLemma, oldGoal := lemma, goal
+ 			var spent uint32
+ 			var facts []int32
+-			lemma, goal, facts, spent = m.specialize(lemma, goal, steps-m.work)
++			lemma, goal, facts, spent = m.specialize(index, lemma, goal, steps-m.work)
+ 			m.work += spent
+ 			if lemma == oldLemma && goal == oldGoal {
+ 				m.work += m.proposeCase(lemma, goal, steps-m.work)
+@@ -55,7 +55,7 @@ func (t *inference) addInductionInstance(steps uint32) uint32 {
+ 			start := uint32(len(t.children))
+ 			t.children = append(t.children, goal, lemma)
+ 			t.children = append(t.children, facts...)
+-			t.assertions[last] = int32(len(t.terms))
++			t.assertions[len(t.assertions)-1] = int32(len(t.terms))
+ 			t.terms = append(t.terms, expression{op: opAnd, domain: boolean, start: start, count: uint32(2 + len(facts))})
+ 			break
+ 		}
+diff --git a/pkg/api/internal/order/transition_frame.go b/pkg/api/internal/order/transition_frame.go
+index 613c4c534..b52cebb49 100644
+--- a/pkg/api/internal/order/transition_frame.go
++++ b/pkg/api/internal/order/transition_frame.go
+@@ -19,7 +19,7 @@ type frameMatcher struct {
+ // If every changed application is outside its update, the old property and
+ // new property coincide, contradicting the ground lemma. A counterexample
+ // therefore puts at least one of the collected witnesses at the pivot.
+-func (m *inductionMatcher) specialize(lemma, goal int32, steps uint32) (int32, int32, []int32, uint32) {
++func (m *inductionMatcher) specialize(premise int, lemma, goal int32, steps uint32) (int32, int32, []int32, uint32) {
+ 	f := frameMatcher{instanceMatcher: instanceMatcher{t: m.t, limit: min(steps, 16384)}}
+ 	for _, pair := range m.functions {
+ 		if pair.premise != pair.goal && !f.findUpdates(pair) {
+@@ -56,7 +56,7 @@ func (m *inductionMatcher) specialize(lemma, goal int32, steps uint32) (int32, i
+ 					other := min(witnesses[0], witnesses[1])
+ 					facts = f.offPivotEqualities(oldLemma, newGoal, other, update.pivot)
+ 					if len(facts) != 0 {
+-						facts = f.requireChangedUpdates(facts)
++						facts = f.requireChangedUpdates(premise, facts)
+ 					}
+ 				}
+ 				return oldLemma, newGoal, facts, f.work
+diff --git a/pkg/api/internal/order/transition_guard.go b/pkg/api/internal/order/transition_guard.go
+index 927eec8fd..8afed2ec2 100644
+--- a/pkg/api/internal/order/transition_guard.go
++++ b/pkg/api/internal/order/transition_guard.go
+@@ -1,5 +1,7 @@
+ package order
+ 
++import "slices"
++
+ // A total point update with one equation for all of its arguments.
+ type updateDefinition struct {
+ 	index int
+@@ -10,7 +12,7 @@ type updateDefinition struct {
+ // ground induction instance contradicts the negated updated goal. When all
+ // definitions have the same condition for a possible change, assert that
+ // condition and keep only the active arms of those definitions.
+-func (f *frameMatcher) requireChangedUpdates(facts []int32) []int32 {
++func (f *frameMatcher) requireChangedUpdates(premise int, facts []int32) []int32 {
+ 	t := f.t
+ 	terms, children := len(t.terms), len(t.children)
+ 	on, off := f.booleanTerm(opTrue), f.booleanTerm(opFalse)
+@@ -37,9 +39,59 @@ func (f *frameMatcher) requireChangedUpdates(facts []int32) []int32 {
+ 	for i, def := range f.definitions {
+ 		t.assertions[def.index] = rewritten[i]
+ 	}
++	f.splitInvariant(premise)
+ 	return append(facts, guard)
+ }
+ 
++// Split a conjunctive invariant so the matcher can instantiate each
++// consequence independently. For a Boolean equality of two applications of
++// the same predicate, either application can trigger the forward implication.
++func (f *frameMatcher) splitInvariant(index int) {
++	t := f.t
++	q := t.terms[t.assertions[index]]
++	implication := t.terms[q.value]
++	before := t.children[implication.start]
++	conclusion := t.terms[t.children[implication.start+1]]
++	if conclusion.op != opAnd || conclusion.count < 2 || conclusion.count > 8 {
++		return
++	}
++	conjuncts := t.arguments(&conclusion)
++	booleanPair := func(id int32) bool {
++		eq := t.terms[id]
++		if eq.op != opEqual || eq.count != 2 {
++			return false
++		}
++		left, right := t.terms[t.children[eq.start]], t.terms[t.children[eq.start+1]]
++		return left.op == opFunction && left.domain == boolean && right.op == opFunction && left.value == right.value
++	}
++	applicable := false
++	for _, id := range conjuncts {
++		if !f.visit() {
++			return
++		}
++		applicable = applicable || booleanPair(id)
++	}
++	if !applicable {
++		return
++	}
++	var rules []int32
++	add := func(guard, consequence int32) {
++		q.value = f.booleanTerm(opImplies, guard, consequence)
++		rules = append(rules, int32(len(t.terms)))
++		t.terms = append(t.terms, q)
++	}
++	for _, id := range conjuncts {
++		if booleanPair(id) {
++			args := t.arguments(&t.terms[id])
++			add(f.booleanTerm(opAnd, before, args[0]), args[1])
++			add(f.booleanTerm(opAnd, before, args[1]), args[0])
++		} else {
++			add(before, id)
++		}
++	}
++	t.assertions = slices.Replace(t.assertions, index, index+1, rules...)
++}
++
+ // The guard is false only when the RHS is exactly old(formals). A
+ // nonconstant or argument-dependent condition remains in the active body.
+ func (f *frameMatcher) activeUpdate(id, old int32, params []int32, on, off int32) (int32, int32) {
