@@ -1726,3 +1726,25 @@ Both implementations now have a benchmark for the same disjunction of equalities
 | 16 | Last | 1,984.0 ns | 714.5 ns | 2,061.0 ns |
 
 These are medians of 11 rotated runs of 100,000 calls on CPU 43 with g3 `0a27fdff9` and `GOMAXPROCS=1`. Even when the candidate answer and scan order are fixed, checking the last of 16 equalities costs 1.27 µs more in g3. Queue dispatch adds another 77 ns in that case. Build a g3 test binary with `go test -c -o /tmp/g3-candidate.test ./smtcore`, then run `python3 perf/ivy_apple/candidate_checker/compare.py --cpu 0 --go g3 /tmp/g3-candidate.test` with a configured native Makefile build in the fork. [Rotated measurements](perf/ivy_apple/candidate_checker/baseline.csv) · [Comparison driver](perf/ivy_apple/candidate_checker/compare.py)
+
+### Which Apple obligations account for the solver gap
+
+Three paired runs of every isolate sampled one user instruction in 800,009 and attributed it to the active solver check. All 54 runs reproduced their complete native transcript. The totals below sum samples **inside** solver calls. Each row identifies the check with the largest median paired excess in that isolate. Both engines used GoIvy `3ef4b9020`. g3 used the asserted-disjunction change at `0a27fdff9`. [All 10,342 checks, three pairs](perf/ivy_apple/incremental_cost/nine-isolate-samples.csv.gz) · [Top eight per isolate with action and obligation](perf/ivy_apple/incremental_cost/nine-isolate-largest-gaps.csv) · [Sampling driver](perf/ivy_apple/check_samples.py) · [Ranking and transcript lookup](perf/ivy_apple/incremental_cost/rank_checks.py)
+
+| Isolate | All checks, g3 / Z3 (billions of instructions) | Largest gap, check number and source line | That check, g3 / Z3 (billions) | Share of isolate solver gap |
+|---|---:|---|---:|---:|
+| `cf_live` | 127.17 / 34.00 | 130, line 1703 | 41.19 / 12.70 | 30.6% |
+| `cf_pio_live` | 120.46 / 31.61 | 126, line 2529 | 41.90 / 11.87 | 33.8% |
+| `cmpl_live` | 17.58 / 4.29 | 35, line 2439 | 6.02 / 1.37 | 35.0% |
+| `dramc_nb2` | 63.05 / 15.71 | 71, line 2195 | 25.89 / 6.99 | 39.9% |
+| `e2e` | 135.94 / 36.54 | 99, line 2817 | 35.86 / 11.03 | 25.0% |
+| `rfn` | 100.36 / 29.50 | 5, line 1982 | 53.04 / 17.02 | 50.8% |
+| `rfn2` | 114.88 / 35.48 | 4, line 3134 | 61.01 / 20.86 | 50.6% |
+| `sys_live` | 104.75 / 29.32 | 404, line 3193 | 18.44 / 5.54 | 17.1% |
+| `tprops` | 3.06 / 0.65 | 218, line 1792 | 0.67 / 0.16 | 21.2% |
+
+The most expensive excess in six isolates occurs while checking `ext:arm.step_north`. Two others concentrate on `ext:cfabric.step`. On `dramc_nb2`, check 71 is the `l2s_progress_made[1]` obligation. The first hardware-counter run enabled just for that call counted 25.97 billion g3 instructions and 6.99 billion native instructions. The sample-derived estimate picks the same target from 2,479 possible checks in one pass per engine. A short check can have zero samples. Its resource use is below the resolution of that run.
+
+Two independently recorded stack pairs for check 71 put the quantifier queue on 76.5% and 76.9% of g3 samples and 71.3% and 71.8% of native samples. Within the complete check, the solver rewriter appeared on 28.6% and 29.5% of g3 samples versus 19.8% and 23.9% of native samples. These are inclusive stack counts. The queue invokes the rewriter and the candidate checker. This identifies work on candidate evaluation and rewriting that can benefit both the refinement and liveness isolates. [Stack samples and nearest-operation attribution](perf/ivy_apple/incremental_cost/dramc-check71-stack-samples.csv) · [Stack recorder](perf/ivy_apple/phase_stacks.py)
+
+To reproduce the ranking, collect a CSV with `check_samples.py` for the isolate and pass it to `rank_checks.py` with `--transcript ISOLATE NATIVE_STDOUT`. Check numbers are one-based. The percentage uses the median within-pair difference for the selected check divided by the median within-pair difference for all checks in the isolate.

@@ -1,0 +1,73 @@
+isolate,rank,check,pairs,g3_instructions,native_instructions,paired_excess_instructions,action,obligation
+cf_live,1,130,3,41191663401,12700142875,28491520526,(internal) ext:cfabric.step,ord_live.ivy:1703 l2s_progress_made[2]
+cf_live,2,58,3,9738509557,2552828719,7185680838,(internal) ext:arm.step_north,ord_live.ivy:1703 l2s_not_all_done
+cf_live,3,48,3,6440872459,1548017415,4892855044,(internal) ext:arm.step_north,ord_live.ivy:1703 l2s_progress_made
+cf_live,4,55,3,5493661803,1415215921,4078445882,(internal) ext:arm.step_north,ord_live.ivy:1703 l2s_work_preserved[2]
+cf_live,5,278,3,4076045855,1041611718,3034434137,(internal) ext:memc.step,ord_live.ivy:1703 l2s_progress_made[2]
+cf_live,6,56,3,3736042030,944810629,2791231401,(internal) ext:arm.step_north,ord_live.ivy:1703 l2s_progress_made[2]
+cf_live,7,204,3,2802431527,731208226,2071223301,(internal) ext:dramc.step_wr,ord_live.ivy:1703 l2s_progress_made[2]
+cf_live,8,206,3,2667230006,688807749,1977622248,(internal) ext:dramc.step_wr,ord_live.ivy:1703 l2s_not_all_done
+cf_pio_live,1,126,3,41900471375,11868933524,30031537851,(internal) ext:cfabric.step,ord_live.ivy:2529 l2s_progress_made[2]
+cf_pio_live,2,54,3,6092868544,1537617298,4555251246,(internal) ext:arm.step_north,ord_live.ivy:2529 l2s_progress_made[2]
+cf_pio_live,3,53,3,4854454612,1254414112,3600840509,(internal) ext:arm.step_north,ord_live.ivy:2529 l2s_work_preserved[2]
+cf_pio_live,4,46,3,4312848519,1103212411,3210436117,(internal) ext:arm.step_north,ord_live.ivy:2529 l2s_progress_made
+cf_pio_live,5,118,3,3558440032,1004011295,2554428737,(internal) ext:cfabric.step,ord_live.ivy:2529 l2s_progress_made
+cf_pio_live,6,270,3,3366437872,935210521,2431227351,(internal) ext:memc.step,ord_live.ivy:2529 l2s_progress_made[2]
+cf_pio_live,7,262,3,3003233786,816009180,2186424597,(internal) ext:memc.step,ord_live.ivy:2529 l2s_progress_made
+cf_pio_live,8,45,3,2464827729,598406732,1866420997,(internal) ext:arm.step_north,ord_live.ivy:2529 l2s_work_preserved
+cmpl_live,1,35,3,6016867689,1368815399,4647252281,(internal) ext:arm.step_north,ord_live.ivy:2439 l2s_not_all_done
+cmpl_live,2,177,3,4844054495,1402415777,3441638718,(internal) ext:memc.step,ord_live.ivy:2439 l2s_progress_made
+cmpl_live,3,43,3,2088823499,506405697,1582417802,(internal) ext:arm.step_north,ord_live.ivy:2439 l2s_globally_7
+cmpl_live,4,179,3,1434416137,299203366,1136012780,(internal) ext:memc.step,ord_live.ivy:2439 l2s_not_all_done
+cmpl_live,5,131,3,618406957,131201476,487205481,(internal) ext:dramc.step_wr,ord_live.ivy:2439 l2s_not_all_done
+cmpl_live,6,1,3,568806399,151201701,417604698,in action rfn.abs.send when called from memc.memc_arr_hook:,ord_live.ivy:1792 guarantee
+cmpl_live,7,187,3,462405202,115201296,347203906,(internal) ext:memc.step,ord_live.ivy:2439 l2s_globally_7
+cmpl_live,8,107,3,337603798,84800954,253602853,(internal) ext:dramc.step_rd,ord_live.ivy:2439 l2s_not_all_done
+dramc_nb2,1,71,3,25888291240,6988078615,18900212625,(internal) ext:arm.step_north,ord_live.ivy:2195 l2s_progress_made[1]
+dramc_nb2,2,63,3,3340837584,824009270,2516828314,(internal) ext:arm.step_north,ord_live.ivy:2195 l2s_progress_made
+dramc_nb2,3,62,3,2019222716,474405337,1544817379,(internal) ext:arm.step_north,ord_live.ivy:2195 l2s_work_preserved
+dramc_nb2,4,84,3,2027222806,490405517,1537617298,(internal) ext:arm.step_north,ord_live.ivy:2195 l2s_globally_10
+dramc_nb2,5,59,3,1957622023,475205346,1482416677,(internal) ext:arm.step_north,ord_live.ivy:2195 l2s_needed_are_frozen
+dramc_nb2,6,64,3,1898421357,461605193,1437616173,(internal) ext:arm.step_north,ord_live.ivy:2195 l2s_progress_invar
+dramc_nb2,7,94,3,1875221096,454405112,1420815984,(internal) ext:arm.step_north,ord_live.ivy:2195 l2s_init_glob_0
+dramc_nb2,8,58,3,1489616758,330403717,1159213041,(internal) ext:arm.step_north,ord_live.ivy:2195 l2s_created
+e2e,1,99,3,35860403425,11030524092,24829879333,(internal) ext:arm.step_north,ord_live.ivy:2817 neg_prop_init
+e2e,2,542,3,16108181215,4540851084,11567330131,(internal) ext:arm.step_north,ord_live.ivy:2844 neg_prop_init
+e2e,3,393,3,5398460732,1447216281,3951244451,(internal) ext:memc.step,ord_live.ivy:2817 neg_prop_init
+e2e,4,59,3,4774453712,1085612213,3688841499,(internal) ext:arm.step_north,ord_live.ivy:2817 l2s_not_all_done
+e2e,5,836,3,5122457627,1482416677,3640040950,(internal) ext:memc.step,ord_live.ivy:2844 neg_prop_init
+e2e,6,197,3,3997644973,1137612798,2860032175,(internal) ext:cfabric.step,ord_live.ivy:2817 neg_prop_init
+e2e,7,500,3,3295237071,810409117,2484827954,(internal) ext:arm.step_north,ord_live.ivy:2844 l2s_progress_made
+e2e,8,640,3,2928032940,776808739,2151224201,(internal) ext:cfabric.step,ord_live.ivy:2844 neg_prop_init
+rfn,1,5,3,53035796646,17018591457,36016405180,(internal) ext:arm.step_north,ord_live.ivy:1982 rfn.invar250
+rfn,2,21,3,21985047329,5604863054,16379384266,(internal) ext:dramc.step_wr,ord_live.ivy:1982 rfn.invar250
+rfn,3,29,3,17485796713,4906455197,12579341516,(internal) ext:memc.step,ord_live.ivy:1982 rfn.invar250
+rfn,4,17,3,3288836999,860809684,2427227306,(internal) ext:dramc.step_rd,ord_live.ivy:1982 rfn.invar250
+rfn,5,30,3,2512028260,666407497,1845620763,(internal) ext:memc.step,ord_live.ivy:1990 rfn.invar251
+rfn,6,33,3,809609108,184002070,625607038,in action rfn.abs.send when called from memc.memc_arr_hook:,ord_live.ivy:1792 guarantee
+rfn,7,18,3,370404167,90401017,280003150,(internal) ext:dramc.step_rd,ord_live.ivy:1990 rfn.invar251
+rfn,8,22,3,216002430,50400567,165601863,(internal) ext:dramc.step_wr,ord_live.ivy:1990 rfn.invar251
+rfn2,1,4,3,61009486349,20858634657,40150051683,(internal) ext:arm.step_north,ord_live.ivy:3134 rfn2.invar494
+rfn2,2,13,3,17644998504,4388049365,13256949139,(internal) ext:dramc.step_rd,ord_live.ivy:3134 rfn2.invar494
+rfn2,3,22,3,17224193770,5213658653,12010535117,(internal) ext:memc.step,ord_live.ivy:3134 rfn2.invar494
+rfn2,4,7,3,7841688218,2064823229,5776864989,(internal) ext:arm.step_south,ord_live.ivy:3134 rfn2.invar494
+rfn2,5,26,3,3345637638,977610998,2368026640,in action rfn2.abs.send when called from arm.issue_hook:,ord_live.ivy:3001 guarantee
+rfn2,6,16,3,3208836099,912010260,2296825839,(internal) ext:dramc.step_wr,ord_live.ivy:3134 rfn2.invar494
+rfn2,7,5,3,2264825479,553606228,1711219251,(internal) ext:arm.step_north,ord_live.ivy:3140 rfn2.invar495
+rfn2,8,25,3,790408892,234402637,556806264,in action rfn.abs.send when called from memc.memc_arr_hook:,ord_live.ivy:1792 guarantee
+sys_live,1,404,3,18440207450,5541662343,12898545107,(internal) ext:arm.step_north,ord_live.ivy:3193 neg_prop_init
+sys_live,2,704,3,7010478867,2064823229,4945655638,(internal) ext:memc.step,ord_live.ivy:3193 neg_prop_init
+sys_live,3,135,3,6412072135,1766419872,4645652263,(internal) ext:cfabric.step,ord_live.ivy:3161 neg_prop_init
+sys_live,4,267,3,5884066195,1748019665,4135246521,(internal) ext:memc.step,ord_live.ivy:3161 neg_prop_init
+sys_live,5,756,3,5142457852,1480816659,3661641193,in action rfn2.abs.send when called from arm.issue_hook:,ord_live.ivy:3001 guarantee
+sys_live,6,2,3,5047256781,1532817244,3513639528,in action rfn2.abs.send when called from arm.issue_hook:,ord_live.ivy:3001 guarantee
+sys_live,7,504,3,4880854909,1406415822,3474439087,(internal) ext:cfabric.step,ord_live.ivy:3193 neg_prop_init
+sys_live,8,234,3,3672041310,999211241,2672830069,(internal) ext:ifabric.step,ord_live.ivy:3161 neg_prop_init
+tprops,1,218,3,671207551,159201791,512005760,in action rfn.abs.send when called from memc.memc_arr_hook:,ord_live.ivy:1792 guarantee
+tprops,2,1,3,584006570,152001710,432004860,in action rfn.abs.send when called from memc.memc_arr_hook:,ord_live.ivy:1792 guarantee
+tprops,3,436,3,556806264,160001800,397604473,in action rfn.abs.send when called from memc.memc_arr_hook:,ord_live.ivy:1792 guarantee
+tprops,4,219,3,242402727,41600468,200802259,"in action idle when called from the environment,the environment:",ord_live.ivy:2034 guarantee
+tprops,5,437,3,171201926,41600468,129601458,"in action idle when called from the environment,the environment:",ord_live.ivy:2050 guarantee
+tprops,6,417,3,105601188,27200306,78400882,(internal) idle,ord_live.ivy:2044 l2s_work_preserved
+tprops,7,199,3,104001170,27200306,76800864,(internal) idle,ord_live.ivy:2028 l2s_work_preserved
+tprops,8,249,3,37600423,4000045,34400387,(internal) ext:arm.step_north,ord_live.ivy:2044 l2s_work_preserved
