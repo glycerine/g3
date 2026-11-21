@@ -29,7 +29,7 @@ CALLS = {
 def compile_checker(args, engine):
     target = args.output / engine
     target.mkdir()
-    paths = {}
+    paths = json.loads(args.frontend_overlay.read_text())["Replace"] if args.frontend_overlay else {}
     if engine == "g3" and args.go_overlay:
         paths.update(json.loads(args.go_overlay.read_text())["Replace"])
 
@@ -100,6 +100,8 @@ def main():
         p.add_argument("--" + name, type=Path, required=True)
     p.add_argument("--modfile", type=Path)
     p.add_argument("--go-overlay", type=Path)
+    p.add_argument("--frontend-overlay", type=Path, help="Go source overlay applied to both backends")
+    p.add_argument("--engine", choices=("g3", "native"), nargs="+", default=("g3", "native"))
     p.add_argument("--isolate", default="dramc_nb2")
     p.add_argument("--cpu", type=int, required=True)
     p.add_argument("--pairs", type=int, default=3)
@@ -117,7 +119,7 @@ def main():
     if a.ballast_mib and (min(a.ballast_mib) < 0 or len(a.ballast_mib) != len(set(a.ballast_mib))):
         p.error("heap ballast values must be distinct nonnegative sizes in MiB")
     a.output.mkdir(parents=True)
-    engines = {name: compile_checker(a, name) for name in ("g3", "native")}
+    engines = {name: compile_checker(a, name) for name in dict.fromkeys(a.engine)}
     variants = [(gc, pad, name) for gc in a.gogc for pad in (a.ballast_mib or [0]) for name in engines]
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["isolate", "cpu", "round", "gogc", *(["ballast_mib"] if a.ballast_mib else []), "engine", "wall_s", "user_s", "sys_s", "rss_kib",

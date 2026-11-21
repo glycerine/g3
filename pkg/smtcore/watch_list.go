@@ -7,20 +7,22 @@ import "github.com/glycerine/g3/pkg/ast"
 // SMTWatchList stores the two source watch-list regions as typed Go slices.
 // Clause pointers are in insertion order. Literals keep the source layout:
 // they grow downward from the end of their buffer (insert_literal writes in
-// front of the others, and expand keeps them at the end), so literals[begin:]
+// front of the others, and expand keeps them at the end), so the live suffix
 // is in iterator order, which is reverse insertion order, and inserting or
 // removing the newest literal moves nothing.
+// The literal block header is immutable. Copies share its backing array
+// and keep their own count, as they do for the clause slice.
 type SMTWatchList struct {
-	clauses  []*SMTClause
-	literals []SMTLiteral // literals[begin:] are live, newest first
-	begin    int
+	clauses      []*SMTClause
+	literalBlock *[]SMTLiteral
+	literalCount int
 }
 
 func (w *SMTWatchList) Size() int {
 	if w == nil {
 		return 0
 	}
-	return len(w.clauses) + len(w.literals) - w.begin
+	return len(w.clauses) + w.literalCount
 }
 
 func (w *SMTWatchList) Reset() {
@@ -28,7 +30,7 @@ func (w *SMTWatchList) Reset() {
 		return
 	}
 	w.clauses = w.clauses[:0]
-	w.begin = len(w.literals)
+	w.literalCount = 0
 }
 
 // recycle releases retired clause pointers and keeps the buffers for the
@@ -41,7 +43,7 @@ func (w *SMTWatchList) recycle() {
 		clear(w.clauses)
 	}
 	w.clauses = w.clauses[:0]
-	w.begin = len(w.literals)
+	w.literalCount = 0
 }
 
 func (w *SMTWatchList) ResetAndReleaseMemory() {
@@ -49,8 +51,8 @@ func (w *SMTWatchList) ResetAndReleaseMemory() {
 		return
 	}
 	w.clauses = nil
-	w.literals = nil
-	w.begin = 0
+	w.literalBlock = nil
+	w.literalCount = 0
 }
 
 // Clauses and Literals return the live mutable views used by propagation.
@@ -62,10 +64,11 @@ func (w *SMTWatchList) Clauses() []*SMTClause {
 }
 
 func (w *SMTWatchList) Literals() []SMTLiteral {
-	if w == nil {
+	if w == nil || w.literalBlock == nil {
 		return nil
 	}
-	return w.literals[w.begin:]
+	block := *w.literalBlock
+	return block[len(block)-w.literalCount:]
 }
 
 func (w *SMTWatchList) FindClause(clause *SMTClause) int {
@@ -84,7 +87,7 @@ func (w *SMTWatchList) FindLiteral(literal SMTLiteral) int {
 	if w == nil {
 		return -1
 	}
-	for i, candidate := range w.literals[w.begin:] {
+	for i, candidate := range w.Literals() {
 		if candidate == literal {
 			return i
 		}
@@ -104,16 +107,16 @@ func (w *SMTWatchList) InsertLiteral(literal SMTLiteral) error {
 	if w == nil {
 		return ast.ErrASTHandle
 	}
-	if w.begin == 0 {
-		// expand: grow by half and keep the literals at the end.
-		live := len(w.literals)
-		capacity := live + live/2 + 4
+	n := w.literalCount
+	if w.literalBlock == nil || n == len(*w.literalBlock) {
+		capacity := n + n/2 + 4
 		grown := make([]SMTLiteral, capacity)
-		copy(grown[capacity-live:], w.literals)
-		w.literals, w.begin = grown, capacity-live
+		copy(grown[capacity-n:], w.Literals())
+		w.literalBlock = &grown
 	}
-	w.begin--
-	w.literals[w.begin] = literal
+	w.literalCount++
+	buf := *w.literalBlock
+	buf[len(buf)-w.literalCount] = literal
 	return nil
 }
 
@@ -134,9 +137,9 @@ func (w *SMTWatchList) RemoveLiteral(literal SMTLiteral) bool {
 		return false
 	}
 	// remove_literal shifts only the literals in front of the removed one.
-	live := w.literals[w.begin:]
+	live := w.Literals()
 	copy(live[1:i+1], live[:i])
-	w.begin++
+	w.literalCount--
 	return true
 }
 

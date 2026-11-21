@@ -151,7 +151,7 @@ func TestSMTWatchListRecycleDropsRetiredClauses(t *testing.T) {
 		}
 		backing := w.Clauses()
 		w.recycle()
-		if w.Size() != 0 || cap(w.clauses) != cap(backing) {
+		if w.Size() != 0 || cap(w.Clauses()) != cap(backing) {
 			t.Fatalf("recycle of %d clauses lost the buffer or left a watch", count)
 		}
 		for _, c := range backing {
@@ -159,5 +159,43 @@ func TestSMTWatchListRecycleDropsRetiredClauses(t *testing.T) {
 				t.Fatalf("recycle of %d clauses retained a pointer", count)
 			}
 		}
+	}
+}
+
+func TestSMTWatchListCopiedLengthsAndMutableViews(t *testing.T) {
+	var first SMTWatchList
+	var slots [6]SMTClause
+	for i := 0; i < 4; i++ {
+		if err := first.InsertLiteral(SMTLiteral(i + 2)); err != nil {
+			t.Fatal(err)
+		}
+		if err := first.InsertClause(&slots[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	second := first
+	if !second.RemoveLiteral(4) || !second.RemoveClause(&slots[1]) {
+		t.Fatal("initial entries missing")
+	}
+	if first.Size() != 8 || second.Size() != 6 {
+		t.Fatal("copy changed source lengths")
+	}
+	for i := 0; i < 12; i++ {
+		if err := second.InsertLiteral(SMTLiteral(20 + i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := first.Literals()[0]
+	second.Literals()[0] = 73
+	if first.Literals()[0] != before {
+		t.Fatal("growing a copy modified the original backing")
+	}
+	first.Reset()
+	if first.Size() != 0 || second.Size() != 18 {
+		t.Fatal("reset changed copied list")
+	}
+	second.ResetAndReleaseMemory()
+	if second.Clauses() != nil || second.Literals() != nil {
+		t.Fatal("release retained a buffer")
 	}
 }
