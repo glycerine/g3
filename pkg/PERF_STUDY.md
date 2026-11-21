@@ -2012,3 +2012,28 @@ Each of nine paired instruction runs per CPU measured 115,200 three-atom release
 In a separate elapsed series, queue-enabled scoped pop improved in 25 of 32 pairs, with a median within-pair reduction of **5.28%**. For surviving atoms, the medians were 326 ns before, 344 ns after and 512 ns in Z3. That control was 4.29% slower within pairs. All timings used the same in-tree native fixture, 2,800 iterations per run and alternating build order on CPUs 12 and 46. [Elapsed runs, including the queue-disabled control](perf/scope_restoration/saved_clause_atoms/elapsed.csv) · [Timing driver](perf/scope_restoration/watch_selection/compare.py)
 
 The final build reproduced the verdict and all 18 search counters for every one of the 10,342 Apple checks. It also matched all 28 Raft variant outcomes and 188 private Raft search records. Both AST and SMT core package suites passed, along with focused runs using checked and debug/trace builds. [Release and partial-failure tests](ast/ast_retained_literals_test.go) · [Pool reuse with mixed clause lifetimes](smtcore/smt_clause_storage_test.go)
+
+
+Across complete release runs the clause change alone had a much smaller effect than it did on scope restoration. Median within-pair instruction changes were −0.21% on `rfn`, −0.03% on `rfn2`, −0.30% on `cf_live`, and +0.10% on Raft. There were seven, seven, six and twelve pairs, respectively. The principal benefit is the retained memory per solver. [Apple runs](perf/scope_restoration/saved_clause_atoms/apple-process.csv) · [cf_live runs](perf/scope_restoration/saved_clause_atoms/cf-process.csv) · [Raft runs](perf/scope_restoration/saved_clause_atoms/raft-process.csv)
+
+### What a canonical application costs on the benchmark thread
+
+The Go and in-tree C++ fixtures repeatedly construct applications that share the same declaration and arguments. A hardware counter now brackets the 200,000 calls on the executing OS thread, excluding setup and teardown. The rotating fixture also acquires and releases the result on every iteration. Each loop measurement has an empty-control run for the same engine, workload and round. The reported results subtract that control before dividing by the iteration count. Nine rounds on CPU 40 ran every counter throughout its enabled interval. [Instruction counts](perf/ivy_apple/application_reuse/constructor-instructions.csv.gz) · [Per-thread measurement driver](perf/ivy_apple/application_reuse/instructions.py) · [Go benchmark](ast/ast_app_benchmark_test.go) · [Native benchmark](../src/test/perf/ast_application_reuse.cpp)
+
+| Instructions per request | g3 before | Reuse validated operands | Also return the inline arena slot directly | Also specialize the table comparison | Native Z3 |
+|---|---:|---:|---:|---:|---:|
+| Same unary application | 1,605 | 1,168 | 1,065 | 1,037 | 406 |
+| Same binary application | 1,922 | 1,275 | 1,172 | 1,138 | 456 |
+| Same ternary application | 2,183 | 1,339 | 1,236 | 1,179 | 500 |
+| Same four-argument application | 4,333 | 2,966 | 2,966 | 2,982 | 605 |
+| Rotating binary, none retained | 4,012 | 3,319 | 3,323 | 3,334 | 641 |
+| Rotating binary, all retained | 2,179 | 1,532 | 1,429 | 1,395 | 465 |
+
+The prototype's short match uses the existing canonical table and the complete arena references. A miss uses the prevalidated operands for child acquisition. Returning a just-placed inline duplicate directly saves a further 103 instructions in each of the first three rows. It has no separate argument payload or acquired children. Four-argument applications allocate and reclaim the ordinary payload even on a hit. The remaining gap is largest for a new application that must be destroyed before the next request. Independent timings on CPU 9 put the repeated binary case at 152 ns before, 94 ns with direct slot return and 43 ns in Z3. [Independent timings, ten rounds](perf/ivy_apple/application_reuse/constructor-timings.csv.gz)
+
+To repeat the instruction study on a Linux/amd64 host, select a permitted CPU and a fresh output directory. Add repeated `--go NAME OVERLAY` options to compare local Go variants against the same in-tree C++ build.
+
+```sh
+python3 perf/ivy_apple/application_reuse/instructions.py --cpu 0 \
+  --dir /tmp/g3-app-instructions --rounds 9 > /tmp/g3-app-instructions.csv
+```
