@@ -5,12 +5,14 @@ package ast
 import "github.com/glycerine/g3/pkg/arena"
 
 func (m *ASTManager) substKey(key astNodeRef) (uint64, *astNodeRecord, error) {
-	if e := m.validNode(key); e != nil {
-		return 0, nil, e
+	if key.slot == 0 || key.slot >= m.nextNode {
+		return 0, nil, ErrASTHandle
 	}
 	record := m.nodeAt(key.slot)
-	kind := record.kind
-	if kind != ASTApp && kind != ASTVar && kind != ASTQuantifier {
+	if !record.live || record.generation != key.generation {
+		return 0, nil, ErrASTHandle
+	}
+	if record.kind > ASTQuantifier {
 		return 0, nil, ErrASTDomain
 	}
 	return uint64(key.slot)<<32 | uint64(key.generation), record, nil

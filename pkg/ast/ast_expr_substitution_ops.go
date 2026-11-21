@@ -200,6 +200,9 @@ func (m *ASTManager) substFindOutputs(s ASTExprSubstitution, key astNodeRef, def
 	if e != nil {
 		return false, e
 	}
+	return m.substLookupOutputs(state, key, def, proof, dep)
+}
+func (m *ASTManager) substLookupOutputs(state *astExprSubstState, key astNodeRef, def, proof *ASTHandle, dep *ASTDependency) (bool, error) {
 	token, record, e := m.substKey(key)
 	if e != nil {
 		return false, e
@@ -237,6 +240,18 @@ func (m *ASTManager) ExprSubstitutionFindProof(s ASTExprSubstitution, key ASTHan
 	return m.substFindOutputs(s, k, def, proof, nil)
 }
 func (m *ASTManager) ExprSubstitutionFindDependency(s ASTExprSubstitution, key ASTHandle, def, proof *ASTHandle, dep *ASTDependency) (bool, error) {
+	// Rewriting probes the same substitution for successive terms. A matching
+	// cached state includes the table's generation. The shared lookup still
+	// validates the expression and handles optional proof and dependency outputs.
+	if !astValidateHandles && m != nil && m.lockFree() && key.origin == m.origin && s.origin == m.origin &&
+		def != nil && proof != nil && dep != nil {
+		if state := m.lastExprSubstitution; state != nil && state.record == s.record {
+			return m.substLookupOutputs(state, astNodeRef{key.slot, key.generation}, def, proof, dep)
+		}
+	}
+	return m.substFindDependencyChecked(s, key, def, proof, dep)
+}
+func (m *ASTManager) substFindDependencyChecked(s ASTExprSubstitution, key ASTHandle, def, proof *ASTHandle, dep *ASTDependency) (bool, error) {
 	if e := m.lock(); e != nil {
 		return false, e
 	}

@@ -364,3 +364,43 @@ func TestASTExprSubstitutionKeyUsedByTwoTables(t *testing.T) {
 		t.Fatal("invalid key kind", err)
 	}
 }
+
+func TestASTExprSubstitutionCachedDependencyMiss(t *testing.T) {
+	m := astTestManager(t)
+	key := astDependencyExpr(t, m, 201)
+	other := astDependencyExpr(t, m, 202)
+	subst, err := m.NewExprSubstitutionPolicy(false, false)
+	astTestMust(t, err)
+	astTestMust(t, m.ExprSubstitutionInsert(subst, key, key, ASTHandle{}, ASTDependency{}))
+	dep, err := m.DependencyLeaf(key)
+	astTestMust(t, err)
+	astTestMust(t, m.DependencyInc(dep))
+	defer func() { astTestMust(t, m.DependencyDec(dep)) }()
+
+	// Prime the one-entry substitution cache, then query edges that must leave
+	// every caller-owned output intact.
+	def, proof, dependency := other, other, dep
+	found, err := m.ExprSubstitutionFindDependency(subst, key, &def, &proof, &dependency)
+	if !found || err != nil || def != key || proof != other || dependency != dep {
+		t.Fatal("cached hit", found, err, def, proof, dependency)
+	}
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	foreign := astDependencyExpr(t, astTestManager(t), 202)
+	stale := other
+	stale.generation++
+	check := func(name string, s ASTExprSubstitution, h ASTHandle, want error) {
+		t.Helper()
+		found, err := m.ExprSubstitutionFindDependency(s, h, &def, &proof, &dependency)
+		if found || err != want || def != key || proof != other || dependency != dep {
+			t.Fatalf("%s: found %t, error %v, outputs %v %v %v", name, found, err, def, proof, dependency)
+		}
+	}
+	check("never inserted", subst, other, nil)
+	check("stale key generation", subst, stale, ErrASTHandle)
+	check("foreign key", subst, foreign, ErrASTHandle)
+	check("sort used as key", subst, sort, ErrASTDomain)
+	retired := subst
+	astTestMust(t, m.DelExprSubstitution(&subst))
+	check("deleted table", retired, other, ErrASTHandle)
+}
