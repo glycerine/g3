@@ -1,0 +1,74 @@
+// Linux per-thread performance counter for the instrumented benchmark binary.
+package smtcore
+
+import (
+	"fmt"
+	"os"
+	"runtime"
+	"strconv"
+	"syscall"
+	"unsafe"
+)
+
+var scopePhaseActive bool
+var scopePhaseSelection, scopePhaseVisits, scopeCounterFD int
+
+// bench_scope_restoration runs each Go benchmark calibration in a new
+// goroutine. Open the counter on that goroutine's thread and keep it there.
+func startScopeCounter() {
+	runtime.LockOSThread()
+	var err error
+	scopePhaseSelection, err = strconv.Atoi(os.Getenv("SCOPE_PHASE"))
+	if err != nil {
+		panic(err)
+	}
+	event, err := strconv.Atoi(os.Getenv("SCOPE_THREAD_EVENT"))
+	if err != nil {
+		panic(err)
+	}
+	// First 64 bytes of Linux perf_event_attr. A zero type selects hardware.
+	// Request enabled and running time to expose any counter multiplexing.
+	var attr struct {
+		Kind, Size                                    uint32
+		Config, Period, SampleType, ReadFormat, Flags uint64
+		Reserved                                      [16]byte
+	}
+	attr.Size = uint32(unsafe.Sizeof(attr))
+	attr.Config = uint64(event)
+	attr.ReadFormat = 3          // PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING
+	attr.Flags = 1 | 1<<5 | 1<<6 // disabled, exclude_kernel, exclude_hv
+	fd, _, errno := syscall.RawSyscall6(syscall.SYS_PERF_EVENT_OPEN, uintptr(unsafe.Pointer(&attr)),
+		0, ^uintptr(0), ^uintptr(0), 0, 0)
+	if errno != 0 {
+		panic(errno)
+	}
+	scopeCounterFD = int(fd)
+}
+
+func scopePhaseEvent(id int, begin bool) {
+	if !scopePhaseActive || id != scopePhaseSelection {
+		return
+	}
+	request := uintptr(0x2401) // PERF_EVENT_IOC_DISABLE on linux/amd64
+	if begin {
+		request = 0x2400
+		scopePhaseVisits++
+	} // PERF_EVENT_IOC_ENABLE
+	_, _, errno := syscall.RawSyscall(syscall.SYS_IOCTL, uintptr(scopeCounterFD), request, 0)
+	if errno != 0 {
+		panic(errno)
+	}
+}
+
+func finishScopeCounter() {
+	defer runtime.UnlockOSThread()
+	var values [3]uint64
+	n, _, errno := syscall.RawSyscall(syscall.SYS_READ, uintptr(scopeCounterFD), uintptr(unsafe.Pointer(&values[0])), unsafe.Sizeof(values))
+	if errno != 0 || n != unsafe.Sizeof(values) {
+		panic("unable to read the benchmark thread counter")
+	}
+	if err := syscall.Close(scopeCounterFD); err != nil {
+		panic(err)
+	}
+	fmt.Printf("SCOPE-THREAD %d %d %d\n", values[0], values[1], values[2])
+}

@@ -1,0 +1,72 @@
+package smtcore
+
+import (
+	"os"
+	"strconv"
+	"syscall"
+)
+
+var scopePhaseActive, scopePhaseReady bool
+var scopePhaseSelection, scopePhaseVisits, scopeControlFD, scopeAckFD int
+var scopeEnable = []byte("enable\n")
+var scopeDisable = []byte("disable\n")
+
+func openScopePhase() {
+	if scopePhaseReady {
+		return
+	}
+	var err error
+	scopePhaseSelection, err = strconv.Atoi(os.Getenv("SCOPE_PHASE"))
+	if err != nil {
+		panic(err)
+	}
+	scopeControlFD, err = syscall.Open(os.Getenv("SCOPE_CONTROL"), syscall.O_WRONLY, 0)
+	if err != nil {
+		panic(err)
+	}
+	scopeAckFD, err = syscall.Open(os.Getenv("SCOPE_ACK"), syscall.O_RDONLY, 0)
+	if err != nil {
+		panic(err)
+	}
+	scopePhaseReady = true
+}
+
+func scopePhaseEvent(id int, begin bool) {
+	if !scopePhaseActive || id != scopePhaseSelection {
+		return
+	}
+	command := scopeDisable
+	if begin {
+		scopePhaseVisits++
+		command = scopeEnable
+	}
+	for len(command) != 0 {
+		n, err := syscall.Write(scopeControlFD, command)
+		if err == syscall.EINTR {
+			continue
+		}
+		if err != nil || n <= 0 {
+			panic("perf control write failed")
+		}
+		command = command[n:]
+	}
+	// Some perf versions append a NUL after the acknowledgment.
+	var ack [4]byte
+	for used := 0; used < len(ack); {
+		n, err := syscall.Read(scopeAckFD, ack[used:])
+		if err == syscall.EINTR {
+			continue
+		}
+		if err != nil || n <= 0 {
+			panic("perf acknowledgment read failed")
+		}
+		used += n
+		if ack[0] == 0 {
+			copy(ack[:], ack[1:used])
+			used--
+		}
+	}
+	if string(ack[:]) != "ack\n" {
+		panic("unexpected perf acknowledgment")
+	}
+}

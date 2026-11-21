@@ -31,10 +31,15 @@ func (w *SMTWatchList) Reset() {
 	w.begin = len(w.literals)
 }
 
-// recycle empties a retired variable's list but keeps its storage for the
-// next variable created in the same slot (Go-only; the source frees it).
+// recycle releases retired clause pointers and keeps the buffers for the
+// next variable in this slot. Native resets the list when publishing the ID.
 func (w *SMTWatchList) recycle() {
-	clear(w.clauses)
+	// A single watched clause needs just one pointer store.
+	if len(w.clauses) == 1 {
+		w.clauses[0] = nil
+	} else {
+		clear(w.clauses)
+	}
 	w.clauses = w.clauses[:0]
 	w.begin = len(w.literals)
 }

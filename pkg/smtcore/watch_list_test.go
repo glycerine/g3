@@ -137,3 +137,27 @@ func TestSMTWatchListLiteralInsertAndNewestFirstRemovalAreAmortizedConstant(t *t
 		t.Fatal("release")
 	}
 }
+
+func TestSMTWatchListRecycleDropsRetiredClauses(t *testing.T) {
+	for _, count := range []int{0, 1, 3} {
+		var w SMTWatchList
+		for range count {
+			if err := w.InsertClause(&SMTClause{}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := w.InsertLiteral(SMTTrueLiteral); err != nil {
+			t.Fatal(err)
+		}
+		backing := w.Clauses()
+		w.recycle()
+		if w.Size() != 0 || cap(w.clauses) != cap(backing) {
+			t.Fatalf("recycle of %d clauses lost the buffer or left a watch", count)
+		}
+		for _, c := range backing {
+			if c != nil {
+				t.Fatalf("recycle of %d clauses retained a pointer", count)
+			}
+		}
+	}
+}

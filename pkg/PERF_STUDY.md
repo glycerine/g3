@@ -1748,3 +1748,25 @@ The most expensive excess in six isolates occurs while checking `ext:arm.step_no
 Two independently recorded stack pairs for check 71 put the quantifier queue on 76.5% and 76.9% of g3 samples and 71.3% and 71.8% of native samples. Within the complete check, the solver rewriter appeared on 28.6% and 29.5% of g3 samples versus 19.8% and 23.9% of native samples. These are inclusive stack counts. The queue invokes the rewriter and the candidate checker. This identifies work on candidate evaluation and rewriting that can benefit both the refinement and liveness isolates. [Stack samples and nearest-operation attribution](perf/ivy_apple/incremental_cost/dramc-check71-stack-samples.csv) · [Stack recorder](perf/ivy_apple/phase_stacks.py)
 
 To reproduce the ranking, collect a CSV with `check_samples.py` for the isolate and pass it to `rank_checks.py` with `--transcript ISOLATE NATIVE_STDOUT`. Check numbers are one-based. The percentage uses the median within-pair difference for the selected check divided by the median within-pair difference for all checks in the isolate.
+
+### Counting instructions inside a scoped pop
+
+I gated a hardware counter around the queue-enabled scope benchmark in both engines. The Go fixture pins its goroutine to one OS thread. Linux counts only user instructions on that thread between enable and disable. Every column below is the median of 11 runs on CPU 22. Each run excludes eight warm-up rounds, measures 5,000 intervals, and subtracts its own engine's empty-interval cost from the same round of the comparison. Enabled time equalled running time for every counter. Both fixtures verify that the 64 learned clauses retain their identity, bindings, literals and polarity. [Thread counter samples](perf/scope_restoration/pop_phases/scoped-thread.csv) · [Measurement driver](perf/scope_restoration/pop_phases/measure.py) · [Native probe](../src/test/perf/scope_phase_main.cpp)
+
+| Instructions per scoped pop or phase | g3 before | g3 with single-pointer clear | Native Z3 |
+|---|---:|---:|---:|
+| Complete pop | 237,816 | 228,023 | 144,723 |
+| Relevance pop | 25,213 | 25,209 | 8,036 |
+| Undo core trail | 73,811 | 63,552 | 19,658 |
+| Restore learned clauses | 116,871 | 116,827 | 89,214 |
+
+Native `undo_mk_bool_var` removes the variable from the branching queue, clears the expression-to-variable binding and pops its owning expression stack. It retains the per-variable arrays at their high-water size and resets the two watch lists when it publishes the ID again. Go drops its pointers to retired clauses, clears any gate and justification references, shortens its live vectors and releases the variable's AST reference. Those differences explain why the part timed as trail undo covers more work in Go. The complete pop also includes the subsequent republication in both engines. At the original layout the largest phase excess was **54,153 instructions in undo**, followed by **27,657 in restoration** and **17,177 in relevance**. The phase runs use separate processes, so their median differences need not sum to the total. [Native variable publication and undo](../src/smt/smt_internalizer.cpp) · [Go variable publication and undo](smtcore/smt_internalizer_state.go)
+
+A retiring watch list often contains exactly one clause in this fixture. Storing nil directly into that slot avoids Go's general pointer-range clearing call and drops the reference before the slot can be reused. Longer lists retain the same bulk clear. The change reduced median paired trail-undo instructions by **13.64%**, and complete-pop instructions by **4.36%**. A separate process-wide FIFO counter on CPU 32 also measured a reduction. In two uninstrumented 12-pair series, queue-enabled scoped-pop latency fell **6.99% on CPU 25 and 4.53% on CPU 28**. Whole-round elapsed time fell 6.20% and 2.72% respectively. Native remains faster on the scoped case. [Pointer clearing](smtcore/watch_list.go) · [Uninstrumented times](perf/scope_restoration/pop_phases/elapsed.csv) · [Process counter control](perf/scope_restoration/pop_phases/scoped-process.csv)
+
+All 18 counters at each of the 10,342 Apple checks, the 188 Raft proof searches and all 28 Raft mutation transcripts matched their references after the change. To repeat the phase measurement on Linux/amd64 with the in-tree native Makefile build, run the command below from `pkg/`. It creates the supplied output directory and compiles private instrumented copies of both solvers. Omitting `--thread-event` selects process-wide counters through `perf stat` control FIFOs. The per-phase wall time of an instrumented run includes measurement overhead. The elapsed-time comparison above uses the ordinary benchmark.
+
+```sh
+python3 perf/scope_restoration/pop_phases/measure.py --cpu 0 --thread-event instructions:u \
+  --pairs 11 --iterations 5008 --dir /tmp/g3-scoped-pop > /tmp/g3-scoped-pop.csv
+```
