@@ -2376,3 +2376,20 @@ In each of four additional paired runs per isolate, a thread-local Linux hardwar
 | Internalize the lemma | 5.00 | 1.08 | 3.72 | 0.81 |
 
 Intervals start and end at the queue's stage transitions. Counts include the observer's boundary code after subtracting one adjacent empty read per transition. The counter ran for the full enabled time in every observation. Setup and cleanup use different bookkeeping in each observer and are available separately in the CSV. The figures cover work inside candidate processing and exclude the rest of the verification call. On `rfn2`, the measured excess is **5.44 billion instructions during instance rewriting and 3.92 billion during lemma internalization**. The corresponding excess on `dramc_nb2` is 3.20 and 2.91 billion. The CSV retains totals by quantifier, generation, outcome and round. The driver keeps individual candidate observations in the selected output directory and checks them before aggregating. [All four matched rounds](perf/ivy_apple/quantifier_phases/nov22-candidate-instructions.csv.gz)
+
+### Both engines visit the same nodes on the expensive checks
+
+A separate operation-count build instrumented the Go solver and rebuilt the C++ fork, including every instantiation of its rewriter template. The following counts are identical between engines. Both builds ran the complete GoIvy isolates and matched the reference transcripts. [Census driver](perf/ivy_apple/quantifier_phases/operations.py) · [Native hooks](../src/test/perf/qi_operation_measurement.h) · [Operation counts](perf/ivy_apple/quantifier_phases/nov22-operation-counts.csv)
+
+| Operation inside candidate processing | rfn2 check 4 | dramc_nb2 check 71 |
+|---|---:|---:|
+| Node visits during substitution | 1,385,055 | 1,058,818 |
+| Node visits during instance rewriting | 2,907,596 | 1,688,398 |
+| Application-frame resumes during rewriting | 2,102,143 | 1,167,641 |
+| Activity-cache lookups during rewriting | 2,679,326 | 1,463,882 |
+| Activity-cache insert calls during rewriting | 657,644 | 290,084 |
+| Internalizer entries while adding lemmas | 2,767,051 | 1,897,556 |
+
+On check 4, both engines also made 593,078 clause-construction calls inside lemma internalization. Dividing the measured rewrite-stage instructions by its node visits gives about **2,467 instructions per visit for g3 and 595 for Z3**, including all work below those visits. Dividing the internalization stage by its entries gives about **1,806 and 389 instructions per entry**. The fourfold difference in these two stages comes from the cost of performing the same high-level work. The CSV also includes implementation-specific expression lookup and result-stack counters. Native Boolean lookups span multiple accessors and g3's expression-table read covers additional kinds of state, so their counts have different meanings.
+
+On the selected first pushes, each individual assertion-reduction pass also had exactly the same **total and distinct** node visits across engines. On `rfn2` push 4 the first macro-finding pass visited 97,500 nodes representing 4,097 distinct expressions. On `dramc_nb2` push 57 it visited 119,847 nodes representing 5,329 expressions. Value propagation made 32,257 visits to 2,441 distinct expressions and 42,476 visits to 3,740 respectively. The Go observer identified a live expression by manager, slot and generation. The native observer removed each address from its set on deletion so that reuse of the address counted as a new expression. These counts include repeated calls with changed substitutions or macro sets. They give an upper bound on opportunities to reuse results. [Per-pass observations](perf/ivy_apple/quantifier_phases/nov22-operation-passes.csv)
