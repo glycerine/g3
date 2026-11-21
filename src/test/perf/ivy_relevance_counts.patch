@@ -1,0 +1,193 @@
+--- a/src/smt/smt_relevancy.cpp
++++ b/src/smt/smt_relevancy.cpp
+@@ -21,6 +21,42 @@
+ #include "ast/ast_pp.h"
+ #include "ast/ast_ll_pp.h"
+ #include "ast/ast_smt2_pp.h"
++
++#include <atomic>
++#include <cstdio>
++
++enum relevance_counter {
++    count_mark_calls,
++    count_set_marks,
++    count_propagate_calls,
++    count_propagated_nodes,
++    count_assignment_events,
++    count_handler_visits,
++    count_positive_visits,
++    count_negative_visits,
++    count_or_calls,
++    count_and_calls,
++    count_all_calls,
++    count_all_children,
++    count_or_test,
++    count_and_test,
++    count_or_witness,
++    count_and_witness,
++    count_or_select,
++    count_and_select,
++    count_or_handlers,
++    count_and_handlers,
++    count_end
++};
++
++static std::atomic<unsigned long long> relevance_counts[count_end]{};
++
++void report_ivy_relevance_counts() {
++    std::fprintf(stderr, "REL-OPS");
++    for (auto const& value : relevance_counts)
++        std::fprintf(stderr, " %llu", value.load(std::memory_order_relaxed));
++    std::fputc('\n', stderr);
++}
+ 
+ namespace smt {
+ 
+@@ -303,6 +339,7 @@
+         }
+ 
+         void set_relevant(expr * n) {
++            ++relevance_counts[count_set_marks];
+             m_is_relevant.insert(n);
+             m_relevant_exprs.push_back(n);
+             m_context.relevant_eh(n);
+@@ -326,6 +363,7 @@
+            already marked. 
+         */
+         void mark_as_relevant(expr * n) override {
++            ++relevance_counts[count_mark_calls];
+             // Fork note: z3 4.7.1 could report models violating asserted
+             // formulas when smt.relevancy was raised after assertions were
+             // internalized with relevancy off (they were never marked here).
+@@ -355,11 +393,13 @@
+            \pre n is marked as relevant.
+         */
+         void propagate_relevant_app(app * n) {
++            ++relevance_counts[count_all_calls];
+             SASSERT(is_relevant_core(n));
+             unsigned j = n->get_num_args();
+             while (j > 0) {
+                 --j;
+                 mark_as_relevant(n->get_arg(j));
++                ++relevance_counts[count_all_children];
+             }
+         }
+         
+@@ -367,6 +407,7 @@
+            \brief Propagate relevancy for an or-application.
+         */
+         void propagate_relevant_or(app * n) {
++            ++relevance_counts[count_or_calls];
+             SASSERT(get_manager().is_or(n));
+             
+             lbool val    = m_context.find_assignment(n);
+@@ -384,16 +425,21 @@
+                 expr * true_arg = nullptr;
+                 unsigned num_args = n->get_num_args();
+                 for (unsigned i = 0; i < num_args; i++) {
++                    ++relevance_counts[count_or_test];
+                     expr * arg  = n->get_arg(i);
+                     if (m_context.find_assignment(arg) == l_true) {
+-                        if (is_relevant_core(arg))
++                        if (is_relevant_core(arg)) {
++                            ++relevance_counts[count_or_witness];
+                             return;
++                        }
+                         else if (!true_arg)
+                             true_arg = arg;
+                     }
+                 }
+-                if (true_arg)
++                if (true_arg) {
++                    ++relevance_counts[count_or_select];
+                     mark_as_relevant(true_arg);
++                }
+                 break;
+             } }
+         }
+@@ -402,22 +448,28 @@
+            \brief Propagate relevancy for an and-application.
+         */
+         void propagate_relevant_and(app * n) {
++            ++relevance_counts[count_and_calls];
+             lbool val    = m_context.find_assignment(n);
+             switch (val) {
+             case l_false: {
+                 expr * false_arg = nullptr;
+                 unsigned num_args = n->get_num_args();
+                 for (unsigned i = 0; i < num_args; i++) {
++                    ++relevance_counts[count_and_test];
+                     expr * arg  = n->get_arg(i);
+                     if (m_context.find_assignment(arg) == l_false) {
+-                        if (is_relevant_core(arg))
+-                            return; 
++                        if (is_relevant_core(arg)) {
++                            ++relevance_counts[count_and_witness];
++                            return;
++                        }
+                         else if (!false_arg)
+                             false_arg = arg;
+                     }
+                 }
+-                if (false_arg)
++                if (false_arg) {
++                    ++relevance_counts[count_and_select];
+                     mark_as_relevant(false_arg);
++                }
+                 break;
+             }
+             case l_undef:
+@@ -456,6 +508,7 @@
+            relevant expressions.
+         */
+         void propagate() override {
++            ++relevance_counts[count_propagate_calls];
+             if (m_propagating) {  
+                 return;  
+             }  
+@@ -468,6 +521,7 @@
+                 TRACE("propagate_relevancy", tout << "marking as relevant:\n" << mk_bounded_pp(n, m) << "\n";);
+                 SASSERT(is_relevant_core(n));
+                 m_qhead++;
++                ++relevance_counts[count_propagated_nodes];
+                 if (is_app(n)) {
+                     family_id fid = to_app(n)->get_family_id();
+                     if (fid == m.get_basic_family_id()) {
+@@ -494,6 +548,7 @@
+                 relevancy_ehs * ehs = get_handlers(n);
+                 while (ehs != nullptr) {
+                     ehs->head()->operator()(*this, n);
++                    ++relevance_counts[count_handler_visits];
+                     ehs = ehs->tail();
+                 }
+             }
+@@ -504,6 +559,7 @@
+         }
+ 
+         void assign_eh(expr * n, bool val) override {
++            ++relevance_counts[count_assignment_events];
+             if (!enabled())
+                 return;
+             ast_manager & m = get_manager();
+@@ -516,6 +572,7 @@
+             }
+             relevancy_ehs * ehs = get_watches(n, val);
+             while (ehs != nullptr) {
++                ++relevance_counts[val ? count_positive_visits : count_negative_visits];
+                 ehs->head()->operator()(*this, n, val);
+                 ehs = ehs->tail();
+             }
+@@ -643,11 +700,13 @@
+     };
+ 
+     void and_relevancy_eh::operator()(relevancy_propagator & rp) {
++        ++relevance_counts[count_and_handlers];
+         if (rp.is_relevant(m_parent))
+             static_cast<relevancy_propagator_imp&>(rp).propagate_relevant_and(m_parent);
+     }
+ 
+     void or_relevancy_eh::operator()(relevancy_propagator & rp) {
++        ++relevance_counts[count_or_handlers];
+         if (rp.is_relevant(m_parent))
+             static_cast<relevancy_propagator_imp&>(rp).propagate_relevant_or(m_parent);
+     }

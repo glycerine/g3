@@ -1,0 +1,97 @@
+--- a/pkg/smtcore/smt_relevancy.go
++++ b/pkg/smtcore/smt_relevancy.go
+@@ -3,8 +3,11 @@
+ // Source: src/smt/smt_relevancy.h and src/smt/smt_relevancy.cpp.
+ 
+ import (
++	"fmt"
+ 	"github.com/glycerine/g3/pkg/ast"
+ 	"github.com/glycerine/g3/pkg/util/lbool"
++	"os"
++	"sync/atomic"
+ )
+ 
+ type smtRelevancyHandlerKind uint8
+@@ -521,11 +524,26 @@
+ }
+ 
+ func (p *SMTRelevancyPropagator) propagateOr(expression ast.ASTHandle) error {
++	path := noVariable
++	if state := p.internalizer; state != nil {
++		if variable, ok := state.boolVar.lookup(expression); ok {
++			path = noGate
++			if gate := state.boolGate(variable); gate != nil {
++				path = noLiterals
++				if gate.literals != nil {
++					path = boundGate
++				}
++			}
++		}
++	}
++	counts := &disjunctionCounts[path]
++	counts[orCalls].Add(1)
+ 	value := p.assignment(expression)
+ 	if value == lbool.Undef {
+ 		value = lbool.True
+ 	}
+ 	if value == lbool.False {
++		counts[markAll].Add(1)
+ 		return p.propagateAll(expression)
+ 	}
+ 	if value != lbool.True {
+@@ -537,6 +555,7 @@
+ 	}
+ 	var selected ast.ASTHandle
+ 	for index := uint32(0); index < arguments.Count(); index++ {
++		counts[childTests].Add(1)
+ 		argument, err := arguments.At(index)
+ 		if err != nil {
+ 			return err
+@@ -549,6 +568,7 @@
+ 		}
+ 		if value == lbool.True {
+ 			if p.context.relevant.get(argument) {
++				counts[relevantWitness].Add(1)
+ 				return nil
+ 			}
+ 			if selected.IsNull() {
+@@ -557,6 +577,7 @@
+ 		}
+ 	}
+ 	if !selected.IsNull() {
++		counts[selectedChild].Add(1)
+ 		return p.MarkRelevant(selected)
+ 	}
+ 	return nil
+@@ -1037,3 +1058,31 @@
+ 	p.qhead = 0
+ 	return nil
+ }
++
++const (
++	noVariable = iota
++	noGate
++	noLiterals
++	boundGate
++	pathCount
++)
++const (
++	orCalls = iota
++	childTests
++	relevantWitness
++	selectedChild
++	markAll
++	eventCount
++)
++
++var disjunctionCounts [pathCount][eventCount]atomic.Uint64
++
++func ReportRelevanceCounts() {
++	fmt.Fprint(os.Stderr, "ROOT-CENSUS")
++	for i := range disjunctionCounts {
++		for j := range disjunctionCounts[i] {
++			fmt.Fprint(os.Stderr, " ", disjunctionCounts[i][j].Load())
++		}
++	}
++	fmt.Fprintln(os.Stderr)
++}

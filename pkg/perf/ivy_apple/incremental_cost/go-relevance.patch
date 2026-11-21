@@ -1,0 +1,198 @@
+--- a/pkg/smtcore/smt_relevancy.go
++++ b/pkg/smtcore/smt_relevancy.go
+@@ -3,8 +3,11 @@
+ // Source: src/smt/smt_relevancy.h and src/smt/smt_relevancy.cpp.
+ 
+ import (
++	"fmt"
+ 	"github.com/glycerine/g3/pkg/ast"
+ 	"github.com/glycerine/g3/pkg/util/lbool"
++	"os"
++	"sync/atomic"
+ )
+ 
+ type smtRelevancyHandlerKind uint8
+@@ -137,6 +140,7 @@
+ // of n's class without checking whether the member is already relevant, so
+ // a member can be recorded (and relevant_eh run) twice.
+ func (p *SMTRelevancyPropagator) setRelevant(expression ast.ASTHandle) error {
++	relevanceCounts[countSetMarks].Add(1)
+ 	p.context.relevant.set(expression, true)
+ 	// m_relevant_exprs is an expr_ref_vector: it owns a reference.
+ 	if err := p.context.manager.IncRef(expression); err != nil {
+@@ -151,6 +155,7 @@
+ }
+ 
+ func (p *SMTRelevancyPropagator) MarkRelevant(expression ast.ASTHandle) error {
++	relevanceCounts[countMarkCalls].Add(1)
+ 	if p == nil || p.context == nil {
+ 		return ast.ErrASTHandle
+ 	}
+@@ -226,11 +231,13 @@
+ 		}
+ 		return nil
+ 	case smtRelevancyAnd:
++		relevanceCounts[countAndHandlers].Add(1)
+ 		if p.IsRelevant(handler.target) {
+ 			return p.propagateAnd(handler.target)
+ 		}
+ 		return nil
+ 	case smtRelevancyOr:
++		relevanceCounts[countOrHandlers].Add(1)
+ 		if p.IsRelevant(handler.target) {
+ 			return p.propagateOr(handler.target)
+ 		}
+@@ -489,11 +496,13 @@
+ }
+ 
+ func (p *SMTRelevancyPropagator) propagateAll(expression ast.ASTHandle) error {
++	relevanceCounts[countAllCalls].Add(1)
+ 	arguments, _, err := p.gateArguments(expression)
+ 	if err != nil {
+ 		return err
+ 	}
+ 	for index := arguments.Count(); index > 0; index-- {
++		relevanceCounts[countAllChildren].Add(1)
+ 		argument, err := arguments.At(index - 1)
+ 		if err != nil {
+ 			return err
+@@ -521,6 +530,7 @@
+ }
+ 
+ func (p *SMTRelevancyPropagator) propagateOr(expression ast.ASTHandle) error {
++	relevanceCounts[countOrCalls].Add(1)
+ 	value := p.assignment(expression)
+ 	if value == lbool.Undef {
+ 		value = lbool.True
+@@ -538,6 +548,7 @@
+ 	var selected ast.ASTHandle
+ 	for index := uint32(0); index < arguments.Count(); index++ {
+ 		argument, err := arguments.At(index)
++		relevanceCounts[countOrTest].Add(1)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -549,6 +560,7 @@
+ 		}
+ 		if value == lbool.True {
+ 			if p.context.relevant.get(argument) {
++				relevanceCounts[countOrWitness].Add(1)
+ 				return nil
+ 			}
+ 			if selected.IsNull() {
+@@ -557,12 +569,14 @@
+ 		}
+ 	}
+ 	if !selected.IsNull() {
++		relevanceCounts[countOrSelect].Add(1)
+ 		return p.MarkRelevant(selected)
+ 	}
+ 	return nil
+ }
+ 
+ func (p *SMTRelevancyPropagator) propagateAnd(expression ast.ASTHandle) error {
++	relevanceCounts[countAndCalls].Add(1)
+ 	value := p.assignment(expression)
+ 	if value == lbool.True {
+ 		return p.propagateAll(expression)
+@@ -577,6 +591,7 @@
+ 	var selected ast.ASTHandle
+ 	for index := uint32(0); index < arguments.Count(); index++ {
+ 		argument, err := arguments.At(index)
++		relevanceCounts[countAndTest].Add(1)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -588,6 +603,7 @@
+ 		}
+ 		if value == lbool.False {
+ 			if p.context.relevant.get(argument) {
++				relevanceCounts[countAndWitness].Add(1)
+ 				return nil
+ 			}
+ 			if selected.IsNull() {
+@@ -596,6 +612,7 @@
+ 		}
+ 	}
+ 	if !selected.IsNull() {
++		relevanceCounts[countAndSelect].Add(1)
+ 		return p.MarkRelevant(selected)
+ 	}
+ 	return nil
+@@ -626,6 +643,7 @@
+ }
+ 
+ func (p *SMTRelevancyPropagator) Propagate() error {
++	relevanceCounts[countPropagateCalls].Add(1)
+ 	if p == nil || p.context == nil {
+ 		return ast.ErrASTHandle
+ 	}
+@@ -636,6 +654,7 @@
+ 	defer func() { p.propagating = false }()
+ 	for p.qhead < len(p.relevant) {
+ 		expression := p.relevant[p.qhead]
++		relevanceCounts[countPropagatedNodes].Add(1)
+ 		p.tracePropagate(expression)
+ 		p.qhead++
+ 		kind, err := p.context.manager.GetKind(expression)
+@@ -862,6 +881,7 @@
+ }
+ 
+ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value bool, variable int32) error {
++	relevanceCounts[countAssignmentEvents].Add(1)
+ 	if p == nil || p.context == nil {
+ 		return ast.ErrASTHandle
+ 	}
+@@ -920,6 +940,14 @@
+ 	for index := table.head(expression); index != 0; {
+ 		cell := table.link(index)
+ 		index = cell.previous
++		switch table {
++		case &p.handlers:
++			relevanceCounts[countHandlerVisits].Add(1)
++		case &p.positiveWatch:
++			relevanceCounts[countPositiveVisits].Add(1)
++		case &p.negativeWatch:
++			relevanceCounts[countNegativeVisits].Add(1)
++		}
+ 		if err := p.invokeRef(cell.handler); err != nil {
+ 			return err
+ 		}
+@@ -1037,3 +1065,37 @@
+ 	p.qhead = 0
+ 	return nil
+ }
++
++const (
++	countMarkCalls = iota
++	countSetMarks
++	countPropagateCalls
++	countPropagatedNodes
++	countAssignmentEvents
++	countHandlerVisits
++	countPositiveVisits
++	countNegativeVisits
++	countOrCalls
++	countAndCalls
++	countAllCalls
++	countAllChildren
++	countOrTest
++	countAndTest
++	countOrWitness
++	countAndWitness
++	countOrSelect
++	countAndSelect
++	countOrHandlers
++	countAndHandlers
++	countRelevanceEnd
++)
++
++var relevanceCounts [countRelevanceEnd]atomic.Uint64
++
++func ReportRelevanceCounts() {
++	fmt.Fprint(os.Stderr, "REL-OPS")
++	for i := range relevanceCounts {
++		fmt.Fprint(os.Stderr, " ", relevanceCounts[i].Load())
++	}
++	fmt.Fprintln(os.Stderr)
++}
