@@ -1316,3 +1316,16 @@ With tracing compiled out, 135 complete runs covered every isolate declared by t
 | `tprops` | 700 | 3 | 37.18 | **35.27** | 35.61 |
 
 The largest median gaps to native Z3 in this panel occur on `cf_live` (17.25 s) and `rfn` (10.27 s). The equality lookup improved the first and lengthened the proof search on the second. Keep both as end-to-end controls for changes to quantifier matching, substitution and incremental search. `dramc_nb2` remains the frontend and trace-throughput control. In the earlier instrumented `dramc_nb2` run, the actual solver checks took 6.93 s in g3 and 3.05 s in native Z3. [Solver-call measurements](perf/ivy_apple/solver-times.csv)
+
+## Unchanged log entries in Raft obligation 251
+
+Obligation 251 compares entries in two logs after a point update. The previous specialization established that one log in a counterexample may be chosen as the updated log. If the other log had that same identity, both equalities in the conclusion would compare an expression with itself. The counterexample therefore uses two different logs. At the other log, the update preserves both the entry predicate and the entry value. g3 now gives these two equalities and the disequality to the private order solver. It checks the shape of the conclusion, the individual update definitions, and the arguments at each access. The same reasoning applies to obligations 113 and 205. [Implementation](api/internal/order/transition_unchanged.go) · [Changed ground assertions](perf/ivy_raft/unchanged/final-assertions.csv)
+
+| Search work | Decisions before → after | Quantifier instances before → after | Conflicts before → after | Resource counts before → after |
+|---|---:|---:|---:|---:|
+| Obligation 251 | 288 → **193** | 1,872 → **921** | 115 → **72** | 58,060 → **36,891** |
+| All 185 private checks | 12,184 → **11,843** | 22,043 → **20,603** | 1,871 → **1,805** | 3,190,807 → **3,105,501** |
+
+In 24 alternating pairs of full 419-check runs on CPUs 8 and 13, median elapsed time went from 5.13 s to 5.01 s. The candidate won 21 pairs. The median within-pair reduction was 1.2% in elapsed time and 1.4% in user CPU time. Both builds used GoIvy `f3dee089f` with one Go CPU and identical output. Across 28 mutated protocols, the new build agreed with both native frontends on all 11,732 outcomes, including 77 failures. [Paired timings](perf/ivy_raft/unchanged/paired.csv) · [Changed search counters](perf/ivy_raft/unchanged/search.csv) · [Mutation runs](perf/ivy_raft/unchanged/protocol-mutations.csv)
+
+A separate native verifier uses the counterexample goal and ground defining equations at the two accesses. It first confirms these assumptions are jointly satisfiable. Native Z3 then refutes the negation of each of the nine new facts individually, with the universal induction hypothesis and other protocol premises absent. Run `python3 -B perf/ivy_raft/unchanged/verify.py --native ../build/z3` from `pkg`. [Verifier](perf/ivy_raft/unchanged/verify.py)

@@ -18,11 +18,11 @@ type frameMatcher struct {
 // If every changed application is outside its update, the old property and
 // new property coincide, contradicting the ground lemma. A counterexample
 // therefore puts at least one of the collected witnesses at the pivot.
-func (m *inductionMatcher) specialize(lemma, goal int32, steps uint32) (int32, int32, uint32) {
+func (m *inductionMatcher) specialize(lemma, goal int32, steps uint32) (int32, int32, []int32, uint32) {
 	f := frameMatcher{instanceMatcher: instanceMatcher{t: m.t, limit: min(steps, 16384)}}
 	for _, pair := range m.functions {
 		if pair.premise != pair.goal && !f.findUpdates(pair) {
-			return lemma, goal, f.work
+			return lemma, goal, nil, f.work
 		}
 	}
 	target := f.t.children[f.t.terms[goal].start]
@@ -50,12 +50,17 @@ func (m *inductionMatcher) specialize(lemma, goal int32, steps uint32) (int32, i
 		oldLemma, ok := f.replace(lemma, from, update.pivot)
 		if ok {
 			if newGoal, ok := f.replace(goal, from, update.pivot); ok {
-				return oldLemma, newGoal, f.work
+				var facts []int32
+				if len(witnesses) == 2 {
+					other := min(witnesses[0], witnesses[1])
+					facts = f.offPivotEqualities(oldLemma, newGoal, other, update.pivot)
+				}
+				return oldLemma, newGoal, facts, f.work
 			}
 		}
 		break
 	}
-	return lemma, goal, f.work
+	return lemma, goal, nil, f.work
 }
 
 func (f *frameMatcher) findUpdates(pair functionPair) bool {

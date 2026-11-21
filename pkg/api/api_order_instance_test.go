@@ -223,3 +223,48 @@ func TestOrderProofPointUpdateWitness(t *testing.T) {
 		})
 	}
 }
+
+func TestOrderProofUnchangedAccessAtOtherWitness(t *testing.T) {
+	const decls = `(define-sort A () (_ BitVec 2))
+(declare-const a A)(declare-const b A)(declare-const c A)(declare-const d A)(declare-const p A)
+(declare-fun gate (A A) Bool)(declare-fun edge (A A) Bool)
+(declare-fun old (A A) A)(declare-fun updated (A A) A)
+(assert (forall ((i A)(j A)) (= (updated i j) (ite (= i p) p (old i j)))))
+`
+	for _, tc := range []struct {
+		name, conclusion string
+		changed          bool
+	}{
+		{"reflexive conclusion", "(= (old x w) (old y w))", true},
+		{"conclusion also requires a predicate", "(and (= (old x w) (old y w)) (edge w z))", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			premise := "(=> (and (gate x z) (gate y z)) " + tc.conclusion + ")"
+			goal := strings.NewReplacer("old", "updated", " x", " a", " y", " b", " z", " c", " w", " d").Replace(premise)
+			c, s := orderSolver(t, decls+"(assert (forall ((x A)(y A)(z A)(w A)) "+premise+"))(assert (not "+goal+"))")
+			manager, err := c.Manager()
+			astTestMust(t, err)
+			assertions, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			result, ok, err := order.ForProof(manager, assertions, orderProofSteps)
+			astTestMust(t, err)
+			if !ok || result.Refuted || result.Order.Text == "" {
+				t.Fatal("expected an order problem")
+			}
+			last := result.Order.Text[result.Order.LastAssertionStart:]
+			if strings.Contains(last, "(not (= ") != tc.changed {
+				t.Fatalf("unexpected ground facts in %s", last)
+			}
+			proved, err := s.ProveUnsatByOrderAbstraction()
+			astTestMust(t, err)
+			if proved {
+				t.Fatal("the update at the pivot can change the property")
+			}
+			got, err := s.Check()
+			astTestMust(t, err)
+			if got != lbool.True {
+				t.Fatalf("expected a concrete counterexample, got %v", got)
+			}
+		})
+	}
+}

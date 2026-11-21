@@ -45,12 +45,14 @@ func (t *inference) addInductionInstance(steps uint32) uint32 {
 			m.changed > 0 && m.changed < len(m.touched) {
 			lemma := m.instantiate(q.value)
 			var spent uint32
-			lemma, goal, spent = m.specialize(lemma, goal, steps-m.work)
+			var facts []int32
+			lemma, goal, facts, spent = m.specialize(lemma, goal, steps-m.work)
 			m.work += spent
 			start := uint32(len(t.children))
 			t.children = append(t.children, goal, lemma)
+			t.children = append(t.children, facts...)
 			t.assertions[last] = int32(len(t.terms))
-			t.terms = append(t.terms, expression{op: opAnd, domain: boolean, start: start, count: 2})
+			t.terms = append(t.terms, expression{op: opAnd, domain: boolean, start: start, count: uint32(2 + len(facts))})
 			break
 		}
 		for _, v := range m.touched {
