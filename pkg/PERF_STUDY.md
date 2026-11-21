@@ -4,7 +4,7 @@ The AST arena is part of g3's design. Current performance work keeps it and meas
 
 **A byte per e-graph trail entry and shared storage for Boolean handles cut idle scope memory by 8.4% across 1,024 solvers.** Each solver saved 5,857 bytes after a 128-atom scope. With 2,048 atoms the saving was 78,824 bytes per solver. [Worker memory and pop measurements](#compact-e-graph-trails-across-independent-solvers)
 
-**Preparing frequently checked quantifier bodies cut g3’s 16-equality queue check from 2,254 ns to 1,185 ns.** On Apple’s `dramc_nb2` the hardest check retired 9.6% fewer instructions on the solver thread, with the same proof search. [Quantifier measurements and memory cost](#preparing-frequently-checked-quantifier-bodies)
+**Preparing frequently checked quantifier bodies cut g3’s 16-equality queue check from 2,254 ns to 1,185 ns.** On Apple’s `dramc_nb2` the hardest check retired 9.5% fewer instructions on the solver thread, with the same proof search. [Quantifier measurements and memory cost](#preparing-frequently-checked-quantifier-bodies)
 
 **Apple `rfn2` now takes 8.02% fewer instructions and 10.92% less elapsed time** across 12 paired whole-isolate runs. Reusing solver-local child records nearly halved the number of child tests, with all 10,342 Apple checks matching native search. [Whole-isolate and worker measurements](#reusing-child-records-in-asserted-disjunction-watches)
 
@@ -1791,6 +1791,8 @@ I combined the checked-in Raft and Apple `rfn2` Go CPU profiles and used the res
 
 The profile lowered instruction counts on each workload, including five Apple isolates outside the training pair. Elapsed results varied. These lanes ran concurrently with other measurements, and `rfn` and `e2e` both took longer with PGO in this series. On `dramc_nb2`, the elapsed medians were 146.28 s for g3, 122.70 s for g3 with PGO and 132.53 s for native. Those times include the frontend and all 2,479 proofs. The separate solver-only measurements above account for the much larger g3 instruction count on check 71.
 
+A second elapsed-time comparison ran ten alternating pairs per workload across two CPUs. The median within-pair time reductions were 4.94% for `e2e` (8 of 10 wins), 3.53% for Raft (7), 1.09% for `rfn` (7) and 3.69% for `rfn2` (7). Only one pair per Apple isolate and two Raft pairs had both runs below 20% SMT-sibling activity. These observations support an opt-in profile. The samples include the load observations needed for replication on a quieter host. [All 40 elapsed-time pairs](perf/ivy_apple/compiler_profiles/elapsed-pairs.csv)
+
 To build the same profile from `pkg/`, run the first command below. Run the build command in the GoIvy checkout with its local g3 replacement. For a paired control, substitute `-pgo=off` and choose another output binary. The comparison driver accepts both binaries and the original reference transcript. It records how busy the chosen logical CPU and its SMT sibling were during each timed process. [Apple input profile](perf/ivy_apple/expression_pages/rfn2.pprof) · [Raft input profile](perf/ivy_raft/quantifier_profile/raft.pprof) · [Elapsed-time comparison driver](perf/ivy_apple/compiler_profiles/compare.py)
 
 ```sh
@@ -1838,16 +1840,18 @@ python3 perf/scope_restoration/pop_phases/variables.py --cpu 0 --pairs 9 --itera
 
 ### Instructions on the solver thread for each Apple check
 
-GoIvy runs each incremental check on a locked OS thread for this measurement. A Linux hardware counter measures user-mode instructions on that thread between entry and return from the same adapter call in each backend. Each check also has an immediately preceding empty interval. The analysis subtracts that control and rejects multiplexed readings. Other threads, including concurrent GC workers, can contribute to the existing process-wide measurements. Each binary must reproduce the entire reference stdout before the driver emits any data. These are the first paired runs at g3 `dc99ddee8` and GoIvy `3ef4b9020`. [Measurements for all 2,874 checks in both engines](perf/ivy_apple/incremental_cost/solver-thread-counts.csv.gz) · [Measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py) · [Counter boundaries](perf/ivy_apple/incremental_cost/thread_counter.go.txt)
+GoIvy runs each incremental check on a locked OS thread for this measurement. A Linux hardware counter measures user-mode instructions on that thread between entry and return from the same adapter call in each backend. Each check also has an immediately preceding empty interval. The analysis subtracts that control and rejects multiplexed readings. Other threads, including concurrent GC workers, can contribute to the existing process-wide measurements. Each binary must reproduce the entire reference stdout before the driver emits any data. These are medians of four pairs each on `cf_live` and `dramc_nb2` and five each on `rfn` and `rfn2`, at g3 `dc99ddee8` and GoIvy `3ef4b9020`. [Measurements for all 2,874 checks in both engines](perf/ivy_apple/incremental_cost/solver-thread-counts.csv.gz) · [Measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py) · [Counter boundaries](perf/ivy_apple/incremental_cost/thread_counter.go.txt)
 
 | Isolate | Checks | g3, all checks (B instructions) | Z3, all checks (B) | Largest excess at check | g3 there (B) | Z3 there (B) | Share of isolate gap |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `dramc_nb2` | 2,479 | 60.95 | 15.70 | 71 | 24.90 | 6.99 | 40% |
-| `rfn2` | 26 | 111.39 | 35.48 | 4 | 59.05 | 20.86 | 50% |
-| `rfn` | 33 | 97.41 | 29.50 | 5 | 51.48 | 17.02 | 51% |
-| `cf_live` | 336 | 123.17 | 34.00 | 130 | 39.99 | 12.70 | 31% |
+| `dramc_nb2` | 2,479 | 60.92 | 15.70 | 71 | 24.92 | 6.99 | 40% |
+| `rfn2` | 26 | 111.41 | 35.48 | 4 | 59.05 | 20.86 | 50% |
+| `rfn` | 33 | 97.44 | 29.50 | 5 | 51.48 | 17.02 | 51% |
+| `cf_live` | 336 | 123.16 | 34.00 | 130 | 39.95 | 12.70 | 31% |
 
-The largest gap on each isolate is the same obligation identified by process-wide sampling. On `dramc_nb2` check 71 alone, matching Z3 would save 17.91 billion of the 45.25 billion extra instructions g3 executed in solver calls. Frontend translation and time spent on other threads lie outside these intervals. [Obligation names and source locations](perf/ivy_apple/incremental_cost/nine-isolate-largest-gaps.csv)
+The largest gap on each isolate is the same obligation identified by process-wide sampling. On `dramc_nb2` check 71 alone, matching Z3 would save 17.93 billion of the 45.21 billion extra instructions g3 executed in solver calls. Frontend translation and time spent on other threads lie outside these intervals. [Obligation names and source locations](perf/ivy_apple/incremental_cost/nine-isolate-largest-gaps.csv)
+
+Three separate pairs counted all process threads, enabling their counters only inside or only outside solver calls. Inside `dramc_nb2` checks, the medians were 63.15 billion instructions in g3 and 15.74 billion in Z3. Outside checks, including frontend translation, g3 used 457.26 billion and native used 605.87 billion. On check 71 alone all process threads used 25.89 billion and 6.99 billion. This explains how a complete g3 invocation can finish earlier even as its solver thread spends substantially more on the same proof. [Process-wide phase measurements](perf/ivy_apple/incremental_cost/dramc-phases.csv) · [Gating driver](perf/ivy_apple/phase_counters.py)
 
 Run from `pkg/` on Linux/amd64 with access to hardware counters, passing complete known-good stdout from the same input path.
 
@@ -1872,14 +1876,14 @@ These are medians of 11 rotated rounds on CPU 42. Each row measures 100,000 quer
 | 16 | First | 412 ns | 324 ns | 179 ns | 107 ns |
 | 16 | Last | 2,254 ns | 1,185 ns | 1,042 ns | 799 ns |
 
-The first complete three-engine runs used one pinned CPU per isolate and measured every check on the solver thread. The baseline predates this change, with GoIvy fixed at `3ef4b9020`. Each number counts billions of user instructions after subtracting the paired empty interval. Native’s figures show how much of the gap remains when each solver performs the same search. [All check-level measurements](perf/ivy_apple/candidate_checker/prepared-thread-counts.csv.gz) · [Measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py)
+The three-engine comparison used one pinned CPU per isolate and measured every check on the solver thread. The table gives medians of four runs per engine for `dramc_nb2` and `cf_live`, and five for `rfn` and `rfn2`. The baseline predates this change, with GoIvy fixed at `3ef4b9020`. Each number counts billions of user instructions after subtracting the paired empty interval. Native’s figures show how much of the gap remains when each solver performs the same search. [All check-level measurements](perf/ivy_apple/candidate_checker/prepared-thread-counts.csv.gz) · [Measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py)
 
 | Isolate | g3 before | g3 after | Z3 | Hardest check | g3 there, before → after | Z3 there |
 |---|---:|---:|---:|---:|---:|---:|
-| `dramc_nb2` | 61.09 | 57.49 | 15.70 | 71 | 24.97 → 22.58 | 6.99 |
-| `rfn2` | 110.92 | 102.22 | 35.48 | 4 | 58.85 → 53.37 | 20.86 |
-| `rfn` | 97.47 | 90.58 | 29.50 | 5 | 51.30 → 47.33 | 17.02 |
-| `cf_live` | 122.88 | 115.39 | 34.00 | 130 | 40.00 → 36.98 | 12.70 |
+| `dramc_nb2` | 61.08 | 57.42 | 15.70 | 71 | 24.99 → 22.61 | 6.99 |
+| `rfn2` | 111.25 | 102.29 | 35.48 | 4 | 59.02 → 53.37 | 20.86 |
+| `rfn` | 97.41 | 90.58 | 29.50 | 5 | 51.42 → 47.24 | 17.02 |
+| `cf_live` | 122.85 | 115.54 | 34.00 | 130 | 39.98 → 37.08 | 12.70 |
 
 The optimized build matched all 10,342 native Apple check results and 18 search counters per check. It also matched the 28 Raft reference variants and the 188 private Raft search records. On `rfn` check 29, 611,204 ordered records of candidates, temporary ASTs, disequality checks and congruence bucket registrations matched the previous build. This last check caught an early prototype that returned the correct verdict but reused a negative equality at a different reference count. A focused test now varies the owning references and checks which sort the solver’s last temporary equality holds. [Regression tests](smtcore/smt_checker_candidate_test.go)
 
