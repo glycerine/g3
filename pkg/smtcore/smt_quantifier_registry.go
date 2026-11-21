@@ -75,6 +75,9 @@ func (r *SMTQuantifierRegistry) Delete(quantifier ast.ASTHandle) error {
 			return err
 		}
 	}
+	if stat := r.statistics[quantifier]; stat != nil {
+		stat.candidateBody = nil
+	}
 	delete(r.statistics, quantifier)
 	r.quantifiers = r.quantifiers[:len(r.quantifiers)-1]
 	return nil
@@ -297,6 +300,11 @@ func (r *SMTQuantifierRegistry) Reset() error {
 		return err
 	}
 	r.fingerprints.Reset()
+	for _, stat := range r.statistics {
+		if stat != nil {
+			stat.candidateBody = nil
+		}
+	}
 	r.statistics = make(map[ast.ASTHandle]*SMTQuantifierStat)
 	r.quantifiers = nil
 	r.numInstances = 0

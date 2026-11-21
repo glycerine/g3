@@ -209,6 +209,16 @@ func (c *SMTCheckerContext) isDisequal(first, second *SMTEnode) bool {
 	return found
 }
 
+func (c *SMTCheckerContext) matchesEquality(decl ast.ASTHandle, left, right *SMTEnode, want bool) (bool, error) {
+	if left == nil || right == nil || !c.isRelevant(left.owner) || !c.isRelevant(right.owner) {
+		return false, nil
+	}
+	if want {
+		return left.root == right.root, nil
+	}
+	return c.checkDisequality(decl, left, right)
+}
+
 // context::is_diseq tests the Boolean literal of the congruent equality's
 // root. Its relevance can differ from that of an earlier false equality
 // recorded on the argument classes.
@@ -283,7 +293,8 @@ func (c *SMTCheckerContext) releaseDiseqTmp() error {
 // m_to_enode_cache), and caches only expressions whose reference count
 // exceeds one.
 type SMTChecker struct {
-	context *SMTCheckerContext
+	candidateMemo []smtCandidateMemo
+	context       *SMTCheckerContext
 	// cache holds m_is_true_cache[2] and m_to_enode_cache.
 	cache    smtCheckerCache
 	bindings []*SMTEnode
@@ -364,14 +375,20 @@ func (c *SMTChecker) fixedArgs(expression ast.ASTHandle, n uint32, out []ast.AST
 }
 
 func (c *SMTChecker) congruentEnode(declaration ast.ASTHandle, arguments []*SMTEnode) (*SMTEnode, error) {
-	if table := c.context.congruence; table != nil {
-		// context::get_enode_eq_to: the m_cg_table entry, which holds only
-		// congruence roots with congruence closure enabled.
+	var commutative bool
+	if c.context.congruence != nil {
 		flags, err := c.context.manager.GetFuncDeclFlags(declaration)
 		if err != nil {
 			return nil, err
 		}
-		found, err := table.FindApp(declaration, arguments, flags.Commutative)
+		commutative = flags.Commutative
+	}
+	return c.congruentEnodeWithFlags(declaration, commutative, arguments)
+}
+
+func (c *SMTChecker) congruentEnodeWithFlags(declaration ast.ASTHandle, commutative bool, arguments []*SMTEnode) (*SMTEnode, error) {
+	if table := c.context.congruence; table != nil {
+		found, err := table.FindApp(declaration, arguments, commutative)
 		if err != nil || found == nil || !c.context.isRelevant(found.owner) {
 			return nil, err
 		}
@@ -553,13 +570,10 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, header ast.ASTNodeHeade
 				return false, err
 			}
 			right, err := c.enodeEqualTo(arguments[1])
-			if err != nil || left == nil || right == nil || !c.context.isRelevant(left.owner) || !c.context.isRelevant(right.owner) {
+			if err != nil {
 				return false, err
 			}
-			if value {
-				return left.root == right.root, nil
-			}
-			return c.context.checkDisequality(header.Decl, left, right)
+			return c.context.matchesEquality(header.Decl, left, right, value)
 		}
 	}
 	node, err := c.enodeWithHeader(expression, header)
@@ -596,7 +610,7 @@ func (c *SMTChecker) check(expression ast.ASTHandle, value bool) (bool, error) {
 	return result, err
 }
 
-func (c *SMTChecker) run(expression ast.ASTHandle, value bool, bindings []*SMTEnode) (bool, error) {
+func (c *SMTChecker) run(expression ast.ASTHandle, value bool, bindings []*SMTEnode, stat *SMTQuantifierStat) (bool, error) {
 	if c == nil || c.context == nil || c.context.manager == nil {
 		return false, ast.ErrASTHandle
 	}
@@ -606,14 +620,19 @@ func (c *SMTChecker) run(expression ast.ASTHandle, value bool, bindings []*SMTEn
 		}
 	}
 	c.bindings = bindings
+	if !smtcoreSourceDebug && !ast.ASTValidateHandles && stat != nil {
+		if p := stat.prepareCandidate(c.context.manager, expression); p != nil {
+			return c.runCandidate(p, value)
+		}
+	}
 	defer c.clear()
 	return c.check(expression, value)
 }
 
 func (c *SMTChecker) IsSatisfiable(expression ast.ASTHandle, bindings []*SMTEnode) (bool, error) {
-	return c.run(expression, true, bindings)
+	return c.run(expression, true, bindings, nil)
 }
 
 func (c *SMTChecker) IsUnsatisfiable(expression ast.ASTHandle, bindings []*SMTEnode) (bool, error) {
-	return c.run(expression, false, bindings)
+	return c.run(expression, false, bindings, nil)
 }

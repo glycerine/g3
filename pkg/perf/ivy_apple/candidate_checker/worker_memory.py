@@ -37,7 +37,7 @@ def main():
     for i in range(args.rounds):
         offset = i % len(names)
         order = names[offset:] + names[:offset]
-        if i % 2:
+        if len(names) > 2 and i % 2:
             order.reverse()
         for name in order:
             writer.writerow([i+1, args.cpu, name, *measure(binaries[name], args.cpu)])

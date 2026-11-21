@@ -71,6 +71,13 @@ func TestSMTCongruenceTableRegistersDeclarationsOnLookupMiss(t *testing.T) {
 	if refs(f) != beforeF || refs(g) != beforeG {
 		t.Fatalf("references after reset: f=%d g=%d, want %d, %d", refs(f), refs(g), beforeF, beforeG)
 	}
+	// The same live declaration must register again after reset. The old
+	// per-declaration bucket still contained the previous inserted node.
+	if found, err := table.FindApp(g, nodes, false); err != nil || found != nil || refs(g) != beforeG+1 {
+		t.Fatal("lookup reused a bucket from before reset", found, err, refs(g))
+	}
+	astTestMust(t, table.Reset())
+
 }
 
 func TestSMTCongruenceTableExactCommutativeInsertFindEraseReset(t *testing.T) {

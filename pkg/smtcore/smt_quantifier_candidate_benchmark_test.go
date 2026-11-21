@@ -15,7 +15,7 @@ type quantifierCandidateFixture struct {
 	bindings         []*SMTEnode
 }
 
-func newQuantifierCandidateFixture(b *testing.B, width int) *quantifierCandidateFixture {
+func newQuantifierCandidateFixture(b testing.TB, width int) *quantifierCandidateFixture {
 	b.Helper()
 	m, state, _, qm := smtQuantifierManagerFixture(b, 10, 20, SMTQuantifierManagerConfig{})
 	sort, err := m.MkUninterpretedSort(astTestSymbol(b, m, "candidate-sort"), nil)
@@ -84,6 +84,14 @@ func BenchmarkSMTQuantifierCandidate(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						if yes, err := qm.checker.IsSatisfiable(body, args); err != nil || !yes {
 							b.Fatalf("checker returned %t, %v", yes, err)
+						}
+					}
+				})
+				b.Run(position.name+"/RegisteredChecker", func(b *testing.B) {
+					b.ReportAllocs()
+					for i := 0; i < b.N; i++ {
+						if yes, err := qm.checker.run(body, true, args, stat); err != nil || !yes {
+							b.Fatalf("registered checker returned %t, %v", yes, err)
 						}
 					}
 				})

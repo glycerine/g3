@@ -13,7 +13,7 @@ import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from native_benchmark import ROOT, build_native
 
-GO_ROW = re.compile(r"BenchmarkSMTQuantifierCandidate/Width(4|16)/(First|Last)/(Checker|Queue)(?:-\d+)?$")
+GO_ROW = re.compile(r"BenchmarkSMTQuantifierCandidate/Width(4|16)/(First|Last)/(Checker|RegisteredChecker|Queue)(?:-\d+)?$")
 ITERATIONS = 100_000
 
 
@@ -37,7 +37,11 @@ def measure(binary, native, cpu):
             if not match or unit != "ns/op":
                 raise ValueError(line)
             rows[int(match[1]), match[2], match[3]] = int(n), float(ns)
-    if len(rows) != (4 if native else 8) or any(n != ITERATIONS for n, _ in rows.values()):
+    entries = {"Checker"} if native else {"Checker", "Queue"}
+    if not native and any(entry == "RegisteredChecker" for _, _, entry in rows):
+        entries.add("RegisteredChecker")
+    expected = {(width, pos, entry) for width in (4, 16) for pos in ("First", "Last") for entry in entries}
+    if rows.keys() != expected or any(n != ITERATIONS for n, _ in rows.values()):
         raise ValueError(f"incomplete benchmark output from {binary}")
     return rows
 
@@ -62,7 +66,7 @@ def main():
         for i in range(args.rounds):
             offset = i % len(names)
             order = names[offset:] + names[:offset]
-            if i % 2:
+            if len(names) > 2 and i % 2:
                 order.reverse()
             for name in order:
                 for key, timing in measure(variants[name], name == "native", args.cpu).items():

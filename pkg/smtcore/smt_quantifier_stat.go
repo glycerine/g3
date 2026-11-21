@@ -8,6 +8,8 @@ import (
 )
 
 type SMTQuantifierStat struct {
+	candidateBody                                                 *smtCandidateBody
+	candidateChecks                                               uint8
 	size, depth, generation, caseSplitFactor                      uint32
 	numNestedQuantifiers, numInstances, numInstancesCurrentSearch uint32
 	numInstancesCurrentBranch, maxGeneration                      uint32

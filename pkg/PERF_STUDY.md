@@ -2,6 +2,8 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
+**Preparing frequently checked quantifier bodies cut g3’s 16-equality queue check from 2,254 ns to 1,185 ns.** On Apple’s `dramc_nb2` the hardest check retired 9.6% fewer instructions on the solver thread, with the same proof search. [Quantifier measurements and memory cost](#preparing-frequently-checked-quantifier-bodies)
+
 **Apple `rfn2` now takes 8.02% fewer instructions and 10.92% less elapsed time** across 12 paired whole-isolate runs. Reusing solver-local child records nearly halved the number of child tests, with all 10,342 Apple checks matching native search. [Whole-isolate and worker measurements](#reusing-child-records-in-asserted-disjunction-watches)
 
 **Mixed-width Raft uses 6.05% fewer instructions and 5.59% less wall time when private proofs share equivalent Boolean definitions.** Both figures are medians across 24 paired runs of all 419 obligations. Native Z3 checked all 592 rewritten assertions. [Raft measurements and controls](#equivalent-boolean-definitions-in-private-raft-proofs)
@@ -1854,3 +1856,29 @@ python3 perf/ivy_apple/incremental_cost/thread_checks.py --goivy "$HOME/ivy/goiv
   --output /tmp/ord-thread-runs > /tmp/ord-thread-counts.csv
 python3 perf/ivy_apple/incremental_cost/rank_checks.py /tmp/ord-thread-counts.csv
 ```
+
+### Preparing frequently checked quantifier bodies
+
+The same quantifier body can be checked against many bindings. Z3 follows AST pointers and reads tags and children in place. The previous Go checker repeatedly recovered the same operator, child handles and declaration flags from the arena. After a registration receives its third candidate, g3 can now index its immutable syntax once. The checking goroutine reads its own current assignments, relevance, equivalence roots and AST reference counts on each candidate. A successful registry deletion releases the prepared syntax. Bodies above the preparation limits, one-off checks, tracing, handle-validation builds and armed failure injection use the ordinary walker. [Go body preparation](smtcore/smt_candidate_body.go) · [Go evaluation](smtcore/smt_checker_candidate.go) · [Native checker](../src/smt/smt_checker.cpp)
+
+These are medians of 11 rotated rounds on CPU 42. Each row measures 100,000 queries with identical bindings. “Direct” starts at the checker. “Queue” includes g3’s dispatch of the already-satisfied candidate. The standalone g3 API has no quantifier registration. It took 2,156 ns for the final row in the new binary. The extra benchmark entry calls the same registered checker used by the queue. [Individual samples](perf/ivy_apple/candidate_checker/prepared-speed.csv) · [Go benchmark](smtcore/smt_quantifier_candidate_benchmark_test.go) · [Native benchmark](../src/test/perf/quantifier_candidate.cpp)
+
+| Equalities | Match | g3 queue before | g3 queue after | g3 registered direct | Z3 direct |
+|---:|---|---:|---:|---:|---:|
+| 4 | First | 411 ns | 315 ns | 178 ns | 107 ns |
+| 4 | Last | 761 ns | 499 ns | 357 ns | 228 ns |
+| 16 | First | 412 ns | 324 ns | 179 ns | 107 ns |
+| 16 | Last | 2,254 ns | 1,185 ns | 1,042 ns | 799 ns |
+
+The first complete three-engine runs used one pinned CPU per isolate and measured every check on the solver thread. The baseline predates this change, with GoIvy fixed at `3ef4b9020`. Each number counts billions of user instructions after subtracting the paired empty interval. Native’s figures show how much of the gap remains when each solver performs the same search. [All check-level measurements](perf/ivy_apple/candidate_checker/prepared-thread-counts.csv.gz) · [Measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py)
+
+| Isolate | g3 before | g3 after | Z3 | Hardest check | g3 there, before → after | Z3 there |
+|---|---:|---:|---:|---:|---:|---:|
+| `dramc_nb2` | 61.09 | 57.49 | 15.70 | 71 | 24.97 → 22.58 | 6.99 |
+| `rfn2` | 110.92 | 102.22 | 35.48 | 4 | 58.85 → 53.37 | 20.86 |
+| `rfn` | 97.47 | 90.58 | 29.50 | 5 | 51.30 → 47.33 | 17.02 |
+| `cf_live` | 122.88 | 115.39 | 34.00 | 130 | 40.00 → 36.98 | 12.70 |
+
+The optimized build matched all 10,342 native Apple check results and 18 search counters per check. It also matched the 28 Raft reference variants and the 188 private Raft search records. On `rfn` check 29, 611,204 ordered records of candidates, temporary ASTs, disequality checks and congruence bucket registrations matched the previous build. This last check caught an early prototype that returned the correct verdict but reused a negative equality at a different reference count. A focused test now varies the owning references and checks which sort the solver’s last temporary equality holds. [Regression tests](smtcore/smt_checker_candidate_test.go)
+
+Across nine runs with 1,024 independent solvers, per-solver live heap growth for one active 16-equality registration rose from 2,688 to 4,936 bytes. After pop, growth was 2,640 and 2,680 bytes respectively, relative to the original worker with the quantified AST already present. The 2,248-byte active premium buys a 47% reduction in the full-width queue check. The 40-byte post-pop difference measures retained scratch in this fixture. The registration bound limits preparation to 256 nodes, 1,024 child edges and depth below 128. [Worker measurements](perf/ivy_apple/candidate_checker/prepared-workers.csv) · [Worker driver](perf/ivy_apple/candidate_checker/worker_memory.py)

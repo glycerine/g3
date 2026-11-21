@@ -84,7 +84,7 @@ def main():
     for i in range(args.pairs):
         offset = i % len(names)
         order = names[offset:] + names[:offset]
-        if i % 2:
+        if len(names) > 2 and i % 2:
             order.reverse()
         for isolate, reference in references.items():
             for name in order:

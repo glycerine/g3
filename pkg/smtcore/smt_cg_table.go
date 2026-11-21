@@ -115,10 +115,12 @@ type SMTCongruenceInsertResult struct {
 }
 
 type SMTCongruenceTable struct {
-	self    *SMTCongruenceTable
-	manager *ast.ASTManager
-	tables  map[uint64]*smtCongruenceBucket // m_func_decl2table, keyed by smtHandleKey(decl)
-	buckets []*smtCongruenceBucket          // by enode functionDeclID, to skip the map
+	// FindApp repeatedly visits the same declarations during candidate checks.
+	appBuckets [8]*smtCongruenceBucket
+	self       *SMTCongruenceTable
+	manager    *ast.ASTManager
+	tables     map[uint64]*smtCongruenceBucket // m_func_decl2table, keyed by smtHandleKey(decl)
+	buckets    []*smtCongruenceBucket          // by enode functionDeclID, to skip the map
 	// declarationOrder is m_func_decl2id (obj_map<func_decl, unsigned>),
 	// whose table order reset() releases the declarations in;
 	// resetOrder and resetIndex resume a refused release.
@@ -283,6 +285,7 @@ func (t *SMTCongruenceTable) Reset() error {
 	if t.declarationOrder != nil {
 		t.declarationOrder.Reset()
 	}
+	clear(t.appBuckets[:])
 	t.buckets = nil
 	t.tables = make(map[uint64]*smtCongruenceBucket)
 	return nil
@@ -339,9 +342,15 @@ func (t *SMTCongruenceTable) FindApp(decl ast.ASTHandle, args []*SMTEnode, commu
 	// cg_table::get_table registers the declaration even when this lookup
 	// misses. Its reference lives until Reset, which affects AST ID reuse.
 	tmp := SMTEnode{manager: t.manager, declaration: decl, arguments: args, commutative: commutative && len(args) == 2}
-	bucket, err := t.ensureTable(&tmp)
-	if err != nil {
-		return nil, err
+	slot := &t.appBuckets[decl.Slot()%uint32(len(t.appBuckets))]
+	bucket := *slot
+	if bucket == nil || bucket.declaration != decl {
+		var err error
+		bucket, err = t.ensureTable(&tmp)
+		if err != nil {
+			return nil, err
+		}
+		*slot = bucket
 	}
 	found, _, err := bucket.find(&tmp)
 	return found, err

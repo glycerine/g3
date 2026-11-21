@@ -168,7 +168,11 @@ func (b *SMTQIInstanceBuilder) prepare(entry SMTQIQueueEntry, prepared *SMTQIPre
 		return err
 	}
 	bindings := entry.Fingerprint.args
-	satisfied, err := b.checker.IsSatisfiable(body, bindings)
+	var stat *SMTQuantifierStat
+	if b.registry != nil {
+		stat = b.registry.statistics[quantifier]
+	}
+	satisfied, err := b.checker.run(body, true, bindings, stat)
 	if err != nil {
 		return err
 	}
