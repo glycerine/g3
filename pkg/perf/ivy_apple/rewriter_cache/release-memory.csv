@@ -1,0 +1,17 @@
+round,cpu,variant,case,iterations,workers,entries_per_worker,active_bytes_per_worker,reset_bytes_per_worker
+1,28,before,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,28896,28896
+1,28,release,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,16592,16592
+2,28,release,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,16592,16592
+2,28,before,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,28896,28896
+3,28,before,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,28896,28896
+3,28,release,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,16592,16592
+4,28,release,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,16592,16592
+4,28,before,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,28896,28896
+5,28,before,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,28896,28896
+5,28,release,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,16592,16592
+6,28,release,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,16592,16592
+6,28,before,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,28896,28896
+7,28,before,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,28896,28896
+7,28,release,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,16592,16592
+8,28,release,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,16592,16592
+8,28,before,BenchmarkASTActivityCacheWorkerMemory,1,1024,256.0,28896,28896

@@ -2,6 +2,8 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
+**A 256-entry rewriter cache now uses 16,592 live heap bytes per solver, down from 28,896.** All eight measurements across 1,024 independent managers reproduced the 12,304-byte saving. The same change reduced instructions in all 32 paired Raft and Apple proof runs. [Cache memory and proof measurements](#manager-local-references-in-the-rewriter-cache)
+
 **Reusing validated application operands reduced instructions by 3.1% on complete Raft checks and 3.7–4.9% on three Apple isolates.** Constructing a repeated binary application fell from 156 to 84 ns, with native Z3 at 37 ns. [Constructor and proof measurements](#reusing-validated-operands-in-the-arena-backed-application-constructor)
 
 **Compact saved clause atoms cut post-pop heap use by 4,760 bytes per solver across 1,024 solvers.** Releasing three saved atoms took about a third fewer instructions. In 32 timed pairs, scoped pop took 20.04 µs before, 19.18 µs after and 13.06 µs in native Z3. [Clause layout, timings and controls](#compact-saved-atoms-in-learned-clauses)
@@ -2079,3 +2081,26 @@ For a repeated binary application at `5719b5678`, dispatch and preparation show 
 Each stage used its own instrumented executable, with one counter interval per constructor request and an empty interval measured in a separate executable. Eight rounds on each of CPUs 37 and 41 counted 50,000 intervals per arity in every run. Both cores produced the same rounded medians in the table. Instrumentation changes code generation around the boundaries. Use whole-loop counts for the total cost and compare individual rows across engines to locate the differences.
 
 A separate sampling run used the ordinary executables, four million requests per case and three rounds. In the repeated binary fixture, the largest Go leaf counts were in slice registration, declaration flags and the application constructor. For four arguments, arena descriptor access and sort lookup also ranked highly. When every result immediately lost its last reference, publishing and deleting the node accounted for about 351 and 339 sampled instructions per request. Native Z3’s corresponding registration and deletion functions accounted for about 141 and 125. Each estimate multiplies leaf samples by the sampling period and divides by requests. Inlining assigns work to the containing native symbol. The most promising follow-ups for duplicates are passing already-read declaration flags into the constructor and using the wide payload’s existing descriptor validation. Fresh nodes also warrant a separate measurement of publication and deletion. [Raw leaf counts by executable and round](perf/ivy_apple/application_reuse/release-leaf-samples.csv.gz) · [Sampling driver](perf/ivy_apple/application_reuse/leaves.py)
+
+### Manager-local references in the rewriter cache
+
+An activity cache belongs to one AST manager. Its entries and eviction queue can identify an expression by its arena slot and generation, saving the eight-byte manager identity in each stored handle. Incoming handles still carry their manager identity. When the key and value are live expressions of this manager, insertion uses their validated records to acquire the references. Evicting an entry can retire either operand, so insertion checks again on that path. The cache keeps the original chained-table traversal and reference release order. Regressions cover equal slot numbers in different managers, a value retired during eviction, and a failed insertion after acquiring the key. [Implementation](ast/ast_activity_cache.go) · [Ownership tests](ast/ast_activity_cache_test.go)
+
+| Measurement | Before | After |
+|---|---:|---:|
+| 256 live cache entries per manager | 28,896 B | 16,592 B |
+| Same cache after reset | 28,896 B | 16,592 B |
+| Find an existing entry | 23.16 ns | 21.41 ns |
+| Reset and reinsert 32 entries | 4.18 µs | 2.72 µs |
+| Create, insert, look up and close a one-entry cache | 624 ns, 720 B | 477 ns, 504 B |
+
+The heap benchmark measured bytes above the same rooted expressions with 1,024 independent managers and eight fresh processes per executable. Reset retains backing arrays for reuse. The timing medians use 12 alternating pairs of uninstrumented binaries on CPU 31. Find and the 32-entry cycle allocated zero bytes per operation in both builds. To reproduce, compile the AST test binary with `go test -c -o /tmp/cache.test ./ast`, then run `python3 perf/ivy_apple/rewriter_cache/compare.py --go current /tmp/cache.test --cpu 1 --rounds 8`. Add `--memory` for the live-heap experiment. To repeat the comparison at the parent, supply the same worker benchmark to that checkout and pass a second `--go` argument. [Worker benchmark](ast/ast_activity_worker_memory_benchmark_test.go) · [Timing fixtures](ast/ast_activity_cache_benchmark_test.go) · [Raw heap measurements](perf/ivy_apple/rewriter_cache/release-memory.csv) · [Raw timings](perf/ivy_apple/rewriter_cache/release-micro.csv)
+
+| Complete proof | Pairs | Before, billion instructions | After, billion instructions | Median paired instruction change | Median paired wall change |
+|---|---:|---:|---:|---:|---:|
+| Apple `rfn` | 7 | 127.49 | 126.07 | −1.11% | −3.58% |
+| Apple `rfn2` | 7 | 146.35 | 144.54 | −1.15% | −4.01% |
+| Apple `cf_live` | 6 | 211.77 | 208.81 | −1.28% | −0.87% |
+| Raft, 419 obligations | 12 | 29.39 | 29.07 | −1.14% | −7.12% |
+
+The elapsed percentages are medians of within-pair changes on a shared machine. For `cf_live`, three of six pairs finished sooner. Hardware instruction counts decreased in every pair. A separate run matched all 10,342 native Apple outcomes and all 18 counters per check, all 28 Raft reference transcripts, and all 188 private Raft search records from the previous build. [Whole-proof measurements](perf/ivy_apple/rewriter_cache/release-proofs.csv)

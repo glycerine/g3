@@ -158,7 +158,7 @@ func (t *activityChashtable) expandTable() {
 
 // find is chashtable::find: the entry for key k (whose AST hash is hash),
 // or nil.
-func (t *activityChashtable) find(k ASTHandle, hash uint32) *astActivityEntry {
+func (t *activityChashtable) find(k astNodeRef, hash uint32) *astActivityEntry {
 	if t.size == 0 {
 		return nil
 	}

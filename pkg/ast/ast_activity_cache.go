@@ -11,7 +11,7 @@ import (
 // Native entries own the key/value references recorded by their acquisition
 // flags. The source's chained table (table) fixes the release order.
 type astActivityEntry struct {
-	key, value                          ASTHandle
+	key, value                          astNodeRef
 	hash                                uint32 // obj_ptr_hash<expr>: the key's AST hash
 	accessed, dummy, keyHeld, valueHeld bool
 }
@@ -31,7 +31,7 @@ type ActivityCache struct {
 // eviction queue and interrupted-deletion state together on the first insert.
 type activityCacheEntries struct {
 	table         activityChashtable
-	queue         []ASTHandle
+	queue         []astNodeRef
 	qhead, unused uint32
 	retiring      astActivityEntry
 	incoming      ASTHandle
@@ -74,12 +74,15 @@ func (c *ActivityCache) open() error {
 	if c.cause != nil {
 		return c.cause
 	}
+	if !astValidateHandles && c.manager != nil && c.manager.lockFree() {
+		return nil
+	}
 	_, e := c.manager.ProofsEnabled()
 	return e
 }
 func (c *ActivityCache) retire(entry *astActivityEntry) error {
 	if entry.keyHeld {
-		consumed, e := c.manager.DecRefHeldConsumed(entry.key)
+		consumed, e := c.manager.DecRefHeldConsumed(c.manager.external(entry.key))
 		if consumed {
 			entry.keyHeld = false
 		}
@@ -88,7 +91,7 @@ func (c *ActivityCache) retire(entry *astActivityEntry) error {
 		}
 	}
 	if entry.valueHeld {
-		consumed, e := c.manager.DecRefHeldConsumed(entry.value)
+		consumed, e := c.manager.DecRefHeldConsumed(c.manager.external(entry.value))
 		if consumed {
 			entry.valueHeld = false
 		}
@@ -114,7 +117,7 @@ func (c *ActivityCache) deleteUnused() error {
 	for c.qhead < size {
 		k := c.queue[c.qhead]
 		c.qhead++
-		hash, e := c.manager.GetHash(k)
+		hash, e := c.manager.GetHash(c.manager.external(k))
 		if e != nil {
 			return e
 		}
@@ -158,22 +161,38 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 	// Checked handles replace invalid source pointers, without changing the
 	// statement order for valid expressions.
 	m := c.manager
-	if _, e := m.GetSort(k); e != nil {
-		return e
+	var hash uint32
+	key, value := astNodeRef{k.slot, k.generation}, astNodeRef{v.slot, v.generation}
+	var keyNode, valueNode *astNodeRecord
+	if !astValidateHandles && m.lockFree() {
+		keyNode = m.activityOperand(k)
+		if !v.IsNull() {
+			valueNode = m.activityOperand(v)
+		}
 	}
-	hash, e := m.GetHash(k)
-	if e != nil {
-		return e
-	}
-	if !v.IsNull() {
-		if _, e := m.GetSort(v); e != nil {
+	ready := keyNode != nil && (v.IsNull() || valueNode != nil)
+	if ready {
+		hash = keyNode.hash
+	} else {
+		if _, e := m.GetSort(k); e != nil {
 			return e
+		}
+		var e error
+		hash, e = m.GetHash(k)
+		if e != nil {
+			return e
+		}
+		if !v.IsNull() {
+			if _, e := m.GetSort(v); e != nil {
+				return e
+			}
 		}
 	}
 	if c.activityCacheEntries == nil {
 		c.activityCacheEntries = new(activityCacheEntries)
 	}
 	if c.unused >= c.maxUnused {
+		ready = false // eviction may invoke a destructor before acquisition
 		if e := c.deleteUnused(); e != nil {
 			return e
 		}
@@ -181,40 +200,51 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 	// chashtable::insert_if_not_there grows a full table before it looks
 	// the key up, also when the key is already present.
 	c.table.prepareInsert()
-	entry := c.table.find(k, hash)
+	var entry *astActivityEntry
+	if k.origin == m.origin {
+		entry = c.table.find(key, hash)
+	}
 	if entry == nil {
-		entry = c.table.insert(astActivityEntry{key: k, hash: hash, dummy: true})
+		entry = c.table.insert(astActivityEntry{key: key, hash: hash, dummy: true})
 	}
 	if entry.dummy {
-		if e := m.IncRef(k); e != nil {
-			return e
-		}
-		entry.keyHeld = true
-		if e := m.IncRef(v); e != nil {
-			return e
+		if ready {
+			keyNode.rc++
+			entry.keyHeld = true
+			if valueNode != nil {
+				valueNode.rc++
+			}
+		} else {
+			if e := m.IncRef(k); e != nil {
+				return e
+			}
+			entry.keyHeld = true
+			if e := m.IncRef(v); e != nil {
+				return e
+			}
 		}
 		entry.valueHeld = !v.IsNull()
-		entry.value = v
+		entry.value = value
 		entry.dummy = false
 		if uint64(len(c.queue)) >= uint64(^uint32(0)) {
 			return arena.ErrBounds
 		}
-		c.queue = append(c.queue, k)
+		c.queue = append(c.queue, key)
 		c.unused++
-	} else if entry.value != v {
+	} else if m.external(entry.value) != v {
 		if e := m.IncRef(v); e != nil {
 			return e
 		}
 		// Publish after the old-value DEC, preserving source statement order.
 		c.incoming, c.incomingHeld = v, !v.IsNull()
-		consumed, e := c.manager.DecRefHeldConsumed(entry.value)
+		consumed, e := c.manager.DecRefHeldConsumed(c.manager.external(entry.value))
 		if consumed {
 			entry.valueHeld = false
 		}
 		if e != nil {
 			return e
 		}
-		entry.value, entry.valueHeld = v, c.incomingHeld
+		entry.value, entry.valueHeld = value, c.incomingHeld
 		c.incoming, c.incomingHeld = ASTHandle{}, false
 		entry.accessed = false
 		// Preserve the source quirk: replacing an accessed entry does not increment
@@ -236,7 +266,10 @@ func (c *ActivityCache) Find(k ASTHandle) (ASTHandle, error) {
 	if c.activityCacheEntries == nil {
 		return ASTHandle{}, nil
 	}
-	entry := c.table.find(k, hash)
+	if k.origin != c.manager.origin {
+		return ASTHandle{}, nil
+	}
+	entry := c.table.find(astNodeRef{k.slot, k.generation}, hash)
 	if entry == nil {
 		return ASTHandle{}, nil
 	}
@@ -247,7 +280,7 @@ func (c *ActivityCache) Find(k ASTHandle) (ASTHandle, error) {
 		}
 		c.unused--
 	}
-	return entry.value, nil
+	return c.manager.external(entry.value), nil
 }
 func (c *ActivityCache) decRefs() error {
 	if c.activityCacheEntries == nil {
@@ -322,4 +355,17 @@ func (c *ActivityCache) Close() error {
 	c.manager.BudgetField.Release(activityCacheBytes())
 	c.closed = true
 	return nil
+}
+
+// activityOperand verifies that a live expression belongs to this manager.
+// Its node stays in place while the cache grows its private table.
+func (m *ASTManager) activityOperand(h ASTHandle) *astNodeRecord {
+	if h.origin != m.origin || h.slot == 0 || h.slot >= m.nextNode {
+		return nil
+	}
+	n := m.nodeAt(h.slot)
+	if !n.live || n.generation != h.generation || n.kind > ASTQuantifier {
+		return nil
+	}
+	return n
 }

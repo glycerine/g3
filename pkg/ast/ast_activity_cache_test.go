@@ -193,7 +193,7 @@ func TestASTActivityCacheNativeGrowthOrderAndOwnership(t *testing.T) {
 	index := 0
 	for _, key := range keys {
 		entry := activityTestEntry(c, key)
-		if entry == nil || entry.key != key || entry.value != value || !entry.keyHeld || !entry.valueHeld {
+		if entry == nil || m.external(entry.key) != key || m.external(entry.value) != value || !entry.keyHeld || !entry.valueHeld {
 			t.Fatal("native growth changed ordered owning entry", index, key, entry)
 		}
 		index++
@@ -245,7 +245,7 @@ func activityTestEntry(c *ActivityCache, k ASTHandle) *astActivityEntry {
 	if e != nil {
 		return nil
 	}
-	return c.table.find(k, hash)
+	return c.table.find(astNodeRef{k.slot, k.generation}, hash)
 }
 
 // chashtable::insert_if_not_there expands a table without free cells before
@@ -272,8 +272,101 @@ func TestASTActivityCacheDuplicateInsertExpandsFullTable(t *testing.T) {
 		t.Fatal("duplicate insert into a full table must expand it", slots, c.table.slots)
 	}
 	for _, k := range keys {
-		if entry := activityTestEntry(c, k); entry == nil || entry.value != value {
+		if entry := activityTestEntry(c, k); entry == nil || m.external(entry.value) != value {
 			t.Fatal("expansion lost an entry", k)
 		}
+	}
+}
+
+func TestActivityCacheForeignAliases(t *testing.T) {
+	m, foreign := astTestManager(t), astTestManager(t)
+	variable := func(owner *ASTManager, index uint32) ASTHandle {
+		b, err := owner.MkBoolSort()
+		astTestMust(t, err)
+		v, err := owner.MkVar(index, b)
+		astTestMust(t, err)
+		astTestPin(t, owner, v)
+		return v
+	}
+	k, v := variable(m, 0), variable(m, 1)
+	otherK, otherV := variable(foreign, 0), variable(foreign, 1)
+	if k.slot != otherK.slot || k.generation != otherK.generation || v.slot != otherV.slot || v.generation != otherV.generation {
+		t.Fatal("fixture must collide across managers")
+	}
+	refs := func(owner *ASTManager, h ASTHandle) uint32 {
+		n, err := owner.GetRefCount(h)
+		astTestMust(t, err)
+		return n
+	}
+	c, err := NewActivityCache(m, nil)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, c.Close()) })
+	keyCount, valueCount := refs(m, k), refs(m, v)
+	astTestMust(t, c.Insert(k, v))
+	got, err := c.Find(otherK)
+	if !got.IsNull() || err != nil && err != ErrASTHandle {
+		t.Fatal("foreign lookup resolved a local entry", got, err)
+	}
+	if err = c.Insert(otherK, v); err != ErrASTHandle {
+		t.Fatal("foreign key inserted", err)
+	}
+	astTestMust(t, c.Reset())
+	if refs(m, k) != keyCount || refs(m, v) != valueCount {
+		t.Fatal("foreign key disturbed local ownership")
+	}
+	if err = c.Insert(k, otherV); err != ErrASTHandle {
+		t.Fatal("foreign value inserted", err)
+	}
+	astTestMust(t, c.Reset())
+	if refs(m, k) != keyCount || refs(m, v) != valueCount || refs(foreign, otherV) != 1 {
+		t.Fatal("failed insertion leaked an acquisition")
+	}
+	astTestMust(t, c.Insert(k, v))
+	got, err = c.Find(k)
+	astTestMust(t, err)
+	if got != v {
+		t.Fatal("cache did not recover after reset", got)
+	}
+}
+
+func TestActivityCacheEvictionRetiresIncomingOperand(t *testing.T) {
+	for _, operand := range []string{"key", "value"} {
+		t.Run(operand, func(t *testing.T) {
+			m := astTestManager(t)
+			sort, err := m.MkBoolSort()
+			astTestMust(t, err)
+			value := activityCacheTestAtom(t, m, "pinned value")
+			key := activityCacheTestAtom(t, m, "pinned key")
+			c, err := NewActivityCache(m, nil)
+			astTestMust(t, err)
+			t.Cleanup(func() { astTestMust(t, c.Close()) })
+			var oldest ASTHandle
+			for i := uint32(0); i < c.maxUnused; i++ {
+				v, err := m.MkVar(i, sort)
+				astTestMust(t, err)
+				astTestMust(t, c.Insert(v, value))
+				if i == 0 {
+					oldest = v
+				}
+			}
+			// The cache holds the sole reference to its oldest entry's key.
+			// It is live at entry and dies during eviction, before acquisition.
+			if operand == "key" {
+				err = c.Insert(oldest, value)
+			} else {
+				err = c.Insert(key, oldest)
+			}
+			if err != ErrASTHandle || m.IsLiveHandle(oldest) {
+				t.Fatal("retired operand was acquired", err)
+			}
+			astTestMust(t, c.Reset())
+			for _, h := range []ASTHandle{key, value} {
+				refs, err := m.GetRefCount(h)
+				astTestMust(t, err)
+				if refs != 1 {
+					t.Fatal("reset left an acquisition", h, refs)
+				}
+			}
+		})
 	}
 }
