@@ -1,0 +1,85 @@
+isolate,engine,round,period,all_samples,operation,samples
+rfn2,g3,1,10000019,1333,bit-vector sharing,62
+rfn2,g3,1,10000019,1333,macro finding,191
+rfn2,g3,1,10000019,1333,normal form,31
+rfn2,g3,1,10000019,1333,other reduction,80
+rfn2,g3,1,10000019,1333,outside assertion reduction,829
+rfn2,g3,1,10000019,1333,pattern inference,74
+rfn2,g3,1,10000019,1333,value propagation,66
+rfn2,g3,2,10000019,1300,bit-vector sharing,64
+rfn2,g3,2,10000019,1300,macro finding,197
+rfn2,g3,2,10000019,1300,normal form,31
+rfn2,g3,2,10000019,1300,other reduction,79
+rfn2,g3,2,10000019,1300,outside assertion reduction,800
+rfn2,g3,2,10000019,1300,pattern inference,66
+rfn2,g3,2,10000019,1300,value propagation,63
+rfn2,g3,3,10000019,1315,bit-vector sharing,63
+rfn2,g3,3,10000019,1315,macro finding,202
+rfn2,g3,3,10000019,1315,normal form,32
+rfn2,g3,3,10000019,1315,other reduction,79
+rfn2,g3,3,10000019,1315,outside assertion reduction,809
+rfn2,g3,3,10000019,1315,pattern inference,65
+rfn2,g3,3,10000019,1315,value propagation,65
+rfn2,native,1,10000019,351,bit-vector sharing,6
+rfn2,native,1,10000019,351,macro finding,53
+rfn2,native,1,10000019,351,normal form,8
+rfn2,native,1,10000019,351,other reduction,35
+rfn2,native,1,10000019,351,outside assertion reduction,222
+rfn2,native,1,10000019,351,pattern inference,17
+rfn2,native,1,10000019,351,value propagation,10
+rfn2,native,2,10000019,351,bit-vector sharing,8
+rfn2,native,2,10000019,351,macro finding,59
+rfn2,native,2,10000019,351,normal form,7
+rfn2,native,2,10000019,351,other reduction,33
+rfn2,native,2,10000019,351,outside assertion reduction,219
+rfn2,native,2,10000019,351,pattern inference,15
+rfn2,native,2,10000019,351,value propagation,10
+rfn2,native,3,10000019,352,bit-vector sharing,6
+rfn2,native,3,10000019,352,macro finding,55
+rfn2,native,3,10000019,352,normal form,8
+rfn2,native,3,10000019,352,other reduction,33
+rfn2,native,3,10000019,352,outside assertion reduction,221
+rfn2,native,3,10000019,352,pattern inference,17
+rfn2,native,3,10000019,352,value propagation,12
+dramc_nb2,g3,1,10000019,3693,bit-vector sharing,135
+dramc_nb2,g3,1,10000019,3693,macro finding,439
+dramc_nb2,g3,1,10000019,3693,normal form,67
+dramc_nb2,g3,1,10000019,3693,other reduction,169
+dramc_nb2,g3,1,10000019,3693,outside assertion reduction,2086
+dramc_nb2,g3,1,10000019,3693,pattern inference,145
+dramc_nb2,g3,1,10000019,3693,value propagation,652
+dramc_nb2,g3,2,10000019,3739,bit-vector sharing,136
+dramc_nb2,g3,2,10000019,3739,macro finding,450
+dramc_nb2,g3,2,10000019,3739,normal form,69
+dramc_nb2,g3,2,10000019,3739,other reduction,174
+dramc_nb2,g3,2,10000019,3739,outside assertion reduction,2105
+dramc_nb2,g3,2,10000019,3739,pattern inference,150
+dramc_nb2,g3,2,10000019,3739,value propagation,655
+dramc_nb2,g3,3,10000019,3808,bit-vector sharing,129
+dramc_nb2,g3,3,10000019,3808,macro finding,450
+dramc_nb2,g3,3,10000019,3808,normal form,71
+dramc_nb2,g3,3,10000019,3808,other reduction,168
+dramc_nb2,g3,3,10000019,3808,outside assertion reduction,2184
+dramc_nb2,g3,3,10000019,3808,pattern inference,151
+dramc_nb2,g3,3,10000019,3808,value propagation,655
+dramc_nb2,native,1,10000019,963,bit-vector sharing,9
+dramc_nb2,native,1,10000019,963,macro finding,125
+dramc_nb2,native,1,10000019,963,normal form,19
+dramc_nb2,native,1,10000019,963,other reduction,106
+dramc_nb2,native,1,10000019,963,outside assertion reduction,549
+dramc_nb2,native,1,10000019,963,pattern inference,36
+dramc_nb2,native,1,10000019,963,value propagation,119
+dramc_nb2,native,2,10000019,959,bit-vector sharing,9
+dramc_nb2,native,2,10000019,959,macro finding,130
+dramc_nb2,native,2,10000019,959,normal form,15
+dramc_nb2,native,2,10000019,959,other reduction,115
+dramc_nb2,native,2,10000019,959,outside assertion reduction,545
+dramc_nb2,native,2,10000019,959,pattern inference,36
+dramc_nb2,native,2,10000019,959,value propagation,109
+dramc_nb2,native,3,10000019,955,bit-vector sharing,10
+dramc_nb2,native,3,10000019,955,macro finding,126
+dramc_nb2,native,3,10000019,955,normal form,13
+dramc_nb2,native,3,10000019,955,other reduction,122
+dramc_nb2,native,3,10000019,955,outside assertion reduction,533
+dramc_nb2,native,3,10000019,955,pattern inference,39
+dramc_nb2,native,3,10000019,955,value propagation,112

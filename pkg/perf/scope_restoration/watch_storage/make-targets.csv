@@ -1,0 +1,21 @@
+round,command,case,iterations,pop_ns,atoms,clauses
+1,make bench,SurvivingAtoms,10000,692.7,128,64
+1,make bench,ScopedAtoms,10000,24146,128,64
+1,make cppbench,SurvivingAtoms,10000,476.65,128,64
+1,make cppbench,ScopedAtoms,10000,12531.14,128,64
+2,make cppbench,SurvivingAtoms,10000,489.29,128,64
+2,make cppbench,ScopedAtoms,10000,12491.43,128,64
+2,make bench,SurvivingAtoms,10000,786.3,128,64
+2,make bench,ScopedAtoms,10000,24570,128,64
+3,make bench,SurvivingAtoms,10000,814.8,128,64
+3,make bench,ScopedAtoms,10000,23316,128,64
+3,make cppbench,SurvivingAtoms,10000,484.43,128,64
+3,make cppbench,ScopedAtoms,10000,12521.38,128,64
+4,make cppbench,SurvivingAtoms,10000,475.63,128,64
+4,make cppbench,ScopedAtoms,10000,12529.41,128,64
+4,make bench,SurvivingAtoms,10000,760.8,128,64
+4,make bench,ScopedAtoms,10000,23858,128,64
+5,make bench,SurvivingAtoms,10000,773.6,128,64
+5,make bench,ScopedAtoms,10000,22665,128,64
+5,make cppbench,SurvivingAtoms,10000,496.76,128,64
+5,make cppbench,ScopedAtoms,10000,12532.58,128,64
