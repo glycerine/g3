@@ -20,23 +20,26 @@ def main():
     output.mkdir(parents=True)
     heap = PKG / "util/heap/heap.go"
     fixture = PKG / "smtcore/smt_hotpath_benchmark_test.go"
-    h = replace_once(heap.read_text(), "i := h.indices[v]\n\tlast := h.values[len(h.values)-1]",
-                     """i := h.indices[v]
-    if MeasureErasePositions {
+    anchor = "last := h.values[len(h.values)-1]\n\th.indices[v] = 0"
+    h = replace_once(heap.read_text(), anchor, """if MeasureErasePositions {
         switch {
         case int(i) == len(h.values)-1: ErasePositions[0]++
         case int64(i)*2 >= int64(len(h.values)-1): ErasePositions[1]++
         default: ErasePositions[2]++
         }
     }
-    last := h.values[len(h.values)-1]""")
+    """ + anchor)
     h += "\nvar MeasureErasePositions bool\nvar ErasePositions [3]int\n"
     f = replace_once(fixture.read_text(), "import (", 'import (\n measureheap "github.com/glycerine/g3/pkg/util/heap"')
     f = replace_once(f, "start := time.Now()", f"measureheap.MeasureErasePositions = i >= {WARMUP}\nstart := time.Now()")
     f = replace_once(f, "elapsed += time.Since(start)", "elapsed += time.Since(start)\nmeasureheap.MeasureErasePositions = false")
     f = replace_once(f, "b.ReportMetric(float64(elapsed.Nanoseconds())", f"""
     if b.N > {WARMUP} {{
-        for i, n := range measureheap.ErasePositions {{
+        counts := measureheap.ErasePositions
+        if counts[0]+counts[1]+counts[2] != 128*(b.N-{WARMUP}) {{
+            b.Fatalf("unexpected removals per scoped pop: %v", counts)
+        }}
+        for i, n := range counts {{
             b.ReportMetric(float64(n)/float64(b.N-{WARMUP}), []string{{"last/pop","other-leaf/pop","interior/pop"}}[i])
         }}
     }}

@@ -228,7 +228,14 @@ func (h *Int) Bounds() int32 {
 	return int32(len(h.indices))
 }
 func (h *Int) Contains(v int32) bool {
-	return h != nil && h.self == h && !h.closed && v >= 0 && int64(v) < int64(len(h.indices)) && h.indices[v] != 0
+	return h.position(v) != 0
+}
+
+func (h *Int) position(v int32) int32 {
+	if h == nil || h.self != h || h.closed || v < 0 || int64(v) >= int64(len(h.indices)) {
+		return 0
+	}
+	return h.indices[v]
 }
 
 // CheckInvariant checks live values, as the source traversal does.
@@ -249,7 +256,7 @@ func (h *Int) CheckInvariant() bool {
 }
 func (h *Int) up(i int32) error {
 	if h.activity != nil {
-		return h.upActivity(i)
+		return h.placeActivity(i, h.values[i], activityUp)
 	}
 	v := h.values[i]
 	for p := i / 2; p != 0 && h.lt(v, h.values[p]); p = i / 2 {
@@ -262,48 +269,42 @@ func (h *Int) up(i int32) error {
 	return h.cassertInvariant()
 }
 
-// upActivity and downActivity are up and down for an Activity heap: the
-// same moves, with the comparison inlined.
-func (h *Int) upActivity(i int32) error {
-	act := *h.activity
-	values, indices := h.values, h.indices
-	v := values[i]
-	av := act[v]
-	for p := i / 2; p != 0 && av > act[values[p]]; p = i / 2 {
-		values[i] = values[p]
-		indices[values[i]] = i
-		i = p
-	}
-	values[i] = v
-	indices[v] = i
-	return h.cassertInvariant()
-}
-func (h *Int) downActivity(i int32) error {
-	act := *h.activity
-	values, indices := h.values, h.indices
-	n := uint64(len(values))
-	v := values[i]
-	av := act[v]
-	for {
-		left := uint64(i) * 2
-		if left >= n {
-			break
+type activityDirection uint8
+
+const (
+	activityUp activityDirection = iota
+	activityDown
+	activityEither
+)
+
+// placeActivity fills a hole in an activity heap. Erasing an interior value
+// can move its replacement either way. A priority update supplies the direction.
+func (h *Int) placeActivity(i, v int32, dir activityDirection) error {
+	values, indices, activity := h.values, h.indices, *h.activity
+	score := activity[v]
+	parent := i / 2
+	if dir == activityUp || dir == activityEither && parent != 0 && score > activity[values[parent]] {
+		for parent != 0 && score > activity[values[parent]] {
+			moved := values[parent]
+			values[i] = moved
+			indices[moved] = i
+			i = parent
+			parent = i / 2
 		}
-		child := int32(left)
-		cv := values[child]
-		ca := act[cv]
-		if left+1 < n {
-			if rv := values[child+1]; act[rv] > ca {
+	} else {
+		for left := uint64(i) * 2; left < uint64(len(values)); left = uint64(i) * 2 {
+			child := int32(left)
+			if left+1 < uint64(len(values)) && activity[values[child+1]] > activity[values[child]] {
 				child++
-				cv, ca = rv, act[rv]
 			}
+			moved := values[child]
+			if !(activity[moved] > score) {
+				break
+			}
+			values[i] = moved
+			indices[moved] = i
+			i = child
 		}
-		if !(ca > av) {
-			break
-		}
-		values[i] = cv
-		indices[cv] = i
-		i = child
 	}
 	values[i] = v
 	indices[v] = i
@@ -311,7 +312,7 @@ func (h *Int) downActivity(i int32) error {
 }
 func (h *Int) down(i int32) error {
 	if h.activity != nil {
-		return h.downActivity(i)
+		return h.placeActivity(i, h.values[i], activityDown)
 	}
 	v := h.values[i]
 	for {
@@ -417,16 +418,37 @@ func (h *Int) Erase(v int32) error {
 	if e := h.sassert(197, "contains(val)", func() bool { return h.Contains(v) }); e != nil {
 		return e
 	}
-	if v < 0 || int64(v) >= int64(len(h.indices)) || h.indices[v] < 1 || int64(h.indices[v]) >= int64(len(h.values)) {
-		// Guard an invalid inverse position before indexing the native slice.
+	return h.eraseAt(v, h.position(v))
+}
+
+// EraseIfPresent applies Contains followed by Erase. An absent value leaves
+// the heap and its iterators untouched.
+func (h *Int) EraseIfPresent(v int32) error {
+	i := h.position(v)
+	if i == 0 {
+		return nil
+	}
+	if diagnostic.DebugBuild {
+		return h.Erase(v)
+	}
+	if h.epoch == ^uint64(0) {
+		return arena.ErrSlotLimit
+	}
+	return h.eraseAt(v, i)
+}
+
+func (h *Int) eraseAt(v, i int32) error {
+	if i < 1 || int64(i) >= int64(len(h.values)) {
 		return ErrValue
 	}
-	i := h.indices[v]
 	last := h.values[len(h.values)-1]
 	h.indices[v] = 0
 	h.values = h.values[:len(h.values)-1]
 	h.epoch++
 	if int(i) < len(h.values) {
+		if h.activity != nil && !diagnostic.DebugBuild {
+			return h.placeActivity(i, last, activityEither)
+		}
 		h.values[i] = last
 		h.indices[last] = i
 		if i/2 != 0 && h.lt(last, h.values[i/2]) {

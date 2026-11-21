@@ -2,6 +2,8 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
+**Reusing a Boolean variable’s heap position cut a scoped pop from 21.81 to 19.21 µs.** Z3 took 13.46 µs in the same 36-pair comparison. The activity queue now uses 192 instructions per removal, down from 208. [Heap deletion and controls](#removing-a-boolean-variable-from-the-activity-heap)
+
 **A byte per e-graph trail entry and shared storage for Boolean handles cut idle scope memory by 8.4% across 1,024 solvers.** Each solver saved 5,857 bytes after a 128-atom scope. With 2,048 atoms the saving was 78,824 bytes per solver. [Worker memory and pop measurements](#compact-e-graph-trails-across-independent-solvers)
 
 **Preparing frequently checked quantifier bodies cut g3’s 16-equality queue check from 2,254 ns to 1,185 ns.** On Apple’s `dramc_nb2` the hardest check retired 9.5% fewer instructions on the solver thread, with the same proof search. [Quantifier measurements and memory cost](#preparing-frequently-checked-quantifier-bodies)
@@ -1923,3 +1925,13 @@ To repeat the timing from `pkg/` with the project's release C++ build in `../bui
 go test -pgo=off -c -o /tmp/g3-ast-reuse.test ./ast
 python3 perf/ivy_apple/application_reuse/compare.py --cpu 0 --rounds 9 --go g3 /tmp/g3-ast-reuse.test
 ```
+
+### Removing a Boolean variable from the activity heap
+
+Z3 retrieves an integer’s position in the case-split heap and moves the last entry into the resulting hole. g3 previously checked membership at the caller, looked up the position again in `Erase`, wrote the replacement and then read it back to sift. The Go queue now passes the position and replacement directly to the same activity sift used by priority updates. Strict score comparisons preserve the order of ties, including unordered floating-point scores. A 20,000-operation test compares the complete array ordering with the generic comparator heap after each operation. Checked and debug builds also ran the owner, epoch-exhaustion, invalid-position and score-ordering tests. [Go queue](smtcore/smt_activity_heap_queue.go) · [Heap implementation](util/heap/heap.go) · [Comparison and boundary tests](util/heap/activity_test.go) · [Native source](../src/util/heap.h)
+
+Twelve rounds on each of two physical cores measured the deletion callback for every one of the 128 retired variables. On both cores the cost fell from **208 to 192 user instructions per variable**. Native used **85**. The complete trail undo used 3.5% and 3.3% fewer instructions, respectively. The complete scoped pop used 1.2% and 2.8% fewer. Each figure subtracts its own empty interval and every recorded counter ran for its full enabled time. The position counter still saw 51.64 last entries, 23.53 other leaves and 52.83 interior entries per pop. A separate release-only implementation duplicated both sift loops and reached 179 instructions. The shared sift keeps priority-update and deletion ordering in one implementation. [Per-round hardware counters](perf/scope_restoration/activity_erase/instructions.csv) · [Alternative sift measurements](perf/scope_restoration/activity_erase/sift-experiments.csv) · [Position counter](perf/scope_restoration/pop_phases/heap_positions.py)
+
+Across 36 paired elapsed-time measurements on CPUs 16 and 20, the queue-enabled scoped medians were **21.81 µs before, 19.21 µs after and 13.46 µs in native Z3**. The optimized build won 30 pairs, with a median within-pair reduction of 7.95%. Surviving atoms retired no queue entries and measured a within-pair change of +0.12% (18 wins). A separate series on CPUs 12 and 31 overlapped with the counter measurements and produced substantially longer absolute times. Its 24 pairs gave an 11.43% median scoped reduction. These wall-clock results include effects of the shared machine. The instruction savings identify the portion attributable to less queue work. [36 elapsed-time pairs](perf/scope_restoration/activity_erase/elapsed.csv) · [Concurrent elapsed series](perf/scope_restoration/activity_erase/concurrent-elapsed.csv) · [Timing driver](perf/scope_restoration/watch_selection/compare.py)
+
+The heap change reproduced all 10,342 Apple results and their 18 per-check search counters. All 28 Raft variants and 188 records from the private Raft proof searches also matched the previous solver.

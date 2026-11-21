@@ -77,15 +77,10 @@ func (s *SMTInternalizerState) basicActivityUnassigned(v int32) error {
 }
 
 func (s *SMTInternalizerState) basicActivityDeleted(v int32) error {
-	if s.basicActivity != nil && s.basicActivity.Contains(v) {
-		if err := s.basicActivity.Erase(v); err != nil {
-			return err
-		}
+	if err := s.basicActivity.EraseIfPresent(v); err != nil {
+		return err
 	}
-	if s.delayedActivity != nil && s.delayedActivity.Contains(v) {
-		return s.delayedActivity.Erase(v)
-	}
-	return nil
+	return s.delayedActivity.EraseIfPresent(v)
 }
 
 func (q *SMTActivityCaseSplitQueue) nextBasicActivity() (int32, lbool.LBool, error) {
