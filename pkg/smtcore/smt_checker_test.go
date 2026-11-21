@@ -226,6 +226,14 @@ func TestSMTCheckerUsesFalseCongruentEqualityBeforePropagation(t *testing.T) {
 		t.Fatal("expected the equality assignment to precede disequality propagation")
 	}
 	check(true)
+	astTestMust(t, s.addDisequality(x, y, NewSMTLiteral(v, true)))
+	if _, found := smtFindDisequality(x, y); !found {
+		t.Fatal("missing propagated disequality on the argument classes")
+	}
+	astTestMust(t, s.context.SetRelevant(eq, false))
+	check(false)
+	astTestMust(t, s.context.SetRelevant(eq, true))
+	check(true)
 	astTestMust(t, s.PopScopes(1))
 	check(false)
 }

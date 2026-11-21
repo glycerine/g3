@@ -209,16 +209,14 @@ func (c *SMTCheckerContext) isDisequal(first, second *SMTEnode) bool {
 	return found
 }
 
-// A relevant equality may already be assigned false before propagation puts
-// a disequality on the two class roots. Like context::is_diseq, also look
-// up the equality modulo congruence and inspect its Boolean class root.
+// context::is_diseq tests the Boolean literal of the congruent equality's
+// root. Its relevance can differ from that of an earlier false equality
+// recorded on the argument classes.
 func (c *SMTCheckerContext) checkDisequality(decl ast.ASTHandle, left, right *SMTEnode) (bool, error) {
-	if c.isDisequal(left, right) {
-		return true, nil
-	}
 	if c.congruence == nil {
-		return false, nil
+		return c.isDisequal(left, right), nil
 	}
+	c.holdDiseqTmp(left, right)
 	args := [2]*SMTEnode{left, right}
 	eq, err := c.congruence.FindApp(decl, args[:], true)
 	if err != nil || eq == nil {

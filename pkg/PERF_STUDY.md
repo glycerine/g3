@@ -1400,3 +1400,26 @@ At the first differing substitution both terms were uninterpreted constants of d
 Matching the registration lifetime moved `rfn2` from 20 to **26 of 26** identical checks across 18 search counters, bringing the nine-isolate total to **10,320 of 10,342**. Decisions in `rfn2` rose from 703,015 to the native 805,401. Its other counters include 270,033 quantifier instantiations and 2,121 conflicts in each engine. All 419 Raft kernel controls also matched. [Per-check measurements](perf/ivy_apple/register-on-lookup-search.csv.gz)
 
 Over eight alternating pairs on `rfn2`, the change reduced median paired elapsed time by 0.9%. The whole-isolate gap to Z3 remained. In six separate alternating pairs, median elapsed times were 27.76 s in g3 and 15.07 s in native Z3. The individual solver calls took 21.77 s and 9.66 s of process CPU in the instrumented run. Four-pair controls on `cf_live` and `rfn` showed increases of 3.7% and 3.8% in median paired user CPU respectively. Samples were taken on a shared host. [All 44 timing samples](perf/ivy_apple/register-on-lookup-pairs.csv)
+
+## Apple ordering now matches native incremental search on all nine isolates
+
+The first remaining difference on `rfn` occurred at trace event 10,878,688. The quantifier checker examined terms 60685 and 31684 while deciding whether a candidate instance was already satisfied. A false equality had been recorded on their argument classes. The congruent equality for this lookup had an inactive Boolean literal. g3 accepted the earlier disequality as sufficient evidence and skipped the instance. Z3 looks up the congruent equality, follows its Boolean class root, and accepts either the distinguished false literal or a relevant literal assigned false. The integrated checker now makes the same decision. The focused test reproduces the earlier answer by marking the equality inactive after propagating the disequality. [g3 checker](smtcore/smt_checker.go) · [C++ implementation](../src/smt/smt_context.cpp) · [Regression test](smtcore/smt_checker_test.go)
+
+All 18 counters now agree on **10,342 of 10,342** incremental checks. All nine ordered output transcripts match and the 419 Raft kernel controls agree. The two previously divergent isolates had these aggregate counts. [Per-check measurements](perf/ivy_apple/congruent-equality-search.csv.gz)
+
+| Isolate | Exact checks before → after | Decisions before → after | Instantiations before → after |
+|---|---:|---:|---:|
+| `rfn` | 31 → 33 of 33 | 617,667 → 617,670 | 244,513 → 244,505 |
+| `sys_live` | 1,718 → 1,738 of 1,738 | 789,825 → 652,725 | 456,515 → 378,332 |
+
+For the three isolates with earlier trace differences, both engines flushed their trace through the final check. The comparison matched each event's terms and IDs and verified that each instance referenced the corresponding E-match in both allocators. It allowed whitespace and differences in the printed fingerprint addresses. [Trace comparator](perf/ivy_apple/compare_traces.py)
+
+| Isolate | Matching events | E-matches | Instance references checked |
+|---|---:|---:|---:|
+| `rfn` | 13,886,335 | 1,073,860 | 266,793 |
+| `rfn2` | 15,098,872 | 1,325,930 | 295,786 |
+| `sys_live` | 11,093,797 | 1,431,309 | 442,293 |
+
+Across eight alternating pairs, `sys_live` used 5.6% less median paired user CPU and finished 5.1% sooner. On `rfn`, median paired CPU increased 5.7% over eight pairs. On `dramc_nb2` it increased 4.6% over four pairs, with identical search counts. Four separate `sys_live` pairs against native measured median elapsed times of 82.48 s for GoIvy/g3 and 77.98 s for GoIvy/Z3. These are whole-isolate timings on a shared machine. With equal search events on the profiled isolates, CPU profiles can now isolate implementation costs without simultaneously changing the search trajectory. [All 48 timing samples](perf/ivy_apple/congruent-equality-pairs.csv)
+
+The independent scope-restoration control used six interleaved runs each of `make bench` and `make cppbench` on one CPU, 10,000 iterations per case. Surviving atoms took a median **343 ns/op in g3 and 479 ns/op in Z3**. Scoped atoms took **15,221 ns/op and 12,567 ns/op** respectively, a remaining 1.21× ratio. Both Go cases reported zero allocations per operation in every run. [Raw measurements](perf/ivy_apple/scope-restoration-control.csv) · [Go benchmark](smtcore/smt_hotpath_benchmark_test.go)
