@@ -176,7 +176,7 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 }
 
 func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
-	command, err := cmd_context.NewAuxiliaryContextWithBudget(parent.Budget())
+	command, err := cmd_context.NewRefutationContext(parent.Budget())
 	if err != nil {
 		return err
 	}

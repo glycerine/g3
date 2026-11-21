@@ -137,6 +137,16 @@ func NewAuxiliaryContextWithBudget(budget *arena.Budget) (*Context, error) {
 	return c, err
 }
 
+// NewRefutationContext creates the private search context for an abstraction
+// proof. Its Skolem names and resource counters are local to the proof attempt.
+func NewRefutationContext(budget *arena.Budget) (*Context, error) {
+	c, err := NewAuxiliaryContextWithBudget(budget)
+	if err == nil {
+		c.config.SkipTrivialMBQIChecks = true
+	}
+	return c, err
+}
+
 func (s *contextServices) Close() (result error) {
 	if s.cooperation != nil {
 		result = errors.Join(result, s.cooperation.Close())

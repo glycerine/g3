@@ -67,10 +67,10 @@ func TestSMTModelCheckerAuxiliarySnapshotAndConcretePlugins(t *testing.T) {
 	}
 }
 
-func smtAuxiliaryQueryFixture(t *testing.T) (*ast.ASTManager, *SMTModelChecker, *protomodel.ProtoModel, ast.ASTHandle, ast.ASTHandle) {
+func smtAuxiliaryQueryFixture(t *testing.T, skipTrivial bool) (*ast.ASTManager, *SMTModelChecker, *protomodel.ProtoModel, ast.ASTHandle, ast.ASTHandle) {
 	t.Helper()
 	m, cfg := smtModelGeneratorFixture(t)
-	s, err := NewSMTSolver(m, nil, "AUFLIA", SMTSolverConfig{Params: cfg.Context, ModelEvaluator: cfg})
+	s, err := NewSMTSolver(m, nil, "AUFLIA", SMTSolverConfig{Params: cfg.Context, ModelEvaluator: cfg, SkipTrivialMBQIChecks: skipTrivial})
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, s.Close()) })
 	zero, err := m.ArithmeticIntegerNumeralText("0")
@@ -97,7 +97,7 @@ func smtAuxiliaryQueryFixture(t *testing.T) (*ast.ASTManager, *SMTModelChecker, 
 }
 
 func TestSMTModelCheckerAuxiliaryQueriesReuseCleanScopes(t *testing.T) {
-	_, c, proto, q, _ := smtAuxiliaryQueryFixture(t)
+	_, c, proto, q, _ := smtAuxiliaryQueryFixture(t, false)
 	for i := 0; i < 3; i++ {
 		remaining := uint32(1)
 		found, err := c.auxiliaryCounterexamples(proto, q, &remaining)
@@ -114,12 +114,38 @@ func TestSMTModelCheckerAuxiliaryQueriesReuseCleanScopes(t *testing.T) {
 	}
 }
 
+func TestSMTModelCheckerTrivialBodyInPrivateRefutation(t *testing.T) {
+	m, c, proto, identity, _ := smtAuxiliaryQueryFixture(t, true)
+	remaining := uint32(1)
+	found, err := c.auxiliaryCounterexamples(proto, identity, &remaining)
+	astTestMust(t, err)
+	aux := c.auxiliaryContext
+	level, err := aux.ScopeLevel()
+	astTestMust(t, err)
+	if found || remaining != 1 || level != 0 || aux.kernel.Statistics().NumChecks != 0 {
+		t.Fatal("evaluated identity started an auxiliary search or left a scope", found, remaining, level, aux.kernel.Statistics())
+	}
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	x, err := m.MkVar(0, boolean)
+	astTestMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: x})
+	astTestMust(t, err)
+	astTestMust(t, c.state.Internalize(q, true))
+	astTestMust(t, c.modelFinder.FixModel(proto))
+	found, err = c.auxiliaryCounterexamples(proto, q, &remaining)
+	astTestMust(t, err)
+	if !found || aux.kernel.Statistics().NumChecks == 0 {
+		t.Fatal("open Boolean body lost the counterexample search", found, aux.kernel.Statistics())
+	}
+}
+
 func TestSMTModelCheckerAuxiliaryAllocationFrontiers(t *testing.T) {
 	for _, query := range []bool{false, true} {
 		succeeded := false
 		for stop := int64(0); stop < 512 && !succeeded; stop++ {
 			t.Run(fmt.Sprint(query, "/", stop), func(t *testing.T) {
-				m, c, proto, q, _ := smtAuxiliaryQueryFixture(t)
+				m, c, proto, q, _ := smtAuxiliaryQueryFixture(t, false)
 				if query {
 					astTestMust(t, c.initAuxiliaryContext())
 				}

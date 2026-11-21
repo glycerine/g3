@@ -459,6 +459,9 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	if err != nil {
 		return false, err
 	}
+	if auxiliary.config.SkipTrivialMBQIChecks && c.manager.IsTrue(evaluatedBody) {
+		return false, nil
+	}
 	// The innermost variable's fresh constant comes first; each finite sort
 	// is restricted to its universe as soon as its constant exists.
 	for i := len(skolems) - 1; i >= 0; i-- {

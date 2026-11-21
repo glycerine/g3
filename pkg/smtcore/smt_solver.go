@@ -28,6 +28,9 @@ type SMTSolverConfig struct {
 	Quantifiers    *SMTQuantifierRegistry
 	ModelEvaluator model.ModelEvaluatorConfig
 	TargetConfig   func(*ast.ASTManager) (SMTSolverConfig, error)
+	// SkipTrivialMBQIChecks lets a private refutation solver skip the
+	// Skolem search when a quantified body evaluates to true for all bindings.
+	SkipTrivialMBQIChecks bool
 }
 
 type smtTrackedAssertion struct {
