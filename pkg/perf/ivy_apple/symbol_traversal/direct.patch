@@ -1,0 +1,43 @@
+--- a/goivy/ivylogic_symbols.go
++++ b/goivy/ivylogic_symbols.go
+@@ -64,6 +64,40 @@
+ 				return false
+ 			}
+ 		}
++	}
++	switch t := node.(type) {
++	case *Eq:
++		return symbolsIluAstRec(t.T1, yield) && symbolsIluAstRec(t.T2, yield)
++	case *LogicNot:
++		return symbolsIluAstRec(t.Body, yield)
++	case *LogicImplies:
++		return symbolsIluAstRec(t.T1, yield) && symbolsIluAstRec(t.T2, yield)
++	case *LogicIff:
++		return symbolsIluAstRec(t.T1, yield) && symbolsIluAstRec(t.T2, yield)
++	case *LogicIte:
++		return symbolsIluAstRec(t.Cond, yield) && symbolsIluAstRec(t.Then, yield) && symbolsIluAstRec(t.Else, yield)
++	case *ForAll:
++		return symbolsIluAstRec(t.Body, yield)
++	case *RawForAll:
++		return symbolsIluAstRec(t.Body, yield)
++	case *LogicExists:
++		return symbolsIluAstRec(t.Body, yield)
++	case *Lambda:
++		return symbolsIluAstRec(t.Body, yield)
++	case *LogicNamedBinder:
++		return symbolsIluAstRec(t.Body, yield)
++	case *LogicGlobally:
++		return symbolsIluAstRec(t.Body, yield)
++	case *LogicEventually:
++		return symbolsIluAstRec(t.Body, yield)
++	case *LogicWhenOperator:
++		return symbolsIluAstRec(t.T1, yield) && symbolsIluAstRec(t.T2, yield)
++	case *Cond:
++		return symbolsIluAstRec(t.T1, yield) && symbolsIluAstRec(t.T2, yield)
++	case *IvyDefinition:
++		return symbolsIluAstRec(t.Lhs, yield) && symbolsIluAstRec(t.Rhs, yield)
++	case *LogicLiteral:
++		return symbolsIluAstRec(t.Atom, yield)
+ 	}
+ 	for _, arg := range NodeArgs(node) {
+ 		if !symbolsIluAstRec(arg, yield) {

@@ -1,0 +1,33 @@
+--- a/goivy/actions_action_expr.go
++++ b/goivy/actions_action_expr.go
+@@ -42,11 +42,25 @@
+ }
+ 
+ func sliceSexp(s []Expr) string {
+-	parts := make([]string, len(s))
+-	for i, c := range s {
+-		parts[i] = actionsExprSexp(c)
+-	}
+-	return "[" + strings.Join(parts, " ") + "]"
++	switch len(s) {
++	case 0:
++		return "[]"
++	case 1:
++		return "[" + actionsExprSexp(s[0]) + "]"
++	case 2:
++		return "[" + actionsExprSexp(s[0]) + " " + actionsExprSexp(s[1]) + "]"
++	}
++	var b strings.Builder
++	b.WriteByte('[')
++	for i, n := range s {
++		if i > 0 {
++			b.WriteByte(' ')
++		}
++		b.WriteString(actionsExprSexp(n))
++	}
++	b.WriteByte(']')
++	return b.String()
++
+ }
+ 
+ func crashTargetSexp(target Expr) string {
