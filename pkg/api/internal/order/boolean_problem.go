@@ -74,7 +74,11 @@ func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (Proo
 	if bits != nil {
 		return ProofProblem{Boolean: bits, SearchSteps: remaining}, true, nil
 	}
-	return ProofProblem{Order: t.render(), SearchSteps: remaining}, true, nil
+	spent = t.addInductionInstance(remaining)
+	if spent >= remaining || m.ResourceLimit().CancelFlag() {
+		return ProofProblem{}, false, nil
+	}
+	return ProofProblem{Order: t.render(), SearchSteps: remaining - spent}, true, nil
 }
 
 func (t *inference) booleanProblem(steps uint32) (*BooleanProblem, error) {
