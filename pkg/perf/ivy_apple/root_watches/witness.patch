@@ -1,0 +1,166 @@
+--- a/pkg/smtcore/smt_relevancy.go
++++ b/pkg/smtcore/smt_relevancy.go
+@@ -29,6 +29,7 @@
+ 	// pooled is 1 + the handler's position in the propagator's ehs once a
+ 	// table holds it (the relevancy_eh object a watch list points to).
+ 	pooled uint32
++	root   *studyRootWatch
+ }
+ 
+ type smtRelevancyTrailKind uint8
+@@ -191,7 +192,7 @@
+ }
+ 
+ // Theory propagation has already delivered these marks through notifyRelevant.
+-// Keep up to one short batch for the next propagation round.
++// Reuse short batches and release larger buffers when the solver goes idle.
+ func (p *SMTRelevancyPropagator) discardNewlyRelevant() {
+ 	const maxRetainedMarks = 512 // 8 KiB of pointer-free handles.
+ 	if cap(p.newlyRelevant) > maxRetainedMarks {
+@@ -214,6 +215,10 @@
+ // invokeRef runs a stored handler. The handler is copied first: running
+ // it can store new handlers and move ehs.
+ func (p *SMTRelevancyPropagator) invokeRef(ref uint32) error {
++	h := &p.ehs[ref-1]
++	if h.root != nil {
++		return p.studyRootEvent(h.target, h.root)
++	}
+ 	handler := p.ehs[ref-1]
+ 	return p.invoke(&handler)
+ }
+@@ -242,6 +247,9 @@
+ 		}
+ 		return nil
+ 	case smtRelevancyOr:
++		if handler.root != nil {
++			return p.studyRootEvent(handler.target, handler.root)
++		}
+ 		if p.IsRelevant(handler.target) {
+ 			return p.propagateOr(handler.target)
+ 		}
+@@ -1048,3 +1056,96 @@
+ 	p.qhead = 0
+ 	return nil
+ }
++
++type studyRootWatch struct {
++	args     []ast.ASTHandle
++	lits     []SMTLiteral
++	parent   *smtExprRecord
++	owner    *SMTInternalizerState
++	maxVar   int32
++	serial   uint64
++	children []*smtExprRecord
++	witness  int
++}
++
++func (p *SMTRelevancyPropagator) studyAddRoot(parent ast.ASTHandle, args []ast.ASTHandle, lits []SMTLiteral) error {
++	if !p.enabled {
++		return nil
++	}
++	s := p.internalizer
++	handler := smtRelevancyHandler{kind: smtRelevancyOr, target: parent}
++	var maxVar int32
++	for _, l := range lits {
++		if l.Var() <= 0 {
++			maxVar = 0
++			break
++		}
++		if l.Var() > maxVar {
++			maxVar = l.Var()
++		}
++	}
++	if maxVar > 0 && len(args) <= 2147483647 {
++		g := &studyRootWatch{args: args, lits: lits, parent: p.context.exprs.write(parent), owner: s, maxVar: maxVar, serial: s.booleanCreation[maxVar]}
++		g.children = make([]*smtExprRecord, len(args))
++		for i, h := range args {
++			g.children[i] = p.context.exprs.write(h)
++		}
++		handler.root = g
++	}
++	for _, a := range args {
++		if err := p.addLiteralWatch(a, true, &handler); err != nil {
++			return err
++		}
++	}
++	return nil
++}
++func (p *SMTRelevancyPropagator) studyRootEvent(parent ast.ASTHandle, g *studyRootWatch) error {
++	rec := g.parent
++	if rec.generation != parent.Generation() || rec.flags&smtExprRelevant == 0 {
++		return nil
++	}
++	s := p.internalizer
++	if s == nil || s != g.owner || s != p.context.assignments.s || p.context.studyExplicitAssignment || int(g.maxVar) >= len(s.booleanCreation) || s.booleanCreation[g.maxVar] != g.serial {
++		return p.propagateOr(parent)
++	}
++	var value lbool.LBool
++	if rec.flags&smtExprHasBoolVar != 0 {
++		value = s.assignment[rec.boolVar<<1]
++	} else {
++		value, _ = p.context.assignments.lookupRecord(rec)
++	}
++	if value == lbool.False {
++		for i := len(g.args) - 1; i >= 0; i-- {
++			if err := p.MarkRelevant(g.args[i]); err != nil {
++				return err
++			}
++		}
++		return nil
++	}
++	first := -1
++	if i := g.witness; i < len(g.lits) {
++		l := g.lits[i]
++		v := s.assignment[l.Index()]
++		if v == lbool.True && g.children[i].flags&smtExprRelevant != 0 && g.children[i].generation == g.args[i].Generation() {
++			return nil
++		}
++	}
++	for i, l := range g.lits {
++		v := s.assignment[l.Index()]
++		if v != lbool.True {
++			continue
++		}
++		if g.children[i].flags&smtExprRelevant != 0 && g.children[i].generation == g.args[i].Generation() {
++			g.witness = i
++			return nil
++		}
++		if first < 0 {
++			first = i
++		}
++	}
++	if first >= 0 {
++		g.witness = first
++		return p.MarkRelevant(g.args[first])
++	}
++	return nil
++}
+--- a/pkg/smtcore/smt_internalizer.go
++++ b/pkg/smtcore/smt_internalizer.go
+@@ -1418,7 +1418,7 @@
+ 				return err
+ 			}
+ 			if s.relevancy != nil {
+-				if err = s.relevancy.AddOrWatches(expression); err != nil {
++				if err = s.relevancy.studyAddRoot(expression, arguments, literals); err != nil {
+ 					return err
+ 				}
+ 			}
+--- a/pkg/smtcore/smt_checker.go
++++ b/pkg/smtcore/smt_checker.go
+@@ -11,6 +11,7 @@
+ // The complete SMT context can own this component and update it as terms are
+ // internalized, assigned, and merged.
+ type SMTCheckerContext struct {
++	studyExplicitAssignment bool
+ 	// A caller may register borrowed enodes alongside the internalizer's owned
+ 	// enodes. Only such a context needs a separate list in registration order.
+ 	registeredEnodes []*SMTEnode
+@@ -92,6 +93,7 @@
+ 	} else if expression.IsNull() {
+ 		return ast.ErrASTHandle
+ 	}
++	c.studyExplicitAssignment = true
+ 	c.assignments.set(expression, value)
+ 	return nil
+ }

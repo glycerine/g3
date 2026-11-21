@@ -1,0 +1,141 @@
+--- a/pkg/smtcore/smt_relevancy.go
++++ b/pkg/smtcore/smt_relevancy.go
+@@ -29,6 +29,7 @@
+ 	// pooled is 1 + the handler's position in the propagator's ehs once a
+ 	// table holds it (the relevancy_eh object a watch list points to).
+ 	pooled uint32
++	root   *studyRecordGate
+ }
+ 
+ type smtRelevancyTrailKind uint8
+@@ -191,7 +192,7 @@
+ }
+ 
+ // Theory propagation has already delivered these marks through notifyRelevant.
+-// Keep up to one short batch for the next propagation round.
++// Reuse short batches and release larger buffers when the solver goes idle.
+ func (p *SMTRelevancyPropagator) discardNewlyRelevant() {
+ 	const maxRetainedMarks = 512 // 8 KiB of pointer-free handles.
+ 	if cap(p.newlyRelevant) > maxRetainedMarks {
+@@ -242,6 +243,9 @@
+ 		}
+ 		return nil
+ 	case smtRelevancyOr:
++		if handler.root != nil {
++			return p.studyRecordOR(handler.target, handler.root)
++		}
+ 		if p.IsRelevant(handler.target) {
+ 			return p.propagateOr(handler.target)
+ 		}
+@@ -1048,3 +1052,100 @@
+ 	p.qhead = 0
+ 	return nil
+ }
++
++type studyChild struct{ mark, negative *smtExprRecord }
++type studyRecordGate struct {
++	args   []ast.ASTHandle
++	parent *smtExprRecord
++	values []studyChild
++}
++
++func (p *SMTRelevancyPropagator) studyRecordWatches(parent ast.ASTHandle, args []ast.ASTHandle, lits []SMTLiteral) error {
++	if !p.enabled {
++		return nil
++	}
++	h := smtRelevancyHandler{kind: smtRelevancyOr, target: parent}
++	ok := true
++	for _, l := range lits {
++		if l.Var() <= 0 {
++			ok = false
++			break
++		}
++	}
++	if ok {
++		var g *studyRecordGate
++		if len(args) <= 4 {
++			block := new(struct {
++				g      studyRecordGate
++				values [4]studyChild
++			})
++			g = &block.g
++			g.values = block.values[:len(args):len(args)]
++		} else {
++			g = &studyRecordGate{}
++			g.values = make([]studyChild, len(args))
++		}
++		g.args = args
++		g.parent = p.context.exprs.write(parent)
++		for i, l := range lits {
++			atom := p.internalizer.boolExpr[l.Var()]
++			g.values[i].mark = p.context.exprs.write(args[i])
++			if l.Sign() {
++				g.values[i].negative = p.context.exprs.write(atom)
++			}
++		}
++		h.root = g
++	}
++	for _, arg := range args {
++		if err := p.addLiteralWatch(arg, true, &h); err != nil {
++			return err
++		}
++	}
++	return nil
++}
++func (p *SMTRelevancyPropagator) studyAtom(r *smtExprRecord) lbool.LBool {
++	if p.internalizer != nil && r.flags&smtExprHasBoolVar != 0 {
++		return p.internalizer.assignment[r.boolVar<<1]
++	}
++	value, _ := p.context.assignments.lookupRecord(r)
++	return value
++}
++func (p *SMTRelevancyPropagator) studyRecordOR(parent ast.ASTHandle, g *studyRecordGate) error {
++	if g.parent.generation != parent.Generation() || g.parent.flags&smtExprRelevant == 0 {
++		return nil
++	}
++	if p.studyAtom(g.parent) == lbool.False {
++		for i := len(g.args) - 1; i >= 0; i-- {
++			if err := p.MarkRelevant(g.args[i]); err != nil {
++				return err
++			}
++		}
++		return nil
++	}
++	first := -1
++
++	for i, arg := range g.args {
++		var value lbool.LBool
++		child := g.values[i]
++		if child.negative != nil {
++			value, _ = p.context.assignments.lookupRecord(child.negative)
++			value = value.Negated()
++		} else {
++			value = p.studyAtom(child.mark)
++		}
++		_ = arg
++		if value != lbool.True {
++			continue
++		}
++		if child.mark.flags&smtExprRelevant != 0 {
++			return nil
++		}
++		if first < 0 {
++			first = i
++		}
++	}
++	if first >= 0 {
++		return p.MarkRelevant(g.args[first])
++	}
++	return nil
++}
+--- a/pkg/smtcore/smt_internalizer.go
++++ b/pkg/smtcore/smt_internalizer.go
+@@ -1418,7 +1418,7 @@
+ 				return err
+ 			}
+ 			if s.relevancy != nil {
+-				if err = s.relevancy.AddOrWatches(expression); err != nil {
++				if err = s.relevancy.studyRecordWatches(expression, arguments, literals); err != nil {
+ 					return err
+ 				}
+ 			}
