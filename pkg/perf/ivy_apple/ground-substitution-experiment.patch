@@ -1,0 +1,277 @@
+--- a/pkg/ast/ast_rewriter_access.go
++++ b/pkg/ast/ast_rewriter_access.go
+@@ -69,3 +69,54 @@
+ 	}
+ 	return 0, 0, 0, false, ErrASTDomain
+ }
++
++// A compiled ground substitution supplies live children at the original domain sorts.
++func (m *ASTManager) StudyExistingApp(decl ASTHandle, args []ASTHandle) ASTHandle {
++	if len(args) > astInlineArgs || len(m.table.indices) == 0 {
++		return ASTHandle{}
++	}
++	refs := [astInlineArgs]astNodeRef{}
++	hashes := [astInlineArgs]uint32{}
++	dr, err := m.internal(decl)
++	if err != nil {
++		return ASTHandle{}
++	}
++	for i, h := range args {
++		r, e := m.internal(h)
++		if e != nil {
++			return ASTHandle{}
++		}
++		refs[i] = r
++		hashes[i] = m.nodeAt(r.slot).hash
++	}
++	hash := astTableHash(astHashArray(uint32(len(args)), m.nodeAt(dr.slot).hash, func(i uint32) uint32 { return hashes[i] }))
++	t := &m.table
++	tag := astTableTag(hash)
++	i, perturb := hash&t.mask, hash
++	for {
++		ctrl := t.tags[i]
++		if ctrl == astTagEmpty {
++			return ASTHandle{}
++		}
++		if ctrl == tag {
++			e := t.entries[t.indices[i]]
++			if e.hash == hash && m.nodeAt(e.ref.slot).kind == ASTApp {
++				a := m.appAt(e.ref.slot)
++				if a.decl == dr && a.count == uint32(len(args)) {
++					all := true
++					for j := range args {
++						if a.inlineArgs[j] != refs[j] {
++							all = false
++							break
++						}
++					}
++					if all {
++						return m.external(e.ref)
++					}
++				}
++			}
++		}
++		perturb >>= 5
++		i = (5*i + perturb + 1) & t.mask
++	}
++}
+--- /dev/null
++++ b/pkg/ast/rewriter/ground_substitution.go
+@@ -0,0 +1,168 @@
++package rewriter
++
++import (
++	"errors"
++	"github.com/glycerine/g3/pkg/ast"
++)
++
++// Each operation reconstructs a non-ground application after its children.
++// Ground subterms are kept verbatim and variables index the current bindings.
++type GroundSubstitutionPlan struct {
++	ops    []substApp
++	edges  []uint16
++	vars   []substVar
++	values []ast.ASTHandle
++	args   []ast.ASTHandle
++}
++type substApp struct {
++	source, decl       ast.ASTHandle
++	start, count, dest uint16
++}
++type substVar struct {
++	sort  ast.ASTHandle
++	index uint32
++	dest  uint16
++}
++
++func CompileGroundSubstitution(m *ast.ASTManager, body ast.ASTHandle) *GroundSubstitutionPlan {
++	p := new(GroundSubstitutionPlan)
++	ids := make(map[ast.ASTHandle]uint16)
++	maxArgs := 0
++	var visit func(ast.ASTHandle, int) (uint16, bool)
++	visit = func(h ast.ASTHandle, depth int) (uint16, bool) {
++		if id, ok := ids[h]; ok {
++			return id, true
++		}
++		if depth >= 64 || len(p.values) >= 384 {
++			return 0, false
++		}
++		kind, _, n, ground, e := m.SubstitutionShape(h)
++		if e != nil {
++			return 0, false
++		}
++		id := uint16(len(p.values))
++		ids[h] = id
++		p.values = append(p.values, h)
++		switch {
++		case ground:
++		case kind == ast.ASTVar:
++			sort, e := m.GetSort(h)
++			if e != nil {
++				return 0, false
++			}
++			p.vars = append(p.vars, substVar{sort, n, id})
++		case kind == ast.ASTApp && n > 0 && n <= 64:
++			hd, e := m.NodeHeader(h)
++			if e != nil || hd.Family == m.BasicFamilyID() && hd.DeclKind == ast.ASTOpIte {
++				return 0, false
++			}
++			first := len(p.edges)
++			p.edges = append(p.edges, make([]uint16, n)...)
++			for i := uint32(0); i < n; i++ {
++				arg, e := m.GetArg(h, i)
++				if e != nil {
++					return 0, false
++				}
++				x, ok := visit(arg, depth+1)
++				if !ok {
++					return 0, false
++				}
++				p.edges[first+int(i)] = x
++			}
++			p.ops = append(p.ops, substApp{h, hd.Decl, uint16(first), uint16(n), id})
++			if int(n) > maxArgs {
++				maxArgs = int(n)
++			}
++		default:
++			return 0, false
++		}
++		return id, true
++	}
++	if _, ok := visit(body, 0); !ok || len(p.ops) == 0 {
++		return nil
++	}
++	p.args = make([]ast.ASTHandle, maxArgs)
++	return p
++}
++
++func (s *VarSubstitution) GroundPlanEnabled() bool {
++	m := s.reducer.engine.core.manager
++	if !s.standardOrder || ast.ASTValidateHandles || m.TraceStream != nil || m.Budget().InjectionArmed() || s.reducer.engine.core.proofGen {
++		return false
++	}
++	return !m.ResourceLimit().CancelFlag()
++}
++func (s *VarSubstitution) SubstituteGroundPlan(p *GroundSubstitutionPlan, input []ast.ASTHandle, out ast.ASTRef) (used bool, err error) {
++	if p == nil {
++		return false, nil
++	}
++	r := &s.reducer.engine
++	m := r.core.manager
++	for _, v := range p.vars {
++		if uint64(v.index) >= uint64(len(input)) {
++			return false, nil
++		}
++		bound := input[len(input)-1-int(v.index)]
++		sort, e := m.GetSort(bound)
++		if e != nil || sort != v.sort {
++			return false, e
++		}
++		ground, e := m.IsGround(bound)
++		if e != nil || !ground {
++			return false, e
++		}
++		p.values[v.dest] = bound
++	}
++	steps := uint32(2 * len(p.ops))
++	lim := m.ResourceLimit()
++	if lim.Limit != 0 && (lim.Steps >= lim.Limit || lim.Limit-lim.Steps <= uint64(steps)) {
++		return false, nil
++	}
++	if e := s.Reset(); e != nil {
++		return false, e
++	}
++	if !lim.IncOffset(steps) {
++		return true, errors.New(lim.CancelMessage())
++	}
++	held := 0
++	defer func() {
++		for i := held - 1; i >= 0; i-- {
++			if _, e := m.DecRefHeldConsumed(p.values[p.ops[i].dest]); e != nil {
++				err = errors.Join(err, e)
++			}
++		}
++	}()
++	for i, op := range p.ops {
++		retain := false
++		if i+1 < len(p.ops) {
++			rc, e := m.GetRefCount(op.source)
++			if e != nil {
++				return true, e
++			}
++			retain = rc > 1
++		}
++		args := p.args[:op.count]
++		for j, edge := range p.edges[op.start : int(op.start)+int(op.count)] {
++			args[j] = p.values[edge]
++		}
++		result := m.StudyExistingApp(op.decl, args)
++		var e error
++		if result.IsNull() {
++			result, e = m.RewriterMakeApp(op.decl, ast.SliceArguments(args))
++		}
++		if e != nil {
++			return true, e
++		}
++		if e = m.IncRefHeld(result); e != nil {
++			return true, e
++		}
++		p.values[op.dest] = result
++		held++
++		if retain {
++			if e = r.core.cacheResult(op.source, result); e != nil {
++				return true, e
++			}
++		}
++	}
++	return true, m.SetRef(out, p.values[0])
++}
+--- a/pkg/smtcore/cached_var_subst.go
++++ b/pkg/smtcore/cached_var_subst.go
+@@ -20,6 +20,7 @@
+ }
+ 
+ type SMTCachedVarSubstitution struct {
++	plans        map[ast.ASTHandle]*rewriter.GroundSubstitutionPlan
+ 	self         *SMTCachedVarSubstitution
+ 	manager      *ast.ASTManager
+ 	substitution *rewriter.VarSubstitution
+@@ -123,8 +124,28 @@
+ 	if err != nil {
+ 		return false, err
+ 	}
+-	if err = c.substitution.Substitute(body, owners, out); err != nil {
+-		return false, err
++	used := false
++	if c.substitution.GroundPlanEnabled() {
++		if c.plans == nil {
++			c.plans = make(map[ast.ASTHandle]*rewriter.GroundSubstitutionPlan)
++		}
++		plan, seen := c.plans[quantifier]
++		if !seen {
++			if len(c.plans) >= 128 {
++				clear(c.plans)
++			}
++			plan = rewriter.CompileGroundSubstitution(c.manager, body)
++			c.plans[quantifier] = plan
++		}
++		used, err = c.substitution.SubstituteGroundPlan(plan, owners, out)
++		if err != nil {
++			return false, err
++		}
++	}
++	if !used {
++		if err = c.substitution.Substitute(body, owners, out); err != nil {
++			return false, err
++		}
+ 	}
+ 	value, err := c.manager.RefGet(out)
+ 	if err != nil {
+@@ -167,6 +188,7 @@
+ func (c *SMTCachedVarSubstitution) clearEntries() error {
+ 	// m_instances goes first: its entries index m_refs, which is then
+ 	// released front to back (an expr_ref_vector).
++	c.plans = nil
+ 	c.list = nil
+ 	c.entries = make(map[uint64]uint32)
+ 	for len(c.refs) != 0 {
