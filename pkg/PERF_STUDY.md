@@ -2,6 +2,8 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
+**Apple `rfn2` now takes 8.02% fewer instructions and 10.92% less elapsed time** across 12 paired whole-isolate runs. Reusing solver-local child records nearly halved the number of child tests, with all 10,342 Apple checks matching native search. [Whole-isolate and worker measurements](#reusing-child-records-in-asserted-disjunction-watches)
+
 **Mixed-width Raft uses 6.05% fewer instructions and 5.59% less wall time when private proofs share equivalent Boolean definitions.** Both figures are medians across 24 paired runs of all 419 obligations. Native Z3 checked all 592 rewritten assertions. [Raft measurements and controls](#equivalent-boolean-definitions-in-private-raft-proofs)
 
 **Raft 251 now takes 111 decisions and 548 quantifier instantiations. Raft 321 takes 129 and 204, including its side proof.** That specialization reduced median paired elapsed time by 2.07% on the full 419-obligation specification. Median elapsed times were 4.35 s before and 4.27 s after, on pinned CPUs. [Raft 251 measurements](#a-shared-transition-guard-reduces-raft-251s-search) · [Raft 321 measurements](#partial-instances-of-a-universal-consequence-on-raft-321)
@@ -1672,3 +1674,12 @@ In 21 rotated rounds on CPU 23, each sample delivered 500,000 callbacks. The rel
 A separate worker benchmark keeps 1,024 independent single-goroutine solver contexts live and asserts eight four-child clauses per context. Across ten fresh processes per build, the median additional live heap per solver with the scopes active rose from **13,592.5 B to 13,781 B**. After popping the scopes, it fell from **12,312.5 B to 11,605 B**. These are increments over the same fixture with its AST roots already held. Use `go test ./smtcore -run '^$' -bench '^BenchmarkSMTAssertedOrWorkerMemory$' -benchtime=1x` for this fixture. [Worker measurements](perf/ivy_apple/root_watches/workers.csv)
 
 All nine Apple isolates reproduced their native transcripts and matched all 18 native search counters at each of 10,342 checks. All 188 retained Raft private proof searches matched the preceding frontier. The 28 Raft mutation controls reproduced all 11,655 expected passes and 77 expected failures.
+
+Across 48 paired release runs on GoIvy `3ef4b9020`, g3 `0a27fdff9` reduced instructions in every Apple pair. Each process used one logical CPU, `GOMAXPROCS=1`, tracing disabled and PGO off. Each pair ran on the same CPU. These figures are medians of within-pair percentage changes on a shared machine. The control used g3 `fa19e73c8`. [All 96 release measurements](perf/ivy_apple/root_watches/release.csv)
+
+| Workload | Pairs | Instructions | User CPU | Elapsed |
+|---|---:|---:|---:|---:|
+| Apple `rfn2` | 12 | −8.02% | −10.29% | −10.92% |
+| Apple `rfn` | 10 | −7.06% | −8.86% | −8.83% |
+| Apple `cf_live` | 8 | −3.36% | −2.78% | −1.56% |
+| Raft, original widths | 18 | −0.12% | −0.32% | +0.61% |
