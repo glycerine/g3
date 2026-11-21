@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func smtQuantifierManagerFixture(t *testing.T, eager, lazy float32, config SMTQuantifierManagerConfig) (*ast.ASTManager, *SMTInternalizerState, *SMTQuantifierRegistry, *SMTQuantifierManager) {
+func smtQuantifierManagerFixture(t testing.TB, eager, lazy float32, config SMTQuantifierManagerConfig) (*ast.ASTManager, *SMTInternalizerState, *SMTQuantifierRegistry, *SMTQuantifierManager) {
 	t.Helper()
 	m := astTestManager(t)
 	costs, err := NewSMTQICostModel(m, "0", "0", nil)

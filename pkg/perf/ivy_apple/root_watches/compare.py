@@ -6,34 +6,15 @@ import io
 import os
 from pathlib import Path
 import re
-import shlex
 import subprocess
 import sys
 import tempfile
 
 
-ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from native_benchmark import ROOT, build_native
+
 GO_CASE = re.compile(r"BenchmarkSMTAssertedOrWitness/Width(\d+)/Child(\d+)(?:-\d+)?$")
-
-
-def make_variable(text, key):
-    match = re.search(rf"^{key}\s*=\s*(.*)$", text, re.MULTILINE)
-    if not match:
-        raise ValueError(f"missing {key} in the configured Makefile build")
-    return shlex.split(match[1])
-
-
-def build_native(build, output):
-    config = (build / "config.mk").read_text()
-    makefile = (build / "Makefile").read_text()
-    includes = re.search(r"\$\((includes_\d+)\).*\.\./src/test/smt_scope_restoration\.cpp", makefile)[1]
-    cc = make_variable(config, "CXX")
-    source = ROOT / "src/test/perf/asserted_or_witness.cpp"
-    obj = output.with_suffix(".o")
-    subprocess.run([*cc, *make_variable(config, "CXXFLAGS"), *make_variable(makefile, includes),
-                    "-o", obj, source], cwd=build, check=True)
-    subprocess.run([*cc, "-o", output, obj, build / "libz3.a", *make_variable(config, "LINK_EXTRA_FLAGS")],
-                   cwd=build, check=True)
 
 
 def run(binary, native, cpu):
@@ -68,7 +49,7 @@ def main():
         p.error("round count must be positive")
     with tempfile.TemporaryDirectory() as scratch:
         native = Path(scratch) / "native"
-        build_native(args.build.resolve(strict=True), native)
+        build_native(args.build.resolve(strict=True), native, ROOT / "src/test/perf/asserted_or_witness.cpp")
         binaries = {"native": native}
         for spec in args.go_binary or []:
             name, sep, path = spec.partition("=")

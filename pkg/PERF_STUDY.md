@@ -1713,3 +1713,16 @@ The earlier profiles show why the quantifier candidate checker and the rewriter 
 | Disjunction relevance | 8.64 | 1.79 | 6.85 | 6.45 |
 
 The queue calls the candidate checker and the rewriter. Adding their inclusive estimates would count some instructions twice. The CSVs also assign each sample to its nearest recognized operation for an additive view. Symbolization and compiler inlining affect attribution. The all-check replication puts 61.49 versus 16.36 billion instructions under the queue. This supports working on the cost of checking and rewriting each proposed instantiation while holding the native search trace fixed. To repeat the measurement, run the stack recorder with `--select 4 inside`, then pass its completed `PHASE-PAIR-ENGINE` directories and the same `--period` to the summarizer. [Stack recorder](perf/ivy_apple/phase_stacks.py) · [Operation and leaf summarizer](perf/ivy_apple/stack_costs.py)
+
+### Replaying a quantifier candidate with a known answer
+
+Both implementations now have a benchmark for the same disjunction of equalities, `f(x) = f(a₀) ∨ … ∨ f(x) = f(aₙ)`. Each check gets one binding for `x`. The solver must look up `f(x)` by congruence and find the matching equality. The fixtures check that the first and last bindings succeed and that a binding with no registered application fails. The timed direct-check rows invoke g3's `IsSatisfiable` and this fork's `checker::is_sat`. The Go queue rows include instance preparation and the already-satisfied return through the quantifier manager. [Go benchmark](smtcore/smt_quantifier_candidate_benchmark_test.go) · [C++ benchmark](../src/test/perf/quantifier_candidate.cpp)
+
+| Equalities | Matching child | g3 direct | Z3 direct | g3 via queue |
+|---:|---|---:|---:|---:|
+| 4 | First | 292.5 ns | 95.3 ns | 387.6 ns |
+| 4 | Last | 585.8 ns | 206.0 ns | 712.7 ns |
+| 16 | First | 269.1 ns | 93.1 ns | 380.5 ns |
+| 16 | Last | 1,984.0 ns | 714.5 ns | 2,061.0 ns |
+
+These are medians of 11 rotated runs of 100,000 calls on CPU 43 with g3 `0a27fdff9` and `GOMAXPROCS=1`. Even when the candidate answer and scan order are fixed, checking the last of 16 equalities costs 1.27 µs more in g3. Queue dispatch adds another 77 ns in that case. Build a g3 test binary with `go test -c -o /tmp/g3-candidate.test ./smtcore`, then run `python3 perf/ivy_apple/candidate_checker/compare.py --cpu 0 --go g3 /tmp/g3-candidate.test` with a configured native Makefile build in the fork. [Rotated measurements](perf/ivy_apple/candidate_checker/baseline.csv) · [Comparison driver](perf/ivy_apple/candidate_checker/compare.py)

@@ -10,7 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func smtQuickTheoryRewriter(t *testing.T, m *ast.ASTManager) *rewriter.TheoryRewriter {
+func smtQuickTheoryRewriter(t testing.TB, m *ast.ASTManager) *rewriter.TheoryRewriter {
 	t.Helper()
 	context, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
 	astTestMust(t, err)
@@ -41,7 +41,7 @@ func smtQuickRegistry(t *testing.T, m *ast.ASTManager) (*SMTQuantifierRegistry, 
 	return registry, schedule
 }
 
-func smtQuickPredicate(t *testing.T, m *ast.ASTManager, name string, domain, boolean ast.ASTHandle) ast.ASTHandle {
+func smtQuickPredicate(t testing.TB, m *ast.ASTManager, name string, domain, boolean ast.ASTHandle) ast.ASTHandle {
 	t.Helper()
 	info, err := m.NewFuncDeclInfo(ast.NullFamilyID, -1, nil, ast.ASTFuncFlags{}, false)
 	astTestMust(t, err)
