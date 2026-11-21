@@ -112,26 +112,27 @@ type SMTKernel struct {
 	// rewriters, whose caches persist for the asserted formulas' lifetime.
 	// They are built on first use; the lift-ite conservative flag is read
 	// then, as the source reads it in the asserted_formulas constructor.
-	assertedLiftITE    *rewriter.PushAppITE
-	assertedNGLiftITE  *rewriter.PushAppITE
-	assertedElimBounds *rewriter.ElimBounds
-	assertedPullNested *normal_forms.PullNestedQuantifiers
-	assertedMacros     *macros.Manager
-	definedNames       *normal_forms.DefinedNames
-	quantifierCosts    *SMTQICostModel
-	modelCooperation   *cooperate.Cooperation
-	paramContext       *uparams.ParamsContext
-	paramGlobals       *uparams.GlobalParamsService
-	smtParams          *SMTParams
-	smtState           SMTParamsState
-	arithState         SMTArithState
-	bvState            SMTBVState
-	preprocessState    SMTPreprocessorState
-	produceModel       bool
-	preprocess         bool
-	timerClock         func() (uint64, error)
-	closing            bool
-	closed             bool
+	assertedLiftITE           *rewriter.PushAppITE
+	assertedNGLiftITE         *rewriter.PushAppITE
+	assertedElimBounds        *rewriter.ElimBounds
+	assertedPullNested        *normal_forms.PullNestedQuantifiers
+	assertedMacros            *macros.Manager
+	definedNames              *normal_forms.DefinedNames
+	quantifierCosts           *SMTQICostModel
+	modelCooperation          *cooperate.Cooperation
+	paramContext              *uparams.ParamsContext
+	paramGlobals              *uparams.GlobalParamsService
+	smtParams                 *SMTParams
+	smtState                  SMTParamsState
+	arithState                SMTArithState
+	bvState                   SMTBVState
+	preprocessState           SMTPreprocessorState
+	produceModel              bool
+	preprocess                bool
+	skipRepeatedPreprocessing bool
+	timerClock                func() (uint64, error)
+	closing                   bool
+	closed                    bool
 
 	// Source m_has_quantifiers is sticky, including across scope pops.
 	assertedHasQuantifiers   bool

@@ -143,6 +143,7 @@ func NewRefutationContext(budget *arena.Budget) (*Context, error) {
 	c, err := NewAuxiliaryContextWithBudget(budget)
 	if err == nil {
 		c.config.SkipTrivialMBQIChecks = true
+		c.config.SkipRepeatedPreprocessing = true
 	}
 	return c, err
 }

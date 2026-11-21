@@ -1,0 +1,15 @@
+kernel,index,pass,calls,unchanged_pending_assertions,elapsed_ns
+primary,0,propagate-values,287,192,108986023
+primary,1,find-macros,277,169,212797567
+primary,2,nnf-cnf,277,105,56812607
+primary,3,reduce-asserted,277,82,59526656
+primary,8,refine-injectivity,277,277,3856470
+primary,10,find-macros,277,277,92865201
+primary,14,pattern-inference,277,152,135346412
+primary,15,maximizing-bv-sharing,277,135,120475687
+primary,16,reduce-asserted,277,277,38621632
+auxiliary,0,propagate-values,2768,1945,144826637
+auxiliary,2,nnf-cnf,2309,2033,61201963
+auxiliary,3,reduce-asserted,2309,1560,63361563
+auxiliary,15,maximizing-bv-sharing,2309,750,104112523
+auxiliary,16,reduce-asserted,2309,2215,20049302

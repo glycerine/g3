@@ -31,6 +31,9 @@ type SMTSolverConfig struct {
 	// SkipTrivialMBQIChecks lets a private refutation solver skip the
 	// Skolem search when a quantified body evaluates to true for all bindings.
 	SkipTrivialMBQIChecks bool
+	// SkipRepeatedPreprocessing omits the second macro search and final
+	// simplifier pass in private refutation contexts.
+	SkipRepeatedPreprocessing bool
 }
 
 type smtTrackedAssertion struct {
@@ -165,6 +168,7 @@ func newSMTSolver(m *ast.ASTManager, p *uparams.ParamsRef, logic string, config 
 	if err != nil {
 		return nil, cleanupServices(errors.Join(err, config.Params.Del(&value)))
 	}
+	kernel.skipRepeatedPreprocessing = config.SkipRepeatedPreprocessing
 	if err = kernel.configurePreprocessing(config.Params, globals, &value, sourceParams); err != nil {
 		return nil, cleanupServices(errors.Join(err, kernel.Close(), config.Params.Del(&value)))
 	}

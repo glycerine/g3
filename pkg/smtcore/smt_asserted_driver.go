@@ -23,6 +23,7 @@ const (
 	assertedBounds
 	assertedPatterns
 	assertedBVSharing
+	assertedSkip
 )
 
 func (k *SMTKernel) shouldApplyAssertedPass(pass assertedPass) bool {
@@ -166,12 +167,19 @@ func (k *SMTKernel) reduceAssertedPending() (bool, error) {
 	if err := k.setAssertedEliminateAnd(false); err != nil {
 		return false, err
 	}
+	// The private order solver needs only a refutation. The first macro
+	// search and simplification still run. Stored definitions also expand
+	// at the start of each subsequent batch, including after a push.
+	secondMacros, finalReduce := assertedMacros, assertedReduce
+	if k.skipRepeatedPreprocessing {
+		secondMacros, finalReduce = assertedSkip, assertedSkip
+	}
 	for index, pass := range [...]assertedPass{
 		assertedPropagate, assertedMacros, assertedNNF, assertedReduce,
 		assertedPullQuantifiers, assertedLiftITE, assertedLiftNonGroundITE,
 		assertedEliminateITE, assertedInjectivity, assertedDistribute,
-		assertedMacros, assertedQuasiMacros, assertedBit2Int, assertedBounds,
-		assertedPatterns, assertedBVSharing, assertedReduce,
+		secondMacros, assertedQuasiMacros, assertedBit2Int, assertedBounds,
+		assertedPatterns, assertedBVSharing, finalReduce,
 	} {
 		if index == 3 {
 			if err := k.setAssertedEliminateAnd(true); err != nil {

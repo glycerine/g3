@@ -11,6 +11,11 @@ import (
 
 func smtAssertedMacroFixture(t *testing.T, proofs, quasi bool) (*ast.ASTManager, *SMTSolver, model.ModelEvaluatorConfig) {
 	t.Helper()
+	return smtAssertedMacroFixtureWithConfig(t, proofs, quasi, SMTSolverConfig{})
+}
+
+func smtAssertedMacroFixtureWithConfig(t *testing.T, proofs, quasi bool, solverConfig SMTSolverConfig) (*ast.ASTManager, *SMTSolver, model.ModelEvaluatorConfig) {
+	t.Helper()
 	m, config := smtModelGeneratorFixture(t)
 	if proofs {
 		astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
@@ -22,7 +27,8 @@ func smtAssertedMacroFixture(t *testing.T, proofs, quasi bool) (*ast.ASTManager,
 	astTestMust(t, config.Context.SetBoolName(&local, &propagate, false))
 	quasiMacros := "quasi_macros"
 	astTestMust(t, config.Context.SetBoolName(&local, &quasiMacros, quasi))
-	solver, err := NewSMTSolver(m, &local, "AUFLIA", SMTSolverConfig{Params: config.Context, ModelEvaluator: config})
+	solverConfig.Params, solverConfig.ModelEvaluator = config.Context, config
+	solver, err := NewSMTSolver(m, &local, "AUFLIA", solverConfig)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, solver.Close()); astTestMust(t, config.Context.Del(&local)) })
 	astTestMust(t, solver.SetProduceModels(true))
@@ -30,7 +36,13 @@ func smtAssertedMacroFixture(t *testing.T, proofs, quasi bool) (*ast.ASTManager,
 }
 
 func TestSMTAssertedMacrosExpandAcrossScopesAndPublishModels(t *testing.T) {
-	m, solver, config := smtAssertedMacroFixture(t, false, false)
+	t.Run("Full", func(t *testing.T) { checkAssertedMacroScopes(t, SMTSolverConfig{}) })
+	t.Run("PrivateRefutation", func(t *testing.T) { checkAssertedMacroScopes(t, SMTSolverConfig{SkipRepeatedPreprocessing: true}) })
+}
+
+func checkAssertedMacroScopes(t *testing.T, cfg SMTSolverConfig) {
+	t.Helper()
+	m, solver, config := smtAssertedMacroFixtureWithConfig(t, false, false, cfg)
 	one, err := m.ArithmeticIntegerNumeralText("1")
 	astTestMust(t, err)
 	integer, err := m.GetSort(one)

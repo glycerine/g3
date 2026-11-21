@@ -1,0 +1,10 @@
+isolate,checks,decisions,quant-instantiations,conflicts,rlimit-count,added-eqs,binary-propagations,del-clause,max-generation,minimized-lits,mk-bool-var,mk-clause,propagations,num-checks,datatype-accessor-ax,datatype-constructor-ax,datatype-splits,restarts,final-checks
+cf_live,336,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+cf_pio_live,2215,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+cmpl_live,437,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+dramc_nb2,2479,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+e2e,2378,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+rfn,33,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+rfn2,26,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+sys_live,1738,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+tprops,700,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
