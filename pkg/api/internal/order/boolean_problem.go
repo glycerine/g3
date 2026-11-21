@@ -81,9 +81,15 @@ func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (Proo
 	}
 	proof := ProofProblem{Order: t.render(), SearchSteps: remaining - spent}
 	if c := t.transition; c != nil {
-		goal := t.renderAssertion(c.specialized)
+		primary := proof.Order
+		if c.primaryPremises == nil {
+			primary.Text = primary.Text[:primary.LastAssertionStart] + t.renderAssertion(c.specialized)
+		} else {
+			t.assertions = append(c.primaryPremises, c.specialized)
+			primary = t.render()
+		}
 		t.assertions = append(c.premises, c.negatedFacts)
-		proof.Conditional = &ConditionalGoal{Condition: t.render(), Assertion: goal}
+		proof.Conditional = &ConditionalGoal{Condition: t.render(), Primary: primary}
 	}
 	return proof, true, nil
 }

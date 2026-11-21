@@ -22,7 +22,7 @@ func (f *frameMatcher) requireChangedUpdates(facts []int32) []int32 {
 		args := t.arguments(&eq)
 		head := t.terms[args[0]]
 		g, body := f.activeUpdate(args[1], def.old, t.arguments(&head), on, off)
-		if g == on || g == off || (guard >= 0 && !f.sameUpdateTerm(guard, g)) {
+		if g == on || g == off || (guard >= 0 && !f.sameTerm(guard, g)) {
 			break
 		}
 		guard = g
@@ -72,7 +72,7 @@ func (f *frameMatcher) activeUpdate(id, old int32, params []int32, on, off int32
 }
 
 func (f *frameMatcher) updateChoice(test, yes, no int32) int32 {
-	if f.sameUpdateTerm(yes, no) {
+	if f.sameTerm(yes, no) {
 		return yes
 	}
 	t := f.t
@@ -90,7 +90,7 @@ func (f *frameMatcher) updateChoice(test, yes, no int32) int32 {
 	return id
 }
 
-func (f *frameMatcher) sameUpdateTerm(left, right int32) bool {
+func (f *frameMatcher) sameTerm(left, right int32) bool {
 	if left == right {
 		return true
 	}
@@ -104,7 +104,7 @@ func (f *frameMatcher) sameUpdateTerm(left, right int32) bool {
 		return false
 	}
 	for i, child := range t.arguments(&x) {
-		if !f.sameUpdateTerm(child, t.children[y.start+uint32(i)]) {
+		if !f.sameTerm(child, t.children[y.start+uint32(i)]) {
 			return false
 		}
 	}

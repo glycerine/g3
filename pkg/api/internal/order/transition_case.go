@@ -9,9 +9,10 @@ type changedAtom struct {
 }
 
 type transitionCase struct {
-	premises     []int32
-	negatedFacts int32
-	specialized  int32
+	premises        []int32
+	primaryPremises []int32
+	negatedFacts    int32
+	specialized     int32
 }
 
 // In a single model, suppose the ground old property holds, its new version
@@ -71,10 +72,9 @@ func (m *inductionMatcher) proposeCase(lemma, goal int32, steps uint32) uint32 {
 			replaced++
 		}
 		if replaced >= 2 {
-			if subset, lifted, ok := f.liftCase(premises, facts); ok {
-				premises, negated = subset, lifted
-			}
-			t.transition = &transitionCase{premises: premises, negatedFacts: negated, specialized: f.booleanTerm(opAnd, args...)}
+			c := &transitionCase{premises: premises, negatedFacts: negated, specialized: f.booleanTerm(opAnd, args...)}
+			f.liftCase(c, facts, args[0])
+			t.transition = c
 			break
 		}
 	}

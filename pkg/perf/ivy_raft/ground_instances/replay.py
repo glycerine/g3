@@ -46,16 +46,7 @@ def replacement(case, mode):
     return declarations + "\n".join(prefix + [assertions[-1]]) + "\n"
 
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--goivy", type=Path, required=True)
-    p.add_argument("--spec", type=Path, required=True)
-    p.add_argument("--cpu", type=int, required=True)
-    p.add_argument("--mode", choices=MODES, action="append", help="replay just these modes")
-    args = p.parse_args()
-    ivy, spec = args.goivy.resolve(strict=True), args.spec.resolve(strict=True)
-    with gzip.open(HERE / "cases.json.gz", "rt") as f:
-        cases = json.load(f)
+def replay_source():
     code = replace_once(observed_source(), "import (", 'import (\n"strings"')
     code = replace_once(code, METHOD, """
 var raftStudyObligation int
@@ -80,6 +71,20 @@ func init() {
         replaced = true
     }
 """ + check)
+    return code
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--goivy", type=Path, required=True)
+    p.add_argument("--spec", type=Path, required=True)
+    p.add_argument("--cpu", type=int, required=True)
+    p.add_argument("--mode", choices=MODES, action="append", help="replay just these modes")
+    args = p.parse_args()
+    ivy, spec = args.goivy.resolve(strict=True), args.spec.resolve(strict=True)
+    with gzip.open(HERE / "cases.json.gz", "rt") as f:
+        cases = json.load(f)
+    code = replay_source()
     writer = csv.writer(sys.stdout, lineterminator="\n")
     short = ["dec", "qi", "conf", "resources"]
     writer.writerow(["variant"] + [f"{n}_{k}" for n in ["all", 251, 321] for k in short])

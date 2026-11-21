@@ -39,11 +39,10 @@ type Problem struct {
 	DeclarationCount                    int
 }
 
-// ConditionalGoal replaces the final assertion only after the private solver
-// refutes Condition, which contains the negated directional implications.
+// ConditionalGoal supplies the specialized primary query after the private
+// solver refutes the negated directional implications in Condition.
 type ConditionalGoal struct {
-	Condition Problem
-	Assertion string
+	Condition, Primary Problem
 }
 
 func (t *inference) renderAssertion(id int32) string {

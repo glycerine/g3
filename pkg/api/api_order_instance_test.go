@@ -326,8 +326,7 @@ func TestOrderProofConditionalPointUpdate(t *testing.T) {
 	}
 }
 
-func TestOrderProofLiftsImplicationThroughQuantifiedPredicates(t *testing.T) {
-	const prefix = `(define-sort A () (_ BitVec 2))
+const inclusionPrefix = `(define-sort A () (_ BitVec 2))
 (declare-const a A)(declare-const b A)(declare-const c A)(declare-const d A)
 (declare-const p A)(declare-const q A)
 (declare-fun old (A A) Bool)(declare-fun updated (A A) Bool)
@@ -338,10 +337,13 @@ func TestOrderProofLiftsImplicationThroughQuantifiedPredicates(t *testing.T) {
 (assert (forall ((u A)(v A)) (= (newP u v) (or (oldP u v) (edge u v)))))
 (assert (forall ((z A)) (= (oldD z) (exists ((u A)) (forall ((t A)) (=> (edge t u) (not (oldP t z))))))))
 `
-	const suffix = `
+
+const inclusionGoal = `
 (assert (forall ((x A)(y A)(z A)(w A))
  (=> (and (old x y) (oldD z) (not (oldP w z))) (end w))))
 (assert (not (=> (and (updated a b) (newD c) (not (newP d c))) (end d))))`
+
+func TestOrderProofLiftsImplicationThroughQuantifiedPredicates(t *testing.T) {
 	for _, tc := range []struct {
 		name, formula string
 		lift          bool
@@ -353,7 +355,7 @@ func TestOrderProofLiftsImplicationThroughQuantifiedPredicates(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			definition := "(assert (forall ((k A)) (= (newD k) (exists ((r A)) (forall ((s A)) " + tc.formula + ")))))"
-			c, s := orderSolver(t, prefix+definition+suffix)
+			c, s := orderSolver(t, inclusionPrefix+definition+inclusionGoal)
 			manager, err := c.Manager()
 			astTestMust(t, err)
 			assertions, err := solver.Assertions(s.solver)
@@ -426,6 +428,47 @@ func TestOrderProofCommonUpdateGuard(t *testing.T) {
 			astTestMust(t, err)
 			if proved || got != lbool.True {
 				t.Fatalf("expected an active transition with a counterexample, got proved=%v, concrete=%v", proved, got)
+			}
+		})
+	}
+}
+
+func TestOrderProofSpecializesBothSidesOfAConsequence(t *testing.T) {
+	const wrapper = `(assert (forall ((k A)) (= (newD k) (exists ((r A)) (forall ((s A)) (=> (edge s r) (not (newP s k))))))))`
+	for _, tc := range []struct {
+		name, consequence string
+		projected         bool
+	}{
+		{"both sides match the violated predicate", "(= (end u) (end v))", true},
+		{"only one side matches", "(= (end u) (oldD v))", false},
+		{"equality in a disjunction", "(or (= (end u) (end v)) (edge v u))", false},
+		{"identical sides", "(= (end u) (end u))", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rule := "(assert (forall ((u A)(v A)) (=> (edge u v) " + tc.consequence + ")))"
+			c, s := orderSolver(t, inclusionPrefix+wrapper+rule+inclusionGoal)
+			m, err := c.Manager()
+			astTestMust(t, err)
+			assertions, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			proof, ok, err := order.ForProof(m, assertions, orderProofSteps)
+			astTestMust(t, err)
+			if !ok || proof.Conditional == nil {
+				t.Fatal("expected a conditional transition")
+			}
+			primary := proof.Conditional.Primary.Premises()
+			if (primary != proof.Order.Premises()) != tc.projected {
+				t.Fatalf("unexpected primary premises for %s", tc.consequence)
+			}
+			if tc.projected && strings.Contains(primary, "(exists ") {
+				t.Fatal("the projected primary query retained a quantified wrapper")
+			}
+			proved, err := s.ProveUnsatByOrderAbstraction()
+			astTestMust(t, err)
+			got, err := s.Check()
+			astTestMust(t, err)
+			if proved || got != lbool.True {
+				t.Fatalf("expected a counterexample, got proved=%v, concrete=%v", proved, got)
 			}
 		})
 	}

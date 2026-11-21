@@ -119,9 +119,10 @@ func (f *frameMatcher) underBinders(x, y expression, left, right int32, directio
 // from forall x. P(x) => Q(x) by monotonicity of two quantified definitions.
 // The private solver can establish both by refuting the negated universal.
 // Only the independent private UNSAT result authorizes specialization.
-func (f *frameMatcher) liftCase(premises, facts []int32) ([]int32, int32, bool) {
+func (f *frameMatcher) liftCase(c *transitionCase, facts []int32, goal int32) {
+	premises := c.premises
 	if len(facts) != 2 {
-		return nil, 0, false
+		return
 	}
 	t := f.t
 	for i, fact := range facts {
@@ -160,7 +161,8 @@ func (f *frameMatcher) liftCase(premises, facts []int32) ([]int32, int32, bool) 
 				kept = append(kept, id)
 			}
 		}
-		return kept, neg, true
+		c.premises, c.negatedFacts = kept, neg
+		c.primaryPremises = f.conclusionPremises(goal, x.assertion, y.assertion)
+		return
 	}
-	return nil, 0, false
 }

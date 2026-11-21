@@ -1,5 +1,7 @@
 # Raft verification and SMT scope restoration performance
 
+**Raft 251 now takes 111 decisions and 548 quantifier instantiations. Raft 321 takes 129 and 204, including its side proof.** The latest change reduced median paired elapsed time by 2.07% on the full 419-obligation specification. Median elapsed times were 4.35 s before and 4.27 s after, on pinned CPUs. [Raft 251 measurements](#a-shared-transition-guard-reduces-raft-251s-search) · [Raft 321 measurements](#partial-instances-of-a-universal-consequence-on-raft-321)
+
 **Specializing counterexamples to point updates reduced obligation 251 to 288 decisions and 1,872 quantifier instantiations.** The change won all 16 paired full Raft runs, with a median 5.5% reduction in elapsed time. An independent native check verified all 23 specializations. [Proof and timing](#point-updates-in-raft-transitions)
 
 **A ground instance of the induction hypothesis reduced Raft verification from 6.67 s to 5.70 s** in a new comparison of two g3 builds on the same logical cores. g3 generated 54 such lemmas. Obligation 251 went from 9,198 to 4,565 quantifier instantiations, and obligation 321 went from 4,012 to 1,109 decisions. [Experiment and independent lemma checks](#ground-instances-of-induction-hypotheses)
@@ -1475,3 +1477,19 @@ In three Raft obligations, four updated functions all kept their old values unde
 All 419 named results agreed with the reference. Only these three private checks changed. For each of them, native Z3 independently proved that the ground counterexample and ten original update instances imply the guard. It also proved each of the four rewritten universal definitions equivalent to its original under that guard, in both directions. Positive controls admitted models. All 28 mutated specifications matched the Python and native references across 11,732 named outcomes, including the same 77 failures. [All search counters](perf/ivy_raft/update_guards/search.csv) · [Independent proof checks](perf/ivy_raft/update_guards/verify.py) · [Mutations](perf/ivy_raft/update_guards/mutations.csv)
 
 Median paired elapsed and user time were unchanged to the timer's resolution over 28 alternating pairs of complete release runs. In a separate 16-pair hardware-counter experiment the candidate retired fewer instructions in every pair, with a median reduction of 0.59%. Median paired elapsed time fell 0.56% in that experiment. The search reduction is substantially larger than its effect on an entire 419-obligation run. [Release pairs](perf/ivy_raft/update_guards/pairs.csv) · [Hardware counters](perf/ivy_raft/update_guards/pmu.csv)
+
+
+### Partial instances of a universal consequence on Raft 321
+
+The violated conclusion requires a particular log entry to be absent. One universal invariant equates pairs of log entries when their histories agree. The new proof matches the absent entry against each side of that equality. Each match fixes three of the invariant's six variables. The other three stay universally quantified. Once the directional side condition succeeds, the main solver receives both partially instantiated invariants and the checked ground implications. Omitting the two quantified wrapper definitions weakens the primary query, so only an UNSAT answer can close the obligation. An inconclusive result still goes to the concrete solver. [Matcher](api/internal/order/transition_conclusion.go) · [Counterexample regressions](api/api_order_instance_test.go)
+
+| Obligation | Main decisions | Main instantiations | Main resource count | Decisions including side proof | Instantiations including side proof |
+|---|---:|---:|---:|---:|---:|
+| 321 | **228 → 96** | **383 → 186** | **76,624 → 9,700** | 261 → 129 | 401 → 204 |
+| 413 | 16 → 0 | 61 → 6 | 27,430 → 1,143 | 39 → 23 | 77 → 22 |
+
+All other primary and side checks retained their four recorded counters. Raft 367 retained its original primary query after its side condition returned SAT. Native Z3 proved each of the four added formulas from its single original premise and admitted models for that premise alone and for the negated partial instance alone. The normal transcript and all 11,732 mutated outcomes matched the references, including all 77 failures. [All search counters](perf/ivy_raft/conclusion_instances/search.csv) · [Independent native verifier](perf/ivy_raft/conclusion_instances/verify.py) · [Mutation results](perf/ivy_raft/conclusion_instances/mutations.csv)
+
+Both changes mattered on 321. Keeping the wrapper definitions and adding the two instances raised the main query to 863 decisions and 1,349 instantiations. Omitting just the wrappers gave 366 and 570. Omitting the wrappers and supplying both instances gave 96 and 186, lower than supplying either alone. All eight configurations discharged both targeted queries in the private solver. [Eight controlled configurations](perf/ivy_raft/conclusion_instances/ablation.csv) · [Reproduction driver](perf/ivy_raft/conclusion_instances/ablate.py)
+
+Across 28 alternating release pairs, the candidate finished sooner in 25 and improved median paired wall and user time by 2.07% and 2.12%. Across a separate 16 hardware-counter pairs, it retired fewer instructions in every pair, with a median reduction of 1.71%. Wall time fell 1.97% and user time fell 2.11% in that experiment. The largest remaining resource counts on the original specification are 551,472 for obligation 274 and 530,264 for 275. [Release pairs](perf/ivy_raft/conclusion_instances/pairs.csv) · [Hardware-counter pairs](perf/ivy_raft/conclusion_instances/pmu.csv)

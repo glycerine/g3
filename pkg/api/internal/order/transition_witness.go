@@ -95,18 +95,30 @@ func (f *frameMatcher) swapped(left, right, a, b int32) bool {
 // Copy only paths to a replaced constant. The lemma can share ground leaves
 // with the original premises, which must retain their original symbols.
 func (f *frameMatcher) replace(id, from, pivot int32) (int32, bool) {
+	return f.substitute(id, from, pivot, nil)
+}
+
+// With ground bindings, replace matched variables and retain all other
+// variables. Without bindings, replace a single ground constant by its pivot.
+func (f *frameMatcher) substitute(id, from, pivot int32, bindings []int32) (int32, bool) {
 	if !f.visit() {
 		return id, false
 	}
 	t := f.t
 	n := t.terms[id]
-	if n.op == opFunction && n.count == 0 && n.value == from {
+	if n.op == opForall || n.op == opExists {
+		return id, false
+	}
+	if n.op == opVariable && bindings != nil && bindings[n.value] != 0 {
+		return bindings[n.value] - 1, true
+	}
+	if bindings == nil && n.op == opFunction && n.count == 0 && n.value == from {
 		return pivot, true
 	}
 	args := t.arguments(&n)
 	var changed bool
 	for i, arg := range args {
-		newArg, ok := f.replace(arg, from, pivot)
+		newArg, ok := f.substitute(arg, from, pivot, bindings)
 		if !ok {
 			return id, false
 		}

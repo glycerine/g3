@@ -1,0 +1,9 @@
+variant,321_decisions,321_instances,321_conflicts,321_resources,413_decisions,413_instances,413_conflicts,413_resources
+keep-neither,228,383,19,76624,16,61,1,27430
+keep-first,445,726,23,154767,15,51,1,20615
+keep-second,367,674,31,102603,16,63,1,29512
+keep-both,863,1349,28,482712,16,52,1,21447
+omit-neither,366,570,22,199570,0,6,1,1147
+omit-first,824,1190,33,238654,0,6,1,1148
+omit-second,463,606,29,159123,0,6,1,1142
+omit-both,96,186,15,9700,0,6,1,1143

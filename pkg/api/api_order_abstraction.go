@@ -169,7 +169,7 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 			return false, err
 		}
 		if established {
-			proof.Order.Text = proof.Order.Text[:proof.Order.LastAssertionStart] + c.Assertion
+			proof.Order = c.Primary
 		}
 	}
 	return p.check(parent, proof.Order, proof.SearchSteps, reuse)
