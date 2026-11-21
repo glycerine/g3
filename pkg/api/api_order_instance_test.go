@@ -156,3 +156,70 @@ func TestOrderGroundInstanceUsesStepBudget(t *testing.T) {
 	}
 	t.Fatal("no direct one-bit refutation")
 }
+
+func TestOrderProofPointUpdateWitness(t *testing.T) {
+	const decls = `(define-sort A () (_ BitVec 2))
+(declare-const a A)(declare-const b A)(declare-const c A)(declare-const d A)
+(declare-const p A)(declare-const q A)
+(declare-fun old (A A) Bool)(declare-fun updated (A A) Bool)
+(declare-fun edge (A A) Bool)(declare-fun tag (A A) A)
+`
+	const symmetric = `(=> (and (and (old x z) (old y z)) (edge z w)) (= (tag x w) (tag y w)))`
+	const asymmetric = `(=> (and (and (old x z) (old y z)) (edge z w)) (edge x w))`
+	const single = `(=> (and (old x z) (edge z w)) (edge y w))`
+	const updated = `(ite (and (= i p)) true (old i j))`
+	for _, tc := range []struct {
+		name, invariant, rhs, extra string
+		specialized                 bool
+	}{
+		{"two private symmetric witnesses", symmetric, updated, "", true},
+		{"one witness", single, updated, "", true},
+		{"one public witness", single, updated, "(assert (distinct a b))", true},
+		{"public witness in pair", symmetric, updated, "(assert (distinct a p))", false},
+		{"public witness under binder", symmetric, updated, "(assert (forall ((i A)) (edge b i)))", false},
+		{"asymmetric conclusion", asymmetric, updated, "", false},
+		{"update at either of two points", symmetric, "(ite (= i p) true (ite (= i q) true (old i j)))", "", false},
+		{"outside reads a different cell", symmetric, "(ite (= i p) true (old j i))", "", false},
+		{"unconditional update", symmetric, "true", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			goal := strings.NewReplacer("old", "updated", " x", " a", " y", " b", " z", " c", " w", " d").Replace(tc.invariant)
+			c, s := orderSolver(t, decls+
+				"(assert (forall ((x A)(y A)(z A)(w A)) "+tc.invariant+"))"+
+				"(assert (forall ((i A)(j A)) (= (updated i j) "+tc.rhs+")))"+
+				tc.extra+"(assert (not "+goal+"))")
+			m, err := c.Manager()
+			astTestMust(t, err)
+			assertions, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			before, ok, err := order.Relax(m, assertions)
+			astTestMust(t, err)
+			if !ok {
+				t.Fatal("expected an order problem")
+			}
+			after, ok, err := order.ForProof(m, assertions, orderProofSteps)
+			astTestMust(t, err)
+			if !ok || after.Refuted || before.Premises() != after.Order.Premises() ||
+				before.Declarations() != after.Order.Declarations() {
+				t.Fatal("expected the same declarations and premises")
+			}
+			original := strings.TrimSuffix(strings.TrimPrefix(before.Text[before.LastAssertionStart:], "(assert "), ")\n")
+			last := after.Order.Text[after.Order.LastAssertionStart:]
+			if !strings.HasPrefix(last, "(assert (and ") || strings.Contains(last, original) == tc.specialized {
+				t.Fatalf("specialized = %t, want %t\n%s", !strings.Contains(last, original), tc.specialized, last)
+			}
+			// Each example admits a counterexample to the postcondition.
+			// An auxiliary proof must preserve that counterexample.
+			proved, err := s.ProveUnsatByOrderAbstraction()
+			astTestMust(t, err)
+			if proved {
+				t.Fatal("spuriously refuted a satisfiable transition")
+			}
+			result, err := s.Check()
+			astTestMust(t, err)
+			if result != lbool.True {
+				t.Fatalf("expected a concrete counterexample, got %v", result)
+			}
+		})
+	}
+}

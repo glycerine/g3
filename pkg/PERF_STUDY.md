@@ -1,5 +1,7 @@
 # Raft verification and SMT scope restoration performance
 
+**Specializing counterexamples to point updates reduced obligation 251 to 288 decisions and 1,872 quantifier instantiations.** The change won all 16 paired full Raft runs, with a median 5.5% reduction in elapsed time. An independent native check verified all 23 specializations. [Proof and timing](#point-updates-in-raft-transitions)
+
 **A ground instance of the induction hypothesis reduced Raft verification from 6.67 s to 5.70 s** in a new comparison of two g3 builds on the same logical cores. g3 generated 54 such lemmas. Obligation 251 went from 9,198 to 4,565 quantifier instantiations, and obligation 321 went from 4,012 to 1,109 decisions. [Experiment and independent lemma checks](#ground-instances-of-induction-hypotheses)
 
 **GoIvy with g3 beats native Z3 on the original Raft specification.** With normal CPU affinity and the default Go runtime, the median at the preceding solver revision `4f0c0457b` was **8.91 s with g3 and 44.40 s with native Z3** in the same GoIvy frontend. g3 won all nine pairs. In a separate pinned comparison with both frontends, the medians were **6.83 s for GoIvy/g3, 42.14 s for GoIvy/Z3 and 43.95 s for Python Ivy/Z3**. All 419 named proof outcomes agreed in every run. [Final comparison and reproduction](#final-raft-comparison) · [Default-affinity runs](perf/ivy_raft/frontier-4f0c0457b/host-default.csv) · [Three-checker runs](perf/ivy_raft/frontier-4f0c0457b/three-checkers.csv)
@@ -1248,3 +1250,26 @@ python3 perf/ivy_apple/compare.py --spec ~/ivy/ivy-lang-examples/doc/examples/ap
   --isolate dramc_nb2 --cpu 5 --pairs 3 --output /tmp/ord-live-pairs \
   /path/to/goivy-g3 /path/to/goivy-native-z3
 ```
+
+## Point updates in Raft transitions
+
+On obligation 251 the two log witnesses can exchange places in the goal. Both are fresh constants. The induction hypothesis at those arguments describes the old logs, and the transition definitions show that writes to either log occur only at one named log. If both witnesses differed from the written log, the pre- and postconditions would agree. In any counterexample at least one witness therefore denotes that log. Exchanging the two witness interpretations preserves every premise and the ground goal, so the solver can use the written log for the second witness.
+
+The proof also applies to one witness without a symmetry check. The implementation looks for explicit universal point updates and verifies every surviving arm of the conditional. It requires a structurally identical read of the old function outside the write. Multiple private witnesses require equal sorts and exchange symmetry in both ground formulas. The transformed formula lives only in the private proof solver. The procedure found 18 single-witness and five symmetric specializations among the 185 residual Raft queries.
+
+| Mixed-width Raft search | Before | After |
+|---|---:|---:|
+| Obligation 251 decisions | 846 | 288 |
+| Obligation 251 instantiations | 4,565 | 1,872 |
+| Obligation 251 conflicts | 196 | 115 |
+| Obligation 251 resource steps | 229,413 | 58,060 |
+| All residual decisions | 13,096 | 12,184 |
+| All residual instantiations | 25,612 | 22,043 |
+| All residual conflicts | 1,989 | 1,871 |
+| All residual resource steps | 3,538,863 | 3,190,807 |
+
+Obligation 321 still used 1,109 decisions and 1,106 instantiations. Its change reaches a derived predicate containing an existential and a universal quantifier. The explicit point-update test declined it. [Per-obligation counters](perf/ivy_raft/transition/search.csv.gz)
+
+The complete checker won all eight pairs on each of two cores. Medians went from 5.56 to 5.30 s on CPU 15 and from 11.44 to 10.96 s on CPU 3, which shared CPU time during this run. The median paired reductions were 5.5% elapsed and 5.4% user CPU. The original and specialized builds used the same GoIvy frontend in each pair. All 419 ordered outcomes matched. Across 28 protocol mutations, all 11,732 outcomes matched the retained independent references, including 77 intentional failures. [Timings](perf/ivy_raft/transition/paired.csv) · [Mutation results](perf/ivy_raft/transition/protocol-mutations.csv)
+
+A separate Python checker reconstructed the ground equations directly from the original universal definitions. Native Z3 checked that the old and new property cannot disagree when every candidate witness differs from the write location. For the two-witness cases it also checked exchange symmetry using only declarations, and the verifier checked freshness against every original premise. These checks exclude the rest of the protocol so unrelated contradictions cannot hide an invalid specialization. Reproduce with `python3 -B perf/ivy_raft/transition/verify.py --native ../build/z3`. [Verifier](perf/ivy_raft/transition/verify.py) · [Actual final assertions](perf/ivy_raft/transition/final-assertions.csv.gz)
