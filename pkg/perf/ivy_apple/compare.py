@@ -48,12 +48,16 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--reverse", action="store_true", help="start with the second checker")
     p.add_argument("--perf", metavar="EXECUTABLE", help="collect user-mode hardware counters with Linux perf")
+    p.add_argument("--labels", nargs=2, metavar=("FIRST", "SECOND"), help="CSV names for the two checker builds")
     p.add_argument("checkers", nargs=2, type=Path, metavar="CHECKER")
     args = p.parse_args()
     if args.pairs < 1:
         p.error("--pairs must be positive")
     args.spec = args.spec.resolve(strict=True)
     checkers = [checker.resolve(strict=True) for checker in args.checkers]
+    labels = args.labels or [checker.name for checker in checkers]
+    if args.labels and len(set(labels)) != 2:
+        p.error("--labels must be distinct")
     output = args.output.resolve()
     reference = None
     writer = csv.writer(sys.stdout, lineterminator="\n")
@@ -70,7 +74,7 @@ def main():
                 reference = (status, transcript)
             same = (status, transcript) == reference
             lines = transcript.splitlines()
-            writer.writerow([pair, checker.name, args.isolate, args.cpu, status,
+            writer.writerow([pair, labels[idx], args.isolate, args.cpu, status,
                              *metrics, lines.count(b"PASS"), int(same), *counters])
             sys.stdout.flush()
             if status or not lines or lines[-1].strip() != b"OK" or not same:
