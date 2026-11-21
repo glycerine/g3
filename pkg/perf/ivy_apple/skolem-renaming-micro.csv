@@ -1,0 +1,13 @@
+build,sample,ns_per_op,bytes_per_op,allocations_per_op
+before,1,118826,108816,660
+before,2,119775,108816,660
+before,3,120408,108816,660
+before,4,119914,108816,660
+before,5,120573,108816,660
+before,6,122390,108816,660
+after,1,328.6,416,3
+after,2,308.9,416,3
+after,3,244.3,416,3
+after,4,244.4,416,3
+after,5,245.2,416,3
+after,6,244.2,416,3

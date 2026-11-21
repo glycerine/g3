@@ -180,3 +180,52 @@ func TestSMTCheckerInternalizedUnassignedBooleanIsNotTrue(t *testing.T) {
 		t.Fatal("unassigned again", got, err)
 	}
 }
+
+func TestSMTCheckerUsesFalseCongruentEqualityBeforePropagation(t *testing.T) {
+	f := newSMTEqualityUndoFixture(t, "checker-congruent-disequality", 2)
+	m, s := f.m, f.s
+	x, y := s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1])
+	eq, err := m.MkEq(x.owner, y.owner)
+	astTestMust(t, err)
+	astTestMust(t, s.Internalize(eq, false))
+	if s.context.enodes.get(eq) == nil {
+		_, err = s.MkEnode(eq, false, false, true)
+		astTestMust(t, err)
+	}
+	astTestMust(t, s.context.SetRelevant(x.owner, true))
+	astTestMust(t, s.context.SetRelevant(y.owner, true))
+	first, err := m.MkVar(0, f.sort)
+	astTestMust(t, err)
+	second, err := m.MkVar(1, f.sort)
+	astTestMust(t, err)
+	probe, err := m.MkEq(first, second)
+	astTestMust(t, err)
+	checker, err := NewSMTChecker(s.context)
+	astTestMust(t, err)
+	check := func(want bool) {
+		t.Helper()
+		for _, bindings := range [][]*SMTEnode{{x, y}, {y, x}} {
+			got, err := checker.IsUnsatisfiable(probe, bindings)
+			astTestMust(t, err)
+			if got != want {
+				t.Fatalf("bound equality known false = %t, want %t", got, want)
+			}
+		}
+	}
+	check(false)
+	astTestMust(t, s.PushScope())
+	v, ok := s.BoolVar(eq)
+	if !ok {
+		t.Fatal("missing equality variable")
+	}
+	astTestMust(t, s.AssignLiteral(NewSMTLiteral(v, true), NewSMTBooleanAxiom()))
+	astTestMust(t, s.context.SetRelevant(eq, false))
+	check(false)
+	astTestMust(t, s.context.SetRelevant(eq, true))
+	if _, found := smtFindDisequality(x, y); found {
+		t.Fatal("expected the equality assignment to precede disequality propagation")
+	}
+	check(true)
+	astTestMust(t, s.PopScopes(1))
+	check(false)
+}

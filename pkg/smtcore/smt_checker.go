@@ -195,6 +195,30 @@ func (c *SMTCheckerContext) isDisequal(first, second *SMTEnode) bool {
 	return found
 }
 
+// A relevant equality may already be assigned false before propagation puts
+// a disequality on the two class roots. Like context::is_diseq, also look
+// up the equality modulo congruence and inspect its Boolean class root.
+func (c *SMTCheckerContext) checkDisequality(decl ast.ASTHandle, left, right *SMTEnode) (bool, error) {
+	if c.isDisequal(left, right) {
+		return true, nil
+	}
+	if c.congruence == nil {
+		return false, nil
+	}
+	args := [2]*SMTEnode{left, right}
+	eq, err := c.congruence.FindApp(decl, args[:], true)
+	if err != nil || eq == nil {
+		return false, err
+	}
+	root := eq.root.owner
+	if c.manager.IsFalse(root) {
+		return true, nil
+	}
+	record := c.exprs.read(root)
+	value, assigned := c.assignments.lookupRecord(record)
+	return assigned && value == lbool.False && c.recordRelevant(record), nil
+}
+
 // holdDiseqTmp keeps m_is_diseq_tmp's equality alive as context::is_diseq
 // does. It only affects AST lifetimes; a failure leaves the lookup intact.
 func (c *SMTCheckerContext) holdDiseqTmp(first, second *SMTEnode) {
@@ -523,7 +547,7 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, header ast.ASTNodeHeade
 			if value {
 				return left.root == right.root, nil
 			}
-			return c.context.isDisequal(left, right), nil
+			return c.context.checkDisequality(header.Decl, left, right)
 		}
 	}
 	node, err := c.enodeWithHeader(expression, header)

@@ -1273,3 +1273,26 @@ Obligation 321 still used 1,109 decisions and 1,106 instantiations. Its change r
 The complete checker won all eight pairs on each of two cores. Medians went from 5.56 to 5.30 s on CPU 15 and from 11.44 to 10.96 s on CPU 3, which shared CPU time during this run. The median paired reductions were 5.5% elapsed and 5.4% user CPU. The original and specialized builds used the same GoIvy frontend in each pair. All 419 ordered outcomes matched. Across 28 protocol mutations, all 11,732 outcomes matched the retained independent references, including 77 intentional failures. [Timings](perf/ivy_raft/transition/paired.csv) · [Mutation results](perf/ivy_raft/transition/protocol-mutations.csv)
 
 A separate Python checker reconstructed the ground equations directly from the original universal definitions. Native Z3 checked that the old and new property cannot disagree when every candidate witness differs from the write location. For the two-witness cases it also checked exchange symmetry using only declarations, and the verifier checked freshness against every original premise. These checks exclude the rest of the protocol so unrelated contradictions cannot hide an invalid specialization. Reproduce with `python3 -B perf/ivy_raft/transition/verify.py --native ../build/z3`. [Verifier](perf/ivy_raft/transition/verify.py) · [Actual final assertions](perf/ivy_raft/transition/final-assertions.csv.gz)
+
+## Search divergence in the Apple liveness kernel
+
+The standalone `cf_live` condition 130 supplied a reproducible first difference. The initial 2,589 E-matches agreed in identity and order. For a particular pair of bindings, the native quantifier checker recognized an already-false equality between the zero clock value and `cfabric.t_rd_min`. g3 had the same enodes and assignment. It consulted the disequality trail, which had yet to record that fact. g3 instantiated a quantifier that native Z3 skipped, creating different terms before the first decision. A diagnostic build of each kernel traced the recursive checks for that same binding and isolated the difference to this equality.
+
+The checker now consults the congruence table for the equality and reads the Boolean class representative. The test covers both operand orders, a false assignment before propagation, relevancy, and scope rollback. All four captured Apple conditions now match native decisions, conflicts, quantifier instantiations and resource counts. The existing 419-obligation kernel replay also matched all 18 counters on both engines. [Checker and regression](smtcore/smt_checker_test.go) · [Standalone reproducer](perf/ivy_apple/kernel.py)
+
+| Captured condition | Decisions before → after | Instances before → after | Median g3 wall before → after | Native wall |
+|---|---:|---:|---:|---:|
+| `cf_live` 130 | 51,074 → 5,605 | 50,443 → 18,948 | 3.00 → 0.94 s | 0.28 s |
+| `dramc_nb2` 71 | 457 → 457 | 30,704 → 30,704 | 1.40 → 1.41 s | 0.36 s |
+| `dramc_nb2` 63 | 2,750 → 2,750 | 78,892 → 78,892 | 3.37 → 3.11 s | 1.11 s |
+| `dramc_nb2` 369 | 2,014 → 5,571 | 6,435 → 8,553 | 0.29 → 0.39 s | 0.11 s |
+
+Each row uses nine rotated runs of all three binaries on CPU 20. The change slowed condition 369, where the previous search found a shorter proof. On condition 130 instructions fell from 18.62 billion to 6.46 billion. Native Z3 retired 1.54 billion. With matched search, g3 still retired 4.2–4.5 times the native instructions on these four conditions. On condition 71, sampled g3 stacks charged about 69% of CPU to quantifier instantiation, including rewriting, substitution and internalization. This makes cost per ground instance a directly measurable target. [Raw timings, instructions and counters](perf/ivy_apple/kernel-before-after.csv)
+
+The live incremental `cf_live` condition 130 retained solver history and showed a smaller reduction, from 424,530 decisions and 71,360 instances to 310,951 and 55,679. An independent observer in the native comparison binary measured 248,065 decisions and 49,969 instances. The remaining live difference requires comparing the incremental histories. The captured SMT-LIB files reproduce the standalone results. To measure on another host, build `./cmd/g3` and this fork's native `z3`, and run this command.
+
+```sh
+python3 -B perf/ivy_apple/kernel.py --cpu 5 --rounds 9 /path/to/g3 /path/to/z3
+```
+
+GoIvy commit `916881ab7` also delays collecting destination symbols until the first local skolem actually requires renaming. With the action lookup improvement in both builds, `dramc_nb2` median elapsed time went from 154.92 to 100.63 s across eight paired runs, and median process CPU went from 149.97 to 100.50 s. All 2,479 checks agreed. The full traced run matched the original 8,599,630 records, 8,622,828 output lines and 21,638,409,694 bytes. On a 128-symbol destination the no-skolem benchmark went from 108,816 B and 660 allocations per call to 416 B and three allocations. [Complete runs](perf/ivy_apple/skolem-renaming.csv) · [Microbenchmark](perf/ivy_apple/skolem-renaming-micro.csv)
