@@ -7,7 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func smtCGTestDeclaration(t *testing.T, manager *ast.ASTManager, name uint32, sort ast.ASTHandle, flags ast.ASTFuncFlags) ast.ASTHandle {
+func smtCGTestDeclaration(t testing.TB, manager *ast.ASTManager, name uint32, sort ast.ASTHandle, flags ast.ASTFuncFlags) ast.ASTHandle {
 	t.Helper()
 	info, err := manager.NewFuncDeclInfo(ast.NullFamilyID, -1, nil, flags, false)
 	astTestMust(t, err)
@@ -17,7 +17,7 @@ func smtCGTestDeclaration(t *testing.T, manager *ast.ASTManager, name uint32, so
 	return declaration
 }
 
-func smtCGTestApplication(t *testing.T, manager *ast.ASTManager, declaration ast.ASTHandle, handles []ast.ASTHandle, nodes []*SMTEnode) *SMTEnode {
+func smtCGTestApplication(t testing.TB, manager *ast.ASTManager, declaration ast.ASTHandle, handles []ast.ASTHandle, nodes []*SMTEnode) *SMTEnode {
 	t.Helper()
 	owner, err := manager.MkApp(declaration, handles)
 	astTestMust(t, err)
