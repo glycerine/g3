@@ -325,15 +325,11 @@ func (b *SMTQIInstanceBuilder) finishLemma(prepared *SMTQIPreparedInstance, simp
 	if b == nil || b.manager == nil || prepared == nil || prepared.manager != b.manager || prepared.closed || prepared.alreadySatisfied || stat == nil {
 		return nil, ast.ErrASTDomain
 	}
-	sort, err := b.manager.GetSort(simplified)
+	boolean, err := b.manager.HasBoolSort(simplified)
 	if err != nil {
 		return nil, err
 	}
-	boolean, err := b.manager.MkBoolSort()
-	if err != nil {
-		return nil, err
-	}
-	if sort != boolean {
+	if !boolean {
 		return nil, ast.ErrASTDomain
 	}
 	result := &SMTQIInstance{manager: b.manager, fingerprint: prepared.entry.Fingerprint, quantifier: prepared.quantifier}
@@ -351,39 +347,23 @@ func (b *SMTQIInstanceBuilder) finishLemma(prepared *SMTQIPreparedInstance, simp
 	}
 	lemma := negatedQuantifier
 	if !b.manager.IsFalse(simplified) {
-		kind, err := b.manager.GetKind(simplified)
+		head, err := b.manager.NodeHeader(simplified)
 		if err != nil {
 			return nil, err
 		}
-		arguments := []ast.ASTHandle{negatedQuantifier}
-		if kind == ast.ASTApp {
-			family, err := b.manager.GetFamilyID(simplified)
-			if err != nil {
-				return nil, err
-			}
-			op, err := b.manager.GetDeclKind(simplified)
-			if err != nil {
-				return nil, err
-			}
-			if family == b.manager.BasicFamilyID() && op == ast.ASTOpOr {
-				count, err := b.manager.GetNumArgs(simplified)
+		if head.Kind == ast.ASTApp && head.Family == b.manager.BasicFamilyID() && head.DeclKind == ast.ASTOpOr {
+			args := make([]ast.ASTHandle, 1+int(head.NumArgs))
+			args[0] = negatedQuantifier
+			for index := uint32(0); index < head.NumArgs; index++ {
+				args[1+int(index)], err = b.manager.GetArg(simplified, index)
 				if err != nil {
 					return nil, err
 				}
-				for index := uint32(0); index < count; index++ {
-					argument, err := b.manager.GetArg(simplified, index)
-					if err != nil {
-						return nil, err
-					}
-					arguments = append(arguments, argument)
-				}
-			} else {
-				arguments = append(arguments, simplified)
 			}
+			lemma, err = b.manager.MkOrArgs(args)
 		} else {
-			arguments = append(arguments, simplified)
+			lemma, err = b.manager.MkOr(negatedQuantifier, simplified)
 		}
-		lemma, err = b.manager.MkOrArgs(arguments)
 		if err != nil {
 			return nil, err
 		}

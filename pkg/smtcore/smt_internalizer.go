@@ -4,7 +4,6 @@ package smtcore
 // uninterpreted-term internalization.
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -37,12 +36,7 @@ func (s *SMTInternalizerState) SetRelevancy(propagator *SMTRelevancyPropagator) 
 }
 
 func (s *SMTInternalizerState) isBoolean(expression ast.ASTHandle) (bool, error) {
-	sort, err := s.manager.GetSort(expression)
-	if err != nil {
-		return false, err
-	}
-	boolean, err := s.manager.MkBoolSort()
-	return sort == boolean, err
+	return s.manager.HasBoolSort(expression)
 }
 
 func (s *SMTInternalizerState) basicOperation(expression ast.ASTHandle) (int32, bool, error) {
@@ -138,18 +132,20 @@ func (s *SMTInternalizerState) addClauseKindWithDeleteHandler(literals []SMTLite
 const smtClauseSeenScanLimit = 16
 
 func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(literals []SMTLiteral, root bool, kind SMTClauseKind, proof ast.ASTHandle, justification SMTJustification, deleteHandler SMTClauseDeleteHandler) error {
-	if kind == SMTClauseAux || kind == SMTClauseAuxLemma {
+	ordered := kind == SMTClauseAux || kind == SMTClauseAuxLemma
+	if ordered {
 		// simplify_aux_clause_literals and simplify_aux_lemma_literals both
 		// sort the literals (by index) first.
 		// The sorted copy is only read by the loop below, so it lives in a
 		// reused scratch buffer; nothing in the loop adds a clause.
 		s.clauseSortScratch = append(s.clauseSortScratch[:0], literals...)
 		literals = s.clauseSortScratch
-		slices.SortFunc(literals, func(a, b SMTLiteral) int { return cmp.Compare(a.Index(), b.Index()) })
+		slices.Sort(literals)
 	}
-	// seen holds exactly the kept literals; short clauses scan kept instead.
+	// Adjacent indices are the two polarities of a variable. Only
+	// unsorted clauses need a membership table or a scan of earlier literals.
 	var seen map[SMTLiteral]struct{}
-	if len(literals) > smtClauseSeenScanLimit {
+	if !ordered && len(literals) > smtClauseSeenScanLimit {
 		seen = make(map[SMTLiteral]struct{}, len(literals))
 	}
 	// Collect the simplified literals in solver-local storage.
@@ -165,7 +161,12 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		negated := literal.Negated()
 		foundNegated, foundLiteral := false, false
-		if seen != nil {
+		if ordered {
+			if count := len(kept); count > 0 {
+				previous := kept[count-1]
+				foundLiteral, foundNegated = literal == previous, negated == previous
+			}
+		} else if seen != nil {
 			_, foundNegated = seen[negated]
 			_, foundLiteral = seen[literal]
 		} else {

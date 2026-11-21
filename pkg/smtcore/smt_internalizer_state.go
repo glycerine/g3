@@ -645,15 +645,11 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	if _, found := s.boolVar.lookup(expression); found {
 		return SMTNullBoolVar, ast.ErrASTDomain
 	}
-	sort, err := s.manager.GetSort(expression)
+	boolean, err := s.manager.HasBoolSort(expression)
 	if err != nil {
 		return SMTNullBoolVar, err
 	}
-	boolean, err := s.manager.MkBoolSort()
-	if err != nil {
-		return SMTNullBoolVar, err
-	}
-	if sort != boolean || s.manager.IsTrue(expression) || s.manager.IsFalse(expression) {
+	if !boolean || s.manager.IsTrue(expression) || s.manager.IsFalse(expression) {
 		return SMTNullBoolVar, ast.ErrASTDomain
 	}
 	header, err := s.manager.NodeHeader(expression)

@@ -479,3 +479,28 @@ func (m *ASTManager) RewriterParameterServices() (*uparams.ParamsContext, *upara
 	defer m.mu.Unlock()
 	return m.params, m.globals, nil
 }
+
+// HasBoolSort reports whether the expression has this manager's Boolean sort.
+func (m *ASTManager) HasBoolSort(h ASTHandle) (bool, error) {
+	r := astNodeRef{h.slot, h.generation}
+	if astValidateHandles || m == nil || !m.lockFree() {
+		var err error
+		r, err = m.readNodeChecked(h)
+		if err != nil {
+			return false, err
+		}
+	} else {
+		if h.origin != m.origin || h.slot == 0 || h.slot >= m.nextNode {
+			return false, ErrASTHandle
+		}
+		slot := &m.nodes[(h.slot-1)/astPageSize].slots[(h.slot-1)%astPageSize]
+		if !slot.node.live || slot.node.generation != h.generation {
+			return false, ErrASTHandle
+		}
+		if slot.node.kind == ASTApp && slot.app.rangeSort.slot != 0 {
+			return slot.app.rangeSort == m.boolSort, nil
+		}
+	}
+	sort, err := m.sortOf(r)
+	return sort == m.boolSort && err == nil, err
+}

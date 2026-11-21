@@ -10,12 +10,7 @@ import (
 )
 
 func (rw *boolRewriter) isBool(h ast.ASTHandle) (bool, error) {
-	s, e := rw.manager.GetSort(h)
-	if e != nil {
-		return false, e
-	}
-	b, e := rw.manager.MkBoolSort()
-	return s == b, e
+	return rw.manager.HasBoolSort(h)
 }
 func (rw *boolRewriter) complement(a, b ast.ASTHandle) (bool, error) {
 	neg, inner, e := rw.manager.IsNot(a)

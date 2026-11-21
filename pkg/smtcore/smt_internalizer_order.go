@@ -43,12 +43,7 @@ func (o *SMTInternalizationOrder) SetNonDefaultFamily(family ast.FamilyID, nonDe
 }
 
 func (o *SMTInternalizationOrder) isBoolean(expression ast.ASTHandle) (bool, error) {
-	sort, err := o.manager.GetSort(expression)
-	if err != nil {
-		return false, err
-	}
-	boolean, err := o.manager.MkBoolSort()
-	return sort == boolean, err
+	return o.manager.HasBoolSort(expression)
 }
 
 func (o *SMTInternalizationOrder) isGate(expression ast.ASTHandle) (bool, error) {
