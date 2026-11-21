@@ -61,12 +61,12 @@ def replace_once(source, old, new):
     return source.replace(old, new)
 
 
-def build(engine, args, scratch):
+def build(engine, args, scratch, observer=OBSERVER, packages=("fmt", "io", "os", "strconv", "time")):
     native = engine == "native"
     filename = "native_verification_condition.go" if native else "g3_solver.go"
     original = args.goivy / "smt" / filename
     code = original.read_text()
-    imports = [f'"{name}"' for name in ("fmt", "io", "os", "strconv", "time")
+    imports = [f'"{name}"' for name in packages
                if f'"{name}"' not in code]
     code = replace_once(code, "package smt", "package smt\nimport (\n" + "\n".join(imports) + "\n)")
     if native:
@@ -76,7 +76,7 @@ def build(engine, args, scratch):
     else:
         code = replace_once(code, G3_METHOD, G3_METHOD + "\n defer beginMeasuredCheck()()")
     patched = scratch / filename
-    patched.write_text(code + OBSERVER)
+    patched.write_text(code + observer)
     overlay = scratch / (engine + ".json")
     overlay.write_text(json.dumps({"Replace": {str(original): str(patched)}}))
     tags = "xtrace_off,classic_z3" if native else "xtrace_off"

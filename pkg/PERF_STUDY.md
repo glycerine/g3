@@ -91,7 +91,7 @@ These prototypes ran the actual solver. The table gives queue-enabled scoped-pop
 | Borrow the 128 explicitly rooted leaves for the fixture lifetime | 28.61 → 28.17 µs | Suppressing their reference-count updates saved 1.5%. Each leaf still had exactly its original reference at teardown. This prototype still checks the per-node borrowing flag. |
 | Disable GC for a bounded diagnostic run | 28.21 → 24.42 µs | A 13.4% pop reduction. The process accumulates garbage across rounds in this configuration. |
 
-**What happens when nodes actually die?** A separate control creates 128 distinct bound-variable ASTs with `MkVar`, takes references, drops all of them and repeats. Seven alternating runs of 5,000 batches gave **24.08 µs, 1,925 B and 4 allocations per batch** with pages, versus **29.86 µs, 18,306 B and 132 allocations** with individual objects. The 128 extra allocations are exactly one per node. Together the two workloads favor keeping the arena and changing the solver-local data around it. A pointer-only solver with a different ownership contract would be a larger experiment.
+**What happens when nodes actually die?** A separate control creates 128 distinct bound-variable ASTs with `MkVar`, takes references, drops all of them and repeats. Seven alternating runs of 5,000 batches gave **24.08 µs, 1,925 B and 4 allocations per batch** with pages, versus **29.86 µs, 18,306 B and 132 allocations** with individual objects. The 128 extra allocations are exactly one per node. Together the two workloads favor keeping the arena and changing the solver-local data around it.
 
 **Can batching allocations help the unrestricted runtime?** I also put 32 short learned clauses and their saved atoms in each solver-local page. Each slot was handed out once, preserving clause identity. At 48 Go processors this took **37.98 → 36.52 µs** per pop and **156.25 → 148.47 µs** per round. Allocations fell from **192 to 66**, but bytes rose from **16,414 to 17,438** per round. A single surviving clause can keep a whole page of 32 × 248 bytes alive. I left this as a prototype given the small pop gain and its mixed-lifetime cost. Trying an eight-literal temporary alone still produced 192 allocations and took 38.77 µs. Combining it with pages took 37.92 µs. [Page prototype](perf/scope_restoration/short-clause-pages.patch) · [Temporary-buffer prototype](perf/scope_restoration/short-literal-buffer.patch)
 
@@ -1683,3 +1683,33 @@ Across 48 paired release runs on GoIvy `3ef4b9020`, g3 `0a27fdff9` reduced instr
 | Apple `rfn` | 10 | −7.06% | −8.86% | −8.83% |
 | Apple `cf_live` | 8 | −3.36% | −2.78% | −1.56% |
 | Raft, original widths | 18 | −0.12% | −0.32% | +0.61% |
+
+
+## Which Apple checks and operations explain the difference?
+
+After the watch change, **82.7% of the remaining solver instruction gap on `rfn2` comes from three checks of the same invariant**. Each row below is the median of five complete runs per backend with hardware counters enabled only for the selected interval. Both backends use GoIvy `3ef4b9020`. The g3 build uses `0a27fdff9`. All 40 runs reproduced the full native transcript. [Exact measurements](perf/ivy_apple/incremental_cost/watches-phases.csv) · [Counter driver](perf/ivy_apple/phase_counters.py)
+
+| Interval | g3, billion instructions | Z3, billion instructions | Excess |
+|---|---:|---:|---:|
+| All 26 checks | 114.57 | 35.48 | 79.09 |
+| Check 4, `ext:arm.step_north` | 60.95 | 20.86 | 40.09 |
+| Check 13, `ext:dramc.step_rd` | 17.70 | 4.39 | 13.31 |
+| Check 22, `ext:memc.step` | 17.25 | 5.21 | 12.04 |
+
+All three preserve `rfn2.invar494` at `ord_live.ivy` line 3134. Check 4 previously took 71.15 billion instructions in g3. The watch change and the intervening revisions brought it down by 10.20 billion. The native counter stayed at 20.86 billion. [Earlier per-check counts](perf/ivy_apple/incremental_cost/checks.csv)
+
+Sampling once every 800,009 user instructions also measures all obligations in one pass. The driver records monotonic entry and exit times for each solver check, bins hardware samples into those windows, and puts the rest in row zero. Across three independent pairs it estimated 114.88 and 35.48 billion instructions inside g3 and native checks respectively. The medians for checks 4, 13 and 22 were within 0.4% of the directly gated counts in both engines. An individual short check can finish between samples. [All six sampled runs](perf/ivy_apple/incremental_cost/watches-check-samples.csv) · [Per-check sampling driver](perf/ivy_apple/check_samples.py)
+
+### Instruction stacks before the watch change
+
+The earlier profiles show why the quantifier candidate checker and the rewriter are worth investigating. The table counts samples whose stack included each operation during check 4, multiplied by the sampling period. The dense run used g3 `213f7d64a`, GoIvy `00ed3294a` and a period of 4,800,019 instructions. It recorded 14,775 g3 and 4,345 native samples. The coarser replication used g3 `7b3cd82ef`, GoIvy `3ef4b9020` and a period of 28,800,019. Figures are estimates in billions of instructions. [Dense counts](perf/ivy_apple/incremental_cost/check4-stack-operations.csv) · [Replication and all-check counts](perf/ivy_apple/incremental_cost/prewatch-stack-operations.csv)
+
+| Operation | g3 | Z3 | Excess | Replication excess |
+|---|---:|---:|---:|---:|
+| Quantifier instantiation queue | 34.56 | 9.75 | 24.81 | 25.34 |
+| Rewriter | 13.46 | 2.59 | 10.87 | 11.00 |
+| Candidate checker | 14.11 | 5.44 | 8.67 | 8.29 |
+| Relevance assignment | 12.62 | 3.24 | 9.38 | 9.30 |
+| Disjunction relevance | 8.64 | 1.79 | 6.85 | 6.45 |
+
+The queue calls the candidate checker and the rewriter. Adding their inclusive estimates would count some instructions twice. The CSVs also assign each sample to its nearest recognized operation for an additive view. Symbolization and compiler inlining affect attribution. The all-check replication puts 61.49 versus 16.36 billion instructions under the queue. This supports working on the cost of checking and rewriting each proposed instantiation while holding the native search trace fixed. To repeat the measurement, run the stack recorder with `--select 4 inside`, then pass its completed `PHASE-PAIR-ENGINE` directories and the same `--period` to the summarizer. [Stack recorder](perf/ivy_apple/phase_stacks.py) · [Operation and leaf summarizer](perf/ivy_apple/stack_costs.py)

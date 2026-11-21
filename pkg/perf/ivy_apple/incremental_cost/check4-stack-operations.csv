@@ -1,0 +1,55 @@
+selection,pair,engine,period,samples,attribution,operation,votes
+4,1,g3,4800019,14775,inclusive,Boolean propagation,367
+4,1,g3,4800019,14775,inclusive,Go garbage collection,332
+4,1,g3,4800019,14775,inclusive,application construction,1155
+4,1,g3,4800019,14775,inclusive,cached substitution,793
+4,1,g3,4800019,14775,inclusive,candidate checker,2939
+4,1,g3,4800019,14775,inclusive,congruence table,726
+4,1,g3,4800019,14775,inclusive,disjunction relevance,1801
+4,1,g3,4800019,14775,inclusive,model checker,792
+4,1,g3,4800019,14775,inclusive,pattern matching,700
+4,1,g3,4800019,14775,inclusive,quantifier queue,7200
+4,1,g3,4800019,14775,inclusive,relevance assignment,2630
+4,1,g3,4800019,14775,inclusive,scope pop,746
+4,1,g3,4800019,14775,inclusive,solver rewriter,2805
+4,1,g3,4800019,14775,nearest,Boolean propagation,367
+4,1,g3,4800019,14775,nearest,Go garbage collection,332
+4,1,g3,4800019,14775,nearest,application construction,1155
+4,1,g3,4800019,14775,nearest,cached substitution,102
+4,1,g3,4800019,14775,nearest,candidate checker,2343
+4,1,g3,4800019,14775,nearest,congruence table,726
+4,1,g3,4800019,14775,nearest,disjunction relevance,1779
+4,1,g3,4800019,14775,nearest,model checker,245
+4,1,g3,4800019,14775,nearest,other,1921
+4,1,g3,4800019,14775,nearest,pattern matching,699
+4,1,g3,4800019,14775,nearest,quantifier queue,1418
+4,1,g3,4800019,14775,nearest,relevance assignment,974
+4,1,g3,4800019,14775,nearest,scope pop,627
+4,1,g3,4800019,14775,nearest,solver rewriter,2087
+4,1,native,4800019,4345,inclusive,Boolean propagation,208
+4,1,native,4800019,4345,inclusive,application construction,278
+4,1,native,4800019,4345,inclusive,cached substitution,234
+4,1,native,4800019,4345,inclusive,candidate checker,1134
+4,1,native,4800019,4345,inclusive,conflict resolution,289
+4,1,native,4800019,4345,inclusive,congruence table,183
+4,1,native,4800019,4345,inclusive,disjunction relevance,373
+4,1,native,4800019,4345,inclusive,model checker,210
+4,1,native,4800019,4345,inclusive,pattern matching,270
+4,1,native,4800019,4345,inclusive,quantifier queue,2031
+4,1,native,4800019,4345,inclusive,relevance assignment,674
+4,1,native,4800019,4345,inclusive,scope pop,294
+4,1,native,4800019,4345,inclusive,solver rewriter,540
+4,1,native,4800019,4345,nearest,Boolean propagation,208
+4,1,native,4800019,4345,nearest,application construction,278
+4,1,native,4800019,4345,nearest,cached substitution,58
+4,1,native,4800019,4345,nearest,candidate checker,999
+4,1,native,4800019,4345,nearest,conflict resolution,9
+4,1,native,4800019,4345,nearest,congruence table,183
+4,1,native,4800019,4345,nearest,disjunction relevance,373
+4,1,native,4800019,4345,nearest,model checker,78
+4,1,native,4800019,4345,nearest,other,663
+4,1,native,4800019,4345,nearest,pattern matching,270
+4,1,native,4800019,4345,nearest,quantifier queue,283
+4,1,native,4800019,4345,nearest,relevance assignment,316
+4,1,native,4800019,4345,nearest,scope pop,257
+4,1,native,4800019,4345,nearest,solver rewriter,370
