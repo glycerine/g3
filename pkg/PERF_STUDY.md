@@ -2176,3 +2176,19 @@ The rewriter asks for the definition, proof and dependency of successive terms i
 | Key present in a different substitution | 340 | 252 |
 
 The table gives medians from 12 alternating rounds on CPU 33. Each measurement subtracts a one-million-operation process from a three-million-operation process and divides by the two million extra operations. Every case measured zero allocations. On ordinary Raft, the change reduced whole-process instructions in all 12 pairs, by a median 0.68%. Elapsed times on that shared CPU varied too much to infer a latency gain. The nine Apple proof transcripts and 18 per-check counters, 28 Raft mutation decisions and 188 private Raft search records matched the control. [Lookup fixture](ast/ast_expr_substitution_benchmark_test.go) · [Counter driver](perf/ivy_apple/benchmark_slope.py) · [Raw lookup counts](perf/ivy_raft/ast_lookups/substitution-cached-lookup.csv)
+
+### Why the Apple frontend changes the whole-checker comparison
+
+On the rebased GoIvy frontend, uninstrumented builds running at the default Go GC setting took 152.83 s with g3 and 182.37 s with linked Z3 on `dramc_nb2` (three pairs). On `rfn2` they took 49.57 s and 35.03 s (four pairs). Each pair produced identical stdout through the final `OK`. The frontend Go sources were pinned at `a6d3417b1`; GoIvy `4a97afff6` changes the g3 module version and has the same frontend Go code. The g3 solver in these controls used the compact rewriter cache from `ed3be7f3c`. [Uninstrumented controls](perf/ivy_apple/frontend_memory/release-controls.csv)
+
+| Isolate | GOGC | Whole instructions, billions, g3 / Z3 | Go GC cycles, g3 / Z3 | Peak process RSS, MiB, g3 / Z3 |
+|---|---:|---:|---:|---:|
+| `dramc_nb2` | 100 | 525.6 / 624.5 | 2,447 / 6,131 | 270 / 373 |
+| `dramc_nb2` | 200 | 425.5 / 448.9 | 971 / 2,650 | 407 / 281 |
+| `dramc_nb2` | 400 | 378.3 / 334.8 | 410 / 752 | 784 / 552 |
+| `rfn2` | 100 | 146.1 / 75.2 | 249 / 367 | 280 / 143 |
+| `rfn2` | 400 | 133.2 / 63.0 | 46 / 62 | 531 / 264 |
+
+Each cell is a median of three `dramc_nb2` or four `rfn2` observations. Counters cover the entire process. Runtime metrics cover the Go heap in each executable, excluding the C++ heap. On `dramc_nb2`, g3 and Z3 allocated 114.92 and 112.99 GB on the Go heap. At GOGC=100 the Go runtime attributed 30.94 and 68.37 CPU seconds to GC. At GOGC=400 those times fell to 6.07 and 9.32 seconds and the whole-process instruction ordering reversed. A bound on per-worker memory matters for the intended parallel workload. These runs support reducing the frontend allocations that drive collections. [GC and allocation observations](perf/ivy_apple/frontend_memory/gc-pacing.csv) · [Reproduction driver](perf/ivy_apple/frontend_memory.py)
+
+Two independent instrumented pairs for each isolate had identical call counts across backends. On `dramc_nb2` there were 323,761,938 `symbolsIluAstRec` visits, 61,366,444 `renameASTRec` visits, and 2,323,722 `sliceSexp` calls. On `rfn2` the corresponding counts were 32,879,610, 3,486,885 and 32,630. The much smaller frontend workload on `rfn2` makes the cost of its fourth solver check easier to see. [Six shared frontend counters](perf/ivy_apple/frontend_memory/call-counts.csv)
