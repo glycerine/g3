@@ -10,13 +10,12 @@ import (
 )
 
 // ExprAbstractor replaces selected constants with de Bruijn variables. Its
-// pinned slice owns each generated expression until Close, including when an
-// AST allocation interrupts an abstraction.
+// pinned slice owns generated expressions until their abstraction returns.
+// An interrupted call leaves its remaining references available to Close.
 type ExprAbstractor struct {
 	self    *ExprAbstractor
 	manager *ASTManager
 	pinned  []ASTRef
-	drain   int
 	closed  bool
 }
 
@@ -67,25 +66,27 @@ func (a *ExprAbstractor) Close() error {
 	if a.closed {
 		return nil
 	}
-	if e := a.cleanupPins(); e != nil {
+	if e := a.releasePins(0); e != nil {
 		return e
 	}
+	a.pinned = nil
 	a.closed = true
 	return nil
 }
 
-func (a *ExprAbstractor) cleanupPins() error {
-	for a.drain < len(a.pinned) {
-		e := a.manager.DelRef(&a.pinned[a.drain])
-		if a.pinned[a.drain] == (ASTRef{}) {
-			a.drain++
-		}
-		if e != nil {
-			return e
+// Each recursive expr_abstract has its own m_pinned. Release that suffix
+// in creation order once its caller owns the result.
+func (a *ExprAbstractor) releasePins(start int) error {
+	for i := start; i < len(a.pinned); i++ {
+		if err := a.manager.DelRef(&a.pinned[i]); err != nil {
+			if a.pinned[i] == (ASTRef{}) {
+				i++
+			}
+			a.pinned = append(a.pinned[:start], a.pinned[i:]...)
+			return err
 		}
 	}
-	a.pinned = nil
-	a.drain = 0
+	a.pinned = a.pinned[:start]
 	return nil
 }
 
@@ -95,6 +96,11 @@ func (a *ExprAbstractor) Abstract(base uint32, bound []ASTHandle, root ASTHandle
 	if a == nil || a.self != a || a.manager == nil || a.closed || len(a.pinned) != 0 || len(bound) > math.MaxUint32 {
 		return ErrASTHandle
 	}
+	return a.abstractInto(base, bound, root, out)
+}
+
+func (a *ExprAbstractor) abstractInto(base uint32, bound []ASTHandle, root ASTHandle, out ASTRef) error {
+	start := len(a.pinned)
 	result, e := a.abstract(base, bound, root)
 	if e != nil {
 		return e
@@ -102,7 +108,7 @@ func (a *ExprAbstractor) Abstract(base uint32, bound []ASTHandle, root ASTHandle
 	if e = a.manager.SetRef(out, result); e != nil {
 		return e
 	}
-	if e = a.cleanupPins(); e != nil {
+	if e = a.releasePins(start); e != nil {
 		return e
 	}
 	return a.traceExprAbstract(root, nil, result, false)
@@ -253,56 +259,8 @@ func (a *ExprAbstractor) abstract(base uint32, bound []ASTHandle, root ASTHandle
 			result[curr] = v
 			stack = stack[:last]
 		case ASTQuantifier:
-			count, e := m.GetNumDeclarations(curr)
+			v, e := a.abstractQuantifier(base, bound, curr)
 			if e != nil {
-				return ASTHandle{}, e
-			}
-			patternsCount, e := m.GetNumPatterns(curr)
-			if e != nil {
-				return ASTHandle{}, e
-			}
-			patterns := make([]ASTHandle, 0, patternsCount)
-			for i := uint32(0); i < patternsCount; i++ {
-				p, e := m.GetPattern(curr, i)
-				if e != nil {
-					return ASTHandle{}, e
-				}
-				original := p
-				p, e = a.abstract(base+count, bound, p)
-				if e != nil {
-					return ASTHandle{}, e
-				}
-				if e = a.pin(p); e != nil {
-					return ASTHandle{}, e
-				}
-				// Source calls the free expr_abstract for each pattern,
-				// which traces its input and result.
-				if e = a.traceExprAbstract(original, nil, p, false); e != nil {
-					return ASTHandle{}, e
-				}
-				patterns = append(patterns, p)
-			}
-			body, e := m.GetQuantifierBody(curr)
-			if e != nil {
-				return ASTHandle{}, e
-			}
-			originalBody := body
-			body, e = a.abstract(base+count, bound, body)
-			if e != nil {
-				return ASTHandle{}, e
-			}
-			if e = a.pin(body); e != nil {
-				return ASTHandle{}, e
-			}
-			if e = a.traceExprAbstract(originalBody, nil, body, false); e != nil {
-				return ASTHandle{}, e
-			}
-			pin, e := a.reservePin()
-			if e != nil {
-				return ASTHandle{}, e
-			}
-			v, e := m.UpdateQuantifierPatterns(curr, patterns, body)
-			if e = a.setPin(pin, v, e); e != nil {
 				return ASTHandle{}, e
 			}
 			result[curr] = v
@@ -316,4 +274,56 @@ func (a *ExprAbstractor) abstract(base uint32, bound []ASTHandle, root ASTHandle
 		return ASTHandle{}, ErrASTDomain
 	}
 	return v, nil
+}
+
+func (a *ExprAbstractor) abstractQuantifier(base uint32, bound []ASTHandle, q ASTHandle) (ASTHandle, error) {
+	m := a.manager
+	count, err := m.GetNumDeclarations(q)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	numPatterns, err := m.GetNumPatterns(q)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	// The enclosing map owns the updated quantifier. Its body and patterns
+	// are temporary references local to this quantifier's reconstruction.
+	pin, err := a.reservePin()
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	start := len(a.pinned)
+	result, err := a.reservePin()
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	abstractChild := func(h ASTHandle, err error) (ASTHandle, error) {
+		if err == nil {
+			err = a.abstractInto(base+count, bound, h, result)
+		}
+		if err != nil {
+			return ASTHandle{}, err
+		}
+		return m.RefGet(result)
+	}
+	patterns := make([]ASTHandle, numPatterns)
+	for i := range patterns {
+		p, err := abstractChild(m.GetPattern(q, uint32(i)))
+		if err != nil {
+			return ASTHandle{}, err
+		}
+		if err = a.pin(p); err != nil {
+			return ASTHandle{}, err
+		}
+		patterns[i] = p
+	}
+	body, err := abstractChild(m.GetQuantifierBody(q))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	next, err := m.UpdateQuantifierPatterns(q, patterns, body)
+	if err = a.setPin(pin, next, err); err != nil {
+		return ASTHandle{}, err
+	}
+	return next, a.releasePins(start)
 }

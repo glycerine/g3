@@ -230,3 +230,48 @@ func TestExprAbstractorSourceRootReferenceGuard(t *testing.T) {
 	}
 	astTestMust(t, a.Close())
 }
+
+func TestExprAbstractorReleasesUnusedVariableAtNestedBinder(t *testing.T) {
+	m := astTestManager(t)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	c, err := m.MkConst(astTestSymbol(t, m, "outer-constant"), boolean)
+	astTestMust(t, err)
+	fn, err := m.MkFuncDecl(astTestSymbol(t, m, "use-outer"), []ASTHandle{boolean}, boolean, ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	application, err := m.MkApp(fn, []ASTHandle{c})
+	astTestMust(t, err)
+	truth, err := m.MkTrue()
+	astTestMust(t, err)
+	inner, err := m.MkQuantifier(ASTQuantifierSpec{Forall: true, Sorts: []ASTHandle{boolean}, Names: []usymbol.Symbol{astTestSymbol(t, m, "inner")}, Body: truth})
+	astTestMust(t, err)
+	root, err := m.MkAnd(application, inner)
+	astTestMust(t, err)
+	astTestPin(t, m, root)
+	outerVar, err := m.MkVar(0, boolean)
+	astTestMust(t, err)
+	astTestPin(t, m, outerVar)
+	// Seed the free ID that the nested abstraction takes for its unused
+	// variable. The right operand is visited first on the source work stack.
+	v, err := m.MkVar(1, boolean)
+	astTestMust(t, err)
+	id, err := m.GetASTID(v)
+	astTestMust(t, err)
+	ref, err := m.NewRef(v)
+	astTestMust(t, err)
+	astTestMust(t, m.DelRef(&ref))
+	out := astTestPin(t, m, root)
+	a, err := NewExprAbstractor(m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, a.Close()) })
+	astTestMust(t, a.Abstract(0, []ASTHandle{c}, root, out))
+	result, err := m.RefGet(out)
+	astTestMust(t, err)
+	child, err := m.GetArg(result, 0)
+	astTestMust(t, err)
+	got, err := m.GetASTID(child)
+	astTestMust(t, err)
+	if got != id {
+		t.Fatalf("rewritten sibling ID %d, want the nested variable's released ID %d", got, id)
+	}
+}

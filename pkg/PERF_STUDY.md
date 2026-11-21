@@ -1384,3 +1384,9 @@ python3 -B perf/ivy_raft/conditional/verify.py --native ../build/z3
 python3 -B perf/ivy_raft/conditional/search.py --goivy ~/ivy/goivy --cpu 4 \
   --spec ~/ivy/ivy-lang-examples/examples/raft/raft_no_assume_test.ivy
 ```
+
+## AST lifetime during nested quantifier abstraction
+
+On Apple `sys_live`, the first difference in the solver traces was a bound variable’s AST ID. Both solvers created a temporary variable while abstracting a nested quantifier. Z3 released it when the recursive call returned and reused its ID in the next sibling. g3 held the variable through the outermost call. Each recursive abstraction now releases its own temporary references after its caller has acquired the result. In the new focused test, the previous implementation gives the sibling ID 9 and the native lifetime gives it ID 8. [Implementation](ast/ast_expr_abstract.go) · [Regression test](ast/ast_expr_abstract_test.go)
+
+This change extended the equal prefix of the normalized `sys_live` trace from 706,151 to **2,863,954 events**. All 18 search counters stayed unchanged on every one of the 10,342 Apple checks. Timing was mixed. Across 20 alternating pairs, median paired elapsed time improved 2.6% on `rfn` and 1.6% on `rfn2`, and increased 5.9% on `sys_live` and 2.9% on `dramc_nb2`. We retained the lifetime correction for trace fidelity. The comparison used the same GoIvy and g3 code with only the abstraction implementation varied. [All 40 runs](perf/ivy_apple/nested-abstraction-pairs.csv)
