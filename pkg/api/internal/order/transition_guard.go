@@ -89,24 +89,3 @@ func (f *frameMatcher) updateChoice(test, yes, no int32) int32 {
 	t.terms = append(t.terms, node)
 	return id
 }
-
-func (f *frameMatcher) sameTerm(left, right int32) bool {
-	if left == right {
-		return true
-	}
-	if !f.visit() {
-		return false
-	}
-	t := f.t
-	x, y := t.terms[left], t.terms[right]
-	if x.op != y.op || x.value != y.value || x.count != y.count || t.root(x.domain) != t.root(y.domain) ||
-		x.op == opForall || x.op == opExists {
-		return false
-	}
-	for i, child := range t.arguments(&x) {
-		if !f.sameTerm(child, t.children[y.start+uint32(i)]) {
-			return false
-		}
-	}
-	return true
-}

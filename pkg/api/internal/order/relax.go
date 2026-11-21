@@ -80,6 +80,7 @@ type inference struct {
 	domainSorts      []ast.ASTHandle
 	declIDs          map[ast.ASTHandle]int32
 	signatures       []signature
+	booleanAliases   []int32 // private proof representative + 1, zero for an unchanged symbol
 	numerals         map[ast.ASTHandle]int32
 	containsFunction map[ast.ASTHandle]bool
 	scope            []binding

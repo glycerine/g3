@@ -160,3 +160,24 @@ func (m *instanceMatcher) match(pattern, target int32) bool {
 	}
 	return true
 }
+
+func (m *instanceMatcher) sameTerm(left, right int32) bool {
+	if left == right {
+		return true
+	}
+	if !m.visit() {
+		return false
+	}
+	t := m.t
+	x, y := t.terms[left], t.terms[right]
+	if x.op != y.op || x.value != y.value || x.count != y.count || t.root(x.domain) != t.root(y.domain) ||
+		x.op == opForall || x.op == opExists {
+		return false
+	}
+	for i, child := range t.arguments(&x) {
+		if !m.sameTerm(child, t.children[y.start+uint32(i)]) {
+			return false
+		}
+	}
+	return true
+}

@@ -79,18 +79,20 @@ func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (Proo
 	if spent >= remaining || m.ResourceLimit().CancelFlag() {
 		return ProofProblem{}, false, nil
 	}
-	proof := ProofProblem{Order: t.render(), SearchSteps: remaining - spent}
+	remaining -= spent
+	proof := ProofProblem{Order: t.renderProof(&remaining)}
 	if c := t.transition; c != nil {
 		primary := proof.Order
 		if c.primaryPremises == nil {
 			primary.Text = primary.Text[:primary.LastAssertionStart] + t.renderAssertion(c.specialized)
 		} else {
 			t.assertions = append(c.primaryPremises, c.specialized)
-			primary = t.render()
+			primary = t.renderProof(&remaining)
 		}
 		t.assertions = append(c.premises, c.negatedFacts)
-		proof.Conditional = &ConditionalGoal{Condition: t.render(), Primary: primary}
+		proof.Conditional = &ConditionalGoal{Condition: t.renderProof(&remaining), Primary: primary}
 	}
+	proof.SearchSteps = remaining
 	return proof, true, nil
 }
 

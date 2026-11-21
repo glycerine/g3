@@ -206,8 +206,12 @@ func (t *inference) writeTerm(b *strings.Builder, id int32) {
 		b.WriteByte('(')
 	}
 	if n.op == opFunction {
+		symbol := n.value
+		if t.booleanAliases != nil && t.booleanAliases[symbol] != 0 {
+			symbol = t.booleanAliases[symbol] - 1
+		}
 		b.WriteByte('f')
-		b.WriteString(strconv.Itoa(int(n.value)))
+		b.WriteString(strconv.Itoa(int(symbol)))
 	} else {
 		b.WriteString(operatorNames[n.op])
 	}

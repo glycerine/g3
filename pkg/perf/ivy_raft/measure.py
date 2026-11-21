@@ -10,6 +10,9 @@ import sys
 import time
 
 
+EVENTS = ("instructions:u", "cycles:u", "branches:u", "branch-misses:u")
+
+
 def transcript(lines):
     normalized = []
     reported_ok = False
@@ -36,6 +39,7 @@ def main():
     parser.add_argument("--label", required=True)
     parser.add_argument("--sample", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True, help="raw checker stdout")
+    parser.add_argument("--perf", metavar="EXECUTABLE", help="collect user-mode hardware counters")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command
@@ -44,11 +48,17 @@ def main():
     if not command:
         parser.error("supply the checker command after --")
     paths = [args.output, *(args.output.with_suffix(s) for s in (".resources", ".stderr", ".passes"))]
+    counters_path = args.output.with_suffix(".perf")
+    if args.perf:
+        paths.append(counters_path)
     resolved = {p.resolve() for p in paths}
     if args.reference.resolve() in resolved or len(resolved) != len(paths):
         parser.error("use distinct paths for the reference and output files")
     want = transcript(args.reference.read_text().splitlines())
     env = dict(os.environ, XTRACE_OFF="1", PYTHONDONTWRITEBYTECODE="1")
+    if args.perf:
+        command = [args.perf, "stat", "-x", ",", "-e", ",".join(EVENTS),
+                   "-o", str(counters_path), "--", *command]
     if args.cpu is not None:
         command = ["taskset", "-c", str(args.cpu), *command]
         env["GOMAXPROCS"] = "1"
@@ -73,9 +83,14 @@ def main():
     with args.output.with_suffix(".passes").open("w") as f:
         for number, elapsed in enumerate(passes, 1):
             f.write(f"{number},{elapsed:.6f}\n")
+    counters = []
+    if args.perf:
+        with counters_path.open() as f:
+            values = {r[2]: int(r[0]) for r in csv.reader(f) if len(r) > 2 and r[2] in EVENTS}
+        counters = [values[e] for e in EVENTS]
     csv.writer(sys.stdout, lineterminator="\n").writerow(
         [args.sample, args.label, args.cpu if args.cpu is not None else "default",
-         wall, user, system, rss, len(passes)])
+         wall, user, system, rss, len(passes), *counters])
 
 
 if __name__ == "__main__":
