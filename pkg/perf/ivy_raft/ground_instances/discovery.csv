@@ -1,0 +1,17 @@
+obligation,stage,mode,status,checks,initial,ground,model_values,solve_s,prototype_s
+251,0,unary-two-unfold,unsat,42,42,655,431884,0.456,84.268
+321,1,unary-four-unfold,unsat,19,28,444,308677,0.197,84.616
+321,1,unary-two-unfold,sat-ground-only,44,28,463,562602,0.337,111.011
+251,0,unary-four-unfold,sat-ground-only,44,42,789,531539,0.55,111.016
+321,1,unary-qdefs-unfold,limit,48,28,422,527056,0.399,103.703
+321,1,unary-two-qdefs,unsat,44,28,587,394393,0.424,78.315
+251,0,unary-qdefs-unfold,time,31,42,490,550607,0.331,111.018
+251,0,unary-two-qdefs,time,37,42,887,539935,0.706,110.614
+321,1,unary-reverse-two-unfold,unsat,32,28,419,339287,0.241,68.174
+251,0,basic,limit,48,42,460,429079,0.468,87.105
+251,0,unary-reverse-two-unfold,sat-ground-only,33,42,609,417612,0.398,111.015
+321,1,unary-split-four-unfold,unsat,23,31,402,203585,0.177,41.746
+321,1,basic,time,48,28,299,556018,0.371,111.008
+251,0,unary-split-four-unfold,sat-ground-only,44,46,793,541902,0.568,111.015
+321,1,unary-split-qdefs,unsat,35,31,347,384335,0.252,75.87
+251,0,unary-split-qdefs,time,30,46,483,503461,0.427,111.017

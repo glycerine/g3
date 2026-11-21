@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,8 @@ import sys
 import tempfile
 
 HERE = Path(__file__).resolve().parent
+SOURCE = HERE.parents[2] / "api/api_order_abstraction.go"
+METHOD = "func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err error) {"
 KEYS = ["decisions", "quant-instantiations", "conflicts", "rlimit-count"]
 OBSERVER = '''
 func (p *orderProofState) studyStats() string {
@@ -30,40 +33,42 @@ def replace_once(code, old, new):
     return code.replace(old, new)
 
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--goivy", type=Path, required=True)
-    p.add_argument("--spec", type=Path, required=True)
-    p.add_argument("--cpu", type=int, required=True)
-    args = p.parse_args()
-    ivy, spec = args.goivy.resolve(strict=True), args.spec.resolve(strict=True)
-    source = HERE.parents[2] / "api/api_order_abstraction.go"
-    code = replace_once(source.read_text(), "import (", 'import (\n"encoding/json"\n"fmt"\n"os"')
-    method = "func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err error) {"
-    code = replace_once(code, method, method + '\nfmt.Fprintln(os.Stderr, "RAFT-PROOF")')
+
+def observed_source():
+    code = replace_once(SOURCE.read_text(), "import (", 'import (\n"encoding/json"\n"fmt"\n"os"')
+    code = replace_once(code, METHOD, METHOD + '\nfmt.Fprintln(os.Stderr, "RAFT-PROOF")')
     check = "answer, err = p.child.Check()"
     code = replace_once(code, check, "before := p.studyStats()\n" + check + '''
     report, e := json.Marshal([2]string{before, p.studyStats()})
     if e != nil { panic(e) }
     fmt.Fprintln(os.Stderr, "RAFT-SEARCH", string(report))
 ''')
+    return code + OBSERVER
+
+
+@contextmanager
+def observed_checker(ivy, code):
     with tempfile.TemporaryDirectory() as scratch:
         tmp = Path(scratch)
         patched, overlay, exe = tmp / "observed.go", tmp / "overlay.json", tmp / "goivy_check"
-        patched.write_text(code + OBSERVER)
+        patched.write_text(code)
         module = subprocess.check_output(
             ["go", "list", "-mod=readonly", "-m", "-f", "{{.Dir}}", "github.com/glycerine/g3/pkg"],
             cwd=ivy, text=True).strip()
         dependency = Path(module) / "api/api_order_abstraction.go"
-        if not source.samefile(dependency):
+        if not SOURCE.samefile(dependency):
             raise ValueError(f"GoIvy must use this g3 checkout, found {module}")
         # Build overlays use the spelling of the path in a local module replacement.
-        overlay.write_text(json.dumps({"Replace": {str(f): str(patched) for f in (source, dependency)}}))
+        overlay.write_text(json.dumps({"Replace": {str(f): str(patched) for f in (SOURCE, dependency)}}))
         subprocess.run(["go", "build", "-mod=readonly", "-pgo=off", "-buildvcs=false", "-tags=xtrace_off",
                         f"-overlay={overlay}", "-o", exe, "./cmd/goivy_check"], cwd=ivy, check=True)
-        run = subprocess.run(["taskset", "-c", str(args.cpu), exe, spec], cwd=tmp,
-                             env=dict(os.environ, GOMAXPROCS="1", XTRACE_OFF="1"),
-                             capture_output=True, text=True, check=True)
+        yield exe
+
+
+def measure(exe, spec, cpu, env=os.environ):
+    run = subprocess.run(["taskset", "-c", str(cpu), exe, spec], cwd=exe.parent,
+                         env=dict(env, GOMAXPROCS="1", XTRACE_OFF="1"),
+                         capture_output=True, text=True, check=True)
     transcript = run.stdout.splitlines()
     if transcript.count("PASS") != 419 or transcript[-1:] != ["OK"]:
         raise ValueError("incomplete Raft checker transcript")
@@ -79,6 +84,18 @@ def main():
             rows.setdefault(obligation, []).append([new.get(k, 0) - old.get(k, 0) for k in KEYS])
     if obligation != 419 or not rows:
         raise ValueError("missing private solver measurements, check the GoIvy local g3 replacement")
+    return rows
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--goivy", type=Path, required=True)
+    p.add_argument("--spec", type=Path, required=True)
+    p.add_argument("--cpu", type=int, required=True)
+    args = p.parse_args()
+    ivy, spec = args.goivy.resolve(strict=True), args.spec.resolve(strict=True)
+    with observed_checker(ivy, observed_source()) as exe:
+        rows = measure(exe, spec, args.cpu)
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["obligation", "stage", *KEYS])
     for n, calls in rows.items():
