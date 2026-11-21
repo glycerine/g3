@@ -2104,3 +2104,30 @@ The heap benchmark measured bytes above the same rooted expressions with 1,024 i
 | Raft, 419 obligations | 12 | 29.39 | 29.07 | −1.14% | −7.12% |
 
 The elapsed percentages are medians of within-pair changes on a shared machine. For `cf_live`, three of six pairs finished sooner. Hardware instruction counts decreased in every pair. A separate run matched all 10,342 native Apple outcomes and all 18 counters per check, all 28 Raft reference transcripts, and all 188 private Raft search records from the previous build. [Whole-proof measurements](perf/ivy_apple/rewriter_cache/release-proofs.csv)
+
+### Whole Apple isolates and time inside their solver calls
+
+GoIvy at `3ef4b9020` ran its uninstrumented g3 and `classic_z3` backends on the same CPU in alternating order, with PGO and tracing off. g3 used `ed3be7f3c` and native used GoIvy’s linked `z3vendor/native_lib/libz3.a`. All 28 runs reproduced their isolate’s full reference transcript. On this machine the previously long-running `dramc_nb2` completed all 2,479 checks in every run. Its three g3/native times were 117/163, 132/132 and 142/154 seconds. [All runs, times, memory and hardware counters](perf/ivy_apple/incremental_cost/release-native-proofs.csv) · [Whole-isolate driver](perf/ivy_apple/compare.py)
+
+| Isolate | Checks | Whole-run pairs | Whole wall seconds, g3 / native | Whole instructions, billions, g3 / native | Instructions inside checks, billions, g3 / native |
+|---|---:|---:|---:|---:|---:|
+| `dramc_nb2` | 2,479 | 3 | 132.4 / 154.3 | 509.0 / 590.8 | 50.47 / 15.70 |
+| `rfn2` | 26 | 4 | 47.9 / 31.4 | 144.3 / 73.1 | 96.67 / 35.48 |
+| `rfn` | 33 | 4 | 29.6 / 20.0 | 126.0 / 60.9 | 85.14 / 29.50 |
+| `cf_live` | 336 | 3 | 54.2 / 32.6 | 208.7 / 125.1 | 104.20 / 34.00 |
+
+The last column uses separate runs with a per-thread user-mode counter around each verification call. Each call had a measured empty interval. The table reports the median of each run’s sum after subtracting those intervals. There were three complete four-build rounds on `dramc_nb2`, five on `rfn` and `rfn2`, and four on `cf_live`. Every interval ran without multiplexing. The counts across earlier g3 builds show where progress reached actual specifications. For `dramc_nb2`, the sum fell from 56.93 billion before the application change, to 51.80 billion with the new constructor, to 50.47 billion with the compact rewriter cache. For `rfn2` the corresponding totals were 102.12, 97.69 and 96.67 billion. Whole-process and solver-thread counters have different scope. Work between verification calls includes solver mutations as well as the Ivy frontend. [Per-check counts for all four builds](perf/ivy_apple/incremental_cost/release-check-instructions.csv.gz) · [Per-thread counter driver](perf/ivy_apple/incremental_cost/thread_checks.py)
+
+Two earlier paired DWARF profiles per backend isolated the hardest individual call in each of these workloads. The g3 build included the prepared quantifier-body change and preceded the latest application and cache improvements. Each physical instruction sample contributes to its nearest named solver operation. The estimates below average the two profiles at 2,400,017 instructions per sample. Inlining and incomplete unwind information affect the attribution. [Exclusive and inclusive samples](perf/ivy_apple/rewriter_profiles/dwarf-solver-operations.csv.gz) · [Physical leaves grouped by their nearest operation](perf/ivy_apple/rewriter_profiles/dwarf-operation-leaves.csv.gz) · [Sampling driver](perf/ivy_apple/phase_stacks.py)
+
+| Estimated billion instructions | `rfn2` check 4, g3 / native | `dramc_nb2` check 71, g3 / native |
+|---|---:|---:|
+| Full call | 55.22 / 20.86 | 23.58 / 6.99 |
+| Solver rewriter | 9.96 / 1.89 | 4.92 / 1.08 |
+| Quantifier queue | 6.98 / 1.38 | 4.88 / 1.00 |
+| Application construction | 5.43 / 1.38 | 3.63 / 0.85 |
+| Candidate checker | 6.19 / 4.54 | 2.56 / 1.63 |
+| Congruence table | 3.23 / 0.98 | 1.15 / 0.26 |
+| Scope pop | 2.92 / 1.20 | 1.32 / 0.42 |
+
+On `rfn2` check 4, the solver rewriter, quantifier queue and application constructor together account for about 17.7 billion of the 34.4 billion additional instructions. The queue’s leaves include Boolean-variable lookup, clause construction and internalization. The rewriter’s include expression-substitution key validation, application traversal and activity-cache lookup. The largest candidate-checker leaf on both calls is the reference-count accessor, estimated at 1.45 billion instructions on `rfn2` and 0.69 billion on `dramc_nb2`. These measurements favor reusing validated arena records and eliminating repeated property reads along the existing solver paths. [Attribution rules and `--operation-leaves` option](perf/ivy_apple/stack_costs.py)

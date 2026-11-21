@@ -21,8 +21,10 @@ def record(args, binary, selection, directory, reference):
     profile = directory / "perf.data"
     command = ["taskset", "-c", str(args.cpu), args.perf, "record", "--no-buildid",
                "--call-graph", args.call_graph, "-e", "instructions:u", "-c", str(args.period),
-               "-m", "512", "-D", "-1", "--control", f"fifo:{ctl},{ack}", "-o", str(profile),
-               "--", str(binary), f"isolate={args.isolate}", str(args.spec)]
+               "-m", "512", "--control", f"fifo:{ctl},{ack}", "-o", str(profile)]
+    if selection != "outside":
+        command.extend(["-D", "-1"])
+    command.extend(["--", str(binary), f"isolate={args.isolate}", str(args.spec)])
     try:
         with (directory / "stderr").open("wb") as err:
             result = subprocess.run(command, cwd=directory, env=env, stdout=subprocess.PIPE,
@@ -36,7 +38,7 @@ def record(args, binary, selection, directory, reference):
               if s.startswith("IVY-PERF-CHECK ")]
     if checks != list(range(1, 1 + reference.splitlines().count(b"PASS"))):
         raise ValueError("incomplete solver check sequence")
-    if selection != "inside" and int(selection) not in checks:
+    if selection.isdecimal() and int(selection) not in checks:
         raise ValueError("the selected check was never reached")
     inline = "--inline" if args.inline else "--no-inline"
     with gzip.open(directory / "stacks.gz", "wb", compresslevel=1) as dest:
@@ -57,7 +59,7 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--cpu", type=int, required=True)
     p.add_argument("--isolate", default="rfn2")
-    p.add_argument("--select", nargs="+", default=["inside"], help="inside or a one-based check number")
+    p.add_argument("--select", nargs="+", default=["inside"], help="inside, outside or a one-based check number")
     p.add_argument("--engines", nargs="+", choices=["g3", "native"], default=["g3", "native"])
     p.add_argument("--period", type=int, default=4_800_019, help="user instructions per sample")
     p.add_argument("--pairs", type=int, default=3)
@@ -72,7 +74,7 @@ def main():
     if len(set(args.engines)) != len(args.engines) or len(set(args.select)) != len(args.select):
         p.error("each engine and check selection must appear only once")
     if args.period < 1 or args.pairs < 1 or any(
-            s != "inside" and (not s.isdecimal() or int(s) < 1 or str(int(s)) != s)
+            s not in ("inside", "outside") and (not s.isdecimal() or int(s) < 1 or str(int(s)) != s)
             for s in args.select):
         p.error("supply positive counts and valid check selections")
     args.goivy = args.goivy.resolve(strict=True)

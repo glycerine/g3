@@ -40,7 +40,7 @@ OPERATIONS = {
                                "runtime.(*gcControllerState).", "runtime.scanObject"), ()),
 }
 FRAME = re.compile(r"^\s*[0-9a-fA-F]+\s+(.+)\s+\(.+\)\s*$")
-DIRECTORY = re.compile(r"(inside|[1-9]\d*)-([1-9]\d*)-(g3|native)")
+DIRECTORY = re.compile(r"(inside|outside|[1-9]\d*)-([1-9]\d*)-(g3|native)")
 
 
 @lru_cache(maxsize=None)
@@ -98,6 +98,21 @@ def rewriter_callees(path, engine):
     return total, callees
 
 
+def operation_leaves(path, engine):
+    counts = Counter()
+    total = 0
+    for stack in samples(path):
+        total += 1
+        for symbol in stack:
+            matches = categories(engine, symbol)
+            if matches:
+                counts[matches[0], stack[0]] += 1
+                break
+    if not total:
+        raise ValueError(f"{path}: no samples")
+    return total, counts
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("runs", type=Path, nargs="+", help="completed directories named PHASE-PAIR-ENGINE")
@@ -106,16 +121,26 @@ def main():
     view.add_argument("--leaf", action="store_true", help="emit physical leaf symbols instead of operation groups")
     view.add_argument("--rewriter-callees", action="store_true",
                       help="attribute each sampled rewriter stack to its nearest physical callee")
+    view.add_argument("--operation-leaves", action="store_true",
+                      help="report physical leaves grouped by the nearest named solver operation")
     args = p.parse_args()
     if args.period < 1:
         p.error("a positive sampling period is required")
     out = csv.writer(sys.stdout, lineterminator="\n")
-    out.writerow(["selection", "pair", "engine", "period", "samples", "attribution", "operation", "votes"])
+    columns = ["selection", "pair", "engine", "period", "samples", "attribution", "operation"]
+    if args.operation_leaves:
+        columns.append("leaf")
+    out.writerow([*columns, "votes"])
     for run in args.runs:
         match = DIRECTORY.fullmatch(run.name)
         if not match:
             p.error(f"unrecognized run directory {run}")
         selection, pair, engine = match.groups()
+        if args.operation_leaves:
+            total, counts = operation_leaves(run / "stacks.gz", engine)
+            for (owner, leaf), count in sorted(counts.items()):
+                out.writerow([selection, pair, engine, args.period, total, "nearest", owner, leaf, count])
+            continue
         if args.rewriter_callees:
             total, callees = rewriter_callees(run / "stacks.gz", engine)
             counts = [("rewriter callee", callees)]
