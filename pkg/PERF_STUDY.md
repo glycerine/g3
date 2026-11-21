@@ -1807,3 +1807,27 @@ Across eight fresh single-goroutine processes pinned to CPU 16, the baseline at 
 go test -c -o /tmp/g3-worker.test ./smtcore
 python3 perf/ivy_apple/candidate_checker/worker_memory.py --go baseline /tmp/g3-worker.test --cpu 16
 ```
+
+### Where Boolean variable retirement costs instructions
+
+I placed a thread counter around each of the 128 variable retirements in a scoped pop. Each phase has its own binary and just one enable/disable pair inside the variable loop. This avoids charging inactive probes to another phase. I subtracted each engine's empty interval on the same CPU and in the same round. The table shows the median across nine alternating pairs per CPU, with 1,200 measured pops per run on CPU 32 and 1,800 on CPU 27. All 252 counter readings ran without multiplexing. The Go solver includes the singleton watch clear from `9509d8fe6`. [Raw measurements](perf/scope_restoration/pop_phases/variable-thread.csv) · [Paired measurement driver](perf/scope_restoration/pop_phases/variables.py)
+
+| User instructions per variable | g3, CPU 32 | Native, CPU 32 | g3, CPU 27 | Native, CPU 27 |
+|---|---:|---:|---:|---:|
+| Complete Boolean retirement body | 456.2 | 130.3 | 456.6 | 130.3 |
+| Activity queue deletion and its guards | 207.7 | 85.3 | 207.8 | 85.3 |
+| Quantifier/index checks and binding removal | 54.0 | 9.0 | 54.0 | 9.0 |
+| Clear and shorten per-variable Go storage | 95.7 | 0.0 | 96.5 | 0.0 |
+| Release the owning reference | 64.0 | 24.0 | 64.0 | 24.0 |
+| Everything after the queue through the end of the body | 235.9 | 33.0 | 236.5 | 33.0 |
+
+Queue deletion accounts for **122 of the 326 excess instructions per variable**, or about **15,670 per 128-variable pop**. Clearing and shortening the Go vectors accounts for another 96 per variable. Native does that portion of its work when publishing a variable again. The complete-pop measurement includes republication. The Go binding interval includes equality unindexing when applicable and updates to the solver's expression record. The reference interval includes the resumable Go release and native's owning `expr_ref_vector::pop_back`. The enclosing trail loop falls outside the measured variable body. The individual intervals use separate compilations and can have different register spills. [Go retirement](smtcore/smt_internalizer_state.go) · [Native retirement](../src/smt/smt_internalizer.cpp)
+
+A separate 1,000-pop Go count found an average of 51.64 queue entries at the last heap position, 23.53 at another leaf and 52.83 at an interior position. Most retirements therefore need the source heap's replacement ordering. The next queue experiment compares deletion using the already known inverse position and an inlined activity comparison, including ties. [Heap position counter](perf/scope_restoration/pop_phases/heap_positions.py)
+
+Run the following command on Linux/amd64 from `pkg/` with the in-tree native build available.
+
+```sh
+python3 perf/scope_restoration/pop_phases/variables.py --cpu 0 --pairs 9 --iterations 1808 \
+  --dir /tmp/g3-retired-variables > /tmp/g3-retired-variables.csv
+```
