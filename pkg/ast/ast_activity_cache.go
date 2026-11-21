@@ -200,13 +200,7 @@ func (c *ActivityCache) Insert(k, v ASTHandle) (err error) {
 	// chashtable::insert_if_not_there grows a full table before it looks
 	// the key up, also when the key is already present.
 	c.table.prepareInsert()
-	var entry *astActivityEntry
-	if k.origin == m.origin {
-		entry = c.table.find(key, hash)
-	}
-	if entry == nil {
-		entry = c.table.insert(astActivityEntry{key: key, hash: hash, dummy: true})
-	}
+	entry := c.table.put(key, hash, k.origin == m.origin)
 	if entry.dummy {
 		if ready {
 			keyNode.rc++

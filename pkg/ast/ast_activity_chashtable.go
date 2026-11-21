@@ -11,7 +11,7 @@ const (
 	activityChashInitSlots  = 8 // chashtable::default_init_slots
 	activityChashInitCellar = 2 // chashtable::default_init_cellar
 	activityChashNil        = -1
-	activityChashFree       = -2 // cell::m_next == reinterpret_cast<cell*>(1)
+	activityChashFree       = 0 // allocated cellar indices start at slots, so zero cannot be a link
 )
 
 // Cells hold their entries, as the source's cells hold key and value; an
@@ -35,26 +35,14 @@ type activityChashtable struct {
 	spare []activityChashCell
 }
 
-func activityChashAlloc(n int32) []activityChashCell {
-	cells := make([]activityChashCell, n)
-	for i := range cells {
-		cells[i].next = activityChashFree
-	}
-	return cells
-}
-
-// alloc is activityChashAlloc(n), backed by the spare array when it is
-// large enough.
 func (t *activityChashtable) alloc(n int32) []activityChashCell {
 	if s := t.spare; int32(cap(s)) >= n {
 		t.spare = nil
 		cells := s[:n]
-		for i := range cells {
-			cells[i] = activityChashCell{next: activityChashFree}
-		}
+		clear(cells)
 		return cells
 	}
-	return activityChashAlloc(n)
+	return make([]activityChashCell, n)
 }
 
 // keep offers a cell array the table no longer uses as its spare.
@@ -174,21 +162,32 @@ func (t *activityChashtable) find(k astNodeRef, hash uint32) *astActivityEntry {
 	return nil
 }
 
-// insert is insert_if_not_there for a key known to be absent: a colliding
-// entry becomes the chain head and the old head moves to a cellar cell.
-func (t *activityChashtable) insert(entry astActivityEntry) *astActivityEntry {
-	idx := int32(entry.hash & uint32(t.slots-1))
-	if t.cells[idx].next == activityChashFree {
-		t.size++
+// put finds the key or inserts a dummy entry for the caller to acquire. A
+// foreign key must never match a local key with the same slot and generation.
+// On collision the original head moves to the cellar, preserving release order.
+func (t *activityChashtable) put(k astNodeRef, hash uint32, localKey bool) *astActivityEntry {
+	i := int32(hash & uint32(t.slots-1))
+	head := &t.cells[i]
+	next := int32(activityChashNil)
+	if head.next == activityChashFree {
 		t.usedSlots++
-		t.cells[idx] = activityChashCell{next: activityChashNil, entry: entry}
-		return &t.cells[idx].entry
+	} else {
+		if localKey {
+			for c := head; ; c = &t.cells[c.next] {
+				if c.entry.key == k {
+					return &c.entry
+				}
+				if c.next == activityChashNil {
+					break
+				}
+			}
+		}
+		next = t.getFreeCell()
+		t.cells[next] = *head
 	}
+	*head = activityChashCell{next: next, entry: astActivityEntry{key: k, hash: hash, dummy: true}}
 	t.size++
-	c := t.getFreeCell()
-	t.cells[c] = t.cells[idx]
-	t.cells[idx] = activityChashCell{next: c, entry: entry}
-	return &t.cells[idx].entry
+	return &head.entry
 }
 
 func (t *activityChashtable) erase(entry *astActivityEntry) {
