@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/glycerine/g3/pkg/arena"
+	udiag "github.com/glycerine/g3/pkg/util/diagnostic"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -188,9 +189,12 @@ func (m *ASTManager) mkAppCore(decl astNodeRef, args []ASTHandle) (astNodeRef, e
 	if uint64(len(args)) > math.MaxUint32 {
 		return astNodeRef{}, arena.ErrBounds
 	}
-	return m.mkAppCoreArguments(decl, AppArguments{slice: args, count: uint32(len(args))})
+	return m.mkAppCoreArguments(decl, &AppArguments{slice: args, count: uint32(len(args))})
 }
-func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args AppArguments) (result astNodeRef, err error) {
+func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args *AppArguments) (result astNodeRef, err error) {
+	if m.TraceStream == nil {
+		return m.mkAppCoreArgumentsFramed(decl, args, nil)
+	}
 	frame, prepareError := m.prepareTraceAcquisition(args.count)
 	if prepareError != nil {
 		return astNodeRef{}, prepareError
@@ -203,7 +207,7 @@ func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args AppArguments) (res
 
 // mkAppCoreArgumentsFramed is mkAppCoreArguments after the trace
 // acquisition frame (finished by the caller) is prepared.
-func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args AppArguments, frame *astTraceAcquisition) (result astNodeRef, err error) {
+func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition) (result astNodeRef, err error) {
 	// Source allocates app storage before coercion and check_args.
 	r, e := m.allocateNode(ASTApp)
 	if e != nil {
@@ -218,6 +222,13 @@ func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args AppArguments
 		return astNodeRef{}, e
 	}
 	d := m.declAt(decl.slot)
+	if !astValidateHandles && !udiag.TraceCompiled() && frame == nil && !m.BudgetField.InjectionArmed() &&
+		args.hasPreparedSlice() {
+		input := args.slice[args.argumentOffset:][:args.count]
+		if result, handled, err := m.registerSliceApp(r, decl, d, flags.LeftAssociative && flags.RightAssociative, input); handled {
+			return result, err
+		}
+	}
 	needed, e := m.appCoercionNeeded(decl, args, flags.LeftAssociative && flags.RightAssociative)
 	if e != nil {
 		m.freeNodeStorage(r)
@@ -235,19 +246,19 @@ func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args AppArguments
 
 // mkAppCoreCoerced is the coercion branch of mkAppCoreArgumentsFramed: the
 // coerced arguments are cleaned up when the app is complete.
-func (m *ASTManager) mkAppCoreCoerced(decl astNodeRef, args AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (result astNodeRef, err error) {
+func (m *ASTManager) mkAppCoreCoerced(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (result astNodeRef, err error) {
 	defer func() { err = errors.Join(err, m.cleanupAppCoercion(false)) }()
-	args, e := m.coerceAppArguments(decl, args, flags.LeftAssociative && flags.RightAssociative)
+	coerced, e := m.coerceAppArguments(decl, *args, flags.LeftAssociative && flags.RightAssociative)
 	if e != nil {
 		m.freeNodeStorage(r)
 		return astNodeRef{}, e
 	}
-	return m.mkAppCoreChecked(decl, args, frame, r, d, flags)
+	return m.mkAppCoreChecked(decl, &coerced, frame, r, d, flags)
 }
 
 // mkAppCoreChecked is the rest of mkAppCoreArgumentsFramed: check_args,
 // payload and registration of the allocated app r.
-func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (astNodeRef, error) {
+func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (astNodeRef, error) {
 	v := m.appAt(r.slot)
 	var e error
 	var childHashes [astInlineArgs]uint32
@@ -293,7 +304,7 @@ func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame 
 		}
 	}
 	if !inlineSlice {
-		v.args, e = m.newASTPayloadArguments(args, &v.inlineArgs)
+		v.args, e = m.newASTPayloadArguments(*args, &v.inlineArgs)
 		if e != nil {
 			m.freeNodeStorage(r)
 			return astNodeRef{}, e
@@ -347,7 +358,7 @@ func (m *ASTManager) mkAppArguments(decl astNodeRef, args AppArguments) (result 
 	// The ground trace follows every successful non-null result. A plain
 	// call after the shaping body replaces a defer, which the body's many
 	// returns would keep off the open-coded path.
-	result, cause = m.mkAppArgumentsShaped(decl, args, f, arity)
+	result, cause = m.mkAppArgumentsShaped(decl, &args, f, arity)
 	if cause == nil && result.slot != 0 {
 		cause = m.traceAppGround(result)
 	}
@@ -356,7 +367,7 @@ func (m *ASTManager) mkAppArguments(decl astNodeRef, args AppArguments) (result 
 
 // mkAppArgumentsShaped is mkAppArguments after the argument count check:
 // associative and chainable expansion, then mk_app_core.
-func (m *ASTManager) mkAppArgumentsShaped(decl astNodeRef, args AppArguments, f ASTFuncFlags, arity uint32) (astNodeRef, error) {
+func (m *ASTManager) mkAppArgumentsShaped(decl astNodeRef, args *AppArguments, f ASTFuncFlags, arity uint32) (astNodeRef, error) {
 	var e error
 	if int(args.count) == 1 && f.Chainable && arity == 2 {
 		return m.trueApp, nil

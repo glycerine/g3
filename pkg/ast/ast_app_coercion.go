@@ -37,7 +37,7 @@ func (m *ASTManager) cleanupAppCoercion(own bool) error {
 	return nil
 }
 
-func (m *ASTManager) appCoercionNeeded(decl astNodeRef, args AppArguments, associative bool) (bool, error) {
+func (m *ASTManager) appCoercionNeeded(decl astNodeRef, args *AppArguments, associative bool) (bool, error) {
 	if !m.coercions || m.arithmeticPlugin == nil {
 		return false, nil
 	}

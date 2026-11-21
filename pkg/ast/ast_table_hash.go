@@ -17,9 +17,9 @@ func astHashArray(n, init uint32, hash func(uint32) uint32) uint32 {
 	case 1:
 		return uhash.Combine(hash(0), init)
 	case 2:
-		return uhash.Combine(uhash.Combine(hash(0), hash(1)), init)
+		return appPairHash(init, hash(0), hash(1))
 	case 3:
-		return uhash.Combine(uhash.Combine(hash(0), hash(1)), uhash.Combine(hash(2), init))
+		return appTripleHash(init, hash(0), hash(1), hash(2))
 	}
 	a, b, c := uint32(0x9e3779b9), uint32(0x9e3779b9), init
 	for n >= 3 {
@@ -219,12 +219,16 @@ func (m *ASTManager) compareNodes(a, b astNodeRef) (bool, error) {
 			return false, nil
 		}
 		if x.count <= astInlineArgs && !ASTSourceDebug {
-			for i := uint32(0); i < x.count; i++ {
-				if x.inlineArgs[i] != y.inlineArgs[i] {
-					return false, nil
-				}
+			switch x.count {
+			case 0:
+				return true, nil
+			case 1:
+				return x.inlineArgs[0] == y.inlineArgs[0], nil
+			case 2:
+				return x.inlineArgs[0] == y.inlineArgs[0] && x.inlineArgs[1] == y.inlineArgs[1], nil
+			case 3:
+				return x.inlineArgs == y.inlineArgs, nil
 			}
-			return true, nil
 		}
 		return m.equalPayload(x.args, y.args, x.count)
 	case ASTVar:
@@ -265,4 +269,21 @@ func (m *ASTManager) compareNodes(a, b astNodeRef) (bool, error) {
 		return m.equalPayload(x.noPatterns, y.noPatterns, x.noPatternCount)
 	}
 	return false, ErrASTDomain
+}
+func astInlineHash(n, init uint32, v *[astInlineArgs]uint32) uint32 {
+	switch n {
+	case 0:
+		return init
+	case 1:
+		return uhash.Combine(v[0], init)
+	case 2:
+		return appPairHash(init, v[0], v[1])
+	default:
+		return appTripleHash(init, v[0], v[1], v[2])
+	}
+}
+
+func appPairHash(seed, a, b uint32) uint32 { return uhash.Combine(uhash.Combine(a, b), seed) }
+func appTripleHash(seed, a, b, c uint32) uint32 {
+	return uhash.Combine(uhash.Combine(a, b), uhash.Combine(c, seed))
 }

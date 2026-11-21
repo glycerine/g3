@@ -9,12 +9,12 @@ type AppArguments struct {
 	app            ASTHandle
 	appOwner       *ASTManager
 	slice          []ASTHandle
-	span           ASTLiteralVectorSpan
+	spanOwner      *ASTLiteralVector
 	count          uint32
 	raw            bool
 }
 
-func (a AppArguments) at(i uint32) (ASTHandle, error) {
+func (a *AppArguments) at(i uint32) (ASTHandle, error) {
 	if i >= a.count || i > ^uint32(0)-a.argumentOffset {
 		return ASTHandle{}, ErrASTDomain
 	}
@@ -33,7 +33,7 @@ func (a AppArguments) at(i uint32) (ASTHandle, error) {
 		return m.external(child), e
 	}
 	if a.raw {
-		return a.span.At(i)
+		return (ASTLiteralVectorSpan{owner: a.spanOwner, values: a.slice}).At(i)
 	}
 	return a.slice[i], nil
 }
@@ -54,7 +54,7 @@ func (m *ASTManager) MkOrSpan(n uint32, span ASTLiteralVectorSpan) (ASTHandle, e
 	if !m.pluginAt(0).present {
 		return ASTHandle{}, nil
 	}
-	r, e := m.mkAppArguments(m.basic.declarations[ASTOpOr], AppArguments{span: span, count: n, raw: true})
+	r, e := m.mkAppArguments(m.basic.declarations[ASTOpOr], AppArguments{spanOwner: span.owner, slice: span.values, count: n, raw: true})
 	return m.external(r), e
 }
 
@@ -80,4 +80,9 @@ func (a AppArguments) Range(offset, count uint32) (AppArguments, error) {
 	a.argumentOffset += offset
 	a.count = count
 	return a, nil
+}
+
+func (a *AppArguments) hasPreparedSlice() bool {
+	return a.appOwner == nil && !a.raw && a.count <= astPreparedAppArgs &&
+		uint64(a.argumentOffset)+uint64(a.count) <= uint64(len(a.slice))
 }

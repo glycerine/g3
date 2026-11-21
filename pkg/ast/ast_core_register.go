@@ -178,6 +178,14 @@ func (m *ASTManager) registerHashedNode(r astNodeRef, h uint32) (astNodeRef, err
 		m.freeNodeStorage(r)
 		return result, nil
 	}
+	return m.publishRegisteredNode(r, nil)
+}
+
+// publishRegisteredNode assigns the canonical node its ID and takes ownership
+// of its children. An application may supply its already validated operands
+// while diagnostic callbacks are disabled. Other nodes use their stored payload.
+func (m *ASTManager) publishRegisteredNode(r astNodeRef, input []ASTHandle) (astNodeRef, error) {
+	var e error
 	// Preflight physical reclamation capacity, after source interner insertion
 	// and before assigning the ID/publishing retained children. Growth prefixes
 	// remain, and failure removes only this candidate's membership/storage.
@@ -263,6 +271,15 @@ func (m *ASTManager) registerHashedNode(r astNodeRef, h uint32) (astNodeRef, err
 		} else if fid, k, x := m.declIdentity(a.decl); x == nil {
 			a.declFamily, a.declKind, a.declCached = fid, k, true
 		}
+	}
+	if input != nil {
+		a := m.appAt(r.slot)
+		m.nodeAt(a.decl.slot).rc++
+		for _, h := range input {
+			m.nodeAt(h.slot).rc++
+			m.updateAppFlags(r, astNodeRef{h.slot, h.generation})
+		}
+		children = uint32(len(input)) + 1
 	}
 	count := m.nodeChildCount(r)
 	for children < count {

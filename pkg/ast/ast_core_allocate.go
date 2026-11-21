@@ -148,9 +148,15 @@ func (m *ASTManager) freeNodeStorage(r astNodeRef) error {
 		return e
 	}
 	m.freeKindRecord(r.slot)
+	m.returnNodeSlot(r.slot)
+	return nil
+}
+
+// A freshly allocated inline application owns no payload or child references.
+func (m *ASTManager) returnNodeSlot(slot uint32) {
+	n := m.nodeAt(slot)
 	n.live = false
 	n.nextFree = m.freeNode
-	m.freeNode = r.slot
+	m.freeNode = slot
 	m.liveNodes--
-	return nil
 }

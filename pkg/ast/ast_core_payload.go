@@ -223,8 +223,7 @@ func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[astInlineA
 		if e == nil {
 			if data != nil {
 				o := i * astRefBytes
-				binary.LittleEndian.PutUint32(data[o:], r.slot)
-				binary.LittleEndian.PutUint32(data[o+4:], r.generation)
+				putASTNodeRef(data[o:], r)
 			} else {
 				e = m.writeInternal(p, uint32(i), r)
 			}
@@ -274,4 +273,9 @@ func (m *ASTManager) freePayload(p arena.SmallBytesRef, n, stride uint32) error 
 		return e
 	}
 	return m.allocator.Deallocate(bytes, p)
+}
+
+func putASTNodeRef(data []byte, r astNodeRef) {
+	binary.LittleEndian.PutUint32(data, r.slot)
+	binary.LittleEndian.PutUint32(data[4:], r.generation)
 }

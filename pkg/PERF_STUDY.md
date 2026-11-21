@@ -2,6 +2,8 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
+**Reusing validated application operands reduced instructions by 3.1% on complete Raft checks and 3.7–4.9% on three Apple isolates.** Constructing a repeated binary application fell from 156 to 84 ns, with native Z3 at 37 ns. [Constructor and proof measurements](#reusing-validated-operands-in-the-arena-backed-application-constructor)
+
 **Compact saved clause atoms cut post-pop heap use by 4,760 bytes per solver across 1,024 solvers.** Releasing three saved atoms took about a third fewer instructions. In 32 timed pairs, scoped pop took 20.04 µs before, 19.18 µs after and 13.06 µs in native Z3. [Clause layout, timings and controls](#compact-saved-atoms-in-learned-clauses)
 
 **Batching reference decrements reduced scoped relevance rollback from 25,200 to 19,357 instructions.** Native Z3 used 8,036. The complete scoped pop used 2.4% fewer instructions in the final nine-round comparison. [Reference retirement and proof measurements](#releasing-owned-references-during-relevance-rollback)
@@ -2037,3 +2039,27 @@ To repeat the instruction study on a Linux/amd64 host, select a permitted CPU an
 python3 perf/ivy_apple/application_reuse/instructions.py --cpu 0 \
   --dir /tmp/g3-app-instructions --rounds 9 > /tmp/g3-app-instructions.csv
 ```
+
+### Reusing validated operands in the arena-backed application constructor
+
+A repeated binary application now takes **84 ns and 1,177 instructions**, down from 156 ns and 1,922 instructions. Native Z3 used 37 ns and 456 instructions in the same fixtures. The implementation places the candidate in the AST arena and reads each operand’s identity and hash once. The canonical table compares the declaration and every operand. An exact inline match has already passed the sort checks, and its temporary slot returns directly to the free list. A new application checks its domain before publication and acquires the validated children. Four to sixteen arguments use the ordinary arena payload even on a match. Coercion, diagnostics, failure injection and wider inputs retain their checked construction paths. [Application constructor](ast/ast_app_slice.go) · [Collision, ownership and generation tests](ast/ast_app_slice_test.go)
+
+| Instruction cost per request | g3 before | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| Repeated unary | 1,605 | 1,071 | 406 |
+| Repeated binary | 1,922 | 1,177 | 456 |
+| Repeated ternary | 2,183 | 1,241 | 500 |
+| Repeated four-argument | 4,333 | 2,970 | 605 |
+| Rotating binary, all 256 retained | 2,179 | 1,434 | 465 |
+| Rotating binary, newly created and destroyed | 4,012 | 3,324 | 641 |
+
+Nine rounds on CPU 33 measured instructions on the benchmark thread. Twelve timing rounds on CPU 17 used the uninstrumented Go and C++ benchmarks. Each round executed 200,000 requests per case. The four-argument timing fell from 336 to 220 ns, compared with 42 ns in native Z3. [Instruction counts and corresponding empty intervals](perf/ivy_apple/application_reuse/release-instructions.csv.gz) · [Uninstrumented timings](perf/ivy_apple/application_reuse/release-timings.csv.gz)
+
+| Complete proof | Paired runs | Before, billion instructions | After, billion instructions | Median paired instruction change | Median paired wall change |
+|---|---:|---:|---:|---:|---:|
+| Apple `rfn` | 7 | 132.68 | 127.59 | −3.84% | −3.05% |
+| Apple `rfn2` | 7 | 152.02 | 146.33 | −3.72% | −6.39% |
+| Apple `cf_live` | 6 | 221.25 | 210.36 | −4.91% | +1.02% |
+| Raft, 419 obligations | 12 | 30.36 | 29.44 | −3.08% | −0.11% |
+
+All 32 before-and-after pairs retired fewer instructions. The shared machine gave mixed elapsed times for Raft and `cf_live`. A separate verification compared all 10,342 Apple outcomes and 18 counters per check with native Z3, all 28 Raft variants with their reference transcripts, and all 188 private Raft search records with the previous g3. The independent application observer reproduced all 130 `rfn2` check-by-arity rows, including registration duplicates. [Whole-proof times and PMU counts](perf/ivy_apple/application_reuse/release-proofs.csv) · [Application observer](perf/ivy_apple/application_reuse/count.py)

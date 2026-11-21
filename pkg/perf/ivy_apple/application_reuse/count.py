@@ -58,6 +58,11 @@ def make_overlay(args, directory):
     # gives the independent duplicate count, including wider applications.
     anchor = "v := m.appAt(r.slot)\n\tv.decl = decl\n\tv.count = args.count"
     source = replace_once(source, anchor, ATTEMPT + anchor)
+    anchor = "if result, handled, err := m.registerSliceApp(r, decl, d, flags.LeftAssociative && flags.RightAssociative, input); handled {"
+    source = replace_once(source, anchor, anchor + """
+            if studyAppActive && err == nil && result != r {
+                studyAppValues[min(args.count, 4)][4]++
+            }""")
     anchor = "if e == nil && r == original {\n\t\tif frame != nil"
     source = replace_once(source, anchor, DUPLICATE + anchor)
     changed = directory / "factories.go"

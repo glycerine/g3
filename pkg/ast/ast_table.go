@@ -162,9 +162,6 @@ func (m *ASTManager) tableLookup(key astNodeRef, h uint64) (astNodeRef, bool, ui
 			e := &t.entries[t.indices[i]]
 			if e.hash == h {
 				other := e.ref
-				if err := m.validNode(other); err != nil {
-					return astNodeRef{}, false, 0, err
-				}
 				equal, err := m.compareNodes(other, key)
 				if err != nil {
 					return astNodeRef{}, false, 0, err
