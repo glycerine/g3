@@ -1,0 +1,10 @@
+isolate,g3_checks,native_checks,identical_counters_per_check
+cf_live,336,336,18
+cf_pio_live,2215,2215,18
+cmpl_live,437,437,18
+dramc_nb2,2479,2479,18
+e2e,2378,2378,18
+rfn,33,33,18
+rfn2,26,26,18
+sys_live,1738,1738,18
+tprops,700,700,18

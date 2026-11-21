@@ -190,6 +190,17 @@ func (p *SMTRelevancyPropagator) DrainNewlyRelevant() []ast.ASTHandle {
 	return result
 }
 
+// Theory propagation has already delivered these marks through notifyRelevant.
+// Keep up to one short batch for the next propagation round.
+func (p *SMTRelevancyPropagator) discardNewlyRelevant() {
+	const maxRetainedMarks = 512 // 8 KiB of pointer-free handles.
+	if cap(p.newlyRelevant) > maxRetainedMarks {
+		p.newlyRelevant = nil
+	} else {
+		p.newlyRelevant = p.newlyRelevant[:0]
+	}
+}
+
 // pool returns handler's ehs reference, storing it on first use.
 func (p *SMTRelevancyPropagator) pool(handler *smtRelevancyHandler) uint32 {
 	if handler.pooled == 0 {

@@ -339,8 +339,7 @@ func (s *SMTInternalizerState) propagateTheoryRelevancy() error {
 	if err := s.relevancy.Propagate(); err != nil {
 		return err
 	}
-	// relevant_eh already queued assigned atoms (notifyRelevant).
-	s.relevancy.DrainNewlyRelevant()
+	s.relevancy.discardNewlyRelevant()
 	return nil
 }
 

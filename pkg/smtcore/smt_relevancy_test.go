@@ -335,3 +335,27 @@ func TestSMTRelevancyPopFiltersExplicitlyUnmarkedQueueEntries(t *testing.T) {
 		t.Fatalf("queued marks after pop: %v", got)
 	}
 }
+
+func TestSMTRelevancyTheoryPropagationConsumesOnlyPendingMarks(t *testing.T) {
+	m := astTestManager(t)
+	_, p, s := smtInternalizerFixture(t, m, nil)
+	a := smtRelevancyPinnedBool(t, m, "first-batch")
+	b := smtRelevancyPinnedBool(t, m, "delivered-by-theory")
+	c := smtRelevancyPinnedBool(t, m, "next-batch")
+	astTestMust(t, p.MarkRelevant(a))
+	first := p.DrainNewlyRelevant()
+	astTestMust(t, s.PushScope())
+	astTestMust(t, p.MarkRelevant(b))
+	astTestMust(t, s.propagateTheoryRelevancy())
+	if got := p.DrainNewlyRelevant(); got != nil {
+		t.Fatalf("marks after theory propagation = %v", got)
+	}
+	astTestMust(t, s.PopScopes(1))
+	astTestMust(t, p.MarkRelevant(c))
+	if got := p.DrainNewlyRelevant(); len(got) != 1 || got[0] != c {
+		t.Fatalf("next batch = %v", got)
+	}
+	if len(first) != 1 || first[0] != a {
+		t.Fatalf("first batch changed to %v", first)
+	}
+}

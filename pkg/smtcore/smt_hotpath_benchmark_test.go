@@ -105,6 +105,28 @@ func BenchmarkSMTRelevanceCallbacks(b *testing.B) {
 	b.ReportMetric(smtHotPathWidth, "callbacks/op")
 }
 
+// Each round marks one batch, delivers it to the theory layer, and pops the
+// scope. Each atom remains rooted so every round can use the same handles.
+func BenchmarkSMTTheoryRelevanceBatch(b *testing.B) {
+	for _, width := range []int{1, 32, 512, 1024} {
+		b.Run(fmt.Sprintf("Marks%d", width), func(b *testing.B) {
+			m := astTestManager(b)
+			_, p, s := smtInternalizerFixture(b, m, nil)
+			atoms, _ := benchmarkSMTBooleans(b, m, s, "batch", width)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				benchmarkMust(b, s.PushScope())
+				for _, atom := range atoms {
+					benchmarkMust(b, p.MarkRelevant(atom))
+				}
+				benchmarkMust(b, s.propagateTheoryRelevancy())
+				benchmarkMust(b, s.PopScopes(1))
+			}
+		})
+	}
+}
+
 // BenchmarkSMTConflictResolution repeatedly resolves the same two-level
 // first-UIP conflict, matching the structure of the conflict resolver tests.
 func BenchmarkSMTConflictResolution(b *testing.B) {
