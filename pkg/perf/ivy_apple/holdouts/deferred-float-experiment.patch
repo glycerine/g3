@@ -1,0 +1,183 @@
+--- a/pkg/tactic/portfolio/smt_strategic_solver.go
++++ b/pkg/tactic/portfolio/smt_strategic_solver.go
+@@ -90,12 +90,12 @@
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	qfFPLRA, err := smtlogics.NewQFFPLRATactic(m, p, config)
++	qfFPLRA, err := studyNewPendingFP(m, p, config, ordinary, true)
+ 	qfFPLRA, err = keepTactic(qfFPLRA, err)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	qfFP, err := smtlogics.NewQFFPTactic(m, p, config)
++	qfFP, err := studyNewPendingFP(m, p, config, ordinary, false)
+ 	qfFP, err = keepTactic(qfFP, err)
+ 	if err != nil {
+ 		return nil, err
+--- /dev/null
++++ b/pkg/tactic/portfolio/pending_float_study.go
+@@ -0,0 +1,163 @@
++package portfolio
++
++import (
++	"errors"
++	"fmt"
++	"github.com/glycerine/g3/pkg/ast"
++	"github.com/glycerine/g3/pkg/smtcore"
++	"github.com/glycerine/g3/pkg/tactic"
++	"github.com/glycerine/g3/pkg/tactic/smtlogics"
++	uparams "github.com/glycerine/g3/pkg/util/params"
++	"github.com/glycerine/g3/pkg/util/statistics"
++	usymbol "github.com/glycerine/g3/pkg/util/symbol"
++	"os"
++)
++
++// Experimental float branch, installed only in the default portfolio.
++// Descriptions come from a sibling in the same solver until an operation uses the branch.
++type studyPendingFP struct {
++	m               *ast.ASTManager
++	config          smtcore.SMTSolverConfig
++	params          uparams.ParamsRef
++	catalog, active tactic.Tactic
++	refs            uint32
++	lra             bool
++	closed          bool
++}
++
++func studyNewPendingFP(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSolverConfig, catalog tactic.Tactic, lra bool) (tactic.Tactic, error) {
++	v, e := config.Params.NewValue()
++	if e != nil {
++		return nil, e
++	}
++	if p != nil {
++		if e = config.Params.Assign(&v, p); e != nil {
++			return nil, e
++		}
++	}
++	if e = catalog.IncRef(); e != nil {
++		return nil, errors.Join(e, config.Params.Del(&v))
++	}
++	return &studyPendingFP{m: m, params: v, config: config, catalog: catalog, lra: lra}, nil
++}
++func (t *studyPendingFP) IncRef() error {
++	if t.closed {
++		return ast.ErrASTHandle
++	}
++	t.refs++
++	return nil
++}
++func (t *studyPendingFP) DecRef() error {
++	if t.closed || t.refs == 0 {
++		return ast.ErrASTHandle
++	}
++	t.refs--
++	if t.refs != 0 {
++		return nil
++	}
++	t.closed = true
++	var e error
++	if t.active != nil {
++		e = t.active.DecRef()
++	}
++	return errors.Join(e, t.catalog.DecRef(), t.config.Params.Del(&t.params))
++}
++func (t *studyPendingFP) ensure() (tactic.Tactic, error) {
++	if t.closed {
++		return nil, ast.ErrASTHandle
++	}
++	if t.active != nil {
++		return t.active, nil
++	}
++	var e error
++	var a tactic.Tactic
++	if t.lra {
++		a, e = smtlogics.NewQFFPLRATactic(t.m, &t.params, t.config)
++	} else {
++		a, e = smtlogics.NewQFFPTactic(t.m, &t.params, t.config)
++	}
++	if e != nil {
++		return nil, e
++	}
++	if e = a.IncRef(); e != nil {
++		return nil, e
++	}
++	t.active = a
++	if os.Getenv("G3_RECORD_FLOAT_BRANCH") != "" {
++		fmt.Fprintln(os.Stderr, "MATERIALIZED FLOAT", t.lra)
++	}
++	return a, nil
++}
++func (t *studyPendingFP) Apply(g *tactic.Goal, r *tactic.TacticResult) error {
++	a, e := t.ensure()
++	if e != nil {
++		return e
++	}
++	if os.Getenv("G3_RECORD_FLOAT_BRANCH") != "" {
++		fmt.Fprintln(os.Stderr, "APPLIED FLOAT", t.lra)
++	}
++	return a.Apply(g, r)
++}
++func (t *studyPendingFP) CollectParamDescrs(d *uparams.ParamDescrs) error {
++	if t.closed {
++		return ast.ErrASTHandle
++	}
++	if t.active != nil {
++		return t.active.CollectParamDescrs(d)
++	}
++	return t.catalog.CollectParamDescrs(d)
++}
++func (t *studyPendingFP) UpdateParams(p *uparams.ParamsRef) error {
++	a, e := t.ensure()
++	if e != nil {
++		return e
++	}
++	return a.UpdateParams(p)
++}
++func (t *studyPendingFP) SetLogic(k usymbol.Symbol) error {
++	a, e := t.ensure()
++	if e != nil {
++		return e
++	}
++	return a.SetLogic(k)
++}
++func (t *studyPendingFP) SetProgressCallback(cb func(uint32)) error {
++	a, e := t.ensure()
++	if e != nil {
++		return e
++	}
++	return a.SetProgressCallback(cb)
++}
++func (t *studyPendingFP) CollectStatistics(st *statistics.Statistics) {
++	if t.active != nil {
++		t.active.CollectStatistics(st)
++	}
++}
++func (t *studyPendingFP) ResetStatistics() error {
++	a, e := t.ensure()
++	if e != nil {
++		return e
++	}
++	return a.ResetStatistics()
++}
++func (t *studyPendingFP) Cleanup() error {
++	a, e := t.ensure()
++	if e != nil {
++		return e
++	}
++	return a.Cleanup()
++}
++func (t *studyPendingFP) Reset() error {
++	a, e := t.ensure()
++	if e != nil {
++		return e
++	}
++	return a.Reset()
++}
++func (t *studyPendingFP) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
++	a, e := t.ensure()
++	if e != nil {
++		return nil, e
++	}
++	return a.Translate(m)
++}

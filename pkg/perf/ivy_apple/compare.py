@@ -13,7 +13,7 @@ import time
 EVENTS = ("instructions:u", "cycles:u", "branches:u", "branch-misses:u")
 
 
-def measure(checker, args, directory):
+def measure(checker, args, directory, expected_exit=0):
     directory.mkdir(parents=True, exist_ok=False)
     resources = directory / "resources"
     checker_command = [
@@ -32,7 +32,7 @@ def measure(checker, args, directory):
         elapsed = time.monotonic() - start
     user, system, rss = resources.read_text().splitlines()[-1].split()
     counters = []
-    if args.perf and result.returncode == int(args.expected_failures > 0):
+    if args.perf and result.returncode == expected_exit:
         values = {row[2]: int(row[0]) for row in csv.reader(counts.read_text().splitlines())
                   if len(row) > 4 and row[2] in EVENTS and float(row[4]) == 100.0}
         if set(values) != set(EVENTS):
@@ -80,7 +80,7 @@ def main():
         for idx in order:
             checker = checkers[idx]
             directory = output / f"{pair}-{idx}"
-            status, metrics, counters = measure(checker, args, directory)
+            status, metrics, counters = measure(checker, args, directory, expected_exit)
             transcript = (directory / "stdout").read_bytes()
             if reference is None:
                 reference = (status, transcript)
