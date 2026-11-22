@@ -2,7 +2,7 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
-**The latest release completed ordinary Raft in 6.11 s with g3 and 65.45 s with native Z3.** In the same GoIvy frontend, Apple `dramc_nb2` finished in 84.88 s and 104.66 s, respectively. Apple `rfn2` still favors Z3 at 34.25 s for g3 and 20.19 s for Z3. The first push on a new solver and the hardest verification condition are separately measurable sources of the remaining gap. [Release comparison and proof profiles](#november-21-release-comparison)
+**On Apple `rfn2`, the ground-instance proof brought g3 from 39.03 s to 12.04 s, ahead of linked Z3 at 24.24 s.** Nine interleaved triples ran all 26 checks through the same GoIvy frontend. Ordinary Raft and Apple `dramc_nb2` also finished ahead of Z3 in their paired release runs. The largest remaining individual gaps are `rfn2` check 7 and `dramc_nb2` check 71. First pushes on fresh solvers account for most of the excess push work. [Ground-instance comparison](#ground-instances-at-the-constants-in-the-verification-goal) · [Release controls and remaining gaps](#cost-of-attempting-a-private-proof-on-an-inexpensive-goal)
 
 **A four-operand application now fits entirely in the same 128-byte arena slot.** A repeated construction costs 1,265 instructions in g3 and 605 in Z3, down from 2,970 in g3. Whole-proof instruction counts improved in all 32 matched pairs. [Arena measurements](#four-application-operands-in-a-128-byte-arena-slot)
 
@@ -2433,3 +2433,16 @@ Each cell is the median of four complete, transcript-checked runs on the same pi
 The four paired ordinary Raft runs for the initial ground method took 5.92 s for g3 and 61.23 s for linked Z3. The 28 Raft protocol mutations also matched the native and Python references, including the positions of failed checks, across 11,732 outcomes. On five `dramc_nb2` triples from the same release study, the medians were 65.44 s before ground instances, 72.79 s with the initial method and 80.77 s for linked Z3. Concurrent host load affected elapsed time. The corresponding instruction medians were 414.96, 416.72 and 473.92 billion. [Raft runs](perf/ivy_apple/goal_instances/nov22-raft-release.csv) · [Raft mutations](perf/ivy_apple/goal_instances/nov22-raft-mutations.csv) · [Apple triples](perf/ivy_apple/goal_instances/nov22-dramc-release.csv) · [Release comparator](perf/ivy_apple/compare.py)
 
 The next expensive calls moved. In five rotating rounds with the initial ground proof, `rfn2` check 7 took **7.04 billion** instructions on the solver thread against **2.07 billion** in Z3. Check 26 took 2.72 against 0.98. On `dramc_nb2`, check 71 took 19.82 against 6.99. These figures include the private proof attempt and subsequent concrete check when needed. Every observation subtracts its adjacent empty interval. All counters ran for their full enabled time. Between checks, push operations still contributed 9.06 billion excess instructions on `rfn2` and 25.76 billion on `dramc_nb2`, summed over ordinals using their per-engine medians. [Per-check hardware counts](perf/ivy_apple/goal_instances/nov22-residual-checks.csv.gz) · [Per-mutation hardware counts](perf/ivy_apple/goal_instances/nov22-residual-mutations.csv.gz) · [Check measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py) · [Mutation measurement driver](perf/ivy_apple/incremental_cost/mutation_costs.py)
+
+### Reading the assertions of a simple SMT solver
+
+The public assertion snapshot first gets a count and then requests each formula by index. On the simple SMT backend, both operations copied the entire kernel assertion vector, so a 1,024-formula snapshot copied the vector 1,025 times. Reading its count and indexed handle directly gives linear time and one allocation for the caller's result. The kernel's separate snapshot method still returns an owned copy. The ordinary GoIvy combined solver reads through its first backend, so these results measure the simple-solver API specifically. [Indexed access](smtcore/smt_solver.go) · [Snapshot loop](solver/solver.go)
+
+| Assertions | Before, µs | After, µs | Allocated bytes before / after | Allocations before / after |
+|---:|---:|---:|---:|---:|
+| 2 | 0.239 | 0.101 | 224 / 32 | 4 / 1 |
+| 32 | 11.48 | 0.337 | 34,304 / 512 | 34 / 1 |
+| 256 | 448.1 | 3.51 | 2,109,440 / 4,096 | 258 / 1 |
+| 1,024 | 6,049 | 16.88 | 33,603,584 / 16,384 | 1,026 / 1 |
+
+The table gives medians of eight alternating pairs on CPU 23, with 12 snapshots per size per run and one Go scheduler thread. Construction, assertion and disposal were outside the timer. The small-case timings are sensitive to host load. Run `go test ./api -run '^$' -bench '^BenchmarkSimpleSolverAssertionSnapshot$' -benchmem` from `pkg/`. [Go benchmark](api/api_assertion_snapshot_benchmark_test.go) · [All snapshot measurements](perf/ivy_apple/goal_instances/nov22-assertion-snapshot.csv)

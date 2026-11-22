@@ -902,18 +902,20 @@ func (s *SMTSolver) NumAssertions() (uint32, error) {
 	if err := s.open(); err != nil {
 		return 0, err
 	}
-	return uint32(len(s.kernel.Assertions())), nil
+	if s.kernel == nil {
+		return 0, nil
+	}
+	return uint32(len(s.kernel.assertions)), nil
 }
 
 func (s *SMTSolver) Assertion(index uint32) (ast.ASTHandle, error) {
 	if err := s.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	assertions := s.kernel.Assertions()
-	if uint64(index) >= uint64(len(assertions)) {
+	if s.kernel == nil || uint64(index) >= uint64(len(s.kernel.assertions)) {
 		return ast.ASTHandle{}, arena.ErrBounds
 	}
-	return assertions[index].Formula, nil
+	return s.kernel.assertions[index].Formula, nil
 }
 
 func (s *SMTSolver) NumAssumptions() (uint32, error) {
