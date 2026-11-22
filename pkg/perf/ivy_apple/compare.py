@@ -32,7 +32,7 @@ def measure(checker, args, directory):
         elapsed = time.monotonic() - start
     user, system, rss = resources.read_text().splitlines()[-1].split()
     counters = []
-    if args.perf and result.returncode == 0:
+    if args.perf and result.returncode == int(args.expected_failures > 0):
         values = {row[2]: int(row[0]) for row in csv.reader(counts.read_text().splitlines())
                   if len(row) > 4 and row[2] in EVENTS and float(row[4]) == 100.0}
         if set(values) != set(EVENTS):
@@ -48,6 +48,7 @@ def main():
     workload.add_argument("--isolate", default="dramc_nb2")
     workload.add_argument("--whole-spec", dest="isolate", action="store_const", const=None,
                           help="run GoIvy with its default isolate selection")
+    p.add_argument("--expected-failures", type=int, default=0, help="number of named FAIL decisions in a negative control")
     p.add_argument("--reference", type=Path, help="require stdout to match this existing successful transcript")
     p.add_argument("--cpu", type=int, required=True)
     p.add_argument("--pairs", type=int, default=3)
@@ -57,8 +58,8 @@ def main():
     p.add_argument("--labels", nargs=2, metavar=("FIRST", "SECOND"), help="CSV names for the two checker builds")
     p.add_argument("checkers", nargs=2, type=Path, metavar="CHECKER")
     args = p.parse_args()
-    if args.pairs < 1:
-        p.error("--pairs must be positive")
+    if args.pairs < 1 or args.expected_failures < 0:
+        p.error("--pairs must be positive and --expected-failures must be nonnegative")
     # GoIvy includes source filenames in the proof transcript. Keep the
     # caller's spelling of symlinked paths when comparing to a saved run.
     args.spec = args.spec.absolute() if args.reference else args.spec.resolve(strict=True)
@@ -69,7 +70,8 @@ def main():
     if args.labels and len(set(labels)) != 2:
         p.error("--labels must be distinct")
     output = args.output.resolve()
-    reference = (0, args.reference.read_bytes()) if args.reference else None
+    expected_exit = int(args.expected_failures > 0)
+    reference = (expected_exit, args.reference.read_bytes()) if args.reference else None
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["pair", "checker", "isolate", "cpu", "exit", "wall_s",
                      "user_s", "sys_s", "rss_KiB", "passes", "same_transcript", *(EVENTS if args.perf else ())])
@@ -87,7 +89,12 @@ def main():
             writer.writerow([pair, labels[idx], args.isolate or args.spec.stem, args.cpu, status,
                              *metrics, lines.count(b"PASS"), int(same), *counters])
             sys.stdout.flush()
-            if status or not lines or lines[-1].strip() != b"OK" or not same:
+            complete = bool(lines and lines[-1].strip() == b"OK")
+            if args.expected_failures:
+                errors = (directory / "stderr").read_text().splitlines()
+                summaries = [line for line in errors if line.startswith("error: failed checks:")]
+                complete = summaries == [f"error: failed checks: {args.expected_failures}"]
+            if status != expected_exit or lines.count(b"FAIL") != args.expected_failures or not complete or not same:
                 raise SystemExit(f"{directory}: checker failed, output incomplete, or transcripts differ")
 
 
