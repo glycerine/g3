@@ -97,11 +97,11 @@ func (v ParamsStringView) Length() (uint64, error) {
 func (c *ParamsContext) GetStringViewFallbackName(v *ParamsRef, k *string, f *ParamsRef, d *string) (ParamsStringView, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	x, ok, e := c.get(v, usymbol.Symbol{}, k, true, ParamString, f)
+	x, e := c.get(v, usymbol.Symbol{}, k, true, ParamString, f)
 	if e != nil {
 		return ParamsStringView{}, e
 	}
-	if !ok {
+	if x == nil {
 		if d == nil {
 			return ParamsStringView{}, nil
 		}

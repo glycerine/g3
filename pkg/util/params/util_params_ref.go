@@ -37,6 +37,8 @@ type ParamsConfig struct {
 }
 type paramsEntriesRef struct{ page, block, generation, capacity uint32 }
 type paramsBlock struct {
+	// Every stored name contributes a bit. Resetting a key may leave a harmless extra bit.
+	nameFilter                       uint64
 	Refs, Generation, Size, capacity uint32
 	entries                          paramsEntriesRef
 	Live                             bool
@@ -620,6 +622,9 @@ func (c *ParamsContext) find(v *ParamsRef, k usymbol.Symbol, name *string, byNam
 	if b.Size == 0 {
 		return nil, nil
 	}
+	if byName && name != nil && b.nameFilter&parameterNameBit(paramsCString(*name)) == 0 {
+		return nil, nil
+	}
 	if !byName {
 		if e := c.keyCheck(k); e != nil {
 			return nil, e
@@ -752,6 +757,7 @@ func (c *ParamsContext) setCore(slot uint32, k usymbol.Symbol, kind ParamKind, b
 }
 func (c *ParamsContext) setCoreWithNumeralReceipt(slot uint32, k usymbol.Symbol, kind ParamKind, bits uint64, sym usymbol.Symbol, str *string, rat *unumeral.OwnedRational, text *paramsText, receipt *unumeral.RationalCopyAllocationReceipt) error {
 	b := &c.Blocks[slot-1]
+	c.noteParamName(b, k)
 	var x *paramEntry
 	var matched uint32
 	for i := uint32(0); i < b.Size; i++ {
@@ -969,34 +975,21 @@ func (c *ParamsContext) SetRat(v *ParamsRef, k usymbol.Symbol, r *unumeral.Owned
 func (c *ParamsContext) SetRatName(v *ParamsRef, k *string, r *unumeral.OwnedRational) error {
 	return c.set(v, usymbol.Symbol{}, k, true, ParamNumeral, 0, usymbol.Symbol{}, nil, r)
 }
-func (c *ParamsContext) get(v *ParamsRef, k usymbol.Symbol, name *string, byName bool, kind ParamKind, fallback *ParamsRef) (paramEntry, bool, error) {
-	x, e := c.find(v, k, name, byName, kind, false)
-	if e != nil {
-		return paramEntry{}, false, e
+
+// The caller holds c.mu while using the entry. GET_VALUE2 only consults
+// the fallback on a primary miss, so a primary hit never reads a dead fallback.
+func (c *ParamsContext) get(v *ParamsRef, k usymbol.Symbol, name *string, byName bool, kind ParamKind, fallback *ParamsRef) (*paramEntry, error) {
+	entry, err := c.find(v, k, name, byName, kind, false)
+	if err != nil || entry != nil || fallback == nil {
+		return entry, err
 	}
-	if fallback != nil {
-		if x == nil {
-			// GET_VALUE2 returns a primary match before it calls the fallback.
-			// In particular, a dead fallback has no observable effect on a hit.
-			if e = c.check(fallback); e != nil {
-				return paramEntry{}, false, e
-			}
-			x, e = c.find(fallback, usymbol.Symbol{}, name, true, kind, false)
-			if e != nil {
-				return paramEntry{}, false, e
-			}
-		}
-	}
-	if x == nil {
-		return paramEntry{}, false, nil
-	}
-	return *x, true, nil
+	return c.find(fallback, usymbol.Symbol{}, name, true, kind, false)
 }
 func (c *ParamsContext) getBool(v *ParamsRef, k usymbol.Symbol, name *string, byName bool, f *ParamsRef, d bool) (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	x, ok, e := c.get(v, k, name, byName, ParamBool, f)
-	if e != nil || !ok {
+	x, e := c.get(v, k, name, byName, ParamBool, f)
+	if e != nil || x == nil {
 		return d, e
 	}
 	return x.bits != 0, nil
@@ -1013,8 +1006,8 @@ func (c *ParamsContext) GetBoolFallbackName(v *ParamsRef, k *string, f *ParamsRe
 func (c *ParamsContext) getUInt(v *ParamsRef, k usymbol.Symbol, name *string, byName bool, f *ParamsRef, d uint32) (uint32, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	x, ok, e := c.get(v, k, name, byName, ParamUInt, f)
-	if e != nil || !ok {
+	x, e := c.get(v, k, name, byName, ParamUInt, f)
+	if e != nil || x == nil {
 		return d, e
 	}
 	return uint32(x.bits), nil
@@ -1031,8 +1024,8 @@ func (c *ParamsContext) GetUIntFallbackName(v *ParamsRef, k *string, f *ParamsRe
 func (c *ParamsContext) getDouble(v *ParamsRef, k usymbol.Symbol, name *string, byName bool, f *ParamsRef, d float64) (float64, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	x, ok, e := c.get(v, k, name, byName, ParamDouble, f)
-	if e != nil || !ok {
+	x, e := c.get(v, k, name, byName, ParamDouble, f)
+	if e != nil || x == nil {
 		return d, e
 	}
 	return math.Float64frombits(x.bits), nil
@@ -1049,11 +1042,11 @@ func (c *ParamsContext) GetDoubleFallbackName(v *ParamsRef, k *string, f *Params
 func (c *ParamsContext) getSymbol(v *ParamsRef, k usymbol.Symbol, name *string, byName bool, f *ParamsRef, d usymbol.Symbol) (usymbol.Symbol, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	x, ok, e := c.get(v, k, name, byName, ParamSymbol, f)
+	x, e := c.get(v, k, name, byName, ParamSymbol, f)
 	if e != nil {
 		return usymbol.Symbol{}, e
 	}
-	if !ok {
+	if x == nil {
 		return d, nil
 	}
 	return x.symbol, nil
@@ -1072,11 +1065,11 @@ func (c *ParamsContext) GetSymbolFallbackName(v *ParamsRef, k *string, f *Params
 func (c *ParamsContext) getString(v *ParamsRef, k usymbol.Symbol, name *string, byName bool, f *ParamsRef, d *string) (string, bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	x, ok, e := c.get(v, k, name, byName, ParamString, f)
+	x, e := c.get(v, k, name, byName, ParamString, f)
 	if e != nil {
 		return "", false, e
 	}
-	if !ok {
+	if x == nil {
 		if d == nil {
 			return "", false, nil
 		}
@@ -1086,7 +1079,7 @@ func (c *ParamsContext) getString(v *ParamsRef, k usymbol.Symbol, name *string, 
 		return "", false, nil
 	}
 	c.workspace = c.workspace[:0]
-	if e = c.appendEntryText(&x); e != nil {
+	if e = c.appendEntryText(x); e != nil {
 		return "", false, e
 	}
 	return string(c.workspace), true, nil
@@ -1103,11 +1096,11 @@ func (c *ParamsContext) GetStringFallbackName(v *ParamsRef, k *string, f *Params
 func (c *ParamsContext) getRat(v *ParamsRef, k usymbol.Symbol, name *string, byName bool, d *unumeral.OwnedRational) (unumeral.OwnedRational, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	x, ok, e := c.get(v, k, name, byName, ParamNumeral, nil)
+	x, e := c.get(v, k, name, byName, ParamNumeral, nil)
 	if e != nil {
 		return unumeral.OwnedRational{}, e
 	}
-	if !ok {
+	if x == nil {
 		// params::get_rat copies the default only after its entry scan misses.
 		if _, e := c.NumeralsField.IsRational(d); e != nil {
 			return unumeral.OwnedRational{}, e
@@ -1117,11 +1110,11 @@ func (c *ParamsContext) getRat(v *ParamsRef, k usymbol.Symbol, name *string, byN
 	if e != nil {
 		return r, e
 	}
-	if ok && x.Kind == ParamUInt {
+	if x != nil && x.Kind == ParamUInt {
 		e = c.NumeralsField.AssignInt(&r, int32(uint32(x.bits)))
 	} else {
 		src := d
-		if ok {
+		if x != nil {
 			src = &x.Rat
 		}
 		e = c.NumeralsField.Copy(&r, src)
@@ -1565,7 +1558,12 @@ func (c *ParamsContext) Validate(v *ParamsRef, d *ParamDescrs) error {
 	b := &c.Blocks[v.Slot-1]
 	for i := uint32(0); i < b.Size; i++ {
 		x := c.Entry(b, i)
+		previousKey := x.key
 		expected, e := paramsDescrKindInModule(d, &x.key)
+		// Validation can remove a module prefix even if a later entry fails.
+		if previousKey != x.key {
+			c.noteParamName(b, x.key)
+		}
 		if e != nil {
 			return e
 		}
@@ -1796,4 +1794,26 @@ func (c *ParamsContext) DebugString(v *ParamsRef) (string, error) {
 		return "", e
 	}
 	return string(c.workspace), nil
+}
+
+func parameterNameBit(s string) uint64 {
+	h := uint(len(s))
+	if h != 0 {
+		h += 11 * uint(s[len(s)-1])
+	}
+	return uint64(1) << (h & 63)
+}
+
+// A set bit is only a possible match. Unusual keys use the ordinary scan.
+func (c *ParamsContext) noteParamName(b *paramsBlock, k usymbol.Symbol) {
+	if b.nameFilter == ^uint64(0) {
+		return
+	}
+	if k.Tag == 0 && !k.IsNull() {
+		if name, ok, e := c.SymbolsField.BareString(k); e == nil && ok {
+			b.nameFilter |= parameterNameBit(name)
+			return
+		}
+	}
+	b.nameFilter = ^uint64(0)
 }

@@ -122,6 +122,7 @@ type ParamDescrs struct {
 	entries              *insdict.Dict[usymbol.Symbol, paramDescrInfo]
 	Names                []usymbol.Symbol
 	closed               bool
+	groups               [8]*ParamDescriptionGroup
 	constructorReady     bool
 	constructorCompleted uint8
 	constructorCause     error
@@ -193,8 +194,7 @@ func (d *ParamDescrs) open() error {
 	if !d.constructorReady {
 		return ErrParamDescrsPrecondition
 	}
-	_, e := d.manager.Hash(usymbol.Symbol{})
-	return e
+	return d.manager.CheckOpen()
 }
 func (d *ParamDescrs) find(k usymbol.Symbol) (paramDescrInfo, bool, error) {
 	_, e := d.manager.Hash(k)
@@ -307,6 +307,11 @@ func (d *ParamDescrs) InsertName(name string, kind ParamKind, descr, def, module
 	if e != nil {
 		return e
 	}
+	if !udiag.DebugBuild {
+		if _, found := d.entries.Get2(k); found {
+			return nil
+		}
+	}
 	return d.insert(k, kind, descr, def, module)
 }
 func (d *ParamDescrs) contains(k usymbol.Symbol) (bool, error) {
@@ -339,6 +344,7 @@ func (d *ParamDescrs) erase(k usymbol.Symbol) error {
 		return e
 	}
 	d.entries.Del(k)
+	d.groups = [8]*ParamDescriptionGroup{}
 	return nil
 }
 func (d *ParamDescrs) Erase(k usymbol.Symbol) error {
@@ -686,6 +692,7 @@ func (d *ParamDescrs) Close() error {
 	d.Budget.Release(d.OwnerBytes)
 	d.OwnerBytes = 0
 	d.entries = nil
+	d.groups = [8]*ParamDescriptionGroup{}
 	d.Names = nil
 	d.closed = true
 	d.traceImpDeallocated()
@@ -729,6 +736,7 @@ func (d *ParamDescrs) sourceFinalizeMembers() error {
 func (d *ParamDescrs) closeSourceMembers() error {
 	d.Names = nil
 	d.entries = nil
+	d.groups = [8]*ParamDescriptionGroup{}
 	d.Budget.Release(d.OwnerBytes)
 	d.OwnerBytes = 0
 	d.closed = true
