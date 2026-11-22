@@ -61,6 +61,8 @@ def main():
     p.add_argument("--isolate", default="rfn2")
     p.add_argument("--select", nargs="+", default=["inside"], help="inside, outside or a one-based check number")
     p.add_argument("--engines", nargs="+", choices=["g3", "native"], default=["g3", "native"])
+    p.add_argument("--keep-binaries", action="store_true",
+                   help="save the exact executables in OUTPUT/bin for later source-line attribution")
     p.add_argument("--period", type=int, default=4_800_019, help="user instructions per sample")
     p.add_argument("--pairs", type=int, default=3)
     p.add_argument("--perf", default="perf")
@@ -91,6 +93,11 @@ def main():
     with tempfile.TemporaryDirectory() as scratch:
         binaries = [build(engine, args, Path(scratch), go_overlay=args.go_overlay if engine == "g3" else None)
                     for engine in args.engines]
+        if args.keep_binaries:
+            bindir = output / "bin"
+            bindir.mkdir()
+            for binary in binaries:
+                shutil.copy2(binary, bindir / binary.name)
         for i in range(args.pairs):
             for select in args.select:
                 for binary in binaries[::1 if i % 2 == 0 else -1]:

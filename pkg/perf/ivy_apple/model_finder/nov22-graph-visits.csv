@@ -1,0 +1,16 @@
+isolate,check,fvar_scan_comparisons,literal_scan_comparisons,records_replayed,population_scan_visits,graph_builds,quantifier_occurrences,records_after_replay
+cf_live,48,10,1,0,0,0,0,0
+cf_live,55,0,0,0,0,0,0,0
+cf_live,58,12,6,0,0,0,0,0
+cf_live,130,7546294,61507,11980,5001760,4,1670,5990
+cf_live,278,11,3,0,0,0,0,0
+cmpl_live,35,0,0,0,0,0,0,0
+cmpl_live,43,0,0,0,0,0,0,0
+cmpl_live,177,0,0,0,0,0,0,0
+rfn,17,0,0,0,0,0,0,0
+rfn,21,10401132,109443,12318,7095168,3,1728,6159
+rfn,29,0,0,0,0,0,0,0
+rfn2,4,0,0,0,0,0,0,0
+rfn2,7,6597867,67500,9798,4232736,3,1296,4899
+rfn2,13,0,0,0,0,0,0,0
+rfn2,26,0,0,0,0,0,0,0

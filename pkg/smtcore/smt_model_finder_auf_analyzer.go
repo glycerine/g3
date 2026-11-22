@@ -45,40 +45,8 @@ func (f *SMTModelFinder) analyzeQInfos(quantifier ast.ASTHandle) (bool, error) {
 	return collector.isAUF, nil
 }
 
-// addQInfo feeds one quantifier's stored qinfos to the auf_solver graph.
-func (g *smtModelFinderAUFGraph) addQInfo(quantifier ast.ASTHandle) error {
-	info := g.finder.qinfos[quantifier]
-	if info == nil {
-		return ast.ErrASTDomain
-	}
-	for _, ref := range info.order {
-		switch ref.kind {
-		case qinfoFVar:
-			g.appendFVar(info.fvars[ref.index])
-		case qinfoLiteral:
-			g.appendLiteral(info.literals[ref.index])
-		case qinfoSelect:
-			g.appendSelect(info.selects[ref.index])
-		}
-	}
-	return nil
-}
-
 type smtModelFinderAnalysisKey struct {
 	quantifier, expression ast.ASTHandle
-}
-
-// appendFVar is insert_qinfo for f_var and f_var_plus_offset; it reports
-// whether the qinfo was new.
-func (g *smtModelFinderAUFGraph) appendFVar(info smtModelFinderFVar) bool {
-	for _, prior := range g.fvars {
-		if prior == info {
-			return false
-		}
-	}
-	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoFVar, len(g.fvars)})
-	g.fvars = append(g.fvars, info)
-	return true
 }
 
 func smtModelFinderNormalizeLiteral(info smtModelFinderAUFLiteral) smtModelFinderAUFLiteral {
@@ -105,14 +73,15 @@ func (g *smtModelFinderAUFGraph) insertQInfo(kind smtModelFinderQInfoKind, equal
 	return false, nil
 }
 
-// insertFVar, insertLiteral and insertSelect are insert_qinfo on the
-// analyzer path; the append* replay in addQInfo has no checkpoints.
+// insertFVar reports whether the analyzer added a new function-variable record.
 func (g *smtModelFinderAUFGraph) insertFVar(info smtModelFinderFVar) (bool, error) {
 	duplicate, err := g.insertQInfo(qinfoFVar, func(i int) bool { return g.fvars[i] == info })
 	if err != nil || duplicate {
 		return false, err
 	}
-	return g.appendFVar(info), nil
+	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoFVar, len(g.fvars)})
+	g.fvars = append(g.fvars, info)
+	return true, nil
 }
 
 func (g *smtModelFinderAUFGraph) insertLiteral(info smtModelFinderAUFLiteral) error {
@@ -121,7 +90,8 @@ func (g *smtModelFinderAUFGraph) insertLiteral(info smtModelFinderAUFLiteral) er
 	if err != nil || duplicate {
 		return err
 	}
-	g.appendLiteral(info)
+	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoLiteral, len(g.literals)})
+	g.literals = append(g.literals, info)
 	return nil
 }
 
@@ -131,25 +101,9 @@ func (g *smtModelFinderAUFGraph) insertSelect(info smtModelFinderSelectVar) erro
 	if err != nil || duplicate {
 		return err
 	}
-	g.appendSelect(info)
-	return nil
-}
-
-func (g *smtModelFinderAUFGraph) appendLiteral(info smtModelFinderAUFLiteral) {
-	info = smtModelFinderNormalizeLiteral(info)
-	for _, prior := range g.literals {
-		if prior == info {
-			return
-		}
-	}
-	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoLiteral, len(g.literals)})
-	g.literals = append(g.literals, info)
-}
-
-// appendSelect is insert_qinfo for a select_var.
-func (g *smtModelFinderAUFGraph) appendSelect(info smtModelFinderSelectVar) {
 	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoSelect, len(g.selects)})
 	g.selects = append(g.selects, info)
+	return nil
 }
 
 // smtModelFinderFormulaEntry is quantifier_analyzer's entry: a formula

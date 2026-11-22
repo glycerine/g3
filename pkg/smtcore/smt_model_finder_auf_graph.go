@@ -173,18 +173,18 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 				return err
 			}
 		}
-		start := len(g.qorder)
-		if err := g.addQInfo(quantifier); err != nil {
-			return err
+		info := g.finder.qinfos[quantifier]
+		if info == nil {
+			return ast.ErrASTDomain
 		}
-		for _, ref := range g.qorder[start:] {
+		for _, ref := range info.order {
 			switch ref.kind {
 			case qinfoFVar:
-				err = g.processFVar(g.fvars[ref.index])
+				err = g.processFVar(info.fvars[ref.index])
 			case qinfoLiteral:
-				err = g.processLiteralAUF(g.literals[ref.index])
+				err = g.processLiteralAUF(info.literals[ref.index])
 			case qinfoSelect:
-				err = g.processSelectVar(g.selects[ref.index])
+				err = g.processSelectVar(info.selects[ref.index])
 			}
 			if err != nil {
 				return err
@@ -202,21 +202,16 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 	// quantifier_info::populate_inst_sets: every qinfo in analysis order,
 	// then the second pass (f_var_plus_offset copies) in the same order.
 	for _, quantifier := range quantifiers {
-		for _, ref := range g.qorder {
+		info := g.finder.qinfos[quantifier]
+		for _, ref := range info.order {
 			var err error
 			switch ref.kind {
 			case qinfoFVar:
-				if g.fvars[ref.index].quantifier == quantifier {
-					err = g.populateFunctionArgument(g.fvars[ref.index])
-				}
+				err = g.populateFunctionArgument(info.fvars[ref.index])
 			case qinfoLiteral:
-				if g.literals[ref.index].quantifier == quantifier {
-					err = g.populateLiteral(g.literals[ref.index])
-				}
+				err = g.populateLiteral(info.literals[ref.index])
 			case qinfoSelect:
-				if g.selects[ref.index].quantifier == quantifier {
-					err = g.populateSelectVar(g.selects[ref.index])
-				}
+				err = g.populateSelectVar(info.selects[ref.index])
 			}
 			if err != nil {
 				return err
@@ -224,32 +219,18 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 		}
 		// Second pass: checkpoint() before every qinfo's
 		// populate_inst_sets2 (only f_var_plus_offset's does work).
-		for _, ref := range g.qorder {
-			if g.qinfoQuantifier(ref) != quantifier {
-				continue
-			}
+		for _, ref := range info.order {
 			if err := g.finder.checkpoint(); err != nil {
 				return err
 			}
 			if ref.kind == qinfoFVar {
-				if err := g.populateOffset(g.fvars[ref.index]); err != nil {
+				if err := g.populateOffset(info.fvars[ref.index]); err != nil {
 					return err
 				}
 			}
 		}
 	}
 	return nil
-}
-
-func (g *smtModelFinderAUFGraph) qinfoQuantifier(ref smtModelFinderQInfoRef) ast.ASTHandle {
-	switch ref.kind {
-	case qinfoFVar:
-		return g.fvars[ref.index].quantifier
-	case qinfoLiteral:
-		return g.literals[ref.index].quantifier
-	default:
-		return g.selects[ref.index].quantifier
-	}
 }
 
 // processFVar is f_var::process_auf (merge A_f_i with the variable node)

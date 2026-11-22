@@ -99,8 +99,8 @@ func TestSMTModelFinderAUFSelectIndexesUseModelFunctionAndRelevantParents(t *tes
 		t.Fatal("array model function resolution", resolved, function)
 	}
 	astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
-	if len(graph.selects) != 2 {
-		t.Fatal("array index qinfo collection", graph.selects)
+	if len(finder.qinfos[q].selects) != 2 {
+		t.Fatal("array index qinfo collection", finder.qinfos[q].selects)
 	}
 	state.relevancy.enabled = false
 	astTestMust(t, state.context.SetRelevant(array, false))
@@ -266,4 +266,39 @@ func smtTestInitEnode(t *testing.T, state *SMTInternalizerState, owner ast.ASTHa
 	node.generation = generation
 	astTestMust(t, state.context.SetRelevant(owner, relevant))
 	return true
+}
+
+func TestSMTModelFinderRepeatedQuantifierVisitsItsOwnSelectRecords(t *testing.T) {
+	m, _, _, manager := smtQuantifierManagerFixture(t, 10, 20, SMTQuantifierManagerConfig{})
+	family, err := m.RegisterArrayPlugin()
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	sort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+	astTestMust(t, err)
+	array, err := m.MkConst(astTestSymbol(t, m, "repeated-select-array"), sort)
+	astTestMust(t, err)
+	x, err := m.MkVar(0, boolean)
+	astTestMust(t, err)
+	body, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{array, x})
+	astTestMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body,
+	})
+	astTestMust(t, err)
+	finder := manager.modelFinder
+	astTestMust(t, finder.RegisterQuantifier(q))
+	info := finder.qinfos[q]
+	if len(info.selects) != 1 {
+		t.Fatalf("registered %d select records, want 1", len(info.selects))
+	}
+	graph := newSMTModelFinderAUFGraph(finder)
+	defer func() { astTestMust(t, graph.close()) }()
+	// Native populate_inst_sets2 checks the resource limit once per stored
+	// record on each occurrence of the quantifier in the macro residue.
+	before := m.Limit.Count()
+	astTestMust(t, graph.build([]ast.ASTHandle{q, q}))
+	if steps, want := m.Limit.Count()-before, uint64(2*len(info.order)); steps != want {
+		t.Fatalf("spent %d resource steps on repeated quantifier, want %d", steps, want)
+	}
 }
