@@ -197,30 +197,60 @@ func (m *ASTManager) deleteNodeWorklistBody(stack []astNodeRef, resumed, parent 
 			}
 		}
 		n = m.nodeAt(current.slot)
-		count := m.nodeChildCount(current)
-		for index := uint32(0); index < count; index++ {
-			child, e := m.nodeChild(current, index)
-			if e != nil {
-				return e
+		// Native deletion visits the declaration, then the operands in ascending
+		// order. The worklist processes newly dead children in reverse order.
+		var inline *astAppRecord
+		var count uint32
+		if n.kind == ASTApp {
+			app := m.appAt(current.slot)
+			if app.count <= astInlineArgs && app.args.Slot == 0 {
+				inline = app
 			}
-			if child.slot != 0 {
-				if e = m.validNode(child); e != nil {
-					return e
+		}
+		if inline != nil {
+			count = inline.count + 1
+		} else {
+			count = m.nodeChildCount(current)
+		}
+		for i := uint32(0); i < count; i++ {
+			var child astNodeRef
+			if inline != nil {
+				if i == 0 {
+					child = inline.decl
+				} else {
+					child = inline.inlineArgs[i-1]
 				}
-				cn := m.nodeAt(child.slot)
-				if cn.rc == 0 {
-					return ErrASTDomain
+			} else {
+				var err error
+				child, err = m.nodeChild(current, i)
+				if err != nil {
+					return err
 				}
-				cn.rc--
-				if cn.rc == 0 {
-					push(child)
-				}
+			}
+			if child.slot == 0 {
+				continue
+			}
+			if child.slot >= m.nextNode {
+				return ErrASTHandle
+			}
+			cn := m.nodeAt(child.slot)
+			if !cn.live || cn.generation != child.generation {
+				return ErrASTHandle
+			}
+			if cn.rc == 0 {
+				return ErrASTDomain
+			}
+			cn.rc--
+			if cn.rc == 0 {
+				push(child)
 			}
 		}
 		if m.DebugRefCount {
 			m.DebugFreeIndices[n.id] = struct{}{}
 		}
-		if e := m.freeNodeStorage(current); e != nil {
+		if inline != nil && !astValidateHandles && !m.DebugRefCount && m.TraceStream == nil {
+			m.returnNodeSlot(current.slot)
+		} else if e := m.freeNodeStorage(current); e != nil {
 			return e
 		}
 		m.deletionCurrent = parent

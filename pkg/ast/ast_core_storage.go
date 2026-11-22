@@ -451,8 +451,11 @@ func astDirectoryGrowth(old, needed uint32, width uint64) (uint32, error) {
 	}
 	return uint32(n), nil
 }
+func (m *ASTManager) nodeSlotAt(slot uint32) *astNodeSlot {
+	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize]
+}
 func (m *ASTManager) nodeAt(slot uint32) *astNodeRecord {
-	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize].node
+	return &m.nodeSlotAt(slot).node
 }
 func (m *ASTManager) sortAt(slot uint32) *astSortRecord {
 	index := m.nodeAt(slot).kindIndex
@@ -463,7 +466,7 @@ func (m *ASTManager) declAt(slot uint32) *astFuncDeclRecord {
 	return &m.decls[(index-1)/astPageSize][(index-1)%astPageSize]
 }
 func (m *ASTManager) appAt(slot uint32) *astAppRecord {
-	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize].app
+	return &m.nodeSlotAt(slot).app
 }
 func (m *ASTManager) varAt(slot uint32) *astVarRecord {
 	index := m.nodeAt(slot).kindIndex

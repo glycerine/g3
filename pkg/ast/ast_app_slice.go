@@ -10,11 +10,14 @@ const astPreparedAppArgs = 16
 func (m *ASTManager) registerSliceApp(r, decl astNodeRef, domain *astFuncDeclRecord, associative bool, input []ASTHandle) (astNodeRef, bool, error) {
 	app := m.appAt(r.slot)
 	var hashes [astPreparedAppArgs]uint32
+	// Arena pages stay at fixed addresses while the canonical table grows.
+	var operands [astPreparedAppArgs]*astNodeSlot
 	for i, h := range input {
 		if h.origin != m.origin || h.slot == 0 || h.slot >= m.nextNode {
 			return astNodeRef{}, false, nil
 		}
-		node := m.nodeAt(h.slot)
+		operands[i] = m.nodeSlotAt(h.slot)
+		node := &operands[i].node
 		if !node.live || node.generation != h.generation || node.kind > ASTQuantifier {
 			return astNodeRef{}, false, nil
 		}
@@ -88,7 +91,7 @@ func (m *ASTManager) registerSliceApp(r, decl astNodeRef, domain *astFuncDeclRec
 	}
 	m.nodeAt(r.slot).hash = hash
 	m.table.add(mixed, r, slot, m.table.size != 0)
-	result, err := m.publishRegisteredNode(r, input)
+	result, err := m.publishSliceApp(r, domain, operands[:len(input)])
 	return result, true, err
 }
 
@@ -102,8 +105,11 @@ func (m *ASTManager) appSliceSortsMatch(decl *astFuncDeclRecord, associative boo
 			return false
 		}
 		var sort astNodeRef
-		if m.nodeAt(h.slot).kind == ASTApp {
+		switch m.nodeAt(h.slot).kind {
+		case ASTApp:
 			sort = m.appAt(h.slot).rangeSort
+		case ASTVar:
+			sort = m.varAt(h.slot).sort
 		}
 		if sort.slot == 0 {
 			var err error
@@ -164,7 +170,7 @@ func (m *ASTManager) hintedApp(decl astNodeRef, args []ASTHandle, hint uint32) a
 	if ref.slot == 0 || ref.slot >= m.nextNode {
 		return astNodeRef{}
 	}
-	slot := &m.nodes[(ref.slot-1)/astPageSize].slots[(ref.slot-1)%astPageSize]
+	slot := m.nodeSlotAt(ref.slot)
 	if !slot.node.live || slot.node.generation != ref.generation || slot.node.kind != ASTApp {
 		return astNodeRef{}
 	}
@@ -178,4 +184,31 @@ func (m *ASTManager) hintedApp(decl astNodeRef, args []ASTHandle, hint uint32) a
 		}
 	}
 	return ref
+}
+
+// The slice path has validated the declaration and every operand. Capture
+// the same references and derived application flags while those slots are hot.
+func (m *ASTManager) publishSliceApp(r astNodeRef, decl *astFuncDeclRecord, operands []*astNodeSlot) (astNodeRef, error) {
+	if !decl.identityCached && decl.info != (ASTFuncDeclInfo{}) {
+		return m.publishRegisteredNode(r)
+	}
+	if err := m.assignRegisteredID(r); err != nil {
+		return astNodeRef{}, err
+	}
+	a := m.appAt(r.slot)
+	a.rangeSort = decl.rangeSort
+	a.declFamily, a.declKind = NullFamilyID, -1
+	if decl.identityCached {
+		a.declFamily, a.declKind = decl.identityFamily, decl.identityKind
+	}
+	a.declCached = true
+	a.labels = len(operands) > 0 && a.declFamily == 1 && a.declKind == 0
+	a.ground = true
+	m.nodeAt(a.decl.slot).rc++
+	for _, child := range operands {
+		child.node.rc++
+		m.updateAppFlags(a, child)
+	}
+	a.depth = min(a.depth+1, 65535)
+	return r, nil
 }

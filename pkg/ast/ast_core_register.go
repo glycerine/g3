@@ -125,24 +125,23 @@ func (m *ASTManager) hasLabels(r astNodeRef) bool {
 	}
 	return false
 }
-func (m *ASTManager) updateAppFlags(r astNodeRef, arg astNodeRef) {
-	a := m.appAt(r.slot)
-	d := m.depth(arg)
-	if d > a.depth {
-		a.depth = d
-	}
-	switch m.nodeAt(arg.slot).kind {
+func (m *ASTManager) updateAppFlags(a *astAppRecord, child *astNodeSlot) {
+	depth := uint32(1)
+	switch child.node.kind {
 	case ASTApp:
-		v := m.appAt(arg.slot)
-		a.quantifiers = a.quantifiers || v.quantifiers
-		a.labels = a.labels || v.labels
-		a.ground = a.ground && v.ground
+		depth = child.app.depth
+		a.quantifiers = a.quantifiers || child.app.quantifiers
+		a.labels = a.labels || child.app.labels
+		a.ground = a.ground && child.app.ground
 	case ASTQuantifier:
+		i := child.node.kindIndex - 1
+		depth = m.quantifiers[i/astPageSize][i%astPageSize].depth
 		a.quantifiers = true
 		a.ground = false
 	case ASTVar:
 		a.ground = false
 	}
+	a.depth = max(a.depth, depth)
 }
 func (m *ASTManager) registerNode(r astNodeRef) (astNodeRef, error) {
 	h, e := m.nodeHash(r)
@@ -178,14 +177,10 @@ func (m *ASTManager) registerHashedNode(r astNodeRef, h uint32) (astNodeRef, err
 		m.freeNodeStorage(r)
 		return result, nil
 	}
-	return m.publishRegisteredNode(r, nil)
+	return m.publishRegisteredNode(r)
 }
 
-// publishRegisteredNode assigns the canonical node its ID and takes ownership
-// of its children. An application may supply its already validated operands
-// while diagnostic callbacks are disabled. Other nodes use their stored payload.
-func (m *ASTManager) publishRegisteredNode(r astNodeRef, input []ASTHandle) (astNodeRef, error) {
-	var e error
+func (m *ASTManager) assignRegisteredID(r astNodeRef) error {
 	// Preflight physical reclamation capacity, after source interner insertion
 	// and before assigning the ID/publishing retained children. Growth prefixes
 	// remain, and failure removes only this candidate's membership/storage.
@@ -193,13 +188,20 @@ func (m *ASTManager) publishRegisteredNode(r astNodeRef, input []ASTHandle) (ast
 	if m.nodeAt(r.slot).kind == ASTSort || m.nodeAt(r.slot).kind == ASTFuncDecl {
 		generator = &m.declIDs
 	}
-	if e = generator.Reserve(m.liveNodes); e != nil {
+	if e := generator.Reserve(m.liveNodes); e != nil {
 		m.tableEraseIdentity(r)
 		m.freeNodeStorage(r)
-		return astNodeRef{}, e
+		return e
 	}
 	m.nodeAt(r.slot).id = generator.Mk()
 	m.traceRegisteredNode(m.nodeAt(r.slot).id)
+	return nil
+}
+func (m *ASTManager) publishRegisteredNode(r astNodeRef) (astNodeRef, error) {
+	if e := m.assignRegisteredID(r); e != nil {
+		return astNodeRef{}, e
+	}
+	var e error
 	infoSlot, infoGen := m.infoForNode(r)
 	ownedInfo := false
 	attached := uint32(0)
@@ -272,15 +274,6 @@ func (m *ASTManager) publishRegisteredNode(r astNodeRef, input []ASTHandle) (ast
 			a.declFamily, a.declKind, a.declCached = fid, k, true
 		}
 	}
-	if input != nil {
-		a := m.appAt(r.slot)
-		m.nodeAt(a.decl.slot).rc++
-		for _, h := range input {
-			m.nodeAt(h.slot).rc++
-			m.updateAppFlags(r, astNodeRef{h.slot, h.generation})
-		}
-		children = uint32(len(input)) + 1
-	}
 	count := m.nodeChildCount(r)
 	for children < count {
 		child, x := m.nodeChild(r, children)
@@ -295,7 +288,7 @@ func (m *ASTManager) publishRegisteredNode(r astNodeRef, input []ASTHandle) (ast
 			frame.acquired++
 		}
 		if m.nodeAt(r.slot).kind == ASTApp && children > 0 {
-			m.updateAppFlags(r, child)
+			m.updateAppFlags(m.appAt(r.slot), m.nodeSlotAt(child.slot))
 		}
 		children++
 	}
