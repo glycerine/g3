@@ -12,9 +12,29 @@ import (
 // universals. Only a completed UNSAT check discharges the caller's query.
 func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions []ast.ASTHandle, maxSteps uint32) (proved bool, err error) {
 	plan, err := planGoalInstances(parent, assertions)
-	if err != nil || plan == nil {
+	if err != nil {
 		return false, err
 	}
+	if plan != nil {
+		return p.checkGroundPlan(parent, plan, min(maxSteps, 240_000))
+	}
+	witness, err := planWitnessInstances(parent, assertions)
+	if err != nil || witness == nil {
+		return false, err
+	}
+	// The source can already answer the next Check cheaply after preprocessing
+	// an assertion to false. Leave that decision in the incremental solver.
+	if incremental, ok := p.source.solver.(interface{ HasInconsistentAssertions() bool }); ok && incremental.HasInconsistentAssertions() {
+		return false, nil
+	}
+	return p.checkGroundPlan(parent, witness, min(maxSteps, 750_000))
+}
+
+type groundProofPlan interface {
+	assertIn(parent, target *ast.ASTManager, child *APISimpleSolver) (bool, error)
+}
+
+func (p *orderProofState) checkGroundPlan(parent *ast.ASTManager, plan groundProofPlan, maxSteps uint32) (proved bool, err error) {
 	aux := &orderProofState{source: p.source}
 	defer func() {
 		if e := aux.release(); e != nil {
@@ -32,7 +52,7 @@ func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions 
 	parentLimit, limit := parent.ResourceLimit(), m.ResourceLimit()
 	limit.RunSignals = parentLimit.RunSignals
 	defer func() { limit.RunSignals = nil }()
-	if err = limit.Push(min(maxSteps, 240_000)); err != nil {
+	if err = limit.Push(maxSteps); err != nil {
 		return false, err
 	}
 	defer limit.Pop()

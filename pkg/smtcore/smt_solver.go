@@ -898,6 +898,11 @@ func (s *SMTSolver) CheckSat(assumptions []ast.ASTHandle) (lbool.LBool, error) {
 	return s.named.CheckSat(assumptions)
 }
 
+// HasInconsistentAssertions reports whether assertion preprocessing has already found false.
+func (s *SMTSolver) HasInconsistentAssertions() bool {
+	return s.open() == nil && s.kernel.assertedFormulasInconsistent()
+}
+
 func (s *SMTSolver) NumAssertions() (uint32, error) {
 	if err := s.open(); err != nil {
 		return 0, err

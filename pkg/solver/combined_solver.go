@@ -478,6 +478,16 @@ func (c *CombinedSolver) SetProgressCallback(v ProgressCallback) error {
 	}
 	return errors.Join(c.first.SetProgressCallback(v), c.second.SetProgressCallback(v))
 }
+
+// HasInconsistentAssertions checks the active incremental solver's asserted formulas.
+func (c *CombinedSolver) HasInconsistentAssertions() bool {
+	if c.open() != nil || !c.incMode || !c.secondStarted {
+		return false
+	}
+	status, ok := c.second.(interface{ HasInconsistentAssertions() bool })
+	return ok && status.HasInconsistentAssertions()
+}
+
 func (c *CombinedSolver) NumAssertions() (uint32, error) {
 	if err := c.open(); err != nil {
 		return 0, err

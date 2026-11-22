@@ -21,6 +21,8 @@ const orderProofSteps = 3_000_000
 // uninterpreted sorts, it can refute ground instances at the final goal's constants.
 // A quantified goal can also be refuted by its Boolean structure and the
 // one-way implications connecting quantified formulas to their ground instances.
+// For goals with several quantifiers over the same domain, a private ground
+// solver also checks instances at fresh witnesses and observed applications.
 // True establishes that the assertions are unsatisfiable. False is inconclusive:
 // callers needing a decision or a concrete model should call Check. The
 // independent proof attempt preserves this solver's last check, model and core.
