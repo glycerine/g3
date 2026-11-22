@@ -33,7 +33,11 @@ func (p *witnessInstancePlan) assertIn(parent, m *ast.ASTManager, child *APISimp
 		return false, err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&s.out)) }()
-	if ok, err := s.acceptsInput(parent, p.assertions); err != nil || !ok {
+	validation := p.source
+	if validation == nil {
+		validation = p.assertions
+	}
+	if ok, err := s.acceptsInput(parent, validation); err != nil || !ok {
 		return false, err
 	}
 	for _, sort := range p.sorts {
@@ -53,8 +57,8 @@ func (p *witnessInstancePlan) assertIn(parent, m *ast.ASTManager, child *APISimp
 			return false, s.failure()
 		}
 	}
-	// Translate the entire input before generating witnesses so even later
-	// premises participate in the fresh declaration check.
+	// Every selected premise must participate in the fresh declaration check
+	// before the first witness is introduced.
 	base := s.lowerAssertions(input)
 	for _, root := range base {
 		s.collectForced(root, witnessPositive)

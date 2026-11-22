@@ -32,6 +32,23 @@ func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions 
 	if incremental, ok := p.source.solver.(interface{ HasInconsistentAssertions() bool }); ok && incremental.HasInconsistentAssertions() {
 		return false, nil
 	}
+	if len(witness.sorts) == 1 {
+		small, err := p.selectWitnessPremises(parent, witness)
+		if err != nil {
+			return false, err
+		}
+		if small != nil {
+			yes, err := p.checkGroundPlan(parent, small, min(maxSteps, 500_000))
+			if yes || err != nil {
+				return yes, err
+			}
+			// A wider, one-round plan would repeat the same tuple search
+			// on the full base. Leave an inconclusive goal to Check.
+			if witness.rounds == 1 && witness.width > 3 {
+				return false, nil
+			}
+		}
+	}
 	return p.checkGroundPlan(parent, witness, min(maxSteps, 750_000))
 }
 

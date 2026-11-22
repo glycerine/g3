@@ -2,9 +2,9 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
-**On Apple `rfn2`, the ground-instance proof brought g3 from 39.03 s to 12.04 s, ahead of linked Z3 at 24.24 s.** Nine interleaved triples ran all 26 checks through the same GoIvy frontend. Ordinary Raft and Apple `dramc_nb2` also finished ahead of Z3 in their paired release runs. The largest remaining individual gaps are `rfn2` check 7 and `dramc_nb2` check 71. First pushes on fresh solvers account for most of the excess push work. [Ground-instance comparison](#ground-instances-at-the-constants-in-the-verification-goal) · [Release controls and remaining gaps](#cost-of-attempting-a-private-proof-on-an-inexpensive-goal)
+**Apple `rfn2` now finishes ahead of linked Z3.** The six-round three-term matcher comparison gave 9.53 s versus 19.88 s over all 26 checks. Ordinary Raft and Apple `dramc_nb2` also finished ahead in their paired release runs. First pushes on fresh Apple solvers still account for most of the excess push work. [Three-term matcher](#three-variable-relation-axioms-and-ground-goals-with-several-sorts) · [Push attribution](#where-the-remaining-apple-push-instructions-go)
 
-**On Apple `cf_live`, bounded ground witnesses lowered complete-checker instructions from 185.01 to 142.83 billion.** Linked Z3 used 107.46 billion. The verification thread spent 1.35 billion on check 130, down from 34.07 billion. [Release crossover and per-check comparison](#ground-witnesses-for-interacting-quantifiers-on-apple)
+**On Apple `cf_live`, selecting the premises for a bounded proof reduced the complete checker from 132.46 to 123.14 billion instructions.** Linked Z3 used 107.38 billion. Median elapsed times were 32.95 s in g3 and 33.62 s in linked Z3 on the shared host. Verification and private search each have a separate measurement boundary. [Whole checker and phase measurements](#selecting-positive-conjuncts-for-ground-proofs)
 
 **A four-operand application now fits entirely in the same 128-byte arena slot.** A repeated construction costs 1,265 instructions in g3 and 605 in Z3, down from 2,970 in g3. Whole-proof instruction counts improved in all 32 matched pairs. [Arena measurements](#four-application-operands-in-a-128-byte-arena-slot)
 
@@ -2612,3 +2612,28 @@ On `rfn2` 7 the final goal is ground. There is one named constant in each of sev
 Against the preceding two-binder matcher, instructions fell **10.3%** on `rfn2` and **7.3%** on `cf_live`. The latter remained 3.0% behind Z3 in median wall time and 23.6% above it in retired instructions. The difference between those ratios matters for a CPU-bound worker pool. Under a different concurrent host load, the bounded two-binder build on `cf_pio_live` already used 451.57 billion instructions against native’s 534.06 billion. [Complete three-binder crossover](perf/ivy_apple/witness_instances/nov22-three-binder-release.csv) · [Four-isolate prototype comparison](perf/ivy_apple/witness_instances/nov22-three-binder-variants.csv) · [Earlier bounded crossover](perf/ivy_apple/witness_instances/nov22-bounded-release.csv) · [Earlier ten-workload crossover](perf/ivy_apple/witness_instances/nov22-initial-ten-workloads.csv)
 
 The original solver confirmed **266 private refutations**, up from 242, with the same outcomes and all 18 native search counters on each of the 10,342 Apple checks. All 360 previously certified finite models also survived the public and forced proof attempts. The prepared Go benchmark now requires a refutation on each iteration for `cf_live` 56, `cf_live` 130 and `rfn2` 7. The standalone fixtures start with a fresh solver. [Per-check replay](perf/ivy_apple/witness_instances/nov22-three-binder-verified.csv.gz) · [Per-model results](perf/ivy_apple/witness_instances/nov22-three-binder-finite.csv) · [Prepared benchmarks](api/api_witness_instances_benchmark_test.go) · [Captured rfn2 check 7](perf/ivy_apple/test_vectors/rfn2-7.smt2.gz)
+
+### Selecting positive conjuncts for ground proofs
+
+A trial over one uninterpreted sort now starts with the ground conjuncts of the premises. In two passes it adds quantified conjuncts that share a relatively rare function or predicate with the goal or a conjunct selected in the preceding pass. The frequency threshold for a conjunct is twice the number of premises containing its rarest declaration. Flattening stops at every connective except a positive top-level conjunction. The private search therefore receives actual source assumptions, including any guards. The source solver retains the complete input. The batch reuses its index only when the entire ordered sequence of premise handles, including arena identity and generation, matches. [Selection and bounds](api/api_witness_premises.go) · [Guard, open-input and scope tests](api/api_witness_premises_test.go)
+
+| Complete checker, six rounds | Previous g3, s | Selected g3, s | Linked Z3, s | Previous g3, billion instructions | Selected g3 | Linked Z3 |
+|---|---:|---:|---:|---:|---:|---:|
+| Ordinary Raft | 4.58 | 4.71 | 47.86 | 27.85 | 27.85 | 215.20 |
+| `rfn2` | 8.65 | 9.01 | 24.84 | 49.16 | 48.99 | 69.23 |
+| `rfn` | 12.29 | 12.28 | 22.38 | 50.53 | 50.46 | 57.40 |
+| `cmpl_live` | 38.68 | 38.22 | 38.34 | 127.23 | 127.33 | 124.38 |
+| `cf_live` | 33.20 | 32.95 | 33.62 | 132.46 | 123.14 | 107.38 |
+
+The table compares identical transcripts across rotated engine order on a pinned CPU per workload. Other jobs shared the host. `cf_live` retired 7.0% fewer instructions than the previous g3 and 14.7% more than linked Z3. The wall times were much closer. All 266 private refutations were independently confirmed on the original incremental solver. Verdicts and the 18 recorded search counters agreed with native on every one of 10,342 Apple checks. The public proof and forced matcher also preserved the 360 certified finite models. [All 90 complete runs](perf/ivy_apple/witness_instances/nov22-selected-release.csv) · [Concrete replay](perf/ivy_apple/witness_instances/nov22-selected-verified.csv.gz) · [Satisfiable controls](perf/ivy_apple/witness_instances/nov22-selected-finite.csv)
+
+| Private phases, median of three per-isolate sums, billion instructions | `cf_live` before | Selected | `cf_pio_live` before | Selected |
+|---|---:|---:|---:|---:|
+| Translate selected assertions | 0.599 | 0.427 | 0.639 | 0.449 |
+| Generate ground instances | 2.925 | 1.145 | 3.028 | 1.135 |
+| Assert ground formulas | 1.365 | 0.753 | 1.426 | 0.759 |
+| Run the private solver | 12.080 | 6.312 | 13.252 | 6.511 |
+
+Each interval used a hardware counter attached to the verification thread and an adjacent empty read. The search interval measures all private ground plans, including the simpler one-tuple plan. The three preparation rows cover the witness matcher. The phase totals exclude GoIvy, public solver search, selection itself and private context teardown. A standalone driver reproduces the counters on Linux/amd64 with a GoIvy checkout using the local replacement and a linked-Z3 transcript from the same specification path. [Driver](perf/ivy_apple/witness_instances/phase_instructions.py) · [All 4,086 intervals](perf/ivy_apple/witness_instances/nov22-selected-phases.csv.gz)
+
+Prepared inputs show the tradeoff between less work on a successful subset and an extra attempt on a miss. In eight alternating pairs, `cf_live` 56 went from 525.59 to 79.56 ms and from 72.59 to 12.24 MB per proof. On check 130 the subset was satisfiable. Falling back to the full set brought the cost from 327.82 to 412.27 ms and 44.12 to 55.63 MB. Each iteration still proved both original obligations. `rfn2` 7 stayed at 37.9 MB per proof. The benchmark excludes parsing and includes the fresh private solver, its search and its release. [Prepared Go benchmark](api/api_witness_instances_benchmark_test.go) · [All 48 measurements](perf/ivy_apple/witness_instances/nov22-selected-micro.csv)

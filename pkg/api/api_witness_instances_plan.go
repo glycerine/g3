@@ -33,6 +33,7 @@ func witnessChildPolarity(m *ast.ASTManager, header ast.ASTNodeHeader, parent ui
 
 type witnessInstancePlan struct {
 	assertions    []ast.ASTHandle
+	source        []ast.ASTHandle // Full input to validate when this plan uses a subset.
 	sorts         []ast.ASTHandle
 	width, rounds int
 }

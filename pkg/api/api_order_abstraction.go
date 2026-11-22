@@ -41,7 +41,8 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
-	bits *orderBooleanSolver
+	witnessPremises *witnessPremises
+	bits            *orderBooleanSolver
 	// Keep a failed side-condition cleanup reachable for release's retry.
 	pendingCondition *orderProofState
 	source           *APISimpleSolver
@@ -74,6 +75,7 @@ func (b *OrderProofBatch) Close() error {
 	if b == nil || b.state == nil {
 		return nil
 	}
+	b.state.witnessPremises = nil
 	b.state.source = nil
 	return b.state.release()
 }
