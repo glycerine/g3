@@ -23,6 +23,7 @@ type SMTCachedVarSubstitution struct {
 	self         *SMTCachedVarSubstitution
 	manager      *ast.ASTManager
 	substitution *rewriter.VarSubstitution
+	plans        rewriter.GroundInstancePlans
 	// entries is cached_var_subst::m_instances, a map keyed by (qa,
 	// bindings) under key_hash_proc (a hash of the whole binding tuple and
 	// qa's id). Buckets hold only hash collisions.
@@ -123,7 +124,7 @@ func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, binding
 	if err != nil {
 		return false, err
 	}
-	if err = c.substitution.Substitute(body, owners, out); err != nil {
+	if err = c.plans.Substitute(c.substitution, body, owners, out); err != nil {
 		return false, err
 	}
 	value, err := c.manager.RefGet(out)
@@ -165,6 +166,9 @@ func (c *SMTCachedVarSubstitution) Reset() error {
 }
 
 func (c *SMTCachedVarSubstitution) clearEntries() error {
+	if err := c.plans.Clear(); err != nil {
+		return err
+	}
 	// m_instances goes first: its entries index m_refs, which is then
 	// released front to back (an expr_ref_vector).
 	c.list = nil

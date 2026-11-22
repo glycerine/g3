@@ -6,6 +6,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // Exercise the call used on a cached_var_subst miss. One case retains all
@@ -85,5 +86,63 @@ func BenchmarkSMTQuantifierBodySubstitution(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+// BenchmarkSMTQuantifierInstanceStream runs the normal quantifier-cache miss
+// path on unique ordered tuples. Each group of 1,024 tuples shares the same
+// body and 32 binding terms. Reset discards the batch of retained instances.
+func BenchmarkSMTQuantifierInstanceStream(b *testing.B) {
+	m := astTestManager(b)
+	sort, err := m.MkBoolSort()
+	benchmarkMust(b, err)
+	x, err := m.MkVar(0, sort)
+	benchmarkMust(b, err)
+	y, err := m.MkVar(1, sort)
+	benchmarkMust(b, err)
+	decl, err := m.MkFuncDecl(astTestSymbol(b, m, "relation"), []ast.ASTHandle{sort, sort}, sort, ast.ASTFuncDeclInfo{})
+	benchmarkMust(b, err)
+	app := func(a, binding ast.ASTHandle) ast.ASTHandle {
+		h, err := m.MkApp(decl, []ast.ASTHandle{a, binding})
+		benchmarkMust(b, err)
+		return h
+	}
+	xy, yx := app(x, y), app(y, x)
+	shared, err := m.MkIte(xy, yx, x)
+	benchmarkMust(b, err)
+	body, err := m.MkIte(yx, app(shared, x), app(y, shared))
+	benchmarkMust(b, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort, sort}, Names: []symbol.Symbol{symbol.Numerical(1), symbol.Numerical(2)}, Body: body})
+	benchmarkMust(b, err)
+	pin := func(h ast.ASTHandle) {
+		ref, err := m.NewRef(h)
+		benchmarkMust(b, err)
+		b.Cleanup(func() { benchmarkMust(b, m.DelRef(&ref)) })
+	}
+	pin(q)
+	var atoms [32]*SMTEnode
+	for i := range atoms {
+		h, node := smtEnodeConstant(b, m, uint32(i+10), sort, 0)
+		pin(h)
+		atoms[i] = node
+	}
+	cache, err := NewSMTCachedVarSubstitution(m)
+	benchmarkMust(b, err)
+	b.Cleanup(func() { benchmarkMust(b, cache.Close()) })
+	out, err := m.NewRef(ast.ASTHandle{})
+	benchmarkMust(b, err)
+	b.Cleanup(func() { benchmarkMust(b, m.DelRef(&out)) })
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		k := i % (len(atoms) * len(atoms))
+		if k == 0 && i != 0 {
+			benchmarkMust(b, cache.Reset())
+		}
+		tuple := [2]*SMTEnode{atoms[k/len(atoms)], atoms[k%len(atoms)]}
+		hit, err := cache.Instantiate(q, tuple[:], out)
+		if err != nil || hit {
+			b.Fatalf("tuple %d: cached=%v, err=%v", k, hit, err)
+		}
 	}
 }
