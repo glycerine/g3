@@ -96,37 +96,42 @@ func (s *witnessClauseSet) preparePatterns(q *witnessAtom) {
 			}
 		}
 	}
-	if !many && !only.IsNull() && q.key.n == 2 && q.key.sorts[0] == q.key.sorts[1] {
-		ar, e := s.m.GetArity(only)
+	if many || only.IsNull() || q.key.n < 2 || q.key.n > 3 {
+		return
+	}
+	for _, st := range q.key.sorts[1:q.key.n] {
+		if st != q.key.sorts[0] {
+			return
+		}
+	}
+	ar, e := s.m.GetArity(only)
+	if e != nil {
+		s.err = e
+		return
+	}
+	if ar == 2 {
+		d0, e := s.m.GetDomain(only, 0)
 		if e != nil {
 			s.err = e
 			return
 		}
-		if ar == 2 {
-			d0, e := s.m.GetDomain(only, 0)
-			if e != nil {
-				s.err = e
-				return
-			}
-			d1, e := s.m.GetDomain(only, 1)
-			if e != nil {
-				s.err = e
-				return
-			}
-			res, e := s.m.GetRange(only)
-			if e != nil {
-				s.err = e
-				return
-			}
-			bs, e := s.m.MkBoolSort()
-			if e != nil {
-				s.err = e
-				return
-			}
-			q.singleBinaryRelation = d0 == q.key.sorts[0] && d1 == d0 && res == bs
+		d1, e := s.m.GetDomain(only, 1)
+		if e != nil {
+			s.err = e
+			return
 		}
+		res, e := s.m.GetRange(only)
+		if e != nil {
+			s.err = e
+			return
+		}
+		bs, e := s.m.MkBoolSort()
+		if e != nil {
+			s.err = e
+			return
+		}
+		q.singleBinaryRelation = d0 == q.key.sorts[0] && d1 == d0 && res == bs
 	}
-
 }
 func (s *witnessClauseSet) generate(width, rounds int) {
 	prepared := 0
@@ -272,7 +277,32 @@ func (s *witnessClauseSet) candidates(q *witnessAtom, pool map[ast.ASTHandle][]a
 			}
 		}
 	}
-	if q.singleBinaryRelation {
+	// No single binary application binds all three variables of a relation
+	// axiom such as transitivity. Instantiate the original body at ordered
+	// triples. Its Boolean guard and the relation's meaning stay in the formula.
+	if q.singleBinaryRelation && q.key.n == 3 {
+		maxrows = 300
+		terms := pool[q.key.sorts[0]]
+		for _, a := range terms {
+			if !s.charge(1) {
+				return nil
+			}
+			for _, b := range terms {
+				if a == b {
+					continue
+				}
+				for _, c := range terms {
+					if c == a || c == b {
+						continue
+					}
+					var t witnessTuple
+					t.args[0], t.args[1], t.args[2] = a.Slot(), b.Slot(), c.Slot()
+					add(t, 2)
+				}
+			}
+		}
+	}
+	if q.singleBinaryRelation && q.key.n == 2 {
 		maxrows = 180
 		for _, a := range pool[q.key.sorts[0]] {
 			for _, b := range pool[q.key.sorts[0]] {

@@ -11,14 +11,19 @@ import (
 // A satisfying ground model can omit required instances of the original
 // universals. Only a completed UNSAT check discharges the caller's query.
 func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions []ast.ASTHandle, maxSteps uint32) (proved bool, err error) {
-	plan, err := planGoalInstances(parent, assertions)
+	plan, witness, err := planGroundGoals(parent, assertions)
 	if err != nil {
 		return false, err
 	}
 	if plan != nil {
-		return p.checkGroundPlan(parent, plan, min(maxSteps, 240_000))
+		proved, err := p.checkGroundPlan(parent, plan, min(maxSteps, 240_000))
+		if err != nil || proved || witness == nil {
+			return proved, err
+		}
 	}
-	witness, err := planWitnessInstances(parent, assertions)
+	if witness == nil {
+		witness, err = planWitnessInstances(parent, assertions)
+	}
 	if err != nil || witness == nil {
 		return false, err
 	}

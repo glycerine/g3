@@ -9,7 +9,7 @@ import (
 // Parsing and source construction precede timing. Each iteration owns a new
 // private arena, translates the assertions and solves the generated ground query.
 func BenchmarkAppleWitnessInstances(b *testing.B) {
-	for _, name := range []string{"cf_live-130", "cf_live-56"} {
+	for _, name := range []string{"cf_live-130", "cf_live-56", "rfn2-7"} {
 		b.Run(name, func(b *testing.B) {
 			input := appleBenchmarkInput(b, name)
 			c, err := NewSMTContext()
@@ -49,7 +49,7 @@ func BenchmarkAppleWitnessInstances(b *testing.B) {
 			}
 			b.StopTimer()
 			b.ReportMetric(float64(proofs)/float64(b.N), "proofs/op")
-			if name == "cf_live-130" && proofs != b.N {
+			if proofs != b.N {
 				b.Fatalf("refuted %d of %d obligations", proofs, b.N)
 			}
 		})

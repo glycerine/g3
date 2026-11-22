@@ -39,7 +39,8 @@ type witnessInstancePlan struct {
 
 // Look for several quantifiers ranging over the same domain in the final
 // assertion. A negated universal supplies a witness for the other quantifiers.
-// Two positive universals alone warrant a smaller, single-round attempt.
+// A negative existential can exclude that witness. Two positive universals
+// alone warrant a smaller, single-round attempt.
 // These are admission heuristics. The proof itself checks ground formulas.
 func planWitnessInstances(m *ast.ASTManager, assertions []ast.ASTHandle) (*witnessInstancePlan, error) {
 	if len(assertions) < 2 || len(assertions) > 8192 {
@@ -131,6 +132,8 @@ func planWitnessInstances(m *ast.ASTManager, assertions []ast.ASTHandle) (*witne
 		switch {
 		case row.universals == witnessEither && row.existentials&witnessNegative != 0:
 			p.width, p.rounds = 6, 3
+		case row.universals&witnessNegative != 0 && row.existentials&witnessNegative != 0:
+			p.width = max(p.width, 6)
 		case row.positiveCount >= 2 && row.universals == witnessPositive && row.existentials == 0:
 		default:
 			continue

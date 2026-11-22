@@ -93,7 +93,7 @@ func TestGoalInstancesAmbiguousWitnessAndCancellation(t *testing.T) {
 	astTestMust(t, err)
 	values, err := solver.Assertions(s.solver)
 	astTestMust(t, err)
-	plan, err := planGoalInstances(m, values)
+	plan, _, err := planGroundGoals(m, values)
 	if err != nil || plan != nil {
 		t.Fatalf("ambiguous witnesses yielded a plan: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestGoalInstancesLeaveSmallGoalsToSourceSolver(t *testing.T) {
 	astTestMust(t, err)
 	values, err := solver.Assertions(s.solver)
 	astTestMust(t, err)
-	plan, err := planGoalInstances(m, values)
+	plan, _, err := planGroundGoals(m, values)
 	if err != nil || plan != nil {
 		t.Fatalf("two goal predicates across two sorts yielded a private plan: %v", err)
 	}

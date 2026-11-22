@@ -1,6 +1,10 @@
 package api
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"sort"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 // A ground instance is a consequence of a positive universal premise.
 // The binding range follows declaration order, which is the reverse of
@@ -17,15 +21,40 @@ type goalInstancePlan struct {
 	rules    []goalInstance
 }
 
+type groundGoalTerms struct {
+	constants map[ast.ASTHandle]ast.ASTHandle
+	maxArity  uint32
+	ambiguous bool
+}
+
+// When several independent domains each have a single goal constant,
+// extend a failed one-tuple proof with observed applications and witnesses.
+func (g *groundGoalTerms) expandedPlan(assertions []ast.ASTHandle) *witnessInstancePlan {
+	if g.ambiguous || len(g.constants) < 4 {
+		return nil
+	}
+	p := &witnessInstancePlan{assertions: assertions, width: 3, rounds: 1}
+	p.sorts = make([]ast.ASTHandle, 0, len(g.constants))
+	for st := range g.constants {
+		p.sorts = append(p.sorts, st)
+	}
+	sort.Slice(p.sorts, func(i, j int) bool { return p.sorts[i].Slot() < p.sorts[j].Slot() })
+	if g.maxArity >= 3 {
+		p.width, p.rounds = 10, 2
+	}
+	return p
+}
+
 // Find the unambiguous ground constants of uninterpreted sorts in the final
 // assertion. Each such sort contributes one term to a substitution.
-func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (map[ast.ASTHandle]ast.ASTHandle, error) {
+func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (*groundGoalTerms, error) {
 	ground, err := m.IsGround(goal)
 	if err != nil || !ground {
 		return nil, err
 	}
 	seen := make(map[ast.ASTHandle]bool)
 	witnesses := make(map[ast.ASTHandle]ast.ASTHandle)
+	terms := groundGoalTerms{constants: witnesses}
 	functions := make(map[ast.ASTHandle]bool)
 	stack := []ast.ASTHandle{goal}
 	for len(stack) > 0 {
@@ -42,8 +71,11 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (map[ast.ASTHa
 		if header.Kind != ast.ASTApp || len(seen) > 256 || header.NumArgs > 256 {
 			return nil, nil
 		}
-		if len(functions) < 3 && header.NumArgs > 0 && header.Family == ast.NullFamilyID {
-			functions[header.Decl] = true
+		if header.NumArgs > 0 && header.Family == ast.NullFamilyID {
+			terms.maxArity = max(terms.maxArity, header.NumArgs)
+			if len(functions) < 3 {
+				functions[header.Decl] = true
+			}
 		}
 		if header.NumArgs == 0 && header.Family == ast.NullFamilyID {
 			sort, err := m.GetSort(h)
@@ -73,6 +105,7 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (map[ast.ASTHa
 	}
 	for sort, h := range witnesses {
 		if h.IsNull() {
+			terms.ambiguous = true
 			delete(witnesses, sort)
 		}
 	}
@@ -81,7 +114,7 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (map[ast.ASTHa
 	if len(witnesses) < 2 || len(functions) < 3 {
 		return nil, nil
 	}
-	return witnesses, nil
+	return &terms, nil
 }
 
 func (p *goalInstancePlan) addUniversal(m *ast.ASTManager, q ast.ASTHandle, witnesses map[ast.ASTHandle]ast.ASTHandle) error {
@@ -118,15 +151,23 @@ func (p *goalInstancePlan) addUniversal(m *ast.ASTManager, q ast.ASTHandle, witn
 	return nil
 }
 
-func planGoalInstances(m *ast.ASTManager, assertions []ast.ASTHandle) (*goalInstancePlan, error) {
+func planGroundGoals(m *ast.ASTManager, assertions []ast.ASTHandle) (*goalInstancePlan, *witnessInstancePlan, error) {
 	if len(assertions) < 2 || len(assertions) > 8192 {
-		return nil, nil
+		return nil, nil, nil
 	}
+	terms, err := goalInstanceWitnesses(m, assertions[len(assertions)-1])
+	if err != nil || terms == nil {
+		return nil, nil, err
+	}
+	plan, err := planGoalInstances(m, assertions, terms.constants)
+	if err != nil {
+		return nil, nil, err
+	}
+	return plan, terms.expandedPlan(assertions), nil
+}
+
+func planGoalInstances(m *ast.ASTManager, assertions []ast.ASTHandle, witnesses map[ast.ASTHandle]ast.ASTHandle) (*goalInstancePlan, error) {
 	p := &goalInstancePlan{goal: assertions[len(assertions)-1]}
-	witnesses, err := goalInstanceWitnesses(m, p.goal)
-	if err != nil || witnesses == nil {
-		return nil, err
-	}
 	stack := make([]ast.ASTHandle, 0, len(assertions))
 	for i := len(assertions) - 2; i >= 0; i-- {
 		stack = append(stack, assertions[i])
