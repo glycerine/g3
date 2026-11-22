@@ -178,6 +178,8 @@ func TestIntegerRegionsLimitsAndSingletons(t *testing.T) {
 
 func TestSMTModelCheckerIntegerRegionsRespectAuxiliaryPremises(t *testing.T) {
 	m, c, proto, _, _ := smtAuxiliaryQueryFixture(t, false)
+	astTestMust(t, c.initAuxiliaryContext())
+	c.auxiliaryContext.config.CheckIntegerModelRegions = true
 	f := newRegionTestAST(t, m)
 	// The single exception is x=7. With a false assertion already in the
 	// auxiliary base, its actual check of the negated body is unsatisfiable.

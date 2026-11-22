@@ -462,7 +462,7 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	if auxiliary.config.SkipTrivialMBQIChecks && c.manager.IsTrue(evaluatedBody) {
 		return false, nil
 	}
-	if count == 1 && *remaining != 0 {
+	if auxiliary.config.CheckIntegerModelRegions && count == 1 && *remaining != 0 {
 		violated, err := c.integerCounterexample(model, quantifier, flat, evaluatedBody, remaining)
 		if err != nil || violated != lbool.Undef {
 			return violated == lbool.True, err

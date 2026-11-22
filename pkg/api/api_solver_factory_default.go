@@ -20,6 +20,8 @@ func (c *SMTContext) NewSolver() (*APISimpleSolver, error) {
 // with the default tactic portfolio still unbuilt. A tactic check, fallback,
 // translation or full parameter query constructs it on demand. The tactic
 // constructors read global settings and charge their memory at that point.
+// For quantified integer obligations the verifier may choose witnesses by
+// comparison region. This can change the satisfying model returned to a caller.
 // Debugging, tracing and allocation-failure injection use ordinary initialization.
 func (c *SMTContext) NewSolverForIncrementalChecks() (*APISimpleSolver, error) {
 	if err := c.open(); err != nil {

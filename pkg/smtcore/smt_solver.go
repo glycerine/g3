@@ -31,6 +31,9 @@ type SMTSolverConfig struct {
 	// SkipTrivialMBQIChecks lets a private refutation solver skip the
 	// Skolem search when a quantified body evaluates to true for all bindings.
 	SkipTrivialMBQIChecks bool
+	// CheckIntegerModelRegions lets verification clients choose integer witnesses
+	// by comparison region. Witness order can affect the final printed model.
+	CheckIntegerModelRegions bool
 	// SkipRepeatedPreprocessing omits the second macro search and final
 	// simplifier pass in private refutation contexts.
 	SkipRepeatedPreprocessing bool
