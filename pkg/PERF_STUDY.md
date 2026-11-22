@@ -2,6 +2,8 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
+**Keeping the committed assertion prefix in place saved 4.97 GB of allocation per TLB run.** The previous code copied 127.6 million committed rows while replacing 1.14 million pending rows. All 18 search counters matched linked Z3 after every one of 22,858 ordinary solver checks across six workloads. [Measurements and reproducible benchmark](#keep-committed-assertions-in-place-during-incremental-preprocessing)
+
 **One check-local counter removed 231 billion instructions from a complete TLB run on each backend.** GoIvy used to restart a suffix search for every repeated variable in the fragment checker. Six paired runs with the counter took median 30.75 s for g3 and 10.99 s for linked Z3, with identical proof outcomes. [Counter, allocation and search measurements](#fresh-variable-names-in-the-ivy-fragment-checker)
 
 **g3 won the original finite-domain Raft test wrapper and both Apple isolates at the default GC setting.** In four alternating pairs per workload on CPU 22, the complete run took 4.06 s versus 46.73 s on `raft_no_assume_test.ivy`, 83.70 s versus 100.72 s on Apple `dramc_nb2`, and 9.87 s versus 26.57 s on Apple `rfn2`. All 12 paired proof transcripts matched. Linked Z3 won all 42 pairs across seven independent short specifications. The two GoIvy configurations also responded differently to a larger heap on `dramc_nb2`. [Abstract and finite-domain Raft comparison](#abstract-raft-and-the-finite-domain-test-wrapper) · [Complete checker comparison](#ordinary-goivy-verification-at-91d1597f3) · [Remaining short-query costs](#three-reproducible-obligations-that-still-favor-z3) · [GC and resident memory](#the-effect-of-go-heap-growth-on-dramc_nb2)
@@ -3414,3 +3416,31 @@ The scope of the freshness guarantee matters in real Ivy syntax. For example, cl
 Values are median whole-process user instructions in billions from four alternating pairs per isolate, backend and GC setting. Both revisions used the same g3 solver and linked Z3. All 172 measured runs across eight workloads matched the reference exit status and both output streams. TLB already used the counter and stayed at 230.2 billion instructions for g3 and 77.8 billion for linked Z3. [All 172 process runs](perf/ivy_apple/holdouts/nov22b-fragment-macros-instructions.csv.gz)
 
 Each backend also repeated 181 specifications against its own previous revision. All exit statuses and stdout matched, and 179 stderr streams per backend matched byte for byte. The remaining two contained the same pre-existing mixin panic with different addresses. Permuting variable names and their corresponding Skolem names in nine failing fragment examples gave 108 variants. Every variant retained the same fragment error, exit status and byte-identical output. The three active-trace controls above again matched byte for byte on stdout. [362 corpus comparisons](perf/ivy_apple/holdouts/nov22b-fragment-macros-specs.csv.gz) · [108 diagnostic comparisons](perf/ivy_apple/holdouts/nov22b-fragment-permuted-errors.csv.gz) · [Reproduction driver](perf/ivy_apple/holdouts/fragment_diagnostics.py)
+
+### Keep committed assertions in place during incremental preprocessing
+
+The C++ implementation truncates the formula vector at the first pending assertion, retains its storage and appends the replacement formulas. g3 used to allocate a new slice and copy every committed formula/proof pair into it. In a complete `tlb.ivy` run the kernel replaced 1,143,142 pending rows in 235,079 calls. It copied an additional **127,614,575 committed rows**. In 226,493 calls even the pending formula/proof sequence was identical. The allocation profile attributed 42.2% of total allocated bytes inclusively to the swap across three runs. [C++ vector operation](../src/smt/asserted_formulas.cpp#L329) · [Per-workload census](perf/ivy_apple/holdouts/nov22b-pending-census.csv.gz) · [Counting patch against 8d7225c0f](perf/ivy_apple/holdouts/nov22b-pending-census.patch.gz)
+
+Commit `1023a538a` keeps the committed prefix in place. It reserves room for the incoming rows, saves the old pending owners beyond that range and publishes the replacements. If ownership acquisition fails partway, the kernel releases the acquired owners and restores the pending rows. The proof-enabled regression invalidates the second incoming proof, then checks exact restoration, reference counts and a subsequent successful replacement. [Implementation](smtcore/smt_asserted_macros.go) · [Benchmark and rollback test](smtcore/smt_asserted_batch_benchmark_test.go)
+
+| Complete workload | Instructions at GOGC 100, billions | Allocated GB at GOGC 100 | Instructions at GOGC 295, billions |
+|---|---:|---:|---:|
+| TLB, 18,953 checks | 229.76 → 213.21 | 11.85 → 6.89 | 196.20 → 189.66 |
+| Flash, 2,212 checks | 11.38 → 11.06 | 0.400 → 0.308 | 10.24 → 10.08 |
+| Apple rfn2, 26 checks | 19.07 → 19.09 | 1.448 → 1.445 | 14.84 → 14.77 |
+| Apple dramc_nb2, 2,479 checks | 199.37 → 198.92 | 14.527 → 14.498 | 163.65 → 164.03 |
+
+Each entry is the median of four alternating before/after pairs, or three pairs for dramc_nb2. Both executables used GoIvy `0afb029cf`, one pinned CPU and GOMAXPROCS=1. The timing version of the patch reads the batch length directly, while the commit stores it in a local. All 92 process runs across nine workloads matched their reference exit status, stdout and stderr. TLB's median peak RSS at default GC was 138.2 → 132.1 MiB. At GOGC 295 it was 207.0 → 210.8 MiB. Multiple workload lanes shared the host, so instruction counts are the primary comparison here. [Raw process, RSS and allocation samples](perf/ivy_apple/holdouts/nov22b-pending-runs.csv.gz)
+
+| Committed rows | Pending rows | Before ns/op | After ns/op | Allocated bytes/op before → after |
+|---:|---:|---:|---:|---:|
+| 0 | 1 | 127.2 | 78.60 | 32 → 0 |
+| 128 | 1 | 2,411 | 78.42 | 12,288 → 0 |
+| 4,096 | 1 | 39,385 | 78.77 | 303,104 → 0 |
+| 4,096 | 32 | 40,745 | 1,811 | 303,104 → 0 |
+
+These are medians of seven alternating runs with warm kernel storage. Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTReplacePendingAssertions$' -benchmem -count=7` on the two revisions. The raw file also includes prototypes that used a small stack buffer or appended extra temporary storage. [All 168 benchmark observations](perf/ivy_apple/holdouts/nov22b-pending-micro.bench.gz)
+
+With both backends on their ordinary incremental solvers, **all 18 per-check counter deltas agreed across 22,858 checks**. TLB contributed 18,953, Flash 2,212, hybrid reliable broadcast 839, abstract Raft 419, raftok 420 and the numeric example 15. The g3 revision before the change produced the same counters. The numeric example retained its one inconclusive result. The two backends printed that query with different SMT-LIB let sharing and identical commands after lexical expansion. Focused fast and checked builds and the full Go test suite passed. [Per-check observations](perf/ivy_apple/holdouts/nov22b-pending-search.csv.gz) · [Reproduction and counter comparison](perf/ivy_apple/holdouts/complete_search.py)
+
+The instruction samples help prioritize the next changes. On TLB before the allocation fix, the nearest named stack category accounted for a median **57.74 versus 14.84 billion** instructions in the solver rewriter, **28.40 versus 5.90 billion** in the quantifier queue, and **35.87 billion** in Go GC. On abstract Raft, corresponding rewriter costs were **34.96 versus 6.65 billion** and model-checker costs were **22.35 versus 4.85 billion**. These are estimates from three instruction-sampled runs per engine, with each sample assigned to at most one nearest category. A profile after the allocation fix is needed to quantify remaining GC cost. [Sample counts, periods and categories](perf/ivy_apple/holdouts/nov22b-pending-stacks.csv.gz)

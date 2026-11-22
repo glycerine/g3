@@ -47,7 +47,7 @@ def original_scopes(code):
     return code[:start] + "\n return nil, nil, nil" + code[end:]
 
 
-def build(ivy, tmp, name, native, operation="check", go_overlay=None):
+def build(ivy, tmp, name, native, operation="check", go_overlay=None, concrete=False):
     common = ["go", "build", "-mod=readonly", "-buildvcs=false", "-pgo=off"]
     if native:
         obj = tmp / "observer.o"
@@ -61,6 +61,10 @@ def build(ivy, tmp, name, native, operation="check", go_overlay=None):
         src = ivy / "smt/g3_solver.go"
         files = json.loads(go_overlay.read_text())["Replace"] if go_overlay else {}
         code = original_scopes(Path(files.get(str(src), src)).read_text())
+        if concrete:
+            start = code.index(GO_METHOD) + len(GO_METHOD)
+            end = code.index("\n}\n", start)
+            code = code[:start] + "\n return s.Check()" + code[end:]
         method = GO_METHOD if operation == "check" else "func (s *Z3Solver) Push() {"
         if code.count(method) != 1 or code.count('import (') != 1:
             raise ValueError(f"unrecognized GoIvy solver adapter {src}")
