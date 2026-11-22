@@ -2532,3 +2532,22 @@ The comparison count includes the old append helper at registration and during r
 The benchmark registers real quantified expressions before timing. Each iteration resets and rebuilds the graph. The table uses medians of nine rounds with 12 builds per sample on CPU 11. Reproduce it from `pkg/` with `go test ./smtcore -run '^$' -bench '^BenchmarkSMTModelFinderAUFGraph$' -cpu=1 -benchtime=12x -benchmem`. Across all nine Apple isolates, the final code reproduced the complete linked-Z3 transcripts, all 18 original solver counters on each of 10,342 checks, and the same 208 independently confirmed private refutations. [Benchmark](smtcore/smt_model_finder_auf_benchmark_test.go) · [All 144 microbenchmark samples](perf/ivy_apple/model_finder/nov22-graph-benchmark.csv) · [Reference values](perf/ivy_apple/goal_instances/nov22-projection-verified.csv.gz)
 
 For physical source-line attribution on the original search, sample `rfn2` check 7 with `phase_stacks.py --engines g3 --call-graph fp --select 7 --period 1500007 --pairs 4 --keep-binaries` and the checker's usual GoIvy, spec, CPU, reference and output arguments. Then use `source_lines.py --binary OUTPUT/bin/g3 --period 1500007 OUTPUT/7-1-g3/stacks.gz`. In the first run, 102 of the 4,622 samples landed on the old function-variable comparison line. Every sample contributes to exactly one physical leaf and one enclosing stage. The subsequent visit census measures how often the loop ran. [Stack capture](perf/ivy_apple/phase_stacks.py) · [Physical source-line reader](perf/ivy_apple/quantifier_phases/source_lines.py) · [Complete first profile](perf/ivy_apple/model_finder/nov22-rfn2-7-lines.csv.gz)
+
+### Ten complete workloads and the remaining incremental checks
+
+The release crossover at `8c4be47e9` covered ordinary Raft and all nine Apple isolates. It includes the quantified Boolean projection and precedes the two subsequent changes to unit propagation and the model finder. All three builds used GoIvy `ef53df6a4`, `GOMAXPROCS=1`, disabled PGO and the same original specification and CPU within each workload. Each of six rounds ran g3, its preceding implementation and linked Z3. Every complete proof transcript matched. Other studies ran on the host, so the wall times describe this run’s load. [All 180 process measurements](perf/ivy_apple/goal_instances/nov22-ten-workloads.csv)
+
+| Complete workload | Checks | g3 median, s | Linked Z3 median, s | g3, billion instructions | Linked Z3, billion instructions |
+|---|---:|---:|---:|---:|---:|
+| Ordinary Raft | 419 | 6.95 | 70.39 | 28.38 | 215.20 |
+| Apple `rfn2` | 26 | 13.88 | 29.27 | 55.16 | 69.24 |
+| `rfn` | 33 | 12.84 | 19.82 | 51.35 | 57.48 |
+| `dramc_nb2` | 2,479 | 138.82 | 164.27 | 410.15 | 480.14 |
+| `sys_live` | 1,738 | 102.97 | 117.03 | 300.57 | 337.91 |
+| `e2e` | 2,378 | 134.03 | 156.72 | 387.48 | 435.61 |
+| `tprops` | 700 | 53.41 | 54.84 | 162.42 | 168.75 |
+| `cf_pio_live` | 2,215 | 174.17 | 177.37 | 486.32 | 539.68 |
+| `cmpl_live` | 437 | 40.70 | 39.05 | 128.29 | 124.45 |
+| `cf_live` | 336 | 66.00 | 47.14 | 185.38 | 107.59 |
+
+The clearest remaining whole-workload gap is `cf_live`. Its 336 verification calls account for 98.53 billion g3 instructions and 34.00 billion linked-Z3 instructions. Check 130 alone accounts for 21.59 billion of that difference. Checks 58 and 48 add 4.84 and 3.26 billion. The similar `cf_pio_live` check 126 costs 35.94 billion versus 11.87 billion although g3 finishes the whole isolate faster. On `cmpl_live`, checks 35 and 177 together contribute 5.05 billion of the 9.79 billion additional instructions inside verification. On `rfn2`, g3 now executes 12.07 billion in all verification calls versus 35.48 billion for linked Z3. The general check 7 remains individually expensive. These totals sum the median of three thread-local, empty-interval-adjusted observations per check. [All 62,052 call measurements](perf/ivy_apple/goal_instances/nov22-nine-isolate-checks.csv.gz) · [Per-call measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py)
