@@ -3134,3 +3134,37 @@ Across nine alternating baseline/change pairs on CPU 27, the ten fresh pushes in
 The saved streaming benchmark makes 1,024 different ordered substitutions per batch into a shared conditional DAG through the ordinary instance cache. Nine alternating 65,536-iteration runs on CPU 20 measured 2,782 to 1,957 ns/op. Whole-process instructions for the benchmark fell from 2.036 to 1.394 billion. On complete checkers, old/new billion-instruction medians were 44.63/42.98 for rfn2, 48.51/47.07 for rfn, 119.22/117.69 for cmpl_live and 282.89/278.94 for sys_live. Whole-checker wall times varied under shared load. The three small incremental shell obligations gained only 1–3 million instructions in the comparison of separate medians. This substitution change addresses a disproportionately expensive operation on the Apple pushes. [Go benchmark](smtcore/smt_quantifier_substitution_benchmark_test.go) · [Microbenchmark observations](perf/ivy_apple/incremental_cost/nov22b-ground-body-stream.csv.gz) · [Complete checkers](perf/ivy_apple/incremental_cost/nov22b-ground-body-checkers.csv.gz) · [Three shell replays](perf/ivy_apple/incremental_cost/nov22b-ground-body-replays.csv.gz)
 
 All 18 g3 statistic deltas matched the previous build at each of 799 pushes across rfn2, cf_live and cmpl_live. With every private refutation independently checked by the ordinary solver, all 18 concrete statistics and the proof outcomes matched linked Z3 at every one of 10,342 checks across the nine Apple isolates. [Concrete results](perf/ivy_apple/incremental_cost/nov22b-ground-body-concrete.csv.gz) · [Concrete replay driver](perf/ivy_apple/goal_instances/verify.py) · [Push counters](perf/ivy_apple/search_counters.py)
+
+### Why matched incremental queries retire more instructions in g3
+
+Seven hardware-counter pairs measured one corresponding function at a time in both shells on three saved incremental queries. Both shells returned UNSAT with identical decisions, instantiations, conflicts and resource steps in every comparison. The new measurements count calls as well as instructions inside the selected function on the solver thread. They include its callees. Nested rows in the table must therefore be read separately. The native comparison uses this fork's C++ shell, compilation flags, objects and link order. A timer around the selected C++ method recompiles its containing translation unit, which can affect inlining. Broader operation timings and uninstrumented whole-process totals provide independent checks. [Measurement driver](perf/ivy_apple/holdouts/query_operations.py) · [Every count](perf/ivy_apple/holdouts/nov22b-matched-replay-operations.csv.gz) · [Independent whole-shell replays](perf/ivy_apple/incremental_cost/nov22b-ground-body-replays.csv.gz)
+
+| Incremental obligation | Operation | Calls in each engine | g3 / Z3 million instructions |
+|---|---|---:|---:|
+| Toy consensus 18 | Check-sat command | 1 | 583.3 / 166.5 |
+| | Theory application reduction | 41,444 | 126.25 / 14.78 |
+| | Arithmetic inequalities | 2,908 | 58.45 / 7.68 |
+| | Boolean AND/OR literal scan | 4,779 | 6.74 / 1.23 |
+| | Cached quantifier-body instantiation | 906 | 9.83 / 3.76 |
+| Ticket 127 | Check-sat command | 1 | 165.7 / 54.6 |
+| | Theory application reduction | 17,879 | 18.57 / 2.53 |
+| | Boolean AND/OR literal scan | 3,718 | 5.03 / 0.98 |
+| | Cached quantifier-body instantiation | 1,389 | 12.78 / 4.85 |
+| Ticket 290 | Check-sat command | 1 | 184.7 / 56.8 |
+| | Theory application reduction | 21,262 | 22.75 / 2.96 |
+| | Boolean AND/OR literal scan | 4,748 | 5.56 / 1.05 |
+| | Cached quantifier-body instantiation | 1,241 | 12.30 / 4.09 |
+
+On toy consensus the two shells processed exactly the same number of theory applications. The cost averaged **3,046 versus 357 instructions per call** to dispatch and apply the theory rule to the rewritten arguments. The complete application reducer therefore explains about 111 million extra instructions. Arithmetic inequalities account for about 51 million within that work. Neither ticket query called the arithmetic inequality routine. Across all three, the check-sat command itself still cost 3.0–3.5 times as many instructions in Go. Shell initialization and parsing account for only part of the whole-process difference on these controls. [Go dispatch](ast/rewriter/th_rewriter.go) · [Native dispatch and direct argument array](../src/ast/rewriter/th_rewriter.cpp)
+
+The C++ numeral reader checks the application tag, loads its declaration, and reads its two parameters. The Go reader validates and resolves the expression, declaration information and parameter records through its manager. The measured rational-read entry points on toy consensus cost 10.1 versus 1.1 million instructions; the entry counts themselves differed (27,147 versus 44,472). Both engines also cache small nonnegative numeral applications. On a miss the Go construction goes through the plugin's owned numeral, declaration and application factories. The measured construction entry points took 27.5 versus 2.8 million instructions with 2,713 versus 2,414 entries. These observations include work outside inequalities and overlap the theory measurements. [Go reader](ast/ast_arith_numeral_text.go) · [Go constructor](ast/ast_arith_numeral.go) · [C++ reader and constructor](../src/ast/arith_decl_plugin.cpp)
+
+A prototype tested two changes together. It reads a live application's cached declaration and typed numeral parameters directly from the arena. It also recognizes a comparison already in normal form when an uninterpreted integer term or integer variable is bounded by a small integer literal on the right. The original reducer revisits the two operands while testing powers, cancelling monomials, checking bounds and computing coefficient GCDs. On the same 2,908 comparisons, the prototype reduced the Go interval from **58.45 to 42.98 million instructions**, and the complete theory reducer from **126.25 to 108.72 million**. In seven paired whole-shell runs with GC disabled to reduce runtime variation, the median saving was **17.73 million**. On the full toy-consensus specification the saving was only 15.03 million in five paired ordinary runs, roughly 0.2%. The unchanged search counters make the local improvement attributable to cheaper operations. The whole-program effect leaves most of the original gap open. [Paired replays](perf/ivy_apple/holdouts/nov22b-comparison-prototype-replays.csv.gz) · [Exact prototype method counts](perf/ivy_apple/holdouts/nov22b-comparison-prototype-operations.csv.gz) · [Complete checkers](perf/ivy_apple/holdouts/nov22b-comparison-prototype-examples.csv.gz) · [Experimental patch](perf/ivy_apple/holdouts/rewriter_trials/nov22b-atomic-comparison-experiment.patch.gz)
+
+To reproduce a single row from pkg/, build the C++ shell in the repository's build directory and use a new output directory on a Linux host with user-mode instruction counters:
+
+```sh
+python3 perf/ivy_apple/holdouts/query_operations.py \
+    --operation arithmetic-comparison --queries toy-consensus-18 \
+    --cpu 7 --pairs 7 --output /tmp/paired-comparison > /tmp/paired-comparison.csv
+```
