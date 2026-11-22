@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run two GoIvy builds on an Apple isolate and compare the entire transcript."""
+"""Compare two complete GoIvy checker runs on a specification or one isolate."""
 
 import argparse
 import csv
@@ -18,7 +18,7 @@ def measure(checker, args, directory):
     resources = directory / "resources"
     checker_command = [
         "/usr/bin/time", "-f", "%U %S %M", "-o", str(resources),
-        str(checker), "isolate=" + args.isolate, str(args.spec),
+        str(checker), *(["isolate=" + args.isolate] if args.isolate else []), str(args.spec),
     ]
     command = ["taskset", "-c", str(args.cpu)]
     if args.perf:
@@ -34,7 +34,9 @@ def measure(checker, args, directory):
     counters = []
     if args.perf and result.returncode == 0:
         values = {row[2]: int(row[0]) for row in csv.reader(counts.read_text().splitlines())
-                  if len(row) > 2 and row[2] in EVENTS}
+                  if len(row) > 4 and row[2] in EVENTS and float(row[4]) == 100.0}
+        if set(values) != set(EVENTS):
+            raise ValueError(f"{directory}: missing or multiplexed hardware counter")
         counters = [values[event] for event in EVENTS]
     return result.returncode, (round(elapsed, 3), user, system, rss), counters
 
@@ -42,7 +44,11 @@ def measure(checker, args, directory):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--spec", type=Path, required=True)
-    p.add_argument("--isolate", default="dramc_nb2")
+    workload = p.add_mutually_exclusive_group()
+    workload.add_argument("--isolate", default="dramc_nb2")
+    workload.add_argument("--whole-spec", dest="isolate", action="store_const", const=None,
+                          help="run GoIvy with its default isolate selection")
+    p.add_argument("--reference", type=Path, help="require stdout to match this existing successful transcript")
     p.add_argument("--cpu", type=int, required=True)
     p.add_argument("--pairs", type=int, default=3)
     p.add_argument("--output", type=Path, required=True)
@@ -53,13 +59,17 @@ def main():
     args = p.parse_args()
     if args.pairs < 1:
         p.error("--pairs must be positive")
-    args.spec = args.spec.resolve(strict=True)
+    # GoIvy includes source filenames in the proof transcript. Keep the
+    # caller's spelling of symlinked paths when comparing to a saved run.
+    args.spec = args.spec.absolute() if args.reference else args.spec.resolve(strict=True)
+    if not args.spec.is_file():
+        p.error("the specification must be a file")
     checkers = [checker.resolve(strict=True) for checker in args.checkers]
     labels = args.labels or [checker.name for checker in checkers]
     if args.labels and len(set(labels)) != 2:
         p.error("--labels must be distinct")
     output = args.output.resolve()
-    reference = None
+    reference = (0, args.reference.read_bytes()) if args.reference else None
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["pair", "checker", "isolate", "cpu", "exit", "wall_s",
                      "user_s", "sys_s", "rss_KiB", "passes", "same_transcript", *(EVENTS if args.perf else ())])
@@ -74,7 +84,7 @@ def main():
                 reference = (status, transcript)
             same = (status, transcript) == reference
             lines = transcript.splitlines()
-            writer.writerow([pair, labels[idx], args.isolate, args.cpu, status,
+            writer.writerow([pair, labels[idx], args.isolate or args.spec.stem, args.cpu, status,
                              *metrics, lines.count(b"PASS"), int(same), *counters])
             sys.stdout.flush()
             if status or not lines or lines[-1].strip() != b"OK" or not same:
