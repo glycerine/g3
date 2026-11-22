@@ -21,6 +21,7 @@ const orderProofSteps = 3_000_000
 // uninterpreted sorts, it can refute ground instances at the final goal's constants.
 // A quantified goal can also be refuted by its Boolean structure and the
 // one-way implications connecting quantified formulas to their ground instances.
+// Ground Boolean goals may use the ground conjuncts of their premises.
 // For goals with several quantifiers over the same domain, a private ground
 // solver also checks instances at fresh witnesses and observed applications.
 // True establishes that the assertions are unsatisfiable. False is inconclusive:
@@ -138,10 +139,23 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 		if err != nil || limit.CancelFlag() {
 			return false, err
 		}
+		searchSteps := maxSteps
 		if bits == nil {
-			return p.proveGoalInstances(parent, assertions, maxSteps)
+			// The incremental solver can answer immediately when preprocessing
+			// has already produced false. Avoid projecting its ground premises.
+			incremental, ok := s.solver.(interface{ HasInconsistentAssertions() bool })
+			if !ok || !incremental.HasInconsistentAssertions() {
+				bits, err = order.ProjectGroundBooleans(parent, assertions, maxSteps)
+				if err != nil || limit.CancelFlag() {
+					return false, err
+				}
+			}
+			if bits == nil {
+				return p.proveGoalInstances(parent, assertions, maxSteps)
+			}
+			searchSteps = min(maxSteps, 80_000)
 		}
-		proof.Boolean, proof.SearchSteps = bits, maxSteps
+		proof.Boolean, proof.SearchSteps = bits, searchSteps
 	}
 	if proof.Refuted {
 		return true, nil

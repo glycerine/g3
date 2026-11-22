@@ -272,28 +272,11 @@ func (g *groundProjection) read(h ast.ASTHandle, depth int) (uint32, error) {
 // Validate the shapes that will become Boolean gates. Applications from
 // other theories can be represented by their exact ground syntax.
 func (g *groundProjection) booleanOperation(op int32, args []uint32) (int32, error) {
-	switch op {
-	case ast.ASTOpTrue, ast.ASTOpFalse:
-		if len(args) != 0 {
-			return 0, inapplicable
-		}
-	case ast.ASTOpAnd, ast.ASTOpOr:
-	case ast.ASTOpNot:
-		if len(args) != 1 {
-			return 0, inapplicable
-		}
-	case ast.ASTOpImplies, ast.ASTOpIff, ast.ASTOpXor:
-		if len(args) != 2 {
-			return 0, inapplicable
-		}
-	case ast.ASTOpIte:
-		if len(args) != 3 {
-			return 0, inapplicable
-		}
-	case ast.ASTOpEq:
-		if len(args) != 2 {
-			return 0, inapplicable
-		}
+	op, err := booleanGateShape(op, uint32(len(args)))
+	if err != nil || op == opaqueOperation {
+		return op, err
+	}
+	if op == ast.ASTOpEq {
 		a, err := g.manager.GetSort(g.input[args[0]].expr)
 		if err != nil {
 			return 0, err
@@ -306,13 +289,38 @@ func (g *groundProjection) booleanOperation(op int32, args []uint32) (int32, err
 			return 0, inapplicable
 		}
 		return op, nil
-	default:
-		return opaqueOperation, nil
 	}
 	for _, a := range args {
 		if !g.input[a].boolean {
 			return 0, inapplicable
 		}
+	}
+	return op, nil
+}
+
+// Other basic-family operations can be left as independent propositions.
+// Gate encodings consume the arities checked here.
+func booleanGateShape(op int32, count uint32) (int32, error) {
+	switch op {
+	case ast.ASTOpTrue, ast.ASTOpFalse:
+		if count != 0 {
+			return 0, inapplicable
+		}
+	case ast.ASTOpAnd, ast.ASTOpOr:
+	case ast.ASTOpNot:
+		if count != 1 {
+			return 0, inapplicable
+		}
+	case ast.ASTOpImplies, ast.ASTOpIff, ast.ASTOpXor, ast.ASTOpEq:
+		if count != 2 {
+			return 0, inapplicable
+		}
+	case ast.ASTOpIte:
+		if count != 3 {
+			return 0, inapplicable
+		}
+	default:
+		return opaqueOperation, nil
 	}
 	return op, nil
 }

@@ -15,9 +15,12 @@ from syntax import conjuncts, fresh_names, parse, separate, smt, unlet
 HERE = Path(__file__).resolve().parent
 PKG = HERE.parents[3]
 FIXTURES = HERE.parents[1] / "test_vectors"
+# These captured workloads use uninterpreted sorts and nullary enumerations.
+DEFAULT_CASES = ("cf_live-130", "cf_live-56", "dramc_nb2-369", "dramc_nb2-63", "dramc_nb2-71",
+                 "rfn2-13", "rfn2-22", "rfn2-4")
 
 
-def generate(forms, seed, width, with_witnesses=False):
+def generate(forms, seed, width, with_witnesses=False, ground_booleans=False):
     rng = random.Random(seed)
     names = fresh_names(forms, "g3!model!")
     domains = {"Bool": ("false", "true")}
@@ -99,6 +102,7 @@ def generate(forms, seed, width, with_witnesses=False):
 
     premises = [p for root in roots[:-1] for p in conjuncts(root, {})]
     kept = [p for p in premises if evaluate(p, {}) == "true"]
+    retained = len(kept)
     goal = unlet(roots[-1], {})
     sign = evaluate(goal, {})
     goal = goal if sign == "true" else ("not", goal)
@@ -116,8 +120,28 @@ def generate(forms, seed, width, with_witnesses=False):
                            ("not", ("forall", binder, (never, x))),
                            ("not", ("exists", binder, (never, x)))))
         goal = ("and", goal, *guards)
+    if ground_booleans:
+        # Retain the certified original goal as a premise. The new query spans
+        # existing Boolean state variables whose values are fixed by the model.
+        kept.append(goal)
+        variables = [f[1] for f in forms if f[0] in ("declare-fun", "declare-const")
+                     and f[-1] == "Bool" and (f[0] == "declare-const" or not f[2])]
+        while len(variables) < 4:
+            name, value = next(names), rng.choice(("true", "false"))
+            variables.append(name)
+            functions[name] = value, {}
+            source.append(("declare-const", name, "Bool"))
+            certificate.append(("define-fun", name, (), "Bool", value))
+        a, b, c, d = rng.sample(variables, 4)
+        queries = [("ite", a, ("=>", b, c), ("not", d)),
+                   ("xor", a, b, c, d),
+                   ("=", ("or", a, b), ("and", c, d)),
+                   ("=>", ("distinct", a, b), ("ite", c, d, a))]
+        goal = queries[(seed + width) % len(queries)]
+        if evaluate(goal, {}) == "false":
+            goal = ("not", goal)
     assertions = [("assert", ("and", *kept)), ("assert", goal), ("check-sat",)]
-    return source + assertions, certificate + assertions, len(premises), len(kept), sign
+    return source + assertions, certificate + assertions, len(premises), retained, sign
 
 
 def main():
@@ -128,7 +152,10 @@ def main():
     parser.add_argument("--jobs", default=2, type=int)
     parser.add_argument("--seeds", default=12, type=int)
     parser.add_argument("--case", nargs="+", help="fixture names without .smt2.gz")
-    parser.add_argument("--with-quantified-witnesses", action="store_true",
+    goals = parser.add_mutually_exclusive_group()
+    goals.add_argument("--ground-booleans", action="store_true",
+                       help="derive a ground Boolean query satisfied by the explicit model")
+    goals.add_argument("--with-quantified-witnesses", action="store_true",
                         help="extend each model with satisfiable quantified goals over every uninterpreted sort")
     args = parser.parse_args()
     if min(args.seeds, args.jobs) <= 0:
@@ -139,7 +166,7 @@ def main():
     shutil.copyfile(HERE / "check.go.txt", main_go)
     proof = root / "check"
     subprocess.run(["go", "build", "-pgo=off", "-o", proof, main_go], cwd=PKG, check=True)
-    cases = args.case or sorted(p.name.removesuffix(".smt2.gz") for p in FIXTURES.glob("*.smt2.gz"))
+    cases = args.case or DEFAULT_CASES
     engines = [p.resolve(strict=True) for p in (args.g3, args.native)]
 
     def run(case):
@@ -149,7 +176,8 @@ def main():
             for width in (1, 2):
                 loc = root / f"{case}-{seed}-{width}"
                 loc.mkdir()
-                source, cert, total, retained, sign = generate(forms, seed, width, args.with_quantified_witnesses)
+                source, cert, total, retained, sign = generate(
+                    forms, seed, width, args.with_quantified_witnesses, args.ground_booleans)
                 for fname, problem in (("source.smt2", source), ("certificate.smt2", cert)):
                     (loc / fname).write_text("\n".join(map(smt, problem)) + "\n")
                 for engine in engines:
