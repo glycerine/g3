@@ -1,0 +1,37 @@
+--- a/pkg/api/api_order_abstraction.go
++++ b/pkg/api/api_order_abstraction.go
+@@ -39,7 +39,8 @@
+ type OrderProofBatch struct{ state *orderProofState }
+ 
+ type orderProofState struct {
+-	bits *orderBooleanSolver
++	studyAssertions []ast.ASTHandle
++	bits            *orderBooleanSolver
+ 	// Keep a failed side-condition cleanup reachable for release's retry.
+ 	pendingCondition *orderProofState
+ 	source           *APISimpleSolver
+@@ -121,7 +122,10 @@
+ 	if steps != 0 || timeout != 0 && timeout != math.MaxUint32 {
+ 		return false, nil
+ 	}
+-	assertions, err := solver.Assertions(s.solver)
++	assertions := p.studyAssertions
++	if assertions == nil {
++		assertions, err = solver.Assertions(s.solver)
++	}
+ 	if err != nil {
+ 		return false, err
+ 	}
+@@ -293,3 +297,12 @@
+ 	}
+ 	return true, nil
+ }
++
++func (b *OrderProofBatch) StudyProveRoots(roots []ast.ASTHandle) (bool, error) {
++	if b == nil || b.state == nil || len(roots) == 0 {
++		return false, nil
++	}
++	b.state.studyAssertions = roots
++	defer func() { b.state.studyAssertions = nil }()
++	return b.Prove()
++}

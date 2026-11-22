@@ -2467,3 +2467,19 @@ Each cell is the median of the same completed rounds on a pinned CPU for that is
 Independent replay forced the original incremental solver to check every query after the optional proof. It confirmed **208 private UNSAT results**, including the 18 from the preceding ground method. Trying all quantified goals as a separate control gave 276 confirmed refutations. Across all nine isolates, the 18 original search counters matched linked Z3 at each of 10,342 checks in both runs. A second control generated **168 satisfiable queries** from the seven captured Apple formulas using twelve seeded interpretations and one- and two-element domains for each uninterpreted sort. It retained each premise satisfied by the interpretation and selected a satisfied polarity of the goal. G3 and Z3 both returned SAT on every explicit model certificate. The public private-proof API accepted zero refutations of those source queries. [Gated replay](perf/ivy_apple/goal_instances/nov22-projection-verified.csv.gz) · [Unrestricted replay](perf/ivy_apple/goal_instances/nov22-projection-ungated-verified.csv.gz) · [Finite-model driver](perf/ivy_apple/goal_instances/finite_models/verify.py) · [All satisfiable controls](perf/ivy_apple/goal_instances/finite_models/nov22-satisfiable-apple.csv)
 
 Run `go test ./api -run '^$' -bench '^BenchmarkAppleQuantifiedGoal$' -benchmem` from `pkg/` for the captured `dramc_nb2` check. The fresh variants include solver construction and parsing. The prepared variant measures private refutation of a loaded formula. The Go tests exercise quantifier polarity, overlapping declaration names, two sorts, compound terms, resource exhaustion, cancellation, pop and concrete model recovery. [Benchmark](api/api_goal_instances_benchmark_test.go) · [Semantic and lifetime tests](api/api_quantified_goal_test.go)
+
+### Can the private proof avoid the first push?
+
+GoIvy has the source assertions and current verification condition before it opens the incremental scope. An experimental adapter passed those borrowed expressions to the existing private proof at that point. A refutation completed the check immediately. Otherwise the adapter opened the original scope and called the concrete solver. This measured how much base preprocessing could actually disappear. Each mode ran five times on the same CPU for an isolate. All complete proof transcripts matched. [Raw process counters and push counts](perf/ivy_apple/goal_instances/nov22-before-scope.csv)
+
+| Complete workload | Checks | Pushes avoided | Current order, billion instructions | Proof before push, billion instructions |
+|---|---:|---:|---:|---:|
+| Ordinary Raft | 419 | 419 | 28.37 | 27.27 |
+| Apple `rfn2` | 26 | 6 | 55.34 | 54.94 |
+| Apple `rfn` | 33 | 4 | 51.39 | 51.41 |
+| Apple `dramc_nb2` | 2,479 | 104 | 410.10 | 410.73 |
+| Apple `sys_live` | 1,738 | 33 | 300.92 | 301.00 |
+
+The change saved 3.9% of retired instructions on ordinary Raft, where every check used the private proof. On the Apple isolates a later concrete check still processes a fresh solver's pending base. Avoiding 104 scopes on `dramc_nb2` produced no whole-run saving. The production adapter keeps its current call order. The more promising target for Apple is the per-expression work in preprocessing a base that a concrete check ultimately needs.
+
+The two patches reproduce the experiment on g3 `8c4be47e9` and GoIvy `ef53df6a4`. Build the GoIvy checker with `-tags=xtrace_off -pgo=off` and run with `GOMAXPROCS=1`. An empty `IVY_BEFORE_SCOPE` selects the original order. The value `once` attempts the proof before opening the scope and dispatches directly to the concrete check on fallback. The `twice` control allows the normal proof dispatch again after a miss. Set `IVY_PROOF_EVENTS=yes` to count scopes and successful refutations. [g3 experimental patch](perf/ivy_apple/goal_instances/before-scope-g3.patch) · [GoIvy experimental patch](perf/ivy_apple/goal_instances/before-scope-goivy.patch)

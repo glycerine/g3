@@ -1,0 +1,118 @@
+--- a/goivy/smt/g3_solver.go
++++ b/goivy/smt/g3_solver.go
+@@ -29,10 +29,11 @@
+ }
+ 
+ type Z3Solver struct {
+-	ctx    *Z3Context
+-	c      *api.APISimpleSolver
+-	params *api.ParameterSet
+-	logic  string
++	studyBatch *api.OrderProofBatch
++	ctx        *Z3Context
++	c          *api.APISimpleSolver
++	params     *api.ParameterSet
++	logic      string
+ }
+ 
+ func (ctx *Z3Context) NewZ3Solver() *Z3Solver { return NewZ3SolverForLogic(ctx, "") }
+@@ -65,8 +66,9 @@
+ // of Ivy final conditions. Release it when the checker leaves that set.
+ func (s *Z3Solver) BeginVerificationChecks() (check func() Z3CheckResult, release func()) {
+ 	batch := s.c.BeginOrderProofBatch()
++	s.studyBatch = batch
+ 	return func() Z3CheckResult { return s.checkVerificationCondition(batch.Prove) },
+-		func() { fail(batch.Close()) }
++		func() { s.studyBatch = nil; fail(batch.Close()) }
+ }
+ 
+ func (s *Z3Solver) checkVerificationCondition(prove func() (bool, error)) Z3CheckResult {
+@@ -192,3 +194,17 @@
+ 		fail(m.c.Close())
+ 	}
+ }
++
++func (s *Z3Solver) StudyProveBefore(roots []Z3Expr) bool {
++	var yes bool
++	s.ctx.do(func() {
++		batch := s.studyBatch
++		if batch == nil {
++			batch = s.c.BeginOrderProofBatch()
++			defer batch.Close()
++		}
++		y, e := batch.StudyProveRoots(exprHandles(roots))
++		yes = y && e == nil
++	})
++	return yes
++}
+--- a/goivy/z3bridge_solver_model.go
++++ b/goivy/z3bridge_solver_model.go
+@@ -1272,6 +1272,8 @@
+ 	// without calling decide(), exactly like Python.
+ 	if finalCond != nil {
+ 		check := z3solver.CheckVerificationCondition
++		inputRoots := []smt.Z3Expr{zc}
++		style := os.Getenv("IVY_BEFORE_SCOPE")
+ 		if s.opts.Incremental && len(finalCond) > 1 {
+ 			var release func()
+ 			check, release = z3solver.BeginVerificationChecks()
+@@ -1317,6 +1319,7 @@
+ 					continue
+ 				}
+ 				z3solver.Assert(zCond)
++				inputRoots = append(inputRoots, zCond)
+ 				assumes = append(assumes, fc.Cond()) // track for non-incremental replay
+ 			} else {
+ 				// Checked condition.
+@@ -1331,14 +1334,28 @@
+ 				if err != nil {
+ 					continue
+ 				}
+-				if s.opts.Incremental {
+-					z3solver.Push()
+-				}
+-				z3solver.Assert(zCond)
++				attempt := s.opts.Incremental && style != "" && (!xtracer.Enabled || xtracer.Suppressed)
++				proved := attempt && z3solver.StudyProveBefore(append(inputRoots, zCond))
++				opened := s.opts.Incremental && !proved
++				runCheck := check
++				if proved {
++					runCheck = func() smt.Z3CheckResult { return smt.Unsat }
++				} else {
++					if opened {
++						z3solver.Push()
++					}
++					z3solver.Assert(zCond)
++					if attempt && style == "once" {
++						runCheck = z3solver.Check
++					}
++				}
++				if os.Getenv("IVY_PROOF_EVENTS") != "" {
++					fmt.Fprintln(os.Stderr, "PRE-SCOPE", attempt, proved, opened)
++				}
+ 				// Python ivy_solver.py:1437 calls decide(s) which emits the
+ 				// decide() ENTER trace before invoking solver.check.
+ 				xtracer.Trace("ivy_solver.py:1302 decide() ENTER")
+-				res, err := s.decideZ3With(z3solver, check)
++				res, err := s.decideZ3With(z3solver, runCheck)
+ 				if err != nil {
+ 					return nil, err
+ 				}
+@@ -1349,7 +1366,7 @@
+ 					if fc.Sat() {
+ 						// Checker says to continue (ignore this failure)
+ 						overallResult = smt.Unsat
+-						if s.opts.Incremental {
++						if opened {
+ 							z3solver.Pop()
+ 						}
+ 						continue
+@@ -1361,7 +1378,7 @@
+ 					overallResult = smt.Unsat
+ 					fc.Unsat()
+ 				}
+-				if s.opts.Incremental {
++				if opened {
+ 					z3solver.Pop()
+ 				}
+ 			}
