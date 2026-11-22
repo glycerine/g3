@@ -18,14 +18,15 @@ func goalInstanceInput(extra, goal string) string {
 	text.WriteString(`(declare-sort A 0)(declare-sort B 0)
 (declare-const a A)(declare-const another A)(declare-const b B)
 (declare-fun property (A B) Bool)(declare-const guard Bool)
+(declare-fun active (A) Bool)(declare-fun valid (B) Bool)
 `)
 	for i := 0; i < 100; i++ {
 		fmt.Fprintf(&text, "(declare-fun p%d (A B) Bool)(assert (forall ((x A)(y B)) (p%d x y)))\n", i, i)
 	}
 	text.WriteString(extra)
-	text.WriteString("(assert ")
+	text.WriteString("(assert (and (active a) (valid b) ")
 	text.WriteString(goal)
-	text.WriteString(")")
+	text.WriteString("))")
 	return text.String()
 }
 
@@ -107,6 +108,22 @@ func TestGoalInstancesAmbiguousWitnessAndCancellation(t *testing.T) {
 	proved, err := s.ProveUnsatByOrderAbstraction()
 	if proved || err != nil || len(m.ResourceLimit().Children) != 0 {
 		t.Fatalf("canceled attempt returned %v, %v with %d children", proved, err, len(m.ResourceLimit().Children))
+	}
+}
+
+func TestGoalInstancesLeaveSmallGoalsToSourceSolver(t *testing.T) {
+	ctx, s := orderSolver(t, goalInstanceInput("", "true"))
+	m, err := ctx.Manager()
+	astTestMust(t, err)
+	values, err := solver.Assertions(s.solver)
+	astTestMust(t, err)
+	plan, err := planGoalInstances(m, values)
+	if err != nil || plan != nil {
+		t.Fatalf("two goal predicates across two sorts yielded a private plan: %v", err)
+	}
+	answer, err := s.Check()
+	if answer != lbool.True || err != nil {
+		t.Fatalf("source check returned %v, %v", answer, err)
 	}
 }
 

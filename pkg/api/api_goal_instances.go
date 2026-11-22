@@ -26,6 +26,7 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (map[ast.ASTHa
 	}
 	seen := make(map[ast.ASTHandle]bool)
 	witnesses := make(map[ast.ASTHandle]ast.ASTHandle)
+	functions := make(map[ast.ASTHandle]bool)
 	stack := []ast.ASTHandle{goal}
 	for len(stack) > 0 {
 		h := stack[len(stack)-1]
@@ -40,6 +41,9 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (map[ast.ASTHa
 		}
 		if header.Kind != ast.ASTApp || len(seen) > 256 || header.NumArgs > 256 {
 			return nil, nil
+		}
+		if len(functions) < 3 && header.NumArgs > 0 && header.Family == ast.NullFamilyID {
+			functions[header.Decl] = true
 		}
 		if header.NumArgs == 0 && header.Family == ast.NullFamilyID {
 			sort, err := m.GetSort(h)
@@ -72,7 +76,9 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (map[ast.ASTHa
 			delete(witnesses, sort)
 		}
 	}
-	if len(witnesses) < 2 {
+	// Goals involving just one or two functions are usually cheaper to
+	// check in the existing incremental solver, even with many premises.
+	if len(witnesses) < 2 || len(functions) < 3 {
 		return nil, nil
 	}
 	return witnesses, nil
