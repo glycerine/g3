@@ -18,7 +18,8 @@ const orderProofSteps = 3_000_000
 // checking for a contradictory ground instance of a quantified bit-vector
 // assertion. Remaining problems can use exact two-element domains or a
 // relaxation to uninterpreted ordered sorts. For quantified problems over
-// uninterpreted sorts, it can refute ground instances at the final goal's constants.
+// uninterpreted sorts, it can refute a ground instance or check a conditional
+// point update against a universal premise.
 // A quantified goal can also be refuted by its Boolean structure and the
 // one-way implications connecting quantified formulas to their ground instances.
 // Ground Boolean goals may use the ground conjuncts of their premises. A
@@ -45,6 +46,7 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
+	transitionPremises order.TransitionPremises
 	witnessPremises    *witnessPremises
 	definitions        *premiseDefinitions
 	previousGoalProved bool
@@ -132,6 +134,7 @@ func (b *OrderProofBatch) Close() error {
 	if s := b.state.source; s != nil && s.pendingRefutation == b.state.recent {
 		s.pendingRefutation = nil
 	}
+	b.state.transitionPremises = order.TransitionPremises{}
 	b.state.witnessPremises = nil
 	b.state.definitions = nil
 	b.state.recent = nil
@@ -222,7 +225,7 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []ast.ASTHandle, maxSteps uint32, reuse bool) (bool, error) {
 	s := p.source
 	limit := parent.ResourceLimit()
-	proof, applicable, err := order.ForProof(parent, assertions, maxSteps)
+	proof, applicable, err := p.transitionPremises.ForProof(parent, assertions, maxSteps)
 	if err != nil || limit.CancelFlag() {
 		return false, err
 	}

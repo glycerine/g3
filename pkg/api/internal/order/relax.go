@@ -70,26 +70,29 @@ type signature struct {
 }
 
 type inference struct {
-	m                *ast.ASTManager
-	transition       *transitionCase
-	boolSort         ast.ASTHandle
-	bvFamily         ast.FamilyID
-	widths           map[ast.ASTHandle]uint32
-	sortNames        []string
-	parents          []domainID
-	domainSorts      []ast.ASTHandle
-	declIDs          map[ast.ASTHandle]int32
-	signatures       []signature
-	booleanAliases   []int32 // private proof representative + 1, zero for an unchanged symbol
-	numerals         map[ast.ASTHandle]int32
-	containsFunction map[ast.ASTHandle]bool
-	scope            []binding
-	terms            []expression
-	children         []int32
-	declarations     []binding
-	assertions       []int32
-	visits           int
-	quantified       bool
+	m                  *ast.ASTManager
+	transition         *transitionCase
+	transitionPremises []ast.ASTHandle
+	premiseCache       *TransitionPremises
+	unbounded          bool
+	boolSort           ast.ASTHandle
+	bvFamily           ast.FamilyID
+	widths             map[ast.ASTHandle]uint32
+	sortNames          []string
+	parents            []domainID
+	domainSorts        []ast.ASTHandle
+	declIDs            map[ast.ASTHandle]int32
+	signatures         []signature
+	booleanAliases     []int32 // private proof representative + 1, zero for an unchanged symbol
+	numerals           map[ast.ASTHandle]int32
+	containsFunction   map[ast.ASTHandle]bool
+	scope              []binding
+	terms              []expression
+	children           []int32
+	declarations       []binding
+	assertions         []int32
+	visits             int
+	quantified         bool
 }
 
 var inapplicable = errors.New("outside the order abstraction")
@@ -103,13 +106,13 @@ var inapplicable = errors.New("outside the order abstraction")
 // for the source assertions. A false applicability result requests fallback.
 func Relax(m *ast.ASTManager, assertions []ast.ASTHandle) (Problem, bool, error) {
 	var t inference
-	if ok, err := t.infer(m, assertions); !ok || err != nil {
+	if ok, err := t.infer(m, assertions, nil); !ok || err != nil {
 		return Problem{}, false, err
 	}
 	return t.render(), true, nil
 }
 
-func (t *inference) infer(m *ast.ASTManager, assertions []ast.ASTHandle) (bool, error) {
+func (t *inference) infer(m *ast.ASTManager, assertions []ast.ASTHandle, cache *TransitionPremises) (bool, error) {
 	// This is a cached header bit even when a ground assertion is a large DAG.
 	quantified := false
 	for _, h := range assertions {
@@ -133,6 +136,10 @@ func (t *inference) infer(m *ast.ASTManager, assertions []ast.ASTHandle) (bool, 
 		m: m, boolSort: b, bvFamily: ast.NullFamilyID,
 		widths: make(map[ast.ASTHandle]uint32), declIDs: make(map[ast.ASTHandle]int32),
 		numerals: make(map[ast.ASTHandle]int32), containsFunction: make(map[ast.ASTHandle]bool),
+	}
+	if cache != nil && len(assertions) > 1 {
+		t.premiseCache = cache
+		t.transitionPremises = assertions[:len(assertions)-1]
 	}
 	for _, h := range assertions {
 		if err := t.conjunct(h, 0); err != nil {
@@ -167,20 +174,43 @@ func (t *inference) domain(sort ast.ASTHandle) (domainID, error) {
 		if err != nil {
 			return 0, err
 		}
-		if !bv {
-			return 0, inapplicable
-		}
-		width, err := t.m.BitVectorSize(sort)
-		if err != nil {
-			return 0, err
-		}
-		if width == 0 || width > 16 {
-			return 0, inapplicable
-		}
-		t.widths[sort] = width
-		t.bvFamily, err = t.m.GetFamilyID(sort)
-		if err != nil {
-			return 0, err
+		if bv {
+			width, err := t.m.BitVectorSize(sort)
+			if err != nil {
+				return 0, err
+			}
+			if width == 0 || width > 16 {
+				return 0, inapplicable
+			}
+			t.widths[sort] = width
+			t.bvFamily, err = t.m.GetFamilyID(sort)
+			if err != nil {
+				return 0, err
+			}
+		} else {
+			if len(t.transitionPremises) == 0 {
+				return 0, inapplicable
+			}
+			uninterpreted, err := t.m.IsUninterpretedSort(sort)
+			if err != nil {
+				return 0, err
+			}
+			if !uninterpreted {
+				return 0, inapplicable
+			}
+			if !t.unbounded {
+				ok, err := t.premiseCache.eligible(t.m, t.transitionPremises)
+				if err != nil {
+					return 0, err
+				}
+				if !ok {
+					return 0, inapplicable
+				}
+				t.unbounded = true
+			}
+			// Give each inferred domain a copy of the original sort's universe.
+			// Width zero excludes it from the two-element Boolean encoding.
+			t.widths[sort] = 0
 		}
 	}
 	id := domainID(len(t.parents))

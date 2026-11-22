@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/api/internal/order"
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -270,7 +271,7 @@ func TestOrderProofUnchangedAccessAtOtherWitness(t *testing.T) {
 }
 
 func TestOrderProofConditionalPointUpdate(t *testing.T) {
-	const decls = `(define-sort A () (_ BitVec 2))
+	const decls = `
 (declare-const a A)(declare-const b A)(declare-const c A)(declare-const d A)
 (declare-const p A)(declare-const q A)
 (declare-fun old (A A) Bool)(declare-fun updated (A A) Bool)
@@ -282,47 +283,92 @@ func TestOrderProofConditionalPointUpdate(t *testing.T) {
 (assert (distinct a p))(assert (old a b))(assert (member q c))(assert (not (end d)))
 `
 	const final = "(assert (not (=> (and (updated a b) (newD c)) (end d))))"
-	for _, tc := range []struct {
-		name, extra string
-		wantProof   bool
-	}{
-		{"change away from the point", "(assert (not (oldD c)))", false},
-		{"one possible changed atom", "(assert (forall ((z A)) (=> (newD z) (oldD z))))", true},
+	for _, domain := range []struct{ name, declaration string }{
+		{"two-bit", "(define-sort A () (_ BitVec 2))"},
+		{"uninterpreted", "(declare-sort A 0)"},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			c, s := orderSolver(t, decls+tc.extra+final)
-			manager, err := c.Manager()
+		for _, tc := range []struct {
+			name, extra string
+			wantProof   bool
+		}{
+			{"change away from the point", "(assert (not (oldD c)))", false},
+			{"one possible changed atom", "(assert (forall ((z A)) (=> (newD z) (oldD z))))", true},
+		} {
+			t.Run(domain.name+"/"+tc.name, func(t *testing.T) {
+				c, s := orderSolver(t, domain.declaration+decls+"(assert (distinct a b))(assert (distinct a c))(assert (distinct b c))"+tc.extra+final)
+				manager, err := c.Manager()
+				astTestMust(t, err)
+				assertions, err := solver.Assertions(s.solver)
+				astTestMust(t, err)
+				proof, ok, err := order.ForProof(manager, assertions, orderProofSteps)
+				astTestMust(t, err)
+				if !ok || proof.Conditional == nil {
+					t.Fatalf("expected a conditional point update (applicable %v, refuted %v)\n%s", ok, proof.Refuted, proof.Order.Text)
+				}
+				// The specialized counterexample is impossible at (p,q) even
+				// when the actual counterexample away from (p,q) is satisfiable.
+				trial := orderProofState{source: s}
+				astTestMust(t, trial.start(manager))
+				t.Cleanup(func() { astTestMust(t, trial.release()) })
+				established, err := trial.check(manager, proof.Conditional.Condition, 100_000, false)
+				astTestMust(t, err)
+				if established != tc.wantProof {
+					t.Fatalf("direction check = %v, want %v", established, tc.wantProof)
+				}
+				batch := s.BeginOrderProofBatch()
+				t.Cleanup(func() { astTestMust(t, batch.Close()) })
+				got, err := batch.Prove()
+				astTestMust(t, err)
+				if got != tc.wantProof {
+					t.Fatalf("private proof = %v, want %v", got, tc.wantProof)
+				}
+				result, err := s.Check()
+				astTestMust(t, err)
+				if result == lbool.Undef || (result == lbool.False) != tc.wantProof {
+					t.Fatalf("concrete solver result %v", result)
+				}
+			})
+		}
+	}
+}
+
+// Identical goals can follow different ordered premises after a source pop.
+func TestOrderTransitionPremiseCache(t *testing.T) {
+	const input = `(declare-sort A 0)(declare-const a A)(declare-const active Bool)
+(declare-fun r (A A A A) Bool)
+(assert (forall ((x A)(y A)(z A)(w A)) (r x y z w)))
+(assert (forall ((x A)) (r x x x x)))
+(assert active)(assert (not (r a a a a)))`
+	var cache order.TransitionPremises
+	for i := 0; i < 2; i++ {
+		c, s := orderSolver(t, input)
+		m, err := c.Manager()
+		astTestMust(t, err)
+		a, err := solver.Assertions(s.solver)
+		astTestMust(t, err)
+		if len(a) != 4 {
+			t.Fatalf("got %d assertions", len(a))
+		}
+		with := []ast.ASTHandle{a[0], a[2], a[3]}
+		without := []ast.ASTHandle{a[1], a[2], a[3]}
+		if _, ok, err := order.Relax(m, with); err != nil || ok {
+			t.Fatalf("uninterpreted source accepted by bit-vector relaxation: %v, %v", ok, err)
+		}
+		check := func(forms []ast.ASTHandle, want bool) {
+			t.Helper()
+			p, ok, err := cache.ForProof(m, forms, 1000)
 			astTestMust(t, err)
-			assertions, err := solver.Assertions(s.solver)
-			astTestMust(t, err)
-			proof, ok, err := order.ForProof(manager, assertions, orderProofSteps)
-			astTestMust(t, err)
-			if !ok || proof.Conditional == nil {
-				t.Fatalf("expected a conditional point update (applicable %v, refuted %v)\n%s", ok, proof.Refuted, proof.Order.Text)
+			if ok != want || p.Refuted != want || p.Boolean != nil {
+				t.Fatalf("match %v refuted %v Boolean problem %v, want direct match %v", ok, p.Refuted, p.Boolean != nil, want)
 			}
-			// The specialized counterexample is impossible at (p,q) even
-			// when the actual counterexample away from (p,q) is satisfiable.
-			trial := orderProofState{source: s}
-			astTestMust(t, trial.start(manager))
-			t.Cleanup(func() { astTestMust(t, trial.release()) })
-			established, err := trial.check(manager, proof.Conditional.Condition, 100_000, false)
-			astTestMust(t, err)
-			if established != tc.wantProof {
-				t.Fatalf("direction check = %v, want %v", established, tc.wantProof)
-			}
-			batch := s.BeginOrderProofBatch()
-			t.Cleanup(func() { astTestMust(t, batch.Close()) })
-			got, err := batch.Prove()
-			astTestMust(t, err)
-			if got != tc.wantProof {
-				t.Fatalf("private proof = %v, want %v", got, tc.wantProof)
-			}
-			result, err := s.Check()
-			astTestMust(t, err)
-			if result == lbool.Undef || (result == lbool.False) != tc.wantProof {
-				t.Fatalf("concrete solver result %v", result)
-			}
-		})
+		}
+		m.ResourceLimit().IncCancel()
+		check(with, false)
+		m.ResourceLimit().DecCancel()
+		check(with, true)
+		check(with, true)
+		check(without, false)
+		check(with, true)
 	}
 }
 

@@ -53,8 +53,14 @@ type ProofProblem struct {
 // ForProof checks universal instances before constructing a Boolean or order
 // problem. Only a refutation establishes a result for the original assertions.
 func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (ProofProblem, bool, error) {
+	var p TransitionPremises
+	return p.ForProof(m, assertions, steps)
+}
+
+// ForProof reuses the admission check across goals with the same premises.
+func (p *TransitionPremises) ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (ProofProblem, bool, error) {
 	var t inference
-	if ok, err := t.infer(m, assertions); err != nil || !ok {
+	if ok, err := t.infer(m, assertions, p); err != nil || !ok {
 		return ProofProblem{}, false, err
 	}
 	refuted, spent := t.matchFinalAssertion(steps)
@@ -77,6 +83,9 @@ func ForProof(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (Proo
 	}
 	spent = t.addInductionInstance(remaining)
 	if spent >= remaining || m.ResourceLimit().CancelFlag() {
+		return ProofProblem{}, false, nil
+	}
+	if t.unbounded && t.transition == nil {
 		return ProofProblem{}, false, nil
 	}
 	remaining -= spent
