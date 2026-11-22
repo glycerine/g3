@@ -6,7 +6,7 @@ import (
 )
 
 // Quantifier instantiation repeatedly builds short applications that already
-// exist. Include arity four to exercise the separately allocated argument array.
+// exist. Arity four exercises every slot in the inline argument array.
 func BenchmarkASTCanonicalApplication(b *testing.B) {
 	for _, arity := range []int{1, 2, 3, 4} {
 		b.Run(strconv.Itoa(arity), func(b *testing.B) {

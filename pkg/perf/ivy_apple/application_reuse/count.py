@@ -54,11 +54,13 @@ DUPLICATE = '''
 def make_overlay(args, directory):
     name = "ast/ast_core_factories.go"
     source = (PKG / name).read_text()
-    # Start after allocation, before coercion and sort checking. Registration
-    # gives the independent duplicate count, including wider applications.
-    anchor = "v := m.appAt(r.slot)\n\tv.decl = decl\n\tv.count = args.count"
+    # Observe every request, including a canonical hit that avoids placement.
+    anchor = "// known is supplied for exact-arity calls"
     source = replace_once(source, anchor, ATTEMPT + anchor)
-    anchor = "if result, handled, err := m.registerSliceApp(r, decl, d, flags.LeftAssociative && flags.RightAssociative, input); handled {"
+    anchor = "if existing := m.hintedApp(decl, input, hint); existing.slot != 0 {"
+    source = replace_once(source, anchor, anchor + """
+            if studyAppActive { studyAppValues[min(args.count, 4)][4]++ }""")
+    anchor = "if result, handled, err := m.registerSliceApp(r, decl, d, associative, input); handled {"
     source = replace_once(source, anchor, anchor + """
             if studyAppActive && err == nil && result != r {
                 studyAppValues[min(args.count, 4)][4]++

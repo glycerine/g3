@@ -1,4 +1,4 @@
-"""Count instructions in individual steps of a duplicate AST application request."""
+"""Count canonical table stages for a duplicate application, bypassing Go's optional hint."""
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +27,10 @@ REGISTER = PKG / "ast/ast_core_register.go"
 
 def instrument_go(phase, files):
     factories = files[FACTORIES]
+    hinted = "if known != nil && m.table.hintAttempts != 0"
+    if hinted in factories:
+        factories = replace_once(factories, hinted, "if false && known != nil && m.table.hintAttempts != 0")
+        files[FACTORIES] = factories
     allocate = "r, e := m.allocateNode(ASTApp)"
     fast = files[SLICE] is not None
     if fast:
@@ -48,9 +52,9 @@ def instrument_go(phase, files):
     elif phase == "lookup":
         files[table] = replace_once(files[table], lookup, GO_BEGIN + lookup + "\n" + GO_END)
     elif phase == "discard" and fast:
-        first = "if found {\n\t\t\tm.nodeAt(r.slot).hash = hash"
+        first = "if found {"
         last = "return existing, true, nil"
-        body = replace_once(files[SLICE], first, "if found {\n" + GO_BEGIN + "m.nodeAt(r.slot).hash = hash")
+        body = replace_once(files[SLICE], first, first + "\n" + GO_BEGIN)
         files[SLICE] = replace_once(body, last, GO_END + last)
     elif phase == "discard":
         first = "if !unique {\n\t\tm.freeNodeStorage(r)\n"

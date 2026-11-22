@@ -25,11 +25,16 @@ import (
 )
 
 type astCanonicalTable struct {
-	indices []int32 // astSlotEmpty, astSlotDummy, or a position in entries
-	tags    []byte  // astTagEmpty, astTagDummy, or astTagUsed | hash>>57
-	entries []astTableEntry
-	mask    uint64
-	size    uint32 // live entries
+	// A hint is one plus a position in entries. Rebuilding the table can make
+	// a hint stale. The application must match every operand before reuse.
+	hintAttempts uint8
+	smallAppHint uint32
+	appHints     []uint32
+	indices      []int32 // astSlotEmpty, astSlotDummy, or a position in entries
+	tags         []byte  // astTagEmpty, astTagDummy, or astTagUsed | hash>>57
+	entries      []astTableEntry
+	mask         uint64
+	size         uint32 // live entries
 }
 
 type astTableEntry struct {

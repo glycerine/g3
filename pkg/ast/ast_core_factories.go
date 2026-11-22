@@ -208,6 +208,22 @@ func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args *AppArguments) (re
 // mkAppCoreArgumentsFramed is mkAppCoreArguments after the trace
 // acquisition frame (finished by the caller) is prepared.
 func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args *AppArguments, frame *astTraceAcquisition, known *astFuncDeclRecord, associative bool) (result astNodeRef, err error) {
+	// known is supplied for exact-arity calls after checking the declaration.
+	// A duplicate ordinarily places and returns the same free slot. A validated
+	// hint can advance its generation directly when no allocation can fail.
+	if known != nil && m.table.hintAttempts != 0 && m.freeNode != 0 && args.count <= astInlineArgs && args.hasPreparedSlice() && !m.BudgetField.InjectionArmed() {
+		free := m.nodeAt(m.freeNode)
+		if free.generation != math.MaxUint32 {
+			input := args.slice[args.argumentOffset:][:args.count]
+			hint := *m.table.inlineAppHint(decl, input)
+			if existing := m.hintedApp(decl, input, hint); existing.slot != 0 {
+				free.generation++
+				m.table.hintAttempts = appHintAttempts
+				return existing, nil
+			}
+			m.table.hintAttempts--
+		}
+	}
 	// Source allocates app storage before coercion and check_args.
 	r, e := m.allocateNode(ASTApp)
 	if e != nil {
