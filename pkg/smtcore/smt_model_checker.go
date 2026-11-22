@@ -462,6 +462,12 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	if auxiliary.config.SkipTrivialMBQIChecks && c.manager.IsTrue(evaluatedBody) {
 		return false, nil
 	}
+	if count == 1 && *remaining != 0 {
+		violated, err := c.integerCounterexample(model, quantifier, flat, evaluatedBody, remaining)
+		if err != nil || violated != lbool.Undef {
+			return violated == lbool.True, err
+		}
+	}
 	// The innermost variable's fresh constant comes first; each finite sort
 	// is restricted to its universe as soon as its constant exists.
 	for i := len(skolems) - 1; i >= 0; i-- {

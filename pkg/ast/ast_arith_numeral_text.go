@@ -25,6 +25,21 @@ func (m *ASTManager) ArithmeticNumeralText(h ASTHandle) (value string, integer, 
 	return value, integer, true, nil
 }
 
+// ArithmeticSmallInteger reads an Int numeral whose value is stored inline.
+// Larger integers and other expressions return ok=false.
+func (m *ASTManager) ArithmeticSmallInteger(h ASTHandle) (int32, bool, error) {
+	if err := m.lock(); err != nil {
+		return 0, false, err
+	}
+	defer m.mu.Unlock()
+	r, integer, matched, err := m.arithmeticNumeralParameter(h)
+	if err != nil || !integer || !matched {
+		return 0, false, err
+	}
+	value, ok := r.Raw.SmallInt32()
+	return value, ok, nil
+}
+
 // IsArithmeticNumeral is arith_util::is_numeral(n): h is an arithmetic
 // numeral application. The value is neither copied nor formatted.
 func (m *ASTManager) IsArithmeticNumeral(h ASTHandle) (bool, error) {
