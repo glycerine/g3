@@ -53,7 +53,7 @@ func TestWitnessInstancesDirections(t *testing.T) {
 				t.Fatalf("expected an admitted goal, got %v, %v", plan, err)
 			}
 			p := orderProofState{source: s}
-			proved, err := p.checkGroundPlan(m, plan, orderProofSteps)
+			proved, err := p.checkProofPlan(m, plan, orderProofSteps)
 			astTestMust(t, err)
 			if proved != tc.unsat {
 				t.Fatalf("ground proof returned %v, want %v", proved, tc.unsat)
@@ -96,7 +96,7 @@ func TestWitnessInstancesAllTwoElementPredicateModels(t *testing.T) {
 				t.Fatal("missing witness plan")
 			}
 			p := orderProofState{source: s}
-			got, err := p.checkGroundPlan(m, plan, orderProofSteps)
+			got, err := p.checkProofPlan(m, plan, orderProofSteps)
 			astTestMust(t, err)
 			unsat := bits == 0 || bits == 3
 			if got != unsat {
@@ -128,7 +128,7 @@ func TestWitnessInstancesBudgetScopeAndModel(t *testing.T) {
 		t.Fatal("missing plan")
 	}
 	p := orderProofState{source: s}
-	if yes, err := p.checkGroundPlan(m, plan, 1); err != nil || yes || len(m.ResourceLimit().Children) != 0 {
+	if yes, err := p.checkProofPlan(m, plan, 1); err != nil || yes || len(m.ResourceLimit().Children) != 0 {
 		t.Fatalf("one-step attempt: %v, %v", yes, err)
 	}
 	answer, err := s.Check()

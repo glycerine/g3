@@ -20,7 +20,8 @@ DEFAULT_CASES = ("cf_live-130", "cf_live-56", "dramc_nb2-369", "dramc_nb2-63", "
                  "rfn2-13", "rfn2-22", "rfn2-4")
 
 
-def generate(forms, seed, width, with_witnesses=False, ground_booleans=False, ground_relations=False):
+def generate(forms, seed, width, with_witnesses=False, ground_booleans=False, ground_relations=False,
+             constant_goals=False):
     rng = random.Random(seed)
     names = fresh_names(forms, "g3!model!")
     domains = {"Bool": ("false", "true")}
@@ -183,6 +184,25 @@ def generate(forms, seed, width, with_witnesses=False, ground_booleans=False, gr
         certificate.append(("define-fun", flag, (), "Bool", "true"))
         functions[flag] = "true", {}
         goal = ("not", ("=>", ("and", flag, signed[0]), ("and", ("not", signed[1]), signed[2])))
+    if constant_goals:
+        kept.append(goal)
+        sort = rng.choice([form[1] for form in forms if form[0] == "declare-sort"])
+        name = next(names)
+        source.append(("declare-const", name, sort))
+        certificate.append(("define-fun", name, (), sort, rng.choice(domains[sort])))
+        for _ in range(8):
+            pred, var = next(names), next(names)
+            value = rng.choice(("true", "false"))
+            source.append(("declare-fun", pred, (sort,), "Bool"))
+            binder = ((var, sort),)
+            certificate.append(("define-fun", pred, binder, "Bool", value))
+            atom, instance = (pred, name), (pred, var)
+            if value == "false":
+                atom, instance = ("not", atom), ("not", instance)
+            kept.extend((atom, ("forall", binder, instance)))
+            # The outer OR holds even though one disjunct is false.
+            kept.append(("or", ("not", atom), ("exists", binder, instance)))
+        goal = ("and", ("not", "false"))
     assertions = [("assert", ("and", *kept)), ("assert", goal), ("check-sat",)]
     return source + assertions, certificate + assertions, len(premises), retained, sign
 
@@ -196,6 +216,8 @@ def main():
     parser.add_argument("--seeds", default=12, type=int)
     parser.add_argument("--case", nargs="+", help="fixture names without .smt2.gz")
     goals = parser.add_mutually_exclusive_group()
+    goals.add_argument("--constant-goals", action="store_true",
+                       help="test bounded subsets of universal premises and ground facts under a true goal")
     goals.add_argument("--ground-relations", action="store_true",
                        help="derive a ground binary relation query with a certified finite interpretation")
     goals.add_argument("--ground-booleans", action="store_true",
@@ -218,11 +240,12 @@ def main():
         forms = separate(parse(gzip.decompress((FIXTURES / (case + ".smt2.gz")).read_bytes()).decode()))
         rows = []
         for seed in range(1, args.seeds + 1):
-            for width in ((1, 2, 3) if args.ground_relations else (1, 2)):
+            for width in ((1, 2, 3) if args.ground_relations or args.constant_goals else (1, 2)):
                 loc = root / f"{case}-{seed}-{width}"
                 loc.mkdir()
                 source, cert, total, retained, sign = generate(
-                    forms, seed, width, args.with_quantified_witnesses, args.ground_booleans, args.ground_relations)
+                    forms, seed, width, args.with_quantified_witnesses, args.ground_booleans,
+                    args.ground_relations, args.constant_goals)
                 for fname, problem in (("source.smt2", source), ("certificate.smt2", cert)):
                     (loc / fname).write_text("\n".join(map(smt, problem)) + "\n")
                 for engine in engines:

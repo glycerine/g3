@@ -11,10 +11,11 @@ type witnessPremises struct {
 }
 
 type witnessPremise struct {
-	root      ast.ASTHandle
-	symbols   []ast.ASTHandle
-	ground    bool
-	threshold int
+	root           ast.ASTHandle
+	symbols        []ast.ASTHandle
+	ground         bool
+	shortUniversal bool
+	threshold      int
 }
 
 func (p *witnessPremises) matches(base []ast.ASTHandle) bool {
@@ -127,6 +128,7 @@ func indexWitnessPremises(m *ast.ASTManager, base []ast.ASTHandle) (*witnessPrem
 		if err != nil {
 			return nil, err
 		}
+		before := walk.visits
 		symbols, complete, err := walk.collect(m, root)
 		if !complete || err != nil {
 			return nil, err
@@ -134,7 +136,16 @@ func indexWitnessPremises(m *ast.ASTManager, base []ast.ASTHandle) (*witnessPrem
 		for _, h := range symbols {
 			index.frequency[h]++
 		}
-		index.rows = append(index.rows, witnessPremise{root: root, symbols: symbols, ground: ground})
+		row := witnessPremise{root: root, symbols: symbols, ground: ground}
+		// collect already counted the distinct terms in this conjunct, including
+		// its binder and body. Trigger annotations do not add body terms.
+		if hd.Kind == ast.ASTQuantifier && walk.visits-before <= 12 {
+			row.shortUniversal, err = m.IsForall(root)
+			if err != nil {
+				return nil, err
+			}
+		}
+		index.rows = append(index.rows, row)
 	}
 	for i, row := range index.rows {
 		low := len(index.rows)
@@ -147,12 +158,7 @@ func indexWitnessPremises(m *ast.ASTManager, base []ast.ASTHandle) (*witnessPrem
 	return index, nil
 }
 
-// Start with the query's symbols. In each round add a premise when a shared
-// symbol occurs in at most twice as many premises as its rarest symbol.
-// Keep all ground conjuncts and preserve their order in the source.
-func (p *orderProofState) selectWitnessPremises(m *ast.ASTManager, full *witnessInstancePlan) (*witnessInstancePlan, error) {
-	fs := full.assertions
-	base, goal := fs[:len(fs)-1], fs[len(fs)-1]
+func (p *orderProofState) indexedPremises(m *ast.ASTManager, base []ast.ASTHandle) (*witnessPremises, error) {
 	index := p.witnessPremises
 	if !index.matches(base) {
 		var err error
@@ -161,6 +167,19 @@ func (p *orderProofState) selectWitnessPremises(m *ast.ASTManager, full *witness
 		if index == nil || err != nil {
 			return nil, err
 		}
+	}
+	return index, nil
+}
+
+// Start with the query's symbols. In each round add a premise when a shared
+// symbol occurs in at most twice as many premises as its rarest symbol.
+// Keep all ground conjuncts and preserve their order in the source.
+func (p *orderProofState) selectWitnessPremises(m *ast.ASTManager, full *witnessInstancePlan) (*witnessInstancePlan, error) {
+	fs := full.assertions
+	base, goal := fs[:len(fs)-1], fs[len(fs)-1]
+	index, err := p.indexedPremises(m, base)
+	if err != nil || index == nil {
+		return nil, err
 	}
 	var walk witnessSymbolWalk
 	symbols, complete, err := walk.collect(m, goal)

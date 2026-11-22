@@ -12,14 +12,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", required=True, type=Path, help="output directory from verify.py")
     parser.add_argument("--output", required=True, type=Path, help="CSV results")
-    parser.add_argument("--ground-relations", action="store_true", help="exercise the single-sort relation plan")
+    goals = parser.add_mutually_exclusive_group()
+    goals.add_argument("--constant-goals", action="store_true", help="exercise the short universal premise selection")
+    goals.add_argument("--ground-relations", action="store_true", help="exercise the single-sort relation plan")
     args = parser.parse_args()
     here = Path(__file__).resolve().parent
     pkg = here.parents[3]
     with tempfile.TemporaryDirectory() as temp:
         overlay = Path(temp) / "overlay.json"
-        source, test = ("ground_relations_test.go.txt", "TestFiniteGroundRelations") if args.ground_relations else (
-            "ground_boolean_test.go.txt", "TestFiniteGroundBooleans")
+        if args.constant_goals:
+            source, test = "short_premise_test.go.txt", "TestFiniteShortPremises"
+        elif args.ground_relations:
+            source, test = "ground_relations_test.go.txt", "TestFiniteGroundRelations"
+        else:
+            source, test = "ground_boolean_test.go.txt", "TestFiniteGroundBooleans"
         replace = {str(pkg / "api" / "ground_finite_test.go"): str(here / source)}
         overlay.write_text(json.dumps({"Replace": replace}))
         subprocess.run(["go", "test", "-pgo=off", "-overlay=" + str(overlay),

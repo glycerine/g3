@@ -70,7 +70,7 @@ func TestKnownFiniteWitnessModel(t *testing.T) {
 	}
 	p := orderProofState{source: s}
 	trial := &witnessInstancePlan{assertions: forms, sorts: domains, width: 4, rounds: 2}
-	yes, err := p.checkGroundPlan(m, trial, 1_500_000)
+	yes, err := p.checkProofPlan(m, trial, 1_500_000)
 	if yes || err != nil {
 		t.Fatalf("forced proof on a satisfiable input returned %v, %v", yes, err)
 	}

@@ -23,6 +23,8 @@ const orderProofSteps = 3_000_000
 // one-way implications connecting quantified formulas to their ground instances.
 // Ground Boolean goals may use the ground conjuncts of their premises. A
 // violated conjunctive postcondition can also use ground relation instances.
+// For a constant true goal, ground facts and short universal premises may
+// already contradict each other.
 // For goals with several quantifiers over the same domain, a private ground
 // solver also checks instances at fresh witnesses and observed applications.
 // True establishes that the assertions are unsatisfiable. False is inconclusive:
@@ -170,13 +172,26 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 			// The incremental solver can answer immediately when preprocessing
 			// has already produced false. Avoid projecting its ground premises.
 			incremental, ok := s.solver.(interface{ HasInconsistentAssertions() bool })
-			if !ok || !incremental.HasInconsistentAssertions() {
+			consistent := !ok || !incremental.HasInconsistentAssertions()
+			if consistent {
 				bits, err = order.ProjectGroundBooleans(parent, assertions, maxSteps)
 				if err != nil || limit.CancelFlag() {
 					return false, err
 				}
 			}
 			if bits == nil {
+				if consistent && hasOriginalAssertions(s.solver) {
+					subset, err := p.shortPremises(parent, assertions)
+					if err != nil || limit.CancelFlag() {
+						return false, err
+					}
+					if subset != nil {
+						proved, err := p.checkProofPlan(parent, subset, min(maxSteps, 80_000))
+						if err != nil || proved || limit.CancelFlag() {
+							return proved, err
+						}
+					}
+				}
 				return p.proveGoalInstances(parent, assertions, maxSteps)
 			}
 			searchSteps = min(maxSteps, 80_000)

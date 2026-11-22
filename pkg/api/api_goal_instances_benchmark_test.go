@@ -117,7 +117,7 @@ func BenchmarkAppleBooleanUnitReduction(b *testing.B) {
 	b.ReportMetric(float64(remaining), "residual-clauses/op")
 }
 
-func appleBenchmarkInput(b *testing.B, name string) string {
+func appleBenchmarkInput(b testing.TB, name string) string {
 	b.Helper()
 	f, err := os.Open("../perf/ivy_apple/test_vectors/" + name + ".smt2.gz")
 	if err != nil {

@@ -62,7 +62,7 @@ func TestWitnessPremisesTwoRounds(t *testing.T) {
 			t.Fatal("the unrelated open term was selected")
 		}
 	}
-	ok, err := p.checkGroundPlan(m, trial, orderProofSteps)
+	ok, err := p.checkProofPlan(m, trial, orderProofSteps)
 	astTestMust(t, err)
 	if ok {
 		t.Fatal("private check accepted an open source premise")

@@ -32,7 +32,7 @@ func TestWitnessInstancesThreeTerms(t *testing.T) {
 				t.Fatal("expected a single-round plan for the two negated quantifiers")
 			}
 			p := orderProofState{source: s}
-			yes, e := p.checkGroundPlan(m, plan, orderProofSteps)
+			yes, e := p.checkProofPlan(m, plan, orderProofSteps)
 			astTestMust(t, e)
 			if yes != tc.unsat {
 				t.Fatalf("ground refutation=%v, expected %v", yes, tc.unsat)
@@ -74,7 +74,7 @@ func TestWitnessInstancesGroundDomains(t *testing.T) {
 			}
 			if ext != nil {
 				p := orderProofState{source: s}
-				yes, e := p.checkGroundPlan(m, ext, orderProofSteps)
+				yes, e := p.checkProofPlan(m, ext, orderProofSteps)
 				astTestMust(t, e)
 				if !yes {
 					t.Fatal("missed universal at a")

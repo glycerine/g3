@@ -16,7 +16,7 @@ func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions 
 		return false, err
 	}
 	if plan != nil {
-		proved, err := p.checkGroundPlan(parent, plan, min(maxSteps, 240_000))
+		proved, err := p.checkProofPlan(parent, plan, min(maxSteps, 240_000))
 		if err != nil || proved || witness == nil {
 			return proved, err
 		}
@@ -38,7 +38,7 @@ func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions 
 			return false, err
 		}
 		if small != nil {
-			yes, err := p.checkGroundPlan(parent, small, min(maxSteps, 500_000))
+			yes, err := p.checkProofPlan(parent, small, min(maxSteps, 500_000))
 			if yes || err != nil || witness.selectedOnly {
 				return yes, err
 			}
@@ -52,14 +52,14 @@ func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions 
 	if witness.selectedOnly {
 		return false, nil
 	}
-	return p.checkGroundPlan(parent, witness, min(maxSteps, 750_000))
+	return p.checkProofPlan(parent, witness, min(maxSteps, 750_000))
 }
 
-type groundProofPlan interface {
+type privateProofPlan interface {
 	assertIn(parent, target *ast.ASTManager, child *APISimpleSolver) (bool, error)
 }
 
-func (p *orderProofState) checkGroundPlan(parent *ast.ASTManager, plan groundProofPlan, maxSteps uint32) (proved bool, err error) {
+func (p *orderProofState) checkProofPlan(parent *ast.ASTManager, plan privateProofPlan, maxSteps uint32) (proved bool, err error) {
 	aux := &orderProofState{source: p.source}
 	defer func() {
 		if e := aux.release(); e != nil {
@@ -118,21 +118,8 @@ func (p *goalInstancePlan) assertIn(parent, m *ast.ASTManager, child *APISimpleS
 		return false, err
 	}
 	defer func() { err = errors.Join(err, m.DecRef(goal)) }()
-	for _, h := range p.ground {
-		if !m.ResourceLimit().Inc() {
-			return false, nil
-		}
-		value, err := translation.Translate(h)
-		if err != nil {
-			return false, err
-		}
-		if err = m.IncRef(value); err != nil {
-			return false, err
-		}
-		err = child.Assert(value)
-		if err = errors.Join(err, m.DecRef(value)); err != nil {
-			return false, err
-		}
+	if ok, err := assertTranslatedPremises(translation, m, child, p.ground); err != nil || !ok {
+		return false, err
 	}
 
 	sub, err := rewriter.NewVarSubstitution(m, true)
@@ -194,4 +181,24 @@ func (p *goalInstancePlan) assertIn(parent, m *ast.ASTManager, child *APISimpleS
 	}
 	err = child.Assert(goal)
 	return err == nil, err
+}
+
+func assertTranslatedPremises(translation *ast.ASTTranslation, m *ast.ASTManager, child *APISimpleSolver, roots []ast.ASTHandle) (bool, error) {
+	for _, h := range roots {
+		if !m.ResourceLimit().Inc() {
+			return false, nil
+		}
+		value, err := translation.Translate(h)
+		if err != nil {
+			return false, err
+		}
+		if err = m.IncRef(value); err != nil {
+			return false, err
+		}
+		err = child.Assert(value)
+		if err = errors.Join(err, m.DecRef(value)); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }

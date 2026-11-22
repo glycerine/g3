@@ -49,7 +49,7 @@ func TestFiniteGroundRelations(t *testing.T) {
 			if subset == nil || len(subset.assertions) < 2 {
 				t.Fatal("no selected premises")
 			}
-			yes, err := state.checkGroundPlan(m, subset, 500_000)
+			yes, err := state.checkProofPlan(m, subset, 500_000)
 			if err != nil || yes {
 				t.Fatalf("relation proof on a finite model returned %v, %v", yes, err)
 			}

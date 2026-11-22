@@ -1,0 +1,59 @@
+package api
+
+import (
+	"bytes"
+	"encoding/csv"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/solver"
+)
+
+// Run on the unbound source formulas produced by verify.py. The two shells
+// independently checked the explicit finite interpretation in certificate.smt2.
+func TestFiniteShortPremises(t *testing.T) {
+	files, err := filepath.Glob(filepath.Join(os.Getenv("G3_FINITE_CASES"), "*", "source.smt2"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("finding finite controls: %v", err)
+	}
+	f, err := os.Create(os.Getenv("G3_FINITE_RESULTS"))
+	astTestMust(t, err)
+	defer f.Close()
+	out := csv.NewWriter(f)
+	astTestMust(t, out.Write([]string{"case", "assertions", "admitted", "selected_premises", "private_refutation"}))
+	for _, path := range files {
+		name := filepath.Base(filepath.Dir(path))
+		t.Run(name, func(t *testing.T) {
+			raw, err := os.ReadFile(path)
+			astTestMust(t, err)
+			input, _, ok := bytes.Cut(raw, []byte("\n(check-sat)"))
+			if !ok {
+				t.Fatal("missing check-sat")
+			}
+			c, s := orderSolver(t, string(input))
+			m, err := c.Manager()
+			astTestMust(t, err)
+			roots, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			state := orderProofState{source: s}
+			defer func() { astTestMust(t, state.release()) }()
+			subset, err := state.shortPremises(m, roots)
+			astTestMust(t, err)
+			if subset == nil {
+				t.Fatal("constant goal was not admitted")
+			}
+			yes, err := state.checkProofPlan(m, subset, 80_000)
+			if err != nil || yes {
+				t.Fatalf("bounded premise check on a finite model returned %v, %v", yes, err)
+			}
+			if proved, err := s.ProveUnsatByOrderAbstraction(); err != nil || proved {
+				t.Fatalf("public proof on a finite model returned %v, %v", proved, err)
+			}
+			astTestMust(t, out.Write([]string{name, strconv.Itoa(len(roots)), "true", strconv.Itoa(len(subset.selected)), strconv.FormatBool(yes)}))
+		})
+	}
+	out.Flush()
+	astTestMust(t, out.Error())
+}
