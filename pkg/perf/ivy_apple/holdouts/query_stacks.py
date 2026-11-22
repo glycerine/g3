@@ -8,13 +8,13 @@ from pathlib import Path
 import subprocess
 import sys
 
-from query_replay import CASES, HERE, query_inputs
+from query_replay import CASES, HERE, NUMERIC_ANSWERS, query_inputs
 
 sys.path.insert(0, str(HERE.parent))
 from stack_costs import categories, samples
 
 
-def profile(args, directory, source, engine, binary):
+def profile(args, directory, source, engine, binary, answer):
     directory.mkdir()
     raw = directory / "perf.data"
     result = subprocess.run(
@@ -23,7 +23,7 @@ def profile(args, directory, source, engine, binary):
          "fp" if engine == "g3" else "dwarf,8192", "-o", raw, "--", binary, "-in", "-smt2"],
         input=source, text=True, capture_output=True, env=dict(os.environ, GOMAXPROCS="1"),
         timeout=120, check=True)
-    if result.stdout.strip() != "unsat" or "lost" in result.stderr.lower():
+    if result.stdout.splitlines()[:1] != [answer] or "(error " in result.stdout or "lost" in result.stderr.lower():
         raise ValueError(f"{directory}: {result.stdout} {result.stderr}")
     decoded = subprocess.run([args.perf, "script", "--no-inline", "-i", raw, "-F", "event,ip,sym,dso"],
                              check=True, capture_output=True)
@@ -54,9 +54,10 @@ def main():
     parser.add_argument("--cpu", type=int, required=True)
     parser.add_argument("--pairs", type=int, default=6)
     parser.add_argument("--period", type=int, default=710009)
-    parser.add_argument("--queries", nargs="+", choices=CASES, default=CASES)
+    parser.add_argument("--queries", nargs="+", choices=(*CASES, *NUMERIC_ANSWERS, "empty"), default=CASES)
     parser.add_argument("--vectors", type=Path, default=HERE.parent / "test_vectors")
     parser.add_argument("--perf", default="perf")
+    parser.add_argument("--statistics", action="store_true", help="also query the final search statistics")
     args = parser.parse_args()
     if min(args.period, args.pairs) < 1:
         parser.error("supply a positive sampling period and pair count")
@@ -65,11 +66,20 @@ def main():
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["query", "round", "engine", "cpu", "period", "samples", "attribution", "symbol", "count"])
     for name in args.queries:
-        source = query_inputs(args.vectors / (name + ".smt2.gz"))["incremental"]
+        auxiliary = name in NUMERIC_ANSWERS
+        answer = NUMERIC_ANSWERS.get(name, "unsat")
+        if name == "empty":
+            source = "(set-logic ALL)\n(push 1)\n(check-sat)\n"
+            answer = "sat"
+        else:
+            directory = args.vectors / "numeric_auxiliary" if auxiliary else args.vectors
+            source = query_inputs(directory / (name + ".smt2.gz"), auxiliary)["incremental"]
+            if args.statistics:
+                source += "\n(get-info :all-statistics)\n"
         for index in range(args.pairs):
             for engine in (tuple(binaries) if index % 2 == 0 else tuple(reversed(binaries))):
                 run = args.output / f"{name}-{index+1}-{engine}"
-                total, counts = profile(args, run, source, engine, binaries[engine])
+                total, counts = profile(args, run, source, engine, binaries[engine], answer)
                 for (classification, symbol), count in sorted(counts.items()):
                     writer.writerow([name, index+1, engine, args.cpu, args.period, total, classification, symbol, count])
                 sys.stdout.flush()

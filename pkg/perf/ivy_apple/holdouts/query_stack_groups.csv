@@ -1,0 +1,110 @@
+category,engine,match,symbol
+congruence,g3,contains,smtCg
+congruence,g3,contains,SMTCongruenceTable
+congruence,g3,contains,smtCongruenceBucket
+congruence,native,contains,smt::cg_table
+GC,g3,contains,runtime.gc
+GC,g3,contains,runtime.scan
+GC,g3,contains,runtime.tryDeferToSpanScan
+GC,g3,contains,runtime.wbBufFlush
+GC,g3,contains,runtime.bulkBarrierPreWrite
+GC,g3,contains,gcWriteBarrier
+rewriter,g3,contains,rewriter.(*rewriterEngine)
+rewriter,g3,contains,rewriter.(*variableShifter)
+rewriter,native,contains,rewriter_tpl<
+rewriter,native,contains,var_shifter_core::
+equality undo,g3,contains,(*SMTInternalizerState).undoEquality
+equality undo,native,contains,smt::context::undo_add_eq
+equality merge,g3,contains,(*SMTInternalizerState).addEquality
+equality merge,g3,contains,(*SMTInternalizerState).merge
+equality merge,g3,contains,(*SMTInternalizerState).restoreEquality
+equality merge,native,contains,smt::context::add_eq
+equality merge,native,contains,smt::context::reinsert_parents
+equality merge,native,contains,smt::context::remove_parents
+arithmetic,g3,contains,smtcore.(*SMTTheoryArith
+arithmetic,g3,contains,smtcore.(*smtArith
+arithmetic,g3,contains,smtcore.(*smtTheoryArith
+arithmetic,g3,contains,smtcore.(*SMTArithmetic
+arithmetic,g3,contains,smtcore.(*SMTLAR
+arithmetic,native,contains,smt::theory_arith
+arithmetic,native,contains,smt::arith_eq_adapter
+arithmetic,native,contains,smt::arith_solver
+arithmetic,native,contains,lp::
+justification,g3,contains,(*SMTConflictResolver)
+justification,g3,contains,(*SMTConflictResolution)
+justification,native,contains,smt::conflict_resolution::
+relevancy,g3,contains,(*SMTRelevancyPropagator)
+relevancy,g3,contains,(*SMTInternalizerState).propagateTheoryRelevancy
+relevancy,native,contains,smt::relevancy_propagator
+relevancy,native,contains,smt::or_relevancy_eh
+relevancy,native,contains,smt::binary_relevancy_eh
+boolean propagation,g3,suffix,(*SMTInternalizerState).Propagate
+boolean propagation,native,contains,smt::context::bcp(
+theory enqueue,g3,contains,(*SMTInternalizerState).propagateAssignedAtom
+theory enqueue,g3,contains,(*SMTInternalizerState).PropagateTheoryAssignments
+theory enqueue,native,contains,smt::context::propagate_atoms
+theory enqueue,native,contains,smt::context::propagate_th_eq
+theory enqueue,native,contains,smt::context::propagate_th_diseq
+decision,g3,contains,(*SMTKernel).decide
+decision,g3,contains,(*SMTInternalizerState).basicActivity
+decision,g3,contains,(*SMTInternalizerState).relevanceActivity
+decision,g3,contains,heap.(*Int).
+decision,native,contains,smt::context::decide
+decision,native,contains,smt::dact_case_split_queue
+decision,native,contains,smt::case_split_queue
+push scope,g3,contains,(*SMTInternalizerState).PushScope
+push scope,g3,contains,(*SMTKernel).pushScope
+push scope,native,contains,smt::context::push_scope
+pop scope,g3,contains,(*SMTInternalizerState).popTo
+pop scope,g3,contains,(*SMTInternalizerState).PopScopes
+pop scope,g3,contains,(*SMTKernel).popScope
+pop scope,native,contains,smt::context::pop_scope
+pop scope,native,contains,smt::context::del_scoped
+quantifier,g3,contains,(*SMTQI
+quantifier,g3,contains,(*SMTQuantifier
+quantifier,native,contains,smt::qi_queue
+quantifier,native,contains,smt::quantifier_manager
+model checking,g3,contains,(*SMTModelChecker)
+model checking,native,contains,smt::model_checker::
+pattern matching,g3,contains,(*smtMAM
+pattern matching,native,contains,smt::mam_impl
+pattern matching,native,contains,smt::interpreter
+resolve,g3,contains,(*SMTKernel).resolveSearchConflict
+resolve,native,contains,smt::context::resolve_conflict
+other search,g3,contains,(*SMTKernel).boundedSearch
+other search,g3,contains,(*SMTInternalizerState).PropagateCore
+other search,g3,suffix,(*SMTKernel).search
+other search,native,contains,smt::context::bounded_search
+other search,native,contains,smt::context::search(
+internalize,g3,contains,(*SMTKernel).internalize
+internalize,g3,contains,(*SMTInternalizerState).Internalize
+internalize,native,contains,smt::context::internalize
+internalize,native,contains,smt::context::mk_enode
+model,g3,contains,(*SMTModelGenerator)
+model,g3,contains,.(*ModelEvaluator)
+model,g3,contains,(*ProtoModel)
+model,native,contains,smt::model_generator
+model,native,contains,model_evaluator
+model,native,contains,smt::proto_model
+construct solver,g3,contains,(*Context).mkSolver
+construct solver,g3,contains,(*Context).Manager
+construct solver,g3,contains,NewSMTKernel
+construct solver,g3,contains,NewTheoryRewriter
+construct solver,native,contains,cmd_context::mk_solver
+construct solver,native,contains,cmd_context::m()
+construct solver,native,contains,mk_smt_solver
+construct solver,native,contains,mk_smt_tactic
+construct solver,native,contains,combined_solver::combined_solver
+check remainder,g3,contains,(*SMTKernel).Check
+check remainder,g3,contains,(*SMTSolver).checkSatCore
+check remainder,native,contains,smt::kernel::check
+check remainder,native,contains,smt::context::check(
+check remainder,native,contains,combined_solver::check_sat
+parse/input,g3,contains,smt2.(*commandParser)
+parse/input,g3,contains,smt2.(*Scanner)
+parse/input,native,contains,smt2::parser
+parse/input,native,contains,smt2::scanner
+teardown,g3,suffix,.Close
+teardown,g3,suffix,.Finalize
+teardown,native,contains,::~
+teardown,native,contains,cmd_context::reset(
