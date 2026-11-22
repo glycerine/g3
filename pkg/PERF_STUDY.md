@@ -3222,3 +3222,25 @@ The table uses the same rule on every row, two alternating rounds for Apple, thr
 An offline experiment asked the native solver to find an UNSAT core, then replayed just those conjuncts from scratch in each ordinary solver. On rfn2 13 the core contained eight of 537 conjuncts and g3 solved it in 60 million instructions. On ticket 127 it contained 30 of 121 and g3 solved it in 88 million. Discovering those cores cost the native solver an additional 464 million and 89 million respectively. On toy consensus the known 51-conjunct core was **slower** than the original 79, taking 2.07 billion in g3. Retaining all conjuncts with up to two bound variables per binder gave four SAT answers and one timeout on the five rfn2 captures. A SAT answer from a weakened formula cannot be used as a counterexample to the full obligation. [Subset, discovery and replay costs](perf/ivy_apple/holdouts/nov22b-premise-subsets.csv.gz) · [Reference-core and arity driver](perf/ivy_apple/holdouts/premise_slices.py)
 
 I also tried selecting premises using just declaration occurrences in the verification goal. One expansion through the rarest shared declarations refuted cf_live 42 with 11 of 687 premises and 71 million instructions. Keeping its ground facts as well refuted cmpl_live 43 with 231 of 718 and 129 million. The same family of rules produced no refutation on the four tested rfn2 goals or ticket 127 within a 45,000-step budget. The CSV records selection wall time in Python separately from shell instructions, and records budget failures as inconclusive. [All selection attempts](perf/ivy_apple/holdouts/nov22b-selected-by-goal.csv.gz) · [Selection driver](perf/ivy_apple/holdouts/goal_symbols.py)
+
+### A sevenfold reduction in the actual ten first pushes
+
+A fresh activation literal on a large quantified base cuts the **ten first pushes in the GoIvy rfn2 checker from 11.07 to 1.59 billion user instructions**. Linked Z3 took 3.53 billion on the same ten operations in the paired-engine study above. The g3 numbers are medians of five alternating rounds. The complete uninstrumented rfn2 checker improved from 43.01 to 37.90 billion. About half the push savings survived through the end of the checker. [All runs, peak RSS and exit status](perf/ivy_apple/incremental_cost/nov22b-guard-scope-panel.csv.gz)
+
+The prototype keeps every public assertion on the first solver. When the second solver receives a quantified assertion with at least 192 conjuncts after flattening top-level conjunctions, it places the *whole assertion* behind a fresh private Boolean. At check time it assumes that Boolean along with all user assumptions. During the guarded push it keeps negation-normal-form conversion and pattern inference. On return to the outermost scope after two concrete checks it permanently asserts the Boolean, so later sibling scopes can reuse unconditional propagation. The 192-conjunct threshold was an experimental choice. No spec name, assumed proof result or previously computed core enters the decision. [Go patch against 4df533a51](perf/ivy_apple/incremental_cost/nov22b-guard-base.patch.gz)
+
+| Complete GoIvy run | Ordinary g3, billion instructions | Guard and promote after two checks | Rounds |
+|---|---:|---:|---:|
+| rfn2 | 43.01 | **37.90** | 5 |
+| rfn | **47.08** | 81.98 | 3 |
+| cf_live | 101.11 | **96.56** | 3 |
+| cmpl_live | 117.75 | **114.92** | 3 |
+| sys_live | 279.04 | **265.36** | 2 |
+| dramc_nb2 | **388.14** | 410.18 | 2 |
+| Ordinary Raft | 26.01 | 25.98 | 3 |
+| Toy consensus | 7.22 | 7.23 | 5 |
+| Ticket | 5.70 | 5.71 | 5 |
+
+On dramc_nb2 the median peak also rose from 227 to 322 MiB at the same default GC settings. On rfn, promoting after one concrete check with the same shortened preprocessing sequence cost 86.99 billion. Measuring individual verification calls in that variant localized **24.45 billion extra instructions to check 29**, 7.89 billion to check 21, 6.23 billion to check 17 and 3.98 billion to check 30. All four reached the concrete solver in both builds. The counter includes the private proof attempt and a route observer on both sides. The result explains the risk of changing search order for a reusable parent scope. It rules out enabling the prototype globally on the strength of its first-push speedup. [Per-check counters, routes and wall times](perf/ivy_apple/incremental_cost/nov22b-guard-check-costs.csv.gz)
+
+Every complete run listed in the table matched its linked-Z3 reference transcript and exit status. Four additional controls exercised learning-switch, list reversal, arrayset and a client/server spec with a genuine counterexample. Small artificial formulas also checked satisfiable models in nested scopes, contradictions, multi-pop, assumptions, a similarly spelled user symbol and reset. Those checks cover the observations in the CSV. The prototype still needs public unsat-core and complete model-enumeration coverage before use as a public solver policy. [Control inputs and expected observations](perf/ivy_apple/holdouts/guard_scope_controls.py) · [Control results](perf/ivy_apple/holdouts/nov22b-guard-scope-controls.csv.gz)
