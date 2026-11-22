@@ -186,7 +186,10 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 						return false, err
 					}
 					if subset != nil {
-						proved, err := p.checkProofPlan(parent, subset, min(maxSteps, 80_000))
+						// The index admits at most 16,000 distinct premises.
+						// Bound speculative work in proportion to the selected input.
+						steps := min(maxSteps, 80_000, 192*uint32(len(subset.selected)))
+						proved, err := p.checkProofPlan(parent, subset, steps)
 						if err != nil || proved || limit.CancelFlag() {
 							return proved, err
 						}
