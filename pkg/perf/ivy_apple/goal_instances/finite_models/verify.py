@@ -17,7 +17,7 @@ PKG = HERE.parents[3]
 FIXTURES = HERE.parents[1] / "test_vectors"
 
 
-def generate(forms, seed, width):
+def generate(forms, seed, width, with_witnesses=False):
     rng = random.Random(seed)
     names = fresh_names(forms, "g3!model!")
     domains = {"Bool": ("false", "true")}
@@ -101,8 +101,22 @@ def generate(forms, seed, width):
     kept = [p for p in premises if evaluate(p, {}) == "true"]
     goal = unlet(roots[-1], {})
     sign = evaluate(goal, {})
-    assertions = [("assert", ("and", *kept)),
-                  ("assert", goal if sign == "true" else ("not", goal)), ("check-sat",)]
+    goal = goal if sign == "true" else ("not", goal)
+    if with_witnesses:
+        # Every generated model extends to these fresh predicates. Put the
+        # quantifiers in the query so the private matcher visits each domain.
+        guards = []
+        for sort in [form[1] for form in forms if form[0] == "declare-sort"]:
+            always, never, x = next(names), next(names), next(names)
+            binder = ((x, sort),)
+            for symbol, value in ((always, "true"), (never, "false")):
+                source.append(("declare-fun", symbol, (sort,), "Bool"))
+                certificate.append(("define-fun", symbol, binder, "Bool", value))
+            guards.extend((("forall", binder, (always, x)),
+                           ("not", ("forall", binder, (never, x))),
+                           ("not", ("exists", binder, (never, x)))))
+        goal = ("and", goal, *guards)
+    assertions = [("assert", ("and", *kept)), ("assert", goal), ("check-sat",)]
     return source + assertions, certificate + assertions, len(premises), len(kept), sign
 
 
@@ -114,6 +128,8 @@ def main():
     parser.add_argument("--jobs", default=2, type=int)
     parser.add_argument("--seeds", default=12, type=int)
     parser.add_argument("--case", nargs="+", help="fixture names without .smt2.gz")
+    parser.add_argument("--with-quantified-witnesses", action="store_true",
+                        help="extend each model with satisfiable quantified goals over every uninterpreted sort")
     args = parser.parse_args()
     if min(args.seeds, args.jobs) <= 0:
         parser.error("--seeds and --jobs must be positive")
@@ -133,7 +149,7 @@ def main():
             for width in (1, 2):
                 loc = root / f"{case}-{seed}-{width}"
                 loc.mkdir()
-                source, cert, total, retained, sign = generate(forms, seed, width)
+                source, cert, total, retained, sign = generate(forms, seed, width, args.with_quantified_witnesses)
                 for fname, problem in (("source.smt2", source), ("certificate.smt2", cert)):
                     (loc / fname).write_text("\n".join(map(smt, problem)) + "\n")
                 for engine in engines:

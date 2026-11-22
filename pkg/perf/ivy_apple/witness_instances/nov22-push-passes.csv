@@ -1,0 +1,127 @@
+isolate,engine,round,period,all_samples,operation,samples
+cf_live,g3,1,4000037,5143,bit-vector sharing,172
+cf_live,g3,1,4000037,5143,macro finding,573
+cf_live,g3,1,4000037,5143,normal form,92
+cf_live,g3,1,4000037,5143,other reduction,220
+cf_live,g3,1,4000037,5143,outside assertion reduction,3705
+cf_live,g3,1,4000037,5143,pattern inference,189
+cf_live,g3,1,4000037,5143,value propagation,192
+cf_live,g3,2,4000037,5095,bit-vector sharing,173
+cf_live,g3,2,4000037,5095,macro finding,590
+cf_live,g3,2,4000037,5095,normal form,93
+cf_live,g3,2,4000037,5095,other reduction,222
+cf_live,g3,2,4000037,5095,outside assertion reduction,3632
+cf_live,g3,2,4000037,5095,pattern inference,191
+cf_live,g3,2,4000037,5095,value propagation,194
+cf_live,g3,3,4000037,5265,bit-vector sharing,175
+cf_live,g3,3,4000037,5265,macro finding,556
+cf_live,g3,3,4000037,5265,normal form,91
+cf_live,g3,3,4000037,5265,other reduction,226
+cf_live,g3,3,4000037,5265,outside assertion reduction,3826
+cf_live,g3,3,4000037,5265,pattern inference,197
+cf_live,g3,3,4000037,5265,value propagation,194
+cf_live,native,1,4000037,1364,bit-vector sharing,16
+cf_live,native,1,4000037,1364,macro finding,158
+cf_live,native,1,4000037,1364,normal form,23
+cf_live,native,1,4000037,1364,other reduction,98
+cf_live,native,1,4000037,1364,outside assertion reduction,986
+cf_live,native,1,4000037,1364,pattern inference,50
+cf_live,native,1,4000037,1364,value propagation,33
+cf_live,native,2,4000037,1375,bit-vector sharing,15
+cf_live,native,2,4000037,1375,macro finding,154
+cf_live,native,2,4000037,1375,normal form,22
+cf_live,native,2,4000037,1375,other reduction,101
+cf_live,native,2,4000037,1375,outside assertion reduction,996
+cf_live,native,2,4000037,1375,pattern inference,51
+cf_live,native,2,4000037,1375,value propagation,36
+cf_live,native,3,4000037,1377,bit-vector sharing,18
+cf_live,native,3,4000037,1377,macro finding,159
+cf_live,native,3,4000037,1377,normal form,21
+cf_live,native,3,4000037,1377,other reduction,100
+cf_live,native,3,4000037,1377,outside assertion reduction,997
+cf_live,native,3,4000037,1377,pattern inference,47
+cf_live,native,3,4000037,1377,value propagation,35
+cmpl_live,g3,1,4000037,4118,bit-vector sharing,164
+cmpl_live,g3,1,4000037,4118,macro finding,576
+cmpl_live,g3,1,4000037,4118,normal form,87
+cmpl_live,g3,1,4000037,4118,other reduction,216
+cmpl_live,g3,1,4000037,4118,outside assertion reduction,2521
+cmpl_live,g3,1,4000037,4118,pattern inference,178
+cmpl_live,g3,1,4000037,4118,value propagation,376
+cmpl_live,g3,2,4000037,4064,bit-vector sharing,164
+cmpl_live,g3,2,4000037,4064,macro finding,561
+cmpl_live,g3,2,4000037,4064,normal form,85
+cmpl_live,g3,2,4000037,4064,other reduction,214
+cmpl_live,g3,2,4000037,4064,outside assertion reduction,2490
+cmpl_live,g3,2,4000037,4064,pattern inference,181
+cmpl_live,g3,2,4000037,4064,value propagation,369
+cmpl_live,g3,3,4000037,4141,bit-vector sharing,172
+cmpl_live,g3,3,4000037,4141,macro finding,579
+cmpl_live,g3,3,4000037,4141,normal form,84
+cmpl_live,g3,3,4000037,4141,other reduction,215
+cmpl_live,g3,3,4000037,4141,outside assertion reduction,2530
+cmpl_live,g3,3,4000037,4141,pattern inference,193
+cmpl_live,g3,3,4000037,4141,value propagation,368
+cmpl_live,native,1,4000037,1043,bit-vector sharing,15
+cmpl_live,native,1,4000037,1043,macro finding,159
+cmpl_live,native,1,4000037,1043,normal form,20
+cmpl_live,native,1,4000037,1043,other reduction,109
+cmpl_live,native,1,4000037,1043,outside assertion reduction,629
+cmpl_live,native,1,4000037,1043,pattern inference,47
+cmpl_live,native,1,4000037,1043,value propagation,64
+cmpl_live,native,2,4000037,1057,bit-vector sharing,15
+cmpl_live,native,2,4000037,1057,macro finding,159
+cmpl_live,native,2,4000037,1057,normal form,20
+cmpl_live,native,2,4000037,1057,other reduction,110
+cmpl_live,native,2,4000037,1057,outside assertion reduction,641
+cmpl_live,native,2,4000037,1057,pattern inference,47
+cmpl_live,native,2,4000037,1057,value propagation,65
+cmpl_live,native,3,4000037,1067,bit-vector sharing,13
+cmpl_live,native,3,4000037,1067,macro finding,160
+cmpl_live,native,3,4000037,1067,normal form,20
+cmpl_live,native,3,4000037,1067,other reduction,113
+cmpl_live,native,3,4000037,1067,outside assertion reduction,649
+cmpl_live,native,3,4000037,1067,pattern inference,48
+cmpl_live,native,3,4000037,1067,value propagation,64
+rfn2,g3,1,4000037,3352,bit-vector sharing,155
+rfn2,g3,1,4000037,3352,macro finding,495
+rfn2,g3,1,4000037,3352,normal form,78
+rfn2,g3,1,4000037,3352,other reduction,192
+rfn2,g3,1,4000037,3352,outside assertion reduction,2103
+rfn2,g3,1,4000037,3352,pattern inference,171
+rfn2,g3,1,4000037,3352,value propagation,158
+rfn2,g3,2,4000037,3357,bit-vector sharing,152
+rfn2,g3,2,4000037,3357,macro finding,506
+rfn2,g3,2,4000037,3357,normal form,78
+rfn2,g3,2,4000037,3357,other reduction,197
+rfn2,g3,2,4000037,3357,outside assertion reduction,2088
+rfn2,g3,2,4000037,3357,pattern inference,176
+rfn2,g3,2,4000037,3357,value propagation,160
+rfn2,g3,3,4000037,3392,bit-vector sharing,154
+rfn2,g3,3,4000037,3392,macro finding,492
+rfn2,g3,3,4000037,3392,normal form,81
+rfn2,g3,3,4000037,3392,other reduction,199
+rfn2,g3,3,4000037,3392,outside assertion reduction,2126
+rfn2,g3,3,4000037,3392,pattern inference,180
+rfn2,g3,3,4000037,3392,value propagation,160
+rfn2,native,1,4000037,881,bit-vector sharing,13
+rfn2,native,1,4000037,881,macro finding,135
+rfn2,native,1,4000037,881,normal form,22
+rfn2,native,1,4000037,881,other reduction,87
+rfn2,native,1,4000037,881,outside assertion reduction,553
+rfn2,native,1,4000037,881,pattern inference,45
+rfn2,native,1,4000037,881,value propagation,26
+rfn2,native,2,4000037,882,bit-vector sharing,14
+rfn2,native,2,4000037,882,macro finding,138
+rfn2,native,2,4000037,882,normal form,19
+rfn2,native,2,4000037,882,other reduction,85
+rfn2,native,2,4000037,882,outside assertion reduction,553
+rfn2,native,2,4000037,882,pattern inference,45
+rfn2,native,2,4000037,882,value propagation,28
+rfn2,native,3,4000037,885,bit-vector sharing,13
+rfn2,native,3,4000037,885,macro finding,139
+rfn2,native,3,4000037,885,normal form,18
+rfn2,native,3,4000037,885,other reduction,86
+rfn2,native,3,4000037,885,outside assertion reduction,559
+rfn2,native,3,4000037,885,pattern inference,44
+rfn2,native,3,4000037,885,value propagation,26

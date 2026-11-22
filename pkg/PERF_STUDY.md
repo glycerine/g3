@@ -4,6 +4,8 @@ The AST arena is part of g3's design. Current performance work keeps it and meas
 
 **On Apple `rfn2`, the ground-instance proof brought g3 from 39.03 s to 12.04 s, ahead of linked Z3 at 24.24 s.** Nine interleaved triples ran all 26 checks through the same GoIvy frontend. Ordinary Raft and Apple `dramc_nb2` also finished ahead of Z3 in their paired release runs. The largest remaining individual gaps are `rfn2` check 7 and `dramc_nb2` check 71. First pushes on fresh solvers account for most of the excess push work. [Ground-instance comparison](#ground-instances-at-the-constants-in-the-verification-goal) · [Release controls and remaining gaps](#cost-of-attempting-a-private-proof-on-an-inexpensive-goal)
 
+**On Apple `cf_live`, bounded ground witnesses lowered complete-checker instructions from 185.01 to 142.83 billion.** Linked Z3 used 107.46 billion. The verification thread spent 1.35 billion on check 130, down from 34.07 billion. [Release crossover and per-check comparison](#ground-witnesses-for-interacting-quantifiers-on-apple)
+
 **A four-operand application now fits entirely in the same 128-byte arena slot.** A repeated construction costs 1,265 instructions in g3 and 605 in Z3, down from 2,970 in g3. Whole-proof instruction counts improved in all 32 matched pairs. [Arena measurements](#four-application-operands-in-a-128-byte-arena-slot)
 
 **A 256-entry rewriter cache now uses 16,592 live heap bytes per solver, down from 28,896.** All eight measurements across 1,024 independent managers reproduced the 12,304-byte saving. The same change reduced instructions in all 32 paired Raft and Apple proof runs. [Cache memory and proof measurements](#manager-local-references-in-the-rewriter-cache)
@@ -2551,3 +2553,46 @@ The release crossover at `8c4be47e9` covered ordinary Raft and all nine Apple is
 | `cf_live` | 336 | 66.00 | 47.14 | 185.38 | 107.59 |
 
 The clearest remaining whole-workload gap is `cf_live`. Its 336 verification calls account for 98.53 billion g3 instructions and 34.00 billion linked-Z3 instructions. Check 130 alone accounts for 21.59 billion of that difference. Checks 58 and 48 add 4.84 and 3.26 billion. The similar `cf_pio_live` check 126 costs 35.94 billion versus 11.87 billion although g3 finishes the whole isolate faster. On `cmpl_live`, checks 35 and 177 together contribute 5.05 billion of the 9.79 billion additional instructions inside verification. On `rfn2`, g3 now executes 12.07 billion in all verification calls versus 35.48 billion for linked Z3. The general check 7 remains individually expensive. These totals sum the median of three thread-local, empty-interval-adjusted observations per check. [All 62,052 call measurements](perf/ivy_apple/goal_instances/nov22-nine-isolate-checks.csv.gz) · [Per-call measurement driver](perf/ivy_apple/incremental_cost/thread_checks.py)
+
+### Ground witnesses for interacting quantifiers on Apple
+
+The expensive `cf_live` check 130 combines quantified statements about the same clock domain. A negated universal supplies a counterexample term. A positive universal can then be instantiated at that term. The private prover at `ac4050bca` gives each closed quantified formula a Boolean representative and adds implications justified by its quantifier and polarity. It introduces fresh constants where an existential witness suffices and instantiates the other direction with well-sorted ground terms. These choices give a relaxation. Only a completed UNSAT result discharges the verification condition. Timeout, a satisfiable relaxation or an unsupported input returns control to the original solver. All generated terms and the auxiliary solver belong to a separate arena within the checking goroutine. [Admission](api/api_witness_instances_plan.go) · [Ground formulas](api/api_witness_ground.go) · [Private check and release](api/api_witness_check.go)
+
+| `cf_live` verification call | Earlier g3, billion instructions | g3 with witness instances | Linked Z3 |
+|---|---:|---:|---:|
+| 130 | 34.074 | **1.354** | 12.700 |
+| 58 | 7.535 | **0.465** | 2.553 |
+| 56 | 2.826 | 5.175 | **0.945** |
+| All 336 calls | 98.545 | **56.964** | 34.002 |
+
+Each entry uses the median of three empty-interval-adjusted instruction counts on the verification thread. The total sums the per-call medians. Check 56 paid for an inconclusive private attempt and then ran the concrete solver. This makes the cost of a miss visible alongside the cost of a proof. The source goals, the incremental scope history and the proof transcript were the same for all three builds. [All 3,024 intervals](perf/ivy_apple/witness_instances/nov22-cf-live-checks.csv.gz) · [Counter boundaries and replay](perf/ivy_apple/incremental_cost/thread_checks.py)
+
+| Complete checker, six rotated rounds | Earlier g3 | Bounded witness implementation | Linked Z3 |
+|---|---:|---:|---:|
+| `cf_live`, median seconds | 46.61 | **33.27** | 30.94 |
+| `cf_live`, median billion instructions | 185.01 | **142.83** | 107.46 |
+| `cmpl_live`, median seconds | 36.55 | 36.00 | 36.89 |
+| `cmpl_live`, median billion instructions | 127.74 | 127.71 | 124.43 |
+
+The witness implementation saved **22.8%** of complete `cf_live` instructions and still retired **32.9%** more than linked Z3. The complete-process counters include the GoIvy frontend, setup, verification and teardown. The linked build used the same GoIvy revision and specification with one CPU per isolate and one Go processor. Other studies ran on the host. An earlier six-round crossover before the final input bounds gave 28.24 → 21.36 s for g3 and 19.99 s for Z3 on `cf_live`. The corresponding instruction medians were 185.28 → 142.67 and 107.07 billion. Compare wall times within a crossover. [Final bounded crossover](perf/ivy_apple/witness_instances/nov22-release-short.csv)
+
+### Verification and storage costs of the witness matcher
+
+The original incremental solver independently confirmed all **242** private refutations across nine Apple isolates. The preceding implementation proved 208. All 10,342 original verdicts and all 18 recorded search counters, including resource steps, matched linked Z3 in the verification run that also performed the concrete check on every privately proved obligation. Concrete work can differ in ordinary release runs where a private proof skips a concrete check and its effects on later search. [Per-check verification records](perf/ivy_apple/witness_instances/nov22-verified.csv.gz) · [Verification driver](perf/ivy_apple/goal_instances/verify.py)
+
+Satisfiable controls came from explicit interpretations of the uninterpreted sorts and functions in the captured formulas. Both shells accepted all 192 certificates built from eight fixtures, twelve seeds and domain sizes one and two. Fresh always-true and always-false predicates introduced quantified goals over every uninterpreted sort. All 192 entered the new admission rule and zero were privately refuted. A second run explicitly forced the matcher on all 192 and on 168 earlier controls that had missed its admission rule. It produced zero false refutations. To reproduce, run the finite model generator with `--with-quantified-witnesses`, then pass its output directory to `finite_trials.py`. [Model generator](perf/ivy_apple/goal_instances/finite_models/verify.py) · [Forced-proof driver](perf/ivy_apple/witness_instances/finite_trials.py) · [192 certificates](perf/ivy_apple/witness_instances/nov22-admitted-finite-models.csv) · [Admission and forced trials](perf/ivy_apple/witness_instances/nov22-explicit-admission.csv) · [168 earlier controls](perf/ivy_apple/witness_instances/nov22-forced-finite-models.csv)
+
+A candidate tuple on the private arena needs only its slot IDs while its terms are held. Reusing ranking storage and carrying scores in the candidate records took the `cf_live` 130 prototype from 205.6 to 171.6 ms and from 61.06 to 48.86 MB allocated per proof. On the subsequent nine-round comparison, paged per-slot term records reduced 48.85 to 45.86 MB and 175.1 to 169.3 ms. Compiling repeated substitution templates in another prototype raised allocation to 50.34 MB for a smaller time saving. The retained benchmark skips parsing, creates a fresh private arena each iteration and reports proofs per operation. Run `go test ./api -run '^$' -bench '^BenchmarkAppleWitnessInstances$' -benchtime=3x -benchmem` from `pkg/`. The early prototype timings used different input validation and private solver setup. [Benchmark](api/api_witness_instances_benchmark_test.go) · [Dense tuples](perf/ivy_apple/witness_instances/nov22-dense-micro.csv) · [Term storage](perf/ivy_apple/witness_instances/nov22-tables-micro.csv) · [Template alternatives](perf/ivy_apple/witness_instances/nov22-recipe-micro.csv) · [Private solver alternatives](perf/ivy_apple/witness_instances/nov22-solver-micro.csv)
+
+### Where the remaining Apple push instructions go
+
+| All external Push calls within the isolate | g3, billion instructions | Linked Z3, billion instructions |
+|---|---:|---:|
+| `cf_live` | 18.60 | 5.36 |
+| `cf_pio_live` | 30.84 | 8.25 |
+| `cmpl_live` | 15.15 | 4.17 |
+| `rfn2` | 12.65 | 3.53 |
+
+The table gives medians of per-round sums after subtracting an adjacent empty interval for each operation. On `cf_live`, Assert added 1.54 vs 0.36 billion instructions, Pop 1.01 vs 0.27, and Reset 0.70 vs 0.21. Separate instruction sampling across all pushes attributed about 14.82 billion instructions outside assertion reduction in g3 versus 3.98 billion in Z3. The first g3 sample run recorded 2,925 of 5,143 samples under propagation, 1,751 under variable substitution and 1,177 under theory rewriting. These inclusive stacks overlap. Macro finding inside assertion reduction accounted for about 2.29 vs 0.63 billion instructions. A whole-process sampling window can include GC work on another thread. The per-thread intervals and sampled stacks therefore have different denominators. [Mutation intervals](perf/ivy_apple/witness_instances/nov22-mutation-calls.csv.gz) · [Pass estimates](perf/ivy_apple/witness_instances/nov22-push-passes.csv) · [g3 stacks](perf/ivy_apple/witness_instances/nov22-g3-push-stacks.csv.gz) · [Linked Z3 stacks](perf/ivy_apple/witness_instances/nov22-native-push-stacks.csv.gz) · [Sampling driver](perf/ivy_apple/incremental_cost/push_profile.py)
+
+Two experiments follow directly from these observations. First, inspect the actual tuples in the native proof of `cf_live` 56 and test the missing instantiations with satisfiable controls. Second, compare substitution implementations on complete first pushes. A per-substitution speedup must cover the cost of preparing and retaining a plan over the lifetime of an independent solver.
