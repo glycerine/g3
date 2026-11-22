@@ -17,7 +17,8 @@ def read_rows(path):
 def by_run(path):
     runs = defaultdict(list)
     for row in read_rows(path):
-        runs[row["isolate"], int(row["pair"]), row["engine"]].append(row)
+        round_id = row["pair"] if "pair" in row else row["round"]
+        runs[row["isolate"], int(round_id), row["engine"]].append(row)
     return runs
 
 

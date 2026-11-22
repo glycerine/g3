@@ -1,0 +1,112 @@
+package rewriter
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+// This observer is compiled into a single-worker checker only for the census.
+type censusGroup struct{ pass, config string }
+type censusVisit struct {
+	term, root   ast.ASTHandle
+	depth, bound uint32
+}
+type censusBinding struct {
+	value ast.ASTHandle
+	shift uint32
+}
+type censusTuple struct {
+	root ast.ASTHandle
+	n    int
+	args [8]censusBinding
+}
+type censusCounts struct {
+	calls, visits, within, ground, variables, replacements, probes, hits int
+	rebuilds, unchanged, reductions, successful, substitutions           int
+	eligible, duplicates, duplicateVisits                                int
+	terms                                                                map[ast.ASTHandle]bool
+	tuples                                                               map[censusTuple]bool
+}
+type censusCall struct {
+	counts    *censusCounts
+	visited   map[censusVisit]bool
+	duplicate bool
+}
+
+var censusGroups map[censusGroup]*censusCounts
+var censusCurrent *censusCall
+var censusPass string
+var censusFirstPush int
+
+func CensusPush() func() {
+	if censusGroups != nil {
+		panic("nested first Push")
+	}
+	censusFirstPush++
+	censusGroups = make(map[censusGroup]*censusCounts)
+	censusPass = "outside"
+	return func() {
+		for group, s := range censusGroups {
+			fmt.Fprintln(os.Stderr, "PUSH-CENSUS", censusFirstPush, group.pass, group.config,
+				s.calls, s.visits, s.within, len(s.terms), s.ground, s.variables, s.replacements,
+				s.probes, s.hits, s.rebuilds, s.unchanged, s.reductions, s.successful,
+				s.substitutions, s.eligible, s.duplicates, s.duplicateVisits)
+		}
+		censusGroups, censusCurrent = nil, nil
+	}
+}
+
+func CensusPass(name string) func() {
+	prev := censusPass
+	censusPass = name
+	return func() { censusPass = prev }
+}
+
+func censusRewrite(r *rewriterEngine, t ast.ASTHandle) func() {
+	if censusGroups == nil {
+		return func() {}
+	}
+	key := censusGroup{censusPass, fmt.Sprintf("%T", r.cfg)}
+	s := censusGroups[key]
+	if s == nil {
+		s = &censusCounts{terms: map[ast.ASTHandle]bool{}, tuples: map[censusTuple]bool{}}
+		censusGroups[key] = s
+	}
+	s.calls++
+	prev := censusCurrent
+	call := &censusCall{counts: s, visited: map[censusVisit]bool{}}
+	censusCurrent = call
+	if r.substituteVariables && len(r.bindings) <= 8 {
+		tuple := censusTuple{root: t, n: len(r.bindings)}
+		for i, h := range r.bindings {
+			tuple.args[i] = censusBinding{h, r.shifts[i]}
+		}
+		s.eligible++
+		if s.tuples[tuple] {
+			s.duplicates++
+			call.duplicate = true
+		}
+		s.tuples[tuple] = true
+	}
+	return func() { censusCurrent = prev }
+}
+
+func censusNode(r *rewriterEngine, t ast.ASTHandle, depth uint32) {
+	call := censusCurrent
+	if call == nil {
+		return
+	}
+	s := call.counts
+	s.visits++
+	s.terms[t] = true
+	key := censusVisit{t, r.core.root, depth, r.core.numQVars}
+	if !call.visited[key] {
+		s.within++
+		call.visited[key] = true
+	}
+	if call.duplicate {
+		s.duplicateVisits++
+	}
+}

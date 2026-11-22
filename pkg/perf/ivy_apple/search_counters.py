@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare per-check search work for complete, incremental GoIvy Apple isolates."""
+"""Compare search work during Check or Push for complete, incremental GoIvy Apple isolates."""
 
 import argparse
 import csv
@@ -37,26 +37,30 @@ func ivyCounterStats(s *Z3Solver) string {
 """
 
 
-def build(ivy, tmp, name, native):
+def build(ivy, tmp, name, native, operation="check", go_overlay=None):
     common = ["go", "build", "-mod=readonly", "-buildvcs=false", "-pgo=off"]
     if native:
         obj = tmp / "observer.o"
-        subprocess.run(["c++", "-O2", "-fPIC", "-c", "-I", ROOT / "src/api",
+        switch = ["-DIVY_OBSERVE_PUSH"] if operation == "push" else []
+        subprocess.run(["c++", "-O2", "-fPIC", "-c", *switch, "-I", ROOT / "src/api",
                         ROOT / "src/test/perf/ivy_solver_statistics.cpp", "-o", obj], check=True)
         lib = ivy / "z3vendor/native_lib/libz3.a"
         flags = ["-tags=xtrace_off,classic_z3",
-                 "-ldflags", f"-linkmode=external '-extldflags=-Wl,--wrap=Z3_solver_check {obj} {lib} -lstdc++ -lm -lgomp'"]
+                 "-ldflags", f"-linkmode=external '-extldflags=-Wl,--wrap=Z3_solver_{operation} {obj} {lib} -lstdc++ -lm -lgomp'"]
     else:
         src = ivy / "smt/g3_solver.go"
-        code = src.read_text()
-        if code.count(GO_METHOD) != 1 or code.count('import (') != 1:
+        files = json.loads(go_overlay.read_text())["Replace"] if go_overlay else {}
+        code = Path(files.get(str(src), src)).read_text()
+        method = GO_METHOD if operation == "check" else "func (s *Z3Solver) Push() {"
+        if code.count(method) != 1 or code.count('import (') != 1:
             raise ValueError(f"unrecognized GoIvy solver adapter {src}")
         extras = [s for s in ("fmt", "os") if f'"{s}"' not in code]
         code = code.replace('import (', 'import (\n' + '\n'.join(f'"{s}"' for s in extras), 1)
         patched = tmp / "g3_solver.go"
-        patched.write_text(code.replace(GO_METHOD, GO_METHOD + GO_OBSERVER) + GO_HELPER)
+        patched.write_text(code.replace(method, method + GO_OBSERVER) + GO_HELPER)
         overlay = tmp / "overlay.json"
-        overlay.write_text(json.dumps({"Replace": {str(src): str(patched)}}))
+        files[str(src)] = str(patched)
+        overlay.write_text(json.dumps({"Replace": files}))
         flags = ["-tags=xtrace_off", f"-overlay={overlay}"]
     binary = tmp / name
     subprocess.run([*common, *flags, "-o", binary, "./cmd/goivy_check"], cwd=ivy, check=True)
@@ -90,25 +94,34 @@ def main():
     p.add_argument("--goivy", type=Path, required=True, help="GoIvy directory with its local g3 replacement")
     p.add_argument("--spec", type=Path, required=True)
     p.add_argument("--cpu", type=int, required=True)
+    p.add_argument("--operation", choices=("check", "push"), default="check")
+    p.add_argument("--go-overlay", type=Path, help="optional absolute-path source overlay for the g3 build")
     p.add_argument("isolates", nargs="+")
     args = p.parse_args()
     spec = args.spec.resolve(strict=True)
     ivy = args.goivy.resolve(strict=True)
     writer = csv.writer(sys.stdout, lineterminator="\n")
-    writer.writerow(["isolate", "engine", "check", *COUNTERS])
+    writer.writerow(["isolate", "engine", args.operation, *COUNTERS])
     with tempfile.TemporaryDirectory() as scratch:
         tmp = Path(scratch)
-        engines = {name: build(ivy, tmp, name, name == "native") for name in ["g3", "native"]}
+        engines = {name: build(ivy, tmp, name, name == "native", args.operation, args.go_overlay)
+                   for name in ["g3", "native"]}
         for isolate in args.isolates:
             reference = None
+            expected_rows = None
             for engine, checker in engines.items():
                 got = subprocess.run(["taskset", "-c", str(args.cpu), checker, f"isolate={isolate}", spec],
                                      cwd=tmp, env=dict(os.environ, GOMAXPROCS="1", XTRACE_OFF="1"),
                                      capture_output=True, check=True)
                 lines = got.stdout.splitlines()
                 rows = measurements(got.stderr.decode().splitlines())
-                if not rows or lines[-1:] != [b"OK"] or len(rows) != lines.count(b"PASS"):
+                if not rows or lines[-1:] != [b"OK"]:
                     raise ValueError(f"incomplete run of {isolate} on {engine}")
+                if args.operation == "check" and len(rows) != lines.count(b"PASS"):
+                    raise ValueError(f"missing checks for {isolate} on {engine}")
+                if expected_rows is not None and len(rows) != expected_rows:
+                    raise ValueError(f"{isolate} {args.operation} counts differ")
+                expected_rows = len(rows)
                 if reference is not None and got.stdout != reference:
                     raise ValueError(f"{isolate} checker transcripts differ")
                 reference = got.stdout

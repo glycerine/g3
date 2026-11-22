@@ -17,6 +17,7 @@ def build(a, directory):
     smt = a.goivy.resolve() / "smt"
     helper = OBSERVER[:OBSERVER.index("func beginMeasuredCheck()")] + """
 var pushProfileDepth int
+var externalPushOrdinal int
 func noteCheck() func() {
     phaseSequence++
     n := phaseSequence
@@ -28,6 +29,8 @@ func noteCheck() func() {
 }
 func samplePush() func() {
     if pushProfileDepth != 0 { return func() {} }
+    externalPushOrdinal++
+    if !sampleOrdinal(externalPushOrdinal) { return func() {} }
     phaseSignal("enable")
     return func() {
         phaseSignal("disable")
@@ -35,6 +38,9 @@ func samplePush() func() {
     }
 }
 """
+    selected = ", ".join(str(n) for n in a.push)
+    condition = f"switch n {{ case {selected}: return true }}; return false" if selected else "return true"
+    helper += "func sampleOrdinal(n int) bool { " + condition + " }\n"
     push = "func (s *Z3Solver) Push() {"
     mapping = {}
     files = ["g3_solver.go"] if a.engine == "g3" else ["native_verification_condition.go", "quantifier.go"]
@@ -76,12 +82,16 @@ def main():
     p.add_argument("--isolate", required=True)
     p.add_argument("--cpu", type=int, required=True)
     p.add_argument("--pairs", type=int, default=2)
+    p.add_argument("--push", action="append", type=int, default=[],
+                   help="sample only this one-based external Push ordinal (repeatable)")
     p.add_argument("--period", type=int, default=10000019)
     p.add_argument("--perf", default="perf")
     p.add_argument("--call-graph", choices=("fp", "dwarf,8192"), default="dwarf,8192")
     a = p.parse_args()
     if a.period < 1 or a.pairs < 1:
         p.error("supply positive rounds and sampling period")
+    if any(n < 1 for n in a.push) or len(set(a.push)) != len(a.push):
+        p.error("supply distinct, positive external Push ordinals")
     a.output = a.output.resolve()
     a.output.mkdir(parents=True)
     a.spec = a.spec.absolute()
@@ -96,6 +106,8 @@ def main():
         run = a.output / str(i + 1)
         record(a, binary, "inside", run, reference)
         pushes = (run / "stderr").read_bytes().splitlines().count(b"IVY-PUSH-PROFILE")
+        if a.push and pushes != len(a.push):
+            raise ValueError(f"sampled {pushes} of {len(a.push)} requested pushes")
         flat, inclusive = Counter(), Counter()
         for stack in samples(run / "stacks.gz"):
             flat[stack[0] if stack else "(unknown)"] += 1
