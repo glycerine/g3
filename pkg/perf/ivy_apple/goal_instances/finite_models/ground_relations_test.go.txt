@@ -1,0 +1,64 @@
+package api
+
+import (
+	"bytes"
+	"encoding/csv"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/solver"
+)
+
+// Run on the unbound source formulas produced by verify.py. The two shells
+// independently checked the explicit finite interpretation in certificate.smt2.
+func TestFiniteGroundRelations(t *testing.T) {
+	files, err := filepath.Glob(filepath.Join(os.Getenv("G3_FINITE_CASES"), "*", "source.smt2"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("finding finite controls: %v", err)
+	}
+	f, err := os.Create(os.Getenv("G3_FINITE_RESULTS"))
+	astTestMust(t, err)
+	defer f.Close()
+	out := csv.NewWriter(f)
+	astTestMust(t, out.Write([]string{"case", "assertions", "admitted", "selected_premises", "private_refutation"}))
+	for _, path := range files {
+		name := filepath.Base(filepath.Dir(path))
+		t.Run(name, func(t *testing.T) {
+			raw, err := os.ReadFile(path)
+			astTestMust(t, err)
+			input, _, ok := bytes.Cut(raw, []byte("\n(check-sat)"))
+			if !ok {
+				t.Fatal("missing check-sat")
+			}
+			c, s := orderSolver(t, string(input))
+			m, err := c.Manager()
+			astTestMust(t, err)
+			roots, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			_, plan, err := planGroundGoals(m, roots)
+			astTestMust(t, err)
+			if plan == nil || !plan.selectedOnly {
+				t.Fatal("binary relation query was not admitted")
+			}
+			state := orderProofState{source: s}
+			defer func() { astTestMust(t, state.release()) }()
+			subset, err := state.selectWitnessPremises(m, plan)
+			astTestMust(t, err)
+			if subset == nil || len(subset.assertions) < 2 {
+				t.Fatal("no selected premises")
+			}
+			yes, err := state.checkGroundPlan(m, subset, 500_000)
+			if err != nil || yes {
+				t.Fatalf("relation proof on a finite model returned %v, %v", yes, err)
+			}
+			if proved, err := s.ProveUnsatByOrderAbstraction(); err != nil || proved {
+				t.Fatalf("public proof on a finite model returned %v, %v", proved, err)
+			}
+			astTestMust(t, out.Write([]string{name, strconv.Itoa(len(roots)), "true", strconv.Itoa(len(subset.assertions) - 1), strconv.FormatBool(yes)}))
+		})
+	}
+	out.Flush()
+	astTestMust(t, out.Error())
+}

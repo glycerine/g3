@@ -39,7 +39,7 @@ func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions 
 		}
 		if small != nil {
 			yes, err := p.checkGroundPlan(parent, small, min(maxSteps, 500_000))
-			if yes || err != nil {
+			if yes || err != nil || witness.selectedOnly {
 				return yes, err
 			}
 			// A wider, one-round plan would repeat the same tuple search
@@ -48,6 +48,9 @@ func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions 
 				return false, nil
 			}
 		}
+	}
+	if witness.selectedOnly {
+		return false, nil
 	}
 	return p.checkGroundPlan(parent, witness, min(maxSteps, 750_000))
 }

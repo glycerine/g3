@@ -36,6 +36,7 @@ type witnessInstancePlan struct {
 	source        []ast.ASTHandle // Full input to validate when this plan uses a subset.
 	sorts         []ast.ASTHandle
 	width, rounds int
+	selectedOnly  bool // restrict this attempt to the connected premise subset
 }
 
 // Look for several quantifiers ranging over the same domain in the final

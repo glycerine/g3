@@ -20,7 +20,7 @@ DEFAULT_CASES = ("cf_live-130", "cf_live-56", "dramc_nb2-369", "dramc_nb2-63", "
                  "rfn2-13", "rfn2-22", "rfn2-4")
 
 
-def generate(forms, seed, width, with_witnesses=False, ground_booleans=False):
+def generate(forms, seed, width, with_witnesses=False, ground_booleans=False, ground_relations=False):
     rng = random.Random(seed)
     names = fresh_names(forms, "g3!model!")
     domains = {"Bool": ("false", "true")}
@@ -140,6 +140,49 @@ def generate(forms, seed, width, with_witnesses=False, ground_booleans=False):
         goal = queries[(seed + width) % len(queries)]
         if evaluate(goal, {}) == "false":
             goal = ("not", goal)
+    if ground_relations:
+        kept.append(goal)
+        sort = rng.choice([form[1] for form in forms if form[0] == "declare-sort"])
+        objects = domains[sort]
+        relation, x, y = next(names), next(names), next(names)
+        args = ((x, sort), (y, sort))
+        source.append(("declare-fun", relation, (sort, sort), "Bool"))
+        # Vary the full interpretation, including empty, universal, equality,
+        # strict directed cycles and arbitrary relations. In the source the
+        # constants may alias and the relation has no built-in properties.
+        mode = seed % 5
+        table = {}
+        rows = []
+        for i, a in enumerate(objects):
+            for j, b in enumerate(objects):
+                holds = (False, True, i == j, j == (i + 1) % width, rng.choice((False, True)))[mode]
+                if holds:
+                    table[a, b] = "true"
+                    rows.append(("and", ("=", x, a), ("=", y, b)))
+        definition = ("or", *rows) if rows else "false"
+        certificate.append(("define-fun", relation, args, "Bool", definition))
+        functions[relation] = "false", table
+        constants = [next(names) for _ in range(3)]
+        for i, name in enumerate(constants):
+            value = objects[i % width]
+            source.append(("declare-const", name, sort))
+            certificate.append(("define-fun", name, (), sort, value))
+            functions[name] = value, {}
+        signed = []
+        for a, b in zip(constants, constants[1:] + constants[:1], strict=True):
+            atom = (relation, a, b)
+            positive = evaluate(atom, {}) == "true"
+            signed.append(atom if positive else ("not", atom))
+            guard = ("and", ("=", x, a), ("=", y, b))
+            consequent = (relation, x, y) if positive else ("not", (relation, x, y))
+            kept.append(("forall", args, ("=>", guard, consequent)))
+        # The antecedent holds and the first postcondition fails in this
+        # interpretation. Both source names and domain elements can alias.
+        flag = next(names)
+        source.append(("declare-const", flag, "Bool"))
+        certificate.append(("define-fun", flag, (), "Bool", "true"))
+        functions[flag] = "true", {}
+        goal = ("not", ("=>", ("and", flag, signed[0]), ("and", ("not", signed[1]), signed[2])))
     assertions = [("assert", ("and", *kept)), ("assert", goal), ("check-sat",)]
     return source + assertions, certificate + assertions, len(premises), retained, sign
 
@@ -153,6 +196,8 @@ def main():
     parser.add_argument("--seeds", default=12, type=int)
     parser.add_argument("--case", nargs="+", help="fixture names without .smt2.gz")
     goals = parser.add_mutually_exclusive_group()
+    goals.add_argument("--ground-relations", action="store_true",
+                       help="derive a ground binary relation query with a certified finite interpretation")
     goals.add_argument("--ground-booleans", action="store_true",
                        help="derive a ground Boolean query satisfied by the explicit model")
     goals.add_argument("--with-quantified-witnesses", action="store_true",
@@ -173,11 +218,11 @@ def main():
         forms = separate(parse(gzip.decompress((FIXTURES / (case + ".smt2.gz")).read_bytes()).decode()))
         rows = []
         for seed in range(1, args.seeds + 1):
-            for width in (1, 2):
+            for width in ((1, 2, 3) if args.ground_relations else (1, 2)):
                 loc = root / f"{case}-{seed}-{width}"
                 loc.mkdir()
                 source, cert, total, retained, sign = generate(
-                    forms, seed, width, args.with_quantified_witnesses, args.ground_booleans)
+                    forms, seed, width, args.with_quantified_witnesses, args.ground_booleans, args.ground_relations)
                 for fname, problem in (("source.smt2", source), ("certificate.smt2", cert)):
                     (loc / fname).write_text("\n".join(map(smt, problem)) + "\n")
                 for engine in engines:

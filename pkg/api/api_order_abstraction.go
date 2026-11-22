@@ -21,7 +21,8 @@ const orderProofSteps = 3_000_000
 // uninterpreted sorts, it can refute ground instances at the final goal's constants.
 // A quantified goal can also be refuted by its Boolean structure and the
 // one-way implications connecting quantified formulas to their ground instances.
-// Ground Boolean goals may use the ground conjuncts of their premises.
+// Ground Boolean goals may use the ground conjuncts of their premises. A
+// violated conjunctive postcondition can also use ground relation instances.
 // For goals with several quantifiers over the same domain, a private ground
 // solver also checks instances at fresh witnesses and observed applications.
 // True establishes that the assertions are unsatisfiable. False is inconclusive:
@@ -100,8 +101,12 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 				proved, err = false, errors.Join(err, closeErr)
 			}
 		}
-		if candidate != nil && err == nil && !proved {
-			p.source.pendingRefutation = candidate
+		if candidate != nil && err == nil {
+			if proved {
+				candidate.remember()
+			} else {
+				p.source.pendingRefutation = candidate
+			}
 		}
 	}()
 	s := p.source

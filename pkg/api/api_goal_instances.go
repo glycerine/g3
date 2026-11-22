@@ -22,9 +22,10 @@ type goalInstancePlan struct {
 }
 
 type groundGoalTerms struct {
-	constants map[ast.ASTHandle]ast.ASTHandle
-	maxArity  uint32
-	ambiguous bool
+	constants    map[ast.ASTHandle]ast.ASTHandle
+	maxArity     uint32
+	ambiguous    bool
+	relationSort ast.ASTHandle
 }
 
 // When several independent domains each have a single goal constant,
@@ -52,6 +53,12 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (*groundGoalTe
 	if err != nil || !ground {
 		return nil, err
 	}
+	relationGoal, err := violatedConjunction(m, goal)
+	if err != nil {
+		return nil, err
+	}
+	var relations []ast.ASTHandle
+	var threeConstants map[ast.ASTHandle]bool
 	seen := make(map[ast.ASTHandle]bool)
 	witnesses := make(map[ast.ASTHandle]ast.ASTHandle)
 	terms := groundGoalTerms{constants: witnesses}
@@ -70,6 +77,18 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (*groundGoalTe
 		}
 		if header.Kind != ast.ASTApp || len(seen) > 256 || header.NumArgs > 256 {
 			return nil, nil
+		}
+		if len(seen) > 160 || header.NumArgs > 32 {
+			relationGoal = false
+		}
+		if relationGoal && header.NumArgs == 2 && header.Family == ast.NullFamilyID {
+			boolean, err := m.HasBoolSort(h)
+			if err != nil {
+				return nil, err
+			}
+			if boolean {
+				relations = append(relations, header.Decl)
+			}
 		}
 		if header.NumArgs > 0 && header.Family == ast.NullFamilyID {
 			terms.maxArity = max(terms.maxArity, header.NumArgs)
@@ -90,6 +109,12 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (*groundGoalTe
 				prior, found := witnesses[sort]
 				if !found {
 					witnesses[sort] = h
+				} else if relationGoal && prior.IsNull() {
+					// The walk visits each constant once. A null entry already saw two.
+					if threeConstants == nil {
+						threeConstants = make(map[ast.ASTHandle]bool)
+					}
+					threeConstants[sort] = true
 				} else if prior != h {
 					witnesses[sort] = ast.ASTHandle{}
 				}
@@ -112,6 +137,32 @@ func goalInstanceWitnesses(m *ast.ASTManager, goal ast.ASTHandle) (*groundGoalTe
 	// Goals involving just one or two functions are usually cheaper to
 	// check in the existing incremental solver, even with many premises.
 	if len(witnesses) < 2 || len(functions) < 3 {
+		terms.constants = nil
+	}
+	if relationGoal && len(threeConstants) != 0 {
+		for _, decl := range relations {
+			first, err := m.GetDomain(decl, 0)
+			if err != nil {
+				return nil, err
+			}
+			if !threeConstants[first] || terms.relationSort == first {
+				continue
+			}
+			second, err := m.GetDomain(decl, 1)
+			if err != nil {
+				return nil, err
+			}
+			if first != second {
+				continue
+			}
+			if !terms.relationSort.IsNull() {
+				terms.relationSort = ast.ASTHandle{}
+				break
+			}
+			terms.relationSort = first
+		}
+	}
+	if terms.constants == nil && terms.relationSort.IsNull() {
 		return nil, nil
 	}
 	return &terms, nil
@@ -159,11 +210,19 @@ func planGroundGoals(m *ast.ASTManager, assertions []ast.ASTHandle) (*goalInstan
 	if err != nil || terms == nil {
 		return nil, nil, err
 	}
-	plan, err := planGoalInstances(m, assertions, terms.constants)
-	if err != nil {
-		return nil, nil, err
+	if terms.constants != nil {
+		plan, err := planGoalInstances(m, assertions, terms.constants)
+		witness := terms.expandedPlan(assertions)
+		if plan != nil || err != nil || witness != nil {
+			return plan, witness, err
+		}
 	}
-	return plan, terms.expandedPlan(assertions), nil
+	if terms.relationSort.IsNull() {
+		return nil, nil, nil
+	}
+	// A relation over a single domain can link several named objects in the
+	// violated postcondition. Check its connected premises at three terms.
+	return nil, &witnessInstancePlan{assertions: assertions, sorts: []ast.ASTHandle{terms.relationSort}, width: 3, rounds: 1, selectedOnly: true}, nil
 }
 
 func planGoalInstances(m *ast.ASTManager, assertions []ast.ASTHandle, witnesses map[ast.ASTHandle]ast.ASTHandle) (*goalInstancePlan, error) {
@@ -214,4 +273,45 @@ func planGoalInstances(m *ast.ASTManager, assertions []ast.ASTHandle, witnesses 
 		return nil, nil
 	}
 	return p, nil
+}
+
+// violatedConjunction recognizes a negated implication with a conjunctive
+// consequent. Singleton conjunctions and nested implication guards are common
+// in verification conditions. This filter only chooses when to attempt search.
+func violatedConjunction(m *ast.ASTManager, h ast.ASTHandle) (bool, error) {
+	negative, implication := false, false
+	for depth := 0; depth < 32; depth++ {
+		hd, err := m.NodeHeader(h)
+		if err != nil {
+			return false, err
+		}
+		if hd.Kind != ast.ASTApp || hd.Family != m.BasicFamilyID() {
+			return false, nil
+		}
+		var child uint32
+		switch hd.DeclKind {
+		case ast.ASTOpNot:
+			if hd.NumArgs != 1 {
+				return false, nil
+			}
+			negative = !negative
+		case ast.ASTOpAnd:
+			if hd.NumArgs != 1 {
+				return implication && negative && hd.NumArgs >= 2, nil
+			}
+		case ast.ASTOpImplies:
+			if !negative || hd.NumArgs != 2 {
+				return false, nil
+			}
+			implication = true
+			child = 1
+		default:
+			return false, nil
+		}
+		h, err = m.GetArg(h, child)
+		if err != nil {
+			return false, err
+		}
+	}
+	return false, nil
 }

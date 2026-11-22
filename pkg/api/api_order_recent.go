@@ -5,7 +5,7 @@ import (
 	"github.com/glycerine/g3/pkg/solver"
 )
 
-// A batch remembers a short sequence of concrete UNSAT queries with the same
+// A batch remembers a short sequence of UNSAT queries with the same
 // ordered premises. These handles are identity tokens only. They include the
 // arena owner and generation and do not hold any source AST alive.
 const maxRecentPremises = 128
