@@ -2896,3 +2896,21 @@ Each measured worker owns a separate API context, AST arena and default solver. 
 For 1,024 workers the three-round median time to initialize the cohort was 11.17 s for g3 and 4.02 s for native. This is the fully initialized strategic API. The smaller SMT-core worker benchmark measures a different population of owners and remains useful for tracking scope storage. [24 final observations](perf/ivy_apple/holdouts/nov22-strategic-workers.csv) · [Earlier constructor configurations](perf/ivy_apple/holdouts/nov22-strategic-worker-constructors.csv) · [SMT-core worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
 
 A separate live heap profile of 128 g3 workers attributed 8.05% of sampled live bytes directly to parameter-entry pages, about 7% to the bit-vector rewriter constructor, 5.51% to traversal construction, 4.65% to parameter-block allocation and 4.62% to numeral cell slabs. To reproduce the profile, select only Workers128, pass `-benchtime=1x -memprofilerate=4096` to `go test`, and use `-args -g3-strategic-worker-heap=/tmp/workers.pprof`. The profile is taken before closing any worker. [Saved Go heap profile](perf/ivy_apple/holdouts/nov22-workers-128.pprof)
+
+### Target obligations and first pushes at the November 22 option-reader revision
+
+Across five paired runs of all 26 rfn2 conditions, g3 used **3.01 billion solver-thread instructions inside verification calls, against 35.48 billion for linked Z3**. On the November 21 frontier the same comparison was 93.08 against 35.48. Check 4 now takes 0.160 billion versus 20.858 billion. The independent proof changes which algorithm g3 executes. A separate replay also runs the concrete solver and compares its 18 search counters to native at every check. [Per-call measurements](perf/ivy_apple/incremental_cost/nov22-completion-checks.csv.gz) · [Earlier measurements](#november-21-release-comparison)
+
+| Selected obligation, billion instructions | g3 | Linked Z3 |
+|---|---:|---:|
+| rfn2 4 | 0.160 | 20.858 |
+| rfn2 13 | 0.134 | 4.388 |
+| rfn2 22 | 0.178 | 5.213 |
+| rfn2 26 | 0.096 | 0.978 |
+| cf_live 122 | 1.950 | 0.547 |
+| cf_live 50 | 1.495 | 0.539 |
+| cmpl_live 177 | 3.803 | 1.403 |
+
+Three pairs captured every verification and mutation on cf_live and cmpl_live. Inside checks, cf_live used 22.85 versus 34.00 billion instructions and cmpl_live used 6.64 versus 4.29 billion. The 2.40 billion excess on cmpl_live 177 is slightly larger than the entire isolate's net excess inside checks. Faster conditions offset part of it. Across the three isolates, 4,898 check intervals and 15,798 mutation intervals all ran for the full enabled counter time. [Verification calls](perf/ivy_apple/incremental_cost/nov22-completion-checks.csv.gz) · [Push, pop, assert and reset intervals](perf/ivy_apple/incremental_cost/nov22-completion-mutations.csv.gz)
+
+The cost between rfn2 checks is still concentrated on the first pushes. All 26 external pushes used 12.23 versus 3.53 billion instructions. The ten expensive first pushes account for 99.98% of that difference. Across cf_live, external pushes cost 17.90 versus 5.36 billion, and across cmpl_live they cost 14.78 versus 4.17 billion. Three independent instruction-sampling rounds attribute about 8.02 versus 2.22 billion rfn2 push instructions to work outside assertion reduction and 1.96 versus 0.55 billion to macro finding within reduction. These process samples can include Go GC on another thread. The exact interval figures count only the solver thread. [Pass estimates](perf/ivy_apple/incremental_cost/nov22-completion-push-passes.csv) · [g3 leaf and inclusive stacks](perf/ivy_apple/incremental_cost/nov22-completion-push-g3.csv.gz) · [Linked-Z3 stacks](perf/ivy_apple/incremental_cost/nov22-completion-push-native.csv.gz) · [Push profiler](perf/ivy_apple/incremental_cost/push_profile.py)

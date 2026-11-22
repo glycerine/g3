@@ -85,7 +85,7 @@ def main():
     a.output = a.output.resolve()
     a.output.mkdir(parents=True)
     a.spec = a.spec.absolute()
-    a.inline = a.keep_raw = False
+    a.by_check = a.inline = a.keep_raw = False
     reference = a.reference.read_bytes()
     if not reference.endswith(b"OK\n"):
         raise ValueError("incomplete reference transcript")
