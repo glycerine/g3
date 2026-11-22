@@ -3199,3 +3199,26 @@ A separate experiment changed the sequence of assertion preprocessing passes *on
 | Ticket | 5.71 | 5.32 | 6.11 |
 
 A disjoint timer around outermost general rewriter calls counted **6.05 billion** instructions on the ten first pushes. Calls that returned their exact input handle accounted for **3.83 billion**. Only **1.17 billion** fell in unchanged calls where the same rewriter had already seen the same root on that push. A cache would also have to establish that options, substitutions, bindings, cancellation behavior and any reference-sensitive rules are compatible. The 3.83-billion number is a generous ceiling for eliminating these whole traversals. On the three short replays the unchanged intervals inside check-sat were 71.5, 21.9 and 39.8 **million**. Even a free identity test at every such entry would leave most of their whole-query gaps. [Three rounds by configuration, push and result](perf/ivy_apple/incremental_cost/nov22b-outer-rewrite-identity.csv.gz) · [Observer and empty-interval subtraction](perf/ivy_apple/incremental_cost/rewrite_identity.py)
+
+### Changing the proof search by enabling quantified premises at check time
+
+On the saved **rfn2 check 13**, both shells can cut instruction usage by roughly an order of magnitude while proving the complete original obligation. For each original assertion, flatten its positive top-level conjunction, put its quantified conjuncts behind a fresh Boolean selector, and pass that selector to check-sat-assuming. All original conjuncts are enabled at the check. On this input there is one selector. Both solvers went from **20,748 to 2,674 quantifier instances and 204 to 5 conflicts**. g3 fell from **13.80 to 1.20 billion instructions** and Z3 from **4.19 to 0.42 billion**. g3 beat the ordinary Z3 route on this input. Z3 still cost fewer instructions when given the same encoding. These are independent shell replays, distinct from GoIvy's private refutations and from the complete isolate. [All shell counters](perf/ivy_apple/holdouts/nov22b-guarded-premises.csv.gz) · [Original, named and guarded encodings](perf/ivy_apple/holdouts/guarded_premises.py)
+
+| Captured query | Ordinary g3 | Guarded g3 | Ordinary Z3 | Guarded Z3 |
+|---|---:|---:|---:|---:|
+| rfn2 13 | 13.80 B | **1.20 B** | 4.19 B | 0.42 B |
+| rfn2 7 | 6.63 B | **2.02 B** | 2.14 B | 0.67 B |
+| rfn2 4 | 12.54 B | 4.42 B | 4.35 B | 1.47 B |
+| rfn2 22 | 5.42 B | 2.79 B | 1.81 B | 0.94 B |
+| rfn2 26 | 3.97 B | 8.22 B | 1.44 B | 2.63 B |
+| cf_live 42 | 5.64 B | 3.17 B | 2.03 B | 1.09 B |
+| cmpl_live 43 | 5.27 B | 3.47 B | 1.83 B | 1.14 B |
+| Ticket 127 | 0.31 B | 0.40 B | 0.12 B | 0.14 B |
+| Ticket 290 | 0.33 B | 0.36 B | 0.12 B | 0.13 B |
+| Toy consensus 18 | 0.73 B | 7.47 B | 0.22 B | 2.15 B |
+
+The table uses the same rule on every row, two alternating rounds for Apple, three for the independent examples, and complete-process user-mode instruction counters. On toy consensus a shared guard was about **ten times worse** in both engines. Having all premises forced at a later search level changes preprocessing, decision order and learned clauses. A planner cannot infer the direction from the presence of quantifiers alone.
+
+An offline experiment asked the native solver to find an UNSAT core, then replayed just those conjuncts from scratch in each ordinary solver. On rfn2 13 the core contained eight of 537 conjuncts and g3 solved it in 60 million instructions. On ticket 127 it contained 30 of 121 and g3 solved it in 88 million. Discovering those cores cost the native solver an additional 464 million and 89 million respectively. On toy consensus the known 51-conjunct core was **slower** than the original 79, taking 2.07 billion in g3. Retaining all conjuncts with up to two bound variables per binder gave four SAT answers and one timeout on the five rfn2 captures. A SAT answer from a weakened formula cannot be used as a counterexample to the full obligation. [Subset, discovery and replay costs](perf/ivy_apple/holdouts/nov22b-premise-subsets.csv.gz) · [Reference-core and arity driver](perf/ivy_apple/holdouts/premise_slices.py)
+
+I also tried selecting premises using just declaration occurrences in the verification goal. One expansion through the rarest shared declarations refuted cf_live 42 with 11 of 687 premises and 71 million instructions. Keeping its ground facts as well refuted cmpl_live 43 with 231 of 718 and 129 million. The same family of rules produced no refutation on the four tested rfn2 goals or ticket 127 within a 45,000-step budget. The CSV records selection wall time in Python separately from shell instructions, and records budget failures as inconclusive. [All selection attempts](perf/ivy_apple/holdouts/nov22b-selected-by-goal.csv.gz) · [Selection driver](perf/ivy_apple/holdouts/goal_symbols.py)
