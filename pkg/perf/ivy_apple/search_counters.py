@@ -37,6 +37,16 @@ func ivyCounterStats(s *Z3Solver) string {
 """
 
 
+def original_scopes(code):
+    """Observe search under the native sequence of assertions, pushes and pops."""
+    method = "func (s *Z3Solver) BeginVerificationGoalChecks()"
+    if method not in code:
+        return code
+    start = code.index("{", code.index(method)) + 1
+    end = code.index("\n}\n", start)
+    return code[:start] + "\n return nil, nil, nil" + code[end:]
+
+
 def build(ivy, tmp, name, native, operation="check", go_overlay=None):
     common = ["go", "build", "-mod=readonly", "-buildvcs=false", "-pgo=off"]
     if native:
@@ -50,7 +60,7 @@ def build(ivy, tmp, name, native, operation="check", go_overlay=None):
     else:
         src = ivy / "smt/g3_solver.go"
         files = json.loads(go_overlay.read_text())["Replace"] if go_overlay else {}
-        code = Path(files.get(str(src), src)).read_text()
+        code = original_scopes(Path(files.get(str(src), src)).read_text())
         method = GO_METHOD if operation == "check" else "func (s *Z3Solver) Push() {"
         if code.count(method) != 1 or code.count('import (') != 1:
             raise ValueError(f"unrecognized GoIvy solver adapter {src}")

@@ -21,6 +21,8 @@ def instrument(args):
     code = replace_once(code, "type Z3Solver struct {", "type Z3Solver struct {\n measuredOwner int")
     code = code.replace('defer ivyMeasureMutation("', 'defer s.measureStage("')
     code = replace_once(code, "defer ivyInsideCheck()()", 'defer s.measureStage("Check")()\n defer ivyInsideCheck()()')
+    direct = "func (s *Z3Solver) Check() Z3CheckResult {"
+    code = replace_once(code, direct, direct + ' defer s.measureStage("DirectCheck")();')
     if "func (s *Z3Solver) BeginVerificationGoalChecks()" in code:
         code = replace_once(code, "func(goal Z3Expr) bool {",
                             'func(goal Z3Expr) bool {\n defer s.measureStage("Preflight")()')
@@ -54,10 +56,10 @@ def main():
     parser.add_argument("--rounds", type=int, default=5)
     args = parser.parse_args()
     args.goivy = args.goivy.resolve(strict=True)
-    args.spec = args.spec.resolve(strict=True)
+    args.spec = args.spec.absolute()
     args.output = args.output.resolve()
     reference = args.reference.read_bytes()
-    if args.rounds < 1 or not reference.rstrip().endswith(b"\nOK"):
+    if not args.spec.is_file() or args.rounds < 1 or not reference.rstrip().endswith(b"\nOK"):
         parser.error("supply a successful complete reference and positive round count")
     args.output.mkdir(parents=True)
     binary = instrument(args)

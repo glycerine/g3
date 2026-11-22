@@ -1,0 +1,96 @@
+// List unguarded GoIvy trace statements for attribution of a trace-off heap profile.
+package main
+
+import (
+	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+type traceSite struct {
+	File, Function string
+	First, Last    int
+}
+
+func fileSites(path string) []traceSite {
+	set := token.NewFileSet()
+	file, err := parser.ParseFile(set, path, nil, 0)
+	if err != nil {
+		panic(err)
+	}
+	var sites []traceSite
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
+			continue
+		}
+		var stack []ast.Node
+		ast.Inspect(fn.Body, func(node ast.Node) bool {
+			if node == nil {
+				stack = stack[:len(stack)-1]
+				return true
+			}
+			stack = append(stack, node)
+			var call *ast.CallExpr
+			switch n := node.(type) {
+			case *ast.ExprStmt:
+				call, _ = n.X.(*ast.CallExpr)
+			case *ast.DeferStmt:
+				call = n.Call
+			}
+			if call == nil {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || (sel.Sel.Name != "Trace" && sel.Sel.Name != "Trace1") {
+				return true
+			}
+			recv, ok := sel.X.(*ast.Ident)
+			if !ok || recv.Name != "xtracer" {
+				return true
+			}
+			for _, parent := range stack {
+				cond, ok := parent.(*ast.IfStmt)
+				if !ok || cond.Body.Pos() > node.Pos() || cond.Body.End() < node.End() {
+					continue
+				}
+				hasGuard := false
+				ast.Inspect(cond.Cond, func(child ast.Node) bool {
+					if s, ok := child.(*ast.SelectorExpr); ok && s.Sel.Name == "Enabled" {
+						if id, ok := s.X.(*ast.Ident); ok && id.Name == "xtracer" {
+							hasGuard = true
+						}
+					}
+					return true
+				})
+				if hasGuard {
+					return true
+				}
+			}
+			sites = append(sites, traceSite{filepath.Base(path), fn.Name.Name,
+				set.Position(node.Pos()).Line, set.Position(node.End()).Line})
+			return true
+		})
+	}
+	return sites
+}
+
+func main() {
+	files, err := filepath.Glob(filepath.Join(os.Args[1], "*.go"))
+	if err != nil {
+		panic(err)
+	}
+	var sites []traceSite
+	for _, path := range files {
+		if !strings.HasSuffix(path, "_test.go") {
+			sites = append(sites, fileSites(path)...)
+		}
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(sites); err != nil {
+		panic(err)
+	}
+}

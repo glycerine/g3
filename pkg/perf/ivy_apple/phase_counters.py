@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Count user-mode instructions inside selected incremental Apple solver calls."""
+"""Count user-mode instructions inside selected Apple solver calls with the original scope sequence."""
 
 import argparse
 import csv
@@ -9,6 +9,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+
+from search_counters import original_scopes
 
 
 EVENTS = ("instructions:u", "cycles:u", "branches:u", "branch-misses:u")
@@ -75,6 +78,7 @@ def build(engine, args, scratch, observer=OBSERVER, packages=("fmt", "io", "os",
                             "defer beginMeasuredCheck()(); return s.Check()"))
         code = replace_once(code, "return s.Check, func() {}", "return s.CheckVerificationCondition, func() {}")
     else:
+        code = original_scopes(code)
         code = replace_once(code, G3_METHOD, G3_METHOD + "\n defer beginMeasuredCheck()()")
     patched = scratch / filename
     patched.write_text(code + observer)
