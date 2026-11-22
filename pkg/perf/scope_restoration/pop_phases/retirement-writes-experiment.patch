@@ -1,0 +1,59 @@
+--- a/pkg/smtcore/smt_expr_table.go
++++ b/pkg/smtcore/smt_expr_table.go
+@@ -180,7 +180,7 @@
+ 		t.boolVarCount--
+ 	}
+ 	record.flags &^= smtExprHasBoolVar | smtExprHasAssignment
+-	record.boolVar, record.assignment = 0, 0
++	// The bindings are read only while their matching presence flag is set.
+ 	if clearRelevance {
+ 		if record.flags&smtExprRelevant != 0 {
+ 			t.relevanceRemovals++
+--- a/pkg/smtcore/smt_internalizer_state.go
++++ b/pkg/smtcore/smt_internalizer_state.go
+@@ -1511,7 +1511,7 @@
+ 					return err
+ 				}
+ 			}
+-			if s.quantifiers != nil {
++			if s.quantifiers != nil && len(s.quantifiers.quantifiers) != 0 {
+ 				kind, err := s.manager.GetKind(expression)
+ 				if err != nil {
+ 					return err
+@@ -1541,13 +1541,17 @@
+ 					page.notChildren[slot] = ast.ASTHandle{}
+ 				}
+ 			}
+-			s.booleanData[variable].SetNullJustification()
++			if s.booleanData[variable].justification.ref != nil {
++				s.booleanData[variable].SetNullJustification()
++			}
+ 			s.booleanData = s.booleanData[:variable]
+ 			s.activity = s.activity[:variable]
+ 			s.assignment = s.assignment[:2*variable]
+-			s.watches[2*variable].recycle()
+-			s.watches[2*variable+1].recycle()
+-			s.watches = s.watches[:2*variable]
++			first := 2 * int(variable)
++			pair := s.watches[first : first+2]
++			pair[0].recycle()
++			pair[1].recycle()
++			s.watches = s.watches[:first]
+ 			s.retiringBoolean, s.retiringBooleanRoot = true, expression
+ 		}
+ 		if !s.retiringBooleanRoot.IsNull() {
+--- a/pkg/smtcore/watch_list.go
++++ b/pkg/smtcore/watch_list.go
+@@ -36,6 +36,12 @@
+ // recycle releases retired clause pointers and keeps the buffers for the
+ // next variable in this slot. Native resets the list when publishing the ID.
+ func (w *SMTWatchList) recycle() {
++	if len(w.clauses) == 0 {
++		if w.literalCount != 0 {
++			w.literalCount = 0
++		}
++		return
++	}
+ 	// A single watched clause needs just one pointer store.
+ 	if len(w.clauses) == 1 {
+ 		w.clauses[0] = nil

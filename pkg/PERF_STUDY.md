@@ -2,7 +2,7 @@
 
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
-**All three original specifications now finish faster with g3 in the six-pair ordinary-build comparison.** GoIvy took 3.87 s versus 39.19 s on Raft, 78.29 s versus 83.70 s on Apple `dramc_nb2`, and 6.76 s versus 16.84 s on Apple `rfn2`. The same frontend produced identical proof transcripts. Across seven independent short specifications, linked Z3 still finished faster. [Ten-workload results and controls](#november-22-complete-verification-comparison) · [Cost of rfn2 check 4 and first pushes](#target-obligations-and-first-pushes-at-the-november-22-option-reader-revision)
+**g3 now wins all three original GoIvy workloads at the default GC setting.** In four alternating pairs per workload on CPU 22, the complete run took 4.06 s versus 46.73 s on Raft, 83.70 s versus 100.72 s on Apple `dramc_nb2`, and 9.87 s versus 26.57 s on Apple `rfn2`. All 12 paired proof transcripts matched. Linked Z3 won all 42 pairs across seven independent short specifications. The two GoIvy configurations also responded differently to a larger heap on `dramc_nb2`. [Complete checker comparison](#ordinary-goivy-verification-at-91d1597f3) · [Remaining short-query costs](#three-reproducible-obligations-that-still-favor-z3) · [GC and resident memory](#the-effect-of-go-heap-growth-on-dramc_nb2)
 
 **Ground Boolean proofs brought `cmpl_live` below linked Z3 in retired instructions.** Across the first three paired rounds the complete checker used 121.15 billion instructions against 124.13 billion for Z3. The same change took `cf_live` from 122.95 to 119.71 billion, against 107.68 billion for Z3. All 882 private refutations were confirmed by the original solver. [Measurements and controls](#ground-boolean-proofs-on-the-apple-liveness-checks) · [Earlier premise selection](#selecting-positive-conjuncts-for-ground-proofs)
 
@@ -2975,3 +2975,74 @@ The independent Apple replay matched the original concrete solver's 18 counters 
 The preceding spelling and catalog change also had its own six-pair native comparison. Its three original workloads took 4.26 versus 50.73 seconds on Raft, 94.75 versus 133.87 on dramc_nb2, and 7.56 versus 20.50 on rfn2. Each pair compared identical proof transcripts. The earlier revision's serial and matched-PGO runs provide separate controls on compiler and machine-load effects. [120 ordinary checker runs](perf/ivy_apple/holdouts/nov22-spelling-panel.csv) · [70 short-spec runs](perf/ivy_apple/holdouts/nov22-spelling-examples.csv) · [Earlier ordinary serial comparison](perf/ivy_apple/holdouts/nov22-release-panel-serial.csv) · [Earlier matched-PGO panel](perf/ivy_apple/holdouts/nov22-release-panel-pgo.csv)
 
 The unmodified Makefile targets remain a distinct measurement. In five alternating host-default rounds of 10,000 iterations, surviving atoms took **857 versus 662 ns** and scoped atoms took **18.31 versus 16.02 µs** for g3 and Z3. With both processes pinned to CPU 7 on the same shared host, the medians were 1,124 versus 1,440 ns and 34.02 versus 33.27 µs. The Go fixture uses its ordinary queue configuration. These elapsed-time comparisons vary enough with placement to warrant keeping both the original target and the separate matched-queue solver-thread measurements. [40 Makefile observations](perf/scope_restoration/nov22-make-targets.csv) · [Matched-queue benchmark](smtcore/smt_hotpath_benchmark_test.go) · [Per-variable phase counts](perf/scope_restoration/boolean_lifetime/nov22-variable-phases.csv)
+
+### Ordinary GoIvy verification at 91d1597f3
+
+The release includes the arithmetic and theory rewriter option change. Four alternating pairs of each original workload ran through the same GoIvy frontend on logical CPU 22, with the ordinary compiler configuration, one Go runtime processor and default GC settings. All 12 pairs favored g3 and produced identical proof transcripts. The table reports the median elapsed time for each engine and their ratio. The medians of the *individual paired* speedups were 10.58×, 1.24× and 2.62× respectively. Other activity on this host varied during the runs. [All 24 runs, counters and RSS](perf/ivy_apple/holdouts/nov22-rewriter-settings-serial.csv)
+
+| Workload | Named checks | g3 | Linked Z3 | Ratio of medians, Z3/g3 | Instructions, g3 / Z3 (billions) |
+|---|---:|---:|---:|---:|---:|
+| Raft | 419 | 4.06 s | 46.73 s | 11.50× | 25.94 / 215.20 |
+| Apple dramc_nb2 | 2,479 | 83.70 s | 100.72 s | 1.20× | 393.99 / 477.06 |
+| Apple rfn2 | 26 | 9.87 s | 26.57 s | 2.69× | 44.37 / 69.32 |
+
+A second comparison ran ten workload lanes concurrently, assigning a fixed CPU to both engines in each lane. All ten separate elapsed-time and instruction medians favored g3. On tprops, elapsed time differed by only 0.40 s across five pairs, with g3 winning three. These runs are more informative about whole-process instructions than about absolute elapsed times. The rfn2 lane took 32.70/83.15 s here, versus 9.87/26.57 s running the three workloads in series. Its instruction totals agreed to within 0.2% per engine between the two experiments. [All 100 measurements](perf/ivy_apple/holdouts/nov22-rewriter-settings-panel.csv) · [Direct paired Go-build comparisons](perf/ivy_apple/holdouts/nov22-rewriter-settings-apple.csv)
+
+| Workload | g3 seconds | Z3 seconds | g3 / Z3 billion instructions | g3 elapsed-time wins |
+|---|---:|---:|---:|---:|
+| Raft | 4.26 | 44.68 | 25.94 / 215.20 | 5/5 |
+| rfn2 | 32.70 | 83.15 | 44.31 / 69.44 | 5/5 |
+| dramc_nb2 | 76.52 | 145.57 | 394.04 / 478.67 | 5/5 |
+| cf_live | 19.89 | 25.28 | 105.10 / 106.99 | 4/5 |
+| cf_pio_live | 101.69 | 126.87 | 406.49 / 535.58 | 5/5 |
+| cmpl_live | 20.76 | 25.06 | 119.06 / 124.08 | 4/5 |
+| e2e | 87.69 | 96.74 | 368.18 / 430.63 | 4/5 |
+| rfn | 7.84 | 14.14 | 48.52 / 57.37 | 5/5 |
+| sys_live | 57.26 | 84.89 | 283.75 / 336.75 | 3/5 |
+| tprops | 32.93 | 33.33 | 157.66 / 167.71 | 3/5 |
+
+**rfn2 check 4 now takes 0.181 billion solver-thread instructions in g3 and 20.858 billion in linked Z3.** A private proof discharges the obligation. Across all 26 checks the totals were 3.162 and 35.480 billion. The first pushes still cost more in Go. Its ten expensive pushes used 12.145 billion instructions against 3.530 billion for the same native calls. Across *all* pushes the figures were 12.147 and 3.531 billion. These are medians of per-round sums over five rounds, after subtracting the empty counter read at each call. On cf_live, the three-round figures were 22.89/34.00 billion inside Check and 17.89/5.36 billion inside Push. On cmpl_live they were 6.54/4.29 billion and 14.74/4.17 billion respectively. The measured intervals run on the solver's OS thread. [Individual checks](perf/ivy_apple/incremental_cost/nov22-current-checks.csv.gz) · [Every push, pop, assertion and reset](perf/ivy_apple/incremental_cost/nov22-current-mutations.csv.gz)
+
+### Three reproducible obligations that still favor Z3
+
+Seven independent short specifications produced 505 expected passes and three expected failures with both backends. Linked Z3 won every elapsed-time pair, six per example. The complete g3/Z3 runs retired 7.216/4.132 billion instructions on toy consensus, 5.716/3.017 billion on ticket, and 0.818/0.515 billion on ping-pong. Five additional pairs measured each API boundary separately, including 73 actual Check calls on the 72 named toy-consensus passes. Each instrumented run had to reproduce its ordinary transcript. [84 complete short runs](perf/ivy_apple/holdouts/nov22-rewriter-settings-holdouts.csv) · [23,790 solver-thread intervals](perf/ivy_apple/holdouts/nov22-short-intervals.csv.gz) · [Interval driver](perf/ivy_apple/holdouts/short_intervals.py)
+
+| Median solver-thread instructions (billions), g3 / Z3 | Check | Assert | Push |
+|---|---:|---:|---:|
+| Toy consensus | 2.000 / 0.412 | 2.258 / 1.372 | 0.700 / 0.169 |
+| Ticket | 2.363 / 0.594 | 0.870 / 0.514 | 0.706 / 0.164 |
+| Ping-pong | 0.0033 / 0.0006 | 0.581 / 0.346 | 0.041 / 0.011 |
+
+Toy-consensus check 18 accounts for **0.779 billion excess instructions**, 49% of the total Check gap. Ticket checks 127 and 290 contribute 0.197 and 0.212 billion. Ping-pong spends most of its excess on Assert. This separates two targets that a single short runtime can obscure. Improving even every proof search on ping-pong could recover little, while eliminating all of its startup penalty would leave most of the measured toy-consensus check 18 gap.
+
+The three captured inputs replay in either shell with the same macro-finder setting. The incremental replay adds a push before the final assertion. Every engine produced the same answer and exactly the same decisions, quantifier instantiations, conflicts and resource counts for each route, in seven pairs. The figures include shell startup, parsing and assertion. A captured formula in a new process has a different history from the corresponding check in the live GoIvy solver. [Replay driver](perf/ivy_apple/holdouts/query_replay.py) · [84 replays](perf/ivy_apple/holdouts/nov22-short-query-replays.csv) · [Captured SMT inputs](perf/ivy_apple/test_vectors)
+
+| Obligation | Fresh g3 / Z3 (M instructions) | Incremental g3 / Z3 (M instructions) | Incremental decisions / instantiations / conflicts |
+|---|---:|---:|---:|
+| Toy consensus 18 | 1,559 / 461 | 725 / 224 | 1,866 / 905 / 41 |
+| Ticket 127 | 328 / 133 | 310 / 119 | 708 / 1,389 / 50 |
+| Ticket 290 | 483 / 168 | 326 / 120 | 310 / 1,241 / 37 |
+
+Six alternating pairs of instruction profiles per incremental query sampled every 710,009 user instructions. The nearest named solver operation received each stack's vote once. Relative to Z3, **the general rewriter accounted for approximately 239, 76 and 88 million excess instructions** on the three rows above. The quantifier queue contributed approximately 40, 36 and 37 million. Model checking added about 71 million on toy consensus. No lost samples were reported. These estimates identify work per search step in a case where the search counters agree. [Sampling driver](perf/ivy_apple/holdouts/query_stacks.py) · [Per-run symbol and operation counts](perf/ivy_apple/holdouts/nov22-short-query-stacks.csv.gz)
+
+On toy consensus, g3's theory `ReduceApp` was the first callee below a rewriter frame in 1,016 samples across six runs. The corresponding native `reduce_app` had 115. g3's physical leaves in the nearest-rewriter sample group included `processApp` (109 samples), `GetArg` (76) and `declIdentity` (53). In C++, `reduce_app_core` dispatches from a declaration and reads operands through a pointer array. Go's implementation crosses manager accessors to read declaration identity, sort family and the operands of equality. These measurements favor avoiding repeated decoding within one reduction. They do not identify any one accessor as the entire gap. [Rewriter callees and leaves](perf/ivy_apple/holdouts/nov22-short-query-rewriter.csv.gz) · [Go dispatch](ast/rewriter/th_rewriter.go) · [C++ dispatch](../src/ast/rewriter/th_rewriter.cpp)
+
+### The effect of Go heap growth on dramc_nb2
+
+Both backends use the GoIvy frontend. A three-round experiment at `7ed2aec0a` measured each process's peak RSS and Go runtime GC counters along with elapsed time and retired instructions. Changing GOGC affects frontend allocation and collection under both backends. All proof transcripts matched the default run. The fall in whole-process instructions with more heap is especially large for the linked-Z3 process. Process peak RSS includes native allocations. [36 complete runs](perf/ivy_apple/holdouts/nov22-runtime-gc-budget.csv) · [Runtime metrics and paired driver](perf/ivy_apple/frontend_memory.py)
+
+| dramc_nb2 GOGC | g3 / Z3 seconds | g3 / Z3 billion instructions | g3 / Z3 peak MiB | g3 / Z3 GC CPU seconds |
+|---|---:|---:|---:|---:|
+| 100 (default) | 76.44 / 119.36 | 394.29 / 478.58 | 221 / 208 | 14.93 / 38.27 |
+| 200 | 85.72 / 85.83 | 332.45 / 341.89 | 320 / 263 | 8.57 / 14.04 |
+| 400 | 57.41 / 51.19 | 298.81 / 281.15 | 593 / 449 | 3.14 / 4.21 |
+
+At GOGC 400, **linked Z3 completed dramc_nb2 faster while using less memory**. For rfn2 the larger heap still favored g3 at 35.36 versus 59.90 billion instructions, with median wall times of 7.91 versus 24.13 s. Concurrent host load affected elapsed times, including at the intermediate GC setting. Per-run counters and peak memory make the runtime tradeoff visible. GOGC controls the process as a whole, so setting it inside an individual solver would also change other workers.
+
+### How much could a longer refutation history save?
+
+The current incremental proof path remembers eight recent goals under matching premises. A diagnostic observer compared earlier confirmed refutations with each later assertion set, within each solver batch. It tested inclusion using both whole assertions and their conjunctions flattened into terms, with history windows of 1, 8, 32 and unbounded. Across 17 specifications only dramc_nb2 offered extra matches. A 32-entry implementation found the same 36 extra private refutations, increasing the dramc_nb2 count from 326 to 362. Independent concrete replay still agreed on all 18 counters at every one of the 10,342 Apple checks. [Per-workload candidate counts](perf/ivy_apple/incremental_cost/nov22-premise-history.csv)
+
+The 36 newly covered calls *together* cost a median of 996,619 solver-thread instructions with the existing eight entries. The wider history reduced that to 122,158 over three rounds, against about 394 billion whole-process instructions. Four paired complete runs measured 394.27 and 393.83 billion with the original and wider histories. The measured saving inside the 36 calls explains less than one million instructions. The ordinary solver keeps eight entries. [All 2,479 calls in both builds](perf/ivy_apple/incremental_cost/nov22-history-depth-checks.csv.gz) · [Whole-checker comparisons](perf/ivy_apple/incremental_cost/nov22-recent-history-checkers.csv) · [32-entry experimental patch](perf/ivy_apple/incremental_cost/history-32-experiment.patch)
+
+Five small changes to scoped Boolean retirement also gave little return. The variants skipped empty watch or justification writes, shared the watch-pair lookup, skipped a vacuous quantifier lookup or cleared just the expression presence bits. Seven rotated rounds of 1,000 counter intervals each put the combined variant at 55,446 instructions for undo against 56,621 initially. The full scoped pop moved from 197,542 to 196,859, a 0.35% reduction. cf_live took 105.16 billion before and after. This makes repeated expression processing a higher-priority target than those retirement writes. [Combined experimental patch](perf/scope_restoration/pop_phases/retirement-writes-experiment.patch) · [196 phase measurements](perf/scope_restoration/nov22-retired-writes.csv.gz) · [Paired Apple runs](perf/scope_restoration/nov22-retired-writes-apple.csv) · [Scoped-pop driver](perf/scope_restoration/pop_phases/measure.py)

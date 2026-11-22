@@ -1,0 +1,34 @@
+--- a/pkg/api/api_order_recent.go
++++ b/pkg/api/api_order_recent.go
+@@ -12,7 +12,7 @@
+ 
+ type recentRefutations struct {
+ 	premises  []ast.ASTHandle
+-	goals     [8]ast.ASTHandle
++	goals     [32]ast.ASTHandle
+ 	candidate ast.ASTHandle
+ 	next      int
+ }
+@@ -42,7 +42,10 @@
+ 		return false
+ 	}
+ 	for _, h := range r.goals {
+-		if r.candidate == h && !h.IsNull() {
++		if h.IsNull() {
++			break
++		}
++		if r.candidate == h {
+ 			return true
+ 		}
+ 	}
+--- a/pkg/api/api_order_recent_test.go
++++ b/pkg/api/api_order_recent_test.go
+@@ -248,7 +248,7 @@
+ 	batch := s.BeginOrderProofBatch()
+ 	defer batch.Close()
+ 	b := f.pin(f.c.BoolSort())
+-	var seen [9]ast.ASTHandle
++	var seen [len(recentRefutations{}.goals) + 1]ast.ASTHandle
+ 	for i := range seen {
+ 		v := f.pin(f.c.Constant("bounded-"+strconv.Itoa(i), b))
+ 		astTestMust(t, s.Assert(v))

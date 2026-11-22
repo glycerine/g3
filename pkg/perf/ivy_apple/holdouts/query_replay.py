@@ -1,0 +1,75 @@
+"""Replay captured Ivy obligations in fresh g3 and Z3 shell processes."""
+import argparse
+import csv
+import gzip
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+HERE = Path(__file__).resolve().parent
+CASES = ("toy-consensus-18", "ticket-127", "ticket-290")
+
+
+def query_inputs(vector):
+    with gzip.open(vector, "rt") as file:
+        source = file.read()
+    # The native API printer in the linked fork omits zero arity on sorts.
+    source = re.sub(r"^\(declare-sort ([^()\n]+)\)$", r"(declare-sort \1 0)", source, flags=re.M)
+    pos = source.rfind("\n(assert ")
+    if pos < 0 or source.count("(check-sat)") != 1:
+        raise ValueError(f"{vector} has no final assertion or unique check")
+    start = "(set-option :smt.macro_finder true)\n"
+    return {"fresh": start + source, "incremental": start + source[:pos] + "\n(push 1)" + source[pos:]}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("g3", "native", "output"):
+        parser.add_argument("--" + name, required=True, type=Path)
+    parser.add_argument("--cpu", required=True, type=int)
+    parser.add_argument("--pairs", type=int, default=7)
+    parser.add_argument("--queries", nargs="+", choices=CASES, default=CASES)
+    parser.add_argument("--perf", default="perf")
+    parser.add_argument("--vectors", type=Path, default=HERE.parent / "test_vectors")
+    a = parser.parse_args()
+    if a.pairs < 1:
+        parser.error("supply a positive pair count")
+    a.output.mkdir(parents=True)
+    binaries = {engine: getattr(a, engine).resolve(strict=True) for engine in ("g3", "native")}
+    stats = "\n(get-info :all-statistics)\n"
+    columns = ("decisions", "quant-instantiations", "conflicts", "rlimit-count")
+    writer = csv.writer(sys.stdout, lineterminator="\n")
+    writer.writerow(["query", "route", "pair", "engine", "cpu", "answer", "instructions", *columns])
+    for case in a.queries:
+        for route, text in query_inputs(a.vectors / (case + ".smt2.gz")).items():
+            reference = None
+            for i in range(a.pairs):
+                order = tuple(binaries) if i % 2 == 0 else tuple(reversed(binaries))
+                for engine in order:
+                    stem = a.output / f"{case}-{route}-{i+1}-{engine}"
+                    counter = stem.with_suffix(".perf")
+                    result = subprocess.run(["taskset", "-c", str(a.cpu), a.perf, "stat", "-x", ",",
+                                             "-e", "instructions:u", "-o", counter, "--", binaries[engine],
+                                             "-in", "-smt2"], input=text + stats, capture_output=True, text=True,
+                                            timeout=120)
+                    stem.with_suffix(".log").write_text(result.stdout + result.stderr)
+                    result.check_returncode()
+                    if result.stdout.splitlines()[0] != "unsat" or "(error" in result.stdout:
+                        raise ValueError(f"{stem} did not refute the query")
+                    entries = dict(re.findall(r":([\w-]+)\s+(\d+)\b", result.stdout))
+                    observed = tuple(int(entries.get(col, 0)) for col in columns)
+                    if reference is None:
+                        reference = observed
+                    if observed != reference:
+                        raise ValueError(f"{stem} changed solver counters from {reference} to {observed}")
+                    with counter.open() as file:
+                        counts = [row for row in csv.reader(file) if len(row) > 4 and row[2] == "instructions:u"]
+                    if len(counts) != 1 or float(counts[0][4]) != 100.0:
+                        raise ValueError(f"{counter} missing full instruction coverage")
+                    writer.writerow([case, route, i+1, engine, a.cpu, "unsat", int(counts[0][0]), *observed])
+                    sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    main()

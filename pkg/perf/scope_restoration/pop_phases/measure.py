@@ -140,7 +140,7 @@ def measure(directory, binary, variant, case, phase, args):
             control.unlink()
             ack.unlink()
     result = (directory / "out").read_text()
-    match = re.search(r"intervals (\d+)" if variant == "native" else r"(\d+) intervals", result)
+    match = re.search(r"intervals (\d+)" if variant == "native" else r"(?<![\d.])(\d+)(?:\.0+)? intervals", result)
     if not match or int(match[1]) != args.iterations - WARMUP or "BenchmarkSMTScopeRestoration" not in result:
         raise ValueError(f"unexpected interval count or missing benchmark in {directory / 'out'}")
     if args.thread_event:

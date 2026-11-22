@@ -106,6 +106,8 @@ def main():
     p.add_argument("--cpu", type=int, required=True)
     p.add_argument("--pairs", type=int, default=3)
     p.add_argument("--gogc", type=int, nargs="+", default=[100, 200, 400])
+    p.add_argument("--native-gogc", type=int, nargs="+",
+                   help="use these linked-Z3 frontend settings for the corresponding --gogc values")
     p.add_argument("--ballast-mib", type=int, nargs="+",
                    help="retain this much additional pointer-free Go heap during the proof")
     p.add_argument("--count-calls", action="store_true", help="add counters to six shared frontend functions")
@@ -118,15 +120,22 @@ def main():
         p.error("supply a successful reference, a positive pair count and distinct positive GOGC settings")
     if a.ballast_mib and (min(a.ballast_mib) < 0 or len(a.ballast_mib) != len(set(a.ballast_mib))):
         p.error("heap ballast values must be distinct nonnegative sizes in MiB")
+    if a.native_gogc and (len(a.native_gogc) != len(a.gogc) or min(a.native_gogc) <= 0
+                         or len(set(a.native_gogc)) != len(a.native_gogc) or set(a.engine) != {"g3", "native"}):
+        p.error("--native-gogc needs both engines and one distinct positive setting per --gogc value")
     a.output.mkdir(parents=True)
     engines = {name: compile_checker(a, name) for name in dict.fromkeys(a.engine)}
-    variants = [(gc, pad, name) for gc in a.gogc for pad in (a.ballast_mib or [0]) for name in engines]
+    variants = [(native_gc if name == "native" else gc, pad, name)
+                for gc, native_gc in zip(a.gogc, a.native_gogc or a.gogc)
+                for pad in (a.ballast_mib or [0]) for name in engines]
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["isolate", "cpu", "round", "gogc", *(["ballast_mib"] if a.ballast_mib else []), "engine", "wall_s", "user_s", "sys_s", "rss_kib",
                      *(EVENTS if a.perf else ()), *METRICS, *(CALLS if a.count_calls else ())])
     expected_calls = None
     for i in range(a.pairs):
-        offset = i % len(variants)
+        # Preserve historical order for equal-setting sweeps. Keep memory-matched
+        # engines together and alternate which runs first within each pair.
+        offset = (i // 2 * len(engines) if a.native_gogc else i) % len(variants)
         order = variants[offset:] + variants[:offset]
         for gc, pad, name in reversed(order) if i % 2 else order:
             os.environ["GOGC"] = str(gc)
