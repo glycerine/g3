@@ -30,22 +30,38 @@ def main():
     parser.add_argument("--cpu", required=True, type=int)
     parser.add_argument("--pairs", type=int, default=7)
     parser.add_argument("--queries", nargs="+", choices=CASES, default=CASES)
+    parser.add_argument("--routes", nargs="+", choices=("fresh", "incremental"), default=("fresh", "incremental"))
+    parser.add_argument("--go-build", action="append", default=[], metavar="NAME=PATH",
+                        help="include another g3 binary in the same rotated comparisons")
     parser.add_argument("--perf", default="perf")
     parser.add_argument("--vectors", type=Path, default=HERE.parent / "test_vectors")
     a = parser.parse_args()
     if a.pairs < 1:
         parser.error("supply a positive pair count")
+    binaries = {"g3": a.g3.resolve(strict=True)}
+    for item in a.go_build:
+        label, equals, binary = item.partition("=")
+        if not equals or not binary or not re.fullmatch(r"[\w-]+", label) or label in (*binaries, "native"):
+            parser.error(f"invalid or repeated build name in {item!r}")
+        binaries[label] = Path(binary).resolve(strict=True)
+    binaries["native"] = a.native.resolve(strict=True)
     a.output.mkdir(parents=True)
-    binaries = {engine: getattr(a, engine).resolve(strict=True) for engine in ("g3", "native")}
     stats = "\n(get-info :all-statistics)\n"
     columns = ("decisions", "quant-instantiations", "conflicts", "rlimit-count")
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["query", "route", "pair", "engine", "cpu", "answer", "instructions", *columns])
     for case in a.queries:
-        for route, text in query_inputs(a.vectors / (case + ".smt2.gz")).items():
+        inputs = query_inputs(a.vectors / (case + ".smt2.gz"))
+        for route in a.routes:
+            text = inputs[route]
             reference = None
             for i in range(a.pairs):
-                order = tuple(binaries) if i % 2 == 0 else tuple(reversed(binaries))
+                order = list(binaries)
+                if a.go_build:
+                    offset = i % len(order)
+                    order = order[offset:] + order[:offset]
+                if i % 2:
+                    order.reverse()
                 for engine in order:
                     stem = a.output / f"{case}-{route}-{i+1}-{engine}"
                     counter = stem.with_suffix(".perf")
@@ -58,7 +74,9 @@ def main():
                     if result.stdout.splitlines()[0] != "unsat" or "(error" in result.stdout:
                         raise ValueError(f"{stem} did not refute the query")
                     entries = dict(re.findall(r":([\w-]+)\s+(\d+)\b", result.stdout))
-                    observed = tuple(int(entries.get(col, 0)) for col in columns)
+                    if any(col not in entries for col in columns):
+                        raise ValueError(f"{stem} is missing search statistics")
+                    observed = tuple(int(entries[col]) for col in columns)
                     if reference is None:
                         reference = observed
                     if observed != reference:

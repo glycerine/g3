@@ -1,0 +1,60 @@
+--- a/pkg/ast/ast_arith_app_util.go
++++ b/pkg/ast/ast_arith_app_util.go
+@@ -80,6 +80,17 @@
+ 	if r == nil {
+ 		return ASTHandle{}, ErrASTDomain
+ 	}
++	if !ASTValidateHandles && m.lockFree() && r.IsSmall() && r.Den.Val == 1 && uint32(r.Num.Val) < 16 {
++		if p := m.arithmeticPlugin; p != nil && p.published && !p.numeral.active {
++			which := 1
++			if integer && !p.convertIntNumerals {
++				which = 0
++			}
++			if n := int(r.Num.Val); n < len(p.small[which]) && p.small[which][n].slot != 0 {
++				return m.external(p.small[which][n]), nil
++			}
++		}
++	}
+ 	if _, err := m.RegisterArithmeticPlugin(); err != nil {
+ 		return ASTHandle{}, err
+ 	}
+--- a/pkg/ast/rewriter/arith_rewriter.go
++++ b/pkg/ast/rewriter/arith_rewriter.go
+@@ -237,21 +237,11 @@
+ }
+ 
+ func (r *ArithRewriter) operation(h ast.ASTHandle, kinds ...int32) (int32, []ast.ASTHandle, bool, error) {
+-	nodeKind, err := r.manager.GetKind(h)
+-	if err != nil {
++	header, err := r.manager.NodeHeader(h)
++	if err != nil || header.Kind != ast.ASTApp || header.Family != r.family {
+ 		return 0, nil, false, err
+ 	}
+-	if nodeKind != ast.ASTApp {
+-		return 0, nil, false, nil
+-	}
+-	family, err := r.manager.GetFamilyID(h)
+-	if err != nil || family != r.family {
+-		return 0, nil, false, err
+-	}
+-	kind, err := r.manager.GetDeclKind(h)
+-	if err != nil {
+-		return 0, nil, false, err
+-	}
++	kind := header.DeclKind
+ 	matched := len(kinds) == 0
+ 	for _, candidate := range kinds {
+ 		matched = matched || kind == candidate
+@@ -259,11 +249,7 @@
+ 	if !matched {
+ 		return kind, nil, false, nil
+ 	}
+-	n, err := r.manager.GetNumArgs(h)
+-	if err != nil {
+-		return 0, nil, false, err
+-	}
+-	args := make([]ast.ASTHandle, n)
++	args := make([]ast.ASTHandle, header.NumArgs)
+ 	for i := range args {
+ 		args[i], err = r.manager.GetArg(h, uint32(i))
+ 		if err != nil {

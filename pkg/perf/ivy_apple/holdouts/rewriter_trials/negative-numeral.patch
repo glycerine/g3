@@ -1,0 +1,33 @@
+--- a/pkg/ast/rewriter/arith_rewriter.go
++++ b/pkg/ast/rewriter/arith_rewriter.go
+@@ -37,6 +37,7 @@
+ // slice owns configuration and the exact rational scalar rewrite paths; the
+ // expression-polynomial and transcendental paths are added independently.
+ type ArithRewriter struct {
++	weakNumerals                              [2][8]ast.ASTHandle
+ 	self                                      *ArithRewriter
+ 	manager                                   *ast.ASTManager
+ 	family                                    ast.FamilyID
+@@ -223,6 +224,22 @@
+ 
+ // makeNumeral is m_util.mk_numeral(value, is_int).
+ func (r *ArithRewriter) makeNumeral(value *unumeral.Rational, integer bool) (ast.ASTHandle, error) {
++	if value != nil && value.IsSmall() && value.Den.Val == 1 && value.Num.Val >= -8 && value.Num.Val < 0 {
++		sort := 0
++		if integer {
++			sort = 1
++		}
++		k := int(value.Num.Val) + 8
++		h := r.weakNumerals[sort][k]
++		if !h.IsNull() && r.manager.IsLiveHandle(h) {
++			return h, nil
++		}
++		h, e := r.manager.ArithmeticNumeralFromRational(value, integer)
++		if e == nil {
++			r.weakNumerals[sort][k] = h
++		}
++		return h, e
++	}
+ 	return r.manager.ArithmeticNumeralFromRational(value, integer)
+ }
+ 

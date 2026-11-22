@@ -1,0 +1,78 @@
+--- a/pkg/ast/rewriter/arith_polynomial.go
++++ b/pkg/ast/rewriter/arith_polynomial.go
+@@ -473,17 +473,21 @@
+ // monomial is get_power_product(t, a): coefficient receives a (one when t
+ // is not (* a p) with a numeral a) and the power product is returned.
+ func (r *ArithRewriter) monomial(h ast.ASTHandle, coefficient *unumeral.Rational) (ast.ASTHandle, error) {
+-	_, args, matched, err := r.operation(h, arithOpMul)
++	hd, err := r.manager.NodeHeader(h)
+ 	if err != nil {
+ 		return ast.ASTHandle{}, err
+ 	}
+-	if matched && len(args) == 2 {
+-		_, numeral, e := r.numeral(args[0], coefficient)
++	if hd.Kind == ast.ASTApp && hd.Family == r.family && hd.DeclKind == arithOpMul && hd.NumArgs == 2 {
++		first, e := r.manager.GetArg(h, 0)
+ 		if e != nil {
+ 			return ast.ASTHandle{}, e
+ 		}
++		_, numeral, e := r.numeral(first, coefficient)
++		if e != nil {
++			return ast.ASTHandle{}, e
++		}
+ 		if numeral {
+-			return args[1], nil
++			return r.manager.GetArg(h, 1)
+ 		}
+ 	}
+ 	return h, r.q().SetInt32(coefficient, 1)
+@@ -491,17 +495,21 @@
+ 
+ // powerProduct is get_power_product(t): the coefficient is not read.
+ func (r *ArithRewriter) powerProduct(h ast.ASTHandle) (ast.ASTHandle, error) {
+-	_, args, matched, err := r.operation(h, arithOpMul)
++	hd, err := r.manager.NodeHeader(h)
+ 	if err != nil {
+ 		return ast.ASTHandle{}, err
+ 	}
+-	if matched && len(args) == 2 {
+-		numeral, e := r.isNumeral(args[0])
++	if hd.Kind == ast.ASTApp && hd.Family == r.family && hd.DeclKind == arithOpMul && hd.NumArgs == 2 {
++		first, e := r.manager.GetArg(h, 0)
+ 		if e != nil {
+ 			return ast.ASTHandle{}, e
+ 		}
++		numeral, e := r.isNumeral(first)
++		if e != nil {
++			return ast.ASTHandle{}, e
++		}
+ 		if numeral {
+-			return args[1], nil
++			return r.manager.GetArg(h, 1)
+ 		}
+ 	}
+ 	return h, nil
+--- a/pkg/ast/rewriter/arith_rewriter.go
++++ b/pkg/ast/rewriter/arith_rewriter.go
+@@ -205,8 +205,8 @@
+ // numeral is m_util.is_numeral(h, v, is_int): a matched numeral's value is
+ // copied into v (rational's copy assignment).
+ func (r *ArithRewriter) numeral(h ast.ASTHandle, v *unumeral.Rational) (integer, matched bool, err error) {
+-	kind, err := r.manager.GetKind(h)
+-	if err != nil || kind != ast.ASTApp {
++	app, family, kind, err := r.manager.AppIdentity(h)
++	if err != nil || !app || family != r.family || kind != arithOpNum {
+ 		return false, false, err
+ 	}
+ 	return r.manager.ArithmeticNumeralRational(h, v)
+@@ -214,8 +214,8 @@
+ 
+ // isNumeral is m_util.is_numeral(h): the value is not read.
+ func (r *ArithRewriter) isNumeral(h ast.ASTHandle) (bool, error) {
+-	kind, err := r.manager.GetKind(h)
+-	if err != nil || kind != ast.ASTApp {
++	app, family, kind, err := r.manager.AppIdentity(h)
++	if err != nil || !app || family != r.family || kind != arithOpNum {
+ 		return false, err
+ 	}
+ 	return r.manager.IsArithmeticNumeral(h)

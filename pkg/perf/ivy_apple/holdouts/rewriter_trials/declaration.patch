@@ -1,0 +1,108 @@
+--- a/pkg/ast/ast_arith_numeral_text.go
++++ b/pkg/ast/ast_arith_numeral_text.go
+@@ -75,14 +75,15 @@
+ 	if err != nil {
+ 		return
+ 	}
+-	if m.nodeAt(r.slot).kind != ASTApp || m.arithmeticPlugin == nil {
++	slot := m.nodeSlotAt(r.slot)
++	if slot.node.kind != ASTApp || m.arithmeticPlugin == nil {
+ 		return
+ 	}
+-	family, kind, err := m.appIdentity(m.appAt(r.slot))
++	family, kind, err := m.appIdentity(&slot.app)
+ 	if err != nil || family != m.arithmeticPlugin.family || kind != 0 {
+ 		return
+ 	}
+-	info, err := m.funcInfo(m.declAt(m.appAt(r.slot).decl.slot).info)
++	info, err := m.funcInfo(m.declAt(slot.app.decl.slot).info)
+ 	if err != nil {
+ 		return
+ 	}
+--- a/pkg/ast/ast_core_accessors.go
++++ b/pkg/ast/ast_core_accessors.go
+@@ -223,10 +223,11 @@
+ 			return ASTHandle{}, e
+ 		}
+ 	}
+-	if m.nodeAt(r.slot).kind != ASTApp {
++	slot := m.nodeSlotAt(r.slot)
++	if slot.node.kind != ASTApp {
+ 		return ASTHandle{}, ErrASTDomain
+ 	}
+-	v := m.appAt(r.slot)
++	v := &slot.app
+ 	if index >= v.count {
+ 		return ASTHandle{}, ErrASTDomain
+ 	}
+@@ -504,3 +505,18 @@
+ 	sort, err := m.sortOf(r)
+ 	return sort == m.boolSort && err == nil, err
+ }
++
++func (m *ASTManager) GetFamilyAndDeclKind(h ASTHandle) (FamilyID, int32, error) {
++	r := astNodeRef{h.slot, h.generation}
++	if !m.fastHandle(h) {
++		var e error
++		if r, e = m.readNodeChecked(h); e != nil {
++			return NullFamilyID, -1, e
++		}
++	}
++	slot := m.nodeSlotAt(r.slot)
++	if slot.node.kind == ASTApp {
++		return m.appIdentity(&slot.app)
++	}
++	return m.declIdentity(r)
++}
+--- a/pkg/ast/rewriter/arith_rewriter.go
++++ b/pkg/ast/rewriter/arith_rewriter.go
+@@ -1472,14 +1472,13 @@
+ 	if err := r.open(); err != nil {
+ 		return RewriteFailed, err
+ 	}
+-	family, err := r.manager.GetFamilyID(decl)
++	family, kind, err := r.manager.GetFamilyAndDeclKind(decl)
+ 	if err != nil || family != r.family {
+ 		return RewriteFailed, err
+ 	}
+-	kind, err := r.manager.GetDeclKind(decl)
+-	if err != nil {
+-		return RewriteFailed, err
+-	}
++	return r.mkAppCoreKind(decl, kind, args, out)
++}
++func (r *ArithRewriter) mkAppCoreKind(decl ast.ASTHandle, kind int32, args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+ 	at := func(i uint32) (ast.ASTHandle, error) { return args.At(i) }
+ 	if kind == arithOpNum {
+ 		return RewriteFailed, nil
+--- a/pkg/ast/rewriter/th_rewriter.go
++++ b/pkg/ast/rewriter/th_rewriter.go
+@@ -376,15 +376,11 @@
+ 
+ func (c *theoryRewriterConfiguration) reduceAppCore(decl ast.ASTHandle, args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+ 	m := c.owner.manager
+-	family, err := m.GetFamilyID(decl)
++	family, kind, err := m.GetFamilyAndDeclKind(decl)
+ 	if err != nil || family == ast.NullFamilyID {
+ 		return RewriteFailed, err
+ 	}
+ 	if family == m.BasicFamilyID() {
+-		kind, err := m.GetDeclKind(decl)
+-		if err != nil {
+-			return RewriteFailed, err
+-		}
+ 		if kind == ast.ASTOpEq {
+ 			if args.Count() != 2 {
+ 				return RewriteFailed, ast.ErrASTDomain
+@@ -477,7 +473,10 @@
+ 	}
+ 	switch family {
+ 	case c.arithmetic.family:
+-		return c.arithmetic.MkAppCore(decl, args, out)
++		if e := c.arithmetic.open(); e != nil {
++			return RewriteFailed, e
++		}
++		return c.arithmetic.mkAppCoreKind(decl, kind, args, out)
+ 	case c.bitVector.bvFamily:
+ 		return c.bitVector.RewriteApp(decl, args, out)
+ 	case c.array.family:

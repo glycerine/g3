@@ -1,0 +1,41 @@
+--- a/pkg/ast/rewriter/bool_rewriter.go
++++ b/pkg/ast/rewriter/bool_rewriter.go
+@@ -64,7 +64,6 @@
+ 	// The body is its own function so this defer stays open-coded.
+ 	defer func() {
+ 		rw.clearNFlatMarks()
+-		clear(rw.nflatBuffer[base:])
+ 		rw.nflatBuffer = rw.nflatBuffer[:base]
+ 	}()
+ 	return rw.mkNFlatBody(args, out, disjunction, base)
+@@ -100,19 +99,13 @@
+ 	}
+ 	set := func(key uint64, bit uint8) {
+ 		if small {
+-			for i := range rw.nflatSmall {
+-				if rw.nflatSmall[i].key == key {
+-					rw.nflatSmall[i].marks |= bit
+-					return
+-				}
+-			}
+ 			rw.nflatSmall = append(rw.nflatSmall, boolRewriterNFlatMark{key: key, marks: bit})
+ 			return
+ 		}
+ 		if rw.nflatMarks == nil {
+ 			rw.nflatMarks = make(map[uint64]uint8)
+ 		}
+-		rw.nflatMarks[key] |= bit
++		rw.nflatMarks[key] = bit
+ 	}
+ 	const negBit, posBit = 1, 2
+ 	unit, e := m.MkBoolVal(!disjunction)
+@@ -226,7 +219,8 @@
+ 		return rw.mkNFlatCore(args, out, disjunction)
+ 	}
+ 	m := rw.manager
+-	var flat []ast.ASTHandle
++	var storage [8]ast.ASTHandle
++	flat := storage[:0]
+ 	for j := uint32(0); j < i; j++ {
+ 		arg, e := args.At(j)
+ 		if e != nil {

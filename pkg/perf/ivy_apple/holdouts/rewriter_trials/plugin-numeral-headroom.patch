@@ -1,0 +1,52 @@
+--- a/pkg/ast/ast_arith_names.go
++++ b/pkg/ast/ast_arith_names.go
+@@ -24,6 +24,9 @@
+ 		}
+ 	}
+ 	if converted {
++		if !m.arithmeticPlugin.convertIntNumerals {
++			m.arithmeticPlugin.negativeHints = [2][8]astNodeRef{}
++		}
+ 		m.arithmeticPlugin.convertIntNumerals = true
+ 	} else {
+ 		if e := m.appendBuiltinName(names, "Int", 1); e != nil {
+--- a/pkg/ast/ast_arith_numeral.go
++++ b/pkg/ast/ast_arith_numeral.go
+@@ -109,6 +109,17 @@
+ 			return r, nil
+ 		}
+ 	}
++	var hint *astNodeRef
++	if call == nil && !cached && !ASTValidateHandles && !m.Budget().InjectionArmed() && m.Budget().Limit()-m.Budget().Used() >= 1<<20 && m.TraceStream == nil && value.Raw.IsSmall() && value.Raw.Den.Val == 1 && value.Raw.Num.Val < 0 && value.Raw.Num.Val >= -8 {
++		bucket := 0
++		if integer {
++			bucket = 1
++		}
++		hint = &p.negativeHints[bucket][-1-value.Raw.Num.Val]
++		if hint.slot != 0 && m.validNode(*hint) == nil {
++			return *hint, nil
++		}
++	}
+ 	if p.numeralSerial == math.MaxUint64 {
+ 		return result, arena.ErrBounds
+ 	}
+@@ -160,6 +171,9 @@
+ 		return result, e
+ 	}
+ 	result, err = m.mkApp(decl, nil)
++	if err == nil && hint != nil {
++		*hint = result
++	}
+ 	if err != nil || !cached {
+ 		return result, err
+ 	}
+--- a/pkg/ast/ast_arith_plugin.go
++++ b/pkg/ast/ast_arith_plugin.go
+@@ -13,6 +13,7 @@
+ // The source numeral cache vectors and lazy m_aw start empty.
+ 
+ type astArithmeticPluginOwner struct {
++	negativeHints              [2][8]astNodeRef
+ 	numeral                    astArithNumeralFrame
+ 	algebraic                  *astAlgebraicNumbersWrapper
+ 	numeralSerial              uint64

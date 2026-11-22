@@ -1,0 +1,130 @@
+--- a/pkg/ast/ast_core_accessors.go
++++ b/pkg/ast/ast_core_accessors.go
+@@ -504,3 +504,16 @@
+ 	sort, err := m.sortOf(r)
+ 	return sort == m.boolSort && err == nil, err
+ }
++
++func (m *ASTManager) ExpressionSortFamily(h ASTHandle) (FamilyID, error) {
++	r, e := m.readNode(h)
++	if e != nil {
++		return NullFamilyID, e
++	}
++	s, e := m.sortOf(r)
++	if e != nil {
++		return NullFamilyID, e
++	}
++	f, _, e := m.declIdentity(s)
++	return f, e
++}
+--- a/pkg/ast/rewriter/th_rewriter.go
++++ b/pkg/ast/rewriter/th_rewriter.go
+@@ -302,16 +302,8 @@
+ }
+ 
+ func (c *theoryRewriterConfiguration) equalityBit(term ast.ASTHandle) (x ast.ASTHandle, value uint32, matched bool, err error) {
+-	kind, err := c.owner.manager.GetKind(term)
+-	if err != nil || kind != ast.ASTApp {
+-		return x, 0, false, err
+-	}
+-	family, err := c.owner.manager.GetFamilyID(term)
+-	if err != nil || family != c.owner.manager.BasicFamilyID() {
+-		return x, 0, false, err
+-	}
+-	op, err := c.owner.manager.GetDeclKind(term)
+-	if err != nil || op != ast.ASTOpEq {
++	app, family, op, err := c.owner.manager.AppIdentity(term)
++	if err != nil || !app || family != c.owner.manager.BasicFamilyID() || op != ast.ASTOpEq {
+ 		return x, 0, false, err
+ 	}
+ 	if count, e := c.owner.manager.GetNumArgs(term); e != nil || count != 2 {
+@@ -385,7 +377,7 @@
+ 		if err != nil {
+ 			return RewriteFailed, err
+ 		}
+-		if kind == ast.ASTOpEq {
++		if kind == ast.ASTOpEq || kind == ast.ASTOpIff {
+ 			if args.Count() != 2 {
+ 				return RewriteFailed, ast.ErrASTDomain
+ 			}
+@@ -397,44 +389,29 @@
+ 			if err != nil {
+ 				return RewriteFailed, err
+ 			}
+-			sort, err := m.GetSort(left)
+-			if err != nil {
+-				return RewriteFailed, err
+-			}
+-			sortFamily, err := m.GetFamilyID(sort)
+-			if err != nil {
+-				return RewriteFailed, err
+-			}
+-			status := RewriteFailed
+-			switch sortFamily {
+-			case c.arithmetic.family:
+-				status, err = c.arithmetic.MkEqCore(left, right, out)
+-			case c.bitVector.bvFamily:
+-				status, err = c.bitVector.RewriteEquality(left, right, out)
+-			case c.datatype.family:
+-				status, err = c.datatype.RewriteEquality(left, right, out)
+-			case c.floating.family:
+-				status, err = c.floating.MkEqCore(left, right, out)
+-			case c.array.family:
+-				status, err = c.array.MkEqCore(left, right, out)
+-			case c.sequence.family:
+-				status, err = c.sequence.RewriteEquality(left, right, out)
+-			}
+-			if err != nil || status != RewriteFailed {
+-				return status, err
+-			}
+-		}
+-		if kind == ast.ASTOpEq || kind == ast.ASTOpIff {
+-			if args.Count() != 2 {
+-				return RewriteFailed, ast.ErrASTDomain
+-			}
+-			left, err := args.At(0)
+-			if err != nil {
+-				return RewriteFailed, err
+-			}
+-			right, err := args.At(1)
+-			if err != nil {
+-				return RewriteFailed, err
++			if kind == ast.ASTOpEq {
++				sortFamily, err := m.ExpressionSortFamily(left)
++				if err != nil {
++					return RewriteFailed, err
++				}
++				status := RewriteFailed
++				switch sortFamily {
++				case c.arithmetic.family:
++					status, err = c.arithmetic.MkEqCore(left, right, out)
++				case c.bitVector.bvFamily:
++					status, err = c.bitVector.RewriteEquality(left, right, out)
++				case c.datatype.family:
++					status, err = c.datatype.RewriteEquality(left, right, out)
++				case c.floating.family:
++					status, err = c.floating.MkEqCore(left, right, out)
++				case c.array.family:
++					status, err = c.array.MkEqCore(left, right, out)
++				case c.sequence.family:
++					status, err = c.sequence.RewriteEquality(left, right, out)
++				}
++				if err != nil || status != RewriteFailed {
++					return status, err
++				}
+ 			}
+ 			if status, err := c.tamagotchi(left, right, out); err != nil || status != RewriteFailed {
+ 				return status, err
+@@ -456,11 +433,7 @@
+ 			if err != nil {
+ 				return RewriteFailed, err
+ 			}
+-			sort, err := m.GetSort(thenValue)
+-			if err != nil {
+-				return RewriteFailed, err
+-			}
+-			sortFamily, err := m.GetFamilyID(sort)
++			sortFamily, err := m.ExpressionSortFamily(thenValue)
+ 			if err != nil {
+ 				return RewriteFailed, err
+ 			}
