@@ -27,13 +27,25 @@ func TestBooleanProofScopesAndLimits(t *testing.T) {
 		if ok, e := batch.state.prove(1, true); e != nil || ok {
 			t.Fatal("step budget", ok, e)
 		}
+		// A smaller private budget bypasses the exact-result history. Exercise
+		// the Boolean solver's own guarded scopes on all three repetitions.
 		for j := 0; j < 3; j++ {
-			if ok, e := batch.Prove(); e != nil || !ok {
+			if ok, e := batch.state.prove(orderProofSteps-1, true); e != nil || !ok {
 				t.Fatal("Boolean refutation", i, j, ok, e)
 			}
 			if batch.state.bits == nil || batch.state.bits.checks != j+1 || batch.state.ctx != nil {
 				t.Fatal("Boolean batch lifetime", i, j)
 			}
+		}
+		// The first full-budget call can record this exact input. Repeating
+		// it should keep the established private kernel and its check count.
+		ok, e := batch.Prove()
+		if e != nil || !ok || batch.state.bits == nil {
+			t.Fatal("recording the refutation", ok, e)
+		}
+		checks := batch.state.bits.checks
+		if ok, e := batch.Prove(); e != nil || !ok || batch.state.bits == nil || batch.state.bits.checks != checks {
+			t.Fatal("reusing the refutation", ok, e)
 		}
 		done := make(chan struct{})
 		close(done)
@@ -120,8 +132,10 @@ func TestBooleanProofInterruptedLoadAndBatchRollover(t *testing.T) {
 	if ok, e := batch.state.prove(steps, true); ok || e != nil || batch.state.bits != nil {
 		t.Fatal("partially loaded proof", ok, e)
 	}
+	// Bypass the full-budget result history so every call reaches the Boolean
+	// solver and forces its retained rows to roll over.
 	for i := 0; i < booleanProofChecks+3; i++ {
-		ok, e := batch.Prove()
+		ok, e := batch.state.prove(orderProofSteps-1, true)
 		if e != nil || !ok || batch.state.bits == nil {
 			t.Fatal(i, ok, e)
 		}
