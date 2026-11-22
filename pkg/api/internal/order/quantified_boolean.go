@@ -86,6 +86,7 @@ func (g *groundProjection) booleanProblem() (*BooleanProblem, error) {
 	if !k.emitGates() {
 		return nil, errBitLimit
 	}
+	g.termLiterals = values
 	k.Work = uint32(k.work)
 	return &k.BooleanProblem, nil
 }

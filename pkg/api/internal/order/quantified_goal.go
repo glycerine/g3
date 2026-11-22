@@ -15,7 +15,16 @@ func ProjectQuantifiedGoal(m *ast.ASTManager, assertions []ast.ASTHandle, steps 
 	if err != nil || !eligible {
 		return nil, err
 	}
-	g := groundProjection{
+	g := newGroundProjection(m, steps)
+	problem, err := g.problem(assertions, false)
+	if err == errBitLimit || err == inapplicable {
+		return nil, nil
+	}
+	return problem, err
+}
+
+func newGroundProjection(m *ast.ASTManager, steps uint32) groundProjection {
+	return groundProjection{
 		manager:      m,
 		input:        []projectionNode{{}},
 		terms:        []groundApplication{{}},
@@ -25,11 +34,6 @@ func ProjectQuantifiedGoal(m *ast.ASTManager, assertions []ast.ASTHandle, steps 
 		constants:    make(map[ast.ASTHandle]uint32),
 		compiler:     bitCompiler{m: m, ceiling: int(min(steps, 500_000))},
 	}
-	problem, err := g.problem(assertions)
-	if err == errBitLimit || err == inapplicable {
-		return nil, nil
-	}
-	return problem, err
 }
 
 // Try a single quantified subformula or a nested quantifier. On incremental
@@ -84,6 +88,8 @@ func projectGoalShape(m *ast.ASTManager, goal ast.ASTHandle) (bool, error) {
 }
 
 type groundProjection struct {
+	sharedPremises     bool
+	termLiterals       []int32
 	manager            *ast.ASTManager
 	compiler           bitCompiler
 	input              []projectionNode
@@ -113,7 +119,8 @@ type projectionNode struct {
 
 const opaqueOperation int32 = -1
 
-func (g *groundProjection) problem(assertions []ast.ASTHandle) (*BooleanProblem, error) {
+func (g *groundProjection) problem(assertions []ast.ASTHandle, seedGoal bool) (*BooleanProblem, error) {
+	g.sharedPremises = seedGoal
 	inputs := make([]uint32, len(assertions))
 	for i, h := range assertions {
 		id, err := g.read(h, 0)
@@ -127,6 +134,20 @@ func (g *groundProjection) problem(assertions []ast.ASTHandle) (*BooleanProblem,
 	}
 	if err := g.chooseConstants(inputs); err != nil {
 		return nil, err
+	}
+	if seedGoal {
+		// Prefer representatives from the current goal for its sorts. Assert
+		// only the shared premises so subsequent goals can reuse their units.
+		saved := g.constants
+		g.constants = make(map[ast.ASTHandle]uint32)
+		if err := g.chooseConstants(inputs[len(inputs)-1:]); err != nil {
+			return nil, err
+		}
+		for src, id := range g.constants {
+			saved[src] = id
+		}
+		g.constants = saved
+		inputs = inputs[:len(inputs)-1]
 	}
 	g.global = make([]uint32, len(g.input))
 	g.local = make([]uint32, len(g.input))
@@ -142,6 +163,9 @@ func (g *groundProjection) problem(assertions []ast.ASTHandle) (*BooleanProblem,
 		if err := g.addInstance(id); err != nil {
 			return nil, err
 		}
+	}
+	if seedGoal && len(g.implications) == 0 {
+		return nil, inapplicable
 	}
 	return g.booleanProblem()
 }
@@ -193,6 +217,23 @@ func (g *groundProjection) read(h ast.ASTHandle, depth int) (uint32, error) {
 		n.index, err = g.manager.GetVarIndex(h)
 		if err == nil {
 			n.sort, err = g.manager.GetSort(h)
+		}
+		// The shared propositional projection treats arithmetic as opaque.
+		// Leave obligations with arithmetic binders to the arithmetic solver.
+		if err == nil && g.sharedPremises {
+			family, e := g.manager.GetFamilyID(n.sort)
+			if e != nil {
+				return 0, e
+			}
+			if family != ast.NullFamilyID {
+				arith, e := g.manager.ArithmeticFamilyID()
+				if e != nil {
+					return 0, e
+				}
+				if family == arith {
+					return 0, inapplicable
+				}
+			}
 		}
 	case ast.ASTQuantifier:
 		if !n.boolean {

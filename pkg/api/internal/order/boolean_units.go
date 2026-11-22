@@ -48,23 +48,8 @@ func (k *BooleanProblem) Reduce(rounds int, limit *control.Reslimit) (conflict, 
 				ci = len(k.Clauses) - 1 - ci
 			}
 			cl := k.Clauses[ci].literals()
-			var unit int32
-			skip := false
-			for _, a := range cl {
-				val := value(a)
-				if val == 1 {
-					skip = true
-					break
-				}
-				if val == 0 {
-					if unit != 0 {
-						skip = true
-						break
-					}
-					unit = a
-				}
-			}
-			if skip {
+			unit, active := unitClause(cl, v)
+			if !active {
 				continue
 			}
 			if unit == 0 {
@@ -127,4 +112,28 @@ func (k *BooleanProblem) Reduce(rounds int, limit *control.Reslimit) (conflict, 
 	k.Clauses = k.Clauses[:write]
 	k.Vars = int(next)
 	return false, true
+}
+
+// unitClause returns the single unassigned literal of an unsatisfied clause,
+// or zero when all literals are false. Satisfied and non-unit clauses decline.
+func unitClause(cl []int32, values []int8) (int32, bool) {
+	var unit int32
+	for _, l := range cl {
+		var value int8
+		if l < 0 {
+			value = -values[-l]
+		} else {
+			value = values[l]
+		}
+		if value > 0 {
+			return 0, false
+		}
+		if value == 0 {
+			if unit != 0 {
+				return 0, false
+			}
+			unit = l
+		}
+	}
+	return unit, true
 }

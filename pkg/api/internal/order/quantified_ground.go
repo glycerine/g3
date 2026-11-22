@@ -9,13 +9,18 @@ type groundApplication struct {
 	boolean      bool
 }
 
-// Ground terms are private integer IDs. A hash collision must match the
-// complete declaration and argument sequence before it can reuse an ID.
-func (g *groundProjection) intern(n *projectionNode, args []uint32) (uint32, error) {
-	hash := uint64(n.symbol) + 1
+func groundTermHash(symbol uint32, args []uint32) uint64 {
+	hash := uint64(symbol) + 1
 	for _, id := range args {
 		hash = (hash ^ uint64(id)) * 0x9e3779b185ebca87
 	}
+	return hash
+}
+
+// Ground terms are private integer IDs. A hash collision must match the
+// complete declaration and argument sequence before it can reuse an ID.
+func (g *groundProjection) intern(n *projectionNode, args []uint32) (uint32, error) {
+	hash := groundTermHash(n.symbol, args)
 	head := g.applications[hash]
 	for id := head; id != 0; id = g.terms[id].next {
 		t := &g.terms[id]
