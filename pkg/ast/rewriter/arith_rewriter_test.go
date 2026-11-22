@@ -1487,3 +1487,30 @@ func TestArithRewriterRemainingStructuralNormalization(t *testing.T) {
 		astTestMust(t, arithQDel(r.q(), &coefficient))
 	})
 }
+
+// QF_NRA changes how the manager constructs integer numerals. Keeping the
+// previous numerals alive exercises the case where a cached handle is still
+// valid but has the wrong sort for the new logic.
+func TestArithRewriterNumeralsFollowManagerLogic(t *testing.T) {
+	m, c, g, local := boolRewriterConfigFixture(t)
+	r, err := NewArithRewriter(m, c, g, local)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+
+	for _, n := range []int32{-1, 1} {
+		h, err := r.makeNumeralInt(n, true)
+		astTestMust(t, err)
+		astTestPin(t, m, h)
+	}
+	var names ast.ASTBuiltinNames
+	defer names.Close()
+	astTestMust(t, m.GetArithmeticSortNames(&names, astTestSymbol(t, m, "QF_NRA")))
+	for _, n := range []int32{-1, 1} {
+		got, err := r.makeNumeralInt(n, true)
+		astTestMust(t, err)
+		want := arithRewriterNumeral(t, m, fmt.Sprint(n), true)
+		if got != want {
+			t.Errorf("%d after QF_NRA: got %v, manager returned %v", n, got, want)
+		}
+	}
+}
