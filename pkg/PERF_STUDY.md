@@ -2654,3 +2654,16 @@ These medians cover the first three complete rounds with the same frontend, CPU 
 On the standalone check 43, nine pinned rounds measured a median **875.0 ms** and **129.74 MB** per fresh concrete proof, **43.2 ms** and **7.40 MB** per fresh projected proof, and **0.622 ms** and **0.291 MB** per projected proof once the source assertions were loaded. Fresh includes parsing and creating the solver. Prepared uses a sequence of checks on the same batch. Run `go test ./api -run '^$' -bench '^BenchmarkAppleGroundBooleans$' -benchmem` from `pkg/`. [Benchmark and focused truth-table tests](api/api_ground_boolean_test.go) · [All 27 measurements](perf/ivy_apple/goal_instances/ground_booleans/nov22-prepared.csv)
 
 Across nine Apple isolates, private proofs increased from **266 to 882** of 10,342 checks. The verification build also ran each original incremental check. All verdicts and all 18 per-check search counters matched linked Z3. Both shells accepted 192 new explicit finite-model certificates with Boolean goals. The public proof path returned inconclusive on these and all 360 earlier known-satisfiable controls. Of the 192 new inputs, 144 also entered the ground Boolean projection in the direct test, with zero false refutations. The generator preserves the original satisfiable premises and adds goals using implication, conditional, equality, XOR and distinct. To repeat, run the finite-model generator with `--ground-booleans`, then run `projection_trials.py` on its output directory. [Concrete confirmations](perf/ivy_apple/goal_instances/ground_booleans/nov22-verified.csv.gz) · [Certificate results](perf/ivy_apple/goal_instances/ground_booleans/nov22-certificates.csv) · [All direct trials](perf/ivy_apple/goal_instances/ground_booleans/nov22-finite.csv.gz) · [Generator](perf/ivy_apple/goal_instances/finite_models/verify.py) · [Direct runner](perf/ivy_apple/goal_instances/finite_models/projection_trials.py)
+
+### Where ground Boolean proofs save solver work
+
+| Verification calls within the isolate | Previous g3, billion instructions | g3 with ground Boolean proofs | Linked Z3 |
+|---|---:|---:|---:|
+| `cf_live` | 38.560 | 35.691 | 34.003 |
+| `cmpl_live` | 13.307 | 7.261 | 4.288 |
+| `tprops` | 2.492 | 2.316 | 0.647 |
+| `rfn2` | 6.222 | 6.374 | 35.480 |
+
+On `cmpl_live` check 43, the Boolean proof reduced g3's median from 3.913 billion instructions to 8.6 million. Linked Z3 used 506.6 million. On `cf_live` check 69, the same figures were 1.307 billion, 6.7 million and 4.5 million. Check 177 now dominates the remaining `cmpl_live` search, at 3.85 billion instructions in g3 and 1.40 billion in Z3. On `rfn2`, check 26 still took 2.71 billion versus 0.98 billion, even though g3 used fewer instructions over the full set of calls. [13,491 individual counter intervals](perf/ivy_apple/goal_instances/ground_booleans/nov22-check-instructions.csv.gz)
+
+Each cell is the median of three whole-isolate sums. The counter surrounds the verification call on its solver thread and subtracts an adjacent empty interval. Every process reproduced the linked-Z3 proof transcript. All recorded counters ran for their full enabled interval. Time spent parsing Ivy or opening an incremental scope falls outside this measurement. [Counter and reproduction driver](perf/ivy_apple/incremental_cost/thread_checks.py)
