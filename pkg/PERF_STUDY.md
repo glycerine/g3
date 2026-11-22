@@ -3317,3 +3317,34 @@ Both engines paid to construct trace arguments in the shared GoIvy frontend. On 
 The savings concern temporary objects created over the course of the run. Peak RSS at default GC settings stayed near 220 MiB. Go heap metrics exclude C++ allocations, while RSS covers the entire process. Before and after runtime panels used different pinned CPUs on a shared machine. In a separate test with treatment and control on the same CPU, `dramc_nb2` instructions dropped from **300.72 to 232.15 billion for g3** at GOGC=295, and **281.51 to 212.26 billion for linked Z3** at GOGC=400. On `cf_live` the corresponding reductions were 76.09 to 64.38 and 78.16 to 67.10 billion. [Runtime counters before](perf/ivy_apple/holdouts/nov22b-xtrace-before-memory.csv.gz) · [Runtime counters after](perf/ivy_apple/holdouts/nov22b-xtrace-after-memory.csv.gz) · [Matched dramc_nb2 process counters](perf/ivy_apple/holdouts/nov22b-xtrace-dramc.csv.gz) · [Matched process counters on other specs](perf/ivy_apple/holdouts/nov22b-xtrace-instructions.csv.gz)
 
 With tracing enabled, the original and guarded binaries emitted byte-identical output on six specs, including **2,334,030,415 bytes** for `rfn2` and **3,650,179,852 bytes** for `cf_live`. Two pipes were compared through EOF and both exit codes were checked. A separate active-tracing comparison of the production checker against the original PyIvy Paxos `log3` reference matched all 27,855 normalized lines, including the expected diagnostic. [Enabled-trace byte comparisons](perf/ivy_apple/holdouts/nov22b-xtrace-enabled.csv.gz)
+
+## Fresh intermediate names in action composition
+
+GoIvy commit `b6dd84126` skips name collection when the two actions modify disjoint sets of variables. On `dramc_nb2`, 115,812 of 118,657 compositions needed no intermediate symbol. Those calls used to visit **218,280,371 AST nodes** to prepare an unused renamer. The remaining 2,845 compositions visited 11,640,948 nodes. On `rfn2` the guard removed 25,701,310 visits and retained 68,429. The commit includes a microbenchmark and tests where an existing transition, first precondition, or second precondition occupies the preferred spelling. Active trace output matched through EOF on `rfn2`, `cf_live` and the failing ring example. [Visits by workload and intersection](perf/ivy_apple/holdouts/nov22b-compose-symbol-visits.csv.gz)
+
+| Complete run | g3 before → after, billion instructions | Linked Z3 before → after, billion instructions | Paired rounds |
+|---|---:|---:|---:|
+| dramc_nb2 | 231.99 → **195.58** | 213.89 → **175.62** | 5 |
+| rfn2 | 22.56 → **18.10** | 57.29 → **52.90** | 6 |
+| rfn | 34.27 → **30.83** | 47.18 → **43.92** | 5 |
+| cf_live | 63.54 → **57.51** | 67.13 → **61.21** | 4 |
+| Toy consensus | 3.306 → **3.229** | 3.330 → **3.264** | 7 |
+
+Each pair ran the same complete specification on the same pinned CPU, with GOGC 295 for g3 and 400 for linked Z3. Every transcript and exit status matched its reference. A separate four-pair `dramc_nb2` panel at default GOGC measured cumulative Go allocation falling from 17.87 to **16.69 GB** with g3 and from 16.21 to **15.03 GB** with linked Z3. With the guard, g3 and native took median 35.13 and 32.25 seconds at measured peaks of 217 and 207 MiB. At GOGC 175 and 240 they took 28.94 and 26.18 seconds at 274 and 291 MiB. Retired instructions are more repeatable than elapsed time on this shared host. [All process runs](perf/ivy_apple/holdouts/nov22b-compose-instructions.csv.gz) · [GC and peak-memory comparisons](perf/ivy_apple/holdouts/nov22b-compose-memory.csv.gz)
+
+### Can a single counter supply the remaining names?
+
+A monotonic 64-bit counter generates a unique suffix until exhaustion. A generated-symbol namespace disjoint from the input namespace makes these identifiers fresh without a membership table. The counter belongs to the checker that constructs the formulas and must outlive all symbols it issues. The existing GoIvy constructor accepts arbitrary strings. Its structural key contains the symbol's spelling and sort, so a numeric suffix alone gives separate identities only among symbols issued by that counter. The experiment used a counter on the existing per-session Ivy configuration. All measured outcomes matched with both counter spellings. The experimental prefixes were unique in these inputs. The production guard preserves the established names.
+
+To separate the cost of looking up a name from the effect of giving the solver different symbols, a recording build saved every requested base and returned spelling. A second build checked the requested base and replayed the recorded answer without traversing the input AST. On `dramc_nb2`, the original algorithm issued 14,337 names and found its preferred spelling occupied 5,062 times. Replaying those spellings improved g3 from 195.19 to 193.98 billion instructions. Using the counter with a descriptive prefix instead took 200.78 billion. The replay includes the cost of reading its small input once per process. [Requests and existing spellings](perf/ivy_apple/holdouts/nov22b-name-counter-requests.csv.gz) · [Recording overlay](perf/ivy_apple/holdouts/nov22b-name-record.patch.gz) · [Replay overlay](perf/ivy_apple/holdouts/nov22b-name-repeat.patch.gz)
+
+| Workload and engine | Existing names | Same names replayed | Descriptive prefix + counter |
+|---|---:|---:|---:|
+| rfn2, g3 | 18.11 | 18.21 | 18.41 |
+| rfn2, linked Z3 | 52.92 | 52.78 | 77.20 |
+| rfn, g3 | 30.87 | 30.88 | 50.55 |
+| rfn, linked Z3 | 43.82 | 43.83 | 33.88 |
+| Toy consensus, g3 | 3.32 | 3.32 | 4.39 |
+| Toy consensus, linked Z3 | 3.28 | 3.28 | 3.53 |
+
+The table uses median whole-process instructions in billions. On `rfn2`, linked Z3 went from 270,033 to **439,351 quantifier instantiations** and 805,401 to **975,636 decisions**. The effect reverses on `rfn`, where linked Z3 made 169,531 instantiations with the counter and 244,505 with the existing names. Comparison of the actual native inputs explains part of the difference. In 19 of 26 `rfn2` checks the ordered assertion bodies still matched under a consistent renaming after expanding SMT-LIB lets. In three, a symbol shared in the original assertions split into distinct symbols. Four showed a change of expression arity during that structural comparison. That comparison diagnoses changes in what the backend sees. The end-to-end proof outcomes were verified separately. Across these workloads the largest repeatable gain came from eliminating scans in calls that request zero names. [Counter benchmark runs](perf/ivy_apple/holdouts/nov22b-name-counter-instructions.csv.gz) · [Per-check native search counters](perf/ivy_apple/holdouts/nov22b-name-counter-search.csv.gz) · [Query structure comparison](perf/ivy_apple/holdouts/nov22b-name-counter-query-structure.csv.gz) · [Descriptive prefix prototype](perf/ivy_apple/holdouts/nov22b-name-counter.patch.gz) · [Short prefix prototype](perf/ivy_apple/holdouts/nov22b-name-short.patch.gz)
