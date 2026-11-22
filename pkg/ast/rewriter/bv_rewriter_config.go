@@ -60,41 +60,50 @@ func (p *BVPolynomialConfiguration) UpdateBitVectorLocal(local *uparams.ParamsRe
 		return err
 	}
 	p.placed[3] = true
+	var options uparams.ScalarParams
+	ready := p.context.ReadScalarParams(&options, local, &p.snapshots[3])
+	read := func(key string, def bool, dst *bool) error {
+		if ready {
+			*dst = options.Bool(key, def)
+			return nil
+		}
+		return p.bvBoolean(local, key, def, dst)
+	}
 	s := &p.bitVector
-	if err = p.bvBoolean(local, "hi_div0", true, &s.HiDiv0); err != nil {
+	if err = read("hi_div0", true, &s.HiDiv0); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "elim_sign_ext", true, &s.EliminateSignExtension); err != nil {
+	if err = read("elim_sign_ext", true, &s.EliminateSignExtension); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "mul2concat", false, &s.MultiplyToConcat); err != nil {
+	if err = read("mul2concat", false, &s.MultiplyToConcat); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "bit2bool", true, &s.BitToBool); err != nil {
+	if err = read("bit2bool", true, &s.BitToBool); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "bv_trailing", false, &s.Trailing); err != nil {
+	if err = read("bv_trailing", false, &s.Trailing); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "bv_urem_simpl", false, &s.RemainderSimplification); err != nil {
+	if err = read("bv_urem_simpl", false, &s.RemainderSimplification); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "blast_eq_value", false, &s.BlastEqualityValue); err != nil {
+	if err = read("blast_eq_value", false, &s.BlastEqualityValue); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "split_concat_eq", false, &s.SplitConcatEquality); err != nil {
+	if err = read("split_concat_eq", false, &s.SplitConcatEquality); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "udiv2mul", false, &s.UnsignedDivisionToMultiply); err != nil {
+	if err = read("udiv2mul", false, &s.UnsignedDivisionToMultiply); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "bvnot2arith", false, &s.NotToArithmetic); err != nil {
+	if err = read("bvnot2arith", false, &s.NotToArithmetic); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "bv_not_simpl", false, &s.NotSimplification); err != nil {
+	if err = read("bv_not_simpl", false, &s.NotSimplification); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "bv_sort_ac", false, &s.SortAC); err != nil {
+	if err = read("bv_sort_ac", false, &s.SortAC); err != nil {
 		return err
 	}
 	key := "mkbv2num"
@@ -103,18 +112,18 @@ func (p *BVPolynomialConfiguration) UpdateBitVectorLocal(local *uparams.ParamsRe
 		return e
 	}
 	s.MkBVToNumeral = v
-	if err = p.bvBoolean(local, "bv_extract_prop", false, &s.ExtractPropagation); err != nil {
+	if err = read("bv_extract_prop", false, &s.ExtractPropagation); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "bv_ite2id", false, &s.IteToIdentity); err != nil {
+	if err = read("bv_ite2id", false, &s.IteToIdentity); err != nil {
 		return err
 	}
-	if err = p.bvBoolean(local, "bv_le_extra", false, &s.LEExtra); err != nil {
+	if err = read("bv_le_extra", false, &s.LEExtra); err != nil {
 		return err
 	}
 	// Source repeats the lookup after LEExtra; do not reuse the earlier SortAC.
 	var sortSums bool
-	if err = p.bvBoolean(local, "bv_sort_ac", false, &sortSums); err != nil {
+	if err = read("bv_sort_ac", false, &sortSums); err != nil {
 		return err
 	}
 	if err = p.SetSortSums(sortSums); err != nil {

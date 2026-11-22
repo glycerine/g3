@@ -86,37 +86,51 @@ func (rw *boolRewriter) updateParams(local *uparams.ParamsRef) (err error) {
 	if e != nil {
 		return e
 	}
-	b, e := o.FrameBool(f, "flat", true)
+	var options uparams.ScalarParams
+	ready := o.Context.ReadScalarParams(&options, local, &f.Value)
+	boolean := func(k string, d bool) (bool, error) {
+		if ready {
+			return options.Bool(k, d), nil
+		}
+		return o.FrameBool(f, k, d)
+	}
+	unsigned := func(k string, d uint32) (uint32, error) {
+		if ready {
+			return options.UInt(k, d), nil
+		}
+		return o.FrameUInt(f, k, d)
+	}
+	b, e := boolean("flat", true)
 	if e != nil {
 		return e
 	}
 	rw.flat = b
-	b, e = o.FrameBool(f, "elim_and", false)
+	b, e = boolean("elim_and", false)
 	if e != nil {
 		return e
 	}
 	rw.elimAnd = b
-	b, e = o.FrameBool(f, "local_ctx", false)
+	b, e = boolean("local_ctx", false)
 	if e != nil {
 		return e
 	}
 	rw.localContext = b
-	u, e := o.FrameUInt(f, "local_ctx_limit", ^uint32(0))
+	u, e := unsigned("local_ctx_limit", ^uint32(0))
 	if e != nil {
 		return e
 	}
 	rw.localContextLimit = u
-	b, e = o.FrameBool(f, "blast_distinct", false)
+	b, e = boolean("blast_distinct", false)
 	if e != nil {
 		return e
 	}
 	rw.blastDistinct = b
-	u, e = o.FrameUInt(f, "blast_distinct_threshold", ^uint32(0))
+	u, e = unsigned("blast_distinct_threshold", ^uint32(0))
 	if e != nil {
 		return e
 	}
 	rw.blastDistinctThreshold = u
-	b, e = o.FrameBool(f, "ite_extra_rules", false)
+	b, e = boolean("ite_extra_rules", false)
 	if e != nil {
 		return e
 	}

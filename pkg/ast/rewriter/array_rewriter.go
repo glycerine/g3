@@ -117,17 +117,25 @@ func (rw *ArrayRewriter) updateParams(local *uparams.ParamsRef) (err error) {
 	if e != nil {
 		return e
 	}
-	b, e := o.FrameBool(f, "sort_store", false)
+	var options uparams.ScalarParams
+	ready := o.Context.ReadScalarParams(&options, local, &f.Value)
+	boolean := func(k string, d bool) (bool, error) {
+		if ready {
+			return options.Bool(k, d), nil
+		}
+		return o.FrameBool(f, k, d)
+	}
+	b, e := boolean("sort_store", false)
 	if e != nil {
 		return e
 	}
 	rw.sortStore = b
-	b, e = o.FrameBool(f, "expand_select_store", false)
+	b, e = boolean("expand_select_store", false)
 	if e != nil {
 		return e
 	}
 	rw.expandSelectStore = b
-	b, e = o.FrameBool(f, "expand_store_eq", false)
+	b, e = boolean("expand_store_eq", false)
 	if e != nil {
 		return e
 	}
