@@ -15,16 +15,17 @@ import (
 // builds nothing: the ASTs a solver makes appear when it is first used,
 // after the caller's own terms, as in z3.
 type APISimpleSolver struct {
-	owner           *smtContextState
-	solver          solver.Solver
-	create          func(logic string) (solver.Solver, error) // m_solver_factory
-	release         func() error                              // drops the factory's references
-	logic           string                                    // m_logic
-	explicitContext *uparams.ParamsContext
-	explicitParams  uparams.ParamsRef
-	explicitReady   bool
-	closed          bool
-	last            apiLastHold // m_last_obj's reference (api_last_object.go)
+	pendingRefutation *recentRefutations // one batch awaiting its next concrete check
+	owner             *smtContextState
+	solver            solver.Solver
+	create            func(logic string) (solver.Solver, error) // m_solver_factory
+	release           func() error                              // drops the factory's references
+	logic             string                                    // m_logic
+	explicitContext   *uparams.ParamsContext
+	explicitParams    uparams.ParamsRef
+	explicitReady     bool
+	closed            bool
+	last              apiLastHold // m_last_obj's reference (api_last_object.go)
 }
 
 // ErrSolverNoFactory is FORK FIX #122's default_exception: a solver made
@@ -126,6 +127,7 @@ func (s *APISimpleSolver) ensure() (resultErr error) {
 
 // dropSolver is m_solver = nullptr.
 func (s *APISimpleSolver) dropSolver() error {
+	s.pendingRefutation = nil
 	if s.solver == nil {
 		return nil
 	}

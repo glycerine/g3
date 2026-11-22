@@ -11,7 +11,17 @@ func (s *APISimpleSolver) Check(assumptions ...ast.ASTHandle) (lbool.LBool, erro
 	if err := s.use(); err != nil {
 		return lbool.Undef, err
 	}
-	return s.solver.CheckSat(assumptions)
+	pending := s.pendingRefutation
+	if pending == nil {
+		return s.solver.CheckSat(assumptions)
+	}
+	s.pendingRefutation = nil
+	remember := len(assumptions) == 0 && pending.matchesCurrent(s.solver)
+	answer, err := s.solver.CheckSat(assumptions)
+	if remember && err == nil && answer == lbool.False {
+		pending.remember()
+	}
+	return answer, err
 }
 
 func (s *APISimpleSolver) ReasonUnknown() (string, error) {

@@ -45,6 +45,7 @@ type CombinedSolver struct {
 	params                                    uparams.ParamsRef
 	incMode, checked, useFirst, secondStarted bool
 	ignoreFirst                               bool
+	partialUpdate                             bool // a component failed while changing assertions or scopes
 	unknownBehavior                           IncrementalUnknownBehavior
 	timeout                                   uint32
 	references                                uint32
@@ -164,10 +165,10 @@ func (c *CombinedSolver) initSecond() error {
 	for i := uint32(0); i < n; i++ {
 		h, e := c.first.Assertion(i)
 		if e != nil {
-			return e
+			return c.mutationResult(e)
 		}
 		if e = c.second.Assert(h); e != nil {
-			return e
+			return c.mutationResult(e)
 		}
 	}
 	c.secondStarted = true
@@ -303,14 +304,14 @@ func (c *CombinedSolver) Assert(h ast.ASTHandle) error {
 	}
 	if c.checked {
 		if err := c.switchIncremental(); err != nil {
-			return err
+			return c.mutationResult(err)
 		}
 	}
 	if err := c.first.Assert(h); err != nil {
-		return err
+		return c.mutationResult(err)
 	}
 	if c.secondStarted {
-		return c.second.Assert(h)
+		return c.mutationResult(c.second.Assert(h))
 	}
 	return nil
 }
@@ -320,40 +321,40 @@ func (c *CombinedSolver) AssertTracked(h, a ast.ASTHandle) error {
 	}
 	if c.checked {
 		if err := c.switchIncremental(); err != nil {
-			return err
+			return c.mutationResult(err)
 		}
 	}
 	if err := c.first.AssertTracked(h, a); err != nil {
-		return err
+		return c.mutationResult(err)
 	}
 	if err := c.initSecond(); err != nil {
-		return err
+		return c.mutationResult(err)
 	}
-	return c.second.AssertTracked(h, a)
+	return c.mutationResult(c.second.AssertTracked(h, a))
 }
 func (c *CombinedSolver) Push() error {
 	if err := c.open(); err != nil {
 		return err
 	}
 	if err := c.switchIncremental(); err != nil {
-		return err
+		return c.mutationResult(err)
 	}
 	if err := c.first.Push(); err != nil {
-		return err
+		return c.mutationResult(err)
 	}
-	return c.second.Push()
+	return c.mutationResult(c.second.Push())
 }
 func (c *CombinedSolver) Pop(n uint32) error {
 	if err := c.open(); err != nil {
 		return err
 	}
 	if err := c.switchIncremental(); err != nil {
-		return err
+		return c.mutationResult(err)
 	}
 	if err := c.first.Pop(n); err != nil {
-		return err
+		return c.mutationResult(err)
 	}
-	return c.second.Pop(n)
+	return c.mutationResult(c.second.Pop(n))
 }
 func (c *CombinedSolver) ScopeLevel() (uint32, error) {
 	if err := c.open(); err != nil {
@@ -477,6 +478,26 @@ func (c *CombinedSolver) SetProgressCallback(v ProgressCallback) error {
 		return err
 	}
 	return errors.Join(c.first.SetProgressCallback(v), c.second.SetProgressCallback(v))
+}
+
+// HasOriginalAssertions reports whether Assertion enumerates the original
+// input when the owner supplied fresh components and mutates them through
+// this solver. The tactic solver stores each
+// asserted formula before simplifying it. The bare SMT kernel exposes its
+// preprocessed vector, which can omit information such as macro definitions.
+func (c *CombinedSolver) HasOriginalAssertions() bool {
+	if c == nil || c.self != c || c.closed || c.partialUpdate {
+		return false
+	}
+	_, ok := c.first.(*TacticSolver)
+	return ok
+}
+
+func (c *CombinedSolver) mutationResult(err error) error {
+	if err != nil {
+		c.partialUpdate = true
+	}
+	return err
 }
 
 // HasInconsistentAssertions checks the active incremental solver's asserted formulas.
@@ -621,6 +642,7 @@ func (c *CombinedSolver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (Sol
 		_ = b.Close()
 		return nil, err
 	}
+	next.partialUpdate = c.partialUpdate
 	next.secondStarted, next.incMode, next.checked, next.useFirst = c.secondStarted, c.incMode, c.checked, c.useFirst
 	return next, nil
 }
@@ -647,6 +669,7 @@ func (c *CombinedSolver) TranslateWithComponents(target *CombinedSolver, first, 
 	if err != nil {
 		return nil, err
 	}
+	next.partialUpdate = c.partialUpdate
 	next.secondStarted, next.incMode, next.checked, next.useFirst = c.secondStarted, c.incMode, c.checked, c.useFirst
 	return next, nil
 }

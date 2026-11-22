@@ -2697,3 +2697,19 @@ The six-round panel at `c4b5a5b68` reproduced the linked-Z3 transcript on every 
 | `tprops` | 700 | 39.49 | 40.72 | 162.12 | 168.57 |
 
 On `cf_live`, g3 finished sooner in this panel but retired more instructions. It was the only one of the ten workloads with that instruction gap. The raw results include the preceding g3 build, each process's peak RSS, and all four hardware counters. [All 180 complete runs](perf/ivy_apple/goal_instances/ground_booleans/nov22-ten-workloads.csv)
+
+### Repeated concrete queries on an incremental solver
+
+The Apple checker sometimes pushes a scope and asks exactly the same question it recently proved in a previous scope. On `cf_live`, recognizing duplicates in the shared GoIvy frontend reduced g3 from 120.13 to 113.08 billion instructions but raised linked Z3 from 107.63 to 110.20 billion. The shipped change lives in g3's existing proof batch. It remembers eight UNSAT goals under one ordered sequence of up to 128 premise handles. An arena owner, slot and generation identify each formula. The batch owns the history and holds no AST alive. [Frontend experiment](perf/ivy_apple/goal_instances/recent_checks/nov22-frontend-experiment.csv) · [Batch history](api/api_order_recent.go)
+
+The source solver can change between the batch's proof attempt and the caller's concrete check. g3 rechecks every assertion and requires zero explicit or tracked assumptions before recording a concrete UNSAT result. It uses only a solver with an original assertion vector. The bare SMT kernel exposes preprocessed formulas, and a failed scope or assertion update can leave the two components of a combined solver out of sync. Both cases bypass reuse. Finite limits and cancellation retain their original behavior. The tests include same-length premise changes, slot recycling, scope mutations, eviction and all 128 combinations of a four-bit assignment and a signed goal (16 assignments × 8 goals). [Source check](api/api_simple_solver_check.go) · [Regression tests and benchmark](api/api_order_recent_test.go)
+
+| Full checker, four pairs | Previous g3, billion instructions | g3 with batch history |
+|---|---:|---:|
+| `cf_live` | 119.14 | 112.04 |
+| `cmpl_live` | 121.61 | 121.62 |
+| `rfn2` | 48.44 | 48.53 |
+
+The captured `cf_live` check 42 costs 84.79 ms and 5.23 MB per iteration with the previous batch. After one warm concrete proof, the new batch measured **80.8 µs and 28.2 kB** per push, assert, proof and pop. Nine alternating pairs used five iterations for concrete checks and 512 for warm hits. Ordinary concrete checks in the same runs took 85.03 and 83.01 ms respectively. [Captured query](perf/ivy_apple/test_vectors/cf_live-42.smt2.gz) · [36 prepared measurements](perf/ivy_apple/goal_instances/recent_checks/nov22-prepared.csv) · [24 complete runs](perf/ivy_apple/goal_instances/recent_checks/nov22-short-release.csv)
+
+Batch proofs increased from 882 to 1,359 across 10,342 Apple checks. An instrumented build also executed the original check for each shortcut. All verdicts and all 18 per-check search counters matched the linked-Z3 reference in that replay. The release build also reproduced all 11,732 named decisions on 28 mutated Raft specifications, including the failing obligations. [Apple concrete confirmations](perf/ivy_apple/goal_instances/recent_checks/nov22-confirmations.csv.gz) · [Raft positive and negative cases](perf/ivy_apple/goal_instances/recent_checks/nov22-raft-mutants.csv)

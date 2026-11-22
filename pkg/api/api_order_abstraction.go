@@ -43,6 +43,7 @@ type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
 	witnessPremises *witnessPremises
+	recent          *recentRefutations
 	bits            *orderBooleanSolver
 	// Keep a failed side-condition cleanup reachable for release's retry.
 	pendingCondition *orderProofState
@@ -64,10 +65,13 @@ func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
 // A successful attempt removes or disables its query suffix. Later attempts
 // can reuse identical premises in the same generated language. An inconclusive
 // attempt releases the private kernel before the caller's concrete check.
+// The batch can also reuse a recent concrete UNSAT result under exactly
+// the same ordered assertions. Each source solver observes its own checks.
 func (b *OrderProofBatch) Prove() (bool, error) {
 	if b == nil || b.state == nil || b.state.source == nil {
 		return false, ErrSMTContextOwner
 	}
+	b.state.source.pendingRefutation = nil
 	return b.state.prove(orderProofSteps, true)
 }
 
@@ -76,12 +80,17 @@ func (b *OrderProofBatch) Close() error {
 	if b == nil || b.state == nil {
 		return nil
 	}
+	if s := b.state.source; s != nil && s.pendingRefutation == b.state.recent {
+		s.pendingRefutation = nil
+	}
 	b.state.witnessPremises = nil
+	b.state.recent = nil
 	b.state.source = nil
 	return b.state.release()
 }
 
 func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err error) {
+	var candidate *recentRefutations
 	defer func() {
 		if !reuse || !proved {
 			if closeErr := p.release(); closeErr != nil {
@@ -90,6 +99,9 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 				p.source = nil
 				proved, err = false, errors.Join(err, closeErr)
 			}
+		}
+		if candidate != nil && err == nil && !proved {
+			p.source.pendingRefutation = candidate
 		}
 	}()
 	s := p.source
@@ -129,6 +141,15 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 	assertions, err := solver.Assertions(s.solver)
 	if err != nil {
 		return false, err
+	}
+	if reuse && maxSteps == orderProofSteps && len(assertions) > 0 && len(assertions)-1 <= maxRecentPremises && hasOriginalAssertions(s.solver) {
+		if p.recent == nil {
+			p.recent = new(recentRefutations)
+		}
+		if p.recent.lookup(assertions) {
+			return !limit.CancelFlag(), nil
+		}
+		candidate = p.recent
 	}
 	proof, applicable, err := order.ForProof(parent, assertions, maxSteps)
 	if err != nil || limit.CancelFlag() {
