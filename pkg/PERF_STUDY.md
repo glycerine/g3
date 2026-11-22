@@ -2978,7 +2978,7 @@ The unmodified Makefile targets remain a distinct measurement. In five alternati
 
 ### Ordinary GoIvy verification at 91d1597f3
 
-The release includes the arithmetic and theory rewriter option change. Four alternating pairs of each original workload ran through the same GoIvy frontend on logical CPU 22, with the ordinary compiler configuration, one Go runtime processor and default GC settings. All 12 pairs favored g3 and produced identical proof transcripts. The table reports the median elapsed time for each engine and their ratio. The medians of the *individual paired* speedups were 10.58×, 1.24× and 2.62× respectively. Other activity on this host varied during the runs. [All 24 runs, counters and RSS](perf/ivy_apple/holdouts/nov22-rewriter-settings-serial.csv)
+The release includes the arithmetic and theory rewriter option change. Four alternating pairs of each original workload ran through the same GoIvy frontend on logical CPU 22, with the ordinary compiler configuration, one Go runtime processor and default GC settings. All 12 pairs favored g3 and produced identical proof transcripts. The table reports the median elapsed time for each engine and their ratio. The medians of the *individual paired* speedups were 10.58×, 1.24× and 2.62× respectively. Individual pairs ranged from 9.68–12.90× on Raft, 1.19–1.33× on dramc_nb2 and 2.34–3.20× on rfn2. Other activity on this host varied during the runs. [All 24 runs, counters and RSS](perf/ivy_apple/holdouts/nov22-rewriter-settings-serial.csv)
 
 | Workload | Named checks | g3 | Linked Z3 | Ratio of medians, Z3/g3 | Instructions, g3 / Z3 (billions) |
 |---|---:|---:|---:|---:|---:|
@@ -3024,6 +3024,8 @@ The three captured inputs replay in either shell with the same macro-finder sett
 | Toy consensus 18 | 1,559 / 461 | 725 / 224 | 1,866 / 905 / 41 |
 | Ticket 127 | 328 / 133 | 310 / 119 | 708 / 1,389 / 50 |
 | Ticket 290 | 483 / 168 | 326 / 120 | 310 / 1,241 / 37 |
+
+Five more incremental pairs on CPU 5 reproduced all four search counters on all three queries. Median whole-shell instructions in millions were 737.7/223.8 on toy consensus, 310.1/119.0 on ticket 127 and 326.3/120.2 on ticket 290. This second placement reproduced the large per-search gap. [Second-CPU confirmation](perf/ivy_apple/holdouts/nov22-short-query-second-cpu.csv)
 
 Six alternating pairs of instruction profiles per incremental query sampled every 710,009 user instructions. The nearest named solver operation received each stack's vote once. Relative to Z3, **the general rewriter accounted for approximately 239, 76 and 88 million excess instructions** on the three rows above. The quantifier queue contributed approximately 40, 36 and 37 million. Model checking added about 71 million on toy consensus. No lost samples were reported. These estimates identify work per search step in a case where the search counters agree. [Sampling driver](perf/ivy_apple/holdouts/query_stacks.py) · [Per-run symbol and operation counts](perf/ivy_apple/holdouts/nov22-short-query-stacks.csv.gz)
 
