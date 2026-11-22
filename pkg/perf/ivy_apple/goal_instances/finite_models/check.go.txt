@@ -1,0 +1,50 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/glycerine/g3/pkg/api"
+)
+
+func check(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	input, _, ok := strings.Cut(string(data), "\n(check-sat)")
+	if !ok {
+		return fmt.Errorf("missing check-sat in %s", path)
+	}
+	ctx, err := api.NewSMTContext()
+	if err != nil {
+		return err
+	}
+	defer ctx.Close()
+	s, err := ctx.NewSolver()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	if err = s.LoadSMT2String(input); err != nil {
+		return err
+	}
+	proved, err := s.ProveUnsatByOrderAbstraction()
+	if err != nil {
+		return err
+	}
+	if proved {
+		return fmt.Errorf("private solver refuted a satisfiable input: %s", path)
+	}
+	return nil
+}
+
+func main() {
+	for _, path := range os.Args[1:] {
+		if err := check(path); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+}

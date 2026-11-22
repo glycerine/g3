@@ -19,6 +19,8 @@ const orderProofSteps = 3_000_000
 // assertion. Remaining problems can use exact two-element domains or a
 // relaxation to uninterpreted ordered sorts. For quantified problems over
 // uninterpreted sorts, it can refute ground instances at the final goal's constants.
+// A quantified goal can also be refuted by its Boolean structure and the
+// one-way implications connecting quantified formulas to their ground instances.
 // True establishes that the assertions are unsatisfiable. False is inconclusive:
 // callers needing a decision or a concrete model should call Check. The
 // independent proof attempt preserves this solver's last check, model and core.
@@ -128,7 +130,14 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 		return false, err
 	}
 	if !applicable {
-		return p.proveGoalInstances(parent, assertions, maxSteps)
+		bits, err := order.ProjectQuantifiedGoal(parent, assertions, maxSteps)
+		if err != nil || limit.CancelFlag() {
+			return false, err
+		}
+		if bits == nil {
+			return p.proveGoalInstances(parent, assertions, maxSteps)
+		}
+		proof.Boolean, proof.SearchSteps = bits, maxSteps
 	}
 	if proof.Refuted {
 		return true, nil

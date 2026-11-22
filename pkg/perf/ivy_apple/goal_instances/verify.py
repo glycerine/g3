@@ -1,4 +1,4 @@
-"""Run each ground proof followed by its original incremental check, and compare linked Z3."""
+"""Verify every private refutation with the original incremental solver and linked Z3."""
 import argparse
 import csv
 import json
@@ -23,21 +23,19 @@ def compile_go(args):
         path.write_text(code)
         mapping[str(original)] = mapping[str(original.resolve())] = str(path)
 
-    local = Path(subprocess.check_output(["go", "list", "-mod=readonly", "-m", "-f", "{{.Dir}}",
-                                          "github.com/glycerine/g3/pkg"], cwd=args.goivy, text=True).strip())
-    original = local / "api/api_order_abstraction.go"
-    code = replace_once(original.read_text(), "import (", 'import (\n"fmt"\n"os"')
-    anchor = "return p.proveGoalInstances(parent, assertions, maxSteps)"
-    patch(original, replace_once(code, anchor, """yes, err := p.proveGoalInstances(parent, assertions, maxSteps)
-        if err != nil { panic(err) }
-        if yes { fmt.Fprintln(os.Stderr, "GROUND-PROVED") }
-        return false, nil"""))
     original = args.goivy / "smt/g3_solver.go"
     code = original.read_text()
     extras = [p for p in ("fmt", "os") if f'"{p}"' not in code]
     code = replace_once(code, "import (", "import (\n" + "\n".join(f'"{p}"' for p in extras))
     code = replace_once(code, counters.GO_METHOD, counters.GO_METHOD + counters.GO_OBSERVER +
                         '\n fmt.Fprintln(os.Stderr,"GROUND-BEGIN",n)')
+    short_circuit = """if proved, err := prove(); err == nil && proved {
+			result = Unsat
+			return
+		}"""
+    code = replace_once(code, short_circuit, """proved, err := prove()
+        if err != nil { panic(err) }
+        if proved { fmt.Fprintln(os.Stderr, "GROUND-PROVED") }""")
     anchor = "r, err := s.c.Check()\n\t\tfail(err)"
     code = replace_once(code, anchor, anchor + '\n fmt.Fprintln(os.Stderr,"GROUND-RESULT",n,int(r))')
     patch(original, code + counters.GO_HELPER)
@@ -106,7 +104,7 @@ def main():
                 raise ValueError(f"different check counts for {iso}")
             with (args.output / (iso + ".csv")).open("w") as stream:
                 out = csv.writer(stream, lineterminator="\n")
-                out.writerow(["isolate", "check", "ground_proof", *counters.COUNTERS])
+                out.writerow(["isolate", "check", "private_proof", *counters.COUNTERS])
                 for i, (a, b) in enumerate(zip(go[1], z3[1]), 1):
                     if a != b:
                         diffs = {k: (v, w) for k, v, w in zip(counters.COUNTERS, a, b) if v != w}

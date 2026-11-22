@@ -15,21 +15,7 @@ import (
 // so subsequent benchmark iterations cannot benefit from a prior result.
 func BenchmarkAppleGoalInstances(b *testing.B) {
 	for _, check := range []string{"4", "13", "22"} {
-		file, err := os.Open("../perf/ivy_apple/test_vectors/rfn2-" + check + ".smt2.gz")
-		if err != nil {
-			b.Fatal(err)
-		}
-		compressed, err := gzip.NewReader(file)
-		if err != nil {
-			b.Fatal(err)
-		}
-		data, err := io.ReadAll(compressed)
-		compressed.Close()
-		file.Close()
-		if err != nil {
-			b.Fatal(err)
-		}
-		input := strings.TrimSuffix(strings.TrimSpace(string(data)), "(check-sat)")
+		input := appleBenchmarkInput(b, "rfn2-"+check)
 		for _, mode := range []string{"Concrete", "GroundInstances"} {
 			b.Run("Check"+check+"/"+mode, func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
@@ -40,6 +26,67 @@ func BenchmarkAppleGoalInstances(b *testing.B) {
 			})
 		}
 	}
+}
+
+// The captured check omits the preceding incremental history. Fresh measures
+// parsing and setup as well as search. Prepared times only the independent
+// proof attempt on the already loaded source assertions.
+func BenchmarkAppleQuantifiedGoal(b *testing.B) {
+	input := appleBenchmarkInput(b, "dramc_nb2-71")
+	for _, mode := range []string{"Concrete", "Projection"} {
+		b.Run("Fresh/"+mode, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				if err := benchmarkGoalInstances(b, input, mode == "Projection"); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+	b.Run("Prepared/Projection", func(b *testing.B) {
+		c, err := NewSMTContext()
+		if err != nil {
+			b.Fatal(err)
+		}
+		defer c.Close()
+		s, err := c.NewSolver()
+		if err != nil {
+			b.Fatal(err)
+		}
+		defer s.Close()
+		if err = s.LoadSMT2String(input); err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			if proved, err := s.ProveUnsatByOrderAbstraction(); !proved || err != nil {
+				b.Fatalf("projected proof returned %v, %v", proved, err)
+			}
+		}
+		b.StopTimer()
+	})
+}
+
+func appleBenchmarkInput(b *testing.B, name string) string {
+	b.Helper()
+	f, err := os.Open("../perf/ivy_apple/test_vectors/" + name + ".smt2.gz")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer f.Close()
+	z, err := gzip.NewReader(f)
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer z.Close()
+	data, err := io.ReadAll(z)
+	if err != nil {
+		b.Fatal(err)
+	}
+	input, _, ok := strings.Cut(string(data), "\n(check-sat)")
+	if !ok {
+		b.Fatal("captured input is missing check-sat")
+	}
+	return input
 }
 
 func benchmarkGoalInstances(b *testing.B, input string, useInstances bool) error {
