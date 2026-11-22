@@ -45,9 +45,11 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
-	witnessPremises *witnessPremises
-	recent          *recentRefutations
-	bits            *orderBooleanSolver
+	witnessPremises    *witnessPremises
+	definitions        *premiseDefinitions
+	previousGoalProved bool
+	recent             *recentRefutations
+	bits               *orderBooleanSolver
 	// Keep a failed side-condition cleanup reachable for release's retry.
 	pendingCondition *orderProofState
 	source           *APISimpleSolver
@@ -78,6 +80,50 @@ func (b *OrderProofBatch) Prove() (bool, error) {
 	return b.state.prove(orderProofSteps, true)
 }
 
+// ProveWithGoal tries to refute the current assertions together with one
+// temporary Boolean goal before a fresh solver's first push. It preserves
+// the source assertions, scope level and result. False is inconclusive.
+// A caller can then push the goal and check it through the ordinary solver.
+func (b *OrderProofBatch) ProveWithGoal(goal ast.ASTHandle) (proved bool, err error) {
+	if b == nil || b.state == nil || b.state.source == nil {
+		return false, ErrSMTContextOwner
+	}
+	p := b.state
+	defer func() { p.previousGoalProved = proved && err == nil }()
+	s := p.source
+	if err = s.open(); err != nil {
+		return false, err
+	}
+	m, err := s.owner.command.Manager()
+	if err != nil {
+		return false, err
+	}
+	boolean, err := m.HasBoolSort(goal)
+	if err != nil {
+		return false, err
+	}
+	if !boolean {
+		return false, ast.ErrASTDomain
+	}
+	combined, ok := s.solver.(*solver.CombinedSolver)
+	if !ok || !combined.CanDeferFirstPush() {
+		return false, nil
+	}
+	if s.pendingRefutation == p.recent {
+		s.pendingRefutation = nil
+	}
+	held, err := m.NewRef(goal)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		if e := m.DelRef(&held); e != nil {
+			proved, err = false, errors.Join(err, e)
+		}
+	}()
+	return p.proveWithGoal(orderProofSteps, true, goal)
+}
+
 // Close releases the batch's private kernel. The source remains usable.
 func (b *OrderProofBatch) Close() error {
 	if b == nil || b.state == nil {
@@ -87,12 +133,17 @@ func (b *OrderProofBatch) Close() error {
 		s.pendingRefutation = nil
 	}
 	b.state.witnessPremises = nil
+	b.state.definitions = nil
 	b.state.recent = nil
 	b.state.source = nil
 	return b.state.release()
 }
 
-func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err error) {
+func (p *orderProofState) prove(maxSteps uint32, reuse bool) (bool, error) {
+	return p.proveWithGoal(maxSteps, reuse, ast.ASTHandle{})
+}
+
+func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.ASTHandle) (proved bool, err error) {
 	var candidate *recentRefutations
 	defer func() {
 		if !reuse || !proved {
@@ -106,7 +157,7 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 		if candidate != nil && err == nil {
 			if proved {
 				candidate.remember()
-			} else {
+			} else if goal.IsNull() {
 				p.source.pendingRefutation = candidate
 			}
 		}
@@ -149,6 +200,9 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 	if err != nil {
 		return false, err
 	}
+	if !goal.IsNull() {
+		assertions = append(assertions, goal)
+	}
 	if reuse && maxSteps == orderProofSteps && len(assertions) > 0 && len(assertions)-1 <= maxRecentPremises && hasOriginalAssertions(s.solver) {
 		if p.recent == nil {
 			p.recent = new(recentRefutations)
@@ -158,6 +212,16 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (proved bool, err e
 		}
 		candidate = p.recent
 	}
+	proved, err = p.proveAssertions(parent, assertions, maxSteps, reuse)
+	if err != nil || proved || goal.IsNull() || !p.previousGoalProved || limit.CancelFlag() {
+		return proved, err
+	}
+	return p.proveRelevantPremises(parent, assertions)
+}
+
+func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []ast.ASTHandle, maxSteps uint32, reuse bool) (bool, error) {
+	s := p.source
+	limit := parent.ResourceLimit()
 	proof, applicable, err := order.ForProof(parent, assertions, maxSteps)
 	if err != nil || limit.CancelFlag() {
 		return false, err

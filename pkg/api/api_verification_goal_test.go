@@ -1,0 +1,207 @@
+package api
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+func relevantPremiseExample(last string) string {
+	var b strings.Builder
+	b.WriteString("(declare-sort U 0)(declare-const k U)(declare-fun alpha (U) Bool)(declare-fun beta (U) Bool)(declare-fun gamma (U) Bool)")
+	for i := 0; i < 20; i++ {
+		fmt.Fprintf(&b, "(declare-fun pad%d (U) Bool)", i)
+	}
+	b.WriteString("(assert (and (forall ((v U)) (= (alpha v) (beta v))) (forall ((v U)) (= (beta v) (gamma v))) ")
+	b.WriteString(last)
+	for i := 0; i < 20; i++ {
+		fmt.Fprintf(&b, " (forall ((v U)) (pad%d v))", i)
+	}
+	b.WriteString("))(assert (not (alpha k)))")
+	return b.String()
+}
+
+func TestVerificationDefinitionSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name, last string
+		proved     bool
+	}{
+		{"universal fact", "(forall ((v U)) (gamma v))", true},
+		{"ground fact", "(gamma k)", true},
+		{"cycle", "(forall ((v U)) (= (gamma v) (alpha v)))", false},
+		{"disjunction", "(or (gamma k) (not (beta k)))", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, s := orderSolver(t, relevantPremiseExample(tc.last))
+			m, err := ctx.Manager()
+			astTestMust(t, err)
+			roots, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			state := orderProofState{source: s}
+			defer func() { astTestMust(t, state.release()) }()
+			got, err := state.proveRelevantPremises(m, roots)
+			if err != nil || got != tc.proved {
+				t.Fatalf("selected proof %v, want %v, error %v", got, tc.proved, err)
+			}
+			result, err := s.Check()
+			astTestMust(t, err)
+			if result == lbool.Undef || (result == lbool.False) != tc.proved {
+				t.Fatal("concrete check", result)
+			}
+			if tc.proved {
+				sort, err := m.MkBoolSort()
+				astTestMust(t, err)
+				v, err := m.MkVar(0, sort)
+				astTestMust(t, err)
+				astTestMust(t, m.IncRef(v))
+				defer func() { astTestMust(t, m.DecRef(v)) }()
+				open := append([]ast.ASTHandle{v}, roots...)
+				if yes, err := state.proveRelevantPremises(m, open); yes || err != nil {
+					t.Fatalf("omitted free variable %v, %v", yes, err)
+				}
+			}
+		})
+	}
+}
+
+func TestOrderProofTemporaryGoal(t *testing.T) {
+	c, donor := orderSolver(t, orderPremises+"(assert (not (p a)))")
+	m, err := c.Manager()
+	astTestMust(t, err)
+	roots, err := solver.Assertions(donor.solver)
+	astTestMust(t, err)
+	s, err := c.NewSolverForIncrementalChecks()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, s.Close()) })
+	batch := s.BeginOrderProofBatch()
+	t.Cleanup(func() { astTestMust(t, batch.Close()) })
+	astTestMust(t, s.Assert(roots[0]))
+	for i := 0; i < 2; i++ {
+		if yes, err := batch.ProveWithGoal(roots[1]); err != nil || !yes {
+			t.Fatalf("private goal %d: %v, %v", i, yes, err)
+		}
+		level, err := s.ScopeLevel()
+		astTestMust(t, err)
+		active, err := solver.Assertions(s.solver)
+		astTestMust(t, err)
+		if level != 0 || len(active) != 1 || active[0] != roots[0] || s.pendingRefutation != nil {
+			t.Fatal("temporary proof changed source", level, active)
+		}
+	}
+	positive, err := m.GetArg(roots[1], 0)
+	astTestMust(t, err)
+	if yes, err := batch.ProveWithGoal(positive); err != nil || yes || s.pendingRefutation != nil {
+		t.Fatal("satisfiable counterexample", yes, err)
+	}
+	// A subsequent ordinary SAT check sees just the base, with its own model.
+	got, err := s.Check()
+	astTestMust(t, err)
+	if got != lbool.True {
+		t.Fatal("base", got)
+	}
+	if yes, err := batch.ProveWithGoal(roots[1]); err != nil || yes {
+		t.Fatal("checked source", yes, err)
+	}
+	model, err := s.Model()
+	astTestMust(t, err)
+	ref, err := model.Evaluate(positive, true)
+	astTestMust(t, err)
+	h, err := m.RefGet(ref)
+	astTestMust(t, err)
+	if !m.IsTrue(h) {
+		t.Fatal("model lost ground instance")
+	}
+	astTestMust(t, m.DelRef(&ref))
+	astTestMust(t, model.Close())
+	astTestMust(t, s.Reset())
+	if yes, err := batch.ProveWithGoal(roots[1]); err != nil || yes {
+		t.Fatal("old base after reset", yes, err)
+	}
+	astTestMust(t, s.Assert(roots[0]))
+	limit := m.ResourceLimit()
+	astTestMust(t, limit.Push(1))
+	yes, err := batch.ProveWithGoal(roots[1])
+	limit.Pop()
+	if yes || err != nil || len(limit.Children) != 0 {
+		t.Fatal("active resource limit", yes, err)
+	}
+	astTestMust(t, s.Push())
+	if yes, err := batch.ProveWithGoal(roots[1]); yes || err != nil {
+		t.Fatal("active source scope", yes, err)
+	}
+	astTestMust(t, s.Assert(roots[1]))
+	got, err = s.Check()
+	astTestMust(t, err)
+	if got != lbool.False {
+		t.Fatal("concrete scoped result", got)
+	}
+	astTestMust(t, s.Pop(1))
+	astTestMust(t, batch.Close())
+	if _, err := batch.ProveWithGoal(roots[1]); !errors.Is(err, ErrSMTContextOwner) {
+		t.Fatal("closed batch", err)
+	}
+}
+
+func TestTemporaryGoalValidatesHandles(t *testing.T) {
+	f := newSMTAPIFixture(t, "QF_UF", nil)
+	s, err := f.c.NewSolver()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, s.Close()) })
+	b := s.BeginOrderProofBatch()
+	t.Cleanup(func() { astTestMust(t, b.Close()) })
+	other := newSMTAPIFixture(t, "QF_UF", nil)
+	foreign := other.pin(other.m.MkTrue())
+	sort := f.pin(f.c.BoolSort())
+	stale, err := f.m.MkVar(3001, sort)
+	astTestMust(t, err)
+	astTestMust(t, f.m.IncRef(stale))
+	astTestMust(t, f.m.DecRef(stale))
+	for _, h := range []ast.ASTHandle{foreign, stale, {}, sort} {
+		if yes, err := b.ProveWithGoal(h); yes || err == nil {
+			t.Fatal("accepted invalid goal", h, yes, err)
+		}
+	}
+}
+
+func BenchmarkAppleVerificationGoalPremises(b *testing.B) {
+	for _, n := range []string{"5", "9"} {
+		b.Run("Check"+n, func(b *testing.B) {
+			input := appleBenchmarkInput(b, "rfn2-"+n)
+			ctx, err := NewSMTContext()
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer ctx.Close()
+			s, err := ctx.NewSolver()
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer s.Close()
+			if err := s.LoadSMT2String(input); err != nil {
+				b.Fatal(err)
+			}
+			m, err := ctx.Manager()
+			if err != nil {
+				b.Fatal(err)
+			}
+			roots, err := solver.Assertions(s.solver)
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				state := orderProofState{source: s}
+				yes, err := state.proveRelevantPremises(m, roots)
+				if err := errors.Join(err, state.release()); err != nil || !yes {
+					b.Fatalf("selected proof %v, %v", yes, err)
+				}
+			}
+		})
+	}
+}

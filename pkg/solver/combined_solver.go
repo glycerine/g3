@@ -509,6 +509,12 @@ func (c *CombinedSolver) HasOriginalAssertions() bool {
 	return ok
 }
 
+// CanDeferFirstPush reports whether a verification caller can still avoid
+// initializing the incremental backend by proving a temporary goal privately.
+func (c *CombinedSolver) CanDeferFirstPush() bool {
+	return c.HasOriginalAssertions() && !c.secondStarted && !c.checked && !c.incMode
+}
+
 func (c *CombinedSolver) mutationResult(err error) error {
 	if err != nil {
 		c.partialUpdate = true

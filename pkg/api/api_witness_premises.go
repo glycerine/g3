@@ -33,10 +33,11 @@ func (p *witnessPremises) matches(base []ast.ASTHandle) bool {
 // The same stamp covers a DAG walk within one positive conjunct. Count a
 // declaration at most once in that conjunct, regardless of its occurrence count.
 type witnessSymbolWalk struct {
-	seen          map[ast.ASTHandle]int
-	declarations  map[ast.ASTHandle]int
-	stack         []ast.ASTHandle
-	visits, stamp int
+	includeConstants bool
+	seen             map[ast.ASTHandle]int
+	declarations     map[ast.ASTHandle]int
+	stack            []ast.ASTHandle
+	visits, stamp    int
 }
 
 func (w *witnessSymbolWalk) collect(m *ast.ASTManager, root ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
@@ -73,7 +74,7 @@ func (w *witnessSymbolWalk) collect(m *ast.ASTManager, root ast.ASTHandle) ([]as
 			if hd.NumArgs > 8192 || len(w.stack)+int(hd.NumArgs) > 16_384 {
 				return nil, false, nil
 			}
-			if hd.NumArgs > 0 && hd.Family == ast.NullFamilyID && w.declarations[hd.Decl] != w.stamp {
+			if (hd.NumArgs > 0 || w.includeConstants) && hd.Family == ast.NullFamilyID && w.declarations[hd.Decl] != w.stamp {
 				w.declarations[hd.Decl] = w.stamp
 				symbols = append(symbols, hd.Decl)
 			}
