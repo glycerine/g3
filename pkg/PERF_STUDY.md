@@ -2678,3 +2678,22 @@ The C++ rewriter pushes the result of a completed application reduction once. Th
 | Released on each iteration | 21,499 | 21,018 | 2,888 | 2,780 |
 
 The table gives medians of nine alternating pairs pinned to CPU 14, with 20,000 substitutions per process and zero timed allocations. The instruction figure includes process startup and benchmark setup divided by 20,000. On complete GoIvy runs, median instructions fell from 120.19 to 119.11 billion on `cf_live`, 49.17 to 48.77 billion on `rfn2`, 121.82 to 121.58 billion on `cmpl_live`, and 402.79 to 402.16 billion on `dramc_nb2`. Each used four paired rounds on a shared host. The original incremental solver confirmed all 882 independent refutations and matched linked Z3 on the verdict and 18 counters of every Apple check. [Substitution benchmark](smtcore/smt_quantifier_substitution_benchmark_test.go) · [36 microbenchmark runs](perf/ivy_apple/rewriter_cache/nov22-beta-substitution.csv) · [32 complete runs](perf/ivy_apple/rewriter_cache/nov22-beta-release.csv) · [10,342 checked obligations](perf/ivy_apple/rewriter_cache/nov22-beta-confirmations.csv)
+
+### Complete workload panel at the ground Boolean change
+
+The six-round panel at `c4b5a5b68` reproduced the linked-Z3 transcript on every run. On `rfn2`, g3 took 12.94 s against 30.88 s for linked Z3. The same frontend ran both solvers with the same CPU affinity for each workload. Other experiments shared the host, so the instruction counts give a more stable comparison than elapsed time.
+
+| Workload | Checks | g3, s | Linked Z3, s | g3, billion instructions | Linked Z3, billion instructions |
+|---|---:|---:|---:|---:|---:|
+| Ordinary Raft | 419 | 5.52 | 50.56 | 27.81 | 215.19 |
+| `dramc_nb2` | 2,479 | 119.77 | 152.75 | 402.55 | 479.82 |
+| `rfn2` | 26 | 12.94 | 30.88 | 49.04 | 69.32 |
+| `cf_live` | 336 | 32.46 | 37.91 | 120.07 | 107.67 |
+| `cf_pio_live` | 2,215 | 131.06 | 175.06 | 427.31 | 538.89 |
+| `cmpl_live` | 437 | 76.75 | 81.18 | 121.24 | 124.29 |
+| `e2e` | 2,378 | 100.99 | 144.89 | 378.51 | 434.16 |
+| `rfn` | 33 | 12.42 | 23.34 | 50.59 | 57.48 |
+| `sys_live` | 1,738 | 85.31 | 107.53 | 297.35 | 337.96 |
+| `tprops` | 700 | 39.49 | 40.72 | 162.12 | 168.57 |
+
+On `cf_live`, g3 finished sooner in this panel but retired more instructions. It was the only one of the ten workloads with that instruction gap. The raw results include the preceding g3 build, each process's peak RSS, and all four hardware counters. [All 180 complete runs](perf/ivy_apple/goal_instances/ground_booleans/nov22-ten-workloads.csv)
