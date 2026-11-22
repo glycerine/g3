@@ -5,6 +5,14 @@ import "testing"
 // A fresh strategic solver builds its tactics on the first assertion. Keep the
 // context, asserted term and options alive across independent solver lifetimes.
 func BenchmarkStrategicSolverFirstAssertion(b *testing.B) {
+	benchmarkStrategicSolverFirstAssertion(b, (*SMTContext).NewSolver)
+}
+
+func BenchmarkIncrementalStrategicSolverFirstAssertion(b *testing.B) {
+	benchmarkStrategicSolverFirstAssertion(b, (*SMTContext).NewSolverForIncrementalChecks)
+}
+
+func benchmarkStrategicSolverFirstAssertion(b *testing.B, newSolver func(*SMTContext) (*APISimpleSolver, error)) {
 	for _, mode := range []string{"Default", "MacroFinder"} {
 		b.Run(mode, func(b *testing.B) {
 			ctx, err := NewSMTContext()
@@ -50,7 +58,7 @@ func BenchmarkStrategicSolverFirstAssertion(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				s, err := ctx.NewSolver()
+				s, err := newSolver(ctx)
 				if err != nil {
 					b.Fatal(err)
 				}

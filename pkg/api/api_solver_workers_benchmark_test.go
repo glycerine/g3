@@ -16,6 +16,14 @@ var strategicWorkerHeap = flag.String("g3-strategic-worker-heap", "", "write a h
 // after its first assertion. A fresh process and -benchtime=1x give the
 // retained heap per initialized worker without calibration from earlier runs.
 func BenchmarkStrategicSolverWorkers(b *testing.B) {
+	benchmarkStrategicSolverWorkers(b, (*SMTContext).NewSolver)
+}
+
+func BenchmarkIncrementalStrategicSolverWorkers(b *testing.B) {
+	benchmarkStrategicSolverWorkers(b, (*SMTContext).NewSolverForIncrementalChecks)
+}
+
+func benchmarkStrategicSolverWorkers(b *testing.B, newSolver func(*SMTContext) (*APISimpleSolver, error)) {
 	type worker struct {
 		context *SMTContext
 		solver  *APISimpleSolver
@@ -50,7 +58,7 @@ func BenchmarkStrategicSolverWorkers(b *testing.B) {
 					if err := m.IncRef(truth); err != nil {
 						b.Fatal(err)
 					}
-					s, err := ctx.NewSolver()
+					s, err := newSolver(ctx)
 					if err != nil {
 						b.Fatal(err)
 					}

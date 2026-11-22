@@ -15,6 +15,8 @@ from startup import PKG
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--go", nargs=2, action="append", required=True, metavar=("LABEL", "API_TEST_BINARY"))
+    p.add_argument("--incremental", action="append", default=[], metavar="GO_LABEL",
+                   help="use NewSolverForIncrementalChecks for this --go label")
     p.add_argument("--library", type=Path, default=PKG.parent / "build/libz3.a")
     p.add_argument("--cpu", type=int, required=True)
     p.add_argument("--rounds", type=int, default=3)
@@ -23,6 +25,8 @@ def main():
     engines = {name: Path(b).resolve(strict=True) for name, b in a.go}
     if len(engines) != len(a.go) or "native" in engines or a.rounds < 1 or len(set(a.workers)) != len(a.workers):
         p.error("supply distinct labels and worker counts and a positive round count")
+    if set(a.incremental) - {name for name, _ in a.go}:
+        p.error("--incremental requires a matching --go label")
     with tempfile.TemporaryDirectory() as tmp:
         directory = Path(tmp)
         native = directory / "native"
@@ -41,7 +45,8 @@ def main():
                     if engine == "native":
                         cmd = [native, str(n)]
                     else:
-                        cmd = [engines[engine], "-test.run", "^$", "-test.bench", f"^BenchmarkStrategicSolverWorkers$/^Workers{n}$", "-test.benchtime=1x"]
+                        prefix = "BenchmarkIncrementalStrategicSolver" if engine in a.incremental else "BenchmarkStrategicSolver"
+                        cmd = [engines[engine], "-test.run", "^$", "-test.bench", f"^{prefix}Workers$/^Workers{n}$", "-test.benchtime=1x"]
                     rss = directory / "peak"
                     raw = subprocess.check_output(["taskset", "-c", str(a.cpu), "/usr/bin/time", "-f", "%M", "-o", rss, *cmd],
                                                   cwd=directory, text=True, env=dict(os.environ, GOMAXPROCS="1"))

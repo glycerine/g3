@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/solver"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -13,6 +14,10 @@ import (
 // collectDescriptions collects the built solver's parameter descriptions
 // and the context's solver parameters.
 func (s *APISimpleSolver) collectDescriptions() (*ParameterDescriptions, error) {
+	return s.getSolverDescriptions(s.solver.CollectParamDescrs)
+}
+
+func (s *APISimpleSolver) getSolverDescriptions(collect func(*uparams.ParamDescrs) error) (*ParameterDescriptions, error) {
 	globals, err := s.owner.command.GlobalParameters()
 	if err != nil {
 		return nil, err
@@ -21,7 +26,7 @@ func (s *APISimpleSolver) collectDescriptions() (*ParameterDescriptions, error) 
 	if err != nil {
 		return nil, err
 	}
-	if err = s.solver.CollectParamDescrs(value); err != nil {
+	if err = collect(value); err != nil {
 		return nil, errors.Join(err, value.Close())
 	}
 	if err = smtcore.CollectSolverParamDescriptions(value); err != nil {
@@ -116,14 +121,7 @@ func (s *APISimpleSolver) SetParameters(parameters *ParameterSet) error {
 				return err
 			}
 		}
-		descriptions, err := s.collectDescriptions()
-		if err != nil {
-			return err
-		}
-		if err = parameters.Validate(descriptions); err != nil {
-			return errors.Join(err, descriptions.Close())
-		}
-		if err = descriptions.Close(); err != nil {
+		if err = s.validateExplicit(parameters); err != nil {
 			return err
 		}
 		if err = s.updateSolverParams(parameters); err != nil {
@@ -139,4 +137,27 @@ func (s *APISimpleSolver) SetParameters(parameters *ParameterSet) error {
 		s.explicitReady = true
 	}
 	return parameters.params.Append(&s.explicitParams, &parameters.value)
+}
+
+// validateExplicit keeps the full catalog authoritative for diagnostics and
+// tactic-specific options. Most incremental callers set only SMT parameters.
+func (s *APISimpleSolver) validateExplicit(parameters *ParameterSet) error {
+	if combined, ok := s.solver.(*solver.CombinedSolver); ok && combined.HasDeferredTactic() {
+		partial, err := s.getSolverDescriptions(combined.CollectIncrementalParamDescrs)
+		if err != nil {
+			return err
+		}
+		covered, err := parameters.params.AllDescribed(&parameters.value, partial.value)
+		if err == nil && covered {
+			err = parameters.Validate(partial)
+		}
+		if closeErr := partial.Close(); err != nil || closeErr != nil || covered {
+			return errors.Join(err, closeErr)
+		}
+	}
+	descriptions, err := s.collectDescriptions()
+	if err != nil {
+		return err
+	}
+	return errors.Join(parameters.Validate(descriptions), descriptions.Close())
 }

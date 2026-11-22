@@ -1537,6 +1537,37 @@ func (c *ParamsContext) appendDescrs(d *ParamDescrs) error {
 	}
 	return nil
 }
+
+// AllDescribed checks whether every key has a descriptor, including qualified
+// names. Only Validate commits module-prefix removal to the parameter set.
+func (c *ParamsContext) AllDescribed(v *ParamsRef, d *ParamDescrs) (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.check(v); err != nil {
+		return false, err
+	}
+	if v.Slot == 0 || c.Blocks[v.Slot-1].Size == 0 {
+		return true, nil
+	}
+	if d == nil || d.manager != c.SymbolsField {
+		return false, ErrParamsOwner
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if err := d.open(); err != nil {
+		return false, err
+	}
+	block := &c.Blocks[v.Slot-1]
+	for i := uint32(0); i < block.Size; i++ {
+		key := c.Entry(block, i).key
+		kind, err := paramsDescrKindInModule(d, &key)
+		if err != nil || kind == ParamInvalid {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
 func (c *ParamsContext) Validate(v *ParamsRef, d *ParamDescrs) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

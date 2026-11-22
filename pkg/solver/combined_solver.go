@@ -287,6 +287,22 @@ func (c *CombinedSolver) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	if err := c.first.CollectParamDescrs(d); err != nil {
 		return err
 	}
+	return c.CollectIncrementalParamDescrs(d)
+}
+
+// HasDeferredTactic reports whether collecting the full catalog would
+// construct the unused first solver's tactic.
+func (c *CombinedSolver) HasDeferredTactic() bool {
+	first, ok := c.first.(*TacticSolver)
+	return ok && first.pending != nil && first.tactic == nil
+}
+
+// CollectIncrementalParamDescrs collects settings accepted by the incremental
+// backend and by the combined solver itself.
+func (c *CombinedSolver) CollectIncrementalParamDescrs(d *uparams.ParamDescrs) error {
+	if err := c.open(); err != nil {
+		return err
+	}
 	if err := c.second.CollectParamDescrs(d); err != nil {
 		return err
 	}

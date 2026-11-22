@@ -217,7 +217,7 @@ func TestAPISolverTranslateWithinContextFactories(t *testing.T) {
 }
 
 func TestAPIStrategicSolverCrossContextTranslation(t *testing.T) {
-	for _, kind := range []string{"default", "logic", "incremental"} {
+	for _, kind := range []string{"default", "logic", "incremental", "deferred"} {
 		t.Run(kind, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -227,6 +227,8 @@ func TestAPIStrategicSolverCrossContextTranslation(t *testing.T) {
 			var s *APISimpleSolver
 			if kind == "logic" {
 				s, err = source.NewSolverForLogic("QF_UF")
+			} else if kind == "deferred" {
+				s, err = source.NewSolverForIncrementalChecks()
 			} else {
 				s, err = source.NewSolver()
 			}
@@ -237,7 +239,7 @@ func TestAPIStrategicSolverCrossContextTranslation(t *testing.T) {
 			astTestMust(t, params.SetUInt("random_seed", 17))
 			astTestMust(t, s.SetParameters(params))
 			astTestMust(t, params.Close())
-			if kind == "incremental" {
+			if kind == "incremental" || kind == "deferred" {
 				astTestMust(t, s.Push())
 				astTestMust(t, s.Pop(1))
 			}

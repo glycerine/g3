@@ -49,6 +49,14 @@ func NewALLStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mode
 // logic without its own strategy, and the solver keeps the actual logic for
 // its setup.
 func NewDefaultStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, logic string, config smtcore.SMTSolverConfig) (result solver.Solver, err error) {
+	strategy, err := newDefaultStrategicTactic(m, p, config)
+	if err != nil {
+		return nil, err
+	}
+	return newStrategicSolver(m, strategy, logic, p, proofs, models, cores, config)
+}
+
+func newDefaultStrategicTactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSolverConfig) (_ tactic.Tactic, err error) {
 	var tacticOwners []tactic.Tactic
 	var probeOwners []tactic.ProbeEvaluator
 	defer func() {
@@ -229,12 +237,7 @@ func NewDefaultStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, 
 	if err != nil {
 		return nil, err
 	}
-	strategy, err := tactic.NewAndThenTactic(simplifier, route)
-	if err != nil {
-		return nil, err
-	}
-	result, err = newStrategicSolver(m, strategy, logic, p, proofs, models, cores, config)
-	return result, err
+	return tactic.NewAndThenTactic(simplifier, route)
 }
 
 func NewQFLRAStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, config smtcore.SMTSolverConfig) (solver.Solver, error) {
@@ -495,15 +498,23 @@ func newStrategicSolverWithBackend(m *ast.ASTManager, strategy tactic.Tactic, se
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, strategy.DecRef()) }()
-	first, err := solver.NewTacticSolver(m, strategy, p, proofs, models, cores, logic, solver.TacticSolverConfig{
+	first, err := solver.NewTacticSolver(m, strategy, p, proofs, models, cores, logic, strategicTacticSolverConfig(config))
+	if err != nil {
+		return nil, err
+	}
+	return combineStrategicSolvers(first, second, p, config)
+}
+
+func strategicTacticSolverConfig(config smtcore.SMTSolverConfig) solver.TacticSolverConfig {
+	return solver.TacticSolverConfig{
 		Params: config.Params,
 		EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
 			return model.NewModelEvaluator(md, config.ModelEvaluator)
 		},
-	})
-	if err != nil {
-		return nil, err
 	}
+}
+
+func combineStrategicSolvers(first *solver.TacticSolver, second solver.Solver, p *uparams.ParamsRef, config smtcore.SMTSolverConfig) (result solver.Solver, err error) {
 	if err = first.IncRef(); err != nil {
 		return nil, err
 	}

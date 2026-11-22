@@ -11,30 +11,42 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 type strategicSolverFactory struct {
-	logic  string
-	config smtcore.SMTSolverConfig
-	output io.Writer
-	closed bool
+	logic              string
+	config             smtcore.SMTSolverConfig
+	output             io.Writer
+	incrementalDefault bool
+	closed             bool
 }
 
 // NewSMTStrategicSolverFactory creates a source-compatible factory. A nonempty
 // logic pins every factory invocation to that logic; an empty logic uses the
 // logic supplied to Factory.New.
 func NewSMTStrategicSolverFactory(logic string, config smtcore.SMTSolverConfig) (solver.Factory, error) {
-	return NewSMTStrategicSolverFactoryWithOutput(logic, config, os.Stdout)
+	return newStrategicSolverFactory(logic, config, os.Stdout, false)
+}
+
+// NewIncrementalStrategicSolverFactory defers the default tactic portfolio
+// for incremental callers. A logic with a dedicated strategy keeps that strategy.
+func NewIncrementalStrategicSolverFactory(logic string, config smtcore.SMTSolverConfig) (solver.Factory, error) {
+	return newStrategicSolverFactory(logic, config, os.Stdout, true)
 }
 
 // NewSMTStrategicSolverFactoryWithOutput additionally supplies the borrowed
 // command-session output used by SAT-backed strategies.
 func NewSMTStrategicSolverFactoryWithOutput(logic string, config smtcore.SMTSolverConfig, output io.Writer) (solver.Factory, error) {
+	return newStrategicSolverFactory(logic, config, output, false)
+}
+
+func newStrategicSolverFactory(logic string, config smtcore.SMTSolverConfig, output io.Writer, incrementalDefault bool) (solver.Factory, error) {
 	if config.Params == nil || config.Globals == nil || config.Globals.Context != config.Params || output == nil {
 		return nil, uparams.ErrParamsOwner
 	}
-	return &strategicSolverFactory{logic: logic, config: config, output: output}, nil
+	return &strategicSolverFactory{logic: logic, config: config, output: output, incrementalDefault: incrementalDefault}, nil
 }
 
 func (f *strategicSolverFactory) New(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, logic string) (solver.Solver, error) {
@@ -103,9 +115,10 @@ func (f *strategicSolverFactory) New(m *ast.ASTManager, p *uparams.ParamsRef, pr
 		return NewAUFNIRAStrategicSolver(m, p, proofs, models, cores, f.config)
 	case "HORN":
 		return NewHornStrategicSolver(m, p, proofs, models, cores, f.config)
-	case "ALL":
-		return NewALLStrategicSolver(m, p, proofs, models, cores, f.config)
-	case "":
+	case "ALL", "":
+		if f.incrementalDefault && !diagnostic.DebugBuild && !diagnostic.TraceCompiled() && m.TraceStream == nil && !m.Budget().InjectionArmed() {
+			return newIncrementalDefaultSolver(m, p, proofs, models, cores, f.config)
+		}
 		return NewALLStrategicSolver(m, p, proofs, models, cores, f.config)
 	}
 	// mk_tactic_for_logic falls through to mk_default_tactic, and the solver

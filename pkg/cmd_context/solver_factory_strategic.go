@@ -19,3 +19,13 @@ func (c *Context) NewStrategicSolver(logic string, requireRecognized bool) (solv
 	}
 	return c.newSolverFromFactory(factory, logic)
 }
+
+// NewIncrementalStrategicSolver uses the incremental factory for verification
+// clients that create a solver for each batch of scoped checks.
+func (c *Context) NewIncrementalStrategicSolver(logic string) (solver.Solver, error) {
+	factory, err := portfolio.NewIncrementalStrategicSolverFactory(logic, c.config)
+	if err != nil {
+		return nil, err
+	}
+	return c.newSolverFromFactory(factory, logic)
+}

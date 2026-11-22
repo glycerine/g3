@@ -31,6 +31,7 @@ type TacticSolver struct {
 	manager                                    *ast.ASTManager
 	config                                     TacticSolverConfig
 	tactic                                     tactic.Tactic
+	pending                                    tactic.TacticFactory
 	named                                      *NamedAssertions
 	result                                     *SimpleCheckSatResult
 	assertions                                 []ast.ASTRef
@@ -83,6 +84,46 @@ func NewTacticSolver(m *ast.ASTManager, t tactic.Tactic, p *uparams.ParamsRef, p
 		return nil, err
 	}
 	return s, nil
+}
+
+// NewDeferredTacticSolver takes ownership of the factory on success. It
+// records assertions and scopes immediately. Only operations that use the
+// tactic construct it. A nil tactic on the ordinary constructor retains its
+// existing empty-solver semantics.
+func NewDeferredTacticSolver(m *ast.ASTManager, factory tactic.TacticFactory, p *uparams.ParamsRef, proofs, models, cores bool, logic string, config TacticSolverConfig) (*TacticSolver, error) {
+	if factory == nil {
+		return nil, ast.ErrASTHandle
+	}
+	s, err := NewTacticSolver(m, nil, p, proofs, models, cores, logic, config)
+	if err != nil {
+		return nil, err
+	}
+	s.pending = factory
+	return s, nil
+}
+
+func (s *TacticSolver) ensureTactic() error {
+	if s.pending == nil {
+		return nil
+	}
+	if s.tactic == nil {
+		t, err := s.pending.New(s.manager, &s.params)
+		if err != nil {
+			return err
+		}
+		if t == nil {
+			return ast.ErrASTHandle
+		}
+		if err = t.IncRef(); err != nil {
+			return err
+		}
+		s.tactic = t
+	}
+	if err := s.pending.Close(); err != nil {
+		return err
+	}
+	s.pending = nil
+	return nil
 }
 
 func (s *TacticSolver) open() error {
@@ -260,6 +301,9 @@ func (s *TacticSolver) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	if err := s.open(); err != nil {
 		return err
 	}
+	if err := s.ensureTactic(); err != nil {
+		return err
+	}
 	if s.tactic == nil {
 		return nil
 	}
@@ -378,6 +422,9 @@ func (s *TacticSolver) traceException(cause error) {
 
 func (s *TacticSolver) CheckSatCore(assumptions []ast.ASTHandle) (status lbool.LBool, err error) {
 	if err = s.open(); err != nil {
+		return lbool.Undef, err
+	}
+	if err = s.ensureTactic(); err != nil {
 		return lbool.Undef, err
 	}
 	if s.tactic == nil {
@@ -525,6 +572,9 @@ func (s *TacticSolver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (Solve
 	if len(s.scopes) != 0 {
 		return nil, z3exception.NewDefaultException("translation of contexts is only supported at base level")
 	}
+	if err := s.ensureTactic(); err != nil {
+		return nil, err
+	}
 	if s.tactic == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -549,6 +599,9 @@ func (s *TacticSolver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (Solve
 // remain open while the returned tactic is used.
 func (s *TacticSolver) TranslationTactic() (tactic.Tactic, error) {
 	if err := s.open(); err != nil {
+		return nil, err
+	}
+	if err := s.ensureTactic(); err != nil {
 		return nil, err
 	}
 	if s.tactic == nil {
@@ -583,6 +636,9 @@ func (s *TacticSolver) TranslateWithTarget(target *TacticSolver, p *uparams.Para
 	}
 	if len(s.scopes) != 0 {
 		return nil, z3exception.NewDefaultException("translation of contexts is only supported at base level")
+	}
+	if err := target.ensureTactic(); err != nil {
+		return nil, err
 	}
 	if target.tactic == nil {
 		return nil, ast.ErrASTHandle
@@ -655,6 +711,12 @@ func (s *TacticSolver) Close() (err error) {
 			return err
 		}
 		s.tactic = nil
+	}
+	if s.pending != nil {
+		if err = s.pending.Close(); err != nil {
+			return err
+		}
+		s.pending = nil
 	}
 	if err = s.clearResult(); err != nil {
 		return err

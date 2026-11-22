@@ -29,6 +29,8 @@ def native_run(binary, mode, count, a, counts):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--go", action="append", nargs=2, metavar=("LABEL", "API_TEST_BINARY"), required=True)
+    p.add_argument("--incremental", action="append", default=[], metavar="GO_LABEL",
+                   help="use NewSolverForIncrementalChecks for this --go label")
     p.add_argument("--library", type=Path, default=PKG.parent / "build/libz3.a")
     p.add_argument("--perf", default="perf")
     p.add_argument("--cpu", type=int, required=True)
@@ -40,6 +42,8 @@ def main():
     if len(binaries) != len(a.go) or "native" in binaries or not 0 < low < high or a.rounds < 1:
         p.error("select distinct Go builds, a positive round count and increasing positive iteration counts")
     library = a.library.resolve(strict=True)
+    if set(a.incremental) - {name for name, _ in a.go}:
+        p.error("--incremental requires a matching --go label")
     with tempfile.TemporaryDirectory() as tmp:
         native = Path(tmp) / "native"
         subprocess.run([os.environ.get("CXX", "c++"), "-std=c++17", "-O3", "-DNDEBUG",
@@ -60,7 +64,8 @@ def main():
                         if name == "native":
                             results[n] = native_run(native, mode, n, a, counts)
                         else:
-                            results[n] = benchmark_slope.run(binaries[name], "BenchmarkStrategicSolverFirstAssertion/" + mode,
+                            prefix = "BenchmarkIncrementalStrategicSolver" if name in a.incremental else "BenchmarkStrategicSolver"
+                            results[n] = benchmark_slope.run(binaries[name], prefix + "FirstAssertion/" + mode,
                                                              n, a.cpu, a.perf, counts)
                     l, h = results[low][0], results[high][0]
                     writer.writerow([i+1, a.cpu, mode, name, low, high, l, h, round((h-l)/(high-low), 2),

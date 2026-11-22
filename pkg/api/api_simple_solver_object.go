@@ -102,14 +102,7 @@ func (s *APISimpleSolver) ensure() (resultErr error) {
 		return nil
 	}
 	view := &ParameterSet{owner: s.owner, params: s.explicitContext, value: s.explicitParams}
-	descriptions, err := s.collectDescriptions()
-	if err != nil {
-		return err
-	}
-	if err = view.Validate(descriptions); err != nil {
-		return errors.Join(err, descriptions.Close())
-	}
-	if err = descriptions.Close(); err != nil {
+	if err = s.validateExplicit(view); err != nil {
 		return err
 	}
 	name := "model"
