@@ -67,7 +67,7 @@ def build_go(output, phase, fixture):
     state = PKG / "smtcore/smt_internalizer_state.go"
     code = state.read_text()
     start = code.index("for len(s.coreTrail) > scope.coreTrailLimit")
-    patched = instrument(code[start:], "expression := s.booleanStack[len(s.booleanStack)-1]",
+    patched = instrument(code[start:], "if !s.retiringBoolean {",
                          "s.statistics.NumDelBoolVar++", go_boundaries, phase, "scopePhaseEvent")
     (output / state.name).write_text(code[:start] + patched)
     paths = {str(state): str(output / state.name),

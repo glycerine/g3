@@ -83,7 +83,7 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 					return
 				}
 				astTestMust(t, state.PopScopes(1))
-				if state.scopeLevel != 0 || state.pendingPop != nil || len(state.booleanStack) != 0 || len(state.enodeStack) != smtInitEnodes || len(state.testClauses()) != 0 {
+				if state.scopeLevel != 0 || state.pendingPop != nil || len(state.booleanTrail()) != 0 || len(state.enodeStack) != smtInitEnodes || len(state.testClauses()) != 0 {
 					t.Fatal("pop retry left owned scope state")
 				}
 				smtTestUserPush(t, state)

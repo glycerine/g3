@@ -208,7 +208,7 @@ func TestSMTSearchReinternalizesLearnedClauseAtomsAfterBackjump(t *testing.T) {
 	}
 	literal := NewSMTLiteral(variable, true)
 	astTestMust(t, state.relevancy.MarkRelevant(expression))
-	atoms, err := state.retainLemmaAtoms([]SMTLiteral{literal})
+	atoms, err := state.retainLemmaAtoms([]SMTLiteral{literal}, state.scopes[0].firstScopedBoolVar())
 	astTestMust(t, err)
 	astTestMust(t, state.PopScopes(1))
 	if _, found = state.BoolVar(expression); found {

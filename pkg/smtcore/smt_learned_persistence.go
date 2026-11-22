@@ -186,7 +186,7 @@ func (s *SMTInternalizerState) learnedClauseProof(clause *SMTClause) (ast.ASTHan
 // release that prefix before attempting another capture. During a live
 // search pop it walks m_clauses_to_reinit as reinit_clauses does, and limit
 // is unused; otherwise it snapshots m_lemmas[limit..].
-func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreservedLearnedClause, error) {
+func (s *SMTInternalizerState) preserveLearnedClauses(limit, firstScoped int) ([]smtPreservedLearnedClause, error) {
 	if limit < 0 || limit > len(s.lemmas) {
 		return nil, ast.ErrASTDomain
 	}
@@ -197,10 +197,8 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		// reinit_clauses.
 		result = s.preservedScratch[:0]
 	}
-	booleanLimit := 0
 	start := limit
 	if livePop {
-		booleanLimit = s.scopes[s.pendingPop.level].booleanLimit + int(SMTFirstBoolVar)
 		// reinit_clauses walks m_clauses_to_reinit[m_scope_lvl+1..lim], which
 		// also holds older lemmas re-pushed by an earlier reinit. A search
 		// pop deletes no lemma, so every index stays valid.
@@ -214,12 +212,12 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		// reinitCandidates appends them in reinit_clauses order: level by
 		// level, each level in push order.
 		var err error
-		result, err = s.reinitCandidates(s.pendingPop.level, result, booleanLimit)
+		result, err = s.reinitCandidates(s.pendingPop.level, result, firstScoped)
 		if err != nil {
 			return nil, err
 		}
 		if smtcoreSourceDebug {
-			if err = s.checkReinitCandidates(result, booleanLimit); err != nil {
+			if err = s.checkReinitCandidates(result, firstScoped); err != nil {
 				return nil, err
 			}
 		}
@@ -233,7 +231,7 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		result = append(result, smtPreservedLearnedClause{snapshot: new(smtLearnedClauseSnapshot)})
 		saved := &result[len(result)-1]
 		var err error
-		saved.snapshot.atoms, err = s.captureLemmaAtoms(clause.literals)
+		saved.snapshot.atoms, err = s.captureLemmaAtoms(clause.literals, firstScoped)
 		if err != nil {
 			return result, err
 		}

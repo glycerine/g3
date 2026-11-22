@@ -28,7 +28,7 @@ func TestSMTLearnedClauseRestorePropagatesAcrossFalseWatchOnce(t *testing.T) {
 	smtTestUserPush(t, state)
 	astTestMust(t, state.AddLearnedClause([]SMTLiteral{literals[0], literals[1]}))
 	astTestMust(t, state.testClauses()[len(state.testClauses())-1].clause.SetActivity(19))
-	saved, err := state.preserveLearnedClauses(baseClauses)
+	saved, err := state.preserveLearnedClauses(baseClauses, state.scopes[0].firstScopedBoolVar())
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, state.releasePreservedLearnedClauses(saved)) })
 	astTestMust(t, state.PopScopes(1))

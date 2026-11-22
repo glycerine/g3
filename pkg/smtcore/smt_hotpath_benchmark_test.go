@@ -259,7 +259,11 @@ func benchmarkSMTScopeRestoration(b *testing.B, withQueue bool) {
 				if scoped {
 					internalize()
 				}
-				creation := s.booleanCreation[literals[0].Var()]
+				madeVars, deletedVars := s.statistics.NumMkBoolVar, s.statistics.NumDelBoolVar
+				var wantChanged uint32
+				if scoped {
+					wantChanged = uint32(len(expressions))
+				}
 				for j := 0; j < clauses; j++ {
 					benchmarkMust(b, s.AddLearnedClauseWithProof([]SMTLiteral{
 						literals[2*j], literals[2*j+1].Negated(), literals[(2*j+2)%len(literals)],
@@ -301,14 +305,13 @@ func benchmarkSMTScopeRestoration(b *testing.B, withQueue bool) {
 						}
 					}
 				}
-				variable, _ := s.BoolVar(expressions[0])
-				if (s.booleanCreation[variable] != creation) != scoped {
+				if s.statistics.NumMkBoolVar-madeVars != wantChanged || s.statistics.NumDelBoolVar-deletedVars != wantChanged {
 					b.Fatal("benchmark did not exercise the selected literal restoration path")
 				}
 				benchmarkMust(b, s.endSearchPersistence())
 				benchmarkMust(b, s.PopScopes(1))
-				if s.numClauseRecords() != 0 || len(s.booleanStack) != 0 {
-					b.Fatal("benchmark round left scoped clauses or atoms behind", s.numClauseRecords(), len(s.booleanStack))
+				if s.numClauseRecords() != 0 || len(s.booleanTrail()) != 0 {
+					b.Fatal("benchmark round left scoped clauses or atoms behind", s.numClauseRecords(), len(s.booleanTrail()))
 				}
 			}
 			if withQueue {

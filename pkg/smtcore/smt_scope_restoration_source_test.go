@@ -427,7 +427,11 @@ func TestSMTScopeRestorationSourceContract(t *testing.T) {
 			astTestMust(t, s.AddLearnedClause([]SMTLiteral{literals[0], literals[1].Negated(), literals[2]}))
 			original := s.testClauses()[0].clause
 			astTestMust(t, original.SetActivity(37))
-			creation := s.booleanCreation[literals[0].Var()]
+			madeVars, deletedVars := s.statistics.NumMkBoolVar, s.statistics.NumDelBoolVar
+			var wantChanged uint32
+			if scoped {
+				wantChanged = uint32(len(expressions))
+			}
 			made, deleted := s.statistics.NumMkClause, s.statistics.NumDelClause
 			astTestMust(t, s.PopScopes(1))
 			if len(s.testClauses()) != 1 || s.testClauses()[0].clause != original {
@@ -441,6 +445,9 @@ func TestSMTScopeRestorationSourceContract(t *testing.T) {
 			if activity != 37 {
 				t.Fatal("lost clause activity", activity)
 			}
+			if s.statistics.NumMkBoolVar-madeVars != wantChanged || s.statistics.NumDelBoolVar-deletedVars != wantChanged {
+				t.Fatal("wrong number of recreated Boolean variables")
+			}
 			for i, e := range expressions {
 				variable, found := s.BoolVar(e)
 				if !found {
@@ -448,9 +455,6 @@ func TestSMTScopeRestorationSourceContract(t *testing.T) {
 				}
 				if p.IsRelevant(e) == scoped {
 					t.Fatal("relevance does not match the surviving scope", scoped, i)
-				}
-				if i == 0 && (s.booleanCreation[variable] != creation) != scoped {
-					t.Fatal("wrong Boolean variable lifetime")
 				}
 				expected := NewSMTLiteral(variable, i == 1)
 				found = false

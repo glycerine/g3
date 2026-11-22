@@ -85,7 +85,7 @@ func (w *scopeBenchmarkWorker) round() (time.Duration, error) {
 	if err = s.PopScopes(1); err != nil {
 		return 0, err
 	}
-	if s.numClauseRecords() != 0 || len(s.booleanStack) != 0 {
+	if s.numClauseRecords() != 0 || len(s.booleanTrail()) != 0 {
 		return 0, fmt.Errorf("outer scope retained clauses or variables")
 	}
 	return elapsed, nil

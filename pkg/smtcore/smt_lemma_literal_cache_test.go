@@ -2,7 +2,7 @@ package smtcore
 
 import "testing"
 
-func TestSMTLemmaLiteralCacheChecksBooleanCreation(t *testing.T) {
+func TestSMTLemmaLiteralCacheChecksPopBoundary(t *testing.T) {
 	m := astTestManager(t)
 	_, _, s := smtInternalizerFixture(t, m, nil)
 	a := smtRelevancyBool(t, m, "lemma-cache-base")
@@ -12,7 +12,7 @@ func TestSMTLemmaLiteralCacheChecksBooleanCreation(t *testing.T) {
 	b := smtRelevancyBool(t, m, "lemma-cache-scoped")
 	bv, err := s.MkBoolVar(b)
 	astTestMust(t, err)
-	atoms, err := s.captureLemmaAtoms([]SMTLiteral{NewSMTLiteral(av, true), NewSMTLiteral(bv, false)})
+	atoms, err := s.captureLemmaAtoms([]SMTLiteral{NewSMTLiteral(av, true), NewSMTLiteral(bv, false)}, s.scopes[0].firstScopedBoolVar())
 	astTestMust(t, err)
 	defer func() { astTestMust(t, s.releaseLemmaAtoms(atoms)) }()
 	astTestMust(t, s.PopScopes(1))
@@ -43,7 +43,7 @@ func TestSMTLemmaLiteralCachePreservesNongateNotVariable(t *testing.T) {
 	nv, err := s.MkBoolVar(neg)
 	astTestMust(t, err)
 	want := NewSMTLiteral(nv, true)
-	atoms, err := s.captureLemmaAtoms([]SMTLiteral{want})
+	atoms, err := s.captureLemmaAtoms([]SMTLiteral{want}, len(s.boolExpr))
 	astTestMust(t, err)
 	defer func() { astTestMust(t, s.releaseLemmaAtoms(atoms)) }()
 	astTestMust(t, s.PushScope())
@@ -52,5 +52,34 @@ func TestSMTLemmaLiteralCachePreservesNongateNotVariable(t *testing.T) {
 	astTestMust(t, err)
 	if len(got) != 1 || got[0] != want {
 		t.Fatal("surviving nongate NOT was normalized to a different variable", got, want)
+	}
+}
+
+func TestSMTLemmaRecreatedNongateNotNormalizesAtSameID(t *testing.T) {
+	m := astTestManager(t)
+	_, _, s := smtInternalizerFixture(t, m, nil)
+	a := smtRelevancyBool(t, m, "recreated-neg-child")
+	_, err := s.MkBoolVar(a)
+	astTestMust(t, err)
+	neg, err := m.MkNot(a)
+	astTestMust(t, err)
+	astTestMust(t, s.PushScope())
+	first, err := s.MkBoolVar(neg)
+	astTestMust(t, err)
+	atoms, err := s.captureLemmaAtoms([]SMTLiteral{NewSMTLiteral(first, false)}, s.scopes[0].firstScopedBoolVar())
+	astTestMust(t, err)
+	defer func() { astTestMust(t, s.releaseLemmaAtoms(atoms)) }()
+	astTestMust(t, s.PopScopes(1))
+	second, err := s.MkBoolVar(neg)
+	astTestMust(t, err)
+	if first != second {
+		t.Fatal("fixture did not recycle the Boolean ID", first, second)
+	}
+	got, err := s.reinternalizeLemmaAtoms(atoms)
+	astTestMust(t, err)
+	want, err := s.Literal(neg)
+	astTestMust(t, err)
+	if len(got) != 1 || got[0] != want || want.Var() == first {
+		t.Fatal("recreated NOT must resolve to the negated child", got, want, first)
 	}
 }

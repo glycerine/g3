@@ -105,7 +105,7 @@ func TestSMTLearnedClauseRestoreFailureResumesWithoutDuplicates(t *testing.T) {
 	for i := range state.testClauses() {
 		astTestMust(t, state.testClauses()[i].clause.SetActivity(uint32(7+i)))
 	}
-	saved, err := state.preserveLearnedClauses(0)
+	saved, err := state.preserveLearnedClauses(0, 0)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, state.releasePreservedLearnedClauses(saved)) })
 	astTestMust(t, state.PopScopes(1))

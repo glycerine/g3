@@ -2729,3 +2729,20 @@ Sampling the solver thread across every call in four isolates shows how the targ
 | `cmpl_live` 177 | 2,374 / 877 | 579 / 140 | 360 / 85 | 225 / 97 | 339 / 219 |
 
 Each cell gives median sample counts over three complete runs per engine, before the concrete-history change. Linux perf sampled every 1,600,033 retired user instructions. Samples had to match both the time interval of a verification call and the Linux thread running it. Each stack was assigned to its nearest classified frame. In `cmpl_live` check 177, the rewriter difference alone corresponds to roughly 0.70 billion instructions. These estimates have sampling error and exclude other runtime threads. Reproduce with `phase_stacks.py --by-check --select inside --pairs 3 --period 1600033`, using `--engines g3 --call-graph fp` and `--engines native --call-graph dwarf,8192` in separate output directories. [Per-check counts](perf/ivy_apple/incremental_cost/nov22-all-check-stacks.csv.gz) · [Thread and window coverage](perf/ivy_apple/incremental_cost/nov22-all-check-stack-coverage.csv) · [Selected leaf symbols](perf/ivy_apple/incremental_cost/nov22-residual-check-leaves.csv.gz) · [Profiling driver](perf/ivy_apple/phase_stacks.py)
+
+### A scope boundary replaces the Boolean creation-stamp array
+
+Boolean variable IDs are dense. Before a backjump, g3 already knows the first ID created in the scope it is about to pop. A retained lemma now records an ID only when it lies below that boundary. It retains the expression in either case. This implements the surviving-variable test used by the in-tree C++ solver and eliminates the separate eight-byte creation stamp per Boolean, its per-solver counter and a second slice header for the Boolean trail. The main Boolean record remains 16 bytes with an eight-byte justification. A regression test pops a nongate NOT, recreates the same expression at the same ID, and verifies the learned literal is normalized again. Interrupted reference releases retain their original place on the core trail. [Go implementation](smtcore/smt_search.go) · [Scope state](smtcore/smt_internalizer_state.go) · [Native backjump](../src/smt/smt_context.cpp) · [Recycled-ID tests](smtcore/smt_lemma_literal_cache_test.go)
+
+| Queue-enabled fixture | Before | After |
+|---|---:|---:|
+| Scoped pop, instructions | 208,713 | 201,950 |
+| Scoped trail undo, instructions | 58,230 | 57,269 |
+| Scoped clause restoration, instructions | 113,632 | 107,561 |
+| Surviving pop, instructions | 2,342 | 2,323 |
+| Post-pop bytes per solver, 1,024 workers × 128 atoms | 55,317 | 53,269 |
+| Post-pop bytes per solver, 48 workers × 2,048 atoms | 803,340 | 782,867 |
+
+Instructions are medians of seven alternating pairs on one thread, each with 1,500 measured pops after warmup and its matching empty interval subtracted. Heap readings are medians of five pairs after collection. The smaller fixture saves 2 MiB across 1,024 independent solvers. The larger fixture saves 20,473 bytes per solver at the capacity reached by its Boolean slice. Four whole-checker pairs changed by less than 0.4% in either direction on `cf_live`, `cmpl_live` and `rfn2`. Both sides of these particular comparisons used the same experimental arena application lookup. [Thread counters](perf/scope_restoration/boolean_lifetime/nov22-solver-thread.csv) · [Worker measurements](perf/scope_restoration/boolean_lifetime/nov22-workers.csv) · [Worker benchmark](smtcore/smt_scope_workers_benchmark_test.go) · [Whole checkers](perf/scope_restoration/boolean_lifetime/nov22-checkers.csv)
+
+Earlier prototypes assigned an epoch to each pushed scope, looked up the owning scope on demand, or threaded the surviving bound through clause reconstruction. Capturing the bound before the pop removes the lifetime array without another generation counter, a scope search, or a dependency on a future scope's ID. [Epoch and trail experiments](perf/scope_restoration/boolean_lifetime/nov22-epochs.csv) · [Survivor and literal-buffer experiments](perf/scope_restoration/boolean_lifetime/nov22-alternatives.csv)

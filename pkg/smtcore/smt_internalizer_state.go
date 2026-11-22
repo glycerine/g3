@@ -205,8 +205,6 @@ type SMTInternalizerState struct {
 	booleanData                []SMTBoolVarData
 	gatePages                  []smtBoolGatePage
 	binaryReasons              []*smtBinaryReasonPage
-	booleanCreation            []uint64
-	nextBooleanCreation        uint64
 	activity                   []float64
 	activityIncrement          float64
 	activityInverseDecay       float64
@@ -221,7 +219,6 @@ type SMTInternalizerState struct {
 	activityCache              map[ast.ASTHandle]float64
 	assignment                 []lbool.LBool
 	watches                    []SMTWatchList
-	booleanStack               []ast.ASTHandle // borrowed view of boolExpr after the reserved variable
 	enodeStack                 []*SMTEnode
 	// coreTrail records the order of the source m_trail_stack entries.
 	// Payloads live on their typed stacks. Interleaved theory attachments
@@ -341,7 +338,7 @@ func newSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 	context.congruence = table
 	state := &SMTInternalizerState{
 		manager: manager, context: context, congruence: table, quantifiers: quantifiers,
-		boolVar: smtBoolVarTable{context.exprs}, boolExpr: make([]ast.ASTHandle, 1), booleanData: make([]SMTBoolVarData, 1), booleanCreation: make([]uint64, 1),
+		boolVar: smtBoolVarTable{context.exprs}, boolExpr: make([]ast.ASTHandle, 1), booleanData: make([]SMTBoolVarData, 1),
 		activity: make([]float64, 1), assignment: []lbool.LBool{lbool.True, lbool.False}, watches: make([]SMTWatchList, 2),
 		cachedGeneration: smtCacheGenerationTable{t: context.exprs}, theories: make(map[ast.FamilyID]SMTTheoryInternalizer),
 		equalityAtomsByTerm:   make(map[ast.ASTHandle][]int32),
@@ -402,7 +399,7 @@ func (s *SMTInternalizerState) ConfigureDynamicAck(config SMTDynAckState) error 
 	if err := s.open(); err != nil {
 		return err
 	}
-	if len(s.booleanStack) != 0 || len(s.enodeStack) != s.initEnodes || len(s.scopes) != 0 {
+	if len(s.booleanTrail()) != 0 || len(s.enodeStack) != s.initEnodes || len(s.scopes) != 0 {
 		return ast.ErrASTDomain
 	}
 	replacement, err := newSMTDynAckManager(s, config)
@@ -464,7 +461,7 @@ func (s *SMTInternalizerState) SetBinaryClauseOptimization(enabled bool) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if len(s.booleanStack) != 0 || len(s.enodeStack) != s.initEnodes || s.numClauseRecords() != 0 || len(s.scopes) != 0 {
+	if len(s.booleanTrail()) != 0 || len(s.enodeStack) != s.initEnodes || s.numClauseRecords() != 0 || len(s.scopes) != 0 {
 		return ast.ErrASTDomain
 	}
 	if enabled {
@@ -799,8 +796,6 @@ func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMT
 	variable := int32(len(s.boolExpr))
 	s.boolExpr = append(s.boolExpr, expression)
 	s.booleanData = append(s.booleanData, data)
-	s.nextBooleanCreation++
-	s.booleanCreation = append(s.booleanCreation, s.nextBooleanCreation)
 	initialActivity := 0.0
 	if s.randomInitialActivity == 2 || s.randomInitialActivity == 1 && s.searching {
 		initialActivity = -float64(s.random.Next()%1000) / 1000
@@ -821,7 +816,6 @@ func (s *SMTInternalizerState) publishBoolVar(expression ast.ASTHandle, data SMT
 	} else {
 		s.watches = append(s.watches, SMTWatchList{}, SMTWatchList{})
 	}
-	s.booleanStack = s.boolExpr[SMTFirstBoolVar:]
 	s.pushCoreTrail(smtCoreTrailBoolVar)
 	s.statistics.NumMkBoolVar++
 	if err := s.basicActivityCreated(variable); err != nil {
@@ -1055,7 +1049,7 @@ func (s *SMTInternalizerState) PushScope() error {
 		relActLimit:    len(s.relevanceActivity.entries), relActHead: s.relevanceActivity.head,
 		trueFirstLimit:       len(s.trueFirstTrail),
 		theoryCaseSplitLimit: len(s.theoryCaseSplitSets),
-		booleanLimit:         len(s.booleanStack), enodeLimit: len(s.enodeStack), coreTrailLimit: len(s.coreTrail), pendingLimit: len(s.pending),
+		booleanLimit:         len(s.booleanTrail()), enodeLimit: len(s.enodeStack), coreTrailLimit: len(s.coreTrail), pendingLimit: len(s.pending),
 		equalityLimit:   len(s.equalityTrail),
 		assignmentLimit: len(s.assignmentTrail), auxClauseLimit: len(s.auxClauses), lemmaLimit: len(s.lemmas), justificationLimit: len(s.ownedJustifications), theoryLimit: len(s.theoryTrail), inconsistent: s.inconsistent,
 		assignedLimit: len(s.assignedLiterals), propagationHead: s.propagationHead, relevancyBatch: s.relevancyBatch, conflict: s.conflict,
@@ -1458,7 +1452,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	// undo_trail_stack runs the interleaved e-graph entries newest first.
 	if scope.coreTrailLimit < 0 || scope.coreTrailLimit > len(s.coreTrail) ||
 		scope.enodeLimit < 0 || scope.enodeLimit > len(s.enodeStack) ||
-		scope.booleanLimit < 0 || scope.booleanLimit > len(s.booleanStack) ||
+		scope.booleanLimit < 0 || scope.booleanLimit > len(s.booleanTrail()) ||
 		scope.equalityLimit < 0 || scope.equalityLimit > len(s.equalityTrail) ||
 		scope.theoryLimit < 0 || scope.theoryLimit > len(s.theoryTrail) {
 		return ast.ErrASTDomain
@@ -1494,8 +1488,8 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
 			continue
 		}
-		expression := s.booleanStack[len(s.booleanStack)-1]
 		if !s.retiringBoolean {
+			expression := s.boolExpr[len(s.boolExpr)-1]
 			// mk_bool_var assigns IDs in creation order, so this trail entry
 			// always owns the last live Boolean slot.
 			variable := int32(len(s.boolExpr) - 1)
@@ -1549,7 +1543,6 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			}
 			s.booleanData[variable].SetNullJustification()
 			s.booleanData = s.booleanData[:variable]
-			s.booleanCreation = s.booleanCreation[:variable]
 			s.activity = s.activity[:variable]
 			s.assignment = s.assignment[:2*variable]
 			s.watches[2*variable].recycle()
@@ -1567,11 +1560,10 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			}
 		}
 		s.retiringBoolean = false
-		s.booleanStack = s.booleanStack[:len(s.booleanStack)-1]
 		s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
 		s.statistics.NumDelBoolVar++
 	}
-	if len(s.enodeStack) != scope.enodeLimit || len(s.booleanStack) != scope.booleanLimit ||
+	if len(s.enodeStack) != scope.enodeLimit || len(s.booleanTrail()) != scope.booleanLimit ||
 		len(s.equalityTrail) != scope.equalityLimit || len(s.theoryTrail) != scope.theoryLimit {
 		return fmt.Errorf("e-graph trail out of step with its stacks: %w", ast.ErrASTDomain)
 	}
@@ -1711,7 +1703,7 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 				pop.learned = nil
 			}
 			var err error
-			pop.learned, err = s.preserveLearnedClauses(0)
+			pop.learned, err = s.preserveLearnedClauses(0, s.scopes[pop.level].firstScopedBoolVar())
 			if err != nil {
 				return err
 			}
@@ -2001,4 +1993,18 @@ func (s *SMTInternalizerState) initTrueProof() error {
 	}
 	s.ownedJustifications = append(s.ownedJustifications, owner)
 	return nil
+}
+
+// The core trail still owns the last expression while a fallible release is
+// pending, even though its dense Boolean ID is already out of service.
+func (s *SMTInternalizerState) booleanTrail() []ast.ASTHandle {
+	end := len(s.boolExpr)
+	if s.retiringBoolean {
+		end++
+	}
+	return s.boolExpr[SMTFirstBoolVar:end]
+}
+
+func (scope *smtInternalizerScope) firstScopedBoolVar() int {
+	return scope.booleanLimit + int(SMTFirstBoolVar)
 }

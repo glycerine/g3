@@ -27,12 +27,11 @@ type smtRetainedLemmaAtom struct {
 	sign       bool
 	relevant   bool
 	variable   int32
-	creation   uint64
 }
 
 // captureLemmaAtoms transfers every acquired reference to the returned slice,
 // including the prefix preceding an acquisition failure.
-func (s *SMTInternalizerState) captureLemmaAtoms(literals []SMTLiteral) ([]smtRetainedLemmaAtom, error) {
+func (s *SMTInternalizerState) captureLemmaAtoms(literals []SMTLiteral, firstScoped int) ([]smtRetainedLemmaAtom, error) {
 	atoms := make([]smtRetainedLemmaAtom, 0, len(literals))
 	for _, literal := range literals {
 		expression, err := s.BoolExpression(literal.Var())
@@ -46,14 +45,20 @@ func (s *SMTInternalizerState) captureLemmaAtoms(literals []SMTLiteral) ([]smtRe
 		if s.relevancy != nil {
 			relevant = s.relevancy.IsRelevant(expression)
 		}
+		// IDs below the target scope's boundary survive this pop. An ID at
+		// or above it can be recycled, even for the same expression.
+		variable := literal.Var()
+		if int(variable) >= firstScoped {
+			variable = SMTNullBoolVar
+		}
 		atoms = append(atoms, smtRetainedLemmaAtom{expression: expression, sign: literal.Sign(), relevant: relevant,
-			variable: literal.Var(), creation: s.booleanCreation[literal.Var()]})
+			variable: variable})
 	}
 	return atoms, nil
 }
 
-func (s *SMTInternalizerState) retainLemmaAtoms(literals []SMTLiteral) ([]smtRetainedLemmaAtom, error) {
-	atoms, err := s.captureLemmaAtoms(literals)
+func (s *SMTInternalizerState) retainLemmaAtoms(literals []SMTLiteral, firstScoped int) ([]smtRetainedLemmaAtom, error) {
+	atoms, err := s.captureLemmaAtoms(literals, firstScoped)
 	if err != nil {
 		return nil, s.disposeLemmaAtoms(atoms, err)
 	}
@@ -140,8 +145,7 @@ func (s *SMTInternalizerState) reinternalizeLemmaAtoms(atoms []smtRetainedLemmaA
 	for index, atom := range atoms {
 		var literal SMTLiteral
 		var err error
-		if atom.creation != 0 && atom.variable >= SMTFirstBoolVar && int(atom.variable) < len(s.boolExpr) &&
-			s.booleanCreation[atom.variable] == atom.creation && s.boolExpr[atom.variable] == atom.expression {
+		if atom.variable >= SMTFirstBoolVar && int(atom.variable) < len(s.boolExpr) && s.boolExpr[atom.variable] == atom.expression {
 			// Like C++'s surviving Boolean variables, reuse the literal without
 			// traversing and reconstructing its expression after every backjump.
 			literal = NewSMTLiteral(atom.variable, atom.sign)
@@ -724,7 +728,8 @@ func (k *SMTKernel) resolveSearchConflict(session *smtSearchSession) (bool, erro
 		return false, fmt.Errorf("smt search lemma proof: %w", proofErr)
 	}
 	k.internalizer.traceConflictStream(resolution.Lemma)
-	retained, err := k.internalizer.retainLemmaAtoms(resolution.Lemma)
+	firstScoped := k.internalizer.scopes[newScopeLevel].firstScopedBoolVar()
+	retained, err := k.internalizer.retainLemmaAtoms(resolution.Lemma, firstScoped)
 	if err != nil {
 		return false, fmt.Errorf("smt search retain lemma atoms: %w", err)
 	}

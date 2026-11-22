@@ -124,7 +124,7 @@ func (s *SMTInternalizerState) DisplayExpressionBoolVarMap(out io.Writer) error 
 	if err := smtWriteTheoryText(out, fmt.Sprintf("expression -> bool_var:\n(#%d -> p!0) ", trueID)); err != nil {
 		return err
 	}
-	for _, expression := range s.booleanStack {
+	for _, expression := range s.booleanTrail() {
 		id, err := s.manager.GetASTID(expression)
 		if err != nil {
 			return err

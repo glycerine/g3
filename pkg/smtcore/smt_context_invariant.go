@@ -17,7 +17,7 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 	variables := len(s.booleanData)
 	if len(s.assignment) != 2*variables || len(s.watches) != 2*variables ||
 		len(s.activity) != variables || len(s.boolExpr) != variables ||
-		len(s.booleanStack) != variables-1 {
+		variables < int(SMTFirstBoolVar) || s.retiringBoolean {
 		return ast.ErrASTDomain
 	}
 	if s.assignment[SMTTrueLiteral.Index()] != lbool.True || s.assignment[SMTFalseLiteral.Index()] != lbool.False {

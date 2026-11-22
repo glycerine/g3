@@ -111,7 +111,7 @@ func TestSMTInternalizerCloseDiscardsPreservedLearnedRoots(t *testing.T) {
 	proof, err := m.MkProofAsserted(formula)
 	astTestMust(t, err)
 	astTestMust(t, state.addLearnedClauseWithProof(literals, proof, false))
-	learned, err := state.preserveLearnedClauses(0)
+	learned, err := state.preserveLearnedClauses(0, 0)
 	astTestMust(t, err)
 	state.pendingPop = &smtInternalizerPendingPop{count: 1, preserve: true, stage: 1, learned: learned}
 	trigger()

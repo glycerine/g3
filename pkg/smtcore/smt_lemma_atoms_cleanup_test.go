@@ -92,7 +92,7 @@ func TestSMTLemmaAtomCaptureTransfersPartialPrefixAndReleaseIsIdempotent(t *test
 	before, err := m.GetRefCount(expression)
 	astTestMust(t, err)
 	literals := []SMTLiteral{literal.Negated(), NewSMTLiteral(int32(len(state.boolExpr)+1), false)}
-	atoms, err := state.captureLemmaAtoms(literals)
+	atoms, err := state.captureLemmaAtoms(literals, 0)
 	if !errors.Is(err, ast.ErrASTDomain) || len(atoms) != 1 || atoms[0].expression != expression || !atoms[0].sign || !atoms[0].relevant {
 		t.Fatal("failed capture did not transfer its owned prefix and metadata", atoms, err)
 	}
@@ -106,7 +106,7 @@ func TestSMTLemmaAtomCaptureTransfersPartialPrefixAndReleaseIsIdempotent(t *test
 	if !atoms[0].expression.IsNull() {
 		t.Fatal("release did not retire its consumed handle")
 	}
-	atoms, err = state.retainLemmaAtoms(literals)
+	atoms, err = state.retainLemmaAtoms(literals, 0)
 	if !errors.Is(err, ast.ErrASTDomain) || atoms != nil {
 		t.Fatal("failed owning capture published an incomplete lemma", atoms, err)
 	}
@@ -145,10 +145,10 @@ func TestSMTLemmaAtomCleanupRetriesNativeRefusal(t *testing.T) {
 				literals = append(literals, literal)
 			}
 			var err error
-			atoms, err = state.retainLemmaAtoms(literals)
+			atoms, err = state.retainLemmaAtoms(literals, 0)
 			astTestMust(t, err)
 			if stage == "nested" {
-				childAtoms, err = state.retainLemmaAtoms(literals[:1])
+				childAtoms, err = state.retainLemmaAtoms(literals[:1], 0)
 				astTestMust(t, err)
 			}
 			if stage == "consumed-tail" {
