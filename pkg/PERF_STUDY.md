@@ -3168,3 +3168,19 @@ python3 perf/ivy_apple/holdouts/query_operations.py \
     --operation arithmetic-comparison --queries toy-consensus-18 \
     --cpu 7 --pairs 7 --output /tmp/paired-comparison > /tmp/paired-comparison.csv
 ```
+
+### What can be eliminated on a complete incremental check?
+
+On the current build, assertion preprocessing consumed **5.165 billion** of the **11.043 billion** instructions in the ten fresh rfn2 pushes. The corresponding native pass consumed **1.321 billion** of **3.531 billion**. Eliminating the Go/native preprocessing difference would recover just over half the outstanding 7.51-billion gap. The table gives medians of five rounds. Each round sums the counters on the ten pushes. Macro expansion is part of macro finding. The other measured stages can also invoke rewriting internally. [All push and pass measurements](perf/ivy_apple/incremental_cost/nov22b-first-push-stages.csv.gz) · [Go and linked Z3 driver](perf/ivy_apple/incremental_cost/push_stages.py)
+
+| Stage | Calls per engine | g3 instructions | Z3 instructions |
+|---|---:|---:|---:|
+| Reduce pending assertions | 10 | 5.165 B | 1.321 B |
+| Find macros, both passes | 20 | 1.987 B | 0.553 B |
+| Expand macros | 9,154 | 1.315 B | 0.398 B |
+| Infer quantifier patterns | 10 | 0.734 B | 0.175 B |
+| Propagate values | 10 | 0.662 B | 0.164 B |
+| Maximize bit-vector sharing, including ordinary reduction | 10 | 0.627 B | 0.162 B |
+| Instantiate a quantifier body | 28,523 | 2.158 B | 1.308 B |
+
+Changing how a solver sees the goal can change how many instances it creates. In three rounds on CPU 13, introducing a fresh activation literal for the last assertion improved ticket 127 from 308 to 247 million whole-process instructions and reduced instances from 1,389 to 845. The same encoding worsened toy consensus 18 from 734 to 1,694 million and increased instances from 905 to 1,602. Turning off macro finding reduced ticket 290 from 326 to 256 million, but raised toy consensus to 6.33 **billion**. Delaying eager instantiation and disabling E-matching both regressed all three complete queries. Linked Z3 showed the same directional effects and the same search counts on the corresponding routes. An UNSAT result from the base alone settled two queries whose final assertion simplifies to true. Ticket 127's base was SAT and required its final assertion. These are fresh processes containing one incremental check. [126 shell runs](perf/ivy_apple/holdouts/nov22b-scope-strategies.csv.gz) · [Query encodings and timeout controls](perf/ivy_apple/holdouts/scope_strategies.py)

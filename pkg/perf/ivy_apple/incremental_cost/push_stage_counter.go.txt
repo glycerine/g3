@@ -1,0 +1,95 @@
+package pushcounter
+
+import (
+	"fmt"
+	"os"
+	"runtime"
+	"syscall"
+	"unsafe"
+)
+
+var fd uintptr
+var empty, calls, instructions, depth uint64
+
+func readCounter() uint64 {
+	var values [3]uint64
+	n, _, err := syscall.RawSyscall(syscall.SYS_READ, fd, uintptr(unsafe.Pointer(&values[0])), unsafe.Sizeof(values))
+	if err != 0 || n != unsafe.Sizeof(values) || values[1] != values[2] {
+		panic("incomplete replay instruction counter")
+	}
+	return values[0]
+}
+
+var ordinal int
+var active bool
+
+// Scope measures one external GoIvy Push on its solver thread.
+func Scope() func() {
+	runtime.LockOSThread()
+	var attr struct {
+		Type, Size                                    uint32
+		Config, Period, SampleType, ReadFormat, Flags uint64
+		Padding                                       [16]byte
+	}
+	attr.Size = uint32(unsafe.Sizeof(attr))
+	attr.Config = 1          // PERF_COUNT_HW_INSTRUCTIONS
+	attr.Flags = 1<<5 | 1<<6 // exclude kernel and hypervisor
+	attr.ReadFormat = 3
+	var err syscall.Errno
+	fd, _, err = syscall.RawSyscall6(syscall.SYS_PERF_EVENT_OPEN, uintptr(unsafe.Pointer(&attr)), 0, ^uintptr(0), ^uintptr(0), 0, 0)
+	if err != 0 {
+		panic(err)
+	}
+	calls, instructions, depth = 0, 0, 0
+	ordinal++
+	active = true
+	lo := readCounter()
+	empty = readCounter() - lo
+	return func() {
+		active = false
+		fmt.Fprintln(os.Stderr, "IVY-PUSH-STAGE", ordinal, os.Getenv("IVY_PUSH_STAGE"), calls, instructions)
+		syscall.Close(int(fd))
+		runtime.UnlockOSThread()
+	}
+}
+
+func Enter() uint64 {
+	if !active {
+		return 0
+	}
+	calls++
+	depth++
+	if depth == 1 {
+		return readCounter()
+	}
+	return 0
+}
+
+func Leave(start uint64) {
+	if !active {
+		return
+	}
+	depth--
+	if depth == 0 {
+		n := readCounter() - start
+		if n > empty {
+			instructions += n - empty
+		}
+	}
+}
+
+func Pass(name string, inputs int) func() {
+	if !active {
+		return func() {}
+	}
+	start := readCounter()
+	return func() {
+		n := readCounter() - start
+		if n > empty {
+			n -= empty
+		} else {
+			n = 0
+		}
+		fmt.Fprintln(os.Stderr, "IVY-PUSH-PASS", ordinal, name, inputs, n)
+	}
+}
