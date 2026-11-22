@@ -94,6 +94,59 @@ func TestVarSubstitutionSharedConditionalMatchesGeneralRewriter(t *testing.T) {
 	}
 }
 
+func TestVarSubstitutionSharedFramesHonorStepBudget(t *testing.T) {
+	m := astTestManager(t)
+	x := shiftTestVar(t, m, 0)
+	a := goalTestAtom(t, m, "budget-a")
+	b := goalTestAtom(t, m, "budget-b")
+	ground := goalTestApp(t, m, ast.ASTOpAnd, a, b)
+	shared := goalTestApp(t, m, ast.ASTOpOr, x, ground)
+	body := goalTestApp(t, m, ast.ASTOpAnd, shared, goalTestApp(t, m, ast.ASTOpNot, shared), ground)
+	general, err := NewVarSubstitution(m, true)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, general.Close()) })
+	general.reducer.engine.substituteVariables = false
+	beta, err := NewVarSubstitution(m, true)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, beta.Close()) })
+	out := astTestPin(t, m, ast.ASTHandle{})
+	limit := m.ResourceLimit()
+	run := func(s *VarSubstitution, budget uint32) (ast.ASTHandle, uint64, string) {
+		satOK(t, m.SetRef(out, b))
+		satOK(t, limit.Push(budget))
+		before := limit.Count()
+		err := s.Substitute(body, []ast.ASTHandle{a}, out)
+		used := limit.Count() - before
+		limit.Pop()
+		value, readErr := m.RefGet(out)
+		satOK(t, readErr)
+		if err != nil {
+			if value != b || err.Error() != messages.MaxResource {
+				t.Fatalf("budget %d published %v, error %v", budget, value, err)
+			}
+			return value, used, err.Error()
+		}
+		return value, used, ""
+	}
+	// Keep the expected result alive when comparing two independent rewrites.
+	keep := astTestPin(t, m, ast.ASTHandle{})
+	for budget := uint32(1); budget <= 32; budget++ {
+		want, wantSteps, wantErr := run(general, budget)
+		satOK(t, m.SetRef(keep, want))
+		got, steps, err := run(beta, budget)
+		if got != want || steps != wantSteps || err != wantErr {
+			t.Fatalf("budget %d: beta (%v, %d, %q), general (%v, %d, %q)", budget, got, steps, err, want, wantSteps, wantErr)
+		}
+		if err == "" {
+			if budget == 1 || got == b {
+				t.Fatalf("expected interruption before completing at budget %d", budget)
+			}
+			return
+		}
+	}
+	t.Fatal("no budget completed the shared rewrite")
+}
+
 func TestVarSubstitutionOrderResetNullAndGround(t *testing.T) {
 	m := astTestManager(t)
 	v := []ast.ASTHandle{shiftTestVar(t, m, 0), shiftTestVar(t, m, 1), shiftTestVar(t, m, 2), shiftTestVar(t, m, 3)}

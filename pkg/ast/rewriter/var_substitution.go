@@ -83,8 +83,8 @@ func (s *VarSubstitution) Close() error {
 	return s.reducer.Close()
 }
 
-// The beta reducer has no substitution or reduction callbacks. Its pre-visit
-// predicate skips ground apps, after the ordinary cache lookup.
+// The beta reducer finishes ground applications and variables without pushing
+// a frame. Only a completed frame can insert a result in its activity cache.
 func (r *rewriterEngine) visitSubstitution(t ast.ASTHandle, depth uint32) (bool, error) {
 	c := &r.core
 	m := c.manager
@@ -95,8 +95,11 @@ func (r *rewriterEngine) visitSubstitution(t ast.ASTHandle, depth uint32) (bool,
 	if err != nil {
 		return false, err
 	}
-	if err = c.open(); err != nil {
-		return false, err
+	if ground {
+		return true, appendRewriterRoot(m, &c.results, t)
+	}
+	if kind == ast.ASTVar {
+		return true, r.processBoundVariable(t, arityOrIndex)
 	}
 	cache := c.mustCacheShape(t, kind, refs, arityOrIndex)
 	if cache {
@@ -110,12 +113,6 @@ func (r *rewriterEngine) visitSubstitution(t ast.ASTHandle, depth uint32) (bool,
 			}
 			return true, r.setNewChildIfDifferent(t, h)
 		}
-	}
-	if ground {
-		return true, appendRewriterRoot(m, &c.results, t)
-	}
-	if kind == ast.ASTVar {
-		return true, r.processBoundVariable(t, arityOrIndex)
 	}
 	if kind == ast.ASTApp && arityOrIndex == 0 {
 		return true, r.processConst(t)

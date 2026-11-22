@@ -787,14 +787,14 @@ func (r *rewriterEngine) processApp() (err error) {
 			if e = r.sameSort(t, h); e != nil {
 				return e
 			}
+			if st == brDone {
+				return r.finish(fr, true, true)
+			}
 			if e = shrinkRewriterRoots(m, &c.results, fr.spos); e != nil {
 				return e
 			}
 			if e = appendRewriterRoot(m, &c.results, h); e != nil {
 				return e
-			}
-			if st == brDone {
-				return r.finish(fr, true, true)
 			}
 			if st > brRewriteFull {
 				return ast.ErrASTDomain
@@ -1175,16 +1175,20 @@ func (r *rewriterEngine) resume(out, proof ast.ASTRef) error {
 			return e
 		}
 		r.numSteps++
-		exceeded, err := r.cfg.MaxStepsExceeded(r.numSteps)
-		if err != nil {
-			return err
-		}
-		if exceeded {
-			return newRewriterException(messages.MaxSteps)
+		if !r.substituteVariables {
+			exceeded, err := r.cfg.MaxStepsExceeded(r.numSteps)
+			if err != nil {
+				return err
+			}
+			if exceeded {
+				return newRewriterException(messages.MaxSteps)
+			}
 		}
 		fr := c.frames[len(c.frames)-1]
 		t := fr.curr
-		if fr.state() == 0 && fr.index() == 0 && fr.cacheResult() {
+		// visitSubstitution probes the cache immediately before pushing a beta
+		// frame. No other frame can publish a result before this first step.
+		if !r.substituteVariables && fr.state() == 0 && fr.index() == 0 && fr.cacheResult() {
 			h, e := c.getCached(t)
 			if e != nil {
 				return e

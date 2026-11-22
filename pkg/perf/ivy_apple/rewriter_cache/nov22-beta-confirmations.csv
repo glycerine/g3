@@ -1,0 +1,10 @@
+isolate,checks,independent_unsat,native_counter_differences
+cmpl_live,437,73,0
+cf_live,336,57,0
+rfn2,26,8,0
+rfn,33,4,0
+cf_pio_live,2215,68,0
+tprops,700,129,0
+e2e,2378,189,0
+sys_live,1738,183,0
+dramc_nb2,2479,171,0
