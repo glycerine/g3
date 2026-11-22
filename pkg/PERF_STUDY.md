@@ -2713,3 +2713,19 @@ The source solver can change between the batch's proof attempt and the caller's 
 The captured `cf_live` check 42 costs 84.79 ms and 5.23 MB per iteration with the previous batch. After one warm concrete proof, the new batch measured **80.8 µs and 28.2 kB** per push, assert, proof and pop. Nine alternating pairs used five iterations for concrete checks and 512 for warm hits. Ordinary concrete checks in the same runs took 85.03 and 83.01 ms respectively. [Captured query](perf/ivy_apple/test_vectors/cf_live-42.smt2.gz) · [36 prepared measurements](perf/ivy_apple/goal_instances/recent_checks/nov22-prepared.csv) · [24 complete runs](perf/ivy_apple/goal_instances/recent_checks/nov22-short-release.csv)
 
 Batch proofs increased from 882 to 1,359 across 10,342 Apple checks. An instrumented build also executed the original check for each shortcut. All verdicts and all 18 per-check search counters matched the linked-Z3 reference in that replay. The release build also reproduced all 11,732 named decisions on 28 mutated Raft specifications, including the failing obligations. [Apple concrete confirmations](perf/ivy_apple/goal_instances/recent_checks/nov22-confirmations.csv.gz) · [Raft positive and negative cases](perf/ivy_apple/goal_instances/recent_checks/nov22-raft-mutants.csv)
+
+The longer refutation-history comparison also measured `cf_pio_live` and `dramc_nb2`. Median instructions across four pairs fell from 425.81 to 420.77 billion on the former and rose from 400.72 to 402.16 billion on the latter. Each pair ran the same complete checker on one pinned CPU. [All 40 runs](perf/ivy_apple/goal_instances/recent_checks/nov22-release.csv)
+
+### Which general-solver calls still cost more
+
+Sampling the solver thread across every call in four isolates shows how the target has shifted. At the ground Boolean frontier, g3 already spent far less on `rfn2` check 4. The remaining `rfn2` general-solver target is check 26. `cf_live` and `cmpl_live` also have expensive calls even where the complete checker finishes sooner.
+
+| Obligation | All samples, g3 / Z3 | General rewriter | Instantiation queue | Application construction | Candidate checker |
+|---|---:|---:|---:|---:|---:|
+| `rfn2` 4 | 119 / 13,036 | 41 / 1,202 | 0 / 896 | 7 / 876 | 0 / 2,825 |
+| `rfn2` 26 | 1,688 / 611 | 291 / 77 | 369 / 81 | 133 / 54 | 182 / 124 |
+| `cf_live` 47 | 913 / 302 | 384 / 113 | 163 / 37 | 228 / 103 | 28 / 18 |
+| `cf_live` 122 | 1,149 / 342 | 354 / 81 | 206 / 35 | 145 / 74 | 88 / 64 |
+| `cmpl_live` 177 | 2,374 / 877 | 579 / 140 | 360 / 85 | 225 / 97 | 339 / 219 |
+
+Each cell gives median sample counts over three complete runs per engine, before the concrete-history change. Linux perf sampled every 1,600,033 retired user instructions. Samples had to match both the time interval of a verification call and the Linux thread running it. Each stack was assigned to its nearest classified frame. In `cmpl_live` check 177, the rewriter difference alone corresponds to roughly 0.70 billion instructions. These estimates have sampling error and exclude other runtime threads. Reproduce with `phase_stacks.py --by-check --select inside --pairs 3 --period 1600033`, using `--engines g3 --call-graph fp` and `--engines native --call-graph dwarf,8192` in separate output directories. [Per-check counts](perf/ivy_apple/incremental_cost/nov22-all-check-stacks.csv.gz) · [Thread and window coverage](perf/ivy_apple/incremental_cost/nov22-all-check-stack-coverage.csv) · [Selected leaf symbols](perf/ivy_apple/incremental_cost/nov22-residual-check-leaves.csv.gz) · [Profiling driver](perf/ivy_apple/phase_stacks.py)

@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 
 from phase_counters import build
+import check_stacks
 
 
 def record(args, binary, selection, directory, reference):
@@ -22,6 +23,8 @@ def record(args, binary, selection, directory, reference):
     command = ["taskset", "-c", str(args.cpu), args.perf, "record", "--no-buildid",
                "--call-graph", args.call_graph, "-e", "instructions:u", "-c", str(args.period),
                "-m", "512", "--control", f"fifo:{ctl},{ack}", "-o", str(profile)]
+    if args.by_check:
+        command.extend(["-k", "CLOCK_MONOTONIC"])
     if selection != "outside":
         command.extend(["-D", "-1"])
     command.extend(["--", str(binary), f"isolate={args.isolate}", str(args.spec)])
@@ -40,6 +43,11 @@ def record(args, binary, selection, directory, reference):
         raise ValueError("incomplete solver check sequence")
     if selection.isdecimal() and int(selection) not in checks:
         raise ValueError("the selected check was never reached")
+    if args.by_check:
+        check_stacks.summarize(args.perf, profile, directory, binary.name, len(checks), args.period)
+        if not args.keep_raw:
+            profile.unlink()
+        return
     inline = "--inline" if args.inline else "--no-inline"
     with gzip.open(directory / "stacks.gz", "wb", compresslevel=1) as dest:
         with subprocess.Popen([args.perf, "script", inline, "-i", str(profile),
@@ -72,7 +80,11 @@ def main():
     p.add_argument("--call-graph", choices=["dwarf,8192", "fp"], default="dwarf,8192",
                    help="use frame pointers for binaries built with them, or DWARF stacks")
     p.add_argument("--go-overlay", type=Path, help="optional Go source overlay for the g3 build")
+    p.add_argument("--by-check", action="store_true",
+                   help="measure check windows on the solver thread and emit per-check operation and leaf counts")
     args = p.parse_args()
+    if args.by_check and (args.select != ["inside"] or args.inline):
+        p.error("--by-check requires --select inside and non-inlined stack frames")
     if len(set(args.engines)) != len(args.engines) or len(set(args.select)) != len(args.select):
         p.error("each engine and check selection must appear only once")
     if args.period < 1 or args.pairs < 1 or any(
@@ -91,7 +103,8 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     with tempfile.TemporaryDirectory() as scratch:
-        binaries = [build(engine, args, Path(scratch), go_overlay=args.go_overlay if engine == "g3" else None)
+        options = dict(observer=check_stacks.observer(), packages=check_stacks.PACKAGES) if args.by_check else {}
+        binaries = [build(engine, args, Path(scratch), **options, go_overlay=args.go_overlay if engine == "g3" else None)
                     for engine in args.engines]
         if args.keep_binaries:
             bindir = output / "bin"
