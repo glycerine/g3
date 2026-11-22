@@ -17,6 +17,22 @@ type ArithRewriterParams struct {
 	closed            bool
 }
 
+var (
+	settingArithLHS                 = rewriterBoolSetting{"arith_lhs", false}
+	settingArithIneqLHS             = rewriterBoolSetting{"arith_ineq_lhs", false}
+	settingGCDRounding              = rewriterBoolSetting{"gcd_rounding", false}
+	settingElimToReal               = rewriterBoolSetting{"elim_to_real", false}
+	settingPushToReal               = rewriterBoolSetting{"push_to_real", true}
+	settingAlgebraicNumberEvaluator = rewriterBoolSetting{"algebraic_number_evaluator", true}
+	settingExpandPower              = rewriterBoolSetting{"expand_power", false}
+	settingMulToPower               = rewriterBoolSetting{"mul_to_power", false}
+	settingElimRem                  = rewriterBoolSetting{"elim_rem", false}
+	settingExpandTan                = rewriterBoolSetting{"expand_tan", false}
+	settingEq2Ineq                  = rewriterBoolSetting{"eq2ineq", false}
+	settingSortSums                 = rewriterBoolSetting{"sort_sums", false}
+	settingMaxDegree                = rewriterUIntSetting{"max_degree", 64}
+)
+
 func NewArithRewriterParams(c *uparams.ParamsContext, g *uparams.GlobalParamsService, local *uparams.ParamsRef) (*ArithRewriterParams, error) {
 	if c == nil || g == nil || g.Context != c {
 		return nil, uparams.ErrParamsOwner
@@ -54,19 +70,41 @@ func (p *ArithRewriterParams) boolean(key string, d bool) (bool, error) {
 }
 
 func (p *ArithRewriterParams) AlgebraicNumberEvaluator() (bool, error) {
-	return p.boolean("algebraic_number_evaluator", true)
+	return p.boolean(settingAlgebraicNumberEvaluator.name, settingAlgebraicNumberEvaluator.defaultValue)
 }
-func (p *ArithRewriterParams) MulToPower() (bool, error)   { return p.boolean("mul_to_power", false) }
-func (p *ArithRewriterParams) ExpandPower() (bool, error)  { return p.boolean("expand_power", false) }
-func (p *ArithRewriterParams) ExpandTan() (bool, error)    { return p.boolean("expand_tan", false) }
-func (p *ArithRewriterParams) SortSums() (bool, error)     { return p.boolean("sort_sums", false) }
-func (p *ArithRewriterParams) GCDRounding() (bool, error)  { return p.boolean("gcd_rounding", false) }
-func (p *ArithRewriterParams) ArithLHS() (bool, error)     { return p.boolean("arith_lhs", false) }
-func (p *ArithRewriterParams) ArithIneqLHS() (bool, error) { return p.boolean("arith_ineq_lhs", false) }
-func (p *ArithRewriterParams) ElimToReal() (bool, error)   { return p.boolean("elim_to_real", false) }
-func (p *ArithRewriterParams) PushToReal() (bool, error)   { return p.boolean("push_to_real", true) }
-func (p *ArithRewriterParams) Eq2Ineq() (bool, error)      { return p.boolean("eq2ineq", false) }
-func (p *ArithRewriterParams) ElimRem() (bool, error)      { return p.boolean("elim_rem", false) }
+func (p *ArithRewriterParams) MulToPower() (bool, error) {
+	return p.boolean(settingMulToPower.name, settingMulToPower.defaultValue)
+}
+func (p *ArithRewriterParams) ExpandPower() (bool, error) {
+	return p.boolean(settingExpandPower.name, settingExpandPower.defaultValue)
+}
+func (p *ArithRewriterParams) ExpandTan() (bool, error) {
+	return p.boolean(settingExpandTan.name, settingExpandTan.defaultValue)
+}
+func (p *ArithRewriterParams) SortSums() (bool, error) {
+	return p.boolean(settingSortSums.name, settingSortSums.defaultValue)
+}
+func (p *ArithRewriterParams) GCDRounding() (bool, error) {
+	return p.boolean(settingGCDRounding.name, settingGCDRounding.defaultValue)
+}
+func (p *ArithRewriterParams) ArithLHS() (bool, error) {
+	return p.boolean(settingArithLHS.name, settingArithLHS.defaultValue)
+}
+func (p *ArithRewriterParams) ArithIneqLHS() (bool, error) {
+	return p.boolean(settingArithIneqLHS.name, settingArithIneqLHS.defaultValue)
+}
+func (p *ArithRewriterParams) ElimToReal() (bool, error) {
+	return p.boolean(settingElimToReal.name, settingElimToReal.defaultValue)
+}
+func (p *ArithRewriterParams) PushToReal() (bool, error) {
+	return p.boolean(settingPushToReal.name, settingPushToReal.defaultValue)
+}
+func (p *ArithRewriterParams) Eq2Ineq() (bool, error) {
+	return p.boolean(settingEq2Ineq.name, settingEq2Ineq.defaultValue)
+}
+func (p *ArithRewriterParams) ElimRem() (bool, error) {
+	return p.boolean(settingElimRem.name, settingElimRem.defaultValue)
+}
 
 func (p *ArithRewriterParams) MaxDegree() (uint32, error) {
 	if e := p.open(); e != nil {

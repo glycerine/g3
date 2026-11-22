@@ -1105,6 +1105,19 @@ func (r *TheoryRewriter) readLocalParams() (result error) {
 	}
 	defer func() { result = errors.Join(result, p.Close()) }()
 	c := &r.configuration
+	var options uparams.ScalarParams
+	if r.context.ReadScalarParams(&options, p.local, &p.global) {
+		c.maxMemory = uint64(settingMaxMemory.read(&options)) * 1024 * 1024
+		c.maxSteps = settingMaxSteps.read(&options)
+		c.pullCheapITE = settingPullCheapITE.read(&options)
+		c.flat = settingFlat.read(&options)
+		c.cacheAll = settingCacheAll.read(&options)
+		c.pushITEArithmetic = settingPushITEArith.read(&options)
+		c.pushITEBitVector = settingPushITEBV.read(&options)
+		c.ignoreGroundPatterns = settingIgnorePatternsOnGroundQBody.read(&options)
+		c.rewritePatternTerms = settingRewritePatterns.read(&options)
+		return nil
+	}
 	megabytes, err := p.MaxMemory()
 	if err != nil {
 		return err

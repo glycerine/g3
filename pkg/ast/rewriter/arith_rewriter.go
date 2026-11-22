@@ -96,46 +96,72 @@ func (r *ArithRewriter) updateParams(c *uparams.ParamsContext, g *uparams.Global
 		return err
 	}
 	defer func() { result = errors.Join(result, p.Close()) }()
-	read := func(dst *bool, f func() (bool, error)) error {
-		*dst, err = f()
-		return err
-	}
-	for _, item := range []struct {
-		dst *bool
-		get func() (bool, error)
-	}{
-		{&r.arithLHS, p.ArithLHS}, {&r.arithIneqLHS, p.ArithIneqLHS},
-		{&r.gcdRounding, p.GCDRounding}, {&r.elimToReal, p.ElimToReal},
-		{&r.pushToReal, p.PushToReal}, {&r.algebraicSimplify, p.AlgebraicNumberEvaluator},
-		{&r.expandPower, p.ExpandPower}, {&r.mulToPower, p.MulToPower},
-		{&r.elimRem, p.ElimRem}, {&r.expandTan, p.ExpandTan},
-		{&r.eq2ineq, p.Eq2Ineq}, {&r.sortSums, p.SortSums},
-	} {
-		if err = read(item.dst, item.get); err != nil {
+	var options uparams.ScalarParams
+	if c.ReadScalarParams(&options, p.local, &p.global) {
+		r.arithLHS = settingArithLHS.read(&options)
+		r.arithIneqLHS = settingArithIneqLHS.read(&options)
+		r.gcdRounding = settingGCDRounding.read(&options)
+		r.elimToReal = settingElimToReal.read(&options)
+		r.pushToReal = settingPushToReal.read(&options)
+		r.algebraicSimplify = settingAlgebraicNumberEvaluator.read(&options)
+		r.expandPower = settingExpandPower.read(&options)
+		r.mulToPower = settingMulToPower.read(&options)
+		r.elimRem = settingElimRem.read(&options)
+		r.expandTan = settingExpandTan.read(&options)
+		r.eq2ineq = settingEq2Ineq.read(&options)
+		r.sortSums = settingSortSums.read(&options)
+		r.maxDegree = settingMaxDegree.read(&options)
+	} else {
+		read := func(dst *bool, f func() (bool, error)) error {
+			*dst, err = f()
 			return err
 		}
-	}
-	r.maxDegree, err = p.MaxDegree()
-	if err != nil {
-		return err
+		for _, item := range []struct {
+			dst *bool
+			get func() (bool, error)
+		}{
+			{&r.arithLHS, p.ArithLHS}, {&r.arithIneqLHS, p.ArithIneqLHS},
+			{&r.gcdRounding, p.GCDRounding}, {&r.elimToReal, p.ElimToReal},
+			{&r.pushToReal, p.PushToReal}, {&r.algebraicSimplify, p.AlgebraicNumberEvaluator},
+			{&r.expandPower, p.ExpandPower}, {&r.mulToPower, p.MulToPower},
+			{&r.elimRem, p.ElimRem}, {&r.expandTan, p.ExpandTan},
+			{&r.eq2ineq, p.Eq2Ineq}, {&r.sortSums, p.SortSums},
+		} {
+			if err = read(item.dst, item.get); err != nil {
+				return err
+			}
+		}
+		r.maxDegree, err = p.MaxDegree()
+		if err != nil {
+			return err
+		}
 	}
 	base, err := NewRewriterParams(c, g, local)
 	if err != nil {
 		return err
 	}
 	defer func() { result = errors.Join(result, base.Close()) }()
-	r.flat, err = base.Flat()
-	if err == nil {
-		r.sumOfMonomials, err = base.SumOfMonomials()
-	}
-	if err == nil {
-		r.monomialLimit, err = base.SumOfMonomialsBlowup()
-	}
-	if err == nil {
-		r.hoistMul, err = base.HoistMultiplication()
-	}
-	if err == nil {
-		r.hoistCoeff, err = base.HoistCoefficients()
+	var general uparams.ScalarParams
+	if c.ReadScalarParams(&general, base.local, &base.global) {
+		r.flat = settingFlat.read(&general)
+		r.sumOfMonomials = settingSumOfMonomials.read(&general)
+		r.monomialLimit = settingSumOfMonomialsBlowup.read(&general)
+		r.hoistMul = settingHoistMultiplication.read(&general)
+		r.hoistCoeff = settingHoistCoefficients.read(&general)
+	} else {
+		r.flat, err = base.Flat()
+		if err == nil {
+			r.sumOfMonomials, err = base.SumOfMonomials()
+		}
+		if err == nil {
+			r.monomialLimit, err = base.SumOfMonomialsBlowup()
+		}
+		if err == nil {
+			r.hoistMul, err = base.HoistMultiplication()
+		}
+		if err == nil {
+			r.hoistCoeff, err = base.HoistCoefficients()
+		}
 	}
 	if !r.flat {
 		r.sumOfMonomials = false

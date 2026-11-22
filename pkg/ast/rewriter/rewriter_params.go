@@ -17,6 +17,39 @@ type RewriterParams struct {
 	closed            bool
 }
 
+// Each setting supplies both the generated facade and the small-list reader.
+type rewriterBoolSetting struct {
+	name         string
+	defaultValue bool
+}
+type rewriterUIntSetting struct {
+	name         string
+	defaultValue uint32
+}
+
+func (s rewriterBoolSetting) read(p *uparams.ScalarParams) bool {
+	return p.Bool(s.name, s.defaultValue)
+}
+func (s rewriterUIntSetting) read(p *uparams.ScalarParams) uint32 {
+	return p.UInt(s.name, s.defaultValue)
+}
+
+var (
+	settingFlat                        = rewriterBoolSetting{"flat", true}
+	settingSumOfMonomials              = rewriterBoolSetting{"som", false}
+	settingSumOfMonomialsBlowup        = rewriterUIntSetting{"som_blowup", ^uint32(0)}
+	settingHoistMultiplication         = rewriterBoolSetting{"hoist_mul", false}
+	settingHoistCoefficients           = rewriterBoolSetting{"hoist_cmul", false}
+	settingMaxMemory                   = rewriterUIntSetting{"max_memory", ^uint32(0)}
+	settingMaxSteps                    = rewriterUIntSetting{"max_steps", ^uint32(0)}
+	settingPullCheapITE                = rewriterBoolSetting{"pull_cheap_ite", false}
+	settingCacheAll                    = rewriterBoolSetting{"cache_all", false}
+	settingPushITEArith                = rewriterBoolSetting{"push_ite_arith", false}
+	settingPushITEBV                   = rewriterBoolSetting{"push_ite_bv", false}
+	settingIgnorePatternsOnGroundQBody = rewriterBoolSetting{"ignore_patterns_on_ground_qbody", true}
+	settingRewritePatterns             = rewriterBoolSetting{"rewrite_patterns", false}
+)
+
 func NewRewriterParams(c *uparams.ParamsContext, g *uparams.GlobalParamsService, local *uparams.ParamsRef) (*RewriterParams, error) {
 	if c == nil || g == nil || g.Context != c {
 		return nil, uparams.ErrParamsOwner
@@ -60,31 +93,47 @@ func (p *RewriterParams) unsigned(key string, d uint32) (uint32, error) {
 	return p.context.GetUIntFallbackName(p.local, &key, &p.global, d)
 }
 
-func (p *RewriterParams) MaxMemory() (uint32, error)    { return p.unsigned("max_memory", ^uint32(0)) }
-func (p *RewriterParams) MaxSteps() (uint32, error)     { return p.unsigned("max_steps", ^uint32(0)) }
-func (p *RewriterParams) Flat() (bool, error)           { return p.boolean("flat", true) }
-func (p *RewriterParams) SumOfMonomials() (bool, error) { return p.boolean("som", false) }
+func (p *RewriterParams) MaxMemory() (uint32, error) {
+	return p.unsigned(settingMaxMemory.name, settingMaxMemory.defaultValue)
+}
+func (p *RewriterParams) MaxSteps() (uint32, error) {
+	return p.unsigned(settingMaxSteps.name, settingMaxSteps.defaultValue)
+}
+func (p *RewriterParams) Flat() (bool, error) {
+	return p.boolean(settingFlat.name, settingFlat.defaultValue)
+}
+func (p *RewriterParams) SumOfMonomials() (bool, error) {
+	return p.boolean(settingSumOfMonomials.name, settingSumOfMonomials.defaultValue)
+}
 func (p *RewriterParams) SumOfMonomialsBlowup() (uint32, error) {
-	return p.unsigned("som_blowup", ^uint32(0))
+	return p.unsigned(settingSumOfMonomialsBlowup.name, settingSumOfMonomialsBlowup.defaultValue)
 }
 func (p *RewriterParams) HoistMultiplication() (bool, error) {
-	return p.boolean("hoist_mul", false)
+	return p.boolean(settingHoistMultiplication.name, settingHoistMultiplication.defaultValue)
 }
 func (p *RewriterParams) HoistCoefficients() (bool, error) {
-	return p.boolean("hoist_cmul", false)
+	return p.boolean(settingHoistCoefficients.name, settingHoistCoefficients.defaultValue)
 }
-func (p *RewriterParams) PushITEArith() (bool, error) { return p.boolean("push_ite_arith", false) }
-func (p *RewriterParams) PushITEBV() (bool, error)    { return p.boolean("push_ite_bv", false) }
-func (p *RewriterParams) PullCheapITE() (bool, error) { return p.boolean("pull_cheap_ite", false) }
+func (p *RewriterParams) PushITEArith() (bool, error) {
+	return p.boolean(settingPushITEArith.name, settingPushITEArith.defaultValue)
+}
+func (p *RewriterParams) PushITEBV() (bool, error) {
+	return p.boolean(settingPushITEBV.name, settingPushITEBV.defaultValue)
+}
+func (p *RewriterParams) PullCheapITE() (bool, error) {
+	return p.boolean(settingPullCheapITE.name, settingPullCheapITE.defaultValue)
+}
 func (p *RewriterParams) BVIneqConsistencyTestMax() (uint32, error) {
 	return p.unsigned("bv_ineq_consistency_test_max", 0)
 }
-func (p *RewriterParams) CacheAll() (bool, error) { return p.boolean("cache_all", false) }
+func (p *RewriterParams) CacheAll() (bool, error) {
+	return p.boolean(settingCacheAll.name, settingCacheAll.defaultValue)
+}
 func (p *RewriterParams) RewritePatterns() (bool, error) {
-	return p.boolean("rewrite_patterns", false)
+	return p.boolean(settingRewritePatterns.name, settingRewritePatterns.defaultValue)
 }
 func (p *RewriterParams) IgnorePatternsOnGroundQBody() (bool, error) {
-	return p.boolean("ignore_patterns_on_ground_qbody", true)
+	return p.boolean(settingIgnorePatternsOnGroundQBody.name, settingIgnorePatternsOnGroundQBody.defaultValue)
 }
 
 func (p *RewriterParams) Close() error {
