@@ -1,5 +1,7 @@
 package params
 
+import utext "github.com/glycerine/g3/pkg/util/text"
+
 type scalarParam struct {
 	name  string
 	kind  ParamKind
@@ -58,9 +60,8 @@ func (c *ParamsContext) ReadScalarParams(out *ScalarParams, local, global *Param
 }
 
 func (s *ScalarParams) Bool(key string, def bool) bool {
-	key = paramsCString(key)
 	for _, e := range s.entries[:s.count] {
-		if e.kind == ParamBool && e.name == key {
+		if e.kind == ParamBool && utext.EqualCString(e.name, key) {
 			return e.value != 0
 		}
 	}
@@ -68,9 +69,8 @@ func (s *ScalarParams) Bool(key string, def bool) bool {
 }
 
 func (s *ScalarParams) UInt(key string, def uint32) uint32 {
-	key = paramsCString(key)
 	for _, e := range s.entries[:s.count] {
-		if e.kind == ParamUInt && e.name == key {
+		if e.kind == ParamUInt && utext.EqualCString(e.name, key) {
 			return e.value
 		}
 	}

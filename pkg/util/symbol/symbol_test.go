@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -42,6 +43,25 @@ func symbolText(t *testing.T, m *Manager, s Symbol) string {
 		t.Fatal(e)
 	}
 	return v
+}
+
+func TestSymbolInternTerminatedSpellings(t *testing.T) {
+	m := symbolManagerTest(t, nil, false)
+	for _, n := range []int{0, 1, 63, 64, 65, 512} {
+		name := strings.Repeat("a", n)
+		withSuffix := name + "\x00" + strings.Repeat("z", 1024)
+		first := internSymbol(t, m, withSuffix)
+		if canonical := internSymbol(t, m, name); canonical != first {
+			t.Fatalf("distinct identities for spelling of length %d", n)
+		}
+		for _, query := range []string{name, name + "\x00", withSuffix, name + "z", name + "z\x00"} {
+			prefix, _, _ := strings.Cut(query, "\x00")
+			want := prefix == name
+			if actual, err := m.EqualString(first, &query); err != nil || actual != want {
+				t.Fatalf("length %d, query length %d: equal=%t, err=%v", n, len(query), actual, err)
+			}
+		}
+	}
 }
 
 func TestSymbolSourceAssertions(t *testing.T) {

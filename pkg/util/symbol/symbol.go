@@ -14,6 +14,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
 var ErrInvalid = errors.New("g3: invalid source symbol precondition")
@@ -221,10 +222,20 @@ func (m *Manager) intern(text string) (Symbol, error) {
 	if m.closed.Load() {
 		return Symbol{}, arena.ErrClosed
 	}
+	// Most short names are already interned. Limit the speculative hash so
+	// a short C spelling with a large suffix still costs only its prefix.
+	short := len(text) <= 64
+	if short {
+		if id, found := m.byText[text]; found {
+			return m.symbol(id), nil
+		}
+	}
 	length := cSymbolLength(text)
-	text = text[:length]
-	if r, found := m.byText[text]; found {
-		return m.symbol(r), nil
+	if length != len(text) || !short {
+		text = text[:length]
+		if id, found := m.byText[text]; found {
+			return m.symbol(id), nil
+		}
 	}
 	if uint64(length) > math.MaxUint32 || uint64(len(m.entries)) == math.MaxUint32 {
 		return Symbol{}, arena.ErrBounds
@@ -465,16 +476,17 @@ func (m *Manager) equalString(s Symbol, text *string) (bool, error) {
 	if text == nil {
 		return false, nil
 	}
-	v := (*text)[:cSymbolLength(*text)]
+	var spelling string
+	var err error
 	if s.IsNumerical() {
-		rendered, e := m.text(s, false)
-		return rendered == v, e
+		spelling, err = m.text(s, false)
+	} else {
+		spelling, err = m.spelling(s)
 	}
-	spelling, e := m.spelling(s)
-	if e != nil {
-		return false, e
+	if err != nil {
+		return false, err
 	}
-	return spelling == v, nil
+	return utext.EqualCString(spelling, *text), nil
 }
 func (m *Manager) Less(a, b Symbol) (bool, error) {
 	m.mu.Lock()
