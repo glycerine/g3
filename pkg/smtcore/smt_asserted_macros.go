@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/macros"
@@ -48,23 +49,31 @@ func (k *SMTKernel) swapPendingFormulaBatch(batch *macros.FormulaBatch) (result 
 	}); err != nil {
 		return err
 	}
-	original := k.assertions
-	k.assertions = append([]SMTKernelAssertion(nil), original[:k.assertedHead]...)
+	// Save just the displaced owners immediately past the replacement rows.
+	// The two ranges can overlap when a batch shrinks. Both tails fit after
+	// Grow, so appendAssertion can reuse the committed prefix throughout.
+	count := batch.Len()
+	original := slices.Grow(k.assertions, count)
+	end := k.assertedHead + count
+	pending := original[end : len(original)+count]
+	copy(pending, original[k.assertedHead:])
+	k.assertions = original[:k.assertedHead]
 	defer func() {
 		if result != nil {
 			for _, assertion := range k.assertions[k.assertedHead:] {
 				result = errors.Join(result, k.manager.DecRef(assertion.Proof), k.manager.DecRef(assertion.Formula))
 			}
+			copy(original[k.assertedHead:], pending)
 			k.assertions = original
 			return
 		}
 		// m_formulas.shrink(m_qhead): ~justified_expr releases the
 		// formula, then the proof.
-		for _, assertion := range original[k.assertedHead:] {
+		for _, assertion := range pending {
 			result = errors.Join(result, k.manager.DecRef(assertion.Formula), k.manager.DecRef(assertion.Proof))
 		}
 	}()
-	for i := 0; i < batch.Len(); i++ {
+	for i := 0; i < count; i++ {
 		row, err := batch.At(i)
 		if err != nil {
 			return err
