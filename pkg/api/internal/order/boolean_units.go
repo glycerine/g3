@@ -37,9 +37,15 @@ func (k *BooleanProblem) Reduce(rounds int, limit *control.Reslimit) (conflict, 
 	}
 	for rnd := 0; rnd < rounds; rnd++ {
 		progress := false
+		// Gates are emitted after their operands. Propagate asserted roots
+		// toward the leaves first, then newly fixed operands toward the roots.
+		backward := rnd%2 == 0
 		for ci := range k.Clauses {
 			if ci%256 == 0 && !limit.IncOffset(uint32(min(256, len(k.Clauses)-ci))) {
 				return false, false
+			}
+			if backward {
+				ci = len(k.Clauses) - 1 - ci
 			}
 			cl := k.Clauses[ci].literals()
 			var unit int32

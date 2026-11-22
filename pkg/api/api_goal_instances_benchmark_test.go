@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/api/internal/order"
+	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -64,6 +66,55 @@ func BenchmarkAppleQuantifiedGoal(b *testing.B) {
 		}
 		b.StopTimer()
 	})
+}
+
+// The same captured VC as BenchmarkAppleQuantifiedGoal, with projection and
+// SAT search outside the measurement. Each operation starts from the original
+// clauses. Copying them restores the input consumed by Reduce.
+func BenchmarkAppleBooleanUnitReduction(b *testing.B) {
+	input := appleBenchmarkInput(b, "dramc_nb2-71")
+	c, err := NewSMTContext()
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer c.Close()
+	s, err := c.NewSolver()
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer s.Close()
+	if err = s.LoadSMT2String(input); err != nil {
+		b.Fatal(err)
+	}
+	roots, err := solver.Assertions(s.solver)
+	if err != nil {
+		b.Fatal(err)
+	}
+	m, err := c.Manager()
+	if err != nil {
+		b.Fatal(err)
+	}
+	original, err := order.ProjectQuantifiedGoal(m, roots, orderProofSteps)
+	if err != nil || original == nil {
+		b.Fatalf("constructing the quantified Boolean problem failed: %v", err)
+	}
+	rows := make([]order.BooleanClause, len(original.Clauses))
+	limit := m.ResourceLimit()
+	var remaining int
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		copy(rows, original.Clauses)
+		k := order.BooleanProblem{Vars: original.Vars, Clauses: rows}
+		conflict, complete := k.Reduce(16, limit)
+		if !complete || conflict {
+			b.Fatalf("expected a residual SAT problem, got conflict=%t complete=%t", conflict, complete)
+		}
+		remaining = len(k.Clauses)
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(len(rows)), "input-clauses/op")
+	b.ReportMetric(float64(remaining), "residual-clauses/op")
 }
 
 func appleBenchmarkInput(b *testing.B, name string) string {

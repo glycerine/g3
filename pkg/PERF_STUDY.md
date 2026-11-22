@@ -2483,3 +2483,29 @@ GoIvy has the source assertions and current verification condition before it ope
 The change saved 3.9% of retired instructions on ordinary Raft, where every check used the private proof. On the Apple isolates a later concrete check still processes a fresh solver's pending base. Avoiding 104 scopes on `dramc_nb2` produced no whole-run saving. The production adapter keeps its current call order. The more promising target for Apple is the per-expression work in preprocessing a base that a concrete check ultimately needs.
 
 The two patches reproduce the experiment on g3 `8c4be47e9` and GoIvy `ef53df6a4`. Build the GoIvy checker with `-tags=xtrace_off -pgo=off` and run with `GOMAXPROCS=1`. An empty `IVY_BEFORE_SCOPE` selects the original order. The value `once` attempts the proof before opening the scope and dispatches directly to the concrete check on fallback. The `twice` control allows the normal proof dispatch again after a miss. Set `IVY_PROOF_EVENTS=yes` to count scopes and successful refutations. [g3 experimental patch](perf/ivy_apple/goal_instances/before-scope-g3.patch) · [GoIvy experimental patch](perf/ivy_apple/goal_instances/before-scope-goivy.patch)
+
+### Direction of Boolean unit propagation
+
+The private Boolean prover emits a gate after its operands and asserts its root. A forward sweep can move a root assignment through only one level of a long implication chain. Starting at the root lets one sweep fix descendants, and reversing direction on the next sweep propagates their consequences back up. The production reducer now alternates these directions for the same bounded number of sweeps. Both directions poll the owning solver's resource limit after the same number of clause visits. [Implementation](api/internal/order/boolean_units.go) · [Single-sweep contradiction and satisfiable control](api/internal/order/boolean_units_test.go)
+
+| Standalone Apple `dramc_nb2` check 71 | Forward only | Backward only | Backward, then alternating |
+|---|---:|---:|---:|
+| Clauses left from 5,646 after 16 sweeps | 5,079 | 1,583 | 1,583 |
+| Instructions per reduction, millions | 7.418 | 5.731 | 3.659 |
+| Instructions per prepared proof, millions | 78.01 | 41.97 | 39.75 |
+| Allocations per prepared proof | 27,617 | 8,407 | 8,407 |
+| Bytes per prepared proof, MiB | 6.04 | 3.14 | 3.15 |
+
+The instruction estimates subtract the shorter process from the longer process within each round, then divide by the additional operations. The table gives medians of 12 rotating rounds with one pinned CPU per benchmark. The reduction ran 20 and 120 times. The complete prepared proof ran 2 and 12 times and includes projection, reduction and any remaining SAT search. The saved standalone SMT2 and live incremental check have different clause counts. Run `go test ./api -run '^$' -bench 'BenchmarkApple(BooleanUnitReduction|QuantifiedGoal)' -benchmem` from `pkg/`. [Go benchmarks](api/api_goal_instances_benchmark_test.go) · [All process and allocation counters](perf/ivy_apple/goal_instances/nov22-unit-benchmarks.csv)
+
+Across 315 generated Boolean problems from six Apple isolates, changing the 16-sweep order increased immediate contradictions from **163 to 249**. On `cf_pio_live` they increased from 14 to 57 out of 81, and on `cmpl_live` from 1 to 17 out of 18. This census also generates the flat quantified goals excluded by the production admission rule. Each alternative operates on its own copy of the same input. The replay driver independently reproduced all 432 observations for `cmpl_live` directly from the checker. [Per-problem observations for four schedules and six bounds](perf/ivy_apple/goal_instances/nov22-unit-schedules.csv.gz) · [Replay driver](perf/ivy_apple/goal_instances/unit_schedules.py)
+
+| Complete Raft workload | Checks | Forward, billion instructions | Backward-first alternating | Linked Z3 |
+|---|---:|---:|---:|---:|
+| One-bit fields | 419 | 12.921 | **11.686** | 13.178 |
+| Mixed widths | 419 | 28.338 | 28.355 | 161.837 |
+| Ordinary | 419 | 28.310 | 28.358 | 215.205 |
+
+On one-bit Raft, unit-propagation resource charges across 185 Boolean problems fell from 12.56 million to 3.56 million. All four release modes, including backward-only and linked Z3, produced identical complete proof transcripts in six rotating rounds per workload. The instruction saving was concentrated on one-bit Raft. The ordinary and mixed-width results each moved less than 0.2%. [All 72 complete runs](perf/ivy_apple/goal_instances/nov22-unit-raft.csv)
+
+After the change, independent replay confirmed the same 208 private refutations on nine Apple isolates. Every one of the 10,342 concrete results and all 18 recorded search counters reproduced the saved comparison with linked Z3. The 168 finite-model controls again yielded SAT on both certificate checks and zero private refutations. [Per-check reference values](perf/ivy_apple/goal_instances/nov22-projection-verified.csv.gz) · [Independent replay](perf/ivy_apple/goal_instances/verify.py) · [Satisfiable controls](perf/ivy_apple/goal_instances/finite_models/verify.py)
