@@ -52,7 +52,7 @@ func NewQFNIATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config sm
 		}
 		return value
 	}
-	main, pullParams, contextParams, cofactorParams := copyParams(), copyParams(), copyParams(), copyParams()
+	pullParams, contextParams, cofactorParams := copyParams(), copyParams(), copyParams()
 	simplifyParams, nlaParams, smtParams, nlsatParams := copyParams(), copyParams(), copyParams(), copyParams()
 	b.boolean(pullParams, "pull_cheap_ite", true)
 	b.boolean(pullParams, "local_ctx", true)
@@ -74,7 +74,7 @@ func NewQFNIATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config sm
 	cofactor := b.using(b.keep(core.MakeCofactorTermITETactic(m, c, g, nil, config.ModelEvaluator)), cofactorParams)
 	cofactor = b.keep(tactic.NewSkipIfFailedTactic(cofactor))
 	preamble := b.then(
-		simplify(main),
+		b.keep(core.MakeSimplifyTactic(m, c, g, nil)),
 		b.keep(core.NewPropagateValuesTactic(m, c, g, nil)),
 		b.using(b.clean(b.keep(core.NewContextSimplifyTactic(m, c, g, nil, config.ModelEvaluator))), contextParams),
 		simplify(pullParams),
@@ -118,18 +118,9 @@ func NewQFNIATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config sm
 		b.keep(tactic.NewFailIfUndecidedTactic(), nil),
 	)
 	fallback := smtSolver()
-	body := b.then(preamble, b.otherwise(bounded, intermediate, nlsatAttempt, fallback))
+	alternatives := b.otherwise(bounded, intermediate, nlsatAttempt, fallback)
 	if b.err != nil {
 		return nil, b.err
 	}
-	result, err = tactic.NewUsingParamsTactic(c, body, main)
-	if err != nil {
-		return nil, err
-	}
-	if p == nil {
-		empty := c.EmptyValue()
-		p = &empty
-	}
-	err = result.UpdateParams(p)
-	return result, err
+	return tactic.NewAndThenTactic(preamble, alternatives)
 }

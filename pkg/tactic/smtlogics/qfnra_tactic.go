@@ -45,7 +45,7 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 		}
 		return value
 	}
-	main := copyParams()
+
 	p0, p1, p2 := copyParams(), copyParams(), copyParams()
 	b.boolean(p0, "inline_vars", true)
 	b.uint(p1, "seed", 11)
@@ -78,9 +78,6 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 	if b.err != nil {
 		return nil, b.err
 	}
-	simplify := func(params *uparams.ParamsRef) tactic.Tactic {
-		return b.using(b.clean(b.keep(core.NewSimplifyTactic(m, c, g, nil))), params)
-	}
 	// try_for(mk_qfnra_nlsat_tactic(m, pN), ms): the same strategy as the
 	// registered qfnra-nlsat tactic (which adds elim_and/blast_distinct and
 	// reads factor itself), with no fail_if_undecided after it.
@@ -98,31 +95,20 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 		b.timed(b.keep(smtcore.NewSMTTactic(m, nil, config)), 5000),
 		b.keep(tactic.NewFailIfUndecidedTactic(), nil),
 	)
-	body := b.then(
-		simplify(main),
-		b.keep(core.NewPropagateValuesTactic(m, c, g, nil)),
-		b.otherwise(
-			nlsatRoute(p0, 5000),
-			nlsatRoute(p1, 10000),
-			bounded(bounded4),
-			timedSMT,
-			bounded(bounded6),
-			nlsatRoute(p2, 0),
-		),
+	simplifier := b.keep(core.MakeSimplifyTactic(m, c, g, p))
+	propagate := b.keep(core.NewPropagateValuesTactic(m, c, g, p))
+	alternatives := b.otherwise(
+		nlsatRoute(p0, 5000),
+		nlsatRoute(p1, 10000),
+		bounded(bounded4),
+		timedSMT,
+		bounded(bounded6),
+		nlsatRoute(p2, 0),
 	)
 	if b.err != nil {
 		return nil, b.err
 	}
-	result, err = tactic.NewUsingParamsTactic(c, body, main)
-	if err != nil {
-		return nil, err
-	}
-	if p == nil {
-		empty := c.EmptyValue()
-		p = &empty
-	}
-	err = result.UpdateParams(p)
-	return result, err
+	return tactic.NewAndThenTactic(simplifier, propagate, alternatives)
 }
 
 // qfnraSATSolverRoute is the and_then of mk_qfnra_sat_solver, built from the

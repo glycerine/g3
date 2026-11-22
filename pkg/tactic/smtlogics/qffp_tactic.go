@@ -55,22 +55,17 @@ func NewQFFPTacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config smt
 			result = nil
 		}
 	}()
-	copyParams := func() *uparams.ParamsRef {
-		value := b.params()
-		if b.err == nil && p != nil {
-			b.err = c.Assign(value, p)
-		}
-		return value
+	simplifyParams := b.params()
+	if b.err == nil && p != nil {
+		b.err = c.Assign(simplifyParams, p)
 	}
-	mainParams := copyParams()
-	simplifyParams := copyParams()
 	b.boolean(simplifyParams, "arith_lhs", true)
 	b.boolean(simplifyParams, "elim_and", true)
 	if b.err != nil {
 		return nil, b.err
 	}
-	simplify := func() tactic.Tactic {
-		return b.clean(b.keep(core.NewSimplifyTactic(m, c, g, p)))
+	simplify := func(settings *uparams.ParamsRef) tactic.Tactic {
+		return b.keep(core.MakeSimplifyTactic(m, c, g, settings))
 	}
 	noProofOrCore := func(child tactic.Tactic) tactic.Tactic {
 		if b.err != nil {
@@ -85,11 +80,11 @@ func NewQFFPTacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config smt
 	// The first stage is mk_simplify_tactic(m, simp_p), not using_params:
 	// the closing st->updt_params(p) replaces its arith_lhs/elim_and.
 	preamble := b.then(
-		simplify(),
+		simplify(simplifyParams),
 		b.keep(core.NewPropagateValuesTactic(m, c, g, p)),
 		b.clean(b.keep(fpatactic.NewFPA2BVTactic(m, c, g, p))),
 		b.keep(core.NewPropagateValuesTactic(m, c, g, p)),
-		b.using(simplify(), simplifyParams),
+		b.using(simplify(p), simplifyParams),
 		noProofOrCore(b.keep(ackermannization.NewTactic(m, p, config.ModelEvaluator))),
 	)
 	bitBlast := b.clean(b.keep(bv.NewBitBlasterTactic(m, c, g, p, config.ModelEvaluator.Cooperation)))
@@ -103,11 +98,11 @@ func NewQFFPTacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config smt
 	fallbackSMT := b.keep(smtcore.NewSMTTactic(m, p, config))
 	nonpropositionalBackend := b.keep(tactic.NewCondTactic(nonlinearReal, nonlinearBackend, fallbackSMT))
 	backend := b.keep(tactic.NewCondTactic(propositional, propositionalBackend, nonpropositionalBackend))
-	body := b.then(preamble, bitBlast, b.using(simplify(), simplifyParams), backend)
+	lastSimplify := b.using(simplify(p), simplifyParams)
 	if b.err != nil {
 		return nil, b.err
 	}
-	result, err = tactic.NewUsingParamsTactic(c, body, mainParams)
+	result, err = tactic.NewAndThenTactic(preamble, bitBlast, lastSimplify, backend)
 	if err != nil {
 		return nil, err
 	}

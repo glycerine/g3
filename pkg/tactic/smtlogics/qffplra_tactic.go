@@ -3,6 +3,7 @@ package smtlogics
 // Source: src/tactic/fpa/qffplra_tactic.cpp/.h.
 
 import (
+	"errors"
 	"io"
 	"os"
 	"reflect"
@@ -21,7 +22,21 @@ func NewQFFPLRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SM
 }
 
 func NewQFFPLRATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSolverConfig, output io.Writer) (tactic.Tactic, error) {
-	return NewQFFPTacticWithOutput(m, p, config, output)
+	t, err := NewQFFPTacticWithOutput(m, p, config, output)
+	if err != nil {
+		return nil, err
+	}
+	if p == nil {
+		empty := config.Params.EmptyValue()
+		p = &empty
+	}
+	if err = t.UpdateParams(p); err != nil {
+		if refErr := t.IncRef(); refErr != nil {
+			return nil, errors.Join(err, refErr)
+		}
+		return nil, errors.Join(err, t.DecRef())
+	}
+	return t, nil
 }
 
 type isQFFPLRAProbe struct {
