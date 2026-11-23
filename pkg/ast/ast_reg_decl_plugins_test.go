@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestASTRegisterDeclarationPluginsSourceOrder(t *testing.T) {
@@ -75,4 +76,34 @@ func TestASTRegisterDeclarationPluginsStopsAtError(t *testing.T) {
 		t.Fatal("registration continued after the refused constructor")
 	}
 	astTestMust(t, m.RegisterDeclarationPlugins())
+}
+
+func TestRepeatedDeclarationRegistrationChecksOwners(t *testing.T) {
+	m := astTestManager(t)
+	astTestMust(t, m.RegisterDeclarationPlugins())
+	other := astTestManager(t)
+	original := m.Symbols
+	m.Symbols = other.Symbols
+	err := m.RegisterDeclarationPlugins()
+	m.Symbols = original
+	if !errors.Is(err, usymbol.ErrOwner) {
+		t.Fatalf("foreign symbol service returned %v", err)
+	}
+	astTestMust(t, m.RegisterDeclarationPlugins())
+	astTestMust(t, m.Close())
+	if err := m.RegisterDeclarationPlugins(); !errors.Is(err, arena.ErrClosed) {
+		t.Fatalf("closed manager returned %v", err)
+	}
+}
+
+func BenchmarkRepeatedDeclarationRegistration(b *testing.B) {
+	m := astTestManager(b)
+	astTestMust(b, m.RegisterDeclarationPlugins())
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := m.RegisterDeclarationPlugins(); err != nil {
+			b.Fatal(err)
+		}
+	}
 }

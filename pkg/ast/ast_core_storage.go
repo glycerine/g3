@@ -306,7 +306,8 @@ func (astOwnerConfined) Lock()   {}
 func (astOwnerConfined) Unlock() {}
 
 type ASTManager struct {
-	recursiveDefinitions bool // see NoteRecursiveFunctionDefinitions
+	recursiveDefinitions    bool // see NoteRecursiveFunctionDefinitions
+	declarationPluginsReady bool
 	// Hot: read by lock and by every accessor. Keep these on one cache line.
 	Self                                         *ASTManager
 	origin                                       uint64

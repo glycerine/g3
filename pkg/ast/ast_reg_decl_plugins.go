@@ -6,6 +6,16 @@ package ast
 // plugins in source order. Existing registrations keep their owners and IDs.
 // Constructor errors stop the sequence and leave the reached prefix owned by m.
 func (m *ASTManager) RegisterDeclarationPlugins() error {
+	if err := m.lock(); err != nil {
+		return err
+	}
+	ready := m.declarationPluginsReady && m.Symbols == m.families.symbols
+	m.mu.Unlock()
+	if ready {
+		// Plugin bindings live until manager destruction. The borrowed symbol
+		// owner can close independently, including after a successful call.
+		return m.Symbols.CheckOpen()
+	}
 	for _, entry := range [...]struct {
 		name      string
 		construct func(*ASTManager) (FamilyID, error)
@@ -29,6 +39,7 @@ func (m *ASTManager) RegisterDeclarationPlugins() error {
 			}
 		}
 	}
+	m.declarationPluginsReady = true
 	return nil
 }
 
