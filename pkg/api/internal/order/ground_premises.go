@@ -55,7 +55,7 @@ func (p *GroundPremises) Refutes(m *ast.ASTManager, assertions []ast.ASTHandle, 
 			return false, nil
 		}
 		g := newGroundProjection(m, uint32(budget))
-		problem, err := g.problem(assertions, true)
+		problem, err := g.problem(assertions, true, nil)
 		if err != nil {
 			if err == errBitLimit || err == inapplicable {
 				if m.ResourceLimit().CancelFlag() {

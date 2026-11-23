@@ -46,6 +46,7 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
+	quantifiedPremises order.QuantifiedPremises
 	groundPremises     order.GroundPremises
 	universalPremises  order.UniversalPremises
 	transitionPremises order.TransitionPremises
@@ -138,6 +139,7 @@ func (b *OrderProofBatch) Close() error {
 		s.pendingRefutation = nil
 	}
 	b.state.transitionPremises = order.TransitionPremises{}
+	b.state.quantifiedPremises = order.QuantifiedPremises{}
 	b.state.groundPremises = order.GroundPremises{}
 	b.state.universalPremises = order.UniversalPremises{}
 	b.state.witnessPremises = nil
@@ -245,7 +247,11 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 		return false, err
 	}
 	if !applicable {
-		bits, err := order.ProjectQuantifiedGoal(parent, assertions, maxSteps)
+		var parsed *order.QuantifiedPremises
+		if reuse {
+			parsed = &p.quantifiedPremises
+		}
+		bits, err := parsed.Project(parent, assertions, maxSteps)
 		if err != nil || limit.CancelFlag() {
 			return false, err
 		}

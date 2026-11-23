@@ -8,6 +8,12 @@ import "github.com/glycerine/g3/pkg/ast"
 // Boolean atom lets the source use the quantifier under any connective. Every
 // source model satisfies the resulting implications and the projected roots.
 func ProjectQuantifiedGoal(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (*BooleanProblem, error) {
+	return (*QuantifiedPremises)(nil).Project(m, assertions, steps)
+}
+
+// Project reuses parsed premises across goals in one solver batch. The caller
+// holds the assertion roots for the duration of the call.
+func (p *QuantifiedPremises) Project(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (*BooleanProblem, error) {
 	if len(assertions) < 2 || len(assertions) > 8192 {
 		return nil, nil
 	}
@@ -16,7 +22,7 @@ func ProjectQuantifiedGoal(m *ast.ASTManager, assertions []ast.ASTHandle, steps 
 		return nil, err
 	}
 	g := newGroundProjection(m, steps)
-	problem, err := g.problem(assertions, false)
+	problem, err := g.problem(assertions, false, p)
 	if err == errBitLimit || err == inapplicable {
 		return nil, nil
 	}
@@ -119,18 +125,21 @@ type projectionNode struct {
 
 const opaqueOperation int32 = -1
 
-func (g *groundProjection) problem(assertions []ast.ASTHandle, seedGoal bool) (*BooleanProblem, error) {
+func (g *groundProjection) problem(assertions []ast.ASTHandle, seedGoal bool, premises *QuantifiedPremises) (*BooleanProblem, error) {
 	g.sharedPremises = seedGoal
 	inputs := make([]uint32, len(assertions))
-	for i, h := range assertions {
-		id, err := g.read(h, 0)
-		if err != nil {
+	baseLen := len(inputs) - 1
+	if premises == nil {
+		if err := g.readInputs(assertions, inputs); err != nil {
 			return nil, err
 		}
-		if !g.input[id].boolean {
-			return nil, inapplicable
+	} else {
+		if err := premises.readBase(g, assertions[:baseLen], inputs[:baseLen]); err != nil {
+			return nil, err
 		}
-		inputs[i] = id
+		if err := g.readInputs(assertions[baseLen:], inputs[baseLen:]); err != nil {
+			return nil, err
+		}
 	}
 	if err := g.chooseConstants(inputs); err != nil {
 		return nil, err
