@@ -3980,3 +3980,27 @@ python3 perf/ivy_apple/holdouts/ground_premise_replay.py --goivy /path/to/ivy/go
   --observations perf/ivy_apple/goal_instances/nov23-witness-native-proofs.csv.gz \
   --cases raftok raft_no_assume rfn2
 ```
+
+## Propagating an existing premise index before building another projection
+
+Commit `8f05e60c7` changes the order of work when a batch already has ground instances and Boolean units for its current premises. The solver first tries propagating the sibling goal through that index. Reuse requires the same AST manager and the same ordered premise handles, including their generations. A miss continues through the existing proof sequence. [Implementation](api/api_order_abstraction.go) · [Scope, cancellation and manager tests](api/api_ground_premises_test.go)
+
+| Complete verification | Previous g3 | g3 with earlier propagation | Linked Z3 | Previous g3, seconds | New g3, seconds | Linked Z3, seconds |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple dramc_nb2 | 162.24 | **158.34** | 168.06 | 25.86 | **24.54** | 27.52 |
+| TLB | 103.67 | **102.80** | 69.84 | 15.83 | **15.69** | 10.78 |
+
+Instruction columns are median billions of user instructions over seven alternating runs per build on one pinned CPU per input. All used GoIvy `01aa2c6fa`. Five further rounds on ten inputs and one pair on each of 87 standalone specs matched the reference outcomes. The trials also measured two tempting alternatives. Eagerly constructing a missing index took hybrid reliable broadcast from 13.02 to 13.34 billion instructions. Moving the universal matcher up with a prepared index took raftok from 24.72 to 36.24 billion before the separate witness-width change. [192 process observations](perf/ivy_apple/goal_instances/nov23-prepared-units.csv.gz) · [87 corpus pairs](perf/ivy_apple/goal_instances/nov23-prepared-units-corpus.csv.gz) · [280 ordering trials](perf/ivy_apple/goal_instances/nov23-unit-order-trials.csv.gz) · [Ordering patches against 63d7d9581](perf/ivy_apple/goal_instances/nov23-unit-order-trials.tar.gz)
+
+## Walking the fragment graph without serializing formulas
+
+GoIvy `817871f86` stores each source vertex's outgoing arc indices in order. The old walk serialized a formula to construct a dictionary key for each arc, sometimes twice. Parallel arcs to the same destination cannot change which cycle depth-first search returns. If the first arc finds a cycle, the search has already returned. If the visit finishes, later arcs see the destination marked complete. Keeping the original arc indices preserves the first formula, argument and location reported when the graph fails stratification. The cost affects both solver backends. [GoIvy implementation and benchmark](https://github.com/glycerine/ivy/commit/817871f86)
+
+For the 129-vertex benchmark, seven 25-iteration samples gave a median **440.84 to 53.48 µs** with leaf formulas and **1,657.35 to 52.71 µs** with nested formulas. Nested-formula allocation fell from 2.02 MB to 44,376 bytes per traversal. In five complete runs per checker, g3 instruction counts on dramc_nb2 fell from **158.71 to 156.23 billion**, on cf_live from **58.31 to 57.60 billion** and on rfn2 from **15.25 to 14.95 billion**. With the new frontend, linked Z3 used 164.98, 59.18 and 51.99 billion on the same three inputs. Wall times varied under contention. On dramc_nb2, for example, the g3 wall median rose from 32.32 to 47.54 seconds despite the lower instruction count. [90 complete runs](perf/ivy_apple/holdouts/nov23-fragment-cycles.csv.gz) · [Original microbenchmark samples](perf/ivy_apple/holdouts/nov23-fragment-cycles-before.bench.gz) · [Retained microbenchmark samples](perf/ivy_apple/holdouts/nov23-fragment-cycles-after.bench.gz)
+
+The two implementations returned the exact same first cycle on 30,000 seeded directed multigraphs with vertex unification, self-loops and duplicate arcs. The checker also preserved both output streams and exit status on 108 permutations of nine real fragment errors. Enabled tracing on rfn2 produced byte-identical 2,334,030,415-byte output streams with 524,035 trace records and 26 passes. The Paxos `log3` comparison matched the Python reference on all 27,855 normalized lines, including 27,782 trace records. An independent set of 87 standalone specs matched linked Z3 on both streams and exit status. [Graph differential driver](perf/ivy_apple/holdouts/fragment_cycles.py) · [Permuted diagnostics](perf/ivy_apple/holdouts/nov23-fragment-cycle-errors.csv.gz) · [Corpus comparisons](perf/ivy_apple/holdouts/nov23-fragment-cycle-corpus.csv.gz) · [Enabled-trace comparison driver](perf/ivy_apple/compare_frontend_traces.py)
+
+```sh
+python3 perf/ivy_apple/holdouts/fragment_cycles.py --goivy /path/to/ivy/goivy
+go -C /path/to/ivy/goivy test . -tags=xtrace_off -run '^$' -bench '^BenchmarkFragmentCycleTraversal$' -benchmem -benchtime=25x -count=7 -cpu=1
+```
