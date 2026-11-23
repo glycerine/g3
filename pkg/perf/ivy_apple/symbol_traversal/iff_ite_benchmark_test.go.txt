@@ -1,0 +1,21 @@
+package goivy
+
+import "testing"
+
+func BenchmarkSymbolsIffIteAudit(b *testing.B) {
+	leaf := &Const{Name: "x", CSort: Boolean}
+	var tree Expr = leaf
+	for range 5 {
+		tree = &LogicIff{T1: tree, T2: &LogicIte{Cond: leaf, Then: tree, Else: leaf}}
+	}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		count := 0
+		for range SymbolsIluAst(tree) {
+			count++
+		}
+		if count != 94 {
+			b.Fatal(count)
+		}
+	}
+}

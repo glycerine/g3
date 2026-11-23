@@ -2277,6 +2277,22 @@ Six fresh processes per layout measured live heap after collection. The selected
 
 ### GoIvy symbol traversal after the rebase
 
+#### November 23 comparison with the preserved commit
+
+GoIvy `abcopt` at `01aa2c6fa` contains `ef53df6a4`. Its two symbol-traversal benchmarks are byte-identical to those introduced in `3ef4b9020`. I kept the walker from `abcopt`. The preserved commit sends fixed-arity expressions through a type switch with three stack slots. The current walker dispatches directly on the common types, including equality, negation, implication, application and quantifiers. Equivalence and if-then-else still go through `NodeArgs`.
+
+All three builds passed the 18 focused traversal tests, including repeated occurrences, early termination and a callback that changes the parent between visits. Across five rounds on CPU 46 the current walker took **1.26 µs versus 3.78 µs** for the preserved walker on the fixed-arity fixture, and **2.54 µs versus 7.48 µs** on the application fixture. Both used zero heap allocations on these fixtures. On a separate equivalence and if-then-else tree, the current walker took 3.12 µs and allocated 62 times. Adding the old scratch space just to the fallback reduced that to 1.45 µs and zero allocations. [Benchmark and Go overlay builder](perf/ivy_apple/symbol_traversal/audit_walker.py) · [Fallback fixture](perf/ivy_apple/symbol_traversal/iff_ite_benchmark_test.go.txt) · [All traversal observations](perf/ivy_apple/symbol_traversal/nov23-audit-micro.csv)
+
+| Complete verification | Current walker | Preserved walker | Current walker with scratch fallback |
+|---|---:|---:|---:|
+| Apple rfn2 | 16.982 | 17.164 | 16.979 |
+| Apple dramc_nb2 | 161.926 | 165.444 | 161.898 |
+| TLB | 106.492 | 106.583 | 106.548 |
+
+Entries are median billions of retired instructions from four release runs per variant per workload. Each comparison used the same g3 solver, GoIvy module replacement, CPU and input. All 36 runs matched the reference transcripts and exit statuses, including both expected TLB failures. The scratch fallback moved all three medians by less than 0.06%. The older complete walker cost 2.2% more instructions on dramc_nb2. To rerun the focused tests and three fixtures, use `python3 perf/ivy_apple/symbol_traversal/audit_walker.py --goivy ~/ivy/goivy --cpu 46 --output /tmp/goivy-walker-audit`. [Complete verification measurements](perf/ivy_apple/symbol_traversal/nov23-audit-proofs.csv)
+
+#### Measurements on the original rebased checkout
+
 GoIvy `ef53df6a4` uses the existing concrete child accessors for common fixed-arity expressions. This lets Go keep temporary argument lists on the stack. Repeated subexpressions still yield their symbols at every occurrence. All four traversal variants produced byte-identical `dramc_nb2` traces through 8,622,828 lines, including 8,599,630 trace events and all 2,479 passing checks. The separate Multi-Paxos `log3` reproduction also matched Python on all 27,855 normalized lines, its 27,782 trace events and the expected diagnostic at line 253. The GoIvy commit includes the traversal benchmark and tests for suppression of later callbacks after an early stop and for a caller mutating a parent between visits. [Apple trace results](perf/ivy_apple/symbol_traversal/rebased-trace.csv)
 
 On the fixed-arity fixture, traversal fell from 51.06 to 7.36 µs and from 190 heap allocations to zero across twelve trials. Visiting an application that referenced the tree twice fell from 105.41 to 15.64 µs and from 380 allocations to zero. On a complete `dramc_nb2` proof with the same g3 backend, instructions fell from **449.54 to 417.34 billion**, a 7.16% median paired reduction on CPU 19 across three rounds. With native Z3 the reduction was 7.17% across three pairs on CPU 29. Elapsed changes on those CPUs were −7.96% and +9.63%, respectively. On `rfn2`, five g3 pairs retired 2.27% fewer instructions. [Traversal trials](perf/ivy_apple/symbol_traversal/rebased-micro.csv) · [Complete proof pairs](perf/ivy_apple/symbol_traversal/rebased-proofs.csv)
