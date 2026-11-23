@@ -13,7 +13,7 @@ import time
 EVENTS = ("instructions:u", "cycles:u", "branches:u", "branch-misses:u")
 
 
-def measure(checker, args, directory, expected_exit=0):
+def measure(checker, args, directory, expected_exit=0, gogc=None):
     directory.mkdir(parents=True, exist_ok=False)
     resources = directory / "resources"
     checker_command = [
@@ -25,10 +25,13 @@ def measure(checker, args, directory, expected_exit=0):
         counts = directory / "perf.csv"
         command.extend([args.perf, "stat", "-x", ",", "-e", ",".join(EVENTS), "-o", str(counts), "--"])
     command.extend(checker_command)
+    environment = dict(os.environ, GOMAXPROCS="1", XTRACE_OFF="1")
+    if gogc is not None:
+        environment["GOGC"] = str(gogc)
     with (directory / "stdout").open("wb") as out, (directory / "stderr").open("wb") as err:
         start = time.monotonic()
         result = subprocess.run(command, stdout=out, stderr=err, cwd=directory,
-                                env=dict(os.environ, GOMAXPROCS="1", XTRACE_OFF="1"))
+                                env=environment)
         elapsed = time.monotonic() - start
     user, system, rss = resources.read_text().splitlines()[-1].split()
     counters = []

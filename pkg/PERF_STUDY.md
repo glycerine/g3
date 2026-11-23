@@ -1,5 +1,13 @@
 # Raft verification and SMT scope restoration performance
 
+## November 22–23 verification results
+
+A private eight-byte counter in GoIvy now issues fragment variable names without a table of issued names. It removed 136,961,124 suffix probes and about 231 billion instructions from a complete TLB verification on either backend. The remaining lexical map resolves references to their binders. The arena, compact Boolean records and disabled-trace guards are retained. [Fresh-name benchmark](#fresh-variable-names-in-the-ivy-fragment-checker) · [Trace allocations](#disabled-trace-arguments-accounted-for-40-gb-of-allocation)
+
+On the final builds, g3 won all seven default-GC pairs on the finite-domain Raft wrapper, Apple rfn2, cf_live and dramc_nb2, and the numeric example. Linked Z3 still won abstract Raft, raftok, TLB, Flash and hybrid broadcast. At matched high memory on dramc_nb2 the median was **24.80 s for g3 versus 24.51 s for linked Z3**. Linked Z3 won nine of eleven pairs there. [Complete timings, instructions and memory](#complete-verification-and-scope-benchmarks-at-the-end-of-the-study)
+
+The original 8.61-billion-instruction first-push penalty on rfn2 is gone. The new first-push priority is TLB, at **20.39 billion g3 instructions versus 5.92 billion for Z3**. On identical repeated search, rewriting explains 46 million of the 149 million extra instructions per ticket check and 576 million of the 1.22 billion extra per toy-consensus check. The rest spans quantifier handling, internalization, model work, relevance, arithmetic and memory management, in different proportions by workload. [Actual first pushes](#preprocessing-on-the-first-physical-push) · [Matched-search profiles](#where-each-additional-matched-check-spends-instructions)
+
 The AST arena is part of g3's design. Current performance work keeps it and measures how often the solver traverses expressions, looks up Boolean state, and invokes callbacks during a proof.
 
 **Abstract Raft now takes 45.61 billion instructions in g3, down from 100.25 billion. Linked Z3 takes 24.92 billion.** A conditional point-update proof now handles arbitrary uninterpreted domains. It also cut raftok from 78.39 to 42.37 billion instructions. [Complete runs and per-check results](#conditional-point-updates-on-uninterpreted-domains)
@@ -3670,3 +3678,33 @@ I sampled 4 and 32 consecutive push/assert/check/pop operations in the same shel
 | Toy consensus 18 | 1,693.5 / 471.2 | 1,666.9 / 469.3 | 738.7 / 163.1 | 193.2 / 44.8 |
 
 On ticket 290, the rewriter accounts for 46.4 M of the 149.3 M excess instructions. Internalization outside the rewriter adds 25.1 M, quantifier processing outside the rewriter adds 24.0 M and Go GC about 19.4 M. On toy consensus, rewriting accounts for 575.6 M of the 1,222.3 M excess. The portions of that rewrite gap called from internalization, model evaluation and quantifiers are approximately 194.9 M, 154.2 M and 148.4 M. The caller columns subdivide rewriting and overlap the total. Numeric aux-011440 has a more distributed cost, including about 17.7 M extra relevance instructions, 16.6 M in arithmetic, 14.7 M in rewriting and 12.4 M in congruence lookup. Sampling gives estimates, and medians of categories need not sum exactly to the median total. [Classifier rules](perf/ivy_apple/holdouts/query_stack_groups.csv)
+
+## Complete verification and scope benchmarks at the end of the study
+
+The two uninstrumented GoIvy executables used frontend `59aa2840e`, g3 `a94d21dd9` through the local Go module replacement, and the linked C++ fork in this repository. Builds used Go PGO off and tracing compiled off. Within each pair both processes used the same pinned CPU, one Go CPU and the same input. The order alternated. Each entry below is a median of complete processes. Instructions cover both the frontend and the solver. The controls check individual printed verdicts, stderr, and exit status. The numeric example has 14 passes and one inconclusive result. Its printed diagnostic SMT commands match after expanding lets. TLB includes two expected failures and Flash includes 65. [All 306 complete runs](perf/ivy_apple/holdouts/nov22b-final-verification.csv.gz) · [Paired benchmark](perf/ivy_apple/holdouts/paired_verification.py)
+
+| Workload | Pairs | Wall seconds, g3 / Z3 | Billion instructions, g3 / Z3 | Peak MiB, g3 / Z3 | g3 wall wins |
+|---|---:|---:|---:|---:|---:|
+| Finite-domain Raft wrapper | 7 | 3.243 / 36.250 | 23.57 / 214.80 | 60.4 / 313.8 | 7 |
+| Abstract Raft | 7 | 4.249 / 3.531 | 32.14 / 24.85 | 74.9 / 58.0 | 0 |
+| raftok | 7 | 3.331 / 2.861 | 24.98 / 19.93 | 66.9 / 58.9 | 0 |
+| rfn2 | 7 | 2.437 / 11.763 | 17.31 / 52.71 | 103.4 / 131.9 | 7 |
+| tlb | 7 | 14.670 / 10.322 | 108.14 / 70.98 | 125.4 / 141.0 | 0 |
+| cf_live | 7 | 8.251 / 10.753 | 59.23 / 60.35 | 229.0 / 146.6 | 7 |
+| dramc_nb2 | 7 | 23.488 / 25.634 | 165.96 / 172.83 | 214.9 / 212.2 | 7 |
+| Numeric example | 7 | 14.371 / 31.701 | 111.05 / 211.79 | 82.1 / 109.6 | 7 |
+| Flash | 7 | 1.394 / 0.710 | 9.16 / 4.55 | 47.9 / 42.1 | 0 |
+| Hybrid reliable broadcast | 7 | 2.056 / 0.973 | 14.01 / 6.31 | 57.8 / 51.4 | 0 |
+| toy-consensus | 9 | 0.565 / 0.501 | 3.55 / 3.52 | 49.5 / 50.8 | 0 |
+| ticket | 9 | 0.628 / 0.354 | 4.25 / 2.25 | 49.8 / 41.1 | 0 |
+| progress | 9 | 0.112 / 0.120 | 0.59 / 0.71 | 40.8 / 36.3 | 9 |
+| ping-pong | 9 | 0.048 / 0.084 | 0.14 / 0.48 | 33.4 / 35.2 | 9 |
+| leader-ring | 9 | 0.098 / 0.085 | 0.56 / 0.42 | 36.7 / 34.5 | 0 |
+| election-btw | 9 | 0.116 / 0.095 | 0.68 / 0.48 | 37.2 / 34.8 | 0 |
+| ring-bug | 9 | 0.044 / 0.049 | 0.13 / 0.17 | 33.1 / 33.7 | 8 |
+
+One additional pair on each of 87 standalone specs matched stdout and stderr byte for byte and reproduced the exit status. g3 used fewer instructions on 51 and less elapsed time on 53. These single-pair counts describe the selected corpus. The repeated panel above gives stronger evidence for a particular workload. [Standalone proof list](perf/ivy_apple/holdouts/nov22b-verification-cases.txt) · [174 measurements](perf/ivy_apple/holdouts/nov22b-final-corpus.csv.gz) · [Corpus driver](perf/ivy_apple/holdouts/spec_survey.py)
+
+For the high-memory dramc_nb2 comparison I first measured five repeats at each of four neighboring GC settings per engine. I selected the median RSS closest to the earlier 467 MiB target independently for each checker. The resulting settings were GOGC=415 for g3 and 565 for linked Z3. Eleven fresh pairs on CPU 44 then measured **476.6 / 479.3 MiB**, **130.93 / 122.17 billion instructions** and **24.802 / 24.513 s**. The median of the eleven paired wall ratios was 1.020. At the default GOGC=100, the seven primary pairs on CPU 23 measured **214.9 / 212.2 MiB**, with g3 faster in all seven. A second nine-pair default panel on CPU 24 measured 218.6 / 199.2 MiB and 23.060 / 24.948 s, with g3 faster in all nine. RSS is process peak, including C++ allocations. The panels used different cores on a shared host. [Calibration samples](perf/ivy_apple/holdouts/nov22b-final-rss-calibration.csv.gz) · [Independent measurement pairs](perf/ivy_apple/holdouts/nov22b-final-verification.csv.gz)
+
+I ran the repository's exact `make bench` and `make cppbench` targets in alternating order for 25 pairs, pinned to CPU 45 with GOMAXPROCS=1 and GOGC=100. For 128 atoms and 64 clauses the median surviving-atom pop took **361 ns in Go and 482 ns in C++**. The scoped-atom pop took **13,704 ns and 12,611 ns**, an 8.7% gap. Both Go medians were zero allocations per operation. These microseconds measure a single scope restoration. Whole verification above includes all frontend and search work. [All 100 benchmark rows](perf/scope_restoration/nov22b-final-make-targets.csv) · [Make target driver](perf/scope_restoration/make_targets.py) · [Independent-worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
