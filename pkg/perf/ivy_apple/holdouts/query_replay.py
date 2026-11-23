@@ -9,6 +9,7 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 CASES = ("toy-consensus-18", "ticket-127", "ticket-290")
+RAFT_CORES = ("raft-0251", "raft-0274", "raft-0275")
 NUMERIC_ANSWERS = {
     "aux-003060": "sat", "aux-004781": "sat", "aux-010541": "sat", "aux-011440": "unsat",
     "aux-012725": "sat", "aux-014966": "sat", "aux-017026": "unsat", "aux-019930": "unsat",
@@ -27,7 +28,7 @@ def query_inputs(vector, auxiliary=False):
             raise ValueError(f"expected assertions and one check in {vector}")
         return {"fresh": source, "incremental": source[:first.start()] + "(push 1)\n" + source[first.start():]}
     # The native API printer in the linked fork omits zero arity on sorts.
-    source = re.sub(r"^\(declare-sort ([^()\n]+)\)$", r"(declare-sort \1 0)", source, flags=re.M)
+    source = re.sub(r"^\(declare-sort (\|[^|\n]*\||[^\s()|]+)\)$", r"(declare-sort \1 0)", source, flags=re.M)
     pos = source.rfind("\n(assert ")
     if pos < 0 or source.count("(check-sat)") != 1:
         raise ValueError(f"{vector} has no final assertion or unique check")
@@ -41,9 +42,9 @@ def main():
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--cpu", required=True, type=int)
     parser.add_argument("--pairs", type=int, default=7)
-    parser.add_argument("--suite", choices=("ivy", "numeric-auxiliary"), default="ivy")
+    parser.add_argument("--suite", choices=("ivy", "numeric-auxiliary", "raft-cores"), default="ivy")
     parser.add_argument("--queries", nargs="+", metavar="NAME")
-    parser.add_argument("--routes", nargs="+", choices=("fresh", "incremental"), default=("fresh", "incremental"))
+    parser.add_argument("--routes", nargs="+", choices=("fresh", "incremental"))
     parser.add_argument("--go-build", action="append", default=[], metavar="NAME=PATH",
                         help="include another g3 binary in the same rotated comparisons")
     parser.add_argument("--perf", default="perf")
@@ -53,12 +54,17 @@ def main():
         parser.error("supply a positive pair count")
     auxiliary = a.suite == "numeric-auxiliary"
     answers = NUMERIC_ANSWERS if auxiliary else dict.fromkeys(CASES, "unsat")
+    if a.suite == "raft-cores":
+        answers = dict.fromkeys(RAFT_CORES, "unsat")
+    routes = a.routes or (("incremental",) if a.suite == "raft-cores" else ("fresh", "incremental"))
     queries = a.queries or answers
     if any(case not in answers for case in queries):
         parser.error(f"unknown query for {a.suite}. Choose from {', '.join(answers)}")
     vectors = a.vectors or HERE.parent / "test_vectors"
     if auxiliary and a.vectors is None:
         vectors = vectors / "numeric_auxiliary"
+    if a.suite == "raft-cores" and a.vectors is None:
+        vectors = vectors / "raft_cores"
     binaries = {"g3": a.g3.resolve(strict=True)}
     for item in a.go_build:
         label, equals, binary = item.partition("=")
@@ -73,7 +79,7 @@ def main():
     writer.writerow(["query", "route", "pair", "engine", "cpu", "answer", "instructions", *columns])
     for case in queries:
         inputs = query_inputs(vectors / (case + ".smt2.gz"), auxiliary)
-        for route in a.routes:
+        for route in routes:
             text = inputs[route]
             reference = None
             for i in range(a.pairs):

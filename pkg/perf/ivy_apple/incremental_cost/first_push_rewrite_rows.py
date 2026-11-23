@@ -36,25 +36,27 @@ def stage_patch(diff, goivy, stage):
     return sources
 
 
-def native_library(args, stage, sources):
+def native_library(args, stage, sources, unit="asserted_formulas", counter="ivy_asserted_rows.cpp",
+                   wrap="Z3_solver_push"):
     build = args.cpp_build.resolve()
-    member = "asserted_formulas.o"
+    member = unit + ".o"
     lib = args.goivy / "z3vendor/native_lib/libz3.a"
     if subprocess.check_output(["ar", "p", lib, member]) != (build / "smt" / member).read_bytes():
-        raise ValueError("GoIvy and the in-tree C++ build have different asserted_formulas objects")
+        raise ValueError(f"GoIvy and the in-tree C++ build have different {member} objects")
     src = G3 / "src"
     makefile = (build / "Makefile").read_text()
     config = (build / "config.mk").read_text()
-    rule = re.search(r"\$\((includes_\d+)\).*\.\./src/smt/asserted_formulas\.cpp$", makefile, re.M)
+    source = "smt/" + unit + ".cpp"
+    rule = re.search(r"\$\((includes_\d+)\).*" + re.escape("../src/" + source) + "$", makefile, re.M)
     subprocess.run([*make_value(config, "CXX"), *make_value(config, "CXXFLAGS"),
                     *make_value(makefile, rule[1]), "-o", stage / member,
-                    sources[src / "smt/asserted_formulas.cpp"]], cwd=build, check=True)
+                    sources[src / source]], cwd=build, check=True)
     archive = stage / "libz3.a"
     shutil.copyfile(lib, archive)
     subprocess.run(["ar", "rcs", archive, stage / member], check=True)
     obj = stage / "row_counter.o"
     subprocess.run(["c++", "-std=c++17", "-O2", "-fPIC", "-I", src, "-I", src / "api", "-c",
-                    src / "test/perf/ivy_asserted_rows.cpp", "-o", obj], check=True)
+                    src / "test/perf" / counter, "-o", obj], check=True)
     adapter = args.goivy / "smt/quantifier.go"
     text = adapter.read_text()
     name = "${SRCDIR}/../z3vendor/native_lib/libz3.a"
@@ -62,7 +64,7 @@ def native_library(args, stage, sources):
         raise ValueError("unrecognized GoIvy native archive setting")
     sources[adapter] = stage / "quantifier.go"
     sources[adapter].write_text(text.replace(name, str(archive)))
-    return ["-ldflags", f"-linkmode=external '-extldflags=-Wl,--wrap=Z3_solver_push {obj} {archive} -lstdc++ -lm -lgomp'"]
+    return ["-ldflags", f"-linkmode=external '-extldflags=-Wl,--wrap={wrap} {obj} {archive} -lstdc++ -lm -lgomp'"]
 
 
 def checker(args, stage):

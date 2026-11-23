@@ -2,7 +2,7 @@
 
 ## November 23 verification results
 
-On matched whole-verifier runs, g3 now uses 14.89 billion instructions on Apple rfn2 versus 52.02 billion for linked Z3. On abstract raft_no_assume it uses 27.43 versus 24.85 billion, and on TLB 100.25 versus 69.78 billion. The first physical push and ordinary search dominate the remaining TLB gap. Earlier work saved 231 billion frontend instructions on TLB with a private name counter shared by both backends. [Latest measured solver change](#parsing-the-unchanged-premises-of-quantified-goals) · [Operation census across 90 inputs](#where-the-general-solver-still-spends-more-instructions) · [Nine pinned pairs on the original scope benchmark](#november-23-makefile-scope-benchmark)
+On five pinned pairs of whole-verifier runs, g3 now completes abstract raft_no_assume in **2.85 seconds** versus **3.49 seconds** for linked Z3, and raftok in **2.61 versus 2.83 seconds**. On Apple rfn2, g3 uses 14.68 billion instructions versus 51.78 billion for Z3. The largest measured deficit is TLB at 100.12 versus 69.55 billion. First-push preprocessing and concrete checks both contribute. Three incremental Raft controls also expose a roughly threefold cost per equivalent search. Earlier frontend work saved 231 billion instructions on TLB for both backends by changing private name generation. [Wide finite models and current results](#checking-wide-finite-models-with-ordered-decision-diagrams) · [Equivalent-search controls](#three-raft-cores-with-matched-search-statistics) · [First-push and check census](#where-the-general-solver-still-spends-more-instructions) · [Original scope benchmark](#november-23-makefile-scope-benchmark)
 
 During value propagation on TLB’s 58 first pushes, g3 and linked Z3 both made 87,961 rewrite calls and took 1,120,822 traversal steps. g3 spent **2.74 billion instructions** inside those calls and Z3 spent **0.84 billion**. Only 568 of the Go steps revisited the same root under identical rewrite settings. Caching repeated roots across phases saved 1.4% of the whole verification in an experimental build. [Measurements and reproducer](#rewriting-on-tlbs-58-first-pushes)
 
@@ -4051,3 +4051,71 @@ python3 perf/ivy_apple/incremental_cost/verification_phase_costs.py \
 ## November 23 Makefile scope benchmark
 
 Nine alternating pairs of the original `make bench` and `make cppbench` targets on CPU 47 with `GOMAXPROCS=1` and 10,000 iterations put surviving atoms at **354 ns in g3 and 477 ns in Z3**. Scoped atoms took **13.53 µs and 12.42 µs**. The scoped g3 samples ranged from 13.25 to 13.74 µs and the C++ samples from 12.39 to 12.47 µs. Both implementations use the in-tree benchmark. This measures the timed scope pop on this host with the Makefile's ordinary configuration. For independent-worker throughput and retained heap, use the separately tracked Go worker benchmark. [All 36 observations](perf/scope_restoration/nov23-pinned-make-targets.csv.gz) · [Worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
+
+## Checking wide finite models with ordered decision diagrams
+
+In commit `787f64620`, candidate models with more than 512 assignments can use a reduced ordered multi-valued decision diagram. Each level represents one quantified variable. Domain values that lead to the same remaining answers share a child. For example, when a table ignores its second argument, the diagram can represent the answer independently of that argument. The procedure supports the Boolean and uninterpreted-sort expressions already admitted by the model-table checker. The decision uses the current formula, function interpretations and domains. It runs on each solver's own goroutine. [Model-table entry point](smtcore/smt_model_table_check.go) · [Decision diagram](smtcore/smt_model_table_diagram.go)
+
+| Complete GoIvy verification | Previous g3, billion instructions | New g3 | Linked Z3 | Previous g3, seconds | New g3 | Linked Z3 |
+|---|---:|---:|---:|---:|---:|---:|
+| Abstract raft_no_assume | 27.41 | **20.87** | 24.83 | 3.63 | **2.85** | 3.49 |
+| raftok | 20.94 | **19.37** | 19.92 | 2.80 | **2.61** | 2.83 |
+| Hybrid reliable broadcast | 12.86 | 12.75 | **6.24** | 1.97 | 2.00 | **1.01** |
+| TLB | 99.96 | 100.12 | **69.55** | 13.03 | 13.41 | **10.00** |
+| Flash | 8.53 | 8.49 | **4.54** | 1.35 | 1.33 | **0.77** |
+| Nested ticket | 3.95 | 3.96 | **2.22** | 0.93 | 0.93 | **0.56** |
+| Apple dramc_nb2 | 152.92 | **152.93** | 162.07 | 19.45 | **20.41** | 22.83 |
+| Apple rfn2 | 14.74 | **14.68** | 51.78 | 2.12 | **2.10** | 13.45 |
+
+These are medians from five alternating complete runs per build per input, at default GC with one runtime CPU and the same GoIvy frontend at `75170dd71`. Each input ran on the same pinned processor for all three builds. The earlier seven-pair prototype panel independently measured abstract raft_no_assume at 27.43 → 20.84 billion versus 24.82 billion, and raftok at 20.92 → 19.41 versus 19.93 billion. On raftok, allowing only proofs that the model satisfied the quantifier took 23.92 billion instructions. Returning usable counterexamples mattered as well. [Both panels, 288 processes](perf/ivy_apple/holdouts/nov23-wide-models.csv.gz) · [192 design trials](perf/ivy_apple/holdouts/nov23-wide-model-trials.csv.gz)
+
+The domain includes the named values and enough anonymous representatives to distinguish the bound variables by equality. A universally true body disposes of the auxiliary question. For a false body, the checker finds the first concrete failing assignment in the original enumeration order and re-evaluates it with the scalar evaluator. An inconclusive result falls back to ordinary model-based quantifier instantiation. The diagram admits at most six binders and 64 representatives per binder, with limits of 4,096 nodes and 100,000 work units. The checker polls cancellation during construction and before reporting a result. [Bounds and witness regressions](smtcore/smt_model_table_diagram_test.go)
+
+A separate verifier build compared every completed diagram decision on both abstract Raft inputs and hybrid broadcast with exhaustive scalar checking. All **1,207** decisions agreed, including the exact first failing tuple whenever one existed. The largest domain product was 648,960 assignments. Another instrumented run submitted the original auxiliary questions to g3's ordinary auxiliary solver and replayed their typed SMT-LIB against native Z3. All 716 certificates agreed, covering 563 questions after deduplication within each input. The ordinary model evaluator also confirmed all 206 concrete counterexamples. On the independent 87-spec corpus, every production exit status and proof transcript matched linked Z3. [Exhaustive comparisons](perf/ivy_apple/holdouts/nov23-wide-model-enumeration.csv.gz) · [Auxiliary results](perf/ivy_apple/holdouts/nov23-wide-model-certificates.csv.gz) · [Witness and certificate counts](perf/ivy_apple/holdouts/nov23-wide-model-audit.csv.gz) · [Typed questions](perf/ivy_apple/holdouts/nov23-wide-model-questions.tar.gz) · [Production corpus](perf/ivy_apple/holdouts/nov23-wide-model-corpus.csv.gz) · [Prototype corpus](perf/ivy_apple/holdouts/nov23-wide-model-candidate-corpus.csv.gz)
+
+For a four-variable congruence formula over 16 values, exhaustive checking took **1,248.24 µs** and the diagram took **23.98 µs**, a 52× speedup for this operation. At six values per variable the medians were 31.66 and 10.10 µs. The diagram allocated 16,496 bytes at width 16 and 7,584 at width six. Scalar enumeration allocated zero bytes in both timed loops. The complete Raft improvements above include setup, fallback and ordinary search. [Retained benchmark](smtcore/smt_model_table_diagram_test.go) · [Nine samples per measurement](perf/ivy_apple/holdouts/nov23-wide-models.bench.gz)
+
+```sh
+go test ./smtcore -run 'TestModel(Table|Diagram)' -bench '^BenchmarkModelTableCongruence$' -benchmem -cpu=1 -benchtime=15x -count=9
+tar -xzf perf/ivy_apple/holdouts/nov23-wide-model-questions.tar.gz -C /tmp
+python3 perf/ivy_apple/holdouts/model_tables_replay.py --questions /tmp/raftok.csv.gz \
+  --native ../build/z3 --cpu 2 --output /tmp/raftok-model-replay
+```
+
+## Three Raft cores with matched search statistics
+
+I extracted three premise subsets from native unsatisfiable cores of real abstract raft_no_assume checks. Each archived input has its own base and negative goal, reproduced through the normal incremental SMT-LIB shells. On five alternating pairs, the answer, decision count, quantifier instantiations, conflicts and resource count matched across both engines on every run. These controls isolate implementation cost much more closely than two runs that merely prove the same goal. [Inputs](perf/ivy_apple/test_vectors/raft_cores) · [All 30 observations](perf/ivy_apple/holdouts/nov23-matched-raft-cores.csv.gz) · [Replay driver](perf/ivy_apple/holdouts/query_replay.py)
+
+| Original check | Premises | g3, million instructions | Z3, million instructions | Ratio | Decisions | Instances | Conflicts | Resource count |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 251 | 41 | 802.11 | 271.99 | 2.95× | 835 | 2,111 | 186 | 147,026 |
+| 274 | 50 | 1,064.92 | 339.29 | 3.14× | 1,114 | 1,185 | 103 | 178,671 |
+| 275 | 54 | 1,041.15 | 324.53 | 3.21× | 1,139 | 1,127 | 131 | 184,312 |
+
+I also bracketed operations on the solver thread during the **original complete proofs**, before the wide-model change, using g3 `4ea7abff8` and GoIvy `da98895f8`. The original check 251 in batch 6, condition 21, visited 46,360 g3 queue candidates and 40,820 native candidates. g3 performed 26,163 instance rewrites at **21,417 instructions per rewrite**, versus 12,511 at **6,747** for Z3. It performed 22,001 lemma internalizations at **30,001 instructions each**, versus 11,058 at **6,211**. The inclusive queue cost was **2.192 versus 0.450 billion**. On original check 274, internalization cost **32,879 versus 7,008 instructions per call** across 6,563 and 4,217 calls respectively. The complete-input TLB queue consumed **20.35 versus 27.79 billion** because g3 reached fewer candidates there. The queue totals include nested stages. Separate sampling runs identify hot functions, while the exact instruction counts come from the hardware-counter brackets and whole-process totals. [Stage totals for ten inputs](perf/ivy_apple/incremental_cost/nov23-qi-phase-totals.csv.gz) · [Per-check stage rows](perf/ivy_apple/incremental_cost/nov23-qi-phase-rows.tar.gz) · [Replay function profiles](perf/ivy_apple/holdouts/nov23-matched-raft-profiles.tar.gz) · [Stage driver](perf/ivy_apple/incremental_cost/qi_stage_costs.py) · [Native counter wrapper](../src/test/perf/ivy_qi_stages.cpp)
+
+```sh
+go build -o /tmp/g3-raft-replay ./cmd/g3
+GOMAXPROCS=1 python3 perf/ivy_apple/holdouts/query_replay.py --suite raft-cores \
+  --g3 /tmp/g3-raft-replay --native ../build/z3 --cpu 2 --pairs 5 --output /tmp/raft-core-replay
+python3 perf/ivy_apple/incremental_cost/qi_stage_costs.py --goivy /path/to/ivy/goivy \
+  --spec /path/to/ivy-lang-examples/examples/liveness/ticket.ivy --abc /path/to/abc \
+  --cpu 2 --pairs 3 --output /tmp/ticket-queue-cost
+```
+
+One first-push prototype tried to reuse earlier rewrites that had returned the identical input AST. Checking only the paths previously visited predicted 154 incorrect hits. Checking the full syntax, including quantifier patterns, found 117,564 genuine identity results on TLB covering 1,466,128 rewrite steps. Even with matching AST results, **4,042 hits had changed resource charges**. Replaying the old charges would have counted 1,594,864 units against an actual 1,583,692. The scanning prototype reduced the complete TLB median from 100.21 to 98.06 billion instructions. The current implementation retains the ordinary rewrite and its actual cancellation accounting. Reducing the cost of each visit remains applicable to both first-push preprocessing and the three equivalent-search controls. [First-push differential checks](perf/ivy_apple/incremental_cost/nov23-first-push-identity-oracle.csv.gz) · [252 whole-verifier trials](perf/ivy_apple/incremental_cost/nov23-first-push-identity-trials.csv.gz)
+
+## Frontend symbol collection and inactive tracing
+
+GoIvy `da98895f8` checks whether binder tracing is enabled before constructing the exit message's arguments. On dramc_nb2 it eliminated approximately 38.8 MB and 340,000 allocations over the complete run. GoIvy `75170dd71` then changed clause symbol collection to insert each encountered symbol directly into the final insertion-ordered dictionary. This preserves the first position of each structural key and the last representative stored for it. Intermediate per-formula dictionaries had previously been built and copied even when they contained a single symbol. [Trace guards](https://github.com/glycerine/ivy/commit/da98895f8) · [Collector and benchmark](https://github.com/glycerine/ivy/commit/75170dd71)
+
+| Complete verification | Previous g3, billion instructions | New g3 | Previous linked Z3 | New linked Z3 |
+|---|---:|---:|---:|---:|
+| Apple dramc_nb2 | 155.16 | **152.98** | 164.94 | **162.39** |
+| Apple cf_live | 57.51 | **57.20** | 59.05 | **58.70** |
+| Apple rfn2 | 14.90 | **14.67** | 52.02 | **51.77** |
+| TLB | 100.10 | **99.90** | 69.65 | **69.47** |
+
+Five alternating pairs per backend used g3 `4ea7abff8`; both frontend revisions already had the tracing guards. Direct collection saved roughly **251 MB and 1.33 million allocations** per dramc_nb2 verification with either engine. A 128-distinct-symbol microbenchmark improved from **57.77 to 11.53 µs**, 397 to 13 allocations and 73,968 to 20,720 bytes. With 32 symbols the median improved from 9.11 to 3.05 µs and 105 to nine allocations. Two experiments that also tracked visited AST pointers raised the complete g3 dramc_nb2 instruction count from 154.87 to 189.04 and 200.78 billion. The retained walk uses structural keys at symbol leaves and preserves the original traversal order. [Complete verifier runs](perf/ivy_apple/holdouts/nov23-symbols-and-traces.csv.gz) · [Heap and object counts](perf/ivy_apple/holdouts/nov23-symbols-and-traces-allocations.csv.gz) · [Microbenchmark samples](perf/ivy_apple/holdouts/nov23-clause-symbols.bench.gz) · [Collector design trials](perf/ivy_apple/holdouts/nov23-symbol-collector-trials.csv.gz)
+
+For both changes, enabled tracing on Apple rfn2 preserved the entire 2,334,030,415-byte output. The Paxos Python comparison matched all 27,855 normalized lines, including 27,782 trace records. All 87 standalone specs matched the linked-native reference on exit status and both output streams. [Enabled-trace results](perf/ivy_apple/holdouts/nov23-symbols-and-traces-text.csv.gz) · [Corpus results](perf/ivy_apple/holdouts/nov23-symbols-corpus.csv.gz)
