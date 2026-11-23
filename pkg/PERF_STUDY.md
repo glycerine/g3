@@ -3923,3 +3923,34 @@ With a common base, UNSAT for a disjunction of counterexample conditions proves 
 Values are median billions of whole-process instructions. The grouped g3 checker first tries an available unit proof on each candidate. It groups consecutive built-in checks and stops at assumptions or unfamiliar callbacks. The timings include construction of the disjunction, unsuccessful group checks, and any individual fallback. The two TLB counterexamples and all 65 Flash counterexamples still appeared. Grouping eight siblings saved 11.01 billion instructions on TLB but added 87.87 billion on cf_live. Keeping this out of the default verifier avoids a larger regression on an independently measured input. [Frontend experiment and individual-check selections](perf/ivy_apple/holdouts/nov23-sibling-controls.tar.gz)
 
 The shell benchmark covers a different workload because its input contains the physical checks that reached the solver. It can replay all of them or only the checks that required ordinary search. Of 236 measured configurations and repetitions, 210 finished with the expected answers and 26 Raft replays hit the 150-second watchdog. The latter appear as censored runs. To reproduce a TLB selection, unpack the two archives below into one directory and run the benchmark with `--events tlb/events.csv.gz --selection tlb-selected.csv.gz --width 16 --cpu 2 --solver /path/to/z3 --output /tmp/tlb-sibling-replay`. Omitting the selection replays the full physical stream. [Shell benchmark](perf/ivy_apple/holdouts/sibling_goals.py) · [Measurements including cutoffs](perf/ivy_apple/holdouts/nov23-sibling-shell.csv.gz) · [Physical streams](perf/ivy_apple/holdouts/nov22b-physical-streams.tar.gz) · [Selections](perf/ivy_apple/holdouts/nov23-sibling-controls.tar.gz)
+
+## Matching a ground goal against a universal premise
+
+Commit `f0b4ebb1d` adds a solver-local index for universally quantified premises. For example, `∀x. R(f(x),x)` rules out `¬R(f(a),a)` even when the usual ground projection chose a different representative for that sort. The matcher follows the actual declarations, checks binder sorts, and requires each occurrence of a variable to match the same ground term. It indexes consequences of a positive conjunction or a negative disjunction. It can also establish a goal by one sufficient disjunct. A miss continues through the normal proof path. [Implementation](api/internal/order/universal_premises.go) · [Regression tests and benchmark](api/api_universal_premises_test.go)
+
+| Complete verification | Previous g3 | g3 with matching | Linked Z3 |
+|---|---:|---:|---:|
+| Apple rfn2 | 17.03 | **15.28** | 52.36 |
+| Flash | 8.98 | **8.36** | 4.53 |
+| Hybrid reliable broadcast | 13.99 | **13.05** | 6.28 |
+| TLB | 106.71 | **103.49** | 69.85 |
+| Ticket | 4.24 | **4.03** | 2.23 |
+| Apple cf_live | 58.86 | **58.31** | 59.89 |
+| Apple dramc_nb2 | 162.11 | 162.21 | 167.75 |
+| Abstract Raft | 32.06 | 31.89 | 24.85 |
+| raftok | 24.82 | 24.88 | 19.92 |
+| Numeric queue, including its expected unknown | 109.92 | 110.01 | 211.79 |
+
+Values are median billions of user-mode instructions from five runs per build and input. Each triplet used the same pinned CPU, GoIvy `01aa2c6fa`, default GC, one Go runtime CPU and tracing disabled. Concurrent workloads affected elapsed time. The table includes ten of the twelve inputs. The full panel contains 180 completed processes. The release also reproduced linked Z3’s stdout, stderr and exit status on all 87 standalone proof inputs, including 28,929 passing obligations and 90 expected failures. [Release measurements](perf/ivy_apple/goal_instances/nov23-universal-release-process.csv.gz) · [174 corpus runs](perf/ivy_apple/goal_instances/nov23-universal-release-corpus.csv.gz)
+
+The first version could assemble a proof from several ground facts and immediately bypass any matching check. On the numeric queue it raised instructions from 110.99 to 153.75 billion. On raftok, bypassing just five checks raised the median from 24.90 to 36.72 billion. A concrete check can do work that benefits its siblings. The retained version limits the proof to the universal pattern and one sufficient branch. A match can avoid initializing a cold solver. After incremental search starts, the usual path gets the first match under each set of premises. This preserved the numeric and Raft controls while recovering 10.3% on rfn2 and 6.9% on Flash. [916 paired trial observations](perf/ivy_apple/goal_instances/nov23-universal-experiments.csv.gz) · [Rule and scheduling prototypes](perf/ivy_apple/goal_instances/nov23-universal-experiments.tar.gz)
+
+A separate linked-Z3 checker reasserted the original typed ASTs into a freshly reset native solver for each of 1,784 matched final conditions. All returned UNSAT in both the original native scope and the fresh solver. These include 960 Flash, 679 TLB, 91 hybrid broadcast, 29 Ticket, 17 cf_live, seven rfn2 and one raftok condition. A second execution of the saved replay driver reproduced every ordinal, assertion count and decision. The focused alternating match/miss benchmark measured 377.9 ns/op and zero allocations per operation across nine repetitions. The full Go package suite passed. [Native oracle results](perf/ivy_apple/goal_instances/nov23-universal-native-proofs.csv.gz) · [Microbenchmark measurements](perf/ivy_apple/goal_instances/nov23-universal-siblings.bench.gz)
+
+```sh
+go test ./api -run '^$' -bench '^BenchmarkUniversalPremiseSiblings$' -benchmem -benchtime=100000x
+python3 perf/ivy_apple/holdouts/ground_premise_replay.py --goivy /path/to/ivy/goivy \
+  --examples /path/to/ivy-lang-examples --abc /path/to/abc --cpu 2 --final-conditions \
+  --observations perf/ivy_apple/goal_instances/nov23-universal-native-proofs.csv.gz \
+  --cases flash2 tlb rfn2 cf_live hybrid_reliable_broadcast_cisa raftok ticket
+```
