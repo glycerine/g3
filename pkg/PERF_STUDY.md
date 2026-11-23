@@ -3614,3 +3614,24 @@ The saved incremental queries isolate a single push, assertion and check inside 
 | Transfer rewrite-result ownership and specialize child publication | 0.999 | 0.997 | TLB 113.22 → 112.73 B |
 
 The 16-byte Boolean record and its 8-byte Boolean justification are already in the retained solver. The first row experiments with the separate equality-explanation and undo records. The arithmetic experiment gives a reproducible saving on numeric input. Its best configuration recovers about 2% on isolated numeric replay and leaves the two ticket obligations almost unchanged. None of these changes explains the 2.6–3.2× repeated-check ratio. The stronger target is eliminating entire repeated evaluations, especially when the model or the unchanged assertion prefix already determines the answer. [Complete-run measurements](perf/ivy_apple/holdouts/nov22b-internal-layout-runs.csv.gz) · [Prototype patches against g3 a7c09920a](perf/ivy_apple/holdouts/nov22b-internal-layout-prototypes.tar.gz)
+
+## Checking quantified formulas against the candidate model
+
+In model-based quantifier instantiation, the solver asks whether its candidate model has an assignment that makes a quantified body false. Setting up an auxiliary SMT search for each question was expensive on both abstract Raft examples. Commit `83bfb17e3` evaluates small, explicitly interpreted function tables, equalities and Boolean operations before setting up that search. This path uses the actual formula and model supplied to the verification solver. It requires no knowledge of an Ivy spec, action or predicate name. [Implementation](smtcore/smt_model_table_check.go) · [Ground-model comparison tests](smtcore/smt_model_table_test.go)
+
+For a frozen uninterpreted sort the checker visits its registered universe. For an open sort it includes every named value used in the supported tables and adds one anonymous representative per binder of that sort. For example, two variables can denote the same unseen value or two different unseen values. Both assignments are represented. Any permutation of unseen elements preserves equality and the compiled function tables. The checker can certify a body only after covering every tuple. It can submit a false tuple for instantiation only if it has concrete values and the ordinary model finder can recover all the original bindings. Unsupported models, large products, exhausted evaluation budgets and mixed internalized arithmetic use the ordinary solver. The feature is enabled in the incremental verification factory.
+
+| Complete verification, median billions of instructions | Before | After |
+|---|---:|---:|
+| Abstract Raft | 45.93 | 31.45 |
+| raftok | 42.86 | 31.61 |
+| Hybrid reliable broadcast | 16.61 | 14.25 |
+| Flash | 10.84 | 9.43 |
+| Nested ticket | 5.20 | 4.98 |
+| TLB | 112.94 | 111.72 |
+| Apple dramc_nb2 | 167.40 | 167.32 |
+| Apple rfn2 | 17.31 | 17.31 |
+
+Four alternating pairs per workload used the same GoIvy build and pinned CPU. A separate run of 87 standalone proofs produced byte-identical stdout and stderr for g3 and linked Z3. The corpus includes expected proof failures. [Complete measurements on 11 workloads](perf/ivy_apple/holdouts/nov22b-model-table-whole.csv.gz) · [Corpus outcomes and exit codes](perf/ivy_apple/holdouts/nov22b-model-table-corpus.csv.gz)
+
+In a separate instrumented run, the ordinary auxiliary solver also searched all 36,800 questions certified by the new checker. It returned UNSAT every time. After deduplicating within each workload, the in-tree C++ Z3 executable returned UNSAT on all 5,206 saved SMT-LIB questions. The existing independent model evaluator confirmed that each of the 3,132 concrete witness tuples made its body false. The archive includes the complete typed questions, including explicit distinctness constraints for printed model values. [Audit totals](perf/ivy_apple/holdouts/nov22b-model-table-audit.csv.gz) · [Native answers](perf/ivy_apple/holdouts/nov22b-model-table-native.csv.gz) · [SMT-LIB questions](perf/ivy_apple/holdouts/nov22b-model-table-questions.tar.gz) · [Audit instrumentation](perf/ivy_apple/holdouts/model_tables_audit.patch.gz) · [Capture and replay driver](perf/ivy_apple/holdouts/model_tables_replay.py)
