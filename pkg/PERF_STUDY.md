@@ -4238,3 +4238,14 @@ GoIvy commit `704b800e5` checks whether a trace can emit output before building 
 | TLB | 97.95 | **97.09** | 68.05 | **67.06** |
 
 Each figure is the median of five runs on the same CPU for that input, alternating the frontend builds. Four separate allocation pairs measured a drop from 10.318 to 9.970 GB per complete g3 run on dramc_nb2 and from 1.054 to 0.964 GB on rfn2. All 87 paired corpus inputs matched linked Z3 on output, diagnostics and exit status. With tracing enabled, both frontend revisions emitted identical 2,334,030,415-byte rfn2 output. The Paxos control also matched Python across all 27,855 normalized lines. [Process counters, allocations, corpus and trace checks](perf/ivy_apple/holdouts/nov23-trace-argument-guards.tar.gz)
+
+### Declaration IDs in the quantifier pattern matcher
+
+The g3 label hasher allocated exactly enough space for each new maximum declaration ID. Registering consecutive IDs copied all earlier entries at every step. The matcher now uses slice capacity growth and initializes newly exposed entries to the existing unassigned value. A sparse-ID regression checks both the hash and the diagnostic listing. [Label hasher](smtcore/smt_mam_code.go) · [Regression and benchmark](smtcore/smt_mam_label_hash_test.go)
+
+| Consecutive IDs per matcher | Instructions before | Instructions after | Bytes allocated before | Bytes allocated after |
+|---|---:|---:|---:|---:|
+| 4,096 | 11,257,206 | **622,091** | 8,943,472 | **12,536** |
+| 32,768 | 481,996,447 | **4,959,103** | 565,540,720 | **154,360** |
+
+The 32,768-ID case used **97× fewer instructions** and made 20 allocations instead of 32,768. Each instruction count is the median of seven paired slopes. Subtracting a short invocation from a longer invocation on the same CPU removes fixed process startup. Reproduce the allocation comparison with `go test ./smtcore -run '^$' -bench '^BenchmarkSMTMAMLabelHash$' -benchmem -cpu=1`. Real proof inputs visited IDs in a different order. On issue 73, 28,263,367 hash calls triggered just 324 resizes and copied 132,322 bytes in the previous implementation. On Apple batch 14, condition 132, 52 resizes copied 33,144 bytes. The large speedup applies to dense registration in ascending order. [Hardware counts, allocation samples and twelve real-input growth counts](perf/ivy_apple/holdouts/nov23-mam-label-growth.tar.gz)

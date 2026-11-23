@@ -56,12 +56,11 @@ type smtMAMLabelHasher struct {
 
 func (h *smtMAMLabelHasher) hash(declID uint32) uint8 {
 	if int(declID) >= len(h.lbl2hash) {
-		grown := make([]int8, declID+1)
-		copy(grown, h.lbl2hash)
-		for i := len(h.lbl2hash); i < len(grown); i++ {
-			grown[i] = -1
+		oldLen := len(h.lbl2hash)
+		h.lbl2hash = append(h.lbl2hash, make([]int8, int(declID)+1-oldLen)...)
+		for i := oldLen; i < len(h.lbl2hash); i++ {
+			h.lbl2hash[i] = -1
 		}
-		h.lbl2hash = grown
 	}
 	if h.lbl2hash[declID] == -1 {
 		h.lbl2hash[declID] = int8(uhash.Mix(17, 3, declID) & 63)
