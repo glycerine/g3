@@ -187,6 +187,16 @@ func TestCompactSquareRootRetriesFailedNumericRead(t *testing.T) {
 }
 
 func TestTranslatedCompactRootSurvivesSourceReuse(t *testing.T) {
+	t.Run("IntegerRadicand", func(t *testing.T) {
+		checkTranslatedCompactRoot(t, 1, "(root-obj (+ (^ x 2) (- 17)) 1)")
+	})
+	t.Run("FractionalRadicand", func(t *testing.T) {
+		checkTranslatedCompactRoot(t, 3, "(root-obj (+ (* 3 (^ x 2)) (- 17)) 1)")
+	})
+}
+
+func checkTranslatedCompactRoot(t *testing.T, denominator int32, expected string) {
+	t.Helper()
 	from := squareRootManager(t)
 	to, err := NewASTManager(ASTManagerConfig{Symbols: from.Symbols, Numerals: from.numerals,
 		Params: from.params, Globals: from.globals, Budget: from.BudgetField})
@@ -196,7 +206,7 @@ func TestTranslatedCompactRootSurvivesSourceReuse(t *testing.T) {
 	astTestMust(t, err)
 	tr, err := NewASTTranslation(from, to, false)
 	astTestMust(t, err)
-	h, err := from.ArithmeticSquareRootNumeral(17, true)
+	h, err := from.ArithmeticSquareRootFraction(17, denominator, true)
 	astTestMust(t, err)
 	astTestMust(t, from.IncRef(h))
 	copy, err := tr.Translate(h)
@@ -210,7 +220,7 @@ func TestTranslatedCompactRootSurvivesSourceReuse(t *testing.T) {
 	defer func() { astTestMust(t, from.DecRef(h)) }()
 	format, ok, err := to.SMT2PPArithLiteral(copy, false, 8)
 	astTestMust(t, err)
-	want, err := to.FormatString("(root-obj (+ (^ x 2) (- 17)) 1)")
+	want, err := to.FormatString(expected)
 	astTestMust(t, err)
 	if !ok || format != want {
 		t.Fatal("translated number changed after source slot reuse")

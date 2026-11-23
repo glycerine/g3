@@ -40,14 +40,15 @@ type candidateTerm struct {
 }
 
 type integerCandidate struct {
-	comparisons                  []candidateComparison
-	manager                      *ast.ASTManager
-	arithmetic                   ast.FamilyID
-	terms                        map[ast.ASTHandle]candidateTerm
-	variables                    []candidateVariable
-	work                         int
-	largest                      int64
-	nonlinear, ordered, assigned bool
+	comparisons                             []candidateComparison
+	manager                                 *ast.ASTManager
+	arithmetic                              ast.FamilyID
+	terms                                   map[ast.ASTHandle]candidateTerm
+	variables                               []candidateVariable
+	work                                    int
+	largest                                 int64
+	nonlinear, mixedProduct, symbolicSquare bool
+	ordered, assigned                       bool
 }
 
 // Arithmetic declaration kinds from src/ast/arith_decl_plugin.h.
@@ -150,8 +151,12 @@ func (p *integerCandidate) scan(h ast.ASTHandle, depth int) (candidateTerm, bool
 		}
 		if hd.Family == p.arithmetic && hd.DeclKind == candidateMul && term.depends && child.depends {
 			p.nonlinear = true
-			if hd.NumArgs == 2 && first.kind == candidateConstant && first == child {
-				term.kind, term.index = candidateSquare, first.index
+			if hd.NumArgs == 2 && first.kind == candidateConstant && child.kind == candidateConstant {
+				if first == child {
+					term.kind, term.index = candidateSquare, first.index
+				} else {
+					p.mixedProduct = true
+				}
 			}
 		}
 		term.depends = term.depends || child.depends
@@ -228,6 +233,9 @@ func (p *integerCandidate) constrain(form ast.ASTHandle, comparison *candidateCo
 		op := hd.DeclKind
 		if equality {
 			op = candidateEqual
+			if x.kind == candidateSquare && y.kind == candidateConstant || y.kind == candidateSquare && x.kind == candidateConstant {
+				p.symbolicSquare = true
+			}
 		}
 		*comparison = candidateComparison{left: x, right: y, operation: op}
 	}

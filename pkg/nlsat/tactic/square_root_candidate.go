@@ -99,7 +99,9 @@ func (t *NLSATTactic) trySquareRoots(goal *basetactic.Goal, result *basetactic.T
 	if !models {
 		return finishSatisfiableCandidate(goal, result)
 	}
-	return t.publishSquareRoots(goal, result, p, roots)
+	return t.publishSquareRootModel(goal, result, p, func(i int) rationalRadical {
+		return rationalRadical{numerator: roots[i].square, denominator: 1, negative: roots[i].negative}
+	})
 }
 
 func (p *integerCandidate) assignSquareRoots(roots []signedSquareRoot) lbool.LBool {
@@ -213,7 +215,7 @@ func (t *NLSATTactic) squareRootConflict(goal *basetactic.Goal, result *basetact
 	return true, result.AddGoal(goal)
 }
 
-func (t *NLSATTactic) publishSquareRoots(goal *basetactic.Goal, result *basetactic.TacticResult, p *integerCandidate, roots []signedSquareRoot) (_ bool, err error) {
+func (t *NLSATTactic) publishSquareRootModel(goal *basetactic.Goal, result *basetactic.TacticResult, p *integerCandidate, rootAt func(int) rationalRadical) (_ bool, err error) {
 	m := t.manager
 	md, err := model.NewModel(m)
 	if err != nil {
@@ -224,14 +226,15 @@ func (t *NLSATTactic) publishSquareRoots(goal *basetactic.Goal, result *basetact
 		return false, errors.Join(err, md.Close())
 	}
 	defer func() { err = errors.Join(err, held.Close()) }()
-	values := make(map[signedSquareRoot]ast.ASTHandle)
-	for i, root := range roots {
+	values := make(map[rationalRadical]ast.ASTHandle)
+	for i := range p.variables {
 		if i%64 == 0 && m.Limit.CancelFlag() {
 			return false, nil
 		}
+		root := rootAt(i)
 		h, ok := values[root]
 		if !ok {
-			h, err = m.ArithmeticSquareRootNumeral(root.square, root.negative)
+			h, err = m.ArithmeticSquareRootFraction(root.numerator, root.denominator, root.negative)
 			if err != nil {
 				return false, err
 			}

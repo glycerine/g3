@@ -104,6 +104,13 @@ func (t *NLSATTactic) tryScalarAssignments(goal *basetactic.Goal, result *baseta
 		}
 	}
 	if t.mode == preparePolynomials && !m.Limit.CancelFlag() {
+		// A symbolic square x²=t may need fourth-degree model values.
+		if p.mixedProduct && !p.symbolicSquare {
+			handled, err := t.tryProductEquations(goal, result, forms, &p)
+			if err != nil || handled {
+				return handled, err
+			}
+		}
 		return t.trySquareRoots(goal, result, &p)
 	}
 	return false, nil

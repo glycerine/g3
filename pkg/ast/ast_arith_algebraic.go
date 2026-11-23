@@ -5,6 +5,7 @@ package ast
 import (
 	"errors"
 	"math"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/polynomial"
@@ -13,6 +14,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	primegen "github.com/glycerine/g3/pkg/util/prime"
+	"github.com/glycerine/g3/pkg/util/smallint"
 )
 
 // astAlgebraicNumbersWrapper is the concrete lazy m_aw owner. Values are
@@ -24,12 +26,13 @@ type astAlgebraicNumbersWrapper struct {
 	cooperation *cooperate.Cooperation
 	primes      *primegen.Generator
 	values      []polynomial.Algebraic
-	// Nonzero entries denote ±sqrt(abs(entry)). The full algebraic cell is
-	// built on a numeric read. Both representations belong to this wrapper.
-	squareRoots []int32
-	freeIDs     []uint32
-	nextID      uint32
-	closed      bool
+	// The signed numerator chooses the root. Denominators default to one,
+	// so integer radicands alone allocate no denominator slots.
+	squareRoots        []int32
+	squareDenominators []int32
+	freeIDs            []uint32
+	nextID             uint32
+	closed             bool
 }
 
 func (p *astArithmeticPluginOwner) algebraicWrapper() (*astAlgebraicNumbersWrapper, error) {
@@ -129,8 +132,9 @@ func (w *astAlgebraicNumbersWrapper) value(id uint32) (*polynomial.Algebraic, er
 	v := &w.values[id]
 	if n := w.signedRadicand(id); n != 0 && *v == (polynomial.Algebraic{}) {
 		var exact polynomial.Algebraic
-		radicand, lower := squareRootInterval(n)
-		if err := w.manager.SetIsolatedSquareRoot(&exact, radicand, lower); err != nil {
+		denominator := w.squareDenominator(id)
+		radicand, lower := squareRootInterval(n, denominator)
+		if err := w.manager.SetIsolatedSquareRootFraction(&exact, radicand, denominator, lower); err != nil {
 			return nil, errors.Join(err, w.manager.Del(&exact))
 		}
 		if err := w.manager.Swap(v, &exact); err != nil {
@@ -155,6 +159,13 @@ func (w *astAlgebraicNumbersWrapper) signedRadicand(id uint32) int32 {
 	return 0
 }
 
+func (w *astAlgebraicNumbersWrapper) squareDenominator(id uint32) int32 {
+	if uint64(id) < uint64(len(w.squareDenominators)) && w.squareDenominators[id] != 0 {
+		return w.squareDenominators[id]
+	}
+	return 1
+}
+
 func (w *astAlgebraicNumbersWrapper) recycle(id uint32) error {
 	if w == nil || w.closed || uint64(id) >= uint64(len(w.values)) {
 		return ErrASTHandle
@@ -176,6 +187,9 @@ func (w *astAlgebraicNumbersWrapper) releaseID(id uint32) error {
 	if uint64(id) < uint64(len(w.squareRoots)) {
 		w.squareRoots[id] = 0
 	}
+	if uint64(id) < uint64(len(w.squareDenominators)) {
+		w.squareDenominators[id] = 0
+	}
 	w.freeIDs = append(w.freeIDs, id)
 	return nil
 }
@@ -193,6 +207,7 @@ func (w *astAlgebraicNumbersWrapper) close() error {
 	}
 	w.values = nil
 	w.squareRoots = nil
+	w.squareDenominators = nil
 	w.freeIDs = nil
 	if w.manager != nil {
 		if e := w.manager.Close(); e != nil {
@@ -262,7 +277,7 @@ func (m *ASTManager) ArithmeticBinomialPower(h ASTHandle, k uint32) (numerator, 
 		if n < 0 {
 			n = -n
 		}
-		return int64(n), 1, true, nil
+		return int64(n), int64(w.squareDenominator(id)), true, nil
 	}
 	v, err := w.value(id)
 	if err != nil {
@@ -349,6 +364,34 @@ func (m *ASTManager) ArithmeticSquareRootNumeral(n int32, negative bool) (ASTHan
 		}
 		return m.ArithmeticNumeralInt64(lo, false)
 	}
+	return m.arithmeticIrrationalSquareRoot(n, 1, negative)
+}
+
+// ArithmeticSquareRootFraction returns the exact signed square root of
+// numerator/denominator. Rational roots use ordinary real numerals.
+func (m *ASTManager) ArithmeticSquareRootFraction(numerator, denominator int32, negative bool) (ASTHandle, error) {
+	if numerator < 0 || denominator <= 0 {
+		return ASTHandle{}, ErrASTDomain
+	}
+	if numerator == 0 || denominator == 1 {
+		return m.ArithmeticSquareRootNumeral(numerator, negative)
+	}
+	gcd := smallint.GCD(smallint.New(numerator), smallint.New(denominator)).Int32()
+	numerator, denominator = numerator/gcd, denominator/gcd
+	if denominator == 1 {
+		return m.ArithmeticSquareRootNumeral(numerator, negative)
+	}
+	p, q := floorSquareRoot(numerator), floorSquareRoot(denominator)
+	if p*p == numerator && q*q == denominator {
+		if negative {
+			p = -p
+		}
+		return m.ArithmeticRealNumeralText(strconv.FormatInt(int64(p), 10) + "/" + strconv.FormatInt(int64(q), 10))
+	}
+	return m.arithmeticIrrationalSquareRoot(numerator, denominator, negative)
+}
+
+func (m *ASTManager) arithmeticIrrationalSquareRoot(n, denominator int32, negative bool) (ASTHandle, error) {
 	if err := m.lock(); err != nil {
 		return ASTHandle{}, err
 	}
@@ -372,11 +415,18 @@ func (m *ASTManager) ArithmeticSquareRootNumeral(n int32, negative bool) (ASTHan
 			n = -n
 		}
 		w.squareRoots[id] = n
+		if denominator > 1 {
+			for len(w.squareDenominators) <= int(id) {
+				w.squareDenominators = append(w.squareDenominators, 0)
+			}
+			w.squareDenominators[id] = denominator
+		}
 	} else {
+		lo := floorSquareRoot(n / denominator)
 		if negative {
 			lo = -lo - 1
 		}
-		if err = w.manager.SetIsolatedSquareRoot(&w.values[id], n, int32(lo)); err != nil {
+		if err = w.manager.SetIsolatedSquareRootFraction(&w.values[id], n, denominator, lo); err != nil {
 			return ASTHandle{}, errors.Join(err, w.releaseID(id))
 		}
 	}
@@ -399,11 +449,11 @@ func floorSquareRoot(n int32) int32 {
 	return int32(lo)
 }
 
-func squareRootInterval(signed int32) (n, lower int32) {
+func squareRootInterval(signed, denominator int32) (n, lower int32) {
 	if signed < 0 {
-		return -signed, -floorSquareRoot(-signed) - 1
+		return -signed, -floorSquareRoot(-signed/denominator) - 1
 	}
-	return signed, floorSquareRoot(signed)
+	return signed, floorSquareRoot(signed / denominator)
 }
 
 func (m *ASTManager) arithmeticAlgebraicApp(w *astAlgebraicNumbersWrapper, id uint32) (ASTHandle, error) {

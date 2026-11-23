@@ -173,7 +173,11 @@ func (m *ASTManager) exactAlgebraicSMT2Text(h ASTHandle, arithmetic FamilyID) (s
 		if n < 0 {
 			n, index = -n, "1"
 		}
-		return "(root-obj (+ (^ x 2) (- " + strconv.FormatInt(int64(n), 10) + ")) " + index + ")", true, nil
+		squared := "(^ x 2)"
+		if denominator := w.squareDenominator(id); denominator != 1 {
+			squared = "(* " + strconv.FormatInt(int64(denominator), 10) + " " + squared + ")"
+		}
+		return "(root-obj (+ " + squared + " (- " + strconv.FormatInt(int64(n), 10) + ")) " + index + ")", true, nil
 	}
 	value, err := w.value(id)
 	if err != nil {
