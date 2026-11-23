@@ -15,31 +15,39 @@ func (m *ASTManager) arithmeticValue(fid FamilyID, r astNodeRef, unique bool) (b
 	return kind == 0 || kind == 31 || kind == 32 || !unique && kind == 1, nil
 }
 
-func (m *ASTManager) arithmeticAlgebraicValue(fid FamilyID, r astNodeRef) (*polynomial.Algebraic, bool, error) {
+func (m *ASTManager) arithmeticAlgebraicID(fid FamilyID, r astNodeRef) (uint32, bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
-		return nil, false, nil
+		return 0, false, nil
 	}
 	f, kind, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil || f != fid || kind != 1 {
-		return nil, false, e
+		return 0, false, e
 	}
 	if m.arithmeticPlugin == nil || m.arithmeticPlugin.family != fid || m.arithmeticPlugin.algebraic == nil {
-		return nil, false, ErrASTHandle
+		return 0, false, ErrASTHandle
 	}
 	info, e := m.funcInfo(m.declAt(m.appAt(r.slot).decl.slot).info)
 	if e != nil {
-		return nil, false, e
+		return 0, false, e
 	}
 	parameter, e := m.infoParameter(info, 0)
 	if e != nil {
-		return nil, false, e
+		return 0, false, e
 	}
 	external, e := m.parameterOfKind(parameter, ASTParameterExternal)
 	if e != nil {
-		return nil, false, e
+		return 0, false, e
 	}
-	v, e := m.arithmeticPlugin.algebraic.value(external.external)
-	return v, e == nil, e
+	return external.external, true, nil
+}
+
+func (m *ASTManager) arithmeticAlgebraicValue(fid FamilyID, r astNodeRef) (*polynomial.Algebraic, bool, error) {
+	id, ok, err := m.arithmeticAlgebraicID(fid, r)
+	if err != nil || !ok {
+		return nil, false, err
+	}
+	v, err := m.arithmeticPlugin.algebraic.value(id)
+	return v, err == nil, err
 }
 
 func (m *ASTManager) arithmeticAlgebraicEqual(fid FamilyID, a, b astNodeRef) (bool, bool, error) {

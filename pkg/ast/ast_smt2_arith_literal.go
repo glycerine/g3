@@ -54,6 +54,14 @@ func (m *ASTManager) smt2PPArithLiteral(h ASTHandle, decimal bool, precision uin
 		if e != nil || family != arithmetic {
 			return ASTHandle{}, false, e
 		}
+		if !decimal && m.compactSquareRootsEnabled() {
+			text, ok, err := m.exactAlgebraicSMT2Text(h, arithmetic)
+			if err != nil || !ok {
+				return ASTHandle{}, ok, err
+			}
+			format, err = m.FormatString(text)
+			return format, true, err
+		}
 		var algebraic polynomial.Algebraic
 		matched, e = m.ArithmeticAlgebraicNumeralValue(h, &algebraic)
 		if e != nil || !matched {
@@ -141,4 +149,37 @@ func (m *ASTManager) smt2PPArithLiteral(h ASTHandle, decimal bool, precision uin
 		format, err = m.FormatSeq1("-", []ASTHandle{format})
 	}
 	return format, true, err
+}
+
+// The exact printer reads the plugin's number in place. The general printer
+// can remember its root index on that cell. A compact square root already
+// identifies the polynomial and which of its two real roots was chosen.
+func (m *ASTManager) exactAlgebraicSMT2Text(h ASTHandle, arithmetic FamilyID) (string, bool, error) {
+	if err := m.lock(); err != nil {
+		return "", false, err
+	}
+	defer m.mu.Unlock()
+	r, err := m.requireExpr(h)
+	if err != nil {
+		return "", false, err
+	}
+	id, ok, err := m.arithmeticAlgebraicID(arithmetic, r)
+	if err != nil || !ok {
+		return "", false, err
+	}
+	w := m.arithmeticPlugin.algebraic
+	if n := w.signedRadicand(id); n != 0 {
+		index := "2"
+		if n < 0 {
+			n, index = -n, "1"
+		}
+		return "(root-obj (+ (^ x 2) (- " + strconv.FormatInt(int64(n), 10) + ")) " + index + ")", true, nil
+	}
+	value, err := w.value(id)
+	if err != nil {
+		return "", true, err
+	}
+	var text smt2AlgebraicText
+	err = w.manager.DisplayRootSMT2Into(&text, value)
+	return text.String(), true, err
 }

@@ -112,3 +112,108 @@ func TestArithmeticSquareRootNumeralReservationFailures(t *testing.T) {
 		t.Fatal("did not reach a successful construction")
 	}
 }
+
+func TestCompactSquareRootPrintReadAndRecycle(t *testing.T) {
+	m := squareRootManager(t)
+	if !m.compactSquareRootsEnabled() {
+		t.Skip("compact values require the ordinary arithmetic configuration")
+	}
+	for _, tc := range []struct {
+		negative bool
+		index    int
+	}{{false, 2}, {true, 1}} {
+		h, err := m.ArithmeticSquareRootNumeral(2, tc.negative)
+		astTestMust(t, err)
+		astTestMust(t, m.IncRef(h))
+		w := m.arithmeticPlugin.algebraic
+		for range 2 {
+			format, ok, err := m.SMT2PPArithLiteral(h, false, 5)
+			astTestMust(t, err)
+			want, err := m.FormatString(fmt.Sprintf("(root-obj (+ (^ x 2) (- 2)) %d)", tc.index))
+			astTestMust(t, err)
+			if !ok || format != want || w.values[0] != (polynomial.Algebraic{}) {
+				t.Fatal("exact printing did not preserve the compact root")
+			}
+		}
+		decimal, ok, err := m.SMT2PPArithLiteral(h, true, 3)
+		astTestMust(t, err)
+		want, err := m.FormatString("1.414?")
+		astTestMust(t, err)
+		if tc.negative {
+			want, err = m.FormatSeq1("-", []ASTHandle{want})
+			astTestMust(t, err)
+		}
+		if !ok || decimal != want || w.values[0] == (polynomial.Algebraic{}) {
+			t.Fatal("decimal printing did not use the exact numeric value")
+		}
+		astTestMust(t, m.DecRef(h))
+		if w.signedRadicand(0) != 0 || len(w.freeIDs) != 1 {
+			t.Fatal("recycled root retained its signed radicand")
+		}
+	}
+}
+
+func TestCompactSquareRootRetriesFailedNumericRead(t *testing.T) {
+	for ordinal := int64(0); ordinal < 128; ordinal++ {
+		m := squareRootManager(t)
+		if !m.compactSquareRootsEnabled() {
+			t.Skip("compact values require the ordinary arithmetic configuration")
+		}
+		h, err := m.ArithmeticSquareRootNumeral(19, true)
+		astTestMust(t, err)
+		astTestMust(t, m.IncRef(h))
+		w := m.arithmeticPlugin.algebraic
+		m.Budget().FailAfter(ordinal)
+		_, readErr := w.value(0)
+		m.Budget().FailAfter(-1)
+		if readErr != nil {
+			if w.values[0] != (polynomial.Algebraic{}) || w.signedRadicand(0) != -19 {
+				t.Fatal("failed read published an incomplete cell", ordinal)
+			}
+			_, err = w.value(0)
+			astTestMust(t, err)
+		}
+		negative, err := w.manager.IsNeg(&w.values[0])
+		astTestMust(t, err)
+		if !negative {
+			t.Fatal("lost root sign on numeric read", ordinal)
+		}
+		astTestMust(t, m.DecRef(h))
+		if readErr == nil {
+			return
+		}
+	}
+	t.Fatal("did not reach a successful numeric read")
+}
+
+func TestTranslatedCompactRootSurvivesSourceReuse(t *testing.T) {
+	from := squareRootManager(t)
+	to, err := NewASTManager(ASTManagerConfig{Symbols: from.Symbols, Numerals: from.numerals,
+		Params: from.params, Globals: from.globals, Budget: from.BudgetField})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, to.Close()) }()
+	_, err = to.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	tr, err := NewASTTranslation(from, to, false)
+	astTestMust(t, err)
+	h, err := from.ArithmeticSquareRootNumeral(17, true)
+	astTestMust(t, err)
+	astTestMust(t, from.IncRef(h))
+	copy, err := tr.Translate(h)
+	astTestMust(t, err)
+	astTestMust(t, to.IncRef(copy))
+	astTestMust(t, tr.Close())
+	astTestMust(t, from.DecRef(h))
+	h, err = from.ArithmeticSquareRootNumeral(23, false)
+	astTestMust(t, err)
+	astTestMust(t, from.IncRef(h))
+	defer func() { astTestMust(t, from.DecRef(h)) }()
+	format, ok, err := to.SMT2PPArithLiteral(copy, false, 8)
+	astTestMust(t, err)
+	want, err := to.FormatString("(root-obj (+ (^ x 2) (- 17)) 1)")
+	astTestMust(t, err)
+	if !ok || format != want {
+		t.Fatal("translated number changed after source slot reuse")
+	}
+	astTestMust(t, to.DecRef(copy))
+}

@@ -67,12 +67,13 @@ def main():
     p.add_argument("variables", type=int)
     p.add_argument("--shape", choices=SHAPES, default="unique")
     p.add_argument("--route", choices=ROUTES, default="ordinary")
-    p.add_argument("--values", action="store_true")
+    p.add_argument("--values", nargs="?", type=int, const=1, default=0,
+                   metavar="REPETITIONS", help="print all model values this many times")
     p.add_argument("--verify", nargs=2, type=Path, metavar=("G3", "Z3"))
     p.add_argument("--timeout", type=int, default=120)
     a = p.parse_args()
-    if a.variables < 2 or a.timeout < 1:
-        p.error("at least two variables and a positive timeout are required")
+    if a.variables < 2 or a.timeout < 1 or a.values < 0:
+        p.error("use at least two variables, a positive timeout and nonnegative repetitions")
     for shape in SHAPES if a.verify else (a.shape,):
         preamble, names = workload(shape, a.variables)
         expected = "unsat" if shape in UNSAT else "sat"
@@ -82,8 +83,9 @@ def main():
             print(f"{shape},{a.variables},{a.route},{expected},{n},pass", flush=True)
         else:
             print(preamble + ROUTES[a.route])
-            if a.values and expected == "sat":
-                print("(get-value (" + " ".join(names) + "))")
+            if expected == "sat":
+                for _ in range(a.values):
+                    print("(get-value (" + " ".join(names) + "))")
 
 
 if __name__ == "__main__":
