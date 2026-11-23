@@ -4288,3 +4288,17 @@ Each equality merge saved two closures to restore the destination enode's label 
 The instruction microbenchmarks use eight paired slopes. The storage benchmark keeps 1,024 independent matchers live and measures the heap after collection. After pop, the measured overhead per matcher was 4,872 bytes before and 2,344–2,368 bytes after. After reset, the new trail returned to the measured baseline. The whole issue 73 figures are medians of three alternating pairs with byte-identical output on all 795 checks. Seven standalone proofs completed three pairs each with identical conflicts, decisions, propagations and instantiations. In eight further Ivy comparisons with five pairs each, all verdicts matched. The 87-input corpus matched linked Z3 on stdout, stderr and exit status. [Raw measurements and alternative representations](perf/ivy_apple/holdouts/nov23-mam-merge-trail.tar.gz)
 
 Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTMAMMergeTrail$' -benchmem -cpu=1` for hot-path cost, or use `-bench '^BenchmarkSMTMAMMergeTrailWorkers$' -benchtime=1x -count=8` for per-worker storage. [Worker benchmark](smtcore/smt_mam_merge_trail_workers_benchmark_test.go)
+
+### Sequence scopes in quantified proofs
+
+Every sequence-theory push saved its axiom queue position in a closure, even when the queue position was zero. That cost also applied to quantified proofs that opened many scopes without processing sequence axioms. Scopes starting at zero now share one stateless undo function. Scopes starting later still capture their own queue position. Both undo functions occupy the same place in the callback order. [Implementation](smtcore/smt_theory_seq_assign.go) · [Nested rollback test and scope benchmark](smtcore/smt_sequence_scope_benchmark_test.go)
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Instructions per empty sequence-theory push and pop | 2,037 | **1,862** |
+| Bytes and allocations per empty scope | 16 B, 1 allocation | **0 B, 0 allocations** |
+| Apple batch 13, condition 132, allocations per proof | 10,630,534 | **9,657,802** |
+| Apple batch 13, condition 132, MB allocated per proof | 1,077.65 | **1,062.01** |
+| Apple batch 14, condition 116, allocations per proof | 4,416,381 | **4,081,873** |
+
+The scope benchmark uses seven alternating pairs of 1.5 million iterations. The proof allocations are medians of four pairs on the compressed-matcher baseline. Six standalone proofs had identical conflicts, decisions, propagations and quantifier instantiations across three pairs each. On an earlier common baseline, the seven complete Ivy cases had matching output and median instruction changes between −0.79% and +0.24%. The measured benefit is the reduction in allocation on heavily backtracking proofs. Run `go test ./smtcore -run '^TestSMTSequenceScopesRestoreAxiomHeads$' -bench '^BenchmarkSMTSequenceEmptyScope$' -benchmem -cpu=1`. [Paired counters and allocations](perf/ivy_apple/holdouts/nov23-sequence-scope-undo.tar.gz)

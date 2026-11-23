@@ -199,15 +199,25 @@ func (t *SMTTheorySeq) pushScopeEh() {
 	t.rep.pushScope()
 	t.exclude.pushScope()
 	t.trailLim = append(t.trailLim, len(t.trailStack))
-	head := t.axiomsHead
-	t.pushTrail(func(th *SMTTheorySeq) error { // value_trail(m_axioms_head)
-		th.axiomsHead = head
-		return nil
-	})
+	// value_trail(m_axioms_head). Most scopes open before the first
+	// sequence axiom is processed and can share a capture-free undo.
+	if head := t.axiomsHead; head == 0 {
+		t.pushTrail(restoreZeroSequenceAxiomsHead)
+	} else {
+		t.pushTrail(func(th *SMTTheorySeq) error {
+			th.axiomsHead = head
+			return nil
+		})
+	}
 	t.eqs.pushScope()
 	t.nqs.pushScope()
 	t.ncs.pushScope()
 	t.atomsLim = append(t.atomsLim, len(t.atoms))
+}
+
+func restoreZeroSequenceAxiomsHead(t *SMTTheorySeq) error {
+	t.axiomsHead = 0
+	return nil
 }
 
 func (t *SMTTheorySeq) popTrail(numScopes int) {
