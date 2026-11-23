@@ -67,7 +67,7 @@ func TestSMTModelCheckerAuxiliarySnapshotAndConcretePlugins(t *testing.T) {
 	}
 }
 
-func smtAuxiliaryQueryFixture(t *testing.T, skipTrivial bool) (*ast.ASTManager, *SMTModelChecker, *protomodel.ProtoModel, ast.ASTHandle, ast.ASTHandle) {
+func smtAuxiliaryQueryFixture(t testing.TB, skipTrivial bool) (*ast.ASTManager, *SMTModelChecker, *protomodel.ProtoModel, ast.ASTHandle, ast.ASTHandle) {
 	t.Helper()
 	m, cfg := smtModelGeneratorFixture(t)
 	s, err := NewSMTSolver(m, nil, "AUFLIA", SMTSolverConfig{Params: cfg.Context, ModelEvaluator: cfg, SkipTrivialMBQIChecks: skipTrivial})

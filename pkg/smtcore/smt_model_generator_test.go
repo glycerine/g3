@@ -214,7 +214,7 @@ func TestSMTModelGeneratorRejectsDependencyCycle(t *testing.T) {
 	}
 }
 
-func smtModelGeneratorFixture(t *testing.T) (*ast.ASTManager, model.ModelEvaluatorConfig) {
+func smtModelGeneratorFixture(t testing.TB) (*ast.ASTManager, model.ModelEvaluatorConfig) {
 	t.Helper()
 	symbols, numerals, budget := astTestOwners(t)
 	context, err := uparams.NewParamsContext(symbols, numerals, uparams.ParamsConfig{Budget: budget})

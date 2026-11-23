@@ -14,7 +14,7 @@ import (
 )
 
 type tableTest struct {
-	t  *testing.T
+	t  testing.TB
 	m  *ast.ASTManager
 	md *protomodel.ProtoModel
 }

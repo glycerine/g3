@@ -37,7 +37,7 @@ func proofTestBool(t *testing.T, m *ast.ASTManager, name string) ast.ASTHandle {
 	astTestMust(t, e)
 	return h
 }
-func astTestPin(t *testing.T, m *ast.ASTManager, h ast.ASTHandle) ast.ASTRef {
+func astTestPin(t testing.TB, m *ast.ASTManager, h ast.ASTHandle) ast.ASTRef {
 	t.Helper()
 	r, e := m.NewRef(h)
 	astTestMust(t, e)

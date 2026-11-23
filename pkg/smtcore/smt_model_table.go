@@ -1,6 +1,8 @@
 package smtcore
 
 import (
+	"slices"
+
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 )
@@ -14,6 +16,7 @@ type tableModel struct {
 	values      []ast.ASTHandle
 	sorts       []ast.ASTHandle
 	valueIDs    map[ast.ASTHandle]int
+	enumDecls   map[ast.ASTHandle][]ast.ASTHandle
 	bySort      map[ast.ASTHandle][]int
 	terms       []tableTerm
 	termIDs     map[ast.ASTHandle]int
@@ -60,15 +63,28 @@ func (g *tableModel) valueID(value ast.ASTHandle) (int, error) {
 	if value.IsNull() {
 		return 0, nil
 	}
-	ok, err := g.manager.IsModelValue(value)
-	if err != nil || !ok {
+	modelValue, err := g.manager.IsModelValue(value)
+	if err != nil {
 		return 0, err
+	}
+	var decl ast.ASTHandle
+	if !modelValue {
+		h, err := g.manager.NodeHeader(value)
+		if err != nil || h.Kind != ast.ASTApp || h.NumArgs != 0 || h.DeclKind != ast.ASTDatatypeConstructor {
+			return 0, err
+		}
+		decl = h.Decl
 	}
 	sort, err := g.manager.GetSort(value)
 	if err != nil {
 		return 0, err
 	}
-	ok, err = g.manager.IsUninterpretedSort(sort)
+	var ok bool
+	if modelValue {
+		ok, err = g.manager.IsUninterpretedSort(sort)
+	} else {
+		ok, err = g.enumValue(sort, decl)
+	}
 	if err != nil || !ok {
 		return 0, err
 	}
@@ -78,6 +94,32 @@ func (g *tableModel) valueID(value ast.ASTHandle) (int, error) {
 	g.sorts = append(g.sorts, sort)
 	g.bySort[sort] = append(g.bySort[sort], id)
 	return id, nil
+}
+
+// Distinct canonical constructors denote distinct elements. They can occur in
+// the body or in a function interpretation, even when none of the variables
+// range over the enumeration. Only the constructors actually used get IDs.
+func (g *tableModel) enumValue(sort, decl ast.ASTHandle) (bool, error) {
+	constructors, cached := g.enumDecls[sort]
+	if !cached {
+		enum, err := g.manager.DatatypeIsEnumSort(sort)
+		if err != nil || !enum {
+			return false, err
+		}
+		count, err := g.manager.DatatypeNumConstructors(sort)
+		if err != nil || count > 64 {
+			return false, err
+		}
+		constructors, err = g.manager.DatatypeConstructors(sort)
+		if err != nil {
+			return false, err
+		}
+		if g.enumDecls == nil {
+			g.enumDecls = make(map[ast.ASTHandle][]ast.ASTHandle)
+		}
+		g.enumDecls[sort] = constructors
+	}
+	return slices.Contains(constructors, decl), nil
 }
 
 func tableOperator(kind int32, arity uint32) bool {
