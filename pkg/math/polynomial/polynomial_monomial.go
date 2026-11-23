@@ -109,6 +109,9 @@ type MonomialManager struct {
 	allocatorMemoryTraceLive                                                  bool
 	sourceStage                                                               uint8
 	originalCause, cleanupCause                                               error
+
+	// Indices below firstPossibleSlot are live or have exhausted their generation.
+	firstPossibleSlot int
 }
 
 func NewMonomialManager(c MonomialManagerConfig) (*MonomialManager, error) {
@@ -366,11 +369,12 @@ func (m *MonomialManager) ReadPower(a Monomial, i uint32) (MonomialPower, error)
 	return m.powerCore(a, i)
 }
 func (m *MonomialManager) prepareLocation() (uint32, error) {
-	for i := range m.locations {
+	for i := m.firstPossibleSlot; i < len(m.locations); i++ {
 		l := &m.locations[i]
 		if !l.live && l.generation < math.MaxUint32 {
 			generation := l.generation + 1
 			*l = monomialLocation{generation: generation}
+			m.firstPossibleSlot = i
 			return uint32(i + 1), nil
 		}
 	}
@@ -380,6 +384,7 @@ func (m *MonomialManager) prepareLocation() (uint32, error) {
 	if len(m.locations) == int(^uint(0)>>1) {
 		return 0, arena.ErrBounds
 	}
+	m.firstPossibleSlot = len(m.locations)
 	m.locations = append(m.locations, monomialLocation{generation: 1})
 	return uint32(len(m.locations)), nil
 }
@@ -518,6 +523,7 @@ func (m *MonomialManager) deleteCore(a Monomial, l *monomialLocation) error {
 		l.published = false
 	}
 	l.live = false
+	m.firstPossibleSlot = min(m.firstPossibleSlot, int(a.slot)-1)
 	l.stage = 0
 	return nil
 }

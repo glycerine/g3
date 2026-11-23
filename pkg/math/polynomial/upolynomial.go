@@ -127,6 +127,9 @@ type UPolynomialManager struct {
 	sourceStage                                    uint8
 	sourceIndex                                    uint32
 	sourceCause                                    error
+
+	// Earlier pages contain no reusable descriptors.
+	firstPossiblePage int
 }
 
 func NewUPolynomialManager(c UPolynomialConfig) (*UPolynomialManager, error) {
@@ -326,13 +329,15 @@ func (m *UPolynomialManager) newPolynomial() (UPolynomial, error) {
 	if e := m.check(); e != nil {
 		return UPolynomial{}, e
 	}
-	for i, page := range m.pages {
+	for i := m.firstPossiblePage; i < len(m.pages); i++ {
+		page := m.pages[i]
 		for j := range page.rows {
 			d := &page.rows[j]
 			if !d.live && d.generation != math.MaxUint32 {
 				if d.generation == 0 {
 					d.generation = 1
 				}
+				m.firstPossiblePage = i
 				d.live = true
 				m.live++
 				return UPolynomial{m.origin, uint32(i*32 + j + 1), d.generation}, nil
@@ -343,6 +348,7 @@ func (m *UPolynomialManager) newPolynomial() (UPolynomial, error) {
 		return UPolynomial{}, arena.ErrSlotLimit
 	}
 	page := &upolyDescriptorPage{}
+	m.firstPossiblePage = len(m.pages)
 	m.pages = append(m.pages, page)
 	page.rows[0] = upolyDescriptor{generation: 1, live: true}
 	m.live++
@@ -414,13 +420,17 @@ func (m *UPolynomialManager) delPolynomial(p *UPolynomial) error {
 		return e
 	}
 	m.freeBacking(&d.state)
+	m.releaseDescriptor(p, d)
+	return nil
+}
+func (m *UPolynomialManager) releaseDescriptor(p *UPolynomial, d *upolyDescriptor) {
 	d.live = false
+	m.firstPossiblePage = min(m.firstPossiblePage, int((p.slot-1)/32))
 	if d.generation != math.MaxUint32 {
 		d.generation++
 	}
 	m.live--
 	*p = UPolynomial{}
-	return nil
 }
 func (m *UPolynomialManager) Close() error { return m.closeWithHensel(nil) }
 func (m *UPolynomialManager) closeWithHensel(r *upolyHenselPairInvocationReceipt) error {

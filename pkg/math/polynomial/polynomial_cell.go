@@ -489,6 +489,7 @@ func (m *MultivariatePolynomialCore) deleteCoreMode(p Polynomial, owning bool) e
 		}
 	}
 	l.live = false
+	m.firstPossibleSlot = min(m.firstPossibleSlot, int(p.slot)-1)
 	if l.published {
 		m.live--
 		l.published = false

@@ -124,6 +124,7 @@ func (m *MultivariatePolynomialCore) cleanupPendingCreation() error {
 			}
 		}
 		l.live = false
+		m.firstPossibleSlot = min(m.firstPossibleSlot, int(p.value.slot)-1)
 	} else if p.raw != (umemory.ObjectRef{}) {
 		status, e := m.monomials.allocator.DeallocateTracked(uint64(p.requested), p.raw)
 		if status.PhysicalReleased || status.PooledLinked {

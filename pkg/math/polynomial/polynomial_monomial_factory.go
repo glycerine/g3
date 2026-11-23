@@ -417,6 +417,7 @@ func (m *MonomialManager) CleanupCreation() error {
 			l.published = false
 		}
 		l.live = false
+		m.firstPossibleSlot = min(m.firstPossibleSlot, int(c.slot)-1)
 	}
 	m.completeCreationContinuation()
 	*c = monomialCreation{}

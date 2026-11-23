@@ -146,6 +146,9 @@ type MultivariatePolynomialCore struct {
 	closeStage                                                   uint8
 	completed, closing, closed, monomialRetained, idsInitialized bool
 	originalCause, cleanupCause                                  error
+
+	// Indices below firstPossibleSlot are live or have exhausted their generation.
+	firstPossibleSlot int
 }
 
 func NewMultivariatePolynomialCore(c MultivariatePolynomialConfig) (*MultivariatePolynomialCore, error) {

@@ -133,7 +133,9 @@ func (m *MonomialManager) CleanupValue(a *Monomial) error {
 	if e != nil {
 		return e
 	}
-	m.table.removeToken(monomialKey{monomialObjectKey, a.slot})
+	// The caller can pass an orphan slot that the cohort acknowledgments clear.
+	slot := a.slot
+	m.table.removeToken(monomialKey{monomialObjectKey, slot})
 	if l.raw != (umemory.ObjectRef{}) && m.sourceStage >= 3 && m.allocatorOwned {
 		if l.sourceOffset == 0 {
 			e = m.memory.Deallocate(&l.sourceRaw)
@@ -190,6 +192,7 @@ func (m *MonomialManager) CleanupValue(a *Monomial) error {
 	l.acknowledgePseudoCreated(*a)
 	l.acknowledgeToPolynomialCreated(*a)
 	l.live = false
+	m.firstPossibleSlot = min(m.firstPossibleSlot, int(slot)-1)
 	*a = Monomial{}
 	return nil
 }

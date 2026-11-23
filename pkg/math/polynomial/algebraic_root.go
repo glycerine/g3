@@ -155,6 +155,9 @@ type AlgebraicRootCore struct {
 	localActive                                                bool
 	localOriginal, localCleanup                                error
 	constructionStage                                          uint8
+
+	// Indices below firstPossibleSlot are live or have exhausted their generation.
+	firstPossibleSlot int
 }
 
 // Scalar codec is actual Go-adapter extent: basic 24, root 56 bytes. It is not
@@ -354,7 +357,7 @@ func (m *AlgebraicRootCore) allocate(kind uint8) (Algebraic, error) {
 // callback reentry remains excluded by that invocation's lifetime guard.
 func (m *AlgebraicRootCore) allocateCell(kind uint8) (Algebraic, error) {
 	i := len(m.locations)
-	for j := range m.locations {
+	for j := m.firstPossibleSlot; j < len(m.locations); j++ {
 		if !m.locations[j].live && m.locations[j].generation != math.MaxUint32 {
 			i = j
 			break
@@ -366,6 +369,7 @@ func (m *AlgebraicRootCore) allocateCell(kind uint8) (Algebraic, error) {
 		}
 		m.locations = append(m.locations, algebraicLocation{})
 	}
+	m.firstPossibleSlot = i
 	l := &m.locations[i]
 	l.generation++
 	l.kind = kind
@@ -555,6 +559,7 @@ func (m *AlgebraicRootCore) destroyCell(a *Algebraic, l *algebraicLocation, owni
 		}
 	}
 	l.live = false
+	m.firstPossibleSlot = min(m.firstPossibleSlot, int(a.slot)-1)
 	if l.published {
 		m.callers--
 		l.published = false
@@ -604,12 +609,7 @@ func (m *AlgebraicRootCore) destroyPolynomial(l *algebraicLocation, r *algebraic
 			}
 		}
 		p.freeBacking(&d.state)
-		d.live = false
-		if d.generation != math.MaxUint32 {
-			d.generation++
-		}
-		p.live--
-		r.poly = UPolynomial{}
+		p.releaseDescriptor(&r.poly, d)
 	}
 	r.size = 0
 	l.coefficientCursor = 0

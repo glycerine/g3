@@ -89,10 +89,11 @@ func (v *polynomialNumerals) close(m *MultivariatePolynomialCore) error {
 	return nil
 }
 func (m *MultivariatePolynomialCore) prepareLocation() (uint32, error) {
-	for i := range m.locations {
+	for i := m.firstPossibleSlot; i < len(m.locations); i++ {
 		l := &m.locations[i]
 		if !l.live && l.generation != math.MaxUint32 {
 			l.generation++
+			m.firstPossibleSlot = i
 			return uint32(i + 1), nil
 		}
 	}
@@ -102,6 +103,7 @@ func (m *MultivariatePolynomialCore) prepareLocation() (uint32, error) {
 	if len(m.locations) == int(^uint(0)>>1) {
 		return 0, arena.ErrBounds
 	}
+	m.firstPossibleSlot = len(m.locations)
 	m.locations = append(m.locations, polynomialLocation{generation: 1})
 	return uint32(len(m.locations)), nil
 }

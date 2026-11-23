@@ -50,15 +50,17 @@ func (m *UPolynomialManager) values(s *upolyVectorState) []unumeral.Int {
 	return m.stateStore(s).backings[s.backing-1].values
 }
 func (m *UPolynomialManager) backingSlot() (uint32, error) {
-	for i := range m.store.backings {
+	for i := m.store.firstPossibleSlot; i < len(m.store.backings); i++ {
 		b := &m.store.backings[i]
 		if !b.live && b.generation != math.MaxUint32 {
+			m.store.firstPossibleSlot = i
 			return uint32(i + 1), nil
 		}
 	}
 	if uint64(len(m.store.backings)) >= math.MaxUint32 {
 		return 0, arena.ErrSlotLimit
 	}
+	m.store.firstPossibleSlot = len(m.store.backings)
 	m.store.backings = append(m.store.backings, upolyBacking{generation: 1})
 	return uint32(len(m.store.backings)), nil
 }
@@ -82,12 +84,7 @@ func (m *UPolynomialManager) reserve(s *upolyVectorState, n uint32) error {
 		}
 		a = append(a, make([]unumeral.Int, int(n)-len(a))...)
 		if oldSlot != 0 {
-			old := &oldStore.backings[oldSlot-1]
-			old.values = nil
-			old.live = false
-			if old.generation != math.MaxUint32 {
-				old.generation++
-			}
+			oldStore.releaseBacking(oldSlot)
 		}
 		b := &m.store.backings[slot-1]
 		b.values, b.live = a, true
@@ -100,14 +97,18 @@ func (m *UPolynomialManager) reserve(s *upolyVectorState, n uint32) error {
 	s.size = n
 	return nil
 }
+func (storage *UPolynomialCoefficientStore) releaseBacking(slot uint32) {
+	b := &storage.backings[slot-1]
+	b.values = nil
+	b.live = false
+	storage.firstPossibleSlot = min(storage.firstPossibleSlot, int(slot)-1)
+	if b.generation != math.MaxUint32 {
+		b.generation++
+	}
+}
 func (m *UPolynomialManager) freeBacking(s *upolyVectorState) {
 	if s.backing != 0 {
-		b := &m.stateStore(s).backings[s.backing-1]
-		b.values = nil
-		b.live = false
-		if b.generation != math.MaxUint32 {
-			b.generation++
-		}
+		m.stateStore(s).releaseBacking(s.backing)
 	}
 	*s = upolyVectorState{}
 }

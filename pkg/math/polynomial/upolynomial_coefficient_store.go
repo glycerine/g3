@@ -20,6 +20,9 @@ type UPolynomialCoefficientStore struct {
 	owners   uint32
 	header   uint64
 	closed   bool
+
+	// The physical store owns the search position when managers exchange backings.
+	firstPossibleSlot int
 }
 type UPolynomialCoefficientStoreStats struct {
 	Owners, LiveBackings, OwnedNumeralCells              uint32

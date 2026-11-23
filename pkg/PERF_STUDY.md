@@ -4324,3 +4324,27 @@ Assigning variables in ascending order made g3 allocate and copy its entire valu
 Instruction slopes use eight pairs per microbenchmark. The complete checks use three alternating pairs, including shell startup and shutdown. The local improvement is **27.2×** at 8,192 variables. The complete checks saved **4.8%** and **8.7%** at that size. The smaller ordered and coupled controls used 2–3% more instructions in this sample. All nine generated inputs matched Z3 on verdict, nonlinear propagations, stages and resource steps. The default 8,192-variable check took 8,193 stages and 1,105,921 steps on both engines. Another 42 repository vectors preserved g3's stdout, stderr and exit status. These arithmetic runs do not measure Ivy's quantified order proofs. [Raw hardware counters, shell controls and profiles](perf/nlsat/nov23-assignment-growth.tar.gz)
 
 On the default 8,192-variable input, sampled stacks and the increasing instructions per variable point to repeated searches for reusable arena slots in polynomial and algebraic-number construction. The remaining whole-process gap exceeds 40× with identical nonlinear search counts. That makes the location search a higher priority on this family than further tuning assignment copies. Reproduce the shell input with `python3 perf/nlsat/assignment_growth.py 8192 > /tmp/g3-assignment.smt2`, then run each shell with `-st -smt2 /tmp/g3-assignment.smt2`. Run `go test ./nlsat -run '^TestAssignment' -bench '^BenchmarkNLSATAssignmentGrowth$' -benchmem -cpu=1` for the assignment-only comparison. [Input generator](perf/nlsat/assignment_growth.py)
+
+### Finding reusable polynomial and algebraic-number slots
+
+On the 8,192-variable nonlinear check, g3 inspected **1,678,729,211 polynomial locations** and **268,451,840 monomial locations**. Each allocation started at the beginning of its directory, even when earlier slots were all live. Each owner now remembers the earliest position worth searching. Retiring a slot lowers that position. Allocation still returns the lowest reusable slot and advances its generation in the original order. Univariate managers track descriptor pages separately, and the physical coefficient store tracks its own backings when managers exchange polynomials. [Polynomial slot allocation](math/polynomial/polynomial_store.go) · [Shared coefficient storage](math/polynomial/upolynomial_storage.go)
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Polynomial directory inspections during the 8,192-variable check | 1,678,729,211 | **278,521** |
+| Monomial directory inspections during the same check | 268,451,840 | **32,768** |
+| Instructions to find and publish 8,192 polynomial slots in preallocated storage | 235,390,544 | **743,645** |
+| Instructions to find and publish 8,192 monomial slots in preallocated storage | 336,267,562 | **967,241** |
+
+| Complete nonlinear check | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 512 ordered variables | 3.13 | **3.00** | 0.14 |
+| 512 coupled variables | 3.63 | **3.33** | 0.16 |
+| 2,048 independent variables | 10.27 | **8.92** | 0.39 |
+| 8,192 independent variables | 65.26 | **42.88** | 1.52 |
+| 8,192 independent variables, explicit CNF pipeline | 44.75 | **29.39** | 0.91 |
+| 16,384 independent variables | 190.28 | **103.06** | 3.03 |
+
+The final binaries reduced instructions by **34.3% at 8,192 variables** and **45.8% at 16,384** on the default pipeline. These are medians of three alternating whole-shell pairs against g3 `5eea9809f`. The ten generated cases matched native Z3 on verdict, nonlinear propagations, stages and resource steps. Both Go builds gave identical stdout, stderr and exit status on 42 additional repository vectors. The focused tests exercise out-of-order reuse, generation exhaustion, failed allocation cleanup and the return of foreign coefficient storage through both deletion and growth. At 16,384 variables g3 still retired 34.0 times as many instructions as native. In the separately instrumented 8,192-variable run, algebraic cells still inspected 100.76 million locations and the two univariate directories inspected 135.53 million between them. [All counters, ablations and controls](perf/nlsat/nov23-polynomial-location-growth.tar.gz)
+
+Run `go test ./math/polynomial -run '^$' -bench '^BenchmarkPolynomialLocationGrowth$' -benchmem -cpu=1` for the directory measurements. For the complete checks, generate the input with `python3 perf/nlsat/assignment_growth.py 16384` and pass it to each shell with `-st -in -smt2`. [Benchmark and reuse tests](math/polynomial/polynomial_location_growth_test.go) · [Input generator](perf/nlsat/assignment_growth.py)

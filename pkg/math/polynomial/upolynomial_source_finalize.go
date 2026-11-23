@@ -311,11 +311,6 @@ func (m *UPolynomialManager) CleanupPolynomial(p *UPolynomial) error {
 		}
 	}
 	m.freeBacking(&d.state)
-	d.live = false
-	if d.generation != ^uint32(0) {
-		d.generation++
-	}
-	m.live--
-	*p = UPolynomial{}
+	m.releaseDescriptor(p, d)
 	return nil
 }
