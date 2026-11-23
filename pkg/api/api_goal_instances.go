@@ -30,7 +30,7 @@ type groundGoalTerms struct {
 
 // When several independent domains each have a single goal constant,
 // extend a failed one-tuple proof with observed applications and witnesses.
-func (g *groundGoalTerms) expandedPlan(assertions []ast.ASTHandle) *witnessInstancePlan {
+func (g *groundGoalTerms) expandedPlan(assertions []ast.ASTHandle, narrowWitnesses bool) *witnessInstancePlan {
 	if g.ambiguous || len(g.constants) < 4 {
 		return nil
 	}
@@ -41,7 +41,14 @@ func (g *groundGoalTerms) expandedPlan(assertions []ast.ASTHandle) *witnessInsta
 	}
 	sort.Slice(p.sorts, func(i, j int) bool { return p.sorts[i].Slot() < p.sorts[j].Slot() })
 	if g.maxArity >= 3 {
-		p.width, p.rounds = 10, 2
+		// A cold solver can avoid its first push by proving a wider
+		// instance. When the first push can no longer be deferred, use one
+		// candidate per sort for one round before ordinary search.
+		if narrowWitnesses {
+			p.width = 1
+		} else {
+			p.width, p.rounds = 10, 2
+		}
 	}
 	return p
 }
@@ -202,7 +209,7 @@ func (p *goalInstancePlan) addUniversal(m *ast.ASTManager, q ast.ASTHandle, witn
 	return nil
 }
 
-func planGroundGoals(m *ast.ASTManager, assertions []ast.ASTHandle) (*goalInstancePlan, *witnessInstancePlan, error) {
+func planGroundGoals(m *ast.ASTManager, assertions []ast.ASTHandle, narrowWitnesses bool) (*goalInstancePlan, *witnessInstancePlan, error) {
 	if len(assertions) < 2 || len(assertions) > 8192 {
 		return nil, nil, nil
 	}
@@ -212,7 +219,7 @@ func planGroundGoals(m *ast.ASTManager, assertions []ast.ASTHandle) (*goalInstan
 	}
 	if terms.constants != nil {
 		plan, err := planGoalInstances(m, assertions, terms.constants)
-		witness := terms.expandedPlan(assertions)
+		witness := terms.expandedPlan(assertions, narrowWitnesses)
 		if plan != nil || err != nil || witness != nil {
 			return plan, witness, err
 		}

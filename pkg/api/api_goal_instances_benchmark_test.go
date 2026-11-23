@@ -119,7 +119,12 @@ func BenchmarkAppleBooleanUnitReduction(b *testing.B) {
 
 func appleBenchmarkInput(b testing.TB, name string) string {
 	b.Helper()
-	f, err := os.Open("../perf/ivy_apple/test_vectors/" + name + ".smt2.gz")
+	return verificationBenchmarkInput(b, "ivy_apple", name)
+}
+
+func verificationBenchmarkInput(b testing.TB, suite, name string) string {
+	b.Helper()
+	f, err := os.Open("../perf/" + suite + "/test_vectors/" + name + ".smt2.gz")
 	if err != nil {
 		b.Fatal(err)
 	}

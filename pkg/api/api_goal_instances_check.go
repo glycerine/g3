@@ -10,8 +10,8 @@ import (
 
 // A satisfying ground model can omit required instances of the original
 // universals. Only a completed UNSAT check discharges the caller's query.
-func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions []ast.ASTHandle, maxSteps uint32) (proved bool, err error) {
-	plan, witness, err := planGroundGoals(parent, assertions)
+func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions []ast.ASTHandle, maxSteps uint32, narrowWitnesses bool) (proved bool, err error) {
+	plan, witness, err := planGroundGoals(parent, assertions, narrowWitnesses)
 	if err != nil {
 		return false, err
 	}

@@ -67,17 +67,24 @@ func TestWitnessInstancesGroundDomains(t *testing.T) {
 			astTestMust(t, e)
 			m, e := c.Manager()
 			astTestMust(t, e)
-			simple, ext, e := planGroundGoals(m, fs)
+			simple, ext, e := planGroundGoals(m, fs, false)
 			astTestMust(t, e)
 			if simple != nil || (ext != nil) != tc.eligible {
 				t.Fatalf("simple=%v expanded=%v", simple, ext)
 			}
 			if ext != nil {
 				p := orderProofState{source: s}
-				yes, e := p.checkProofPlan(m, ext, orderProofSteps)
+				_, narrow, e := planGroundGoals(m, fs, true)
 				astTestMust(t, e)
-				if !yes {
-					t.Fatal("missed universal at a")
+				if ext.width != 10 || ext.rounds != 2 || narrow == nil || narrow.width != 1 || narrow.rounds != 1 {
+					t.Fatal("unexpected witness search before or after the first push")
+				}
+				for _, plan := range []*witnessInstancePlan{ext, narrow} {
+					yes, e := p.checkProofPlan(m, plan, orderProofSteps)
+					astTestMust(t, e)
+					if !yes {
+						t.Fatalf("missed universal at a with width %d", plan.width)
+					}
 				}
 			}
 		})

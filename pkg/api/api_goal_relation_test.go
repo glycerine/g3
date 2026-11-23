@@ -35,7 +35,7 @@ func TestGoalRelationSelectsSingleSortOfViolatedPostcondition(t *testing.T) {
 			astTestMust(t, err)
 			roots, err := solver.Assertions(s.solver)
 			astTestMust(t, err)
-			_, p, err := planGroundGoals(m, roots)
+			_, p, err := planGroundGoals(m, roots, false)
 			astTestMust(t, err)
 			if got := p != nil && p.selectedOnly; got != tc.admitted {
 				t.Fatalf("selected relation plan = %t, want %t", got, tc.admitted)

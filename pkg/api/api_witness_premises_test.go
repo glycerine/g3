@@ -88,7 +88,7 @@ func TestWitnessPremisesBatchReplacesPoppedBase(t *testing.T) {
 		astTestMust(t, s.Assert(roots[2]))
 		fs, err := solver.Assertions(s.solver)
 		astTestMust(t, err)
-		yes, err := batch.state.proveGoalInstances(m, fs, orderProofSteps)
+		yes, err := batch.state.proveGoalInstances(m, fs, orderProofSteps, false)
 		astTestMust(t, err)
 		if yes != (i == 0) || !batch.state.witnessPremises.matches(fs[:len(fs)-1]) {
 			t.Fatalf("scope %d: proof=%v, index does not match current base or verdict", i, yes)

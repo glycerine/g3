@@ -279,7 +279,8 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 						}
 					}
 				}
-				return p.proveGoalInstances(parent, assertions, maxSteps)
+				narrowWitnesses := reuse && original && !combined.CanDeferFirstPush()
+				return p.proveGoalInstances(parent, assertions, maxSteps, narrowWitnesses)
 			}
 			searchSteps = min(maxSteps, 80_000)
 		}
