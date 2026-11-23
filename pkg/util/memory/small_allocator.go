@@ -55,12 +55,12 @@ const (
 // This concrete locator is pointer-free. Source links live in actual payload;
 // this ledger provides checked identity, physical ownership and source addresses.
 type smallObjectLocation struct {
-	raw                               Block
-	address, requested                uint64
-	offset, extent, chunk, generation uint32
-	kind                              uint8
-	live, free, retired               bool
-	release                           allocatorReleaseState
+	raw                                     Block
+	address, requested                      uint64
+	offset, extent, nextInChunk, generation uint32
+	kind                                    uint8
+	live, free, retired                     bool
+	release                                 allocatorReleaseState
 }
 type SmallAllocator struct {
 	allocationInvocation                smallAllocatorAllocationScope
@@ -212,6 +212,15 @@ func (a *SmallAllocator) installLocation(r smallObjectLocation) uint32 {
 	a.locations = append(a.locations, r)
 	a.locationScan = uint32(len(a.locations))
 	return uint32(len(a.locations))
+}
+
+// The chunk and its pooled objects share one chain of directory slots. Returning
+// an object to a size class changes the payload free list but retains membership.
+func (a *SmallAllocator) installChunkMember(chunkID uint32, object smallObjectLocation) uint32 {
+	object.nextInChunk = a.locations[chunkID-1].nextInChunk
+	id := a.installLocation(object)
+	a.locations[chunkID-1].nextInChunk = id
+	return id
 }
 
 // noteReusableLocation moves the scan back when a physical location becomes
@@ -459,7 +468,7 @@ func (a *SmallAllocator) allocateBody(n uint64, outcome *SmallAllocatorAllocatio
 			if e = smallObjectWriteWord(a.config.Runtime, chunk.raw, width, width, curr+size); e != nil {
 				return ObjectRef{}, e
 			}
-			id := a.installLocation(smallObjectLocation{raw: chunk.raw, address: chunk.address + curr, requested: n, offset: uint32(curr), extent: uint32(size), chunk: a.chunks[slot], kind: smallObjectPooled, live: true})
+			id := a.installChunkMember(a.chunks[slot], smallObjectLocation{raw: chunk.raw, address: chunk.address + curr, requested: n, offset: uint32(curr), extent: uint32(size), kind: smallObjectPooled, live: true})
 			return a.recordAllocationObject(outcome, a.ref(id), false), nil
 		}
 	}
@@ -492,7 +501,7 @@ func (a *SmallAllocator) allocateBody(n uint64, outcome *SmallAllocatorAllocatio
 	if e = smallObjectWriteWord(a.config.Runtime, h, width, width, 2*width+size); e != nil {
 		return ObjectRef{}, e
 	}
-	id := a.installLocation(smallObjectLocation{raw: h, address: address + 2*width, requested: n, offset: uint32(2 * width), extent: uint32(size), chunk: chunkID, kind: smallObjectPooled, live: true})
+	id := a.installChunkMember(chunkID, smallObjectLocation{raw: h, address: address + 2*width, requested: n, offset: uint32(2 * width), extent: uint32(size), kind: smallObjectPooled, live: true})
 	return a.recordAllocationObject(outcome, a.ref(id), true), nil
 }
 func (a *SmallAllocator) Deallocate(n uint64, r ObjectRef) error {
@@ -577,19 +586,20 @@ func (a *SmallAllocator) freeMeasure(waste bool) (uint64, error) {
 }
 func (a *SmallAllocator) WastedSize() (uint64, error)     { return a.freeMeasure(true) }
 func (a *SmallAllocator) NumFreeObjects() (uint64, error) { return a.freeMeasure(false) }
+
 func (a *SmallAllocator) invalidateChunk(id uint32) {
-	for i := range a.locations {
-		r := &a.locations[i]
-		if uint32(i+1) == id || r.kind == smallObjectPooled && r.chunk == id {
-			r.live = false
-			r.free = false
-			r.raw = Block{}
-			if r.generation == math.MaxUint32 {
-				r.retired = true
-			} else if !r.retired {
-				a.noteReusableLocation(uint32(i))
-			}
+	for id != 0 {
+		r := &a.locations[id-1]
+		next := r.nextInChunk
+		r.nextInChunk = 0
+		r.live, r.free = false, false
+		r.raw = Block{}
+		if r.generation == math.MaxUint32 {
+			r.retired = true
+		} else if !r.retired {
+			a.noteReusableLocation(id - 1)
 		}
+		id = next
 	}
 }
 

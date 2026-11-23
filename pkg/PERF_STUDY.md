@@ -4399,3 +4399,18 @@ Concrete sort aliases, parser-supplied sorts and datatype definitions had a seco
 | 8,192 unused parametric definitions | 0.585 | 0.596 | 0.156 |
 
 The largest alias case used **116.5× fewer instructions** across the complete process. The benefit scales with the number of owning trail rows. The parametric control has no such rows, and measured 1.9% higher in this sample. All ten generated inputs agreed with native across three pairs. Another 47 repository vectors preserved complete Go output and exit status, including 12 with a completed native comparison. On one intentional parser-error fixture the native executable terminated before its final check. Both Go builds produced the same diagnostics and completed that fixture. The command-context and CLI suites passed. Reproduce with `python3 perf/shell/declaration_reset.py 65536 --shape alias | ./g3 -in -smt2`. [Benchmark generator](perf/shell/declaration_reset.py) · [Counters and exact test scope](perf/shell/nov23-sort-declaration-reset.tar.gz)
+
+### Invalidating pooled arena objects when their chunk is released
+
+Releasing a chunk scanned the allocator's entire object directory to find its members. With many live chunks, reset visited most directory entries once per chunk. The existing 32-bit parent slot now links members of the same chunk. Size-class reuse keeps that link, and physical chunk release walks it once. The object record occupies the same space. Direct allocations and borrowed raw-pointer entries keep their independent lifetimes. [Allocator implementation](util/memory/small_allocator.go) · [Mixed-class regression and benchmark](util/memory/small_allocator_chunk_members_test.go)
+
+| Objects allocated and reset per iteration | Instructions before | Instructions after |
+|---:|---:|---:|
+| 128 | 241,841 | 209,479 |
+| 4,096 | 6,156,737 | 3,409,660 |
+| 32,768 | 182,387,957 | 26,228,256 |
+| 65,536 | 670,433,833 | **51,825,082** |
+
+The largest lifecycle used **12.9× fewer instructions**, including all allocations in fifteen size classes. On the complete 8,192-variable nonlinear check, instructions fell from 35.894 billion to **34.613 billion**, a 3.6% saving. The 16,384-variable check fell from 78.124 to **76.983 billion**, a 1.5% saving. All six whole-shell inputs matched native on verdict, propagations, stages and resource steps. Both Go builds preserved the output and exit status of 42 additional repository vectors. The memory, polynomial and NLSAT package suites passed, including a checked-build run of the memory suite.
+
+Run `go test ./util/memory -run '^$' -bench '^BenchmarkSmallAllocatorChunkLifecycle$' -benchmem -cpu=1`. The table uses six paired instruction-count slopes against `d92baa7d8`. The complete solver results use three pairs per input. [Hardware counts and verification records](perf/nlsat/nov23-chunk-membership.tar.gz)
