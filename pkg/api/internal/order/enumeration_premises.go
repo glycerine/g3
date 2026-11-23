@@ -33,22 +33,24 @@ func (p *EnumerationPremises) prepare(m *ast.ASTManager, base []ast.ASTHandle) e
 	}
 	l := &enumerationLanguage{manager: m, boolean: boolean, datatype: dt}
 	w := enumerationWriter{language: l}
-	var forms strings.Builder
-	for _, h := range base {
-		forms.WriteString("(assert ")
-		s, err := w.write(&forms, h, 0)
-		if err != nil {
-			return err
-		}
-		if s != boolean {
-			return inapplicable
-		}
-		forms.WriteString(")\n")
+	forms, err := w.assertions(base)
+	if err != nil {
+		return err
 	}
 	// Small bases were cheaper in the ordinary solver in the held-out
 	// verifier runs. This threshold only selects a private proof attempt.
-	if l.enumerations < 3 || w.binders < 20 || forms.Len()+l.declarations.Len()+l.axiomBytes+10*len(l.axioms) > maxEnumerationBytes {
+	if l.enumerations < 3 || w.binders < 20 || len(forms)+l.declarations.Len()+l.axiomBytes+10*len(l.axioms) > maxEnumerationBytes {
 		return inapplicable
+	}
+	dependencies, err := discoverPredicateDependencies(l, base)
+	if err != nil {
+		return err
+	}
+	if dependencies != nil {
+		forms, err = dependencies.reduce(l, base, forms)
+		if err != nil {
+			return err
+		}
 	}
 	var premises strings.Builder
 	for _, axiom := range l.axioms {
@@ -56,7 +58,7 @@ func (p *EnumerationPremises) prepare(m *ast.ASTManager, base []ast.ASTHandle) e
 		premises.WriteString(axiom)
 		premises.WriteString(")\n")
 	}
-	premises.WriteString(forms.String())
+	premises.WriteString(forms)
 	p.premises = premises.String()
 	l.axioms = nil
 	p.language = l

@@ -8,10 +8,17 @@ import (
 )
 
 type enumerationWriter struct {
-	language *enumerationLanguage
-	scope    []ast.ASTHandle
-	visits   int
-	binders  int
+	dependencies *predicateDependencies
+	changed      bool
+	language     *enumerationLanguage
+	scope        []enumerationBinder
+	visits       int
+	binders      int
+}
+
+type enumerationBinder struct {
+	sort        ast.ASTHandle
+	replacement string
 }
 
 const maxEnumerationBytes = 3_000_000
@@ -41,11 +48,15 @@ func (w *enumerationWriter) write(out *strings.Builder, h ast.ASTHandle, depth i
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		if s != w.scope[position] {
+		if s != w.scope[position].sort {
 			return ast.ASTHandle{}, inapplicable
 		}
-		out.WriteByte('x')
-		out.WriteString(strconv.Itoa(position))
+		if value := w.scope[position].replacement; value != "" {
+			out.WriteString(value)
+		} else {
+			out.WriteByte('x')
+			out.WriteString(strconv.Itoa(position))
+		}
 		return s, nil
 	case ast.ASTQuantifier:
 		return w.quantifier(out, h, depth)
@@ -77,6 +88,23 @@ func (w *enumerationWriter) quantifier(out *strings.Builder, h ast.ASTHandle, de
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	body, err := m.GetQuantifierBody(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	cut := w.dependencyBindings(body, n, universal)
+	if w.dependencies != nil {
+		if w.dependencies.err != nil {
+			return ast.ASTHandle{}, w.dependencies.err
+		}
+		if w.dependencies.stopped {
+			return ast.ASTHandle{}, inapplicable
+		}
+	}
+	if len(cut) != 0 {
+		w.changed = true
+	}
+	// Every substitution depends on a binder retained in this quantifier.
 	if universal {
 		out.WriteString("(forall (")
 	} else {
@@ -85,27 +113,26 @@ func (w *enumerationWriter) quantifier(out *strings.Builder, h ast.ASTHandle, de
 	base := len(w.scope)
 	defer func() { w.scope = w.scope[:base] }()
 	for i := range n {
-		h, err := m.GetDeclarationSort(h, i)
+		sort, err := m.GetDeclarationSort(h, i)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		s, err := w.language.sort(h)
+		s, err := w.language.sort(sort)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		out.WriteString("(x")
-		out.WriteString(strconv.Itoa(len(w.scope)))
-		out.WriteByte(' ')
-		out.WriteString(s.name)
-		out.WriteByte(')')
-		w.scope = append(w.scope, h)
+		pos := len(w.scope)
+		if cut[pos] == "" {
+			out.WriteString("(x")
+			out.WriteString(strconv.Itoa(pos))
+			out.WriteByte(' ')
+			out.WriteString(s.name)
+			out.WriteByte(')')
+		}
+		w.scope = append(w.scope, enumerationBinder{sort: sort, replacement: cut[pos]})
 	}
 	w.binders += int(n)
 	out.WriteString(") ")
-	body, err := m.GetQuantifierBody(h)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
 	s, err := w.write(out, body, depth+1)
 	if err == nil && s != w.language.boolean {
 		err = inapplicable
@@ -257,4 +284,20 @@ func (w *enumerationWriter) basic(out *strings.Builder, h ast.ASTHandle, hd ast.
 	}
 	out.WriteByte(')')
 	return result, nil
+}
+
+func (w *enumerationWriter) assertions(base []ast.ASTHandle) (string, error) {
+	var forms strings.Builder
+	for _, h := range base {
+		forms.WriteString("(assert ")
+		s, err := w.write(&forms, h, 0)
+		if err != nil {
+			return "", err
+		}
+		if s != w.language.boolean {
+			return "", inapplicable
+		}
+		forms.WriteString(")\n")
+	}
+	return forms.String(), nil
 }

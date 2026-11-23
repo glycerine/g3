@@ -15,7 +15,17 @@ import (
 // Each iteration checks three successive obligations from issue73/ord.ivy on
 // a fresh solver. The donor keeps the original, parsed premises and goals live.
 func BenchmarkFiniteEnumerationVerification(b *testing.B) {
-	f, err := os.Open("test_vectors/issue73_order_goals.smt2.gz")
+	benchmarkEnumerationSiblings(b, "test_vectors/issue73_order_goals.smt2.gz")
+}
+
+// Three consecutive sys_live goals share a premise constraining several
+// arguments of a relation to unary functions of the same argument.
+func BenchmarkEnumerationPredicateDependencies(b *testing.B) {
+	benchmarkEnumerationSiblings(b, "test_vectors/apple_sys_live_goals.smt2.gz")
+}
+
+func benchmarkEnumerationSiblings(b *testing.B, fixture string) {
+	f, err := os.Open(fixture)
 	if err != nil {
 		b.Fatal(err)
 	}
