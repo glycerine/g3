@@ -8,23 +8,45 @@ import (
 	basetactic "github.com/glycerine/g3/pkg/tactic"
 )
 
-// Two independent constants subject to the same set of unary formulas may
-// take the same value. Keep the first constant's original assertions, then
-// extend a satisfying model by assigning its value to each omitted constant.
+// Two constants subject to identical formulas over shared parameters may
+// take the same value if they have no other interaction. Keep the first one's
+// original assertions and use its model value for every omitted constant.
 // An UNSAT result uses a subset of the original assertions and dependencies.
 func (t *NLSATTactic) reduceIndependentPolynomials(goal *basetactic.Goal, result *basetactic.TacticResult, forms []ast.ASTHandle, arithmetic ast.FamilyID) (bool, error) {
-	p := polynomialComponents{
-		manager: t.manager, arithmetic: arithmetic,
+	p, err := scanPolynomialComponents(t.manager, arithmetic, forms, nil)
+	if err != nil || p == nil {
+		return false, err
+	}
+	parameters, err := p.sharedParameters()
+	if err != nil {
+		return false, err
+	}
+	if len(parameters) != 0 {
+		p, err = scanPolynomialComponents(t.manager, arithmetic, forms, parameters)
+		if err != nil || p == nil {
+			return false, err
+		}
+	}
+	// Small reductions rarely repay the construction of a new solver goal.
+	if p.group() < 4 || t.manager.Limit.CancelFlag() {
+		return false, nil
+	}
+	return p.publish(t, goal, result, forms)
+}
+
+func scanPolynomialComponents(m *ast.ASTManager, arithmetic ast.FamilyID, forms []ast.ASTHandle, parameters map[ast.ASTHandle]bool) (*polynomialComponents, error) {
+	p := &polynomialComponents{
+		manager: m, arithmetic: arithmetic, parameters: parameters,
 		terms: make(map[ast.ASTHandle]componentTerm), shapes: make(map[componentShape]uint32),
 		sequences: make(map[componentLink]uint32),
 	}
 	for i, form := range forms {
-		if i%64 == 0 && t.manager.Limit.CancelFlag() {
-			return false, nil
+		if i%64 == 0 && m.Limit.CancelFlag() {
+			return nil, nil
 		}
 		term, ok, err := p.scan(form, 0)
 		if err != nil || !ok {
-			return false, err
+			return nil, err
 		}
 		if term.variable != 0 && term.variable != mixedComponent {
 			v := &p.variables[term.variable-1]
@@ -32,11 +54,73 @@ func (t *NLSATTactic) reduceIndependentPolynomials(goal *basetactic.Goal, result
 		}
 	}
 
-	// Small reductions rarely repay the construction of a new solver goal.
-	if p.group() < 4 || t.manager.Limit.CancelFlag() {
-		return false, nil
+	return p, nil
+}
+
+// A frequently shared variable can be held fixed, even when it is reached
+// through a shared expression such as t+u. Missing a parameter loses only a
+// reduction. Limiting the number of parameters bounds the extra analysis.
+func (p *polynomialComponents) sharedParameters() (map[ast.ASTHandle]bool, error) {
+	const maxParameters = 12
+	threshold := uint32(max(4, (len(p.variables)+maxParameters-1)/maxParameters))
+	var roots []ast.ASTHandle
+	for h, count := range p.sharedMixed {
+		if count >= threshold {
+			roots = append(roots, h)
+		}
 	}
-	return p.publish(t, goal, result, forms)
+	var parameters map[ast.ASTHandle]bool
+	for _, v := range p.variables {
+		if v.mixedNodes >= threshold {
+			if parameters == nil {
+				parameters = make(map[ast.ASTHandle]bool)
+			}
+			parameters[v.expression] = true
+			if len(parameters) > maxParameters {
+				return nil, nil
+			}
+		}
+	}
+	if len(roots) == 0 {
+		return parameters, nil
+	}
+	if parameters == nil {
+		parameters = make(map[ast.ASTHandle]bool)
+	}
+	seen := make(map[ast.ASTHandle]bool)
+	for len(roots) > 0 {
+		if p.manager.Limit.CancelFlag() {
+			return nil, nil
+		}
+		last := len(roots) - 1
+		h := roots[last]
+		roots = roots[:last]
+		if seen[h] {
+			continue
+		}
+		seen[h] = true
+		switch v := p.terms[h].variable; v {
+		case 0:
+		case mixedComponent:
+			hd, err := p.manager.NodeHeader(h)
+			if err != nil {
+				return nil, err
+			}
+			for i := uint32(0); i < hd.NumArgs; i++ {
+				a, err := p.manager.GetArg(h, i)
+				if err != nil {
+					return nil, err
+				}
+				roots = append(roots, a)
+			}
+		default:
+			parameters[p.variables[v-1].expression] = true
+			if len(parameters) > maxParameters {
+				return nil, nil
+			}
+		}
+	}
+	return parameters, nil
 }
 
 const mixedComponent = ^uint32(0)
@@ -58,17 +142,19 @@ type componentVariable struct {
 	expression     ast.ASTHandle
 	constraints    []int
 	representative uint32
-	mixed          bool
+	mixedNodes     uint32
 }
 
 type polynomialComponents struct {
-	manager    *ast.ASTManager
-	arithmetic ast.FamilyID
-	terms      map[ast.ASTHandle]componentTerm
-	shapes     map[componentShape]uint32
-	sequences  map[componentLink]uint32
-	variables  []componentVariable
-	work       int
+	manager     *ast.ASTManager
+	arithmetic  ast.FamilyID
+	terms       map[ast.ASTHandle]componentTerm
+	shapes      map[componentShape]uint32
+	sequences   map[componentLink]uint32
+	variables   []componentVariable
+	parameters  map[ast.ASTHandle]bool
+	sharedMixed map[ast.ASTHandle]uint32
+	work        int
 }
 
 // A sequence ID denotes an exact list. Go map equality checks both fields.
@@ -84,6 +170,12 @@ func componentAppend(table map[componentLink]uint32, prefix, element uint32) uin
 
 func (p *polynomialComponents) scan(h ast.ASTHandle, depth int) (term componentTerm, ok bool, err error) {
 	if term, found := p.terms[h]; found {
+		if term.variable == mixedComponent && p.parameters == nil {
+			if p.sharedMixed == nil {
+				p.sharedMixed = make(map[ast.ASTHandle]uint32)
+			}
+			p.sharedMixed[h]++
+		}
 		return term, true, nil
 	}
 	m := p.manager
@@ -112,6 +204,11 @@ func (p *polynomialComponents) scan(h ast.ASTHandle, depth int) (term componentT
 		kind, err := m.GetDeclKind(s)
 		if err != nil || kind < 0 || kind > 1 {
 			return term, false, err
+		}
+		// Retain the exact declaration of every shared parameter in the
+		// signature. It can occur in arbitrarily many surviving constraints.
+		if p.parameters[h] {
+			break
 		}
 		key.head = s
 		term.variable = uint32(len(p.variables) + 1)
@@ -158,10 +255,10 @@ func (p *polynomialComponents) combineVariables(a, b uint32) uint32 {
 	}
 	// Variables in a multivariate child were marked when that child was built.
 	if a != mixedComponent {
-		p.variables[a-1].mixed = true
+		p.variables[a-1].mixedNodes++
 	}
 	if b != mixedComponent {
-		p.variables[b-1].mixed = true
+		p.variables[b-1].mixedNodes++
 	}
 	return mixedComponent
 }
@@ -175,7 +272,7 @@ func (p *polynomialComponents) group() int {
 			return 0
 		}
 		v := &p.variables[i]
-		if v.mixed || len(v.constraints) == 0 {
+		if v.mixedNodes != 0 || len(v.constraints) == 0 {
 			continue
 		}
 		sort.Ints(v.constraints)

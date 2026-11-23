@@ -137,3 +137,116 @@ func TestIndependentPolynomialsRetainOriginalConstraints(t *testing.T) {
 		})
 	}
 }
+
+func TestIndependentPolynomialsKeepSharedParametersSymbolic(t *testing.T) {
+	if ast.ASTSourceDebug || diagnostic.TraceCompiled() {
+		t.Skip("polynomial preparation runs with tracing and source assertions disabled")
+	}
+	f := newGoalCompilerFixture(t)
+	m := f.manager
+	g, err := basetactic.NewGoal(m, false, false, false)
+	compilerMust(t, err)
+	defer func() { compilerMust(t, g.Close()) }()
+	two, err := m.ArithmeticRealNumeralText("2")
+	compilerMust(t, err)
+	three, err := m.ArithmeticRealNumeralText("3")
+	compilerMust(t, err)
+	sort, err := m.GetSort(two)
+	compilerMust(t, err)
+	a := compilerConst(t, m, "parameter-a", sort)
+	b := compilerConst(t, m, "parameter-b", sort)
+	expected := make([]ast.ASTHandle, 0, 9)
+	add := func(h ast.ASTHandle, keep bool) {
+		t.Helper()
+		compilerMust(t, g.Assert(h))
+		if keep {
+			expected = append(expected, h)
+		}
+	}
+	squareEquals := func(x, rhs ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		sq, err := m.MkArithmeticMul(x, x)
+		compilerMust(t, err)
+		eq, err := m.MkEq(sq, rhs)
+		compilerMust(t, err)
+		return eq
+	}
+	add(squareEquals(a, two), true)
+	add(squareEquals(b, three), true)
+	var xs []ast.ASTHandle
+	for i := 0; i < 45; i++ {
+		x := compilerConst(t, m, fmt.Sprintf("local-%d", i), sort)
+		xs = append(xs, x)
+		// x0 and x1 are also linked below. The first independent owners
+		// are x2 for the fixed coefficient, x3 for a, and x4 for b.
+		rhs := []ast.ASTHandle{a, b, two}[i%3]
+		add(squareEquals(x, rhs), i < 5)
+	}
+	link, err := m.MkArithmeticLT(xs[0], xs[1])
+	compilerMust(t, err)
+	add(link, true)
+	tac, err := NewPolynomialPreparationTactic(m, f.context, f.globals, nil, f.services)
+	compilerMust(t, err)
+	defer func() { compilerMust(t, tac.Close()) }()
+	var result basetactic.TacticResult
+	defer func() { compilerMust(t, result.Close()) }()
+	compilerMust(t, tac.Apply(g, &result))
+	if len(result.Goals) != 1 || result.Goals[0] == g {
+		t.Fatal("expected reduction around two symbolic parameters")
+	}
+	got, err := result.Goals[0].AppendFormulas(nil)
+	compilerMust(t, err)
+	if len(got) != len(expected) {
+		t.Fatalf("retained %d assertions, want %d", len(got), len(expected))
+	}
+	for i, want := range expected {
+		if got[i] != want {
+			t.Fatalf("retained assertion %d has a different variable or parameter", i)
+		}
+	}
+}
+
+func TestIndependentPolynomialsRecognizeParametersInsideSharedTerms(t *testing.T) {
+	f := newGoalCompilerFixture(t)
+	m := f.manager
+	g, err := basetactic.NewGoal(m, false, false, false)
+	compilerMust(t, err)
+	defer func() { compilerMust(t, g.Close()) }()
+	two, err := m.ArithmeticRealNumeralText("2")
+	compilerMust(t, err)
+	sort, err := m.GetSort(two)
+	compilerMust(t, err)
+	a, b := compilerConst(t, m, "a", sort), compilerConst(t, m, "b", sort)
+	sum, err := m.MkArithmeticAdd(a, b)
+	compilerMust(t, err)
+	diff, err := m.MkArithmeticSub(b, a)
+	compilerMust(t, err)
+	for i := range 32 {
+		x := compilerConst(t, m, fmt.Sprintf("shared-term-%d", i), sort)
+		sq, err := m.MkArithmeticMul(x, x)
+		compilerMust(t, err)
+		rhs := sum
+		if i%2 != 0 {
+			rhs = diff
+		}
+		eq, err := m.MkEq(sq, rhs)
+		compilerMust(t, err)
+		compilerMust(t, g.Assert(eq))
+	}
+	forms, err := g.AppendFormulas(nil)
+	compilerMust(t, err)
+	family, err := m.ArithmeticFamilyID()
+	compilerMust(t, err)
+	first, err := scanPolynomialComponents(m, family, forms, nil)
+	compilerMust(t, err)
+	parameters, err := first.sharedParameters()
+	compilerMust(t, err)
+	if len(parameters) != 2 || !parameters[a] || !parameters[b] {
+		t.Fatalf("expected only the two parameters in the shared sum and difference, got %v", parameters)
+	}
+	final, err := scanPolynomialComponents(m, family, forms, parameters)
+	compilerMust(t, err)
+	if aliases := final.group(); aliases != 30 {
+		t.Fatalf("expected one representative per expression, got %d aliases", aliases)
+	}
+}

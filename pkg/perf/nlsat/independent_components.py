@@ -6,15 +6,60 @@ from pathlib import Path
 from integer_model_cases import ROUTES, numeral, verify_model
 
 
+PARAMETER_SHAPES = (
+    "parameter-irrational", "parameter-cubic", "parameter-shift", "parameter-opposite",
+    "parameter-linear", "parameter-crossed", "parameter-conflict", "parameter-two",
+    "parameter-two-equal", "parameter-ordered-arguments", "parameter-disjoint",
+    "parameter-ordered", "parameter-unique",
+)
 SHAPES = (
     "square", "negative", "multi", "unique", "cubic", "quartic", "unsat",
     "mixed-var", "mixed-component", "coupled-bad", "guard-unsat", "signed-order",
     "rational-subset", "opposite-signs", "duplicates", "shared-parameter",
-)
-UNSAT = {"unsat", "coupled-bad", "guard-unsat"}
+) + PARAMETER_SHAPES
+UNSAT = {"parameter-conflict", "parameter-two-equal", "unsat", "coupled-bad", "guard-unsat"}
+
+
+def parameter_workload(shape, count):
+    """Keep all shared parameters and all local roots visible to get-value."""
+    names = [f"x{i}" for i in range(count)]
+    parameters = ["t", "u"] if shape in ("two", "two-equal", "ordered-arguments") else ["t"]
+    lines = ["(set-option :produce-models true)", "(set-logic QF_NRA)"]
+    lines.extend(f"(declare-const {x} Real)" for x in names + parameters)
+    for i, p in enumerate(parameters):
+        lines.extend((f"(assert (= (* {p} {p}) {2 + i}))", f"(assert (> {p} 0))"))
+    for i, x in enumerate(names):
+        p = parameters[i % len(parameters)]
+        bound = p
+        expression = f"(* {x} {x})"
+        if shape == "unique":
+            bound = f"(+ {p} {i + 1})"
+        elif shape == "ordered-arguments":
+            bound = "(+ t u)" if i % 2 else "(- u t)"
+        elif shape == "cubic":
+            expression = f"(* {x} {x} {x})"
+        elif shape == "linear":
+            expression = f"(+ {x} 1)"
+        elif shape == "shift":
+            expression, bound = f"(* (- {x} {p}) (- {x} {p}))", "2"
+        elif shape == "disjoint" and i >= count // 2:
+            bound = "3"
+        sign = "<" if shape == "opposite" and i % 2 else ">"
+        lines.extend((f"(assert (= {expression} {bound}))", f"(assert ({sign} {x} 0))"))
+    if shape == "conflict":
+        lines.append(f"(assert (< {names[-1]} x0))")
+    elif shape == "crossed":
+        lines.extend(("(assert (= x0 x1))", "(assert (<= (+ x1 x2) (+ x0 x3)))"))
+    elif shape == "ordered":
+        lines.extend(f"(assert (>= {x} {y}))" for x, y in zip(names, names[1:]))
+    elif shape == "two-equal":
+        lines.append("(assert (= t u))")
+    return "\n".join(lines) + "\n", names + parameters
 
 
 def workload(shape, count):
+    if shape in PARAMETER_SHAPES:
+        return parameter_workload(shape.removeprefix("parameter-"), count)
     names = [f"x{i}" for i in range(count)]
     lines = ["(set-option :produce-models true)", "(set-logic QF_NRA)"]
     lines.extend(f"(declare-const {x} Real)" for x in names)
