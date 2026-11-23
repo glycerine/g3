@@ -5,9 +5,9 @@ import (
 	"github.com/glycerine/g3/pkg/util/backtrack"
 )
 
-// ProjectGroundEqualities builds a Boolean relaxation of positive ground
-// conjuncts. Equalities forced by the premises can identify applications of
-// the same declaration. Only an UNSAT result on the relaxation is conclusive.
+// ProjectGroundEqualities builds a Boolean relaxation of asserted conjuncts.
+// Ground facts and selected ground instances of positive universal premises
+// can identify applications of the same declaration. Only UNSAT is conclusive.
 func ProjectGroundEqualities(m *ast.ASTManager, conjuncts []ast.ASTHandle, steps uint32) (*BooleanProblem, error) {
 	if len(conjuncts) == 0 || len(conjuncts) > 16_000 || m.ResourceLimit().CancelFlag() {
 		return nil, nil
@@ -21,6 +21,7 @@ func ProjectGroundEqualities(m *ast.ASTManager, conjuncts []ast.ASTHandle, steps
 }
 
 func (g *groundProjection) equalitiesProblem(conjuncts []ast.ASTHandle) (*BooleanProblem, error) {
+	var nonGround []ast.ASTHandle
 	for _, h := range conjuncts {
 		if err := g.compiler.charge(1); err != nil {
 			return nil, err
@@ -30,6 +31,7 @@ func (g *groundProjection) equalitiesProblem(conjuncts []ast.ASTHandle) (*Boolea
 			return nil, err
 		}
 		if !ground {
+			nonGround = append(nonGround, h)
 			continue
 		}
 		id, err := g.read(h, 0)
@@ -42,6 +44,9 @@ func (g *groundProjection) equalitiesProblem(conjuncts []ast.ASTHandle) (*Boolea
 		g.roots = append(g.roots, id)
 	}
 
+	if err := g.addObservedInstances(nonGround); err != nil {
+		return nil, err
+	}
 	var classes backtrack.BasicUnionFind
 	if err := g.mergeRequiredEqualities(&classes); err != nil {
 		return nil, err
@@ -156,12 +161,10 @@ func (g *groundProjection) encodeGroundClasses(classes *backtrack.BasicUnionFind
 		}
 		a := g.children[n.start : n.start+n.count]
 		op := n.operation
-		if op == ast.ASTOpEq {
-			switch {
-			case classes.Find(a[0]) == classes.Find(a[1]):
+		if op == ast.ASTOpEq && !g.input[a[0]].boolean {
+			op = opaqueOperation
+			if classes.Find(a[0]) == classes.Find(a[1]) {
 				op = ast.ASTOpTrue
-			case !g.input[a[0]].boolean:
-				op = opaqueOperation
 			}
 		}
 		ids[i] = i

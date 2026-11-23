@@ -81,9 +81,9 @@ func (p *orderProofState) shortPremises(m *ast.ASTManager, assertions []ast.ASTH
 	return &shortPremisePlan{source: assertions, selected: selected}, nil
 }
 
-// For larger constant-true queries, first look for a contradiction that only
-// needs the ground facts. If the estimated mixed-search allowance reaches
-// half its cap, leave the remaining quantified work to the ordinary solver.
+// For larger constant-true queries, first look for a contradiction among
+// ground facts and instances of short universal premises. If the mixed-search
+// allowance reaches half its cap, leave further search to the ordinary solver.
 func (p *orderProofState) checkShortPremises(m *ast.ASTManager, plan *shortPremisePlan, maxSteps uint32) (bool, error) {
 	const mixedLimit = 80_000
 	steps := min(maxSteps, mixedLimit, 192*uint32(len(plan.selected)))

@@ -118,10 +118,12 @@ func TestUniversalPremiseRequiresWellSortedBindings(t *testing.T) {
 			Names: []symbol.Symbol{symbol.Numerical(0)}, Body: tc.body,
 		}))
 		var proof order.UniversalPremises
-		ok, err := proof.Refutes(m, []ast.ASTHandle{q, roots[2]}, orderProofSteps, true)
+		input := []ast.ASTHandle{q, roots[2]}
+		ok, err := proof.Refutes(m, input, orderProofSteps, true)
 		if err != nil || ok {
 			t.Fatalf("malformed binder proved %v, %v", ok, err)
 		}
+		checkObservedProof(t, c, s, input, false)
 	}
 }
 
