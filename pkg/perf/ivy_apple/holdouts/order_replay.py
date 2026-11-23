@@ -12,7 +12,10 @@ import tempfile
 import time
 
 
-VECTORS = Path(__file__).with_name("nov23-order-inputs.tar.gz")
+SUITES = {
+    "issue73": ("nov23-order-inputs.tar.gz", "13-38"),
+    "apple": ("nov23-apple-order-inputs.tar.gz", "14-116"),
+}
 COUNTERS = ("conflicts", "decisions", "propagations", "quant-instantiations")
 
 
@@ -47,14 +50,18 @@ def run(binary, vector, checks, args, work):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="list the saved vectors")
-    parser.add_argument("--case", default="13-38", help="vector name from --list")
+    parser.add_argument("--suite", choices=SUITES, default="issue73", help="verification input")
+    parser.add_argument("--case", help="vector name from --list")
     parser.add_argument("--g3", type=Path)
     parser.add_argument("--z3", type=Path)
     parser.add_argument("--cpu", type=int, help="pin both engines to this Linux CPU")
     parser.add_argument("--perf", help="optional path to Linux perf for hardware counts")
     parser.add_argument("--rounds", type=int, default=3)
     args = parser.parse_args()
-    with tarfile.open(VECTORS, "r:gz") as archive:
+    filename, default_case = SUITES[args.suite]
+    if args.case is None:
+        args.case = default_case
+    with tarfile.open(Path(__file__).with_name(filename), "r:gz") as archive:
         manifest = archive.extractfile("manifest.csv").read().decode()
         if args.list:
             print(manifest.rstrip())

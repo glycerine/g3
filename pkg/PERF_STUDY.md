@@ -4249,3 +4249,23 @@ The g3 label hasher allocated exactly enough space for each new maximum declarat
 | 32,768 | 481,996,447 | **4,959,103** | 565,540,720 | **154,360** |
 
 The 32,768-ID case used **97× fewer instructions** and made 20 allocations instead of 32,768. Each instruction count is the median of seven paired slopes. Subtracting a short invocation from a longer invocation on the same CPU removes fixed process startup. Reproduce the allocation comparison with `go test ./smtcore -run '^$' -bench '^BenchmarkSMTMAMLabelHash$' -benchmem -cpu=1`. Real proof inputs visited IDs in a different order. On issue 73, 28,263,367 hash calls triggered just 324 resizes and copied 132,322 bytes in the previous implementation. On Apple batch 14, condition 132, 52 resizes copied 33,144 bytes. The large speedup applies to dense registration in ascending order. [Hardware counts, allocation samples and twelve real-input growth counts](perf/ivy_apple/holdouts/nov23-mam-label-growth.tar.gz)
+
+### Replaying all 132 siblings of the Apple order bottleneck
+
+On `doc/examples/apple/ord_live2.ivy`, both shells proved all 132 obligations in batch 14. Across two alternating pairs, both reported exactly 15,266 conflicts, 12,914,622 decisions, 36,736,635 propagations and 4,479,904 quantifier instantiations. g3 retired **1,862.61 billion instructions** and Z3 **680.91 billion**, a 2.74× gap doing the same search. This is a frozen shell baseline shared with the issue 73 study. The benchmark includes process startup, parsing and every push, check and pop. The Ivy frontend is outside the measurement. [Nineteen replay inputs](perf/ivy_apple/holdouts/nov23-apple-order-inputs.tar.gz) · [Paired counters, core discovery and sampled stacks](perf/ivy_apple/holdouts/nov23-apple-order-replays.tar.gz)
+
+| Standalone proof | g3, billion instructions | Native Z3, billion instructions | Quantifier instances on either engine |
+|---|---:|---:|---:|
+| Batch 14, condition 132, original | 406.95 | 148.51 | 746,473 |
+| Same condition, 190 assertions from an offline native core | 137.84 | 50.58 | 198,152 |
+| Same condition, 119 assertions after five further core extractions | 37.75 | 11.75 | 47,580 |
+| Batch 14, condition 116, original | 43.90 | 17.04 | 107,497 |
+| Same condition, 63 defining premises and the goal | **0.625** | **0.154** | **51** |
+| Batch 13, condition 110, original | 2.859 | 0.827 | 8,745 |
+| Same condition, 36 defining premises and the goal | **0.178** | **0.055** | **8** |
+
+For condition 132, the first core extraction alone cost native Z3 520.64 billion instructions. The five additional extractions cost another 83.50 billion, before validation. The 119-assertion script gives a reproducible lower-work proof for experiments. On condition 116 the selector needed only the input. It started with the goal's declarations and followed five layers of defining equations, preserving their original assertion order and lexical bindings. Three layers sufficed for batch 13 condition 110. Both engines independently proved the emitted assertions UNSAT. Timing in the table includes solving the selected input. Selector construction, unsuccessful attempts and changes to later incremental search must also be charged in a whole-verifier comparison. [Selector](perf/ivy_apple/holdouts/order_definitions.py)
+
+Three instruction-sampled profiles per engine place **68.75 billion** excess instructions in the rewriter and **58.03 billion** in quantifier handling on condition 132. Together they account for about half the 258.44 billion standalone gap. Internalization adds 26.09 billion and congruence handling adds 20.68 billion. Each sample belongs to its first classified stack frame. The periods, sample totals and leaf counts are in the archive. The evidence favors reducing unnecessary instances on expensive siblings and measuring the cost of each retained instance on exactly matched searches. [Profile tables and per-run counters](perf/ivy_apple/holdouts/nov23-apple-order-replays.tar.gz)
+
+From `pkg`, run `python3 perf/ivy_apple/holdouts/order_replay.py --suite apple --list` to list the inputs. Use `--case 14-all --g3 /path/to/g3 --z3 ../build/z3 --rounds 2` for the complete batch, or `--case 14-116-definitions` for the smaller proof. To reproduce the latter input, pipe `14-116.smt2` from the input archive into `python3 perf/ivy_apple/holdouts/order_definitions.py --depth 5`. [Replay driver](perf/ivy_apple/holdouts/order_replay.py)

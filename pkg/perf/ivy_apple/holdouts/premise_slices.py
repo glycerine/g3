@@ -18,14 +18,15 @@ from syntax import fresh_names, parse, smt, symbols
 def conjuncts(term, bindings=()):
     # Keep nested let expressions in lexical order. Copy only definitions used
     # by this conjunct, respecting simultaneous binding in each definition list.
-    if isinstance(term, tuple):
-        if term[0] == "let":
-            yield from conjuncts(term[2], (*bindings, term[1]))
-            return
-        if term[0] == "and":
-            for child in term[1:]:
-                yield from conjuncts(child, bindings)
-            return
+    if isinstance(term, tuple) and term[0] == "let":
+        bindings = list(bindings)
+        while isinstance(term, tuple) and term[0] == "let":
+            bindings.append(term[1])
+            term = term[2]
+    if isinstance(term, tuple) and term[0] == "and":
+        for child in term[1:]:
+            yield from conjuncts(child, bindings)
+        return
     needed = set(symbols(term))
     for frame in reversed(bindings):
         used = tuple((name, rhs) for name, rhs in frame if name in needed)
