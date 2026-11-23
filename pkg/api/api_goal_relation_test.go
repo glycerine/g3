@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestGoalRelationSelectsSingleSortOfViolatedPostcondition(t *testing.T) {
@@ -39,6 +40,62 @@ func TestGoalRelationSelectsSingleSortOfViolatedPostcondition(t *testing.T) {
 			astTestMust(t, err)
 			if got := p != nil && p.selectedOnly; got != tc.admitted {
 				t.Fatalf("selected relation plan = %t, want %t", got, tc.admitted)
+			}
+		})
+	}
+}
+
+func TestGroundRelationSelectionRequiresSmallerQuantifiedBase(t *testing.T) {
+	const declarations = `(declare-sort A 0)
+(declare-const a A)(declare-const b A)(declare-const c A)
+(declare-const saved Bool)(declare-const guard Bool)
+(declare-fun r (A A) Bool)(declare-fun s (A A) Bool)
+(declare-fun u (A) Bool)(declare-fun v (A) Bool)
+(declare-const g0 Bool)(declare-const g1 Bool)(declare-const g2 Bool)
+(assert g0)(assert g1)(assert g2)
+(assert (forall ((x A)(y A)) (s x y)))
+(assert (forall ((x A)) (u x)))`
+	const r = "(assert (forall ((x A)(y A)) (r x y)))"
+	const guarded = "(assert (forall ((x A)(y A)) (=> guard (r x y))))"
+	const unrelated = "(assert (forall ((x A)) (v x)))"
+	const goal = "(assert (not (=> saved (and (r a b) (s b c)))))"
+	for _, tc := range []struct {
+		name, premises string
+		selected       bool
+		outcome        lbool.LBool
+	}{
+		{"two of three", r, false, lbool.False},
+		{"two of four", r + unrelated, true, lbool.False},
+		{"guarded two of four", guarded + unrelated, true, lbool.True},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, source := orderSolver(t, declarations+tc.premises+goal)
+			m, err := c.Manager()
+			astTestMust(t, err)
+			forms, err := solver.Assertions(source.solver)
+			astTestMust(t, err)
+			_, plan, err := planGroundGoals(m, forms, false)
+			astTestMust(t, err)
+			if plan == nil || !plan.selectedOnly {
+				t.Fatal("expected a ground relation plan")
+			}
+			p := orderProofState{source: source}
+			trial, err := p.selectWitnessPremises(m, plan)
+			astTestMust(t, err)
+			if (trial != nil) != tc.selected {
+				t.Fatalf("selected = %t, want %t", trial != nil, tc.selected)
+			}
+			if trial != nil {
+				yes, err := p.checkProofPlan(m, trial, orderProofSteps)
+				astTestMust(t, err)
+				if yes != (tc.outcome == lbool.False) {
+					t.Fatalf("private refutation = %t, concrete outcome should be %v", yes, tc.outcome)
+				}
+			}
+			got, err := source.Check()
+			astTestMust(t, err)
+			if got != tc.outcome {
+				t.Fatalf("concrete outcome = %v, want %v", got, tc.outcome)
 			}
 		})
 	}

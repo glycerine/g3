@@ -15,22 +15,22 @@ import (
 // Each iteration checks three successive obligations from issue73/ord.ivy on
 // a fresh solver. The donor keeps the original, parsed premises and goals live.
 func BenchmarkFiniteEnumerationVerification(b *testing.B) {
-	benchmarkEnumerationSiblings(b, "test_vectors/issue73_order_goals.smt2.gz")
+	benchmarkVerificationSiblings(b, "test_vectors/issue73_order_goals.smt2.gz")
 }
 
 // Three consecutive sys_live goals share a premise constraining several
 // arguments of a relation to unary functions of the same argument.
 func BenchmarkEnumerationPredicateDependencies(b *testing.B) {
-	benchmarkEnumerationSiblings(b, "test_vectors/apple_sys_live_goals.smt2.gz")
+	benchmarkVerificationSiblings(b, "test_vectors/apple_sys_live_goals.smt2.gz")
 }
 
 // Three consecutive flash_cubicle goals use finite cache states, but the
 // premises quantify over at most two cache identifiers at once.
 func BenchmarkNarrowEnumerationVerification(b *testing.B) {
-	benchmarkEnumerationSiblings(b, "test_vectors/flash_cubicle_goals.smt2.gz")
+	benchmarkVerificationSiblings(b, "test_vectors/flash_cubicle_goals.smt2.gz")
 }
 
-func benchmarkEnumerationSiblings(b *testing.B, fixture string) {
+func benchmarkVerificationSiblings(b *testing.B, fixture string) {
 	f, err := os.Open(fixture)
 	if err != nil {
 		b.Fatal(err)
@@ -66,7 +66,7 @@ func benchmarkEnumerationSiblings(b *testing.B, fixture string) {
 		b.Run(mode, func(b *testing.B) {
 			var private int
 			for b.Loop() {
-				n, err := checkEnumerationSiblings(c, forms, mode == "Batch")
+				n, err := checkVerificationSiblings(c, forms, mode == "Batch")
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -78,7 +78,7 @@ func benchmarkEnumerationSiblings(b *testing.B, fixture string) {
 	}
 }
 
-func checkEnumerationSiblings(c *SMTContext, forms []ast.ASTHandle, useBatch bool) (proved int, err error) {
+func checkVerificationSiblings(c *SMTContext, forms []ast.ASTHandle, useBatch bool) (proved int, err error) {
 	s, err := c.NewSolverForIncrementalChecks()
 	if err != nil {
 		return 0, err

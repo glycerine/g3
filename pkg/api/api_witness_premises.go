@@ -222,12 +222,21 @@ func (p *orderProofState) selectWitnessPremises(m *ast.ASTManager, full *witness
 		}
 	}
 	var selected []ast.ASTHandle
+	selectedNonGround := 0
 	for i, row := range index.rows {
 		if keep[i] {
 			selected = append(selected, row.root)
+			if !row.ground {
+				selectedNonGround++
+			}
 		}
 	}
 	if len(selected) == 0 {
+		return nil, nil
+	}
+	// For a ground relation goal, a private solver pays off when it can
+	// omit at least half the non-ground premises. All ground facts are kept.
+	if full.selectedOnly && selectedNonGround > len(index.rows)-len(selected) {
 		return nil, nil
 	}
 	trial := *full
