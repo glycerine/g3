@@ -64,6 +64,21 @@ func (a *Assignment) Manager() (*polynomial.AlgebraicManager, error) {
 	}
 	return a.manager, nil
 }
+
+var assignmentValueBytes = uint64(reflect.TypeOf(polynomial.Algebraic{}).Size())
+
+// Grow dense variable vectors geometrically. Charge the replacement before
+// releasing the old storage. Under a tight budget the requested length alone
+// may fit, and a sparse variable needs no extra capacity.
+func (a *Assignment) growthCapacity(old int, need uint32, width uint64) int {
+	next := uint64(old) + uint64(old)/2 + 1
+	if next <= uint64(need) || next > math.MaxUint32 || next > uint64(^uint(0)>>1) ||
+		a.budget.InjectionArmed() || next*width > a.budget.Limit()-a.budget.Used() {
+		return int(need)
+	}
+	return int(next)
+}
+
 func (a *Assignment) growValues(n uint32) error {
 	if uint64(n) > uint64(^uint(0)>>1) {
 		return arena.ErrBounds
@@ -71,14 +86,18 @@ func (a *Assignment) growValues(n uint32) error {
 	if int(n) <= len(a.values) {
 		return nil
 	}
-	bytes := uint64(n) * uint64(reflect.TypeOf(polynomial.Algebraic{}).Size())
-	if err := a.budget.Reserve(bytes); err != nil {
+	if int(n) <= cap(a.values) {
+		a.values = a.values[:n]
+		return nil
+	}
+	capacity := a.growthCapacity(cap(a.values), n, assignmentValueBytes)
+	if err := a.budget.Reserve(uint64(capacity) * assignmentValueBytes); err != nil {
 		return err
 	}
-	next := make([]polynomial.Algebraic, n)
+	next := make([]polynomial.Algebraic, n, capacity)
 	copy(next, a.values)
 	clear(a.values) // move owners; leave no duplicated owning cells behind
-	a.budget.Release(uint64(cap(a.values)) * uint64(reflect.TypeOf(polynomial.Algebraic{}).Size()))
+	a.budget.Release(uint64(cap(a.values)) * assignmentValueBytes)
 	a.values = next
 	return nil
 }
@@ -95,10 +114,11 @@ func (a *Assignment) growFlags(n uint32) error {
 		clear(a.assigned[old:])
 		return nil
 	}
-	if err := a.budget.Reserve(uint64(n)); err != nil {
+	capacity := a.growthCapacity(cap(a.assigned), n, 1)
+	if err := a.budget.Reserve(uint64(capacity)); err != nil {
 		return err
 	}
-	next := make([]bool, n)
+	next := make([]bool, n, capacity)
 	copy(next, a.assigned)
 	a.budget.Release(uint64(cap(a.assigned)))
 	a.assigned = next
@@ -271,7 +291,7 @@ func (a *Assignment) Close() error {
 			return err
 		}
 	}
-	a.budget.Release(uint64(cap(a.values)) * uint64(reflect.TypeOf(polynomial.Algebraic{}).Size()))
+	a.budget.Release(uint64(cap(a.values)) * assignmentValueBytes)
 	a.budget.Release(a.header)
 	a.values = nil
 	a.assigned = nil

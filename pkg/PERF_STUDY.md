@@ -4302,3 +4302,25 @@ Every sequence-theory push saved its axiom queue position in a closure, even whe
 | Apple batch 14, condition 116, allocations per proof | 4,416,381 | **4,081,873** |
 
 The scope benchmark uses seven alternating pairs of 1.5 million iterations. The proof allocations are medians of four pairs on the compressed-matcher baseline. Six standalone proofs had identical conflicts, decisions, propagations and quantifier instantiations across three pairs each. On an earlier common baseline, the seven complete Ivy cases had matching output and median instruction changes between −0.79% and +0.24%. The measured benefit is the reduction in allocation on heavily backtracking proofs. Run `go test ./smtcore -run '^TestSMTSequenceScopesRestoreAxiomHeads$' -bench '^BenchmarkSMTSequenceEmptyScope$' -benchmem -cpu=1`. [Paired counters and allocations](perf/ivy_apple/holdouts/nov23-sequence-scope-undo.tar.gz)
+
+### Dense variable assignments in nonlinear real arithmetic
+
+Assigning variables in ascending order made g3 allocate and copy its entire value and flag arrays at every new variable. Native Z3's vectors retain spare capacity. On a satisfiable problem with 8,192 independent real variables, g3 performed 16,384 value-array relocations, copying 1,073,610,752 bytes of algebraic cells. It copied another 67,100,672 bytes of flags. The new Go vectors grow geometrically and still expose only the requested variables. Both old and new storage count against the owner budget during relocation. A tight budget can buy exactly the requested size. [Implementation](nlsat/assignment.go) · [Ownership, budget and benchmark controls](nlsat/assignment_growth_test.go)
+
+| Assignment benchmark | Before | After |
+|---|---:|---:|
+| Instructions to set 1,024 variables and close | 12,881,469 | **2,476,323** |
+| Instructions to set 8,192 variables and close | 827,898,265 | **30,400,549** |
+| Bytes allocated for 8,192 variables | 599,592,784 | **644,584** |
+| Allocations for 8,192 variables | 16,385 | **45** |
+
+| Complete satisfiability check | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 8,192 independent variables, `qfnra-nlsat` | 67.76 | **64.48** | 1.52 |
+| Same assertions, explicit CNF and NLSAT pipeline | 48.55 | **44.33** | 0.91 |
+| 512 ordered variables, `qfnra-nlsat` | 3.08 | 3.16 | 0.14 |
+| 512 coupled variables, `qfnra-nlsat` | 3.61 | 3.68 | 0.16 |
+
+Instruction slopes use eight pairs per microbenchmark. The complete checks use three alternating pairs, including shell startup and shutdown. The local improvement is **27.2×** at 8,192 variables. The complete checks saved **4.8%** and **8.7%** at that size. The smaller ordered and coupled controls used 2–3% more instructions in this sample. All nine generated inputs matched Z3 on verdict, nonlinear propagations, stages and resource steps. The default 8,192-variable check took 8,193 stages and 1,105,921 steps on both engines. Another 42 repository vectors preserved g3's stdout, stderr and exit status. These arithmetic runs do not measure Ivy's quantified order proofs. [Raw hardware counters, shell controls and profiles](perf/nlsat/nov23-assignment-growth.tar.gz)
+
+On the default 8,192-variable input, sampled stacks and the increasing instructions per variable point to repeated searches for reusable arena slots in polynomial and algebraic-number construction. The remaining whole-process gap exceeds 40× with identical nonlinear search counts. That makes the location search a higher priority on this family than further tuning assignment copies. Reproduce the shell input with `python3 perf/nlsat/assignment_growth.py 8192 > /tmp/g3-assignment.smt2`, then run each shell with `-st -smt2 /tmp/g3-assignment.smt2`. Run `go test ./nlsat -run '^TestAssignment' -bench '^BenchmarkNLSATAssignmentGrowth$' -benchmem -cpu=1` for the assignment-only comparison. [Input generator](perf/nlsat/assignment_growth.py)

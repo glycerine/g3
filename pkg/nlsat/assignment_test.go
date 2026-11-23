@@ -23,18 +23,18 @@ import (
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
-func assignmentMust(t *testing.T, err error) {
+func assignmentMust(t testing.TB, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}
 }
-func assignmentFixture(t *testing.T) (*polynomial.AlgebraicManager, *arena.Budget) {
+func assignmentFixture(t testing.TB) (*polynomial.AlgebraicManager, *arena.Budget) {
 	t.Helper()
 	am, budget, _ := assignmentFixtureWithLimit(t)
 	return am, budget
 }
-func assignmentFixtureWithLimit(t *testing.T) (*polynomial.AlgebraicManager, *arena.Budget, *control.Reslimit) {
+func assignmentFixtureWithLimit(t testing.TB) (*polynomial.AlgebraicManager, *arena.Budget, *control.Reslimit) {
 	t.Helper()
 	// Keep this numerical fixture independent of the command/SMT composition
 	// root: the production SMT backend now consumes NLSAT.
