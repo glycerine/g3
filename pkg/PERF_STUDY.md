@@ -4207,3 +4207,21 @@ The finite-model checker compiles each quantified body against the current candi
 The first four rows use nine alternating pairs of 60,000 checks. The hardware counts include benchmark process startup divided by 60,000. The complete Flash and Raft examples use five alternating pairs each with GoIvy `463910ad1`. The test-directory Flash input has three pairs. On dramc_nb2 the median moved from 142.56 to 142.67 billion instructions. Linked Z3 used 4.46 billion instructions on the Flash example, 24.76 billion on abstract Raft and 19.85 billion on ordinary Raft. A separate prototype stored all argument lists and function rows in two additional buffers. It lowered the microbenchmark to ten allocations and saved about 3% more instructions there. Its complete verification counts were close to those of the simpler implementation. [All measurements and experimental variants](perf/ivy_apple/holdouts/nov23-model-table-storage.tar.gz)
 
 In twelve verification runs the reused and freshly compiled tables agreed on all **53,626 calls**, including the exact ordered values in **4,504 concrete counterexamples**, **47,915 certificates** and **1,207 inconclusive results**. All 87 corpus comparisons matched the native reference on output, diagnostics and exit status. The 1,024-checker benchmark measured **2,608 live bytes per active checker** for this small fixture after collection. It measures scratch storage separately from the solver and arena. Run `go test ./smtcore -run '^$' -bench '^BenchmarkModelTableWorkerScratch$' -benchtime=1x -cpu=1 -count=7` to reproduce the retention measurement. [Audit patch, individual decisions and benchmark samples](perf/ivy_apple/holdouts/nov23-model-table-storage.tar.gz)
+
+### Evaluating the default quantifier-queue cost
+
+Z3 accepts arithmetic expressions for the cost and generation of a quantifier instance. On the default configuration, g3 was walking two parsed ASTs for each pair of calls to compute a sum and return the cost. The queue now evaluates those two expressions directly. It still parses and retains the configured expressions, validates each quantifier and pattern, rounds the operands to float32 and updates the maximum cost for the quantifier. Custom expressions and the warning-and-fallback cases continue through the evaluator. [Queue implementation](smtcore/smt_qi_cost.go) · [Equivalence test and benchmark](smtcore/smt_qi_cost_test.go)
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Instructions per cost and generation pair | 1,761 | **780** |
+| Time per pair | 167.8 ns | **76.2 ns** |
+| Apple order batch 14, condition 132, billion instructions | 396.82 | **392.45** |
+| Apple order batch 14, condition 104 | 215.09 | **212.90** |
+| Apple order batch 13, condition 132 | 94.30 | **92.94** |
+| Issue 73 order batch 13, condition 13 | 43.27 | **42.28** |
+| Complete TLB verification | 98.27 | **97.30** |
+
+The unit benchmark uses nine alternating pairs of 1.5 million operations and includes process startup amortized across the iterations. Both revisions allocated zero bytes per operation. Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTQICostDefaults$' -benchtime=1500000x -benchmem -cpu=1`. All nine standalone obligations used three alternating pairs and matched on verdicts, conflicts, decisions, propagations and quantifier instantiations. Across eight complete Ivy verifications with five pairs each, rfn2 was essentially flat at 13.94 versus 13.98 billion instructions. The 2.26× local improvement saved 1.1% of all instructions on the hardest standalone Apple condition. [Per-run counters and alternative implementations](perf/ivy_apple/holdouts/nov23-qi-default-cost.tar.gz)
+
+The complete 87-input corpus matched linked Z3 on output, diagnostics and exit status. The first linked-Z3 attempt on `raft_no_assume_test.ivy` reached 320 checks before its 240-second wall-clock limit on the shared CPU. Repeating the pair on that CPU with a 1,200-second limit completed all 419 checks on both engines. The archive includes the initial attempt and the retry. [Corpus results and tagged focused tests](perf/ivy_apple/holdouts/nov23-qi-default-cost.tar.gz)

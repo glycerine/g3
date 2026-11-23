@@ -35,6 +35,11 @@ var smtQICostVariableNames = [...]string{
 	"quant_generation", "weight", "vars", "pattern_width", "total_instances", "scope", "nested_quantifiers", "cs_factor",
 }
 
+const (
+	smtDefaultQICost       = "(+ weight generation)"
+	smtDefaultQIGeneration = "cost"
+)
+
 type SMTQICostModel struct {
 	manager       *ast.ASTManager
 	parser        *parserutil.CostParser
@@ -43,6 +48,8 @@ type SMTQICostModel struct {
 	newGeneration ast.ASTRef
 	values        [smtQICostValueCount]float32
 	warnings      *diagnostic.WarningService
+	addWeight     bool
+	useCost       bool
 	closed        bool
 }
 
@@ -68,14 +75,16 @@ func NewSMTQICostModel(manager *ast.ASTManager, costText, newGenerationText stri
 	if err != nil {
 		return model, errors.Join(err, model.Close())
 	}
-	model.costFunction, err = model.parseWithFallback(costText, "(+ weight generation)", "invalid cost function '%s', switching to default one")
+	model.costFunction, err = model.parseWithFallback(costText, smtDefaultQICost, "invalid cost function '%s', switching to default one")
 	if err != nil {
 		return model, errors.Join(err, model.Close())
 	}
-	model.newGeneration, err = model.parseWithFallback(newGenerationText, "cost", "invalid new_gen function '%s', switching to default one")
+	model.newGeneration, err = model.parseWithFallback(newGenerationText, smtDefaultQIGeneration, "invalid new_gen function '%s', switching to default one")
 	if err != nil {
 		return model, errors.Join(err, model.Close())
 	}
+	model.addWeight = costText == smtDefaultQICost
+	model.useCost = newGenerationText == smtDefaultQIGeneration
 	return model, nil
 }
 
@@ -157,6 +166,11 @@ func (m *SMTQICostModel) Cost(quantifier, pattern ast.ASTHandle, stat *SMTQuanti
 	if err := m.setValues(quantifier, pattern, stat, generation, minTopGeneration, maxTopGeneration, scope, 0); err != nil {
 		return 0, err
 	}
+	if m.addWeight {
+		result := m.values[smtQICostValueWeight] + m.values[smtQICostValueGeneration]
+		stat.UpdateMaxCost(result)
+		return result, nil
+	}
 	function, err := m.manager.RefGet(m.costFunction)
 	if err != nil {
 		return 0, err
@@ -171,6 +185,9 @@ func (m *SMTQICostModel) Cost(quantifier, pattern ast.ASTHandle, stat *SMTQuanti
 func (m *SMTQICostModel) NewGeneration(quantifier ast.ASTHandle, stat *SMTQuantifierStat, generation, scope uint32, cost float32) (uint32, error) {
 	if err := m.setValues(quantifier, ast.ASTHandle{}, stat, generation, 0, 0, scope, cost); err != nil {
 		return 0, err
+	}
+	if m.useCost {
+		return uint32(cost), nil
 	}
 	function, err := m.manager.RefGet(m.newGeneration)
 	if err != nil {

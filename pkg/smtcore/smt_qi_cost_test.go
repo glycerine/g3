@@ -10,7 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func smtQICostQuantifier(t *testing.T, m *ast.ASTManager) (ast.ASTHandle, ast.ASTHandle) {
+func smtQICostQuantifier(t testing.TB, m *ast.ASTManager) (ast.ASTHandle, ast.ASTHandle) {
 	t.Helper()
 	boolean, err := m.MkBoolSort()
 	astTestMust(t, err)
@@ -24,6 +24,63 @@ func smtQICostQuantifier(t *testing.T, m *ast.ASTManager) (ast.ASTHandle, ast.AS
 	pattern, err := m.MkAnd(variable, variable)
 	astTestMust(t, err)
 	return quantifier, pattern
+}
+
+func TestSMTQICostDefaultsMatchParsedExpressions(t *testing.T) {
+	m := astTestManager(t)
+	q, pat := smtQICostQuantifier(t, m)
+	direct, err := NewSMTQICostModel(m, "(+ weight generation)", "cost", nil)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, direct.Close()) })
+	parsed, err := NewSMTQICostModel(m, "(+ generation weight)", "(+ cost 0)", nil)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, parsed.Close()) })
+
+	var a, b SMTQuantifierStat
+	for _, n := range []uint32{0, 1, 27, 1<<24 - 1, 1<<24 + 3} {
+		got, err := direct.Cost(q, pat, &a, n, 0, 3, 4)
+		astTestMust(t, err)
+		want, err := parsed.Cost(q, pat, &b, n, 0, 3, 4)
+		astTestMust(t, err)
+		if got != want || a.MaxCost() != b.MaxCost() {
+			t.Fatalf("generation %d produced cost %v, want %v", n, got, want)
+		}
+		g, err := direct.NewGeneration(q, &a, n, 4, got+0.5)
+		astTestMust(t, err)
+		w, err := parsed.NewGeneration(q, &b, n, 4, want+0.5)
+		astTestMust(t, err)
+		if g != w {
+			t.Fatalf("cost %v produced generation %d, want %d", got+0.5, g, w)
+		}
+	}
+	if _, err := direct.Cost(q, q, &a, 1, 0, 0, 0); err != ast.ErrASTDomain {
+		t.Fatalf("quantifier used as a pattern returned %v", err)
+	}
+	if _, err := direct.NewGeneration(pat, &a, 1, 0, 3); err != ast.ErrASTDomain {
+		t.Fatalf("application used as a quantifier returned %v", err)
+	}
+}
+
+func BenchmarkSMTQICostDefaults(b *testing.B) {
+	m := astTestManager(b)
+	q, pat := smtQICostQuantifier(b, m)
+	model, err := NewSMTQICostModel(m, "(+ weight generation)", "cost", nil)
+	benchmarkMust(b, err)
+	b.Cleanup(func() { benchmarkMust(b, model.Close()) })
+	var stat SMTQuantifierStat
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n := uint32(i & 255)
+		cost, err := model.Cost(q, pat, &stat, n, 0, n, 0)
+		if err != nil {
+			b.Fatal(err)
+		}
+		g, err := model.NewGeneration(q, &stat, n, 0, cost)
+		if err != nil || g != n+7 {
+			b.Fatal(n, g, err)
+		}
+	}
 }
 
 func TestSMTQICostModelPublishesSourceVariablesAndNewGeneration(t *testing.T) {
