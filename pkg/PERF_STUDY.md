@@ -4452,3 +4452,21 @@ The same polynomial can enter the solver as `(* x x)` or `(^ x 2)`. The integer 
 | 128 variables, one forced irrational square root | 0.663 | 0.661 | 0.052 |
 
 The ordinary 8,192-variable case improved **21.6×** in retired instructions. Its median wall time fell from 12.97 s to 0.60 s, versus 0.43 s for Z3. The explicit 2,048-variable portfolio took 0.112 s versus 0.130 s for Z3. The mixed-sign cubic case still reached NLSAT, which used 513 search stages in both g3 builds. The measurements use three alternating pinned rounds against `471137617`. Independent native replay covered five new input families, three sizes and three solver routes. Z3 accepted all 1,608 returned variable assignments and agreed on all nine contradictions. [Inputs and model-checking driver](perf/nlsat/integer_model_cases.py) · [Raw counts, outputs and model checks](perf/nlsat/nov23-positive-powers.tar.gz)
+
+### Solving repeated independent polynomial systems once
+
+In the 8,192-variable positive-square-root benchmark, each variable must satisfy two assertions, `x*x = 2` and `x > 0`. g3 previously entered a median 8,838 nonlinear search stages. It now solves for one representative and reconstructs the others with the representative's exact algebraic value. The full SMT-LIB check took **0.212 s**, down from **11.412 s**, versus **0.327 s** for native Z3. The three alternating rounds included parsing and teardown on the same pinned CPU. [Benchmark generator and native model check](perf/nlsat/independent_components.py) · [Hardware counts and original inputs](perf/nlsat/nov23-independent-polynomials.tar.gz)
+
+| Complete check | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 8,192 positive square roots, ordinary solver | 81.107 | **1.194** | 2.199 |
+| 2,048 positive square roots, ordinary solver | 14.240 | **0.311** | 0.558 |
+| 512 variables across seven different radicands, explicit nonlinear portfolio | 3.710 | **0.151** | 0.162 |
+| 512 positive cubic roots, explicit portfolio | 5.055 | **0.111** | 0.274 |
+| 512 positive roots of a quartic, explicit portfolio | 6.529 | **0.129** | 0.333 |
+| 256 variables, two linked by a contradictory strict inequality | 1.049 | **0.084** | 0.065 |
+| 512 pairwise distinct radicands, explicit portfolio | 3.649 | 3.597 | 0.146 |
+
+The arithmetic portfolio first attempts its existing certified integer witness. On a miss it scans the original assertions and excludes any variable occurring in a multivariate formula. Two eligible variables can share a model value when their complete sets of unary assertions agree up to renaming. The comparison preserves sort, declaration identity and argument order. The retained subgoal contains original assertions and their original unsat-core dependencies. Each solver builds its own temporary indices. The distinct-radicand control still needed 513 stages and cost about 25 times as many instructions as Z3. [Reduction and model extension](nlsat/tactic/independent_polynomials.go) · [Regression tests](nlsat/tactic/independent_polynomials_test.go)
+
+Across 144 checks at three sizes and three entry points, native Z3 accepted all **6,210 returned values** when bound back into the original assertions and agreed on all 27 UNSAT results. These include opposite signs, repeated assertions in different orders, a shared parameter, mixed constraints and rational exceptions. A separate tracked contradiction returned four named assertions that were independently sufficient for UNSAT. Push/pop produced SAT, UNSAT, SAT in both g3 builds and Z3. All three engines returned UNSAT then UNKNOWN under the two incremental assumption sets. The two g3 builds also produced byte-identical outputs for 42 repository inputs. Reproduce with `python3 perf/nlsat/independent_components.py 49 --verify /path/to/g3 ../build/z3`. [Raw checks and complete timings](perf/nlsat/nov23-independent-polynomials.tar.gz)

@@ -21,7 +21,7 @@ const (
 	maxCandidateIntegerBits = 512
 )
 
-func (t *NLSATTactic) tryIntegerModel(goal *basetactic.Goal, result *basetactic.TacticResult) (bool, error) {
+func (t *NLSATTactic) preparePolynomialGoal(goal *basetactic.Goal, result *basetactic.TacticResult) (bool, error) {
 	m := t.manager
 	n, err := goal.Size()
 	if err != nil || n < minCandidateAssertions || n > maxCandidateAssertions || goal.IsDecided() {
@@ -63,6 +63,15 @@ func (t *NLSATTactic) tryIntegerModel(goal *basetactic.Goal, result *basetactic.
 	if err != nil {
 		return false, err
 	}
+	handled, err := t.tryIntegerAssignment(goal, result, forms, arithmetic)
+	if err != nil || handled || t.mode != preparePolynomials || m.Limit.CancelFlag() {
+		return handled, err
+	}
+	return t.reduceIndependentPolynomials(goal, result, forms, arithmetic)
+}
+
+func (t *NLSATTactic) tryIntegerAssignment(goal *basetactic.Goal, result *basetactic.TacticResult, forms []ast.ASTHandle, arithmetic ast.FamilyID) (bool, error) {
+	m := t.manager
 	p := integerCandidate{manager: m, arithmetic: arithmetic, terms: make(map[ast.ASTHandle]candidateTerm)}
 	p.comparisons = make([]candidateComparison, len(forms))
 	for i, form := range forms {

@@ -147,6 +147,12 @@ def verify(solver, native, shape, route, count, seed, timeout):
             if query(native, request, timeout) != "unknown":
                 raise ValueError("mixed-sort default solver verdict mismatch")
             return None
+    return verify_model(solver, native, preamble, names, ROUTES[route], expected, timeout)
+
+
+def verify_model(solver, native, preamble, names, command, expected, timeout):
+    """Ask for every free value, then fix each one in the original problem in Z3."""
+    request = preamble + command + "\n"
     if expected == "sat":
         request += "(get-value (" + " ".join(names) + "))\n"
     values = expressions(query(solver, request, timeout))

@@ -138,7 +138,7 @@ func TestIntegerCandidateMissPreservesGoal(t *testing.T) {
 					compilerMust(t, e)
 					tac = copyTactic.(*NLSATTactic)
 					t.Cleanup(func() { compilerMust(t, tac.Close()) })
-					if !tac.modelOnly {
+					if tac.mode != findIntegerWitness {
 						t.Fatal("translation changed tactic mode")
 					}
 				}

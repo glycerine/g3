@@ -72,7 +72,7 @@ func newQFNRANLSATTactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore
 	}
 	initial := simplify()
 	if tryModel && !m.Budget().InjectionArmed() {
-		initial = b.then(b.keep(nlsattactic.NewIntegerModelTactic(m, c, g, source, config.ModelEvaluator)), initial)
+		initial = b.then(b.keep(nlsattactic.NewPolynomialPreparationTactic(m, c, g, source, config.ModelEvaluator)), initial)
 	}
 	first := b.then(
 		initial, purification(),

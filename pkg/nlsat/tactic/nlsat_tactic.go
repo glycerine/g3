@@ -21,6 +21,14 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+type polynomialTacticMode uint8
+
+const (
+	searchPolynomials polynomialTacticMode = iota
+	findIntegerWitness
+	preparePolynomials
+)
+
 // NLSATTactic stores only the source parameters. Solver, compiler, and
 // polynomial state are scoped to one Apply call.
 type NLSATTactic struct {
@@ -33,7 +41,7 @@ type NLSATTactic struct {
 	statistics  statistics.Statistics // m_stats
 	ownerBytes  uint64
 	refs        uint32
-	modelOnly   bool
+	mode        polynomialTacticMode
 	paramsReady bool
 	running     bool
 	closed      bool
@@ -42,16 +50,22 @@ type NLSATTactic struct {
 var _ basetactic.Tactic = (*NLSATTactic)(nil)
 
 func NewNLSATTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig) (_ *NLSATTactic, err error) {
-	return newNLSATTactic(manager, context, globals, params, services, false)
+	return newNLSATTactic(manager, context, globals, params, services, searchPolynomials)
 }
 
 // NewIntegerModelTactic tries a verified integer assignment before the arithmetic
 // portfolio preprocesses the goal. A miss passes the original goal through.
 func NewIntegerModelTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig) (_ *NLSATTactic, err error) {
-	return newNLSATTactic(manager, context, globals, params, services, true)
+	return newNLSATTactic(manager, context, globals, params, services, findIntegerWitness)
 }
 
-func newNLSATTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig, modelOnly bool) (_ *NLSATTactic, err error) {
+// NewPolynomialPreparationTactic finds a certified integer model or reduces
+// independent copies of the same unary constraints for the downstream solver.
+func NewPolynomialPreparationTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig) (*NLSATTactic, error) {
+	return newNLSATTactic(manager, context, globals, params, services, preparePolynomials)
+}
+
+func newNLSATTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig, mode polynomialTacticMode) (_ *NLSATTactic, err error) {
 	if manager == nil || context == nil || globals == nil || globals.Context != context || services.Context != context || services.Globals != globals || services.Memory == nil || services.Cooperation == nil {
 		return nil, uparams.ErrParamsOwner
 	}
@@ -62,7 +76,7 @@ func newNLSATTactic(manager *ast.ASTManager, context *uparams.ParamsContext, glo
 	if err = manager.Budget().Reserve(amount); err != nil {
 		return nil, err
 	}
-	t := &NLSATTactic{manager: manager, context: context, globals: globals, services: services, ownerBytes: amount, modelOnly: modelOnly}
+	t := &NLSATTactic{manager: manager, context: context, globals: globals, services: services, ownerBytes: amount, mode: mode}
 	t.self = t
 	defer func() {
 		if err != nil {
@@ -153,7 +167,7 @@ func (t *NLSATTactic) Translate(manager *ast.ASTManager) (basetactic.Tactic, err
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	return newNLSATTactic(manager, t.context, t.globals, &t.params, t.services, t.modelOnly)
+	return newNLSATTactic(manager, t.context, t.globals, &t.params, t.services, t.mode)
 }
 
 func (t *NLSATTactic) UpdateParams(params *uparams.ParamsRef) error {
@@ -169,7 +183,7 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	}
 	// Discovery is an internal stage. The portfolio's ordinary tactics own
 	// the public parameter descriptions and their precedence.
-	if t.modelOnly {
+	if t.mode != searchPolynomials {
 		return nil
 	}
 	if err := uparams.InsertMaxMemory(out); err != nil {
@@ -194,7 +208,7 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 }
 
 func (t *NLSATTactic) CollectStatistics(st *statistics.Statistics) {
-	if !t.modelOnly {
+	if t.mode == searchPolynomials {
 		st.Copy(t.statistics)
 	}
 }
@@ -315,8 +329,8 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 	if err = result.Prepare(t.manager); err != nil {
 		return err
 	}
-	if t.modelOnly {
-		solved, err := t.tryIntegerModel(goal, result)
+	if t.mode != searchPolynomials {
+		solved, err := t.preparePolynomialGoal(goal, result)
 		if err != nil || solved {
 			return err
 		}

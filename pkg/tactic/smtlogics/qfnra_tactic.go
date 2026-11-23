@@ -98,7 +98,7 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 	)
 	simplifier := b.keep(core.MakeSimplifyTactic(m, c, g, p))
 	if !m.Budget().InjectionArmed() {
-		simplifier = b.then(b.keep(nlsattactic.NewIntegerModelTactic(m, c, g, p, config.ModelEvaluator)), simplifier)
+		simplifier = b.then(b.keep(nlsattactic.NewPolynomialPreparationTactic(m, c, g, p, config.ModelEvaluator)), simplifier)
 	}
 	propagate := b.keep(core.NewPropagateValuesTactic(m, c, g, p))
 	alternatives := b.otherwise(
