@@ -41,14 +41,14 @@ func (p *enumerationRefutation) check(m *ast.ASTManager, forms []ast.ASTHandle) 
 		}
 	}
 	if p.kernel == nil {
-		p.kernel = &orderProofState{}
+		p.kernel = &orderProofState{finiteEnumeration: true}
 		if err := p.kernel.start(m); err != nil {
 			return false, errors.Join(err, p.release())
 		}
 	}
 	// The private search budget also covers assertion preprocessing. A
 	// failed proof gives the caller its ordinary solver and concrete model.
-	proved, err := p.kernel.check(m, *problem, 4_500_000, true)
+	proved, err := p.kernel.check(m, *problem, 6_000_000, true)
 	if err != nil || !proved {
 		return false, errors.Join(err, p.release())
 	}

@@ -37,6 +37,10 @@ type SMTSolverConfig struct {
 	// CheckUninterpretedModelTables checks small universal formulas directly
 	// in their candidate model before starting an auxiliary SMT search.
 	CheckUninterpretedModelTables bool
+	// CertifyBoundedModelTables charges finite table checks to a private proof
+	// budget. A valid universal skips the auxiliary search. Counterexamples
+	// still go through MBQI so its choice of instantiation is preserved.
+	CertifyBoundedModelTables bool
 	// SkipRepeatedPreprocessing omits the second macro search and final
 	// simplifier pass in private refutation contexts.
 	SkipRepeatedPreprocessing bool

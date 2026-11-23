@@ -160,6 +160,11 @@ func (g *tableModel) check(m *ast.ASTManager, model *protomodel.ProtoModel, flat
 	if err != nil {
 		return lbool.Undef, nil, err
 	}
+	limit := m.ResourceLimit()
+	bounded := limit.Limit != 0
+	if bounded && !limit.IncOffset(32) {
+		return lbool.Undef, nil, nil
+	}
 	g.manager, g.model, g.work = m, model, 6000
 	defer g.clearModel()
 	if g.valueIDs == nil {
@@ -205,7 +210,7 @@ func (g *tableModel) check(m *ast.ASTManager, model *protomodel.ProtoModel, flat
 	bindings := make([]int, count)
 	hasAbstractWitness := false
 	for j := 0; j < tuples; j++ {
-		if j%16 == 0 && m.ResourceLimit().CancelFlag() {
+		if j%16 == 0 && (limit.CancelFlag() || bounded && !limit.IncOffset(uint32(min(16, tuples-j)))) {
 			return lbool.Undef, nil, nil
 		}
 		// Quantified declarations use the opposite order from de Bruijn indices.
@@ -253,13 +258,14 @@ func (g *tableModel) witness(bindings []int) []ast.ASTHandle {
 	return values
 }
 
-// Extra auxiliary premises or resource limits require the ordinary search.
+// Extra auxiliary premises require the ordinary search. Only private finite
+// refutations opt into directly paying for table checks under a resource limit.
 // With internalized arithmetic, its witness order also benefits mixed problems.
 func (c *SMTModelChecker) canCheckModelTables() bool {
 	m, aux := c.manager, c.auxiliaryContext
 	if aux.manager != m || aux.ScopeLevelCore() != 0 || len(aux.tracked) != 0 || len(aux.kernel.assertions) != 0 ||
 		aux.kernel.smtState.MaxConflicts != ^uint32(0) || c.trace || m.TraceStream != nil ||
-		m.Budget().InjectionArmed() || m.ResourceLimit().Limit != 0 || m.ResourceLimit().CancelFlag() {
+		m.Budget().InjectionArmed() || (m.ResourceLimit().Limit != 0 && !aux.config.CertifyBoundedModelTables) || m.ResourceLimit().CancelFlag() {
 		return false
 	}
 	for _, theory := range c.state.theories {

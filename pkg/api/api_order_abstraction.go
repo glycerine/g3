@@ -54,6 +54,7 @@ type orderProofState struct {
 	definitions        *premiseDefinitions
 	enumeration        *enumerationRefutation
 	previousGoalProved bool
+	finiteEnumeration  bool
 	recent             *recentRefutations
 	bits               *orderBooleanSolver
 	// Keep a failed side-condition cleanup reachable for release's retry.
@@ -365,7 +366,11 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 }
 
 func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
-	command, err := cmd_context.NewRefutationContext(parent.Budget())
+	newContext := cmd_context.NewRefutationContext
+	if p.finiteEnumeration {
+		newContext = cmd_context.NewEnumerationRefutationContext
+	}
+	command, err := newContext(parent.Budget())
 	if err != nil {
 		return err
 	}
@@ -384,6 +389,11 @@ func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
 	defer func() { err = errors.Join(err, params.Close()) }()
 	if err := params.SetBool("smt.macro_finder", true); err != nil {
 		return err
+	}
+	if p.finiteEnumeration {
+		if err := params.SetUInt("smt.relevancy", 1); err != nil {
+			return err
+		}
 	}
 	return p.child.SetParameters(params)
 }

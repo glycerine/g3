@@ -286,3 +286,46 @@ func TestModelTablesAgreeWithGroundModelEvaluation(t *testing.T) {
 		pool = append(pool, body)
 	}
 }
+
+func TestModelTablesPrivateBudgetAndScratchLifetime(t *testing.T) {
+	m, c, md, _, _ := smtAuxiliaryQueryFixture(t, false)
+	f := tableTest{t, m, md}
+	boolean := f.term(m.MkBoolSort())
+	x := f.term(m.MkVar(0, boolean))
+	body := f.term(m.MkOrArgs([]ast.ASTHandle{x, f.term(m.MkNot(x))}))
+	q := f.forall(body, boolean)
+	astTestMust(t, c.initAuxiliaryContext())
+	c.auxiliaryContext.config.CertifyBoundedModelTables = true
+	var scratch tableModel
+	limit := m.ResourceLimit()
+	// The first budget expires before compilation, the second at the tuple
+	// scan. The same scratch state must work for the next candidate model.
+	for _, steps := range []uint32{1, 32, 1000} {
+		astTestMust(t, limit.Push(steps))
+		if !c.canCheckModelTables() {
+			t.Fatal("budgeted certificate check unavailable")
+		}
+		start := limit.Count()
+		got, _, err := scratch.check(m, md, q, body, 1)
+		used := limit.Count() - start
+		limit.Pop()
+		astTestMust(t, err)
+		want := lbool.Undef
+		if steps == 1000 {
+			want = lbool.False
+		}
+		if got != want || used < 32 || scratch.model != nil || scratch.manager != nil || len(scratch.values) != 0 {
+			t.Fatalf("budget %d used %d steps, result %v, retained model %t", steps, used, got, scratch.model != nil)
+		}
+	}
+	limit.IncCancel()
+	if c.canCheckModelTables() {
+		t.Fatal("canceled private query accepted")
+	}
+	got, _, err := scratch.check(m, md, q, body, 1)
+	limit.DecCancel()
+	astTestMust(t, err)
+	if got != lbool.Undef {
+		t.Fatal("canceled certificate", got)
+	}
+}

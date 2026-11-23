@@ -45,7 +45,11 @@ const (
 func (d *tableDiagram) step() bool {
 	if !d.stopped {
 		d.work++
-		d.stopped = d.work > tableDiagramWork || d.work%256 == 0 && d.model.manager.ResourceLimit().CancelFlag()
+		d.stopped = d.work > tableDiagramWork
+		if !d.stopped && d.work%256 == 0 {
+			limit := d.model.manager.ResourceLimit()
+			d.stopped = limit.CancelFlag() || limit.Limit != 0 && !limit.IncOffset(16)
+		}
 	}
 	return !d.stopped
 }

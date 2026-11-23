@@ -149,6 +149,16 @@ func NewRefutationContext(budget *arena.Budget) (*Context, error) {
 	return c, err
 }
 
+// NewEnumerationRefutationContext also checks universal formulas against the
+// explicit tables of a candidate model under the private proof budget.
+func NewEnumerationRefutationContext(budget *arena.Budget) (*Context, error) {
+	c, err := NewRefutationContext(budget)
+	if err == nil {
+		c.config.CertifyBoundedModelTables = true
+	}
+	return c, err
+}
+
 func (s *contextServices) Close() (result error) {
 	if s.cooperation != nil {
 		result = errors.Join(result, s.cooperation.Close())
