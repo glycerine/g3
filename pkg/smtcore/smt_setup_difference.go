@@ -14,7 +14,7 @@ func smtDenseArithmetic(features *ast.StaticFeatures) bool {
 		features.NumArithEqualities+features.NumArithInequalities > features.NumUninterpretedConstants*9
 }
 
-func (k *SMTKernel) setupIntegerDifferencePolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupIntegerDifferencePolicy(useStaticFeatures bool) (result error) {
 	if k.setupLogic != "QF_IDL" {
 		return nil
 	}
@@ -23,7 +23,7 @@ func (k *SMTKernel) setupIntegerDifferencePolicy(useStaticFeatures bool) (result
 		return err
 	}
 	if features != nil {
-		defer func() { result = errors.Join(result, features.Close()) }()
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 		if features.NumArithEqualities != features.NumDiffEqualities || features.NumArithTerms != features.NumDiffTerms || features.NumArithInequalities != features.NumDiffInequalities {
 			return fmt.Errorf("Benchmark is not in QF_IDL (integer difference logic).")
 		}
@@ -178,7 +178,7 @@ func (k *SMTKernel) replaceUnusedSetupArithmetic(theory SMTTheoryInternalizer) e
 	return nil
 }
 
-func (k *SMTKernel) setupRealDifferencePolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupRealDifferencePolicy(useStaticFeatures bool) (result error) {
 	if k.setupLogic != "QF_RDL" {
 		return nil
 	}
@@ -187,7 +187,7 @@ func (k *SMTKernel) setupRealDifferencePolicy(useStaticFeatures bool) (result er
 		return err
 	}
 	if features != nil {
-		defer func() { result = errors.Join(result, features.Close()) }()
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 		if features.NumArithEqualities != features.NumDiffEqualities || features.NumArithTerms != features.NumDiffTerms || features.NumArithInequalities != features.NumDiffInequalities {
 			return fmt.Errorf("Benchmark is not in QF_RDL (real difference logic).")
 		}
@@ -263,7 +263,7 @@ func (k *SMTKernel) setupRealDifferencePolicy(useStaticFeatures bool) (result er
 
 // Unlike IDL and RDL, the static UFIDL source overload only rejects real
 // arithmetic; it does not validate the difference-term counters.
-func (k *SMTKernel) setupUFIntegerDifferencePolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupUFIntegerDifferencePolicy(useStaticFeatures bool) (result error) {
 	if k.setupLogic != "QF_UFIDL" {
 		return nil
 	}
@@ -272,7 +272,7 @@ func (k *SMTKernel) setupUFIntegerDifferencePolicy(useStaticFeatures bool) (resu
 		return err
 	}
 	if features != nil {
-		defer func() { result = errors.Join(result, features.Close()) }()
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 		if features.HasReal {
 			return fmt.Errorf("Benchmark has real variables but it is marked as QF_UFIDL (uninterpreted functions and difference logic).")
 		}

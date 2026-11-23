@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-func (k *SMTKernel) setupSimpleLogicPolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupSimpleLogicPolicy(useStaticFeatures bool) (result error) {
 	switch k.setupLogic {
 	case "QF_UF", "QF_DT":
 		if useStaticFeatures && k.setupLogic == "QF_UF" {
@@ -15,7 +15,7 @@ func (k *SMTKernel) setupSimpleLogicPolicy(useStaticFeatures bool) (result error
 			if err != nil {
 				return err
 			}
-			defer func() { result = errors.Join(result, features.Close()) }()
+			defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 			if features.NumArithInequalities > 0 || features.NumArithTerms > 0 || features.NumArithEqualities > 0 {
 				// Retain the source exception's spelling.
 				return fmt.Errorf("Benchmark constains arithmetic, but specified loging does not support it.")

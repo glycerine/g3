@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestSMTGenericSequenceBackendUsesUpdatedOptionsAndFeatures(t *testing.T) {
@@ -166,5 +168,46 @@ func TestSMTQFSSetupInstallsNativeStringAndMixedArithmetic(t *testing.T) {
 				t.Fatal("QF_S owner/nested kernel lost actual borrowed parameter ownership")
 			}
 		})
+	}
+}
+
+func TestSMTSetupRetryClassifiesNewAssertions(t *testing.T) {
+	m, cfg := smtModelGeneratorFixture(t)
+	params, err := cfg.Context.NewValue()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, cfg.Context.Del(&params)) })
+	key := "string_solver"
+	astTestMust(t, cfg.Context.SetSymbolName(&params, &key, astTestSymbol(t, m, "invalid")))
+	solver, err := NewSMTSolver(m, &params, "ALL", SMTSolverConfig{Params: cfg.Context, ModelEvaluator: cfg})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, solver.Close()) })
+	assertLiteral := func(name string, literal ast.ASTHandle) {
+		t.Helper()
+		sort, err := m.GetSort(literal)
+		astTestMust(t, err)
+		x, err := m.MkConst(astTestSymbol(t, m, name), sort)
+		astTestMust(t, err)
+		eq, err := m.MkEq(x, literal)
+		astTestMust(t, err)
+		astTestMust(t, solver.Assert(eq))
+	}
+	assertLiteral("s", astTestString(t, m, "a"))
+	if err := solver.kernel.setupAssertedBounds(true); err == nil || !strings.Contains(err.Error(), "invalid parameter for smt.string_solver") {
+		t.Fatalf("first setup returned %v", err)
+	}
+	astTestMust(t, cfg.Context.SetSymbolName(&params, &key, astTestSymbol(t, m, "auto")))
+	astTestMust(t, solver.UpdateParams(&params))
+	one, err := m.ArithmeticIntegerNumeralText("1")
+	astTestMust(t, err)
+	unit, err := m.MkSequenceUnit(one)
+	astTestMust(t, err)
+	assertLiteral("xs", unit)
+	astTestMust(t, solver.kernel.setupAssertedBounds(true))
+	family, err := m.SequenceFamilyID()
+	astTestMust(t, err)
+	if theory := solver.kernel.internalizer.theories[family]; theory == nil {
+		t.Fatal("sequence backend missing after retry")
+	} else if _, ok := theory.(*SMTTheorySeq); !ok {
+		t.Fatalf("new non-string sequence requires the sequence backend, got %T", theory)
 	}
 }

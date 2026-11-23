@@ -145,7 +145,7 @@ func smtUnknownSetupUsesSequences(f *ast.StaticFeatures) bool {
 // Native plugin selection happens at the first push/check, after parameter
 // updates and asserted-formula collection. Constructor plugins are only Go
 // placeholders until this boundary.
-func (k *SMTKernel) setupSequenceBackend(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupSequenceBackend(useStaticFeatures bool) (result error) {
 	legacy := k.smtState.AutoConfig && k.setupLogic == "QF_S"
 	// get_config_mode: CFG_AUTO (setup_auto_config) with static features,
 	// otherwise CFG_LOGIC (setup_default).
@@ -157,12 +157,13 @@ func (k *SMTKernel) setupSequenceBackend(useStaticFeatures bool) (result error) 
 		return nil
 	}
 	if !legacy && !(k.smtState.AutoConfig && k.setupLogic == "QF_BVRE") {
-		features, err := k.setupStaticFeatures(true)
+		inspectProfile := k.smtState.AutoConfig && useStaticFeatures
+		features, err := k.setupStaticFeatures(inspectProfile || k.preserveAllocations)
 		if err != nil {
 			return err
 		}
-		defer func() { result = errors.Join(result, features.Close()) }()
-		if k.smtState.AutoConfig && useStaticFeatures && !smtUnknownSetupUsesSequences(features) {
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
+		if inspectProfile && !smtUnknownSetupUsesSequences(features) {
 			// setup_unknown(st) picks a profile without theory_seq, so the
 			// source never runs theory_seq::init (which builds the
 			// seq_expr_solver kernel). The Go placeholder stays registered
@@ -181,6 +182,12 @@ func (k *SMTKernel) setupSequenceBackend(useStaticFeatures bool) (result error) 
 		case "z3str3":
 			legacy = true
 		case "auto":
+			if features == nil {
+				features, err = k.setupStaticFeatures(true)
+				if err != nil {
+					return err
+				}
+			}
 			legacy = !features.HasNonStringSequence
 		default:
 			// smt_setup.cpp: throw default_exception(...).

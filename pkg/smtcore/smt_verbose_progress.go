@@ -104,7 +104,7 @@ func (k *SMTKernel) setupCollectFeaturesVerbose() error {
 	if enabled, err := diagnostic.ProcessVerboseEnabled(1000); err != nil || !enabled {
 		return err
 	}
-	features, err := k.setupStaticFeatures(true)
+	features, err := k.collectSetupFeatures()
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (k *SMTKernel) setupSeqStrVerbose() (result error) {
 	}
 	str := choice == "z3str3"
 	if choice == "auto" {
-		features, err := k.setupStaticFeatures(true)
+		features, err := k.collectSetupFeatures()
 		if err != nil {
 			return err
 		}
@@ -180,7 +180,7 @@ func (k *SMTKernel) setupVerbose(useStaticFeatures bool) (result error) {
 		return nil
 	}
 	// setup_unknown(st)
-	features, err := k.setupStaticFeatures(true)
+	features, err := k.collectSetupFeatures()
 	if err != nil {
 		return err
 	}

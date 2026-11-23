@@ -12,6 +12,41 @@ import (
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
+// smtSetup owns the read-only formula statistics for one first push or check.
+// Setup may install theories and adjust options. Its asserted formulas stay
+// fixed until all policies have finished, including on a failed attempt.
+type smtSetup struct {
+	*SMTKernel
+	features            *ast.StaticFeatures
+	preserveAllocations bool
+}
+
+func (k *smtSetup) setupStaticFeatures(enabled bool) (*ast.StaticFeatures, error) {
+	if !enabled {
+		return nil, nil
+	}
+	if k.preserveAllocations {
+		return k.collectSetupFeatures()
+	}
+	if k.features == nil {
+		features, err := k.collectSetupFeatures()
+		if err != nil {
+			return nil, err
+		}
+		k.features = features
+	}
+	return k.features, nil
+}
+
+// A policy borrows the shared summary. Diagnostic and allocation-failure
+// runs own a separate summary at each original collection point.
+func (k *smtSetup) releaseFeatures(features *ast.StaticFeatures) error {
+	if features == nil || features == k.features {
+		return nil
+	}
+	return features.Close()
+}
+
 // Source setup_AUFLIA / setup_AUFLIRA enable this hidden preprocessor field.
 // Ordinary checks and push select CFG_LOGIC. A fresh tactic's SetupAndCheck
 // selects static formula features for automatic setup_unknown.
@@ -19,6 +54,23 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 	if k.preprocessingSetupDone || k.smtParams == nil {
 		return nil
 	}
+	setup := smtSetup{
+		SMTKernel: k,
+		preserveAllocations: ast.ASTSourceDebug || diagnostic.VerboseProgress || k.manager.TraceStream != nil ||
+			k.manager.Budget().InjectionArmed() || k.manager.NumeralService().RuntimeOwner().AllocationLimited() ||
+			k.manager.ResourceLimit().Limit != 0 || k.manager.ResourceLimit().CancelFlag(),
+	}
+	err := setup.configure(useStaticFeatures)
+	if setup.features != nil {
+		err = errors.Join(err, setup.features.Close())
+	}
+	if err == nil {
+		k.preprocessingSetupDone = true
+	}
+	return err
+}
+
+func (k *smtSetup) configure(useStaticFeatures bool) error {
 	// setup::operator()'s (smt.configuring)/(smt.collecting-features) lines
 	// (AUDIT.md FUZZ-F5; g3trace builds only).
 	if diagnostic.VerboseProgress {
@@ -40,7 +92,6 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 			return err
 		}
 		k.setupAssertedPolicies()
-		k.preprocessingSetupDone = true
 		return nil
 	}
 	if !useStaticFeatures && smtLogicUsesUnknownSetup(k.setupLogic) {
@@ -116,7 +167,6 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 		return err
 	}
 	k.setupAssertedPolicies()
-	k.preprocessingSetupDone = true
 	return nil
 }
 

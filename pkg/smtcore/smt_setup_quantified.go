@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-func (k *SMTKernel) setupQuantifiedLogicPolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupQuantifiedLogicPolicy(useStaticFeatures bool) (result error) {
 	mixed, simpleArray, inspect := false, true, false
 	switch k.setupLogic {
 	case "AUFLIA":
@@ -30,7 +30,7 @@ func (k *SMTKernel) setupQuantifiedLogicPolicy(useStaticFeatures bool) (result e
 		return err
 	}
 	if features != nil {
-		defer func() { result = errors.Join(result, features.Close()) }()
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 		if !simpleArray {
 			if features.NumQuantifiers == 0 {
 				return nil

@@ -9,10 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (k *SMTKernel) setupStaticFeatures(enabled bool) (*ast.StaticFeatures, error) {
-	if !enabled {
-		return nil, nil
-	}
+func (k *SMTKernel) collectSetupFeatures() (*ast.StaticFeatures, error) {
 	features, err := ast.NewStaticFeatures(k.manager)
 	if err != nil {
 		return nil, err
@@ -27,13 +24,13 @@ func (k *SMTKernel) setupStaticFeatures(enabled bool) (*ast.StaticFeatures, erro
 	return features, nil
 }
 
-func (k *SMTKernel) arithmeticSetupFeatures(enabled bool) (*ast.StaticFeatures, error) {
+func (k *smtSetup) arithmeticSetupFeatures(enabled bool) (*ast.StaticFeatures, error) {
 	features, err := k.setupStaticFeatures(enabled)
 	if err != nil || features == nil {
 		return features, err
 	}
 	if features.NumUninterpretedFunctions != 0 {
-		return nil, errors.Join(fmt.Errorf("Benchmark contains uninterpreted function symbols, but specified logic does not support them."), features.Close())
+		return nil, errors.Join(fmt.Errorf("Benchmark contains uninterpreted function symbols, but specified logic does not support them."), k.releaseFeatures(features))
 	}
 	return features, nil
 }
@@ -54,7 +51,7 @@ func (k *SMTKernel) applyArithmeticSetup(smt SMTParamsState, arithmetic SMTArith
 	return nil
 }
 
-func (k *SMTKernel) setupRealLogicPolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupRealLogicPolicy(useStaticFeatures bool) (result error) {
 	if k.setupLogic == "LRA" {
 		smt := k.smtParams.state
 		arithmetic := k.smtParams.arith.state
@@ -76,7 +73,7 @@ func (k *SMTKernel) setupRealLogicPolicy(useStaticFeatures bool) (result error) 
 		return err
 	}
 	if features != nil {
-		defer func() { result = errors.Join(result, features.Close()) }()
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 	}
 	smt := k.smtParams.state
 	arithmetic := k.smtParams.arith.state

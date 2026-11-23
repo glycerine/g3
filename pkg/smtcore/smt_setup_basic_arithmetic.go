@@ -4,16 +4,16 @@ package smtcore
 
 import "errors"
 
-// Basic setup collects arithmetic features even on the logic-only first-push
-// path. Difference, dense, UTVPI and disabled modes select their concrete
-// retained implementations, including the full three-component inf_ext.
-// Constructor-only int_only/fixnum flags have no retained writers and stay false.
-func (k *SMTKernel) setupBasicArithmetic() (result error) {
-	features, err := k.setupStaticFeatures(true)
-	if err != nil {
-		return err
+// The retained arithmetic specializations keep int_only and fixnum false.
+// The arithmetic mode selects the backend without inspecting the formulas.
+func (k *smtSetup) setupBasicArithmetic() (result error) {
+	if k.preserveAllocations {
+		features, err := k.setupStaticFeatures(true)
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 	}
-	defer func() { result = errors.Join(result, features.Close()) }()
 	arithmetic := k.smtParams.arith.state
 	family, err := k.manager.ArithmeticFamilyID()
 	if err != nil {

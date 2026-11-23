@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-func (k *SMTKernel) setupArrayLogicPolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupArrayLogicPolicy(useStaticFeatures bool) (result error) {
 	if k.setupLogic != "QF_AX" && k.setupLogic != "QF_AUFLIA" {
 		return nil
 	}
@@ -16,7 +16,7 @@ func (k *SMTKernel) setupArrayLogicPolicy(useStaticFeatures bool) (result error)
 		return err
 	}
 	if features != nil {
-		defer func() { result = errors.Join(result, features.Close()) }()
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 		if k.setupLogic == "QF_AUFLIA" && features.HasReal {
 			return fmt.Errorf("Benchmark has real variables but it is marked as QF_AUFLIA (arrays, uninterpreted functions and linear integer arithmetic).")
 		}

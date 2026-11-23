@@ -15,7 +15,7 @@ func (k *SMTKernel) withSetupLogic(logic string, action func() error) error {
 	return action()
 }
 
-func (k *SMTKernel) setupUnknownStaticPolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupUnknownStaticPolicy(useStaticFeatures bool) (result error) {
 	if !useStaticFeatures || !smtAutoConfigUsesUnknownSetup(k.setupLogic) {
 		return nil
 	}
@@ -23,7 +23,7 @@ func (k *SMTKernel) setupUnknownStaticPolicy(useStaticFeatures bool) (result err
 	if err != nil {
 		return err
 	}
-	defer func() { result = errors.Join(result, features.Close()) }()
+	defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 	if features.NumQuantifiers != 0 {
 		// setupQuantifiedLogicPolicy already applies setup_AUFLIA(false) or
 		// setup_AUFLIRA(false), including the retained generic plugins.
@@ -279,7 +279,7 @@ func (k *SMTKernel) recordCopiedPlugins(source *SMTKernel) error {
 // CFG_LOGIC's setup_default fallthrough to setup_unknown(). known is false
 // for an explicit logic's own profile, which the constructor installed:
 // only plugins registered before setup are moved ahead of it.
-func (k *SMTKernel) setupProfilePlugins(useStaticFeatures bool) (plugins []int, known bool, result error) {
+func (k *smtSetup) setupProfilePlugins(useStaticFeatures bool) (plugins []int, known bool, result error) {
 	switch {
 	case !k.smtState.AutoConfig:
 		return smtSetupAllPlugins(), true, nil
@@ -288,7 +288,7 @@ func (k *SMTKernel) setupProfilePlugins(useStaticFeatures bool) (plugins []int, 
 		if err != nil {
 			return nil, false, err
 		}
-		defer func() { result = errors.Join(result, features.Close()) }()
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 		return smtUnknownStaticPlugins(features), true, nil
 	case !useStaticFeatures && smtLogicUsesUnknownSetup(k.setupLogic):
 		return smtSetupAllPlugins(), true, nil
@@ -300,7 +300,7 @@ func (k *SMTKernel) setupProfilePlugins(useStaticFeatures bool) (plugins []int, 
 // the constructor did not install (setup_arrays, setup_bv, setup_datatypes,
 // setup_dl, setup_card, setup_fpa). Arithmetic and sequences are installed
 // by setupBasicArithmetic and setupSequenceBackend.
-func (k *SMTKernel) installMissingSetupPlugin(plugin int) error {
+func (k *smtSetup) installMissingSetupPlugin(plugin int) error {
 	m := k.manager
 	family, err := k.smtSetupPluginFamily(plugin)
 	if err != nil {
@@ -366,7 +366,7 @@ func (k *SMTKernel) installMissingSetupPlugin(plugin int) error {
 // Go eagerly installs constructor placeholders, so placeholders outside
 // both lists are dropped (they would otherwise take final_check rotation
 // slots and run their own final checks).
-func (k *SMTKernel) setupPluginSet(useStaticFeatures bool) error {
+func (k *smtSetup) setupPluginSet(useStaticFeatures bool) error {
 	if k.smtParams == nil {
 		return nil
 	}

@@ -6,7 +6,7 @@ import (
 	"errors"
 )
 
-func (k *SMTKernel) setupIntegerLogicPolicy(useStaticFeatures bool) (result error) {
+func (k *smtSetup) setupIntegerLogicPolicy(useStaticFeatures bool) (result error) {
 	if k.setupLogic != "QF_LIA" && k.setupLogic != "QF_BVRE" {
 		return nil
 	}
@@ -19,7 +19,7 @@ func (k *SMTKernel) setupIntegerLogicPolicy(useStaticFeatures bool) (result erro
 		return err
 	}
 	if features != nil {
-		defer func() { result = errors.Join(result, features.Close()) }()
+		defer func() { result = errors.Join(result, k.releaseFeatures(features)) }()
 	}
 	smt := k.smtParams.state
 	arithmetic := k.smtParams.arith.state
