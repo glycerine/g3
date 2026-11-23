@@ -194,10 +194,17 @@ func TestStaticFeaturesArithmeticDifferenceAndNonlinearAccounting(t *testing.T) 
 	ite, err := m.MkIte(condition, shifted, three)
 	astTestMust(t, err)
 	astTestPin(t, m, ite)
+	limit := m.ResourceLimit()
+	astTestMust(t, limit.Push(1))
+	defer limit.Pop()
+	initialSteps := limit.Count()
 	f, err := NewStaticFeatures(m)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, f.Close()) })
 	astTestMust(t, f.Collect(le, eq, nonlinear, alien, ite, half))
+	if limit.Count() != initialSteps {
+		t.Fatalf("static feature collection consumed %d search steps", limit.Count()-initialSteps)
+	}
 	if f.NumArithInequalities != 1 || f.NumDiffInequalities != 1 || f.NumSimpleInequalities != 0 {
 		t.Fatal("arithmetic inequality accounting", f.NumArithInequalities, f.NumDiffInequalities, f.NumSimpleInequalities)
 	}

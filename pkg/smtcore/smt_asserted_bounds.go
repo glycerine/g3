@@ -54,11 +54,13 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 	if k.preprocessingSetupDone || k.smtParams == nil {
 		return nil
 	}
+	// StaticFeatures reads the formulas without debiting the search limit.
+	// Bounded checks can share that read just as an unlimited check can.
 	setup := smtSetup{
 		SMTKernel: k,
 		preserveAllocations: ast.ASTSourceDebug || diagnostic.VerboseProgress || k.manager.TraceStream != nil ||
 			k.manager.Budget().InjectionArmed() || k.manager.NumeralService().RuntimeOwner().AllocationLimited() ||
-			k.manager.ResourceLimit().Limit != 0 || k.manager.ResourceLimit().CancelFlag(),
+			k.manager.ResourceLimit().CancelFlag(),
 	}
 	err := setup.configure(useStaticFeatures)
 	if setup.features != nil {
