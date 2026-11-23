@@ -3954,3 +3954,29 @@ python3 perf/ivy_apple/holdouts/ground_premise_replay.py --goivy /path/to/ivy/go
   --observations perf/ivy_apple/goal_instances/nov23-universal-native-proofs.csv.gz \
   --cases flash2 tlb rfn2 cf_live hybrid_reliable_broadcast_cisa raftok ticket
 ```
+
+## Witness search after the first incremental push
+
+In both abstract Raft specifications, g3 attempted 22 multi-sort witness proofs with up to ten candidate terms per sort and two rounds. Three proved the goal. The 19 misses cost **4.50 billion instructions on raftok and 5.02 billion on raft_no_assume** before ordinary search began. On raftok, constructing and asserting those 19 ground problems cost 1.32 billion instructions and checking them cost 3.00 billion. All 22 probes happened after the first incremental push. On Apple rfn2 the two wide probes both proved their goals while the first push could still be avoided. Freshly reset linked Z3 independently returned UNSAT on all eight original typed conditions across the three inputs. [Private plan counters](perf/ivy_apple/goal_instances/nov23-private-plan-cost.csv.gz) · [Native proof replay](perf/ivy_apple/goal_instances/nov23-witness-native-proofs.csv.gz)
+
+Commit `67ef8601a` tries one candidate per sort for one round when a high-arity, multi-sort witness search runs in a batch whose incremental solver can no longer defer its first push. A failed proof hands the original assertions to ordinary search. The same choice applies to every input and requires no additional solver state.
+
+| Complete verification | Previous g3, billion instructions | New g3 | Linked Z3 | Previous g3, seconds | New g3 | Linked Z3 |
+|---|---:|---:|---:|---:|---:|---:|
+| raftok, 420 conditions | 24.74 | **20.76** | 19.92 | 5.47 | **4.73** | 4.58 |
+| raft_no_assume, 419 conditions | 31.82 | **27.27** | 24.85 | 6.74 | **5.99** | 5.59 |
+| Apple rfn2, 26 conditions | 15.29 | **15.28** | 52.43 | 2.45 | **2.46** | 15.44 |
+
+Each entry is a median of seven runs on the same logical CPU per workload, with GoIvy `01aa2c6fa`, default GC, PGO disabled and one Go runtime CPU. The builds alternated and shared the machine with other experiments. In a separate four-round, ten-input panel, raftok fell from 24.33 to 20.45 billion instructions and raft_no_assume from 31.91 to 27.34 billion. These are the abstract Raft inputs. The finite-domain Raft wrapper measured 23.46 billion for g3 and 214.79 billion for linked Z3. All 183 timed processes reproduced the expected outcomes. All 87 additional standalone inputs matched linked Z3 on stdout, stderr and exit status. [Process observations from both sets](perf/ivy_apple/goal_instances/nov23-witness-release.csv.gz) · [87 paired verifications](perf/ivy_apple/goal_instances/nov23-witness-corpus.csv.gz) · [Paired verification driver](perf/ivy_apple/holdouts/paired_verification.py)
+
+Raftok conditions 54 and 100 can still be proven with a single candidate. On condition 55 both widths miss, and on 373 only the wide search succeeds. The narrower search cut the four median standalone times from 7.82, 14.43, 14.75 and 17.72 ms to 3.77, 5.46, 4.79 and 5.73 ms, respectively. The complete verification includes the cost of ordinary search after the missed proof on 373. Disabling all wide-shaped probes after the first push raised raftok from 24.95 to 33.76 billion instructions. Using only two candidates for one round even before the first push raised rfn2 from 15.29 to 20.30 billion. The saved Go benchmark checks each expected proof or miss. [Benchmark and original queries](api/api_witness_instances_benchmark_test.go) · [All microbenchmark samples](perf/ivy_apple/goal_instances/nov23-witness-width.bench.gz) · [Width, timing and Boolean-only controls](perf/ivy_apple/goal_instances/nov23-witness-experiments.csv.gz) · [Prototype and counter patches against g3 63d7d9581](perf/ivy_apple/goal_instances/nov23-witness-experiments.tar.gz)
+
+On TLB the original private proof path still spent 19.72 billion instructions, including 9.43 billion in auxiliary solver proofs and 4.37 billion building quantified Boolean projections. On hybrid reliable broadcast, auxiliary proofs accounted for 3.13 of 3.96 billion. These are nested solver-thread intervals collected before narrowing the witness search. The TLB whole-process change from narrowing alone was 103.52 to 103.41 billion. Reusing a parsed assertion base or reducing auxiliary solver setup is more relevant to those two inputs. [Per-invocation counters on nine inputs, three repetitions](perf/ivy_apple/goal_instances/nov23-private-stages.csv.gz)
+
+```sh
+go test ./api -run '^$' -bench '^Benchmark(RaftWitnessWidth|AppleWitnessInstances)$' -benchmem -benchtime=5x -count=5 -cpu=1
+python3 perf/ivy_apple/holdouts/ground_premise_replay.py --goivy /path/to/ivy/goivy \
+  --examples /path/to/ivy-lang-examples --abc /path/to/abc --cpu 2 --final-conditions \
+  --observations perf/ivy_apple/goal_instances/nov23-witness-native-proofs.csv.gz \
+  --cases raftok raft_no_assume rfn2
+```
