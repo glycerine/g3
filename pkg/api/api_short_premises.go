@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/api/internal/order"
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -78,6 +79,41 @@ func (p *orderProofState) shortPremises(m *ast.ASTManager, assertions []ast.ASTH
 		return nil, nil
 	}
 	return &shortPremisePlan{source: assertions, selected: selected}, nil
+}
+
+// For larger constant-true queries, first look for a contradiction that only
+// needs the ground facts. If the estimated mixed-search allowance reaches
+// half its cap, leave the remaining quantified work to the ordinary solver.
+func (p *orderProofState) checkShortPremises(m *ast.ASTManager, plan *shortPremisePlan, maxSteps uint32) (bool, error) {
+	const mixedLimit = 80_000
+	steps := min(maxSteps, mixedLimit, 192*uint32(len(plan.selected)))
+	if len(plan.selected) >= 64 {
+		groundSteps := min(maxSteps, 160_000)
+		bits, err := order.ProjectGroundEqualities(m, plan.selected, groundSteps)
+		if err != nil || m.ResourceLimit().CancelFlag() {
+			return false, err
+		}
+		if bits != nil {
+			if p.ctx != nil {
+				if err := p.release(); err != nil {
+					return false, err
+				}
+			}
+			yes, err := p.checkBooleanInput(m, bits, groundSteps, plan.source)
+			if yes || err != nil || m.ResourceLimit().CancelFlag() {
+				return yes, err
+			}
+			// A failed Boolean check can leave assumptions in its kernel.
+			// Release it before a different proof can succeed on this query.
+			if err := p.release(); err != nil {
+				return false, err
+			}
+		}
+		if steps >= mixedLimit/2 {
+			return false, nil
+		}
+	}
+	return p.checkProofPlan(m, plan, steps)
 }
 
 func (p *shortPremisePlan) assertIn(parent, target *ast.ASTManager, child *APISimpleSolver) (complete bool, err error) {

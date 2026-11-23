@@ -300,10 +300,7 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 						return false, err
 					}
 					if subset != nil {
-						// The index admits at most 16,000 distinct premises.
-						// Bound speculative work in proportion to the selected input.
-						steps := min(maxSteps, 80_000, 192*uint32(len(subset.selected)))
-						proved, err := p.checkProofPlan(parent, subset, steps)
+						proved, err := p.checkShortPremises(parent, subset, maxSteps)
 						if err != nil || proved || limit.CancelFlag() {
 							return proved, err
 						}

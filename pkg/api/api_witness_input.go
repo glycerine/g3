@@ -1,12 +1,22 @@
 package api
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/control"
+)
+
+func (s *witnessClauseSet) acceptsInput(parent *ast.ASTManager, assertions []ast.ASTHandle) (bool, error) {
+	if s.err != nil {
+		return false, s.failure()
+	}
+	return validProofInput(parent, assertions, s.m.ResourceLimit())
+}
 
 // Translation visits shared subterms and quantifier annotations. Bound this
 // initial traversal as well as the later ground search. The binder depth is
 // part of the key because a shared de Bruijn variable can be free in one root
 // and bound in another.
-func (s *witnessClauseSet) acceptsInput(parent *ast.ASTManager, assertions []ast.ASTHandle) (bool, error) {
+func validProofInput(parent *ast.ASTManager, assertions []ast.ASTHandle, limit *control.Reslimit) (bool, error) {
 	type entry struct {
 		term  ast.ASTHandle
 		depth uint32
@@ -27,8 +37,8 @@ func (s *witnessClauseSet) acceptsInput(parent *ast.ASTManager, assertions []ast
 			continue
 		}
 		seen[v] = true
-		if len(seen) > 80_000 || !s.charge(1) {
-			return false, s.failure()
+		if len(seen) > 80_000 || !limit.Inc() {
+			return false, nil
 		}
 		kind, _, args, err := parent.NodeShape(v.term)
 		if err != nil {

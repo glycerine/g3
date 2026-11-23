@@ -121,7 +121,13 @@ func (b *orderBooleanSolver) add(rows []order.BooleanClause, selector sat.Litera
 	return true, nil
 }
 
-func (p *orderProofState) checkBoolean(m *ast.ASTManager, k *order.BooleanProblem, steps uint32) (proved bool, err error) {
+func (p *orderProofState) checkBoolean(m *ast.ASTManager, k *order.BooleanProblem, steps uint32) (bool, error) {
+	return p.checkBooleanInput(m, k, steps, nil)
+}
+
+// A projection that omitted input rows can validate their binding scopes
+// under the same private resource limit before reporting a refutation.
+func (p *orderProofState) checkBooleanInput(m *ast.ASTManager, k *order.BooleanProblem, steps uint32, source []ast.ASTHandle) (proved bool, err error) {
 	if p.bits == nil {
 		p.bits = &orderBooleanSolver{}
 	}
@@ -147,6 +153,9 @@ func (p *orderProofState) checkBoolean(m *ast.ASTManager, k *order.BooleanProble
 		return false, nil
 	}
 	defer func() {
+		if proved && err == nil && len(source) != 0 {
+			proved, err = validProofInput(m, source, limit)
+		}
 		if !limit.IncOffset(0) || parent.CancelFlag() {
 			proved, err = false, nil
 		}
