@@ -3,12 +3,14 @@ package order
 import "github.com/glycerine/g3/pkg/ast"
 
 // A positive universal premise entails its body at every well-sorted ground
-// tuple. Choose tuples from applications already present in the ground facts.
+// tuple. Each added instance can supply arguments for another rule.
 // Even a partial syntactic match is safe because we assert the entire body.
 type observedRule struct {
-	body  uint32
-	arity uint32
-	sorts [4]ast.ASTHandle // Indexed by de Bruijn index.
+	body     uint32
+	arity    uint32
+	sorts    [4]ast.ASTHandle // Indexed by de Bruijn index.
+	patterns []observedPattern
+	tried    map[[4]uint32]bool
 }
 
 type observedInstances struct {
@@ -62,17 +64,29 @@ func (g *groundProjection) addObservedInstances(premises []ast.ASTHandle) error 
 		}
 	}
 
-	const maxInstances = 640
-	added := 0
-	for _, rule := range rules {
-		if added >= maxInstances {
-			break
-		}
-		count, err := v.addRule(rule, min(8, maxInstances-added))
+	for i := range rules {
+		patterns, err := v.patterns(&rules[i])
 		if err != nil {
 			return err
 		}
-		added += count
+		rules[i].patterns = patterns
+	}
+	// A later definition often mentions an earlier one. Work backwards from
+	// its observed result, then revisit rules whose applications just appeared.
+	const maxInstances = 640
+	added := 0
+	for range 4 {
+		before := added
+		for i := len(rules) - 1; i >= 0 && added < maxInstances; i-- {
+			count, err := v.addRule(&rules[i], min(8, maxInstances-added))
+			if err != nil {
+				return err
+			}
+			added += count
+		}
+		if added == before || added == maxInstances {
+			break
+		}
 	}
 	return nil
 }
@@ -120,15 +134,14 @@ func (g *groundProjection) readObservedRule(h ast.ASTHandle) (observedRule, erro
 }
 
 type observedPattern struct {
-	terms    []uint32
-	arity    uint32
-	position [4]uint32
+	symbol, arity uint32
+	position      [4]uint32
 }
 
 // Prefer the least frequent application that supplies every bound variable.
 // For a defining equation, start from its left side.
-func (v *observedInstances) pattern(rule observedRule) (observedPattern, error) {
-	var best observedPattern
+func (v *observedInstances) patterns(rule *observedRule) ([]observedPattern, error) {
+	var patterns []observedPattern
 	s := v.source
 	id := rule.body
 	if n := &s.input[id]; n.operation == ast.ASTOpEq || n.operation == ast.ASTOpIff {
@@ -140,20 +153,19 @@ func (v *observedInstances) pattern(rule observedRule) (observedPattern, error) 
 		stack = stack[:len(stack)-1]
 		n := &s.input[id]
 		if err := v.ground.compiler.charge(1 + int(n.count)); err != nil {
-			return best, err
+			return nil, err
 		}
 		if n.kind != ast.ASTApp || n.count == 0 || n.count > 8 {
 			continue
 		}
 		children := s.children[n.start : n.start+n.count]
 		stack = append(stack, children...)
-		hits := v.applications[n.symbol]
-		if len(hits) == 0 || n.count > 4 || len(best.terms) != 0 && len(hits) >= len(best.terms) {
+		if n.count > 4 {
 			continue
 		}
 		hd, err := s.manager.NodeHeader(n.expr)
 		if err != nil {
-			return best, err
+			return nil, err
 		}
 		if hd.Family != ast.NullFamilyID {
 			continue
@@ -168,35 +180,42 @@ func (v *observedInstances) pattern(rule observedRule) (observedPattern, error) 
 			}
 		}
 		if mask == (1<<rule.arity)-1 {
-			best = observedPattern{terms: hits, arity: n.count, position: positions}
+			patterns = append(patterns, observedPattern{symbol: n.symbol, arity: n.count, position: positions})
 		}
 	}
-	return best, nil
+	return patterns, nil
 }
 
-func (v *observedInstances) addRule(rule observedRule, limit int) (int, error) {
-	p, err := v.pattern(rule)
-	if err != nil {
+func (v *observedInstances) addRule(rule *observedRule, limit int) (int, error) {
+	g := v.ground
+	if err := g.compiler.charge(1 + len(rule.patterns)); err != nil {
 		return 0, err
 	}
-	s, g := v.source, v.ground
-	var seen [8][4]uint32
-	tried, added := 0, 0
-	for _, id := range p.terms {
-		if tried >= limit {
+	var p observedPattern
+	var hits []uint32
+	for _, candidate := range rule.patterns {
+		terms := v.applications[candidate.symbol]
+		if len(terms) != 0 && (len(hits) == 0 || len(terms) < len(hits)) {
+			p, hits = candidate, terms
+		}
+	}
+	before := len(rule.tried)
+	added := 0
+	for _, id := range hits {
+		if len(rule.tried)-before >= limit || len(rule.tried) >= 32 {
 			break
 		}
 		if err := g.compiler.charge(1 + int(rule.arity)); err != nil {
 			return 0, err
 		}
-		n := &s.input[id]
+		n := &g.input[id]
 		if n.count != p.arity {
 			continue
 		}
 		var binding [4]uint32
 		for j := range rule.arity {
-			arg := s.children[n.start+p.position[j]]
-			sort, err := s.manager.GetSort(s.input[arg].expr)
+			arg := g.children[n.start+p.position[j]]
+			sort, err := g.manager.GetSort(g.input[arg].expr)
 			if err != nil {
 				return 0, err
 			}
@@ -205,19 +224,14 @@ func (v *observedInstances) addRule(rule observedRule, limit int) (int, error) {
 			}
 			binding[j] = arg
 		}
-		duplicate := false
-		for _, prev := range seen[:tried] {
-			if prev == binding {
-				duplicate = true
-				break
-			}
-		}
-		if duplicate {
+		if rule.tried[binding] {
 			continue
 		}
-		seen[tried] = binding
-		tried++
-		inst, err := v.instantiate(rule.body, &rule, &binding, 0)
+		if rule.tried == nil {
+			rule.tried = make(map[[4]uint32]bool)
+		}
+		rule.tried[binding] = true
+		inst, err := v.instantiate(rule.body, rule, &binding, 0)
 		if err != nil {
 			return 0, err
 		}
@@ -266,5 +280,8 @@ func (v *observedInstances) instantiate(id uint32, rule *observedRule, binding *
 	g.children = append(g.children, key.args[:n.count]...)
 	g.input = append(g.input, n)
 	v.terms[key] = id
+	if n.count != 0 {
+		v.applications[n.symbol] = append(v.applications[n.symbol], id)
+	}
 	return id, nil
 }

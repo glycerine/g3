@@ -11,6 +11,7 @@ import (
 // escaped bound variables and charge the full input to the child limit.
 type shortPremisePlan struct {
 	source, selected []ast.ASTHandle
+	conjuncts        []ast.ASTHandle // All positive conjuncts for the ground projection.
 }
 
 // constantTrueGoal accepts singleton Boolean wrappers around true or not false.
@@ -78,18 +79,28 @@ func (p *orderProofState) shortPremises(m *ast.ASTManager, assertions []ast.ASTH
 	if facts < 8 || universals < 8 {
 		return nil, nil
 	}
-	return &shortPremisePlan{source: assertions, selected: selected}, nil
+	plan := &shortPremisePlan{source: assertions, selected: selected}
+	if len(selected) >= 64 {
+		plan.conjuncts = selected
+		if len(index.rows) != len(selected) {
+			plan.conjuncts = make([]ast.ASTHandle, len(index.rows))
+			for i, row := range index.rows {
+				plan.conjuncts[i] = row.root
+			}
+		}
+	}
+	return plan, nil
 }
 
 // For larger constant-true queries, first look for a contradiction among
-// ground facts and instances of short universal premises. If the mixed-search
+// ground facts and instances of universal premises. If the mixed-search
 // allowance reaches half its cap, leave further search to the ordinary solver.
 func (p *orderProofState) checkShortPremises(m *ast.ASTManager, plan *shortPremisePlan, maxSteps uint32) (bool, error) {
 	const mixedLimit = 80_000
 	steps := min(maxSteps, mixedLimit, 192*uint32(len(plan.selected)))
-	if len(plan.selected) >= 64 {
-		groundSteps := min(maxSteps, 160_000)
-		bits, err := order.ProjectGroundEqualities(m, plan.selected, groundSteps)
+	if len(plan.conjuncts) != 0 {
+		groundSteps := min(maxSteps, 400_000)
+		bits, err := order.ProjectGroundEqualities(m, plan.conjuncts, groundSteps)
 		if err != nil || m.ResourceLimit().CancelFlag() {
 			return false, err
 		}

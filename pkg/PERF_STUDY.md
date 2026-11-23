@@ -4750,3 +4750,31 @@ On two complete 6,338-check runs, the integrated g3 verifier used **1.254 and 1.
 Independent Z3 processes found all **909** original premise-and-goal pairs UNSAT. Of their ground subsets, 360 were UNSAT. Adding the short universal premises brought the native total to 656. The Go proof found **568**, including 208 that required a universal. It instantiates the entire positive premise at well-sorted arguments of an application already present in the input. For example, a definition of `q(x)` supplies a fact about `q(a)` when the query mentions that application. Preserving Boolean equations as gates allows unit propagation to use the defining condition. Unit propagation found all 568 conflicts in this corpus. The projection declined every one of the 253 selected subsets with a native model. [Implementation](api/internal/order/observed_ground_instances.go) · [Binder scope, polarity and finite function tables](api/api_observed_instances_test.go)
 
 The new original verification fixture, search 948, took a median **25.47 ms** before these changes, **28.72 ms** with only the ground proof, and **3.51 ms** with observed instances. The ground-after-limit fixture took 224.03, 13.69 and 15.03 ms respectively. Extra instantiation work has a cost on queries already settled by ground congruence. Each measurement used five iterations on a fresh incremental solver, in each of five rotating runs. Run `go test ./api -run '^$' -bench '^BenchmarkHermesPremiseVerification$' -benchtime=5x -cpu=1`. [Go benchmark](api/api_short_premises_test.go) · [Native-verified original input](api/test_vectors/hermes_observed_universal.smt2.gz) · [Per-run data](perf/ivy_apple/holdouts/nov23-observed-universals.tar.xz)
+
+### Chaining ground instances on the complete Hermes verification
+
+The first quiet, same-core rotation of the complete 6,338-check Hermes verification took **166.00 s with g3, 174.61 s with the previous g3, and 173.52 s with linked Z3**. The new g3 used **1.128 trillion instructions** against 1.256 trillion for the previous g3 and 1.259 trillion for Z3. This is a 10.4% instruction saving and a 4.3% elapsed-time saving relative to Z3 on this rotation. All three used the same GoIvy frontend at `104078aaa`, one Go processor and default GC. The qualifying runs on CPU 15 had at least 97% idle time on the sibling thread and at least 99% process CPU occupancy. A second CPU gave 161.51, 169.27 and 170.40 s respectively. On a third, the current g3 had 90.5% CPU occupancy and took 194.71 s. Wall time on this shared host varies enough to justify repeated paired runs. All eight shorter verification panels and the separate 228-specification corpus reproduced their reference outputs, errors and exit codes. [Whole-process counters, timing controls and verdicts](perf/ivy_apple/holdouts/nov23-chained-universals.tar.xz)
+
+A universal definition can introduce the application needed to use another definition. For example, instantiating `q(x) = p(k(x))` at `a` makes `k(a)` available to the rule defining `k`. The verifier now indexes generated ground applications in the same query, including those introduced by larger positive universal premises. It instantiates only complete, well-sorted binder tuples and asserts the whole body. It also propagates forced truth values through equality classes and conditionals. An undecided projection falls through to the ordinary solver. Each query has its own index and resource budget. Four rule passes, at most eight new bindings per rule per pass, and 640 successful bindings in total bound recursive definitions. [Instantiation](api/internal/order/observed_ground_instances.go) · [Equality and conditional propagation](api/internal/order/ground_equalities.go)
+
+| Independent Z3 population | Queries | Previous g3 refutations | Current g3 refutations |
+|---|---:|---:|---:|
+| Full original Hermes queries, all UNSAT | 909 | 568 | **865** |
+| Short selections, UNSAT | 656 | 568 | **652** |
+| Short selections, SAT | 253 | 0 | 0 |
+| Native-core controls, UNSAT | 266 | — | 222 |
+| Native-core controls, SAT | 927 | — | **0** |
+
+The core controls retain a native UNSAT core or remove one premise from it. These closely related satisfiable inputs test whether chaining can accidentally prove a counterexample impossible. An independent two-element function-table test also checks 512 combinations of rule order, interpretation and conclusion. On the 44 undecided original queries, we captured the exact generated ground assertions and ran them separately in both SMT shells. Both found 20 UNSAT and 24 SAT. Stronger ground deductions could settle at most the first 20 with these assertions. The other 24 require additional instances or another source of proof. [Original queries and native answers](perf/ivy_apple/holdouts/nov23-observed-universals.tar.xz) · [Captured instances and core controls](perf/ivy_apple/holdouts/nov23-chained-universals.tar.xz) · [Finite interpretation tests](api/api_observed_instances_test.go)
+
+| Captured verification goal, batch mode | Previous g3 | Current g3 |
+|---|---:|---:|
+| Ground conflict | 10.95 ms | 14.25 ms |
+| Nested ground conflict | 11.03 ms | 14.17 ms |
+| Former fallback | 99.28 ms | **11.08 ms** |
+| Ground conflict after the old search limit | 15.04 ms | 18.78 ms |
+| One short universal | 3.80 ms | 4.46 ms |
+| Chained universal, search 1058 | 51.54 ms | **6.82 ms** |
+| Larger universal, search 994 | 80.35 ms | **8.98 ms** |
+
+The two new fixtures improve **7.6× and 8.9×**. Looking for instances before resolving an existing ground conflict increases the first fixture's time by 30%. The full workload favors chaining. A cheap ground conflict check before reading all universal bodies is worth testing on both kinds of query. Each cell is a median of five rotated measurements, five iterations per measurement, with a fresh solver per iteration. Run `go test ./api -run '^$' -bench '^BenchmarkHermesPremiseVerification$' -benchtime=5x -cpu=1`. [Retained benchmark](api/api_short_premises_test.go) · [Seven fixtures, three builds and all samples](perf/ivy_apple/holdouts/nov23-chained-universals.tar.xz)

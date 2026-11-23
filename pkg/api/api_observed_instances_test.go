@@ -40,6 +40,7 @@ func TestObservedUniversalInstances(t *testing.T) {
 		{"repeated variable", "(forall ((x D)) (r x x))", "(assert (distinct a b))(assert (not (r a b)))", false},
 		{"matching repeated variable", "(forall ((x D)) (r x x))", "(assert (not (r a a)))", true},
 		{"ground argument retained", "(forall ((x D)) (r a x))", "(assert (distinct a b))(assert (not (r b b)))", false},
+		{"recursive definition", "(forall ((x D)) (= (p x) (p (f x))))", "(assert (p a))(assert (not (p b)))", false},
 		{"missing binder", "(forall ((x D) (y D)) (or (p x) (q y)))", "(assert (p a))(assert (not (q b)))", false},
 		{"existential", "(exists ((x D)) (p x))", "(assert (not (p a)))", false},
 		{"negated universal", "(not (forall ((x D)) (p x)))", "(assert (not (p a)))", false},
@@ -93,6 +94,53 @@ func TestObservedUniversalFiniteTables(t *testing.T) {
 		t.Run(fmt.Sprint((i-1)/3), func(t *testing.T) {
 			for outcome := range 2 {
 				checkObservedProof(t, c, s, []ast.ASTHandle{roots[0], roots[i], roots[i+1+outcome]}, outcome == 1)
+			}
+		})
+	}
+}
+
+// The only occurrence of k at a concrete argument comes from instantiating q.
+// The chosen branch depends on a predicate and on equality in a two-element
+// domain. Vary both argument values and every entry in the function tables.
+func TestObservedChainedConditionals(t *testing.T) {
+	var script strings.Builder
+	script.WriteString(groundEqualityDecls + `
+(declare-fun k (D) D)
+(assert (forall ((x D)) (= (k x) (ite (or guard (not (= x c))) (f x) b))))
+(assert (forall ((x D)) (= (q x) (p (k x)))))`)
+	atom := func(form string, value bool) string {
+		if value {
+			return form
+		}
+		return "(not " + form + ")"
+	}
+	names := [2]string{"a", "b"}
+	for mask := range 128 {
+		f := [2]int{mask & 1, mask >> 1 & 1}
+		p := [2]bool{mask&4 != 0, mask&8 != 0}
+		guard, c, v := mask&16 != 0, mask>>5&1, mask>>6&1
+		fmt.Fprintf(&script, "(assert (and (not (= a b)) (= c %s) (= v %s) (= (f a) %s) (= (f b) %s) %s %s %s))\n",
+			names[c], names[v], names[f[0]], names[f[1]], atom("(p a)", p[0]), atom("(p b)", p[1]), atom("guard", guard))
+		result := p[1]
+		if guard || v != c {
+			result = p[f[v]]
+		}
+		fmt.Fprintf(&script, "(assert %s)(assert %s)\n", atom("(q v)", result), atom("(q v)", !result))
+	}
+	c, s := orderSolver(t, script.String())
+	roots, err := solver.Assertions(s.solver)
+	astTestMust(t, err)
+	if len(roots) != 2+3*128 {
+		t.Fatalf("unexpected assertion count %d", len(roots))
+	}
+	for i := 2; i < len(roots); i += 3 {
+		t.Run(fmt.Sprint((i-2)/3), func(t *testing.T) {
+			for j := range 2 {
+				// Exercise both directions of a dependency in source order.
+				input := []ast.ASTHandle{roots[j], roots[1-j], roots[i], roots[i+1]}
+				checkObservedProof(t, c, s, input, false)
+				input[3] = roots[i+2]
+				checkObservedProof(t, c, s, input, true)
 			}
 		})
 	}
