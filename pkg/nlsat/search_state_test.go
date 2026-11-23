@@ -40,6 +40,28 @@ func searchAtRealStage(t *testing.T, r *searchState) {
 		t.Fatal("real stage", r.xk)
 	}
 }
+
+func TestArithmeticClauseSatisfiedByPropagationOfItsComplement(t *testing.T) {
+	e, r := searchStateFixture(t)
+	searchAtRealStage(t, r)
+	l, _ := searchInequality(t, e, r, AtomLT, evaluatorTerm{1, 0, 2}, evaluatorTerm{1, 0, 0})
+	clause := searchClause(t, r, l, l.Negated())
+	if clause.Literals()[0] != l {
+		t.Fatal("expected the impossible inequality to be visited first")
+	}
+	before := r.propagations
+	ok, err := r.processClause(clause, false)
+	assignmentMust(t, err)
+	if !ok || r.propagations != before+1 {
+		t.Fatalf("clause satisfied %v after %d propagations", ok, r.propagations-before)
+	}
+	v, err := r.value(l.Negated())
+	assignmentMust(t, err)
+	if v != lbool.True {
+		t.Fatal("missing propagated literal", v)
+	}
+}
+
 func TestSearchBooleanPropagationDecisionsAndUndoTargets(t *testing.T) {
 	e, r := searchStateFixture(t)
 	var b [4]sat.BoolVar

@@ -232,6 +232,11 @@ func (r *searchState) processArithmeticClause(c *Clause, satisfyLearned bool) (r
 		if v == lbool.False {
 			continue
 		}
+		// Propagation from an earlier literal in this clause may have
+		// assigned its complement since the initial satisfaction check.
+		if v == lbool.True {
+			return true, nil
+		}
 		if err := atomAssert("nlsat_solver.cpp", 1074, "value(l) == l_undef", v == lbool.Undef); err != nil {
 			return false, err
 		}

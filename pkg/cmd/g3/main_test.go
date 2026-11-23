@@ -955,6 +955,7 @@ var scriptResults = map[string]string{
 	"qe_partition_block_parent.smt2": "(goals\n(goal\n  (let ((a!1 (= 0 (mod (+ 1 (mod a 2)) 2))))\n    (or (<= a 7) (and (<= a 9) a!1)))\n  (let ((a!1 (= 0 (mod (+ 2 (mod b 3)) 3))) (a!2 (= 0 (mod (+ 1 (mod b 3)) 3))))\n  (let ((a!3 (and (>= b (- 2)) (or (and a!1 (>= b (- 2))) (and a!2 (>= b 1))))))\n    (or (>= b 2) a!3)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md qe_02-F1: eq::der reduce_var_set uses m.mk_and (trace site qe_lite flatten_definitions).
 	"qe_lite_der_singleton.smt2": "(goals\n(goal\n  (exists ((z Int)) (not (<= z y)))\n  :precision precise :depth 1)\n)\n",
+	"nlsat_complement_propagation.smt2": "sat\n(((= (* x0 x0) t) true)\n ((= (* x1 x1) t) true))\nunsat\nsat\n",
 	// AUDIT.md nlsat_03-F5: nlsat accepts the algebraic params.
 	"nlsat_algebraic_params.smt2": "unsat\n",
 	// AUDIT.md nlsat_03-F5: the solver's own algebraic manager, irrational model value.
