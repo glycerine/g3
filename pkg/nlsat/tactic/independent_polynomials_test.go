@@ -297,7 +297,7 @@ func TestIndependentPolynomialsFoldReflexiveComparisons(t *testing.T) {
 		return next
 	}
 	p := prepare()
-	if p == nil || len(p.reflexive) != len(squares)-1 {
+	if p == nil || len(p.omitted) != len(squares)-1 {
 		t.Fatal("expected every non-strict comparison to hold for the reconstructed model")
 	}
 	for i, x := range variables {

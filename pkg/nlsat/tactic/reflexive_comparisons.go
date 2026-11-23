@@ -43,7 +43,7 @@ func (p *polynomialComponents) groupReflexiveComparisons(forms []ast.ASTHandle) 
 	if err != nil || q == nil || q.group() < 4 {
 		return nil, err
 	}
-	q.reflexive = make(map[ast.ASTHandle]bool, len(comparisons))
+	q.omitted = make(map[ast.ASTHandle]bool, len(comparisons))
 	for i, cmp := range comparisons {
 		if i%64 == 0 && p.manager.Limit.CancelFlag() {
 			return nil, nil
@@ -52,7 +52,7 @@ func (p *polynomialComponents) groupReflexiveComparisons(forms []ast.ASTHandle) 
 		if left == 0 || left != q.comparisonRepresentative(cmp.right) {
 			return nil, nil
 		}
-		q.reflexive[cmp.form] = true
+		q.omitted[cmp.form] = true
 	}
 	return q, nil
 }
