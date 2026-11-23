@@ -15,22 +15,22 @@ import (
 // Each iteration checks three successive obligations from issue73/ord.ivy on
 // a fresh solver. The donor keeps the original, parsed premises and goals live.
 func BenchmarkFiniteEnumerationVerification(b *testing.B) {
-	benchmarkVerificationSiblings(b, "test_vectors/issue73_order_goals.smt2.gz")
+	benchmarkVerificationGoals(b, "test_vectors/issue73_order_goals.smt2.gz", 3)
 }
 
 // Three consecutive sys_live goals share a premise constraining several
 // arguments of a relation to unary functions of the same argument.
 func BenchmarkEnumerationPredicateDependencies(b *testing.B) {
-	benchmarkVerificationSiblings(b, "test_vectors/apple_sys_live_goals.smt2.gz")
+	benchmarkVerificationGoals(b, "test_vectors/apple_sys_live_goals.smt2.gz", 3)
 }
 
 // Three consecutive flash_cubicle goals use finite cache states, but the
 // premises quantify over at most two cache identifiers at once.
 func BenchmarkNarrowEnumerationVerification(b *testing.B) {
-	benchmarkVerificationSiblings(b, "test_vectors/flash_cubicle_goals.smt2.gz")
+	benchmarkVerificationGoals(b, "test_vectors/flash_cubicle_goals.smt2.gz", 3)
 }
 
-func benchmarkVerificationSiblings(b *testing.B, fixture string) {
+func benchmarkVerificationGoals(b *testing.B, fixture string, goals int) {
 	f, err := os.Open(fixture)
 	if err != nil {
 		b.Fatal(err)
@@ -59,8 +59,11 @@ func benchmarkVerificationSiblings(b *testing.B, fixture string) {
 		b.Fatal(err)
 	}
 	forms, err := solver.Assertions(donor.solver)
-	if err != nil || len(forms) != 4 {
-		b.Fatal("expected one premise and three goals", len(forms), err)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if len(forms) != goals+1 {
+		b.Fatalf("got %d assertions, expected one premise and %d goals", len(forms), goals)
 	}
 	for _, mode := range []string{"Concrete", "Batch"} {
 		b.Run(mode, func(b *testing.B) {
@@ -72,7 +75,7 @@ func benchmarkVerificationSiblings(b *testing.B, fixture string) {
 				}
 				private += n
 			}
-			b.ReportMetric(3, "goals/op")
+			b.ReportMetric(float64(goals), "goals/op")
 			b.ReportMetric(float64(private)/float64(b.N), "private-proofs/op")
 		})
 	}

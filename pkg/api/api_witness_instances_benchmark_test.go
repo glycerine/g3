@@ -20,7 +20,7 @@ func BenchmarkAppleWitnessInstances(b *testing.B) {
 // These three consecutive Flash goals share a transition. Each goal selects
 // most of its quantified premises for a separate ground-witness search.
 func BenchmarkGroundRelationVerification(b *testing.B) {
-	benchmarkVerificationSiblings(b, "test_vectors/flash2_relation_goals.smt2.gz")
+	benchmarkVerificationGoals(b, "test_vectors/flash2_relation_goals.smt2.gz", 3)
 }
 
 // The live checker reaches these obligations with an incremental scope already

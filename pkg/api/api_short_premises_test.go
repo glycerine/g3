@@ -141,3 +141,14 @@ func BenchmarkAppleShortPremises(b *testing.B) {
 		})
 	}
 }
+
+// Each Hermes batch has one constant-true goal. A refutation must therefore
+// come from its original premises. Exercise the concrete fallback as well as
+// the private proof, using a fresh incremental solver for each operation.
+func BenchmarkHermesPremiseVerification(b *testing.B) {
+	for _, name := range []string{"ground", "nested_ground", "fallback", "ground_after_limit"} {
+		b.Run(name, func(b *testing.B) {
+			benchmarkVerificationGoals(b, "test_vectors/hermes_"+name+".smt2.gz", 1)
+		})
+	}
+}
