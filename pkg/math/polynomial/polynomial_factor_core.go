@@ -47,16 +47,33 @@ type polynomialFactorCoreFrame struct {
 	bodyCause, sourceCause, cleanupCause                         error
 }
 
+// Count executing and finishing frames. A child can run while its parent
+// is busy, and cleanup can resume after the original call returns.
+func (s *polynomialFactorCoreFrame) enterWork() {
+	s.manager.busyFactorFrames++
+	s.target.busyFactorFrames++
+}
+
+func (s *polynomialFactorCoreFrame) leaveWork() {
+	s.manager.busyFactorFrames--
+	s.target.busyFactorFrames--
+}
+
 func (m *MultivariatePolynomialManager) matchesFactorCore(r *polynomialFactorCoreInvocationReceipt) bool {
 	if m == nil || m.self != m || r == nil || r.manager != m || r.frame == nil || r.invocation == 0 {
 		return false
 	}
-	for _, actual := range m.factorFrames {
-		if actual == r.frame {
-			return actual.self == actual && actual.manager == m && actual.invocation == r.invocation
-		}
+	if len(m.factorFrames) == 0 {
+		return false
 	}
-	return false
+	// Successful reservations publish one frame per consecutive invocation.
+	// The directory also identifies the original frame when a receipt is copied.
+	index := r.invocation - m.factorFrames[0].invocation
+	if index >= uint64(len(m.factorFrames)) {
+		return false
+	}
+	actual := m.factorFrames[index]
+	return actual == r.frame && actual.self == actual && actual.manager == m && actual.invocation == r.invocation
 }
 func (m *MultivariatePolynomialManager) beginFactorCore(r *PolynomialFactors) (*polynomialFactorCoreFrame, error) {
 	if m.factorCoreInvocation == ^uint64(0) {
@@ -69,6 +86,7 @@ func (m *MultivariatePolynomialManager) beginFactorCore(r *PolynomialFactors) (*
 	m.factorCoreInvocation++
 	s := &polynomialFactorCoreFrame{manager: m, target: r, invocation: m.factorCoreInvocation, header: size, active: true, executing: true, previous: factorCoreCaller(m.core.integer)}
 	s.self = s
+	s.enterWork()
 	m.factorFrames = append(m.factorFrames, s)
 	setFactorCoreCaller(m.core.integer, s)
 	return s, nil
@@ -149,6 +167,7 @@ func (m *MultivariatePolynomialManager) factorCoreSource(p Polynomial, r *Polyno
 	}
 	defer func() {
 		s.executing = false
+		s.leaveWork()
 		if s.bodyCause == nil {
 			s.bodyCause = cause
 		}
@@ -512,8 +531,10 @@ func (m *MultivariatePolynomialManager) finishFactorCoreSource(r *polynomialFact
 		return s.sourceCause
 	}
 	s.finishing = true
+	s.enterWork()
 	defer func() {
 		s.finishing = false
+		s.leaveWork()
 		if cause != nil && s.sourceCause == nil {
 			s.sourceCause = cause
 		}
@@ -609,8 +630,10 @@ func (m *MultivariatePolynomialManager) cleanupFactorCoreInvocation(r *polynomia
 		return ErrPolynomialPending
 	}
 	s.finishing = true
+	s.enterWork()
 	defer func() {
 		s.finishing = false
+		s.leaveWork()
 		if cause != nil && s.cleanupCause == nil {
 			s.cleanupCause = cause
 		}
@@ -766,10 +789,5 @@ func (m *MultivariatePolynomialManager) factorCoreExecuting() bool {
 	if r := &m.factorInline; r.manager != nil && r.manager.matchesFactorConstantInvocation(r) && (r.frame.executing || r.frame.finishing) {
 		return true
 	}
-	for _, q := range m.factorFrames {
-		if q != nil && q.self == q && q.manager == m && (q.executing || q.finishing) {
-			return true
-		}
-	}
-	return false
+	return m.busyFactorFrames != 0
 }

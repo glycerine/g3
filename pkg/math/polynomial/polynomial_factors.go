@@ -41,6 +41,7 @@ type PolynomialFactors struct {
 	localActive                                                        bool
 	numeric                                                            polynomialNumericRoots
 	multiplyActive, executing                                          bool
+	busyFactorFrames                                                   int
 	multiplyRunning                                                    bool
 	resetRunning                                                       bool
 	cleanupRunning                                                     bool

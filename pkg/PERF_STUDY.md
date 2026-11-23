@@ -4364,3 +4364,22 @@ Resetting a shell with 65,536 Boolean constants took **105.18 billion instructio
 | 8,192-variable nonlinear arithmetic check | 43.162 | **41.167** | 1.520 |
 
 These are medians of three alternating pairs against g3 `72accece6`, including parse, both checks and reset for declaration inputs. The 65,536-name workload uses **65.5× fewer instructions**. The nonlinear workload spends most of its time solving and saves **4.6%** overall. This change affects the shell's declaration lifecycle. The Ivy verification API has a different path. All 27 inputs preserved g3's exit status and diagnostics, allowing for the printed wall-clock flip rate on one stochastic-search trace. Native and Go agreed on every verdict. The complete command-context and CLI package tests passed before and after. Reproduce with `python3 perf/shell/declaration_reset.py 65536 | ./g3 -in -smt2`. [Input generator](perf/shell/declaration_reset.py) · [Paired counters, test results and trace comparison](perf/shell/nov23-function-declaration-reset.tar.gz)
+
+### Constant-time checks of polynomial factorization history
+
+A long-lived polynomial manager kept the frames from earlier factorizations. Verifying one receipt and testing whether an owner was busy scanned this history up to three times. A successful frame allocation already assigns a consecutive invocation number. g3 now uses it to locate the original frame, verifies its pointer and owner, and counts executing and finishing frames on each manager and target. The counters cover nested calls and resumed cleanup. The historical frames remain in their owner's arena accounting. [Receipt and cleanup implementation](math/polynomial/polynomial_factor_core.go) · [Ownership tests and benchmark](math/polynomial/polynomial_factor_history_test.go)
+
+| Historical frames | Instructions for one receipt lookup and both busy checks, before | After |
+|---:|---:|---:|
+| 128 | 4,330 | **111** |
+| 1,024 | 33,899 | **111** |
+| 8,192 | 270,443 | **111** |
+
+| Complete nonlinear check | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 2,048 independent variables | 9.133 | **8.568** | 0.386 |
+| 8,192 independent variables | 40.790 | **37.083** | 1.520 |
+| 8,192 independent variables, explicit CNF pipeline | 26.936 | **25.282** | 0.911 |
+| 16,384 independent variables | 99.046 | **78.547** | 3.033 |
+
+The complete 16,384-variable workload saved **20.7%** against `36012b25c`. The microbenchmark measures the slope between two iteration counts, with five pairs per size and sufficient iterations to amortize directory construction. The shell measurements use three pairs per input. All ten generated inputs matched native on verdicts, stages, propagations and resource steps. Another 42 repository vectors preserved the Go output, and the polynomial and NLSAT package suites passed. Reproduce the lookup benchmark with `go test ./math/polynomial -run '^$' -bench '^BenchmarkPolynomialFactorHistory$' -benchmem -cpu=1`. [Paired counters, ablations and test results](perf/nlsat/nov23-factor-frame-lookup.tar.gz)

@@ -31,6 +31,7 @@ type MultivariatePolynomialManager struct {
 	algebraicIsolationBorrowers                                uint32
 	algebraicEvaluation                                        polynomialAlgebraicEvaluationScope
 	factorInline                                               polynomialFactorConstantInvocationReceipt
+	busyFactorFrames                                           int
 	factorFrames                                               []*polynomialFactorCoreFrame
 	factorCoreInvocation                                       uint64
 	factorRoot                                                 polynomialFactorCoreInvocationReceipt

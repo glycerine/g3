@@ -441,13 +441,8 @@ func (f *PolynomialFactors) factorCallerExecuting() bool {
 	if f == nil || f.self != f || f.manager == nil || f.manager.self != f.manager {
 		return false
 	}
-	if f.multiplyRunning || f.resetRunning || f.cleanupRunning || f.assertionRunning {
+	if f.busyFactorFrames != 0 || f.multiplyRunning || f.resetRunning || f.cleanupRunning || f.assertionRunning {
 		return true
-	}
-	for _, frame := range f.manager.factorFrames {
-		if frame.target == f && (frame.executing || frame.finishing) {
-			return true
-		}
 	}
 	s := &f.manager.factorUnivariate
 	return s.invocation != 0 && s.target == f && (s.executing || s.finishing)
