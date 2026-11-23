@@ -165,7 +165,7 @@ func (c *Context) FindFunctionDeclarationByRange(name string, arity uint32, rang
 	}
 	var candidates []ast.ASTHandle
 	if entry := c.funcDictionary().find(name); entry != nil && entry.funcs != nil {
-		candidates = entry.funcs.entries()
+		candidates = entry.funcs.entries(c.functionTrail)
 	}
 	if len(candidates) == 1 {
 		return candidates[0], true, nil

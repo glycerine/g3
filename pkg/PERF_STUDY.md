@@ -4348,3 +4348,19 @@ On the 8,192-variable nonlinear check, g3 inspected **1,678,729,211 polynomial l
 The final binaries reduced instructions by **34.3% at 8,192 variables** and **45.8% at 16,384** on the default pipeline. These are medians of three alternating whole-shell pairs against g3 `5eea9809f`. The ten generated cases matched native Z3 on verdict, nonlinear propagations, stages and resource steps. Both Go builds gave identical stdout, stderr and exit status on 42 additional repository vectors. The focused tests exercise out-of-order reuse, generation exhaustion, failed allocation cleanup and the return of foreign coefficient storage through both deletion and growth. At 16,384 variables g3 still retired 34.0 times as many instructions as native. In the separately instrumented 8,192-variable run, algebraic cells still inspected 100.76 million locations and the two univariate directories inspected 135.53 million between them. [All counters, ablations and controls](perf/nlsat/nov23-polynomial-location-growth.tar.gz)
 
 Run `go test ./math/polynomial -run '^$' -bench '^BenchmarkPolynomialLocationGrowth$' -benchmem -cpu=1` for the directory measurements. For the complete checks, generate the input with `python3 perf/nlsat/assignment_growth.py 16384` and pass it to each shell with `-st -in -smt2`. [Benchmark and reuse tests](math/polynomial/polynomial_location_growth_test.go) · [Input generator](perf/nlsat/assignment_growth.py)
+
+### Releasing shell function declarations in dictionary order
+
+Resetting a shell with 65,536 Boolean constants took **105.18 billion instructions** in g3. For every declaration, g3 searched the owning reference trail from the beginning. Native Z3 visits the symbol dictionary in table order and releases each declaration directly. The Go dictionary now stores the index of the owning row. Overloaded declarations keep that index in their existing table entry. The common single-declaration record shrank from 24 to 16 bytes on amd64. Scope pop erases the dictionary entry before the trail index can be reused. [Implementation](cmd_context/symbol_dictionary.go) · [Scope reuse and interrupted release test](cmd_context/function_declaration_reset_test.go)
+
+| Complete shell workload | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 128 constant names | 0.251 | 0.249 | 0.103 |
+| 8,192 constant names | 2.101 | **0.418** | 0.130 |
+| 32,768 constant names | 22.910 | **0.931** | 0.216 |
+| 65,536 constant names | 105.182 | **1.606** | 0.330 |
+| 16,384 names with two overloaded functions each | 20.773 | **1.076** | 0.261 |
+| 8,192 names with pop and redeclaration | 2.100 | **0.416** | 0.118 |
+| 8,192-variable nonlinear arithmetic check | 43.162 | **41.167** | 1.520 |
+
+These are medians of three alternating pairs against g3 `72accece6`, including parse, both checks and reset for declaration inputs. The 65,536-name workload uses **65.5× fewer instructions**. The nonlinear workload spends most of its time solving and saves **4.6%** overall. This change affects the shell's declaration lifecycle. The Ivy verification API has a different path. All 27 inputs preserved g3's exit status and diagnostics, allowing for the printed wall-clock flip rate on one stochastic-search trace. Native and Go agreed on every verdict. The complete command-context and CLI package tests passed before and after. Reproduce with `python3 perf/shell/declaration_reset.py 65536 | ./g3 -in -smt2`. [Input generator](perf/shell/declaration_reset.py) · [Paired counters, test results and trace comparison](perf/shell/nov23-function-declaration-reset.tar.gz)

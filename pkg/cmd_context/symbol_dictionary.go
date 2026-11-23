@@ -29,35 +29,41 @@ const (
 // funcDecls is cmd_context.cpp func_decls: one declaration, or from the
 // second insertion on an obj_hashtable<func_decl> (kept until it empties).
 type funcDecls struct {
-	single ast.ASTHandle
-	set    *ast.ObjMap
+	// Rows use one-based indices into functionTrail. A scope erases its
+	// dictionary entries before truncating the trail. Overloads carry their
+	// row in ObjMapEntry.Num and keep the native table iteration order.
+	singleRow int
+	set       *ast.ObjMap
 }
 
-func (f *funcDecls) empty() bool { return f.set == nil && f.single.IsNull() }
+func (f *funcDecls) empty() bool { return f.set == nil && f.singleRow == 0 }
 
-func (f *funcDecls) insert(m *ast.ASTManager, d ast.ASTHandle) error {
+func (f *funcDecls) insert(m *ast.ASTManager, trail []declaration) error {
+	row := len(trail)
+	d := trail[row-1].handle
 	switch {
 	case f.empty():
-		f.single = d
+		f.singleRow = row
 	case f.set == nil:
 		set := ast.NewObjMap(m)
-		if err := set.Insert(f.single, [2]ast.ASTHandle{}); err != nil {
+		if err := set.InsertNum(trail[f.singleRow-1].handle, uint64(f.singleRow)); err != nil {
 			return err
 		}
-		if err := set.Insert(d, [2]ast.ASTHandle{}); err != nil {
+		if err := set.InsertNum(d, uint64(row)); err != nil {
 			return err
 		}
-		f.single, f.set = ast.ASTHandle{}, set
+		f.singleRow = 0
+		f.set = set
 	default:
-		return f.set.Insert(d, [2]ast.ASTHandle{})
+		return f.set.InsertNum(d, uint64(row))
 	}
 	return nil
 }
 
-func (f *funcDecls) erase(d ast.ASTHandle) error {
+func (f *funcDecls) erase(trail []declaration, d ast.ASTHandle) error {
 	if f.set == nil {
-		if f.single == d {
-			f.single = ast.ASTHandle{}
+		if f.singleRow != 0 && trail[f.singleRow-1].handle == d {
+			f.singleRow = 0
 		}
 		return nil
 	}
@@ -70,17 +76,13 @@ func (f *funcDecls) erase(d ast.ASTHandle) error {
 	return nil
 }
 
-// entries is get_entry(0 .. get_num_entries()-1): first() unless the set
-// holds more than one declaration, then the set's table order.
-func (f *funcDecls) entries() []ast.ASTHandle {
+// entries follows the native overload set iteration order.
+func (f *funcDecls) entries(trail []declaration) []ast.ASTHandle {
 	if f.set == nil {
-		if f.single.IsNull() {
+		if f.singleRow == 0 {
 			return nil
 		}
-		return []ast.ASTHandle{f.single}
-	}
-	if f.set.Len() <= 1 {
-		return f.set.FirstKeys(1)
+		return []ast.ASTHandle{trail[f.singleRow-1].handle}
 	}
 	return f.set.FirstKeys(f.set.Len())
 }
@@ -277,12 +279,13 @@ func (c *Context) psortDictionary() *symbolDictionary {
 }
 
 // recordFuncDecl is the m_func_decls part of cmd_context::insert(s, f).
-func (c *Context) recordFuncDecl(name string, d ast.ASTHandle) error {
-	e := c.funcDictionary().insertIfNotThere(name)
+func (c *Context) recordFuncDecl(row declaration) error {
+	c.functionTrail = append(c.functionTrail, row)
+	e := c.funcDictionary().insertIfNotThere(row.name)
 	if e.funcs == nil {
 		e.funcs = &funcDecls{}
 	}
-	return e.funcs.insert(c.manager, d)
+	return e.funcs.insert(c.manager, c.functionTrail)
 }
 
 // eraseFuncDecl is erase_func_decl_core(s, f).
@@ -292,7 +295,7 @@ func (c *Context) eraseFuncDecl(name string, d ast.ASTHandle) error {
 	if e == nil || e.funcs == nil {
 		return nil
 	}
-	if err := e.funcs.erase(d); err != nil {
+	if err := e.funcs.erase(c.functionTrail, d); err != nil {
 		return err
 	}
 	if e.funcs.empty() {
@@ -393,22 +396,30 @@ func (c *Context) resetFuncDecls() error {
 		return nil
 	}
 	for _, e := range c.funcDictionary().entries() {
-		if e.funcs == nil {
+		if e.funcs == nil || e.funcs.empty() {
 			continue
 		}
-		for _, d := range e.funcs.entries() {
-			for i := range c.functionTrail {
-				row := &c.functionTrail[i]
-				if row.name == e.name && row.handle == d && row.ref != (ast.ASTRef{}) {
-					if err := c.manager.DelRef(&row.ref); err != nil {
-						return err
-					}
-					break
-				}
+		if e.funcs.set == nil {
+			if err := c.releaseFunctionRow(e.funcs.singleRow); err != nil {
+				return err
+			}
+			continue
+		}
+		for _, entry := range e.funcs.set.Entries() {
+			if err := c.releaseFunctionRow(int(entry.Num)); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+func (c *Context) releaseFunctionRow(row int) error {
+	ref := &c.functionTrail[row-1].ref
+	if *ref == (ast.ASTRef{}) {
+		return nil
+	}
+	return c.manager.DelRef(ref)
 }
 
 // resetPSortDecls is cmd_context::reset_psort_decls: each m_psort_decls

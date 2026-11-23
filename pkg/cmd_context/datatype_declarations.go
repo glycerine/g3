@@ -278,8 +278,7 @@ func (c *Context) insertDatatypeFunction(d ast.ASTHandle) error {
 		return err
 	}
 	c.functions[name] = append(c.functions[name], d)
-	c.functionTrail = append(c.functionTrail, declaration{name, d, ref})
-	return c.recordFuncDecl(name, d)
+	return c.recordFuncDecl(declaration{name, d, ref})
 }
 
 // initList is pdecl_manager::init_list (pdecl.cpp:830-844): the parametric

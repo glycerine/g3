@@ -1318,9 +1318,8 @@ func (c *Context) publishFunctionDeclaration(name string, d ast.ASTHandle) (resu
 		}
 	}
 	c.functions[name] = append(c.functions[name], d)
-	c.functionTrail = append(c.functionTrail, declaration{name, d, ref})
 	published = true
-	if err = c.recordFuncDecl(name, d); err != nil {
+	if err = c.recordFuncDecl(declaration{name, d, ref}); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return d, nil

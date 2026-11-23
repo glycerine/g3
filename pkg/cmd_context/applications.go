@@ -237,7 +237,7 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 	// domain match; it never reports an ambiguity.
 	var candidates []ast.ASTHandle
 	if entry := c.funcDictionary().find(name); entry != nil && entry.funcs != nil {
-		candidates = entry.funcs.entries()
+		candidates = entry.funcs.entries(c.functionTrail)
 	}
 	var match ast.ASTHandle
 	for _, decl := range candidates {

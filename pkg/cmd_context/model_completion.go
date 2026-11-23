@@ -128,7 +128,7 @@ func (c *Context) completeModel() (resultErr error) {
 		if err := modelCompletionVerbose(entry.name); err != nil {
 			return err
 		}
-		for _, function := range entry.funcs.entries() {
+		for _, function := range entry.funcs.entries(c.functionTrail) {
 			if err := c.completeFunction(md, function); err != nil {
 				return err
 			}

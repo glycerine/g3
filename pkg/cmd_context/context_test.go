@@ -355,7 +355,7 @@ func TestMakeAppOverloadPicksFirstSetEntry(t *testing.T) {
 	contextMust(t, err)
 	decl, err := c.manager.GetDecl(app)
 	contextMust(t, err)
-	entries := c.funcDictionary().find("g").funcs.entries()
+	entries := c.funcDictionary().find("g").funcs.entries(c.functionTrail)
 	if len(entries) != 2 || decl != entries[0] {
 		t.Fatal("g resolved to", decl, "set order", entries)
 	}
