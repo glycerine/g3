@@ -250,3 +250,67 @@ func TestIndependentPolynomialsRecognizeParametersInsideSharedTerms(t *testing.T
 		t.Fatalf("expected one representative per expression, got %d aliases", aliases)
 	}
 }
+
+func TestIndependentPolynomialsFoldReflexiveComparisons(t *testing.T) {
+	f := newGoalCompilerFixture(t)
+	m := f.manager
+	g, err := basetactic.NewGoal(m, false, true, true)
+	compilerMust(t, err)
+	defer func() { compilerMust(t, g.Close()) }()
+	arith, err := m.ArithmeticFamilyID()
+	compilerMust(t, err)
+	two, err := m.ArithmeticRealNumeralText("2")
+	compilerMust(t, err)
+	sort, err := m.GetSort(two)
+	compilerMust(t, err)
+	var squares, variables, forms []ast.ASTHandle
+	add := func(h ast.ASTHandle) {
+		t.Helper()
+		dep, err := m.DependencyLeaf(h)
+		compilerMust(t, err)
+		compilerMust(t, g.AssertWithProof(h, ast.ASTHandle{}, dep))
+		forms = append(forms, h)
+	}
+	for i := range 18 {
+		x := compilerConst(t, m, fmt.Sprintf("compared-%d", i), sort)
+		sq, err := m.MkArithmeticMul(x, x)
+		compilerMust(t, err)
+		eq, err := m.MkEq(sq, two)
+		compilerMust(t, err)
+		add(eq)
+		squares, variables = append(squares, sq), append(variables, x)
+	}
+	for i := 1; i < len(squares); i++ {
+		order, err := m.MkArithmeticLE(squares[i], squares[i-1])
+		compilerMust(t, err)
+		add(order)
+	}
+	prepare := func() *polynomialComponents {
+		t.Helper()
+		p, err := scanPolynomialComponents(m, arith, forms, nil)
+		compilerMust(t, err)
+		if p == nil || p.group() != 0 {
+			t.Fatal("expected linked variables before testing reflexivity")
+		}
+		next, err := p.groupReflexiveComparisons(forms)
+		compilerMust(t, err)
+		return next
+	}
+	p := prepare()
+	if p == nil || len(p.reflexive) != len(squares)-1 {
+		t.Fatal("expected every non-strict comparison to hold for the reconstructed model")
+	}
+	for i, x := range variables {
+		if got := p.comparisonRepresentative(x); got != p.terms[variables[0]].variable {
+			t.Fatalf("variable %d copied a different representative", i)
+		}
+	}
+	// A strict order between otherwise identical variables can require
+	// different signs. It must survive even if all square comparisons agree.
+	strict, err := m.MkArithmeticLT(variables[0], variables[1])
+	compilerMust(t, err)
+	add(strict)
+	if prepare() != nil {
+		t.Fatal("strict inequality lost its independent operands")
+	}
+}

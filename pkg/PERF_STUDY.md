@@ -4569,3 +4569,19 @@ The table uses three alternating runs against g3 `43da9f8dc` and the in-tree Z3 
 A three-variable check returned `unknown` with the reason `nlsat: pending search-state operation`. During one arithmetic clause visit, the solver propagated the first literal false. The next literal was its complement and was already true. Trying to assign it again violated the search trail invariant. The solver now finishes the satisfied clause immediately. The five-assertion input checks two square roots of the same algebraic parameter and compares their order in both directions. The CLI regression checks two model values, introduces a contradictory scope, then pops and checks again with the explicit nonlinear tactic. [Regression input](cmd/g3/test_vectors/nlsat_complement_propagation.smt2) · [Search trail test](nlsat/search_state_test.go)
 
 Across five sizes, four formula variants and two solver entry points, the original build answered 20 of 40 correctly. The corrected build answered all 40. Native Z3 accepted all **1,248** returned assignments when bound simultaneously into the original assertions and confirmed the ten contradictions. This restores solver completeness on these inputs. Timing the old `unknown` against the new `sat` would compare different outcomes. The archive includes three alternating instruction samples on both the failure and same-answer controls at two sizes. [Models, controls and raw timings](perf/nlsat/nov23-complement-propagation.tar.gz)
+
+### Reusing polynomial solutions across non-strict comparisons
+
+For 2,048 positive variables constrained by `xᵢ² = t` and `t² = 2`, a chain of alternating `≤` and `≥` comparisons used to defeat independent-component reduction. After giving each local variable its representative’s value, both operands of every comparison are identical. The nonlinear solver now checks the shared parameter and one local variable, then reconstructs the rest. Three alternating pinned runs of the complete check took a median **0.090 s** against **68.531 s** for g3 before the change and **0.486 s** for native Z3. The g3 nonlinear search went from 4,588 stages to two. [Implementation](nlsat/tactic/reflexive_comparisons.go) · [Raw measurements and inputs](perf/nlsat/nov23-reflexive-comparisons.tar.gz)
+
+| Ordinary solver input | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 2,048 roots, alternating order | 493.485 | **0.468** | 4.318 |
+| 1,024 roots, alternating order | 88.253 | **0.255** | 2.164 |
+| 512 comparisons of compound expressions | 59.403 | **0.182** | 1.434 |
+| 128 roots and a strict comparison requiring opposite signs | 6.065 | 6.090 | 0.270 |
+| 128 roots and an additional unconstrained variable | 6.263 | 6.314 | 0.283 |
+
+The reduction compares exact expression shapes. It removes a top-level equality or non-strict inequality only when the two operands have identical syntax after replacing their variables with the same representative. A second scan checks all remaining occurrences, including those inside Boolean formulas. A strict inequality can require different roots and remains a general solver problem. The nonlinear benchmarks exercise this arithmetic path independently of the quantified Apple workload.
+
+Across 60 checks at three sizes through the default solver and the explicit nonlinear portfolio, native Z3 accepted all **2,364 returned assignments** and confirmed all 18 contradictions. Native Z3 also confirmed the two- and six-assertion cores on tracked inputs. Both Go builds matched byte for byte on 42 repository inputs. Push/pop produced SAT, UNSAT, SAT. All three builds returned UNKNOWN under the explicit resource limit. Generate the large timing input with `python3 perf/nlsat/independent_components.py 2048 --shape comparison-chain`. [Benchmark generator](perf/nlsat/independent_components.py) · [Checks and transcripts](perf/nlsat/nov23-reflexive-comparisons.tar.gz)

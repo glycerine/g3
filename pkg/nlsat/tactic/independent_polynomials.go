@@ -28,7 +28,13 @@ func (t *NLSATTactic) reduceIndependentPolynomials(goal *basetactic.Goal, result
 		}
 	}
 	// Small reductions rarely repay the construction of a new solver goal.
-	if p.group() < 4 || t.manager.Limit.CancelFlag() {
+	if p.group() < 4 {
+		p, err = p.groupReflexiveComparisons(forms)
+		if err != nil || p == nil {
+			return false, err
+		}
+	}
+	if t.manager.Limit.CancelFlag() {
 		return false, nil
 	}
 	return p.publish(t, goal, result, forms)
@@ -154,6 +160,7 @@ type polynomialComponents struct {
 	variables   []componentVariable
 	parameters  map[ast.ASTHandle]bool
 	sharedMixed map[ast.ASTHandle]uint32
+	reflexive   map[ast.ASTHandle]bool
 	work        int
 }
 
@@ -314,6 +321,9 @@ func (p *polynomialComponents) publish(t *NLSATTactic, goal *basetactic.Goal, re
 	for i, form := range forms {
 		if i%64 == 0 && p.manager.Limit.CancelFlag() {
 			return false, nil
+		}
+		if p.reflexive[form] {
+			continue
 		}
 		v := p.terms[form].variable
 		if v != 0 && v != mixedComponent && p.variables[v-1].representative != 0 {

@@ -12,12 +12,18 @@ PARAMETER_SHAPES = (
     "parameter-two-equal", "parameter-ordered-arguments", "parameter-disjoint",
     "parameter-ordered", "parameter-unique",
 )
+COMPARISON_SHAPES = (
+    "comparison-chain", "comparison-equality", "comparison-compound", "comparison-strict-witness",
+    "comparison-strict-conflict", "comparison-nested", "comparison-free", "comparison-wrong-shape",
+    "comparison-distinct-parameters", "comparison-shared-subterm",
+)
 SHAPES = (
     "square", "negative", "multi", "unique", "cubic", "quartic", "unsat",
     "mixed-var", "mixed-component", "coupled-bad", "guard-unsat", "signed-order",
     "rational-subset", "opposite-signs", "duplicates", "shared-parameter",
-) + PARAMETER_SHAPES
-UNSAT = {"parameter-conflict", "parameter-two-equal", "unsat", "coupled-bad", "guard-unsat"}
+) + PARAMETER_SHAPES + COMPARISON_SHAPES
+UNSAT = {"parameter-conflict", "parameter-two-equal", "unsat", "coupled-bad", "guard-unsat",
+         "comparison-strict-conflict", "comparison-wrong-shape", "comparison-shared-subterm"}
 
 
 def parameter_workload(shape, count):
@@ -57,7 +63,36 @@ def parameter_workload(shape, count):
     return "\n".join(lines) + "\n", names + parameters
 
 
+def comparison_workload(shape, count):
+    source, names = parameter_workload("two" if shape == "distinct-parameters" else "irrational", count)
+    locals_ = names[:count]
+    if shape == "strict-witness":
+        for x in locals_:
+            source = source.replace(f"(assert (> {x} 0))\n", "")
+    lines = []
+    stride = 2 if shape == "distinct-parameters" else 1
+    for i, (a, b) in enumerate(zip(locals_, locals_[stride:])):
+        op = "=" if shape == "equality" else (">=" if i % 2 else "<=")
+        if shape == "compound":
+            a, b = f"(+ (* {a} {a}) t)", f"(+ (* {b} {b}) t)"
+        lines.append(f"(assert ({op} {a} {b}))")
+    if shape in ("strict-conflict", "strict-witness"):
+        lines.append("(assert (< x0 x1))")
+    elif shape == "nested":
+        lines.append("(assert (= (>= x0 x1) (<= x1 x0)))")
+    elif shape == "free":
+        lines.extend(("(declare-const free Real)", "(assert (<= free x0))"))
+        names.append("free")
+    elif shape == "wrong-shape":
+        lines.append("(assert (<= (* x0 x0) (- (* x1 x1))))")
+    elif shape == "shared-subterm":
+        lines.append("(assert (not (<= x0 x1)))")
+    return source + "\n".join(lines) + "\n", names
+
+
 def workload(shape, count):
+    if shape in COMPARISON_SHAPES:
+        return comparison_workload(shape.removeprefix("comparison-"), count)
     if shape in PARAMETER_SHAPES:
         return parameter_workload(shape.removeprefix("parameter-"), count)
     names = [f"x{i}" for i in range(count)]
