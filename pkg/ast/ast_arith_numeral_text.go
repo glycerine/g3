@@ -28,12 +28,21 @@ func (m *ASTManager) ArithmeticNumeralText(h ASTHandle) (value string, integer, 
 // ArithmeticSmallInteger reads an Int numeral whose value is stored inline.
 // Larger integers and other expressions return ok=false.
 func (m *ASTManager) ArithmeticSmallInteger(h ASTHandle) (int32, bool, error) {
+	return m.arithmeticInlineInt32(h, true)
+}
+
+// ArithmeticIntegralInt32 reads a small integral numeral of either Int or Real sort.
+func (m *ASTManager) ArithmeticIntegralInt32(h ASTHandle) (int32, bool, error) {
+	return m.arithmeticInlineInt32(h, false)
+}
+
+func (m *ASTManager) arithmeticInlineInt32(h ASTHandle, intSortOnly bool) (int32, bool, error) {
 	if err := m.lock(); err != nil {
 		return 0, false, err
 	}
 	defer m.mu.Unlock()
 	r, integer, matched, err := m.arithmeticNumeralParameter(h)
-	if err != nil || !integer || !matched {
+	if err != nil || !matched || intSortOnly && !integer {
 		return 0, false, err
 	}
 	value, ok := r.Raw.SmallInt32()

@@ -27,7 +27,7 @@ func (t *NLSATTactic) TranslateWithServices(m *ast.ASTManager, c *uparams.Params
 			result = nil
 		}
 	}()
-	next, err = NewNLSATTactic(m, c, g, &p, services)
+	next, err = newNLSATTactic(m, c, g, &p, services, t.modelOnly)
 	if err != nil {
 		return nil, err
 	}

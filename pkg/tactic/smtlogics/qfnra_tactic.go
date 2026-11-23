@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/tactic/arith"
@@ -82,7 +83,7 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 	// registered qfnra-nlsat tactic (which adds elim_and/blast_distinct and
 	// reads factor itself), with no fail_if_undecided after it.
 	nlsatRoute := func(params *uparams.ParamsRef, timeout uint32) tactic.Tactic {
-		route := b.keep(NewQFNRANLSATTactic(m, params, config))
+		route := b.keep(newQFNRANLSATTactic(m, params, config, false))
 		if timeout != 0 {
 			route = b.timed(route, timeout)
 		}
@@ -96,6 +97,9 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 		b.keep(tactic.NewFailIfUndecidedTactic(), nil),
 	)
 	simplifier := b.keep(core.MakeSimplifyTactic(m, c, g, p))
+	if !m.Budget().InjectionArmed() {
+		simplifier = b.then(b.keep(nlsattactic.NewIntegerModelTactic(m, c, g, p, config.ModelEvaluator)), simplifier)
+	}
 	propagate := b.keep(core.NewPropagateValuesTactic(m, c, g, p))
 	alternatives := b.otherwise(
 		nlsatRoute(p0, 5000),

@@ -326,3 +326,35 @@ func TestASTArithmeticNumeralCachesSourceFinalize(t *testing.T) {
 	}
 	astTestMust(t, m.Close())
 }
+
+func TestArithmeticIntegralInt32KeepsNumeralSorts(t *testing.T) {
+	m := astTestManager(t)
+	_, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	for _, tc := range []struct {
+		text           string
+		integer, small bool
+		want           int32
+	}{
+		{"-7", true, true, -7}, {"-7", false, true, -7},
+		{"1/2", false, false, 0}, {"2147483648", true, false, 0},
+	} {
+		var h ASTHandle
+		if tc.integer {
+			h, err = m.ArithmeticIntegerNumeralText(tc.text)
+		} else {
+			h, err = m.ArithmeticRealNumeralText(tc.text)
+		}
+		astTestMust(t, err)
+		got, ok, err := m.ArithmeticIntegralInt32(h)
+		astTestMust(t, err)
+		if ok != tc.small || ok && got != tc.want {
+			t.Errorf("numeral %s (int=%v) = %d, %v", tc.text, tc.integer, got, ok)
+		}
+		_, onlyInt, err := m.ArithmeticSmallInteger(h)
+		astTestMust(t, err)
+		if onlyInt != (tc.integer && tc.small) {
+			t.Errorf("Int-only numeral %s (int=%v) matched %v", tc.text, tc.integer, onlyInt)
+		}
+	}
+}

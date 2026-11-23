@@ -14,6 +14,10 @@ import (
 )
 
 func NewQFNRANLSATTactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSolverConfig) (result tactic.Tactic, err error) {
+	return newQFNRANLSATTactic(m, p, config, true)
+}
+
+func newQFNRANLSATTactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSolverConfig, tryModel bool) (result tactic.Tactic, err error) {
 	c, g := config.Params, config.Globals
 	if m == nil || c == nil || g == nil || g.Context != c {
 		return nil, uparams.ErrParamsOwner
@@ -66,8 +70,12 @@ func NewQFNRANLSATTactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore
 	} else {
 		factor = b.keep(tactic.NewSkipTactic(), nil)
 	}
+	initial := simplify()
+	if tryModel && !m.Budget().InjectionArmed() {
+		initial = b.then(b.keep(nlsattactic.NewIntegerModelTactic(m, c, g, source, config.ModelEvaluator)), initial)
+	}
 	first := b.then(
-		simplify(), purification(),
+		initial, purification(),
 		b.keep(core.NewPropagateValuesTactic(m, c, g, source)),
 		b.clean(b.keep(core.NewSolveEquationsTactic(m, c, g, source, config.ModelEvaluator))),
 		purification(),

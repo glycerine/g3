@@ -33,6 +33,7 @@ type NLSATTactic struct {
 	statistics  statistics.Statistics // m_stats
 	ownerBytes  uint64
 	refs        uint32
+	modelOnly   bool
 	paramsReady bool
 	running     bool
 	closed      bool
@@ -41,6 +42,16 @@ type NLSATTactic struct {
 var _ basetactic.Tactic = (*NLSATTactic)(nil)
 
 func NewNLSATTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig) (_ *NLSATTactic, err error) {
+	return newNLSATTactic(manager, context, globals, params, services, false)
+}
+
+// NewIntegerModelTactic tries a verified integer assignment before the arithmetic
+// portfolio preprocesses the goal. A miss passes the original goal through.
+func NewIntegerModelTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig) (_ *NLSATTactic, err error) {
+	return newNLSATTactic(manager, context, globals, params, services, true)
+}
+
+func newNLSATTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig, modelOnly bool) (_ *NLSATTactic, err error) {
 	if manager == nil || context == nil || globals == nil || globals.Context != context || services.Context != context || services.Globals != globals || services.Memory == nil || services.Cooperation == nil {
 		return nil, uparams.ErrParamsOwner
 	}
@@ -51,7 +62,7 @@ func NewNLSATTactic(manager *ast.ASTManager, context *uparams.ParamsContext, glo
 	if err = manager.Budget().Reserve(amount); err != nil {
 		return nil, err
 	}
-	t := &NLSATTactic{manager: manager, context: context, globals: globals, services: services, ownerBytes: amount}
+	t := &NLSATTactic{manager: manager, context: context, globals: globals, services: services, ownerBytes: amount, modelOnly: modelOnly}
 	t.self = t
 	defer func() {
 		if err != nil {
@@ -142,7 +153,7 @@ func (t *NLSATTactic) Translate(manager *ast.ASTManager) (basetactic.Tactic, err
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	return NewNLSATTactic(manager, t.context, t.globals, &t.params, t.services)
+	return newNLSATTactic(manager, t.context, t.globals, &t.params, t.services, t.modelOnly)
 }
 
 func (t *NLSATTactic) UpdateParams(params *uparams.ParamsRef) error {
@@ -155,6 +166,11 @@ func (t *NLSATTactic) UpdateParams(params *uparams.ParamsRef) error {
 func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
 		return err
+	}
+	// Discovery is an internal stage. The portfolio's ordinary tactics own
+	// the public parameter descriptions and their precedence.
+	if t.modelOnly {
+		return nil
 	}
 	if err := uparams.InsertMaxMemory(out); err != nil {
 		return err
@@ -178,7 +194,9 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 }
 
 func (t *NLSATTactic) CollectStatistics(st *statistics.Statistics) {
-	st.Copy(t.statistics)
+	if !t.modelOnly {
+		st.Copy(t.statistics)
+	}
 }
 func (t *NLSATTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {
@@ -296,6 +314,13 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 	defer func() { t.running = false }()
 	if err = result.Prepare(t.manager); err != nil {
 		return err
+	}
+	if t.modelOnly {
+		solved, err := t.tryIntegerModel(goal, result)
+		if err != nil || solved {
+			return err
+		}
+		return result.AddGoal(goal)
 	}
 	report, err := basetactic.NewTacticReport("nlsat", goal)
 	if err != nil {

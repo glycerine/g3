@@ -4414,3 +4414,27 @@ Releasing a chunk scanned the allocator's entire object directory to find its me
 The largest lifecycle used **12.9× fewer instructions**, including all allocations in fifteen size classes. On the complete 8,192-variable nonlinear check, instructions fell from 35.894 billion to **34.613 billion**, a 3.6% saving. The 16,384-variable check fell from 78.124 to **76.983 billion**, a 1.5% saving. All six whole-shell inputs matched native on verdict, propagations, stages and resource steps. Both Go builds preserved the output and exit status of 42 additional repository vectors. The memory, polynomial and NLSAT package suites passed, including a checked-build run of the memory suite.
 
 Run `go test ./util/memory -run '^$' -bench '^BenchmarkSmallAllocatorChunkLifecycle$' -benchmem -cpu=1`. The table uses six paired instruction-count slopes against `d92baa7d8`. The complete solver results use three pairs per input. [Hardware counts and verification records](perf/nlsat/nov23-chunk-membership.tar.gz)
+
+### Exact integer witnesses before nonlinear preprocessing
+
+A satisfiable polynomial system can have an easy integer witness even when the general nonlinear solver goes on to isolate thousands of real roots. On 16,384 independent square inequalities, ordinary g3 previously entered 16,385 NLSAT stages. It now finds a concrete assignment before simplification and validates it against the original goal. The complete shell check took **0.271 s**, versus **13.821 s** for the previous g3 and **0.465 s** for native Z3. [Witness search and certification](nlsat/tactic/integer_candidate.go) · [Bounds and exact comparisons](nlsat/tactic/integer_candidate_bounds.go)
+
+| Complete check | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 16,384 independent variables, ordinary check | 90.199 | **1.420** | 3.136 |
+| Same formula, explicit `qfnra-nlsat` | 77.539 | **1.420** | 3.033 |
+| 2,048 variables with shuffled positive and negative interval bounds | 29.660 | **0.466** | 1.128 |
+| 512 variables in a strict order | 2.974 | **0.094** | 0.152 |
+| 512 adjacent products subject to lower bounds | 3.507 | **0.103** | 0.171 |
+| 512 Boolean disjunctions over polynomial comparisons | 3.817 | **0.167** | 0.209 |
+| 512 fixed values with coupled equations | 0.398 | **0.149** | 0.056 |
+| 512-variable contradiction | 0.083 | 0.086 | 0.020 |
+| 128 variables, one forced irrational root, explicit `qfnra-nlsat` | 0.607 | 0.600 | 0.033 |
+
+The procedure reads unconditional bounds and propagates order constraints across variables. Handling SMT-LIB unary minus mattered. On the 2,048-variable interval workload the version without signed-literal recognition took 29.516 billion instructions. The final version uses exact integer arithmetic for simple comparisons and the existing model evaluator for more complex expressions, with model completion disabled. A rejected assignment proceeds to the ordinary solver. The search is local to the tactic invocation and capped by input size, depth and estimated intermediate integer width. Proofs, explicit resource limits and tracing use the existing portfolio. The dedicated `nlsat` tactic retains its original contract.
+
+The table gives medians from three alternating pinned runs on the Threadripper 3960X with Go 1.27.3, PGO off, and this fork's native Z3 4.7.1. Counts and elapsed times include parsing, solver construction, model handling, statistics and teardown. Timed alternatives in the previous ordinary portfolio can change how much work it completes on a busy CPU. The explicit-route row avoids that timer and still shows a **54.6×** instruction reduction. The gap on the forced irrational root and the roughly 4% overhead on the small contradiction are useful controls. These are nonlinear arithmetic workloads, measured separately from Ivy verification. [All individual counters, models and controls](perf/nlsat/nov23-certified-integer-models.tar.gz)
+
+Independent validation covered 21 input families, three sizes, and three solver routes. For each returned model, the harness bound **every** variable to its printed exact value and asked native Z3 to solve the original assertions again. Across the 189 checks, native accepted 8,374 variable assignments. All 27 UNSAT controls agreed, and both default solvers returned unknown on three mixed-sort checks. Selecting the nonlinear portfolio explicitly produced validated models on those cases. The seven incremental, resource, core and proof controls preserved output, as did 42 repository vectors. The AST, NLSAT tactic, nonlinear portfolio and CLI suites passed. Four historical native-comparison fixtures still differ on malformed datatype declarations, an out-of-range regular-expression bound, and a truncated OPB input. We reproduced all four with the baseline binary. [Model validation and workload generator](perf/nlsat/integer_model_cases.py) · [Tactic regression tests](nlsat/tactic/integer_candidate_test.go)
+
+Reproduce a large ordinary case with `python3 perf/nlsat/integer_model_cases.py 16384 | ./g3 -in -smt2`. To check models from 21 families, run `python3 perf/nlsat/integer_model_cases.py 53 --verify ./g3 ../build/z3`. Repeat with `--route qfnra` and `--route nlsat-portfolio` to exercise both named strategies.
