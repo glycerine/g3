@@ -3741,3 +3741,21 @@ python3 perf/ivy_apple/holdouts/batch_prefix_replay.py --events tlb/events.csv.g
 gzip -dc /tmp/tlb-replay/2x64.smt2.gz | taskset -c 8 perf stat -e instructions:u -- g3 -smt2 -in > /tmp/tlb-replay/g3.out
 diff -u /tmp/tlb-replay/2x64.answers /tmp/tlb-replay/g3.out
 ```
+
+## Reusing a proof core across related verification batches
+
+An UNSAT core identifies premises sufficient to refute a particular temporary goal. With the same goal and every one of those premises present, the result applies to the new batch even if other premises have changed. I tested this inside one sequential verification worker. It records the goal and exact premise identities. A miss falls back to a solver. An inconclusive mining attempt also falls back. Every distinct returned core was replayed in the in-tree C++ solver with only its listed premises and its goal. [Reproducible online replay and verifier](perf/ivy_apple/holdouts/batch_core_replay.py) · [Core premise identities for the first replication](perf/ivy_apple/holdouts/nov22b-core-history-certificates.csv.gz)
+
+The first study replayed all physical goals. On TLB, waiting until a goal's second occurrence and mining at most once per goal took **100.9 billion instructions versus 176.1 billion** in ordinary g3. I then rebuilt the shell and repeated the comparison with the saved portable benchmark, five fresh runs per cell. Both runs use only earlier observations. In the repeat study, 653 TLB cores justified 13,109 skipped solver calls. The numbers below sum the instruction counts of the mining and ordinary solver processes. They exclude the Python driver and the independent audit. The separate complete-checker trial below includes bookkeeping overhead. [All exploratory and replicated runs](perf/ivy_apple/holdouts/nov22b-core-history-runs.csv.gz)
+
+| Stream | Checks | g3 ordinary → learn on second occurrence, B instructions | Z3 ordinary → same policy | g3 checks reused |
+|---|---:|---:|---:|---:|
+| TLB | 18,667 | 181.69 → 106.10 | 50.19 → 29.45 | 13,109 |
+| Flash | 2,212 | 11.07 → 10.01 | 2.84 → 2.57 | 1,172 |
+| Apple cf_live | 271 | 73.53 → 83.53 | 22.59 → 26.92 | 96 |
+| Apple dramc_nb2 | 557 | 78.58 → 117.79 | 23.71 → 40.22 | 149 |
+| Nested ticket | 340 | 4.56 → 5.02 | 1.28 → 1.41 | 63 |
+
+**The complete TLB checker gave the opposite result.** A GoIvy prototype performed the lookup and core extraction inside its existing single-goroutine SMT context, while keeping each original solver for ordinary checks and counterexamples. Four rounds on the full TLB spec used **107.85 billion** instructions in the retained checker versus **117.40 billion** when collecting cores on repeated goals in batches of 150 or more. The instrumented trial learned 653 certificates and reused them 13,109 times, exactly the headline hit count. The ordinary standalone shell has to search cases that the production checker can already refute cheaply. Even perfect agreement on which results can be reused does not predict the net cost. [280 end-to-end runs and verdict controls](perf/ivy_apple/holdouts/nov22b-complete-core-reuse.csv.gz) · [Prototype against GoIvy 59aa2840e](perf/ivy_apple/holdouts/nov22b-core-reuse.patch.gz)
+
+Flash did benefit from learning once on a repeated goal in any batch, moving from 9.15 to 8.65 billion instructions. That configuration moved raftok from 24.93 to 31.94 billion and cf_live from 59.40 to 63.63 billion. Across 24 instrumented complete runs, native Z3 confirmed all **2,272 emitted certificates**, including repeated certificates in different configurations. Production keeps its existing proof methods. Any future dependency reuse should obtain premises as a byproduct of a proof the worker already paid for. [Native audit counts](perf/ivy_apple/holdouts/nov22b-complete-core-audit.csv.gz) · [Exact native replay queries](perf/ivy_apple/holdouts/nov22b-complete-core-queries.tar.gz)
