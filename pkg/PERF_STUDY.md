@@ -2,6 +2,8 @@
 
 ## November 23 verification results
 
+On matched whole-verifier runs, g3 now uses 14.89 billion instructions on Apple rfn2 versus 52.02 billion for linked Z3. On abstract raft_no_assume it uses 27.43 versus 24.85 billion, and on TLB 100.25 versus 69.78 billion. The first physical push and ordinary search dominate the remaining TLB gap. Earlier work saved 231 billion frontend instructions on TLB with a private name counter shared by both backends. [Latest measured solver change](#parsing-the-unchanged-premises-of-quantified-goals) · [Operation census across 90 inputs](#where-the-general-solver-still-spends-more-instructions) · [Nine pinned pairs on the original scope benchmark](#november-23-makefile-scope-benchmark)
+
 During value propagation on TLB’s 58 first pushes, g3 and linked Z3 both made 87,961 rewrite calls and took 1,120,822 traversal steps. g3 spent **2.74 billion instructions** inside those calls and Z3 spent **0.84 billion**. Only 568 of the Go steps revisited the same root under identical rewrite settings. Caching repeated roots across phases saved 1.4% of the whole verification in an experimental build. [Measurements and reproducer](#rewriting-on-tlbs-58-first-pushes)
 
 ## November 22–23 verification results
@@ -4004,3 +4006,48 @@ The two implementations returned the exact same first cycle on 30,000 seeded dir
 python3 perf/ivy_apple/holdouts/fragment_cycles.py --goivy /path/to/ivy/goivy
 go -C /path/to/ivy/goivy test . -tags=xtrace_off -run '^$' -bench '^BenchmarkFragmentCycleTraversal$' -benchmem -benchtime=25x -count=7 -cpu=1
 ```
+
+## Parsing the unchanged premises of quantified goals
+
+Commit `4ea7abff8` retains the parsed input nodes and child indices for the permanent premises of a solver batch. A sibling goal starts with the exact declaration and source IDs assigned to those premises. It selects representative constants and builds its own quantifier instances after reading the new goal. This matters when changing the goal changes which constant should instantiate a universal. The saved tuple includes the manager and the ordered premise handles with their generations. The solver charges the original parse work against every goal's limit and checks cancellation on reuse. [Implementation](api/internal/order/quantified_premises.go) · [Budget, changed-base and manager regressions](api/api_quantified_premises_test.go)
+
+| Complete verification | Previous g3 | g3 with parsed premises | Linked Z3 |
+|---|---:|---:|---:|
+| TLB | 102.70 | **100.25** | 69.78 |
+| Hybrid reliable broadcast | 13.06 | **12.89** | 6.27 |
+| Apple dramc_nb2 | 155.85 | **155.46** | 165.25 |
+| Apple rfn2 | 14.88 | 14.89 | 52.02 |
+| Abstract raft_no_assume | 27.52 | 27.43 | 24.85 |
+| raftok | 20.85 | 20.79 | 19.93 |
+| Flash | 8.46 | 8.51 | 4.54 |
+
+Each number is a five-run median in billions of whole-process user instructions on GoIvy `817871f86`. Across nine inputs a second build compiled every eligible goal both ways inside the real verification. It compared admission and errors as well as all 736 returned clause sequences, variable counts and charged work totals. All agreed. The 87 standalone specs also matched linked Z3 on exit status and both output streams. A full native Go test run passed. [All 135 timed runs](perf/ivy_apple/goal_instances/nov23-quantified-premises.csv.gz) · [Per-projection comparisons](perf/ivy_apple/goal_instances/nov23-quantified-premises-oracle.csv.gz) · [87 corpus pairs](perf/ivy_apple/goal_instances/nov23-quantified-premises-corpus.csv.gz)
+
+In the archived dramc_nb2 condition 71 benchmark, projection alone took **3.683 ms and 2,109,269 B/op** when compiling fresh versus **2.105 ms and 1,072,120 B/op** with the parsed base. These are medians from nine 15-iteration runs with one runtime CPU. Across four whole-verifier rounds on TLB, keeping a second table for new goal IDs used 100.27 billion instructions versus 100.26 billion for cloning the premise maps. Retaining additional grounded applications got down to 99.60 billion, at the cost of another set of term, binding and application tables per active batch. The production change keeps just the parsed base. [Microbenchmark](api/api_quantified_premises_test.go) · [Microbenchmark samples](perf/ivy_apple/goal_instances/nov23-quantified-premises.bench.gz) · [400 prototype runs](perf/ivy_apple/goal_instances/nov23-quantified-premise-trials.csv.gz) · [Prototype diffs](perf/ivy_apple/goal_instances/nov23-quantified-premise-trials.tar.gz)
+
+## Where the general solver still spends more instructions
+
+I measured three pairs of complete verification runs on each of 87 standalone inputs and three named Apple isolates. The 540 processes used g3 `8f05e60c7` or the linked native library, GoIvy `01aa2c6fa`, one Go runtime CPU and disabled tracing. Both backends reproduced the reference exit and both output streams on every run, including the expected counterexamples. The observer opens a hardware counter on the calling OS thread for each batch and subtracts an adjacent empty bracket. The measured intervals cover API operations inside verification, excluding frontend preparation, model post-processing and asynchronous runtime work. This is a different measurement from the whole-process instruction tables. [Per-operation totals in every run](perf/ivy_apple/incremental_cost/nov23-verification-phase-totals.csv.gz) · [Raw rows by batch and condition, with input manifest](perf/ivy_apple/incremental_cost/nov23-verification-phase-rows.tar.gz)
+
+| Complete input | g3, billion instructions in measured calls | Linked Z3 | Excess in g3 |
+|---|---:|---:|---:|
+| TLB | 81.49 | 51.01 | **30.48** |
+| Apple dramc_nb2 | 46.62 | 38.54 | **8.07** |
+| Hybrid reliable broadcast | 11.39 | 4.69 | **6.70** |
+| Flash | 7.79 | 3.91 | **3.87** |
+| Nested ticket | 3.98 | 1.71 | **2.27** |
+| Abstract raft_no_assume | 26.27 | 24.06 | **2.21** |
+
+Each column uses unrounded per-run sums before taking the three-run median. On TLB, pushes cost 20.46 billion in g3 and 5.98 billion in Z3. Concrete check calls, including any private attempt inside a check, cost 44.79 and 36.55 billion. Separate g3 attempts before the first push cost 8.99 billion. Some of those attempts eliminate native checks, so their gross cost overstates what could be saved by removing them. A given batch can reach its first physical push on a different condition in each engine. Compare total push costs per batch before attributing a per-condition difference.
+
+On abstract raft_no_assume, logical checks 251, 274 and 275 all reached the concrete backend on both sides. Check 274 took **3.87 versus 0.89 billion** instructions and check 251 took **3.65 versus 1.09 billion**. Each gap is larger than the net excess across the entire input because g3 wins on other checks. On Flash, 3.30 billion of its 3.87-billion excess occurs inside concrete checks. These measurements prioritize TLB first-push rewrites and the matched expensive concrete checks of abstract Raft and Flash. [Reusable counter driver](perf/ivy_apple/incremental_cost/verification_phase_costs.py) · [Adapter instrumentation](perf/ivy_apple/incremental_cost/nov23-verification-phase-counter.patch.gz)
+
+```sh
+python3 perf/ivy_apple/incremental_cost/verification_phase_costs.py \
+  --goivy /path/to/ivy/goivy --spec /path/to/ivy-lang-examples/examples/liveness/ticket.ivy \
+  --abc /path/to/abc --cpu 2 --pairs 3 --output /tmp/ticket-phase-costs
+```
+
+## November 23 Makefile scope benchmark
+
+Nine alternating pairs of the original `make bench` and `make cppbench` targets on CPU 47 with `GOMAXPROCS=1` and 10,000 iterations put surviving atoms at **354 ns in g3 and 477 ns in Z3**. Scoped atoms took **13.53 µs and 12.42 µs**. The scoped g3 samples ranged from 13.25 to 13.74 µs and the C++ samples from 12.39 to 12.47 µs. Both implementations use the in-tree benchmark. This measures the timed scope pop on this host with the Makefile's ordinary configuration. For independent-worker throughput and retained heap, use the separately tracked Go worker benchmark. [All 36 observations](perf/scope_restoration/nov23-pinned-make-targets.csv.gz) · [Worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
