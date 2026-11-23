@@ -3708,3 +3708,36 @@ One additional pair on each of 87 standalone specs matched stdout and stderr byt
 For the high-memory dramc_nb2 comparison I first measured five repeats at each of four neighboring GC settings per engine. I selected the median RSS closest to the earlier 467 MiB target independently for each checker. The resulting settings were GOGC=415 for g3 and 565 for linked Z3. Eleven fresh pairs on CPU 44 then measured **476.6 / 479.3 MiB**, **130.93 / 122.17 billion instructions** and **24.802 / 24.513 s**. The median of the eleven paired wall ratios was 1.020. At the default GOGC=100, the seven primary pairs on CPU 23 measured **214.9 / 212.2 MiB**, with g3 faster in all seven. A second nine-pair default panel on CPU 24 measured 218.6 / 199.2 MiB and 23.060 / 24.948 s, with g3 faster in all nine. RSS is process peak, including C++ allocations. The panels used different cores on a shared host. [Calibration samples](perf/ivy_apple/holdouts/nov22b-final-rss-calibration.csv.gz) · [Independent measurement pairs](perf/ivy_apple/holdouts/nov22b-final-verification.csv.gz)
 
 I ran the repository's exact `make bench` and `make cppbench` targets in alternating order for 25 pairs, pinned to CPU 45 with GOMAXPROCS=1 and GOGC=100. For 128 atoms and 64 clauses the median surviving-atom pop took **361 ns in Go and 482 ns in C++**. The scoped-atom pop took **13,704 ns and 12,611 ns**, an 8.7% gap. Both Go medians were zero allocations per operation. These microseconds measure a single scope restoration. Whole verification above includes all frontend and search work. [All 100 benchmark rows](perf/scope_restoration/nov22b-final-make-targets.csv) · [Make target driver](perf/scope_restoration/make_targets.py) · [Independent-worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
+
+## Why the larger heap changes the Apple comparison
+
+Nine additional pairs at each GC setting on **the same CPU 45** measured Go runtime activity with identical dramc_nb2 proof output. With default GC, the Go part of the linked-Z3 process spent 5.38 CPU seconds collecting garbage, including 3.73 seconds of allocation assists. g3 spent 3.60 and 1.71 seconds respectively. With the larger heaps both spent about 0.8 CPU seconds collecting and less than 0.2 seconds in assists. Raising the target reduced linked-checker instructions by roughly **50 billion** and g3 instructions by **34 billion**. The GoIvy frontend is present in both processes. Total Go-allocated bytes were approximately 10.5 GB for linked Z3 and 12.2 GB for g3 in either regime. These numbers exclude native heap allocations. The independent uninstrumented high-memory pair medians were within 3 MiB. [36 runtime measurements](perf/ivy_apple/holdouts/nov22b-final-heap.csv.gz) · [Heap instrumentation](perf/ivy_apple/frontend_memory.py)
+
+| Settings, g3 / linked Z3 | Wall s | Billion instructions | Peak MiB | GC cycles | GC CPU seconds |
+|---|---:|---:|---:|---:|---:|
+| GOGC 100 / 100 | 23.05 / 24.57 | 165.90 / 172.76 | 215.7 / 202.8 | 353 / 580 | 3.60 / 5.38 |
+| GOGC 415 / 565 | 18.54 / 18.05 | 131.57 / 122.71 | 478.5 / 459.8 | 72 / 77 | 0.82 / 0.80 |
+
+## Can consecutive verification batches keep their common premises?
+
+The instrumented GoIvy checker captured each first physical push, subsequent permanent assumptions, and every temporary physical goal and its result, in order. On TLB the 58 fresh solver batches contained 31,665 top-level conjuncts in total. Only 1,281 conjunct positions belonged to an identical leading prefix with the previous batch, while 24,514 matched the previous batch as a multiset. No consecutive complete TLB bases were identical. The verifier used one AST context. The replay keeps one solver on one worker and pops every retained scope as soon as any of its premises disappears. Compound goals retain their original Boolean structure. Printed overloads are resolved from the declaration sorts before combining batches. [Seven typed input streams](perf/ivy_apple/holdouts/nov22b-physical-streams.tar.gz) · [Capture instrumentation against GoIvy 59aa2840e](perf/ivy_apple/holdouts/nov22b-capture-physical-stream.patch.gz) · [Collector](perf/ivy_apple/holdouts/capture_batch_stream.py)
+
+In the initial TLB experiment, keeping the common intersection of four **upcoming** batches cut g3 first-push-only replay from 20.03 to 11.62 billion instructions. Including the first three physical goals of each batch, 172 checks in total, took 23.61 billion separately and 15.68 billion with common scopes. The resulting schedule has access to future batches. Reordering alone took 24.49 billion on the 172 checks. [First-goal and push controls](perf/ivy_apple/holdouts/nov22b-tlb-first-goals.csv.gz) · [Exact scripts and expected answers](perf/ivy_apple/holdouts/nov22b-tlb-first-goal-scripts.tar.gz)
+
+The complete replay below includes ALL physical checks, including satisfiable counterexamples. The online policy intersects the current base with the two preceding bases and promotes matching conjuncts in order, in scopes of up to 64. A second control sees groups of four future bases. These are medians of three runs per engine and policy, in **billions of instructions for the solver executable**. Parsing and solver setup are included. GoIvy's higher-level proof methods are absent, and the saved stream starts after successful pre-push proofs. The 270 completed measurements reproduced all recorded answers. The two ordinary shell Raft streams repeatedly reached the 180-second cutoff. Their partial counts and exits are included in the raw file. The complete GoIvy Raft times appear above. [All runs and timeouts](perf/ivy_apple/holdouts/nov22b-batch-stream-runs.csv.gz) · [Common-scope counts](perf/ivy_apple/holdouts/nov22b-batch-stream-groups.csv.gz) · [Replay generator](perf/ivy_apple/holdouts/batch_prefix_replay.py)
+
+| Workload | Physical checks | Separate batches, g3 / Z3 | Two earlier bases, g3 / Z3 | Four-batch lookahead, g3 / Z3 |
+|---|---:|---:|---:|---:|
+| TLB | 18,667 | 175.91 / 50.07 | 168.81 / 47.88 | 163.42 / 46.73 |
+| Apple cf_live | 271 | 70.75 / 22.59 | 85.66 / 27.65 | 104.72 / 33.27 |
+| Apple dramc_nb2 | 557 | 75.24 / 23.71 | 89.73 / 28.07 | 97.19 / 30.69 |
+| Flash | 2,212 | 10.27 / 2.83 | 10.00 / 2.75 | 10.08 / 2.79 |
+| Nested ticket | 340 | 4.22 / 1.28 | 4.28 / 1.30 | 4.60 / 1.40 |
+
+Avoiding initial preprocessing can change subsequent quantifier search. TLB's online saving contracts to **4.0%** over all goals. Apple cf_live grows **21.1%** on the same policy. For reproduction, unpack the stream archive and run the generator, then feed its decompressed SMT-LIB to each shell and compare the full output to the emitted answer file.
+
+```sh
+python3 perf/ivy_apple/holdouts/batch_prefix_replay.py --events tlb/events.csv.gz --policies separate 2x64 lookahead4 --output /tmp/tlb-replay
+gzip -dc /tmp/tlb-replay/2x64.smt2.gz | taskset -c 8 perf stat -e instructions:u -- g3 -smt2 -in > /tmp/tlb-replay/g3.out
+diff -u /tmp/tlb-replay/2x64.answers /tmp/tlb-replay/g3.out
+```
