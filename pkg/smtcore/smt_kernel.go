@@ -130,6 +130,7 @@ type SMTKernel struct {
 	produceModel              bool
 	preprocess                bool
 	skipRepeatedPreprocessing bool
+	simplifyInitialPushOnce   bool
 	timerClock                func() (uint64, error)
 	closing                   bool
 	closed                    bool
@@ -1162,6 +1163,31 @@ func (k *SMTKernel) commitAssertedTo(head int) error {
 	return nil
 }
 
+// The initial verification push commits pending premises before saving the
+// scope. Later checks and newly asserted formulas use the ordinary schedule.
+func (k *SMTKernel) internalizePushBase() error {
+	if !k.simplifyInitialPushOnce || k.skipRepeatedPreprocessing || len(k.scopes) != 0 ||
+		k.assertedHead != 0 || len(k.assertions) == 0 || k.preprocessor == nil ||
+		k.preprocessor.ProofGen() || ast.ASTSourceDebug || k.manager.TraceStream != nil ||
+		k.manager.Budget().InjectionArmed() || k.manager.ResourceLimit().Limit != 0 ||
+		k.manager.ResourceLimit().CancelFlag() || k.smtState.MaxConflicts != ^uint32(0) {
+		return k.internalizePending()
+	}
+	proofs, err := k.manager.ProofsEnabled()
+	if err != nil {
+		return err
+	}
+	if proofs {
+		return k.internalizePending()
+	}
+	// A base consisting entirely of definitions can reduce to zero rows.
+	// Its next push must still use the ordinary schedule.
+	k.simplifyInitialPushOnce = false
+	k.skipRepeatedPreprocessing = true
+	defer func() { k.skipRepeatedPreprocessing = false }()
+	return k.internalizePending()
+}
+
 func (k *SMTKernel) Push() error {
 	if err := k.open(); err != nil {
 		return err
@@ -1201,7 +1227,7 @@ func (k *SMTKernel) Push() error {
 		return err
 	}
 	wasConsistent := !k.internalizer.Inconsistent()
-	if err := k.internalizePending(); err != nil {
+	if err := k.internalizePushBase(); err != nil {
 		return err
 	}
 	// Source context::push propagates the base assertions before saving a

@@ -40,6 +40,9 @@ type SMTSolverConfig struct {
 	// SkipRepeatedPreprocessing omits the second macro search and final
 	// simplifier pass in private refutation contexts.
 	SkipRepeatedPreprocessing bool
+	// SimplifyInitialPushOnce runs one macro search and simplifier sequence
+	// while committing a fresh verification solver's first nonempty base.
+	SimplifyInitialPushOnce bool
 }
 
 type smtTrackedAssertion struct {
@@ -175,6 +178,7 @@ func newSMTSolver(m *ast.ASTManager, p *uparams.ParamsRef, logic string, config 
 		return nil, cleanupServices(errors.Join(err, config.Params.Del(&value)))
 	}
 	kernel.skipRepeatedPreprocessing = config.SkipRepeatedPreprocessing
+	kernel.simplifyInitialPushOnce = config.SimplifyInitialPushOnce
 	if err = kernel.configurePreprocessing(config.Params, globals, &value, sourceParams); err != nil {
 		return nil, cleanupServices(errors.Join(err, kernel.Close(), config.Params.Del(&value)))
 	}

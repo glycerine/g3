@@ -167,9 +167,8 @@ func (k *SMTKernel) reduceAssertedPending() (bool, error) {
 	if err := k.setAssertedEliminateAnd(false); err != nil {
 		return false, err
 	}
-	// The private order solver needs only a refutation. The first macro
-	// search and simplification still run. Stored definitions also expand
-	// at the start of each subsequent batch, including after a push.
+	// The shortened schedule retains the first macro search and simplification.
+	// Subsequent batches still expand all stored definitions after a push.
 	secondMacros, finalReduce := assertedMacros, assertedReduce
 	if k.skipRepeatedPreprocessing {
 		secondMacros, finalReduce = assertedSkip, assertedSkip
