@@ -1,6 +1,8 @@
 package smtcore
 
 import (
+	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -110,5 +112,64 @@ func BenchmarkModelTableGroundEnumeration(b *testing.B) {
 				b.Fatal("unexpected auxiliary solver checks", checks)
 			}
 		})
+	}
+}
+
+func TestModelTableReuseObservesChangedFunction(t *testing.T) {
+	m, _, md, _, _ := smtAuxiliaryQueryFixture(t, false)
+	f := newEnumTableFixture(t, tableTest{t, m, md})
+	body := f.term(m.MkEq(f.application, f.blue))
+	q := f.forall(body, f.element)
+	var scratch tableModel
+	status, witness, err := scratch.check(m, md, q, body, 1)
+	astTestMust(t, err)
+	if status != lbool.True || !slices.Equal(witness, []ast.ASTHandle{f.first}) {
+		t.Fatal("initial interpretation", status, witness)
+	}
+	// Interrupt compilation after visiting an interpreted application.
+	unsupported := f.term(m.MkAndArgs([]ast.ASTHandle{body, q}))
+	partial := f.forall(unsupported, f.element)
+	status, _, err = scratch.check(m, md, partial, unsupported, 1)
+	astTestMust(t, err)
+	if status != lbool.Undef {
+		t.Fatal("nested quantifier", status)
+	}
+	decl, err := m.GetDecl(f.application)
+	astTestMust(t, err)
+	fn, err := md.Core().FunctionInterpretation(decl)
+	astTestMust(t, err)
+	astTestMust(t, fn.SetElse(f.blue))
+	status, bindings, err := scratch.check(m, md, q, body, 1)
+	astTestMust(t, err)
+	if status != lbool.False || bindings != nil || !slices.Equal(witness, []ast.ASTHandle{f.first}) {
+		t.Fatal("changed interpretation or overwritten witness", status, bindings, witness)
+	}
+}
+
+func BenchmarkModelTableWorkerScratch(b *testing.B) {
+	m, _, md, _, _ := smtAuxiliaryQueryFixture(b, false)
+	f := newEnumTableFixture(b, tableTest{b, m, md})
+	body := f.term(m.MkEq(f.application, f.blue))
+	q := f.forall(body, f.element)
+	// All workers read the same fixture. This measures just the private scratch
+	// retained by each checker, excluding its solver, arena and model.
+	const workers = 1024
+	for i := 0; i < b.N; i++ {
+		var tables [workers]*tableModel
+		runtime.GC()
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		for j := range tables {
+			g := new(tableModel)
+			result, _, err := g.check(m, md, q, body, 1)
+			if err != nil || result != lbool.True {
+				b.Fatal(result, err)
+			}
+			tables[j] = g
+		}
+		runtime.GC()
+		runtime.ReadMemStats(&after)
+		runtime.KeepAlive(tables)
+		b.ReportMetric(float64(int64(after.HeapAlloc)-int64(before.HeapAlloc))/workers, "live-B/checker")
 	}
 }

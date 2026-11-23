@@ -41,7 +41,8 @@ func (f tableTest) check(q ast.ASTHandle, status lbool.LBool, want ...ast.ASTHan
 	astTestMust(f.t, err)
 	n, err := f.m.GetNumDeclarations(q)
 	astTestMust(f.t, err)
-	got, witness, err := checkTableModel(f.m, f.md, q, body, n)
+	var scratch tableModel
+	got, witness, err := scratch.check(f.m, f.md, q, body, n)
 	astTestMust(f.t, err)
 	if got != status || !slices.Equal(witness, want) {
 		f.t.Fatalf("got status %v witness %v, want %v %v", got, witness, status, want)

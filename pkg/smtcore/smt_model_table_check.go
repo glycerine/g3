@@ -125,10 +125,10 @@ func (g *tableModel) domain(sort ast.ASTHandle, boolean ast.ASTHandle, binders i
 	return domain, nil
 }
 
-// checkTableModel reports whether the negated body has a concrete witness.
+// check reports whether the negated body has a concrete witness.
 // Undef delegates to ordinary MBQI, including false tuples for which only
 // abstract representatives are available.
-func checkTableModel(m *ast.ASTManager, model *protomodel.ProtoModel, flat, body ast.ASTHandle, count uint32) (lbool.LBool, []ast.ASTHandle, error) {
+func (g *tableModel) check(m *ast.ASTManager, model *protomodel.ProtoModel, flat, body ast.ASTHandle, count uint32) (lbool.LBool, []ast.ASTHandle, error) {
 	if model.Core().Manager() != m || count == 0 || count > 6 || m.ResourceLimit().CancelFlag() {
 		return lbool.Undef, nil, nil
 	}
@@ -160,12 +160,18 @@ func checkTableModel(m *ast.ASTManager, model *protomodel.ProtoModel, flat, body
 	if err != nil {
 		return lbool.Undef, nil, err
 	}
-	g := tableModel{
-		manager: m, model: model, work: 6000,
-		values: []ast.ASTHandle{{}, no, yes}, sorts: []ast.ASTHandle{{}, boolean, boolean},
-		valueIDs: map[ast.ASTHandle]int{no: tableFalse, yes: tableTrue}, bySort: make(map[ast.ASTHandle][]int),
-		terms: make([]tableTerm, 1), termIDs: make(map[ast.ASTHandle]int), functionIDs: make(map[ast.ASTHandle]int),
+	g.manager, g.model, g.work = m, model, 6000
+	defer g.clearModel()
+	if g.valueIDs == nil {
+		g.valueIDs = make(map[ast.ASTHandle]int)
+		g.termIDs = make(map[ast.ASTHandle]int)
+		g.functionIDs = make(map[ast.ASTHandle]int)
+		g.bySort = make(map[ast.ASTHandle][]int)
 	}
+	g.valueIDs[no], g.valueIDs[yes] = tableFalse, tableTrue
+	g.values = append(g.values, ast.ASTHandle{}, no, yes)
+	g.sorts = append(g.sorts, ast.ASTHandle{}, boolean, boolean)
+	g.terms = append(g.terms, tableTerm{})
 	root, err := g.compile(body, 0)
 	if err != nil || g.incomplete {
 		return lbool.Undef, nil, err

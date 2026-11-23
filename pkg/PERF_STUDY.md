@@ -4188,3 +4188,22 @@ GoIvy used to build an insertion-ordered dictionary of every source symbol and a
 Each column uses the median of five complete runs on the same CPU per input, alternating frontend revisions. The g3 backend was at `dc7a660be` throughout. Four separate allocation pairs on dramc_nb2 measured **452 MB and 1.66 million fewer allocations** per g3 run. A first full run of the earlier prototype on `jea/hermes_rmw_o3_testing.ivy` reduced instructions from **1,578.57 to 1,438.55 billion** with g3 and **1,429.51 to 1,262.04 billion** with linked Z3. All 6,338 obligations passed. That Hermes comparison is one screening pair per backend. [Whole-process counters, allocations, corpus and trace controls](perf/ivy_apple/holdouts/nov23-skolem-renaming.tar.gz)
 
 In nine benchmark samples, renaming a clause with one local Skolem and 96 ordinary symbols fell from **73.23 to 6.67 µs**, **102,792 to 4,544 bytes**, and **529 to 14 allocations** per call. The existing no-local-Skolem benchmark fell from **166.5 to 12.61 ns** and from three allocations to zero. Run `go test -tags=xtrace_off -run '^$' -bench '^BenchmarkRenameDistinctClauses' -benchtime=2000x -benchmem -cpu=1 -count=9` in GoIvy. Both backends matched on stdout, stderr and exit status for 87 further inputs. The enabled rfn2 run preserved the complete 2,334,030,415-byte output stream. Python and Go also agreed on all 27,855 normalized Paxos output lines. [Benchmarks and verification records](perf/ivy_apple/holdouts/nov23-skolem-renaming.tar.gz)
+
+### Reusing finite-model table storage within one solver
+
+The finite-model checker compiles each quantified body against the current candidate model. One checker can do this thousands of times. Its small term, value and function arrays and lookup maps now survive a call. Every exit clears the interpretations, releases the model pointer and discards backing arrays that exceed the retention bounds. A published counterexample owns its bindings. The regression test changes the function interpretation between calls and also interrupts a compilation on an unsupported subformula. [Implementation](smtcore/smt_model_table_check.go) · [Regression and worker-storage benchmarks](smtcore/smt_model_table_enum_test.go)
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Retired instructions per ground-enumeration check | 51,447 | **34,881** |
+| Elapsed time per check | 6.97 µs | **3.98 µs** |
+| Bytes allocated per check | 4,640 | **320** |
+| Allocations per check | 38 | **15** |
+| Flash example, billion process instructions | 6.98 | **6.78** |
+| Abstract Raft, billion process instructions | 20.70 | **20.38** |
+| Ordinary `raftok`, billion process instructions | 18.86 | **18.54** |
+| `test/flash2.ivy`, billion process instructions | 14.56 | **14.31** |
+
+The first four rows use nine alternating pairs of 60,000 checks. The hardware counts include benchmark process startup divided by 60,000. The complete Flash and Raft examples use five alternating pairs each with GoIvy `463910ad1`. The test-directory Flash input has three pairs. On dramc_nb2 the median moved from 142.56 to 142.67 billion instructions. Linked Z3 used 4.46 billion instructions on the Flash example, 24.76 billion on abstract Raft and 19.85 billion on ordinary Raft. A separate prototype stored all argument lists and function rows in two additional buffers. It lowered the microbenchmark to ten allocations and saved about 3% more instructions there. Its complete verification counts were close to those of the simpler implementation. [All measurements and experimental variants](perf/ivy_apple/holdouts/nov23-model-table-storage.tar.gz)
+
+In twelve verification runs the reused and freshly compiled tables agreed on all **53,626 calls**, including the exact ordered values in **4,504 concrete counterexamples**, **47,915 certificates** and **1,207 inconclusive results**. All 87 corpus comparisons matched the native reference on output, diagnostics and exit status. The 1,024-checker benchmark measured **2,608 live bytes per active checker** for this small fixture after collection. It measures scratch storage separately from the solver and arena. Run `go test ./smtcore -run '^$' -bench '^BenchmarkModelTableWorkerScratch$' -benchtime=1x -cpu=1 -count=7` to reproduce the retention measurement. [Audit patch, individual decisions and benchmark samples](perf/ivy_apple/holdouts/nov23-model-table-storage.tar.gz)

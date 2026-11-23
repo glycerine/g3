@@ -20,6 +20,7 @@ type smtAuxiliarySolverFactory func() (*SMTSolver, error)
 // retain expression bindings until restart, when they enter the ordinary
 // quantifier queue at the restored base scope.
 type SMTModelChecker struct {
+	tableScratch     *tableModel
 	manager          *ast.ASTManager
 	state            *SMTInternalizerState
 	registry         *SMTQuantifierRegistry
@@ -413,7 +414,10 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	}
 	auxiliary := c.auxiliaryContext
 	if auxiliary.config.CheckUninterpretedModelTables && *remaining != 0 && c.canCheckModelTables() {
-		status, bindings, err := checkTableModel(c.manager, model, flat, body, count)
+		if c.tableScratch == nil {
+			c.tableScratch = new(tableModel)
+		}
+		status, bindings, err := c.tableScratch.check(c.manager, model, flat, body, count)
 		if err != nil || status == lbool.False {
 			return false, err
 		}
@@ -915,6 +919,7 @@ func (c *SMTModelChecker) Close() error {
 	c.registry = nil
 	c.modelFinder = nil
 	c.valueTerms = nil
+	c.tableScratch = nil
 	c.auxiliary = nil
 	c.manager = nil
 	return result

@@ -349,3 +349,27 @@ func (g *tableModel) function(decl ast.ASTHandle, arity uint32, depth int) (int,
 	g.functionIDs[decl] = id
 	return id, nil
 }
+
+// Each call compiles one candidate model. Retain small backing arrays for
+// the next quantifier and drop the model and its interpretations on every exit.
+func (g *tableModel) clearModel() {
+	if cap(g.terms) > 128 || cap(g.values) > 128 || cap(g.functions) > 16 {
+		*g = tableModel{}
+		return
+	}
+	g.manager = nil
+	g.model = nil
+	g.incomplete = false
+	g.work = 0
+	clear(g.valueIDs)
+	clear(g.enumDecls)
+	clear(g.bySort)
+	clear(g.termIDs)
+	clear(g.functionIDs)
+	clear(g.terms)
+	clear(g.functions)
+	g.terms = g.terms[:0]
+	g.functions = g.functions[:0]
+	g.values = g.values[:0]
+	g.sorts = g.sorts[:0]
+}
