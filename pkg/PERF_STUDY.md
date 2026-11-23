@@ -4481,7 +4481,7 @@ Across 144 checks at three sizes and three entry points, native Z3 accepted all 
 
 ### Eliminating equality-defined existential variables in verification conditions
 
-Apple `ord_live2.ivy` contains goals of the form `exists x. x = t and P(x)`. Once `x` has been replaced with `t` throughout its scope, no quantifier search is needed to discover that witness. The final g3 implementation reduced the complete 1,986-check verification from **3.542 to 2.843 trillion instructions**, and from 815 to 676 seconds on CPU 30. The complete stdout and stderr matched. A separate pair on CPU 12 measured 3.539 to 2.839 trillion with the preceding implementation. Linked Z3 used 1.965 trillion in that comparison. [All paired runs, transcripts and equivalence queries](perf/ivy_apple/holdouts/nov23-existential-definitions.tar.gz)
+Apple `ord_live2.ivy` contains goals of the form `exists x. x = t and P(x)`. Once `x` has been replaced with `t` throughout its scope, no quantifier search is needed to discover that witness. In two reverse-order comparisons on CPU 30, the final g3 implementation reduced the complete 1,986-check verification from **3.542–3.543 to 2.843–2.845 trillion instructions**. Elapsed times were 815 and 900 seconds before the change, 676 and 554 seconds after it, and 714 and 518 seconds with linked Z3. The complete stdout and stderr matched across all six runs. A separate pair on CPU 12 measured 3.539 to 2.839 trillion with the preceding implementation. Linked Z3 used 1.965 trillion in that comparison. [All paired runs, transcripts and equivalence queries](perf/ivy_apple/holdouts/nov23-existential-definitions.tar.gz)
 
 | Workload | g3 before, billion instructions | g3 with elimination | Checks |
 |---|---:|---:|---:|
