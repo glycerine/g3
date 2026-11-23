@@ -52,6 +52,7 @@ type orderProofState struct {
 	transitionPremises order.TransitionPremises
 	witnessPremises    *witnessPremises
 	definitions        *premiseDefinitions
+	enumeration        *enumerationRefutation
 	previousGoalProved bool
 	recent             *recentRefutations
 	bits               *orderBooleanSolver
@@ -90,6 +91,8 @@ func (b *OrderProofBatch) Prove() (bool, error) {
 // temporary Boolean goal before a fresh solver's first push. It preserves
 // the source assertions, scope level and result. False is inconclusive.
 // A caller can then push the goal and check it through the ordinary solver.
+// A batch started here can also reuse quantified finite-domain premises
+// when checking later sibling goals through Prove.
 func (b *OrderProofBatch) ProveWithGoal(goal ast.ASTHandle) (proved bool, err error) {
 	if b == nil || b.state == nil || b.state.source == nil {
 		return false, ErrSMTContextOwner
@@ -115,6 +118,11 @@ func (b *OrderProofBatch) ProveWithGoal(goal ast.ASTHandle) (proved bool, err er
 	if !ok || !combined.CanDeferFirstPush() {
 		return false, nil
 	}
+	// A verification batch that starts before the first push can reuse its
+	// finite-domain premises after the caller begins concrete checks.
+	if p.enumeration == nil {
+		p.enumeration = new(enumerationRefutation)
+	}
 	if s.pendingRefutation == p.recent {
 		s.pendingRefutation = nil
 	}
@@ -138,6 +146,10 @@ func (b *OrderProofBatch) Close() error {
 	if s := b.state.source; s != nil && s.pendingRefutation == b.state.recent {
 		s.pendingRefutation = nil
 	}
+	err := b.state.enumeration.release()
+	if err == nil {
+		b.state.enumeration = nil
+	}
 	b.state.transitionPremises = order.TransitionPremises{}
 	b.state.quantifiedPremises = order.QuantifiedPremises{}
 	b.state.groundPremises = order.GroundPremises{}
@@ -146,7 +158,7 @@ func (b *OrderProofBatch) Close() error {
 	b.state.definitions = nil
 	b.state.recent = nil
 	b.state.source = nil
-	return b.state.release()
+	return errors.Join(err, b.state.release())
 }
 
 func (p *orderProofState) prove(maxSteps uint32, reuse bool) (bool, error) {
@@ -157,7 +169,7 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 	var candidate *recentRefutations
 	defer func() {
 		if !reuse || !proved {
-			if closeErr := p.release(); closeErr != nil {
+			if closeErr := errors.Join(p.release(), p.enumeration.release()); closeErr != nil {
 				// A failed cleanup can leave assertions in the auxiliary solver.
 				// Only Close may retry cleanup after this point.
 				p.source = nil
@@ -223,10 +235,13 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 		candidate = p.recent
 	}
 	proved, err = p.proveAssertions(parent, assertions, maxSteps, reuse)
-	if err != nil || proved || goal.IsNull() || !p.previousGoalProved || limit.CancelFlag() {
-		return proved, err
+	if !proved && err == nil && !goal.IsNull() && p.previousGoalProved && !limit.CancelFlag() {
+		proved, err = p.proveRelevantPremises(parent, assertions)
 	}
-	return p.proveRelevantPremises(parent, assertions)
+	if !proved && err == nil && reuse && p.enumeration != nil && !limit.CancelFlag() {
+		return p.enumeration.check(parent, assertions)
+	}
+	return proved, err
 }
 
 func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []ast.ASTHandle, maxSteps uint32, reuse bool) (bool, error) {
