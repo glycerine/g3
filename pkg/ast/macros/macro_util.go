@@ -163,9 +163,10 @@ func (c *Candidates) Close() error {
 }
 
 type Util struct {
-	manager   *ast.ASTManager
-	forbidden map[ast.ASTHandle]struct{}
-	clause    ast.ASTHandle
+	manager          *ast.ASTManager
+	forbidden        map[ast.ASTHandle]struct{}
+	sharesManagerSet bool
+	clause           ast.ASTHandle
 	// paramsContext and globals feed bool_rewriter(m_manager), which reads
 	// the global rewriter module; nil means the bool_rewriter defaults.
 	paramsContext *uparams.ParamsContext
@@ -203,6 +204,7 @@ func NewUtil(m *ast.ASTManager) (*Util, error) {
 
 // SetForbidden borrows declaration identities; the caller keeps them live.
 func (u *Util) SetForbidden(declarations []ast.ASTHandle) {
+	u.sharesManagerSet = false
 	if len(declarations) == 0 {
 		u.forbidden = nil
 		return

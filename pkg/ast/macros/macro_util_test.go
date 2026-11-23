@@ -10,14 +10,14 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func must(t *testing.T, err error) {
+func must(t testing.TB, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func fixture(t *testing.T) *ast.ASTManager {
+func fixture(t testing.TB) *ast.ASTManager {
 	t.Helper()
 	b := arena.NewBudget(1 << 30)
 	s, err := usymbol.NewManager(usymbol.Config{Budget: b})
@@ -37,7 +37,7 @@ func fixture(t *testing.T) *ast.ASTManager {
 	return m
 }
 
-func declaration(t *testing.T, m *ast.ASTManager, name string, domain []ast.ASTHandle, result ast.ASTHandle) ast.ASTHandle {
+func declaration(t testing.TB, m *ast.ASTManager, name string, domain []ast.ASTHandle, result ast.ASTHandle) ast.ASTHandle {
 	t.Helper()
 	s, err := m.Symbols.Intern(name)
 	must(t, err)

@@ -229,12 +229,8 @@ func (m *Manager) restoreForbidden(limit int) error {
 	return nil
 }
 func (m *Manager) publishForbidden() {
-	values := make([]ast.ASTHandle, 0, len(m.forbiddenSet))
-	for d := range m.forbiddenSet {
-		values = append(values, d)
-	}
-	ast.SortHandles(values)
-	m.util.SetForbidden(values)
+	m.util.forbidden = m.forbiddenSet
+	m.util.sharesManagerSet = true
 }
 
 func (m *Manager) PopScope(count uint32) error {
@@ -398,10 +394,19 @@ func (m *Manager) MacroInterpretation(i int, out ast.ASTRef) (ast.ASTHandle, err
 	return d, nil
 }
 
-func (m *Manager) MarkForbidden(expressions []ast.ASTHandle) error {
+func (m *Manager) MarkForbidden(expressions []ast.ASTHandle) (result error) {
 	if err := m.open(); err != nil {
 		return err
 	}
+	// A failed walk can retain a newly forbidden declaration. The utility
+	// continues to expose its last published set until the next successful walk
+	// or scope restoration, so detach that snapshot only on this error path.
+	start := len(m.forbidden)
+	defer func() {
+		if result != nil && len(m.forbidden) > start && m.util.sharesManagerSet {
+			m.util.SetForbidden(m.forbidden[:start])
+		}
+	}()
 	seen := make(map[ast.ASTHandle]struct{})
 	stack := append([]ast.ASTHandle(nil), expressions...)
 	for len(stack) != 0 {
