@@ -13,38 +13,88 @@ import (
 	uhash "github.com/glycerine/g3/pkg/util/hash"
 )
 
-// smtMAMTrail is mam_trail_stack: value trails undone in reverse on pop.
+// smtMAMTrail undoes pattern-matcher changes in reverse order on pop.
+// Adjacent merges often save identical label sets. Keep the destinations in
+// order and store one copy of the two sets for each run.
 type smtMAMTrail struct {
-	undo   []func()
-	scopes []int
+	nodes     []*SMTEnode
+	labelRuns []smtMAMLabelRun
+	undo      []smtMAMUndo
+	scopes    []smtMAMScope
 }
 
-func (t *smtMAMTrail) push(undo func()) { t.undo = append(t.undo, undo) }
+type smtMAMLabelRun struct {
+	start              int
+	labels, propagated approx.UintSet
+}
 
-func (t *smtMAMTrail) pushScope() { t.scopes = append(t.scopes, len(t.undo)) }
+type smtMAMUndo struct {
+	restore   func()
+	nodeLimit int
+}
+
+type smtMAMScope struct {
+	nodeLimit, undoLimit int
+}
+
+func (t *smtMAMTrail) push(restore func()) {
+	t.undo = append(t.undo, smtMAMUndo{restore, len(t.nodes)})
+}
+
+func (t *smtMAMTrail) saveLabels(n *SMTEnode) {
+	last := len(t.labelRuns) - 1
+	if last < 0 || t.labelRuns[last].labels != n.labels || t.labelRuns[last].propagated != n.propagatedLabels {
+		t.labelRuns = append(t.labelRuns, smtMAMLabelRun{len(t.nodes), n.labels, n.propagatedLabels})
+	}
+	t.nodes = append(t.nodes, n)
+}
+
+func (t *smtMAMTrail) pushScope() {
+	t.scopes = append(t.scopes, smtMAMScope{len(t.nodes), len(t.undo)})
+}
 
 func (t *smtMAMTrail) popScope(n int) {
 	if n <= 0 || n > len(t.scopes) {
 		return
 	}
 	level := len(t.scopes) - n
-	limit := t.scopes[level]
-	for i := len(t.undo) - 1; i >= limit; i-- {
-		t.undo[i]()
-		t.undo[i] = nil // the popped closure's captures become collectable
-	}
-	t.undo = t.undo[:limit]
+	t.undoTo(t.scopes[level])
 	t.scopes = t.scopes[:level]
 }
 
-// reset is trail_stack::reset: pop every scope, then undo level 0.
+func (t *smtMAMTrail) undoTo(scope smtMAMScope) {
+	for len(t.undo) > scope.undoLimit {
+		i := len(t.undo) - 1
+		entry := t.undo[i]
+		t.restoreLabels(entry.nodeLimit)
+		entry.restore()
+		t.undo[i].restore = nil
+		t.undo = t.undo[:i]
+	}
+	t.restoreLabels(scope.nodeLimit)
+}
+
+func (t *smtMAMTrail) restoreLabels(limit int) {
+	for len(t.nodes) > limit {
+		last := len(t.labelRuns) - 1
+		run := t.labelRuns[last]
+		start := max(limit, run.start)
+		for j := len(t.nodes) - 1; j >= start; j-- {
+			node := t.nodes[j]
+			node.labels, node.propagatedLabels = run.labels, run.propagated
+			t.nodes[j] = nil
+		}
+		t.nodes = t.nodes[:start]
+		if start == run.start {
+			t.labelRuns = t.labelRuns[:last]
+		}
+	}
+}
+
 func (t *smtMAMTrail) reset() {
 	t.popScope(len(t.scopes))
-	for i := len(t.undo) - 1; i >= 0; i-- {
-		t.undo[i]()
-		t.undo[i] = nil
-	}
-	t.undo = t.undo[:0]
+	t.undoTo(smtMAMScope{})
+	*t = smtMAMTrail{}
 }
 
 func (t *smtMAMTrail) numScopes() int { return len(t.scopes) }

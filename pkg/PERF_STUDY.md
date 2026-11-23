@@ -4269,3 +4269,22 @@ For condition 132, the first core extraction alone cost native Z3 520.64 billion
 Three instruction-sampled profiles per engine place **68.75 billion** excess instructions in the rewriter and **58.03 billion** in quantifier handling on condition 132. Together they account for about half the 258.44 billion standalone gap. Internalization adds 26.09 billion and congruence handling adds 20.68 billion. Each sample belongs to its first classified stack frame. The periods, sample totals and leaf counts are in the archive. The evidence favors reducing unnecessary instances on expensive siblings and measuring the cost of each retained instance on exactly matched searches. [Profile tables and per-run counters](perf/ivy_apple/holdouts/nov23-apple-order-replays.tar.gz)
 
 From `pkg`, run `python3 perf/ivy_apple/holdouts/order_replay.py --suite apple --list` to list the inputs. Use `--case 14-all --g3 /path/to/g3 --z3 ../build/z3 --rounds 2` for the complete batch, or `--case 14-116-definitions` for the smaller proof. To reproduce the latter input, pipe `14-116.smt2` from the input archive into `python3 perf/ivy_apple/holdouts/order_definitions.py --depth 5`. [Replay driver](perf/ivy_apple/holdouts/order_replay.py)
+
+### Restoring quantifier matcher labels after backtracking
+
+Each equality merge saved two closures to restore the destination enode's label sets. On Apple batch 14, condition 132, **3,032,452 of 3,200,544 merges** saved the same pair of sets as the preceding merge within a measured span. The matcher now records destinations in order and stores a pair of label sets once per consecutive run. Each ordinary undo callback records its position among the merges. Popping a scope restores both kinds of changes in reverse order, including changes made through the public label accessors. Reset releases the backing arrays. Each matcher owns its history. [Restoration code](smtcore/smt_mam_code.go) · [Rollback tests and merge benchmark](smtcore/smt_mam_merge_trail_test.go)
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Instructions to push, merge once and pop | 962 | **283** |
+| Instructions to push, merge 256 times and pop | 245,635 | **36,749** |
+| Allocations per group of 256 merges after warmup | 512 | **0** |
+| Active trail bytes per matcher with 256 empty-label merges | 17,160 | **2,344** |
+| Active trail bytes per matcher with repeated nonempty labels | 17,160 | **2,368** |
+| Condition 104, objects allocated per complete shell invocation | 27,032,244 | **22,387,435** |
+| Condition 104, bytes allocated per invocation | 2,196,455,316 | **2,085,313,248** |
+| Complete `jea/issue73/ord.ivy`, billion instructions | 825.78 | **816.57** |
+
+The instruction microbenchmarks use eight paired slopes. The storage benchmark keeps 1,024 independent matchers live and measures the heap after collection. After pop, the measured overhead per matcher was 4,872 bytes before and 2,344–2,368 bytes after. After reset, the new trail returned to the measured baseline. The whole issue 73 figures are medians of three alternating pairs with byte-identical output on all 795 checks. Seven standalone proofs completed three pairs each with identical conflicts, decisions, propagations and instantiations. In eight further Ivy comparisons with five pairs each, all verdicts matched. The 87-input corpus matched linked Z3 on stdout, stderr and exit status. [Raw measurements and alternative representations](perf/ivy_apple/holdouts/nov23-mam-merge-trail.tar.gz)
+
+Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTMAMMergeTrail$' -benchmem -cpu=1` for hot-path cost, or use `-bench '^BenchmarkSMTMAMMergeTrailWorkers$' -benchtime=1x -count=8` for per-worker storage. [Worker benchmark](smtcore/smt_mam_merge_trail_workers_benchmark_test.go)

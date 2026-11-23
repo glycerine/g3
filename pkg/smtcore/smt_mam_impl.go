@@ -902,12 +902,7 @@ func (r *smtMAMImpl) AddEqEh(r1, r2 *SMTEnode) {
 	r.processPP(r1, r2)
 	r.r1, r.r2 = savedR1, savedR2
 
-	r1Plbls := r1.propagatedLabels
-	r1Lbls := r1.labels
-	oldLbls := r2.labels
-	r.trail.push(func() { r2.labels = oldLbls })
-	oldPlbls := r2.propagatedLabels
-	r.trail.push(func() { r2.propagatedLabels = oldPlbls })
-	r2.labels.UnionWith(r1Lbls)
-	r2.propagatedLabels.UnionWith(r1Plbls)
+	r.trail.saveLabels(r2)
+	r2.labels.UnionWith(r1.labels)
+	r2.propagatedLabels.UnionWith(r1.propagatedLabels)
 }
