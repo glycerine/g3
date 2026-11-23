@@ -182,11 +182,17 @@ func checkTableModel(m *ast.ASTManager, model *protomodel.ProtoModel, flat, body
 			}
 			bySort[sort] = domain
 		}
-		if len(domain) == 0 || len(domain) > 64 || tuples > tableMaxTuples/len(domain) {
+		if len(domain) == 0 || len(domain) > 64 {
 			return lbool.Undef, nil, nil
 		}
 		domains[i] = domain
-		tuples *= len(domain)
+		if tuples <= tableMaxTuples {
+			tuples *= len(domain)
+		}
+	}
+	if tuples > tableMaxTuples {
+		status, witness := g.checkDiagram(root, domains)
+		return status, witness, nil
 	}
 	g.work = 100000
 	positions := make([]int, count)

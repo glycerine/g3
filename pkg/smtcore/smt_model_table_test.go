@@ -122,7 +122,7 @@ func TestModelTablesFunctionRowsAndArgumentOrder(t *testing.T) {
 	f.check(q, lbool.Undef)
 }
 
-func TestModelTablesRespectAuxiliaryPremisesLimitsAndTupleBudget(t *testing.T) {
+func TestModelTablesRespectAuxiliaryPremisesAndLimits(t *testing.T) {
 	m, c, md, _, _ := smtAuxiliaryQueryFixture(t, false)
 	f := tableTest{t, m, md}
 	b := f.term(m.MkBoolSort())
@@ -139,9 +139,10 @@ func TestModelTablesRespectAuxiliaryPremisesLimitsAndTupleBudget(t *testing.T) {
 	astTestMust(t, md.FreezeUniverse(s))
 	id := f.term(m.MkVar(0, s))
 	wide := f.forall(f.term(m.MkEq(id, id)), s, s, s)
-	f.check(wide, lbool.Undef)
+	f.check(wide, lbool.False)
 	m.ResourceLimit().IncCancel()
 	f.check(q, lbool.Undef)
+	f.check(wide, lbool.Undef)
 	m.ResourceLimit().DecCancel()
 	astTestMust(t, c.initAuxiliaryContext())
 	a := c.auxiliaryContext
@@ -271,6 +272,15 @@ func TestModelTablesAgreeWithGroundModelEvaluation(t *testing.T) {
 			f.check(q, lbool.False)
 		} else {
 			f.check(q, lbool.True, want...)
+		}
+		// Four unused outer declarations lift the same body from 9 tuples
+		// to 729. The diagram must produce the same first witness as the
+		// independent ground-model evaluation above, including those binders.
+		wide := f.forall(body, sort, sort, sort, sort, sort, sort)
+		if want == nil {
+			f.check(wide, lbool.False)
+		} else {
+			f.check(wide, lbool.True, universe[0], universe[0], universe[0], universe[0], want[0], want[1])
 		}
 		pool = append(pool, body)
 	}
