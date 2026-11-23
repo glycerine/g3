@@ -47,6 +47,7 @@ type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
 	groundPremises     order.GroundPremises
+	universalPremises  order.UniversalPremises
 	transitionPremises order.TransitionPremises
 	witnessPremises    *witnessPremises
 	definitions        *premiseDefinitions
@@ -71,7 +72,8 @@ func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
 
 // Prove has the same result contract as ProveUnsatByOrderAbstraction.
 // A successful attempt removes or disables its query suffix. Later attempts
-// can reuse identical premises in the same generated language. An inconclusive
+// can reuse identical premises in the same generated language or match a
+// ground query against a universally quantified premise. An inconclusive
 // attempt releases the private kernel before the caller's concrete check.
 // The batch can also reuse a recent concrete UNSAT result under exactly
 // the same ordered assertions. Each source solver observes its own checks.
@@ -137,6 +139,7 @@ func (b *OrderProofBatch) Close() error {
 	}
 	b.state.transitionPremises = order.TransitionPremises{}
 	b.state.groundPremises = order.GroundPremises{}
+	b.state.universalPremises = order.UniversalPremises{}
 	b.state.witnessPremises = nil
 	b.state.definitions = nil
 	b.state.recent = nil
@@ -249,12 +252,19 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 				}
 			}
 			if bits == nil {
-				if hasOriginalAssertions(s.solver) {
+				combined, combinedSolver := s.solver.(*solver.CombinedSolver)
+				original := combinedSolver && combined.HasOriginalAssertions()
+				if original {
 					if yes, e := p.groundPremises.Refutes(parent, assertions, maxSteps); yes || e != nil || limit.CancelFlag() {
 						return yes, e
 					}
+					if reuse {
+						if yes, e := p.universalPremises.Refutes(parent, assertions, maxSteps, combined.CanDeferFirstPush()); yes || e != nil || limit.CancelFlag() {
+							return yes, e
+						}
+					}
 				}
-				if consistent && hasOriginalAssertions(s.solver) {
+				if consistent && original {
 					subset, err := p.shortPremises(parent, assertions)
 					if err != nil || limit.CancelFlag() {
 						return false, err
