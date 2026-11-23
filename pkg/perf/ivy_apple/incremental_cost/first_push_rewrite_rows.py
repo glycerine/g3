@@ -18,10 +18,14 @@ from relevance_counts import make_value
 def patched_files(args, stage):
     study = "native" if args.engine == "native" else args.mode
     diff = gzip.decompress((HERE / f"nov23-row-{study}.patch.gz").read_bytes()).decode()
+    return stage_patch(diff, args.goivy, stage)
+
+
+def stage_patch(diff, goivy, stage):
     sources = {}
     for before, after in re.findall(r"^--- (\S+)\n\+\+\+ b/(\S+)$", diff, re.M):
         project, relative = after.split("/", 1)
-        root = {"g3": G3, "ivy": args.goivy.parent}[project]
+        root = {"g3": G3, "ivy": goivy.parent}[project]
         src = root / relative
         target = stage / after
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -65,8 +69,12 @@ def checker(args, stage):
     sources = patched_files(args, stage)
     native = args.engine == "native"
     flags = native_library(args, stage, sources) if native else []
+    return build_checker(args.goivy, stage, sources, args.abc, native, flags)
+
+
+def build_checker(goivy, stage, sources, abc=None, native=False, flags=()):
     local = Path(json.loads(subprocess.check_output(
-        ["go", "list", "-mod=readonly", "-m", "-json", "github.com/glycerine/g3/pkg"], cwd=args.goivy))["Dir"])
+        ["go", "list", "-mod=readonly", "-m", "-json", "github.com/glycerine/g3/pkg"], cwd=goivy))["Dir"])
     if not local.samefile(G3 / "pkg"):
         raise ValueError(f"GoIvy uses {local}, expected a local replacement to {G3 / 'pkg'}")
     mapping = {}
@@ -81,9 +89,9 @@ def checker(args, stage):
     tags = "xtrace_off,classic_z3" if native else "xtrace_off"
     subprocess.run(["go", "build", "-mod=readonly", "-pgo=off", "-buildvcs=false", "-tags=" + tags,
                     "-overlay=" + str(overlay), *flags, "-o", binary, "./cmd/goivy_check"],
-                   cwd=args.goivy, check=True)
-    if args.abc:
-        (stage / "abc").symlink_to(args.abc.resolve(strict=True))
+                   cwd=goivy, check=True)
+    if abc:
+        (stage / "abc").symlink_to(abc.resolve(strict=True))
     return binary
 
 

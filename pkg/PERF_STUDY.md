@@ -3877,3 +3877,33 @@ python3 perf/ivy_apple/incremental_cost/first_push_rewrite_rows.py \
 python3 perf/ivy_apple/incremental_cost/summarize_first_push_rewrites.py \
   /tmp/g3-tlb-rows/1/observations.gz
 ```
+
+### How many first pushes can a stronger Boolean solver eliminate?
+
+For every ground goal that the existing unit-propagation proof could not settle, I saved its Boolean clauses and goal, then solved that projection to completion in native Z3. Each live premise index had its own identifier. New ground atoms in a goal received distinct Boolean variables, with repeated occurrences sharing one variable. UNSAT therefore proves the original goal impossible. SAT leaves the original theory question open. This measures the maximum additional coverage available from the *same clauses*, independently of how fast g3 could search them. [Per-goal outcomes for three premise constructions](perf/ivy_apple/goal_instances/nov23-projected-goals.csv.gz)
+
+| Input | Goals left by unit propagation | Additional Boolean refutations | Batches with residual goals | Batches where Boolean search discharged every residual goal |
+|---|---:|---:|---:|---:|
+| TLB | 2,654 | 379 | 58 | 0 |
+| Apple cf_live | 104 | 18 | 12 | 0 |
+| Apple dramc_nb2 | 101 | 36 | 19 | 1 |
+| Flash | 1,546 | 0 | 28 | 0 |
+| Hybrid reliable broadcast | 271 | 21 | 34 | 0 |
+| Ticket | 93 | 3 | 12 | 0 |
+| Abstract Raft | 156 | 0 | 13 | 0 |
+| raftok | 143 | 0 | 14 | 0 |
+
+On TLB the Boolean solver discharged the first residual goal in 15 batches. Each of the 58 batches still had a later residual goal that required reasoning outside the projection. Both real counterexamples remained satisfiable. On Flash, all 1,546 projections were satisfiable. Investing in faster SAT search over these particular clauses would leave every Flash miss unresolved. Matching a goal directly against a quantified premise can supply the missing relationship without generating a larger clause set for every sibling. [TLB captured clauses and original answers](perf/ivy_apple/goal_instances/nov23-tlb-projection.events.gz) · [Independent replay driver](perf/ivy_apple/goal_instances/ground_projection_replay.py)
+
+I also ran 800 complete g3 verifications across three experiments, rotating build order on a pinned logical CPU for each input. Each retained its reference proof output and exit status. Adding application-congruence clauses moved median TLB instructions from 106.67 to 105.20 billion. Using four ground constants per sort moved it to 108.08 billion. Matching flat quantifier triggers across the entire base, even at four instances per pattern, raised TLB from 106.59 to 178.64 billion and dramc_nb2 from 162.29 to 168.64 billion. Consulting an already-prepared unit index before later pushes saved 1.81 billion TLB instructions out of 107.29. These measurements favor deriving instances from the pending goal and retaining a concrete scope when later goals can reuse its search state. [800 complete runs](perf/ivy_apple/goal_instances/nov23-ground-proof-trials.csv.gz) · [Prototype patches](perf/ivy_apple/goal_instances/nov23-ground-proof-prototypes.tar.gz)
+
+From `pkg`, the first command below replays all 2,654 stored TLB goals. The second rebuilds the observer that captured them, using g3 `94e5b2998` and GoIvy `01aa2c6fa` with its local g3 module replacement. The archive also contains each timed build. For example, select `congruence/eu` to build the application-congruence experiment. [Build driver](perf/ivy_apple/goal_instances/ground_proof_checker.py)
+
+```sh
+python3 perf/ivy_apple/goal_instances/ground_projection_replay.py \
+  --capture perf/ivy_apple/goal_instances/nov23-tlb-projection.events.gz \
+  --solver /path/to/ivy/goivy/z3vendor/native_lib/z3 --output /tmp/tlb-boolean.csv
+python3 perf/ivy_apple/goal_instances/ground_proof_checker.py \
+  --variant projection/control --goivy /path/to/ivy/goivy --abc /path/to/abc \
+  --output /tmp/tlb-projection-checker
+```
