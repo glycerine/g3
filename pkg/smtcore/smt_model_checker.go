@@ -412,6 +412,27 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 		return false, err
 	}
 	auxiliary := c.auxiliaryContext
+	if auxiliary.config.CheckUninterpretedModelTables && *remaining != 0 && c.canCheckModelTables() {
+		status, bindings, err := checkTableModel(c.manager, model, flat, body, count)
+		if err != nil || status == lbool.False {
+			return false, err
+		}
+		if status == lbool.True {
+			// PullQuantifierNoProof preserves the original declarations as a
+			// prefix. addFiniteCounterexample recovers precisely that prefix
+			// from the instantiation sets, as auxiliaryBindings does.
+			previous, exhausted := len(c.newInstances), c.exhausted
+			added, err := c.addFiniteCounterexample(quantifier, bindings)
+			if err != nil {
+				return false, err
+			}
+			if added && len(c.newInstances) > previous {
+				*remaining--
+				return true, nil
+			}
+			c.exhausted = exhausted
+		}
+	}
 	if err = auxiliary.PushCore(); err != nil {
 		return false, err
 	}

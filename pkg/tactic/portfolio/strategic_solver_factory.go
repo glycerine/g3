@@ -34,6 +34,7 @@ func NewSMTStrategicSolverFactory(logic string, config smtcore.SMTSolverConfig) 
 // for incremental callers. A logic with a dedicated strategy keeps that strategy.
 func NewIncrementalStrategicSolverFactory(logic string, config smtcore.SMTSolverConfig) (solver.Factory, error) {
 	config.CheckIntegerModelRegions = true
+	config.CheckUninterpretedModelTables = true
 	return newStrategicSolverFactory(logic, config, os.Stdout, true)
 }
 

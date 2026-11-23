@@ -34,6 +34,9 @@ type SMTSolverConfig struct {
 	// CheckIntegerModelRegions lets verification clients choose integer witnesses
 	// by comparison region. Witness order can affect the final printed model.
 	CheckIntegerModelRegions bool
+	// CheckUninterpretedModelTables checks small universal formulas directly
+	// in their candidate model before starting an auxiliary SMT search.
+	CheckUninterpretedModelTables bool
 	// SkipRepeatedPreprocessing omits the second macro search and final
 	// simplifier pass in private refutation contexts.
 	SkipRepeatedPreprocessing bool
