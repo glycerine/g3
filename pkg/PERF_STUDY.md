@@ -4225,3 +4225,16 @@ Z3 accepts arithmetic expressions for the cost and generation of a quantifier in
 The unit benchmark uses nine alternating pairs of 1.5 million operations and includes process startup amortized across the iterations. Both revisions allocated zero bytes per operation. Run `go test ./smtcore -run '^$' -bench '^BenchmarkSMTQICostDefaults$' -benchtime=1500000x -benchmem -cpu=1`. All nine standalone obligations used three alternating pairs and matched on verdicts, conflicts, decisions, propagations and quantifier instantiations. Across eight complete Ivy verifications with five pairs each, rfn2 was essentially flat at 13.94 versus 13.98 billion instructions. The 2.26× local improvement saved 1.1% of all instructions on the hardest standalone Apple condition. [Per-run counters and alternative implementations](perf/ivy_apple/holdouts/nov23-qi-default-cost.tar.gz)
 
 The complete 87-input corpus matched linked Z3 on output, diagnostics and exit status. The first linked-Z3 attempt on `raft_no_assume_test.ivy` reached 320 checks before its 240-second wall-clock limit on the shared CPU. Repeating the pair on that CPU with a 1,200-second limit completed all 419 checks on both engines. The archive includes the initial attempt and the retry. [Corpus results and tagged focused tests](perf/ivy_apple/holdouts/nov23-qi-default-cost.tar.gz)
+
+### Formatting formulas for silent GoIvy traces
+
+GoIvy commit `704b800e5` checks whether a trace can emit output before building its arguments. Allocation profiles identified calls that formatted formulas during variable lowering, sort translation, proof checking and temporal reduction. One temporal diagnostic also walked the entire list of axioms to print them. Both solver backends use this frontend.
+
+| Complete verification | g3 before, billion instructions | g3 after | Linked Z3 before | Linked Z3 after |
+|---|---:|---:|---:|---:|
+| Apple rfn2 | 13.89 | **12.63** | 50.95 | **49.64** |
+| Apple dramc_nb2 | 142.71 | **139.55** | 150.03 | **146.37** |
+| Apple cf_live | 55.67 | **54.03** | 57.18 | **55.65** |
+| TLB | 97.95 | **97.09** | 68.05 | **67.06** |
+
+Each figure is the median of five runs on the same CPU for that input, alternating the frontend builds. Four separate allocation pairs measured a drop from 10.318 to 9.970 GB per complete g3 run on dramc_nb2 and from 1.054 to 0.964 GB on rfn2. All 87 paired corpus inputs matched linked Z3 on output, diagnostics and exit status. With tracing enabled, both frontend revisions emitted identical 2,334,030,415-byte rfn2 output. The Paxos control also matched Python across all 27,855 normalized lines. [Process counters, allocations, corpus and trace checks](perf/ivy_apple/holdouts/nov23-trace-argument-guards.tar.gz)
