@@ -4438,3 +4438,17 @@ The table gives medians from three alternating pinned runs on the Threadripper 3
 Independent validation covered 21 input families, three sizes, and three solver routes. For each returned model, the harness bound **every** variable to its printed exact value and asked native Z3 to solve the original assertions again. Across the 189 checks, native accepted 8,374 variable assignments. All 27 UNSAT controls agreed, and both default solvers returned unknown on three mixed-sort checks. Selecting the nonlinear portfolio explicitly produced validated models on those cases. The seven incremental, resource, core and proof controls preserved output, as did 42 repository vectors. The AST, NLSAT tactic, nonlinear portfolio and CLI suites passed. Four historical native-comparison fixtures still differ on malformed datatype declarations, an out-of-range regular-expression bound, and a truncated OPB input. We reproduced all four with the baseline binary. [Model validation and workload generator](perf/nlsat/integer_model_cases.py) · [Tactic regression tests](nlsat/tactic/integer_candidate_test.go)
 
 Reproduce a large ordinary case with `python3 perf/nlsat/integer_model_cases.py 16384 | ./g3 -in -smt2`. To check models from 21 families, run `python3 perf/nlsat/integer_model_cases.py 53 --verify ./g3 ../build/z3`. Repeat with `--route qfnra` and `--route nlsat-portfolio` to exercise both named strategies.
+
+### Positive integer powers in nonlinear arithmetic
+
+The same polynomial can enter the solver as `(* x x)` or `(^ x 2)`. The integer witness search now recognizes both forms. For a positive integral exponent it bounds the size of the exact result before evaluation. A square of a free constant supplies the same magnitude bounds as multiplication. Variable, fractional, nonpositive and excessive exponents continue through the existing solver. This fork exposes the SMT-LIB power operator under `(set-logic ALL)`. [Bounds and tests](nlsat/tactic/integer_candidate_bounds.go) · [Native operator registration](../src/ast/arith_decl_plugin.cpp)
+
+| Complete nonlinear check | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 8,192 independent square bounds, ordinary check | 43.589 | **2.018** | 1.651 |
+| 2,048 independent square bounds, explicit `qfnra-nlsat` | 8.532 | **0.250** | 0.406 |
+| 512 sums of neighboring second and fourth powers | 3.737 | **0.310** | 0.237 |
+| 512 mixed-sign cubic inequalities | 5.263 | 5.326 | 0.337 |
+| 128 variables, one forced irrational square root | 0.663 | 0.661 | 0.052 |
+
+The ordinary 8,192-variable case improved **21.6×** in retired instructions. Its median wall time fell from 12.97 s to 0.60 s, versus 0.43 s for Z3. The explicit 2,048-variable portfolio took 0.112 s versus 0.130 s for Z3. The mixed-sign cubic case still reached NLSAT, which used 513 search stages in both g3 builds. The measurements use three alternating pinned rounds against `471137617`. Independent native replay covered five new input families, three sizes and three solver routes. Z3 accepted all 1,608 returned variable assignments and agreed on all nine contradictions. [Inputs and model-checking driver](perf/nlsat/integer_model_cases.py) · [Raw counts, outputs and model checks](perf/nlsat/nov23-positive-powers.tar.gz)

@@ -11,8 +11,9 @@ SHAPES = (
     "independent", "ordered", "scrambled", "norm", "outside", "shell", "mixed",
     "boolean", "coupled", "intervals", "ite", "fixed", "conflict", "latezero",
     "cycle", "linear", "fractional", "irrational", "large", "integers", "mixed-sorts",
+    "power", "odd-power", "coupled-powers", "power-conflict", "power-irrational",
 )
-UNSAT = {"conflict", "latezero", "cycle"}
+UNSAT = {"conflict", "latezero", "cycle", "power-conflict"}
 ROUTES = {"ordinary": "(check-sat)", "qfnra": "(check-sat-using qfnra)",
           "nlsat-portfolio": "(check-sat-using qfnra-nlsat)"}
 
@@ -26,6 +27,9 @@ def workload(shape, count, seed):
     rng = random.Random(seed)
     names = [f"x{i}" for i in range(count)]
     logic = {"integers": "QF_NIA", "mixed-sorts": "QF_NIRA"}.get(shape, "QF_NRA")
+    if "power" in shape:
+        # This fork exposes the ^ extension in ALL.
+        logic = "ALL"
     lines = ["(set-option :produce-models true)", f"(set-logic {logic})"]
     integer = [shape == "integers" or shape == "mixed-sorts" and i % 2 == 0
                for i in range(count)]
@@ -60,6 +64,13 @@ def workload(shape, count, seed):
             a, b = (i % 11) - 5, ((i + 1) % count % 11) - 5
             forms.extend((f"(= {numeral(a)} {x})",
                           f"(= (+ {product} {square}) {numeral(a * b + a * a)})"))
+        elif shape in ("power", "power-conflict", "power-irrational"):
+            forms.append(f"(> (^ {x} 2) 5)")
+        elif shape == "odd-power":
+            forms.append(f"(> (^ {x} 3) 19)" if i % 2
+                         else f"(and (< {x} 0) (< (^ {x} 3) (- 5)))")
+        elif shape == "coupled-powers":
+            forms.append(f"(> (+ (^ {x} 2) (^ {y} 4)) 15)")
         elif shape == "linear":
             forms.append(f"(> {x} {i % 5})")
         elif shape == "mixed-sorts":
@@ -81,6 +92,10 @@ def workload(shape, count, seed):
         forms.append("(= x0 (/ 7.0 3.0))")
     if shape == "irrational":
         forms.extend(("(= (* x0 x0) 3)", "(> x0 0)"))
+    if shape == "power-conflict":
+        forms.append("(<= (^ x0 2) 5)")
+    if shape == "power-irrational":
+        forms.extend(("(= (^ x0 2) 7)", "(< x0 0)"))
     if shape == "large":
         forms.append("(= x0 9223372036854775808)")
     if shape in ("fixed", "intervals"):

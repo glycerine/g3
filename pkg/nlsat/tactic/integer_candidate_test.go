@@ -224,3 +224,55 @@ func TestIntegerCandidateCheckedSquare(t *testing.T) {
 		}
 	}
 }
+
+func TestIntegerCandidatePowerBounds(t *testing.T) {
+	f := newGoalCompilerFixture(t)
+	m := f.manager
+	two, err := m.ArithmeticRealNumeralText("2")
+	compilerMust(t, err)
+	realSort, err := m.GetSort(two)
+	compilerMust(t, err)
+	x := compilerConst(t, m, "power-base", realSort)
+	holdX, err := m.NewRef(x)
+	compilerMust(t, err)
+	defer func() { compilerMust(t, m.DelRef(&holdX)) }()
+	arithmetic, err := m.ArithmeticFamilyID()
+	compilerMust(t, err)
+	for _, tc := range []struct {
+		exponent  string
+		wantKind  candidateTermKind
+		wantWidth uint16
+		nonlinear bool
+	}{
+		{"1", candidateConstant, 33, false},
+		{"2", candidateSquare, 66, true},
+		{"3", candidateOther, 99, true},
+		{"15", candidateOther, 495, true},
+		{"16", candidateOther, 0, false},
+		{"2147483647", candidateOther, 0, false},
+		{"0", candidateOther, 0, false},
+		{"-2", candidateOther, 0, false},
+		{"1/2", candidateOther, 0, false},
+		{"x", candidateOther, 0, false},
+	} {
+		t.Run(tc.exponent, func(t *testing.T) {
+			exponent := x
+			if tc.exponent != "x" {
+				var err error
+				exponent, err = m.ArithmeticRealNumeralText(tc.exponent)
+				compilerMust(t, err)
+			}
+			power, err := m.MkArithmeticPower(x, exponent)
+			compilerMust(t, err)
+			held, err := m.NewRef(power)
+			compilerMust(t, err)
+			defer func() { compilerMust(t, m.DelRef(&held)) }()
+			p := integerCandidate{manager: m, arithmetic: arithmetic, terms: make(map[ast.ASTHandle]candidateTerm)}
+			term, ok, err := p.scan(power, 0)
+			compilerMust(t, err)
+			if ok != (tc.wantWidth != 0) || ok && (term.kind != tc.wantKind || term.bits != tc.wantWidth || !term.depends || p.nonlinear != tc.nonlinear) {
+				t.Fatalf("scan x^%s returned %+v, accepted=%v, nonlinear=%v", tc.exponent, term, ok, p.nonlinear)
+			}
+		})
+	}
+}

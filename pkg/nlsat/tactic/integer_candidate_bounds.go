@@ -66,6 +66,7 @@ const (
 	candidateMul
 )
 const candidateToReal int32 = 14
+const candidatePower int32 = 18
 
 func (p *integerCandidate) scan(h ast.ASTHandle, depth int) (candidateTerm, bool, error) {
 	if term, ok := p.terms[h]; ok {
@@ -112,6 +113,10 @@ func (p *integerCandidate) scan(h ast.ASTHandle, depth int) (candidateTerm, bool
 			}
 			term = candidateTerm{kind: candidateInteger, index: x, bits: uint16(bits.Len64(uint64(max(int64(x), -int64(x)))) + 1)}
 			p.largest = max(p.largest, int64(x), -int64(x))
+		case candidatePower:
+			if hd.NumArgs != 2 {
+				return term, false, nil
+			}
 		case candidateLE, candidateGE, candidateLT, candidateGT, candidateAdd, candidateSub, candidateNeg, candidateMul, candidateToReal:
 		default:
 			return term, false, nil
@@ -127,7 +132,7 @@ func (p *integerCandidate) scan(h ast.ASTHandle, depth int) (candidateTerm, bool
 		return term, false, nil
 	}
 	p.work += 1 + int(hd.NumArgs)
-	var first candidateTerm
+	var first, last candidateTerm
 	largestBits, totalBits := 0, 0
 	for i := uint32(0); i < hd.NumArgs; i++ {
 		a, err := m.GetArg(h, i)
@@ -150,12 +155,28 @@ func (p *integerCandidate) scan(h ast.ASTHandle, depth int) (candidateTerm, bool
 			}
 		}
 		term.depends = term.depends || child.depends
+		last = child
 	}
 	if hd.NumArgs > 0 {
 		width := 1
 		switch {
 		case hd.Family == p.arithmetic && hd.DeclKind == candidateMul:
 			width = totalBits
+		case hd.Family == p.arithmetic && hd.DeclKind == candidatePower:
+			// Positive integral powers have an exact value on every candidate.
+			// Bound the exponent before multiplying widths, including on 32-bit hosts.
+			if last.kind != candidateInteger || last.index < 1 || last.index > maxCandidateIntegerBits {
+				return term, false, nil
+			}
+			width = int(first.bits) * int(last.index)
+			if last.index == 1 {
+				term = first
+			} else if first.depends {
+				p.nonlinear = true
+				if last.index == 2 && first.kind == candidateConstant {
+					term.kind, term.index = candidateSquare, first.index
+				}
+			}
 		case hd.Family == p.arithmetic && (hd.DeclKind == candidateAdd || hd.DeclKind == candidateSub):
 			width = largestBits + bits.Len32(hd.NumArgs)
 		case hd.Family == p.arithmetic && hd.DeclKind == candidateToReal && hd.NumArgs == 1:
