@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestProjectionPSCSelectsFirstNonvanishingAndConstantStop(t *testing.T) {
+func TestProjectionPSCKeepsVanishingFactorsAndStopsAtConstant(t *testing.T) {
 	for _, value := range []int64{0, 2} {
 		e, _, n, todo := projectionCoefficientFixture(t, false)
 		evaluatorSetFraction(t, e, 0, value, 1)
@@ -15,19 +15,13 @@ func TestProjectionPSCSelectsFirstNonvanishingAndConstantStop(t *testing.T) {
 		pRef, qRef := vanishingRef(t, e, p), vanishingRef(t, e, q)
 		assignmentMust(t, n.collectProjectionPSC(pRef, qRef, 1))
 		values := projectionValues(t, todo.set)
-		if value == 0 {
-			if len(values) != 0 || len(n.output.result) != 1 {
-				t.Fatal("vanished PSC did not add zero assumption and stop at constant", values, n.output.result)
-			}
-		} else {
-			if len(values) != 1 || len(n.output.result) != 0 {
-				t.Fatal("nonvanishing PSC not selected", values, n.output.result)
-			}
-			degree, err := e.core.Degree(values[0], 0)
-			assignmentMust(t, err)
-			if degree != 1 {
-				t.Fatal("wrong selected resultant", degree)
-			}
+		if len(values) != 1 || len(n.output.result) != 0 {
+			t.Fatal("expected one cell boundary before the constant PSC", values, n.output.result)
+		}
+		degree, err := e.core.Degree(values[0], 0)
+		assignmentMust(t, err)
+		if degree != 1 {
+			t.Fatal("wrong selected resultant", degree)
 		}
 	}
 }

@@ -26,7 +26,7 @@ func TestProjectionDiscriminantsPrebuiltCPPOracle(t *testing.T) {
 		for root := int32(-2); root <= 2; root++ {
 			for _, vanishes := range []bool{false, true} {
 				for _, factor := range []bool{false, true} {
-					e, r, n, todo := projectionCoefficientFixture(t, factor)
+					e, _, n, todo := projectionCoefficientFixture(t, factor)
 					value := root + 2
 					if vanishes {
 						value = root
@@ -45,26 +45,17 @@ func TestProjectionDiscriminantsPrebuiltCPPOracle(t *testing.T) {
 					independent := "(+ (* " + power + ") (- x0) " + intervalSMTInteger(root) + ")"
 					actual := explanationPolynomialSMT(t, e, p)
 					query("(not (= " + actual + " " + independent + "))")
-					if vanishes {
-						if len(n.output.result) != 1 || len(projectionValues(t, todo.set)) != 0 {
-							t.Fatal("vanishing discriminant frontier", n.output.result)
-						}
-						a := explanationLiteralSMT(t, e, r, n.output.result[0])
-						query("(and (= x0 " + intervalSMTInteger(value) + ") " + a + ")")
-						query("(not (= " + a + " (not (= x0 " + intervalSMTInteger(root) + "))))")
-					} else {
-						var zeros []string
-						for _, s := range projectionValues(t, todo.set) {
-							zeros = append(zeros, "(= "+explanationPolynomialSMT(t, e, s)+" 0.0)")
-						}
-						if len(zeros) == 0 {
-							t.Fatal("discriminant polynomials absent")
-						}
-						zero := "(or " + strings.Join(zeros, " ") + ")"
-						derivative := fmt.Sprintf("(* %d %s)", degree, dpPower)
-						query("(not (= " + zero + " (= x0 " + intervalSMTInteger(root) + ")))")
-						query("(and (= " + actual + " 0.0) (= " + derivative + " 0.0) (not " + zero + "))")
+					var zeros []string
+					for _, s := range projectionValues(t, todo.set) {
+						zeros = append(zeros, "(= "+explanationPolynomialSMT(t, e, s)+" 0.0)")
 					}
+					if len(zeros) == 0 {
+						t.Fatal("discriminant polynomials absent")
+					}
+					zero := "(or " + strings.Join(zeros, " ") + ")"
+					derivative := fmt.Sprintf("(* %d %s)", degree, dpPower)
+					query("(not (= " + zero + " (= x0 " + intervalSMTInteger(root) + ")))")
+					query("(and (= " + actual + " 0.0) (= " + derivative + " 0.0) (not " + zero + "))")
 				}
 			}
 		}

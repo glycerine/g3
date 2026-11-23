@@ -51,15 +51,13 @@ func TestProjectionDiscriminantVanishingAndRepeatedRoot(t *testing.T) {
 		}
 		assignmentMust(t, ps.Push(p))
 		assignmentMust(t, n.collectProjectionDiscriminants(ps, 1))
-		if len(projectionValues(t, todo.set)) != 0 {
-			t.Fatal("zero discriminant inserted")
-		}
 		want := 1
 		if repeated {
+			// An identically zero discriminant introduces no boundary.
 			want = 0
 		}
-		if len(n.output.result) != want {
-			t.Fatal("vanished versus identically-zero PSC", len(n.output.result), want)
+		if got := len(projectionValues(t, todo.set)); got != want {
+			t.Fatalf("got %d discriminant factors in the cell, want %d", got, want)
 		}
 	}
 }

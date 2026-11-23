@@ -142,13 +142,15 @@ func (n *explanationAssumptions) projectPSC(p, q *polynomial.PolynomialRef, x ui
 		if e != nil {
 			return e
 		}
-		if sign == 0 {
-			if err = n.addZeroAssumption(value); err != nil {
-				return err
-			}
-			continue
+		// A vanishing PSC can have several disconnected real roots. Keep
+		// its factors for cell construction so the conflict distinguishes
+		// the current root from the others, then examine the next PSC.
+		if err = n.addProjectionFactors(s.s); err != nil {
+			return err
 		}
-		return n.addProjectionFactors(s.s)
+		if sign != 0 {
+			return nil
+		}
 	}
 	return nil
 }

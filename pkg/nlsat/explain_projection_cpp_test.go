@@ -55,7 +55,7 @@ func TestProjectionCoefficientsAndPSCPrebuiltCPPOracle(t *testing.T) {
 	}
 	for root := int32(-3); root <= 3; root++ {
 		for _, vanishes := range []bool{false, true} {
-			e, r, n, todo := projectionCoefficientFixture(t, true)
+			e, _, n, todo := projectionCoefficientFixture(t, true)
 			value := root + 1
 			if vanishes {
 				value = root
@@ -69,22 +69,13 @@ func TestProjectionCoefficientsAndPSCPrebuiltCPPOracle(t *testing.T) {
 			q := evaluatorPolynomial(t, e, terms...)
 			assignmentMust(t, n.collectProjectionPSC(vanishingRef(t, e, p), vanishingRef(t, e, q), 1))
 			inputP, inputQ := explanationPolynomialSMT(t, e, p), explanationPolynomialSMT(t, e, q)
-			if vanishes {
-				if len(n.output.result) != 1 || len(projectionValues(t, todo.set)) != 0 {
-					t.Fatal("vanishing PSC frontier")
-				}
-				a := explanationLiteralSMT(t, e, r, n.output.result[0])
-				query("(and (= x0 " + intervalSMTInteger(value) + ") " + a + ")")
-				query("(not (= " + a + " (not (= x0 " + intervalSMTInteger(root) + "))))")
-			} else {
-				values := projectionValues(t, todo.set)
-				if len(values) != 1 {
-					t.Fatal("nonvanishing linear PSC frontier", values)
-				}
-				s := explanationPolynomialSMT(t, e, values[0])
-				query("(not (= (= " + s + " 0.0) (= x0 " + intervalSMTInteger(root) + ")))")
-				query("(and (= " + inputP + " 0.0) (= " + inputQ + " 0.0) (not (= " + s + " 0.0)))")
+			values := projectionValues(t, todo.set)
+			if len(values) != 1 {
+				t.Fatal("missing linear PSC boundary", values)
 			}
+			boundary := explanationPolynomialSMT(t, e, values[0])
+			query("(not (= (= " + boundary + " 0.0) (= x0 " + intervalSMTInteger(root) + ")))")
+			query("(and (= " + inputP + " 0.0) (= " + inputQ + " 0.0) (not (= " + boundary + " 0.0)))")
 		}
 	}
 	e, _, n, todo := projectionCoefficientFixture(t, false)

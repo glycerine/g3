@@ -3071,3 +3071,20 @@ func TestMPSPrintModelOrder(t *testing.T) {
 		}
 	}
 }
+
+func TestNLSATConflictDistinguishesRealRoots(t *testing.T) {
+	// The native 4.7.1 solver can exclude both roots after trying only
+	// the negative one. The positive roots are an explicit satisfying model.
+	input, err := os.ReadFile(filepath.Join("test_vectors", "nlsat_disconnected_resultant_roots.smt2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := run(bytes.NewReader(input), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	const want = "sat\n(((> x 0) true)\n ((> y 0) true))\nunsat\nsat\n"
+	if got := out.String(); got != want {
+		t.Fatalf("root selection, model and scoped conflict: got %q, want %q", got, want)
+	}
+}
