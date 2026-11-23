@@ -18,6 +18,13 @@ type GroundPremises struct {
 	conflict  bool
 }
 
+// PreparedFor reports whether propagation can reuse the index for these
+// exact premises. The last assertion is the temporary sibling goal.
+func (p *GroundPremises) PreparedFor(m *ast.ASTManager, assertions []ast.ASTHandle) bool {
+	return p.index != nil && p.manager == m && len(assertions) >= 2 &&
+		slices.Equal(p.base, assertions[:len(assertions)-1])
+}
+
 // The seed goal can supply ground terms for the quantifier substitutions. It
 // contributes no asserted literal to the saved state.
 func (p *GroundPremises) Refutes(m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (bool, error) {

@@ -42,6 +42,9 @@ func TestGroundPremisesSiblingConsequences(t *testing.T) {
 	roots, e := solver.Assertions(s.solver)
 	astTestMust(t, e)
 	var proof order.GroundPremises
+	if proof.PreparedFor(m, roots) {
+		t.Fatal("empty index reported prepared")
+	}
 	check := func(manager *ast.ASTManager, xs []ast.ASTHandle, steps uint32, want bool) {
 		t.Helper()
 		got, e := proof.Refutes(manager, xs, steps)
@@ -67,6 +70,9 @@ func TestGroundPremisesSiblingConsequences(t *testing.T) {
 		}
 	}
 	xs := []ast.ASTHandle{roots[0], roots[2]}
+	if !proof.PreparedFor(m, xs) || proof.PreparedFor(m, nil) || proof.PreparedFor(m, []ast.ASTHandle{roots[1], roots[2]}) {
+		t.Fatal("prepared index must match the current premise roots independently of the goal")
+	}
 	check(m, xs, 1, false)
 	m.ResourceLimit().IncCancel()
 	check(m, xs, orderProofSteps, false)
@@ -77,6 +83,9 @@ func TestGroundPremisesSiblingConsequences(t *testing.T) {
 	c2, s2 := orderSolver(t, groundPremiseDecls+reverse+"(assert "+cases[0].goal+")")
 	m2, e := c2.Manager()
 	astTestMust(t, e)
+	if proof.PreparedFor(m2, xs) {
+		t.Fatal("index crossed AST manager ownership")
+	}
 	other, e := solver.Assertions(s2.solver)
 	astTestMust(t, e)
 	check(m2, other, orderProofSteps, false)

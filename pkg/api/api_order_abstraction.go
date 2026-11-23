@@ -230,6 +230,16 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []ast.ASTHandle, maxSteps uint32, reuse bool) (bool, error) {
 	s := p.source
 	limit := parent.ResourceLimit()
+	combined, ok := s.solver.(*solver.CombinedSolver)
+	original := ok && combined.HasOriginalAssertions()
+	// Propagate an existing index before constructing another projection.
+	triedUnits := reuse && original && p.groundPremises.PreparedFor(parent, assertions)
+	if triedUnits {
+		proved, err := p.groundPremises.Refutes(parent, assertions, maxSteps)
+		if err != nil || proved || limit.CancelFlag() {
+			return proved, err
+		}
+	}
 	proof, applicable, err := p.transitionPremises.ForProof(parent, assertions, maxSteps)
 	if err != nil || limit.CancelFlag() {
 		return false, err
@@ -252,16 +262,14 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 				}
 			}
 			if bits == nil {
-				combined, combinedSolver := s.solver.(*solver.CombinedSolver)
-				original := combinedSolver && combined.HasOriginalAssertions()
-				if original {
+				if original && !triedUnits {
 					if yes, e := p.groundPremises.Refutes(parent, assertions, maxSteps); yes || e != nil || limit.CancelFlag() {
 						return yes, e
 					}
-					if reuse {
-						if yes, e := p.universalPremises.Refutes(parent, assertions, maxSteps, combined.CanDeferFirstPush()); yes || e != nil || limit.CancelFlag() {
-							return yes, e
-						}
+				}
+				if reuse && original {
+					if yes, e := p.universalPremises.Refutes(parent, assertions, maxSteps, combined.CanDeferFirstPush()); yes || e != nil || limit.CancelFlag() {
+						return yes, e
 					}
 				}
 				if consistent && original {
