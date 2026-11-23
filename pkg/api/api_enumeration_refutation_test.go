@@ -168,3 +168,74 @@ func TestEnumerationProofBatchScopesAndUnsupportedSiblings(t *testing.T) {
 		t.Fatal("cancelled private projection")
 	}
 }
+
+func TestEnumerationSelectionAcrossNarrowAndWideSiblingGoals(t *testing.T) {
+	var script strings.Builder
+	script.WriteString(`(declare-datatypes () ((A a0 a1)(B b0 b1)(C c0 c1)))
+(declare-sort U 0)
+(declare-const u U)
+(declare-fun f (U) A)
+(declare-fun g (U) B)
+(declare-fun h (U) C)
+(assert (= (f u) a0))
+(assert (= (g u) b0))
+(assert (= (h u) c0))
+`)
+	// Each premise quantifies two non-enumeration arguments. The three
+	// enumerations appear as values of functions in the original problem.
+	for i := range 11 {
+		fmt.Fprintf(&script, "(declare-fun r%d (U U) Bool)\n(assert (forall ((x U)(y U)) (r%d x y)))\n", i, i)
+	}
+	cases := []struct {
+		goal            string
+		selected, unsat bool
+	}{
+		{"(not (r0 u u))", false, true},
+		{"(exists ((x A)) (distinct x a0 a1))", true, true},
+		{"(exists ((x U)(y U)) (not (r0 x y)))", false, true},
+		{"(exists ((x U)) (exists ((y U)(z U)) (and (r1 x y) (not (r0 z x)))))", true, true},
+		{"(exists ((x A)) (= x a0))", true, false},
+		{"(r0 u u)", false, false},
+	}
+	for _, tc := range cases {
+		fmt.Fprintf(&script, "(assert %s)\n", tc.goal)
+	}
+	c, donor := orderSolver(t, script.String())
+	m, err := c.Manager()
+	astTestMust(t, err)
+	forms, err := solver.Assertions(donor.solver)
+	astTestMust(t, err)
+	base := forms[:len(forms)-len(cases)]
+	var batch enumerationRefutation
+	t.Cleanup(func() { astTestMust(t, batch.release()) })
+	for i, tc := range cases {
+		input := append(slices.Clone(base), forms[len(base)+i])
+		projection, err := batch.premises.Project(m, input)
+		astTestMust(t, err)
+		if (projection != nil) != tc.selected {
+			t.Fatalf("goal %d selection = %t, want %t", i, projection != nil, tc.selected)
+		}
+		proved, err := batch.check(m, input)
+		astTestMust(t, err)
+		if proved != (tc.selected && tc.unsat) {
+			t.Fatalf("goal %d private proof = %t", i, proved)
+		}
+		if !tc.selected {
+			concrete, err := c.NewSolver()
+			astTestMust(t, err)
+			for _, a := range input {
+				astTestMust(t, concrete.Assert(a))
+			}
+			result, err := concrete.Check()
+			astTestMust(t, err)
+			astTestMust(t, concrete.Close())
+			want := lbool.True
+			if tc.unsat {
+				want = lbool.False
+			}
+			if result != want {
+				t.Fatalf("goal %d concrete result = %v, want %v", i, result, want)
+			}
+		}
+	}
+}

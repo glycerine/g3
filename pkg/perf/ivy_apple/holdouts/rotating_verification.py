@@ -2,7 +2,9 @@
 """Rotate current g3, previous g3 and linked Z3 on a single Linux CPU."""
 import argparse
 import csv
+import os
 from pathlib import Path
+import subprocess
 import sys
 import time
 
@@ -35,13 +37,31 @@ def idle(before, after, cpu):
     return (after[cpu][0] - before[cpu][0]) / max(1, elapsed)
 
 
+def measure_time(checker, args, directory):
+    # For subsecond runs the perf wrapper and centisecond CPU times can
+    # consume most of the allowance for detecting a busy CPU.
+    directory.mkdir()
+    command = ["taskset", "-c", str(args.cpu), checker]
+    if args.isolate:
+        command.append("isolate=" + args.isolate)
+    command.append(args.spec)
+    environment = dict(os.environ, GOMAXPROCS="1", GOGC="100", XTRACE_OFF="1")
+    with (directory / "stdout").open("wb") as out, (directory / "stderr").open("wb") as err:
+        start = time.monotonic()
+        with subprocess.Popen(command, cwd=directory, env=environment, stdout=out, stderr=err) as proc:
+            _, status, usage = os.wait4(proc.pid, 0)
+            elapsed = time.monotonic() - start
+            proc.returncode = os.waitstatus_to_exitcode(status)
+    return proc.returncode, (elapsed, usage.ru_utime, usage.ru_stime, usage.ru_maxrss), []
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for label in ("g3", "previous", "native", "spec", "reference", "output"):
         parser.add_argument("--" + label, required=True, type=Path)
     parser.add_argument("--cpu", required=True, type=int)
     parser.add_argument("--isolate", default="")
-    parser.add_argument("--perf", required=True, help="Linux perf executable")
+    parser.add_argument("--perf", help="Linux perf executable for hardware counters; omit for direct wall and CPU timing")
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--expected-exit", type=int, default=0)
     parser.add_argument("--min-idle", type=float, default=.95)
@@ -59,7 +79,8 @@ def main():
     with (args.output / "runs.csv").open("x") as dest:
         writer = csv.writer(dest)
         writer.writerow(["round", "engine", "cpu", "siblings", "attempt", "min_idle_before",
-                         "sibling_idle_during", "cpu_fraction", "exit", "match", "wall", "user", "sys", "rss", *EVENTS])
+                         "sibling_idle_during", "cpu_fraction", "exit", "match", "wall", "user", "sys", "rss",
+                         *(EVENTS if args.perf else ())])
         for i in range(args.rounds):
             offset = i % len(checkers)
             for label, checker in checkers[offset:] + checkers[:offset]:
@@ -76,7 +97,10 @@ def main():
                             raise SystemExit(f"CPU {args.cpu} busy before {label}, round {i+1}")
                         time.sleep(10)
                     path = args.output / f"{i+1}-{label}-{attempt}"
-                    rc, timing, counts = measure(checker, args, path, args.expected_exit, 100)
+                    if args.perf:
+                        rc, timing, counts = measure(checker, args, path, args.expected_exit, 100)
+                    else:
+                        rc, timing, counts = measure_time(checker, args, path)
                     end = ticks(cpus)
                     sibling_idle = min((idle(start, end, c) for c in siblings), default=1.0)
                     fraction = (float(timing[1]) + float(timing[2])) / float(timing[0])

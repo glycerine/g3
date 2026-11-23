@@ -24,6 +24,12 @@ func BenchmarkEnumerationPredicateDependencies(b *testing.B) {
 	benchmarkEnumerationSiblings(b, "test_vectors/apple_sys_live_goals.smt2.gz")
 }
 
+// Three consecutive flash_cubicle goals use finite cache states, but the
+// premises quantify over at most two cache identifiers at once.
+func BenchmarkNarrowEnumerationVerification(b *testing.B) {
+	benchmarkEnumerationSiblings(b, "test_vectors/flash_cubicle_goals.smt2.gz")
+}
+
 func benchmarkEnumerationSiblings(b *testing.B, fixture string) {
 	f, err := os.Open(fixture)
 	if err != nil {

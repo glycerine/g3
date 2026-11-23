@@ -8,12 +8,16 @@ import (
 )
 
 type enumerationWriter struct {
-	dependencies *predicateDependencies
-	changed      bool
-	language     *enumerationLanguage
-	scope        []enumerationBinder
-	visits       int
-	binders      int
+	// The ordinary incremental solver was cheaper on ground goals with only
+	// unary and binary quantification over uninterpreted sorts. A quantified
+	// enumeration or three simultaneous binders can justify the private search.
+	quantifiedSearch bool
+	dependencies     *predicateDependencies
+	changed          bool
+	language         *enumerationLanguage
+	scope            []enumerationBinder
+	visits           int
+	binders          int
 }
 
 type enumerationBinder struct {
@@ -122,6 +126,9 @@ func (w *enumerationWriter) quantifier(out *strings.Builder, h ast.ASTHandle, de
 			return ast.ASTHandle{}, err
 		}
 		pos := len(w.scope)
+		if len(s.values) != 0 || pos >= 2 {
+			w.quantifiedSearch = true
+		}
 		if cut[pos] == "" {
 			out.WriteString("(x")
 			out.WriteString(strconv.Itoa(pos))

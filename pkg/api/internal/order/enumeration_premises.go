@@ -11,10 +11,11 @@ import (
 // EnumerationPremises retains the language of one solver's original premises.
 // Handles are weak identity keys. The solver owns the live assertions.
 type EnumerationPremises struct {
-	manager  *ast.ASTManager
-	base     []ast.ASTHandle
-	language *enumerationLanguage
-	premises string
+	manager          *ast.ASTManager
+	base             []ast.ASTHandle
+	language         *enumerationLanguage
+	premises         string
+	quantifiedSearch bool
 }
 
 func (p *EnumerationPremises) Matches(m *ast.ASTManager, base []ast.ASTHandle) bool {
@@ -42,6 +43,7 @@ func (p *EnumerationPremises) prepare(m *ast.ASTManager, base []ast.ASTHandle) e
 	if l.enumerations < 3 || w.binders < 20 || len(forms)+l.declarations.Len()+l.axiomBytes+10*len(l.axioms) > maxEnumerationBytes {
 		return inapplicable
 	}
+	p.quantifiedSearch = w.quantifiedSearch
 	dependencies, err := discoverPredicateDependencies(l, base)
 	if err != nil {
 		return err
@@ -87,14 +89,21 @@ func (p *EnumerationPremises) Project(m *ast.ASTManager, forms []ast.ASTHandle) 
 	if p.language == nil {
 		return nil, nil
 	}
+	goal := forms[len(base)]
+	if !p.quantifiedSearch {
+		quantified, err := m.HasQuantifiers(goal)
+		if err != nil || !quantified {
+			return nil, err
+		}
+	}
 	l := enumerationLanguage{manager: m, boolean: p.language.boolean, datatype: p.language.datatype, base: p.language}
 	w := enumerationWriter{language: &l}
 	var term strings.Builder
-	s, err := w.write(&term, forms[len(base)], 0)
+	s, err := w.write(&term, goal, 0)
 	if errors.Is(err, inapplicable) {
 		return nil, nil
 	}
-	if err != nil || s != l.boolean || m.Limit.CancelFlag() {
+	if err != nil || s != l.boolean || m.Limit.CancelFlag() || !p.quantifiedSearch && !w.quantifiedSearch {
 		return nil, err
 	}
 	size := p.language.declarations.Len() + l.declarations.Len() + len(p.premises) + term.Len() + l.axiomBytes + len(l.axioms) + 18
