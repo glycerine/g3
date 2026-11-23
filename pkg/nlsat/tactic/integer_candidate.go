@@ -63,14 +63,14 @@ func (t *NLSATTactic) preparePolynomialGoal(goal *basetactic.Goal, result *baset
 	if err != nil {
 		return false, err
 	}
-	handled, err := t.tryIntegerAssignment(goal, result, forms, arithmetic)
+	handled, err := t.tryScalarAssignments(goal, result, forms, arithmetic)
 	if err != nil || handled || t.mode != preparePolynomials || m.Limit.CancelFlag() {
 		return handled, err
 	}
 	return t.reduceIndependentPolynomials(goal, result, forms, arithmetic)
 }
 
-func (t *NLSATTactic) tryIntegerAssignment(goal *basetactic.Goal, result *basetactic.TacticResult, forms []ast.ASTHandle, arithmetic ast.FamilyID) (bool, error) {
+func (t *NLSATTactic) tryScalarAssignments(goal *basetactic.Goal, result *basetactic.TacticResult, forms []ast.ASTHandle, arithmetic ast.FamilyID) (bool, error) {
 	m := t.manager
 	p := integerCandidate{manager: m, arithmetic: arithmetic, terms: make(map[ast.ASTHandle]candidateTerm)}
 	p.comparisons = make([]candidateComparison, len(forms))
@@ -96,12 +96,15 @@ func (t *NLSATTactic) tryIntegerAssignment(goal *basetactic.Goal, result *baseta
 		}
 		feasible, changed := p.assign(seed)
 		if !feasible || !changed || m.Limit.CancelFlag() {
-			return false, nil
+			break
 		}
 		ok, err := t.checkIntegerModel(forms, &p, goal, result)
 		if err != nil || ok {
 			return ok, err
 		}
+	}
+	if t.mode == preparePolynomials && !m.Limit.CancelFlag() {
+		return t.trySquareRoots(goal, result, &p)
 	}
 	return false, nil
 }
@@ -134,7 +137,7 @@ func (t *NLSATTactic) checkIntegerModel(forms []ast.ASTHandle, p *integerCandida
 		if m.Limit.CancelFlag() {
 			return false, nil
 		}
-		return finishIntegerCandidate(goal, result)
+		return finishSatisfiableCandidate(goal, result)
 	}
 	md, err := model.NewModel(m)
 	if err != nil {
@@ -173,18 +176,23 @@ func (t *NLSATTactic) checkIntegerModel(forms []ast.ASTHandle, p *integerCandida
 		return false, nil
 	}
 	if models {
-		converter, err := basetactic.NewStoredModel(md.Core())
-		if err != nil {
-			return false, err
-		}
-		if err = result.SetModelConverter(converter); err != nil {
-			return false, errors.Join(err, converter.Close())
-		}
+		return publishCandidateModel(goal, result, md)
 	}
-	return finishIntegerCandidate(goal, result)
+	return finishSatisfiableCandidate(goal, result)
 }
 
-func finishIntegerCandidate(goal *basetactic.Goal, result *basetactic.TacticResult) (bool, error) {
+func publishCandidateModel(goal *basetactic.Goal, result *basetactic.TacticResult, md *model.Model) (bool, error) {
+	converter, err := basetactic.NewStoredModel(md.Core())
+	if err != nil {
+		return false, err
+	}
+	if err = result.SetModelConverter(converter); err != nil {
+		return false, errors.Join(err, converter.Close())
+	}
+	return finishSatisfiableCandidate(goal, result)
+}
+
+func finishSatisfiableCandidate(goal *basetactic.Goal, result *basetactic.TacticResult) (bool, error) {
 	if err := goal.Reset(); err != nil {
 		return false, err
 	}

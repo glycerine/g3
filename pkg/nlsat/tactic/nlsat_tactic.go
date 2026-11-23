@@ -59,8 +59,8 @@ func NewIntegerModelTactic(manager *ast.ASTManager, context *uparams.ParamsConte
 	return newNLSATTactic(manager, context, globals, params, services, findIntegerWitness)
 }
 
-// NewPolynomialPreparationTactic finds a certified integer model or reduces
-// independent copies of the same unary constraints for the downstream solver.
+// NewPolynomialPreparationTactic tries an integer witness and ordered real
+// square roots, then reduces repeated constraints for the downstream solver.
 func NewPolynomialPreparationTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef, services model.ModelEvaluatorConfig) (*NLSATTactic, error) {
 	return newNLSATTactic(manager, context, globals, params, services, preparePolynomials)
 }

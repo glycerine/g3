@@ -3,6 +3,7 @@ package ast
 // Source: src/ast/arith_decl_plugin.cpp:20-72,99-112.
 
 import (
+	"errors"
 	"math"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -89,25 +90,30 @@ func (w *astAlgebraicNumbersWrapper) mkID(source *polynomial.AlgebraicRootCore, 
 	if w == nil || w.closed || w.manager == nil || source == nil || value == nil {
 		return 0, ErrASTHandle
 	}
+	id, err := w.newID()
+	if err != nil {
+		return 0, err
+	}
+	if err = w.manager.CopyFromCore(&w.values[id], source, value); err != nil {
+		return 0, errors.Join(err, w.releaseID(id))
+	}
+	return id, nil
+}
+
+func (w *astAlgebraicNumbersWrapper) newID() (uint32, error) {
 	var id uint32
 	if n := len(w.freeIDs); n != 0 {
 		id = w.freeIDs[n-1]
 		w.freeIDs = w.freeIDs[:n-1]
 	} else {
 		id = w.nextID
-		if id == math.MaxUint32 {
+		if id == math.MaxUint32 || uint64(id)+1 > uint64(^uint(0)>>1) {
 			return 0, arena.ErrBounds
 		}
 		w.nextID++
 	}
-	if uint64(id)+1 > uint64(^uint(0)>>1) {
-		return 0, arena.ErrBounds
-	}
 	for len(w.values) <= int(id) {
 		w.values = append(w.values, polynomial.Algebraic{})
-	}
-	if e := w.manager.CopyFromCore(&w.values[id], source, value); e != nil {
-		return 0, e
 	}
 	return id, nil
 }
@@ -128,12 +134,17 @@ func (w *astAlgebraicNumbersWrapper) value(id uint32) (*polynomial.Algebraic, er
 }
 
 func (w *astAlgebraicNumbersWrapper) recycle(id uint32) error {
-	v, e := w.value(id)
-	if e != nil {
-		return e
+	if _, err := w.value(id); err != nil {
+		return err
 	}
-	if e = w.manager.Del(v); e != nil {
-		return e
+	return w.releaseID(id)
+}
+
+// A reservation belongs to the wrapper until a declaration takes ownership.
+// A failed construction may still have the canonical zero in the slot.
+func (w *astAlgebraicNumbersWrapper) releaseID(id uint32) error {
+	if err := w.manager.Del(&w.values[id]); err != nil {
+		return err
 	}
 	w.freeIDs = append(w.freeIDs, id)
 	return nil
@@ -259,14 +270,62 @@ func (m *ASTManager) ArithmeticAlgebraicNumeralFrom(source *polynomial.Algebraic
 	if e != nil {
 		return ASTHandle{}, e
 	}
+	return m.arithmeticAlgebraicApp(w, id)
+}
+
+// ArithmeticSquareRootNumeral returns the exact signed real square root of n.
+// An irrational value is constructed directly in its arithmetic plugin slot.
+func (m *ASTManager) ArithmeticSquareRootNumeral(n int32, negative bool) (ASTHandle, error) {
+	if n < 0 {
+		return ASTHandle{}, ErrASTDomain
+	}
+	lo := int64(math.Sqrt(float64(n)))
+	for lo*lo > int64(n) {
+		lo--
+	}
+	for (lo+1)*(lo+1) <= int64(n) {
+		lo++
+	}
+	if lo*lo == int64(n) {
+		if negative {
+			lo = -lo
+		}
+		return m.ArithmeticNumeralInt64(lo, false)
+	}
+	if negative {
+		lo = -lo - 1
+	}
+	if err := m.lock(); err != nil {
+		return ASTHandle{}, err
+	}
+	defer m.mu.Unlock()
+	if m.arithmeticPlugin == nil {
+		return ASTHandle{}, ErrASTHandle
+	}
+	w, err := m.arithmeticPlugin.algebraicWrapper()
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	id, err := w.newID()
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	if err = w.manager.SetIsolatedSquareRoot(&w.values[id], n, int32(lo)); err != nil {
+		return ASTHandle{}, errors.Join(err, w.releaseID(id))
+	}
+	return m.arithmeticAlgebraicApp(w, id)
+}
+
+func (m *ASTManager) arithmeticAlgebraicApp(w *astAlgebraicNumbersWrapper, id uint32) (ASTHandle, error) {
+	p := w.owner
 	parameter := astParameterRecord{Kind: ASTParameterExternal, external: id}
-	if e = m.beginFormatInfo(false, p.family, 1, &parameter); e != nil {
-		return ASTHandle{}, e
+	if e := m.beginFormatInfo(false, p.family, 1, &parameter); e != nil {
+		return ASTHandle{}, errors.Join(e, w.releaseID(id))
 	}
 	decl, e := m.mkFuncDecl(p.names[2], nil, m.external(p.fields[0]), ASTFuncDeclInfo{m.origin, math.MaxUint32 - 1, m.formatLexical.epoch})
 	m.endFormatInfo()
 	if e != nil {
-		return ASTHandle{}, e
+		return ASTHandle{}, errors.Join(e, w.releaseID(id))
 	}
 	app, e := m.mkApp(decl, nil)
 	return m.external(app), e
