@@ -31,6 +31,25 @@ func BenchmarkNarrowEnumerationVerification(b *testing.B) {
 }
 
 func benchmarkVerificationGoals(b *testing.B, fixture string, goals int) {
+	c, forms := loadVerificationGoals(b, fixture, goals)
+	for _, mode := range []string{"Concrete", "Batch"} {
+		b.Run(mode, func(b *testing.B) {
+			var private int
+			for b.Loop() {
+				n, err := checkVerificationSiblings(c, forms, mode == "Batch")
+				if err != nil {
+					b.Fatal(err)
+				}
+				private += n
+			}
+			b.ReportMetric(float64(goals), "goals/op")
+			b.ReportMetric(float64(private)/float64(b.N), "private-proofs/op")
+		})
+	}
+}
+
+func loadVerificationGoals(b *testing.B, fixture string, goals int) (*SMTContext, []ast.ASTHandle) {
+	b.Helper()
 	f, err := os.Open(fixture)
 	if err != nil {
 		b.Fatal(err)
@@ -49,12 +68,20 @@ func benchmarkVerificationGoals(b *testing.B, fixture string, goals int) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer c.Close()
+	b.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			b.Error(err)
+		}
+	})
 	donor, err := c.NewSolver()
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer donor.Close()
+	b.Cleanup(func() {
+		if err := donor.Close(); err != nil {
+			b.Error(err)
+		}
+	})
 	if err = donor.LoadSMT2String(string(script)); err != nil {
 		b.Fatal(err)
 	}
@@ -65,20 +92,7 @@ func benchmarkVerificationGoals(b *testing.B, fixture string, goals int) {
 	if len(forms) != goals+1 {
 		b.Fatalf("got %d assertions, expected one premise and %d goals", len(forms), goals)
 	}
-	for _, mode := range []string{"Concrete", "Batch"} {
-		b.Run(mode, func(b *testing.B) {
-			var private int
-			for b.Loop() {
-				n, err := checkVerificationSiblings(c, forms, mode == "Batch")
-				if err != nil {
-					b.Fatal(err)
-				}
-				private += n
-			}
-			b.ReportMetric(float64(goals), "goals/op")
-			b.ReportMetric(float64(private)/float64(b.N), "private-proofs/op")
-		})
-	}
+	return c, forms
 }
 
 func checkVerificationSiblings(c *SMTContext, forms []ast.ASTHandle, useBatch bool) (proved int, err error) {

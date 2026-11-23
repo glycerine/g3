@@ -13,7 +13,17 @@ import (
 // by an equality in their conjunction. Equation solving, the occurs check and
 // capture-avoiding substitution are performed by EqualityDER. The caller owns
 // formula, which changes only when the traversal finishes an elimination.
-func EliminateExistentialDefinitions(m *ast.ASTManager, config Config, formula ast.ASTRef) (err error) {
+func EliminateExistentialDefinitions(m *ast.ASTManager, config Config, formula ast.ASTRef) error {
+	return rewriteVerificationDefinitions(m, config, formula, false)
+}
+
+// SimplifyVerificationCondition also instantiates a universal when its
+// implication guards force its only bound variable to equal a ground term.
+func SimplifyVerificationCondition(m *ast.ASTManager, config Config, formula ast.ASTRef) error {
+	return rewriteVerificationDefinitions(m, config, formula, true)
+}
+
+func rewriteVerificationDefinitions(m *ast.ASTManager, config Config, formula ast.ASTRef, universals bool) (err error) {
 	if m == nil || config.Context == nil || config.Globals == nil || config.Globals.Context != config.Context || config.Cooperation == nil {
 		return ast.ErrASTHandle
 	}
@@ -53,7 +63,7 @@ func EliminateExistentialDefinitions(m *ast.ASTManager, config Config, formula a
 	if m.NumeralService().RuntimeOwner().AllocationLimited() {
 		return nil
 	}
-	cfg := definitionRewriter{m: m, services: config, remaining: 45000}
+	cfg := definitionRewriter{m: m, services: config, remaining: 45000, universals: universals}
 	rw, err := rewriter.NewTraversal(m, &cfg)
 	if rw != nil {
 		defer func() { err = errors.Join(err, rw.Close()) }()
@@ -99,6 +109,7 @@ type definitionRewriter struct {
 	der              *EqualityDER
 	remaining        uint32
 	stopped, changed bool
+	universals       bool
 }
 
 func (c *definitionRewriter) spend(n uint32) bool {
@@ -156,8 +167,14 @@ func (c *definitionRewriter) ReduceQuantifier(q, body ast.ASTHandle, patterns, n
 		return false, nil
 	}
 	all, err := m.IsForall(q)
-	if err != nil || all {
+	if err != nil {
 		return false, err
+	}
+	if all {
+		if c.universals {
+			return c.reduceGuardedUniversal(q, body, out)
+		}
+		return false, nil
 	}
 	n, err := m.GetNumDeclarations(q)
 	if err != nil || !c.spend(n) {
