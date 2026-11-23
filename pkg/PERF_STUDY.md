@@ -3635,3 +3635,38 @@ For a frozen uninterpreted sort the checker visits its registered universe. For 
 Four alternating pairs per workload used the same GoIvy build and pinned CPU. A separate run of 87 standalone proofs produced byte-identical stdout and stderr for g3 and linked Z3. The corpus includes expected proof failures. [Complete measurements on 11 workloads](perf/ivy_apple/holdouts/nov22b-model-table-whole.csv.gz) · [Corpus outcomes and exit codes](perf/ivy_apple/holdouts/nov22b-model-table-corpus.csv.gz)
 
 In a separate instrumented run, the ordinary auxiliary solver also searched all 36,800 questions certified by the new checker. It returned UNSAT every time. After deduplicating within each workload, the in-tree C++ Z3 executable returned UNSAT on all 5,206 saved SMT-LIB questions. The existing independent model evaluator confirmed that each of the 3,132 concrete witness tuples made its body false. The archive includes the complete typed questions, including explicit distinctness constraints for printed model values. [Audit totals](perf/ivy_apple/holdouts/nov22b-model-table-audit.csv.gz) · [Native answers](perf/ivy_apple/holdouts/nov22b-model-table-native.csv.gz) · [SMT-LIB questions](perf/ivy_apple/holdouts/nov22b-model-table-questions.tar.gz) · [Audit instrumentation](perf/ivy_apple/holdouts/model_tables_audit.patch.gz) · [Capture and replay driver](perf/ivy_apple/holdouts/model_tables_replay.py)
+
+## Preprocessing on the first physical push
+
+Commit `a94d21dd9` runs one macro search and simplification sequence when an incremental verification solver first commits a nonempty base. The original schedule ran a second macro finder and final reduction in that same push. Later batches still expand definitions removed by the first macro search. The option is consumed even if the first batch consists entirely of definitions and leaves zero asserted rows. The ordinary shell, proof-producing configurations, explicit resource limits and source debugging use their original schedule. The regression checks the retained definition in a generated model and across a subsequent push and pop. [First-push implementation](smtcore/smt_kernel.go) · [Regression](smtcore/smt_asserted_macros_test.go)
+
+The table reports the median sum of instructions in the first physical push of each fresh verification batch, in billions. Each row has three runs per build. The thread counter subtracts an empty measurement and each observation ran without multiplexing. A batch that proves every goal in the precheck contributes zero physical pushes. [Individual pushes](perf/ivy_apple/holdouts/nov22b-first-schedule-pushes.csv.gz) · [All operation totals](perf/ivy_apple/holdouts/nov22b-first-schedule-batches.csv.gz) · [Reproduction driver](perf/ivy_apple/incremental_cost/batch_operations.py)
+
+| Workload | First pushes, g3 / Z3 | Prior g3 | Current g3 | Linked Z3 |
+|---|---:|---:|---:|---:|
+| TLB | 58 / 58 | 24.00 | 20.39 | 5.92 |
+| Apple cf_live | 9 / 12 | 14.22 | 13.25 | 5.35 |
+| Apple dramc_nb2 | 17 / 86 | 14.90 | 13.69 | 9.46 |
+| Apple rfn2 | 0 / 10 | 0 | 0 | 3.53 |
+| Flash | 28 / 28 | 1.44 | 1.27 | 0.35 |
+| Abstract Raft | 12 / 14 | 0.87 | 0.79 | 0.25 |
+| raftok | 12 / 15 | 0.88 | 0.76 | 0.27 |
+| Nested ticket | 14 / 14 | 0.72 | 0.64 | 0.18 |
+
+The four-pair end-to-end comparison on TLB went from 111.72 to 108.06 B instructions. Most of that saving was inside the first pushes. On raftok the whole run went from 31.60 to 24.79 B. Its pushes saved 0.12 B and its subsequent batched verification calls fell from 28.61 to 22.03 B. Changing the first normalization also changed search work. Abstract Raft paid a small price for that choice, rising from 31.75 to 32.19 B. All eleven complete workloads matched the reference outcomes, and the 87 standalone g3 and linked-Z3 transcripts matched byte-for-byte. [Whole processes](perf/ivy_apple/holdouts/nov22b-first-schedule-whole.csv.gz) · [Independent corpus](perf/ivy_apple/holdouts/nov22b-first-schedule-corpus.csv.gz)
+
+I also compared 510 runs that omitted individual passes or checked whether an earlier pass had already processed the identical batch. Omitting pattern inference took TLB from about 112 B to 626 B instructions in the completed run. Omitting the initial macro search caused timeouts on both abstract Raft cases. Fourteen runs that omitted negation-normal-form processing exited with errors. These observations explain why the retained schedule keeps the first discovery pass, NNF and pattern inference. [All variants, exits and reference comparisons](perf/ivy_apple/holdouts/nov22b-first-schedule-ablations.csv.gz)
+
+## Where each additional matched check spends instructions
+
+I sampled 4 and 32 consecutive push/assert/check/pop operations in the same shell, then subtracted the shorter profile and divided by 28. A separate statistics run verified every answer and all four cumulative search counters at each of the 32 iterations for all five inputs. The shorter horizon also keeps toy consensus inside its matched-search interval. The following figures are median estimates in **millions of instructions per additional check**, with each cell showing g3 / in-tree Z3. Six pairs per query and five on toy consensus gave 116 sampled processes. A full matched check includes parsing and popping the scoped goal. The command column attributes samples with a visible check-sat caller. [Sample counts and caller classifications](perf/ivy_apple/holdouts/nov22b-warm-profiles.csv.gz) · [160 matched iterations](perf/ivy_apple/holdouts/nov22b-warm-profiles-search.csv.gz) · [Sampling benchmark](perf/ivy_apple/holdouts/warm_stack_profile.py)
+
+| Saved input | All instructions | Inside check-sat | Rewriter | Rewriter called from quantifiers |
+|---|---:|---:|---:|---:|
+| Ticket 127 | 111.1 / 31.6 | 106.9 / 30.9 | 29.5 / 9.7 | 25.1 / 8.8 |
+| Ticket 290 | 202.8 / 53.5 | 198.1 / 53.3 | 62.9 / 16.5 | 37.1 / 10.6 |
+| Numeric aux-012725 | 109.2 / 35.6 | 96.0 / 32.2 | 13.1 / 2.2 | — |
+| Numeric aux-011440 | 225.1 / 72.4 | 208.1 / 67.5 | 17.3 / 2.6 | — |
+| Toy consensus 18 | 1,693.5 / 471.2 | 1,666.9 / 469.3 | 738.7 / 163.1 | 193.2 / 44.8 |
+
+On ticket 290, the rewriter accounts for 46.4 M of the 149.3 M excess instructions. Internalization outside the rewriter adds 25.1 M, quantifier processing outside the rewriter adds 24.0 M and Go GC about 19.4 M. On toy consensus, rewriting accounts for 575.6 M of the 1,222.3 M excess. The portions of that rewrite gap called from internalization, model evaluation and quantifiers are approximately 194.9 M, 154.2 M and 148.4 M. The caller columns subdivide rewriting and overlap the total. Numeric aux-011440 has a more distributed cost, including about 17.7 M extra relevance instructions, 16.6 M in arithmetic, 14.7 M in rewriting and 12.4 M in congruence lookup. Sampling gives estimates, and medians of categories need not sum exactly to the median total. [Classifier rules](perf/ivy_apple/holdouts/query_stack_groups.csv)
