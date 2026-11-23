@@ -42,7 +42,7 @@ func (c *Context) completeModel() (resultErr error) {
 	// mk_model_value(0, s) even when the universe lacks that element.
 	// Both declaration loops walk their dictionaries in table order.
 	for _, entry := range c.psortDictionary().entries() {
-		if entry.psort == nil || !entry.psort.userDecl {
+		if !entry.userSort {
 			continue
 		}
 		if err := modelCompletionVerbose(entry.name); err != nil {

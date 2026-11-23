@@ -55,7 +55,7 @@ func (c *Context) DeclareDatatypes(definitions []ast.DatatypeDefinition) (result
 		c.sorts[names[i]] = s
 		c.sortArities[names[i]] = uint32(len(definitions[i].Parameters))
 		c.sortTrail = append(c.sortTrail, declaration{names[i], s, ref})
-		c.recordPSortDecl(names[i], false)
+		c.recordPSortDecl(names[i], false, len(c.sortTrail))
 		recorded = append(recorded, names[i])
 		if len(definitions[i].Parameters) == 0 {
 			if e = c.ensureDatatypeFunctions(s); e != nil {

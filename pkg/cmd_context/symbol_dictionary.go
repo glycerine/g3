@@ -87,17 +87,14 @@ func (f *funcDecls) entries(trail []declaration) []ast.ASTHandle {
 	return f.set.FirstKeys(f.set.Len())
 }
 
-// psortEntry is the psort_decl payload complete_model reads.
-type psortEntry struct {
-	userDecl bool
-}
-
 type symbolDictionaryEntry struct {
-	name  string
-	hash  uint32
-	state symbolDictionaryState
-	funcs *funcDecls
-	psort *psortEntry
+	name     string
+	hash     uint32
+	state    symbolDictionaryState
+	userSort bool
+	funcs    *funcDecls
+	// One-based owning sortTrail row. Builtins and constructors have no row.
+	sortRow int
 }
 
 type symbolDictionary struct {
@@ -305,9 +302,9 @@ func (c *Context) eraseFuncDecl(name string, d ast.ASTHandle) error {
 }
 
 // recordPSortDecl is the m_psort_decls part of cmd_context::insert(s, p).
-func (c *Context) recordPSortDecl(name string, userDecl bool) {
+func (c *Context) recordPSortDecl(name string, userDecl bool, sortRow int) {
 	e := c.psortDictionary().insertIfNotThere(name)
-	e.psort = &psortEntry{userDecl: userDecl}
+	e.userSort, e.sortRow = userDecl, sortRow
 	if !c.GlobalDeclarations {
 		c.psortStack = append(c.psortStack, name)
 	}
@@ -384,7 +381,7 @@ func (c *Context) recordBuiltinPSortDecls() {
 		names = append(names, "List")
 	}
 	for _, name := range names {
-		c.recordPSortDecl(name, false)
+		c.recordPSortDecl(name, false, 0)
 	}
 }
 
@@ -430,9 +427,6 @@ func (c *Context) resetPSortDecls() error {
 		return nil
 	}
 	for _, e := range c.psortDictionary().entries() {
-		if e.psort == nil {
-			continue
-		}
 		if declaration, found := c.sortConstructors[e.name]; found {
 			for j := len(declaration.refs) - 1; j >= 0; j-- {
 				if declaration.refs[j] == (ast.ASTRef{}) {
@@ -443,8 +437,9 @@ func (c *Context) resetPSortDecls() error {
 				}
 			}
 		}
-		for i := len(c.sortTrail) - 1; i >= 0; i-- {
-			row := &c.sortTrail[i]
+		// Pop can retire some trail rows before it erases the sort dictionary.
+		if e.sortRow != 0 && e.sortRow <= len(c.sortTrail) {
+			row := &c.sortTrail[e.sortRow-1]
 			if row.name == e.name && row.ref != (ast.ASTRef{}) {
 				if err := c.manager.DelRef(&row.ref); err != nil {
 					return err

@@ -4383,3 +4383,19 @@ A long-lived polynomial manager kept the frames from earlier factorizations. Ver
 | 16,384 independent variables | 99.046 | **78.547** | 3.033 |
 
 The complete 16,384-variable workload saved **20.7%** against `36012b25c`. The microbenchmark measures the slope between two iteration counts, with five pairs per size and sufficient iterations to amortize directory construction. The shell measurements use three pairs per input. All ten generated inputs matched native on verdicts, stages, propagations and resource steps. Another 42 repository vectors preserved the Go output, and the polynomial and NLSAT package suites passed. Reproduce the lookup benchmark with `go test ./math/polynomial -run '^$' -bench '^BenchmarkPolynomialFactorHistory$' -benchmem -cpu=1`. [Paired counters, ablations and test results](perf/nlsat/nov23-factor-frame-lookup.tar.gz)
+
+### Releasing named sorts and datatype declarations
+
+Concrete sort aliases, parser-supplied sorts and datatype definitions had a second quadratic teardown path. Reset visited the sort dictionary in native table order, then scanned the entire sort trail for each name. Each declaration now records its one-based owning row at insertion. The dictionary holds the user-sort flag inline, removing a separate allocation. Parametric constructors retain their independent instantiation cache. The release checks the row's current name and index because a partially completed pop can retire trail rows before erasing dictionary entries. [Implementation](cmd_context/symbol_dictionary.go) · [Partial-pop and constructor ownership test](cmd_context/sort_declaration_reset_test.go)
+
+| Complete shell workload | g3 before, billion instructions | g3 after | Native Z3 |
+|---|---:|---:|---:|
+| 8,192 concrete aliases | 3.386 | **0.411** | 0.131 |
+| 32,768 concrete aliases | 41.003 | **0.892** | 0.217 |
+| 65,536 concrete aliases | 185.723 | **1.594** | 0.332 |
+| 8,192 aliases with pop and redeclaration | 3.395 | **0.422** | 0.118 |
+| 8,192 sorts, each with an alias and a constant | 6.748 | **0.813** | 0.208 |
+| 2,048 nullary datatypes | 0.575 | **0.426** | 0.154 |
+| 8,192 unused parametric definitions | 0.585 | 0.596 | 0.156 |
+
+The largest alias case used **116.5× fewer instructions** across the complete process. The benefit scales with the number of owning trail rows. The parametric control has no such rows, and measured 1.9% higher in this sample. All ten generated inputs agreed with native across three pairs. Another 47 repository vectors preserved complete Go output and exit status, including 12 with a completed native comparison. On one intentional parser-error fixture the native executable terminated before its final check. Both Go builds produced the same diagnostics and completed that fixture. The command-context and CLI suites passed. Reproduce with `python3 perf/shell/declaration_reset.py 65536 --shape alias | ./g3 -in -smt2`. [Benchmark generator](perf/shell/declaration_reset.py) · [Counters and exact test scope](perf/shell/nov23-sort-declaration-reset.tar.gz)
