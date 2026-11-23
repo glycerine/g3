@@ -3584,3 +3584,33 @@ The timing boundary is the actual call to the incremental solver from GoIvy, aft
 | raftok | 12 / 15 | 0.86 / 0.27 | 39.27 / 18.16 |
 
 The original 8.61-billion-instruction first-push penalty on rfn2 is gone. All 26 obligations finish before a physical push. TLB now offers the largest measured first-push gap here, 17.93 billion instructions across 58 batches. The dominant excess on both abstract Raft specifications comes later, inside the verification calls. Choosing those boundaries separately gives different optimization targets for TLB and Raft.
+
+## Renaming the formula after choosing the fresh name
+
+The private suffix counter resolved name selection. Each subsequent symbol substitution still cloned the formula. The common fixed-arity GoIvy nodes first built an argument slice and then unpacked it into the clone. Applications copied an already private slice a second time. GoIvy commit `59aa2840e` clones fixed-arity fields directly and gives each new application its own argument storage. Binder variables retain their original sharing. Replacing a function by one with a different range, arity or sort follows the existing application constructor. [GoIvy implementation and regression benchmark](https://github.com/glycerine/ivy/commit/59aa2840e)
+
+| Measure | Before | After |
+|---|---:|---:|
+| Rename one quantified predicate, ns/op | 5,803 | 2,942 |
+| Bytes / allocations per operation | 5,504 / 117 | 3,680 / 51 |
+| Apple dramc_nb2 whole-process instructions, g3 | 179.02 B | 167.77 B |
+| Apple dramc_nb2 whole-process instructions, linked Z3 | 186.53 B | 173.07 B |
+| Go heap allocation over dramc_nb2, g3 | 12.83 GB | 12.21 GB |
+| Go heap allocation over dramc_nb2, linked Z3 | 11.23 GB | 10.54 GB |
+
+The microbenchmark used nine alternating pairs of 30,000 iterations. Six complete specifications used five pairs per backend. Heap profiles were sampled separately in four pairs and report cumulative Go allocations in decimal GB. The g3 median fell by 25.9 million allocated objects on dramc_nb2. All 87 reference proof transcripts matched for both backends. The active-tracing builds emitted identical stdout and stderr for ring and rfn2, including 2,334,030,415 stdout bytes on rfn2. [Microbenchmark samples](perf/ivy_apple/holdouts/nov22b-rename-quantified-micro.csv.gz) · [Complete runs](perf/ivy_apple/holdouts/nov22b-rename-quantified-runs.csv.gz) · [Heap profiles by run](perf/ivy_apple/holdouts/nov22b-rename-quantified-memory.csv.gz) · [Corpus outcomes](perf/ivy_apple/holdouts/nov22b-rename-quantified-corpus.csv.gz)
+
+I also tried allocating cloned GoIvy nodes in type-specific blocks shared across a batch. On dramc_nb2 the best block-growth prototype used 163.65 B instructions versus 167.58 B for direct cloning in the same experiment. It requires carrying a new storage owner through the traversal. Direct cloning delivered the larger independently measured gain and has a simpler ownership rule. These experiments concern GoIvy formula construction. The g3 solver continues to use its arena. [Storage variants](perf/ivy_apple/holdouts/nov22b-rename-storage-layouts.csv.gz)
+
+## Which lower-level changes affect matched replay?
+
+The saved incremental queries isolate a single push, assertion and check inside a fresh executable. Ten numeric auxiliary queries and three Ivy queries ran at default GC and with GC off. Each of the 104 groups (study, query and GC setting) returned the same answer and four search counters across every implementation and the in-tree Z3 control. The table gives the median of the per-query instruction ratios to the contemporaneous g3 control, with GC off. The earlier 8-to-64-check slope separately measures warmed, repeated work. [7,800 individual replays](perf/ivy_apple/holdouts/nov22b-internal-layout-replay.csv.gz) · [Repeated-check benchmark](perf/ivy_apple/holdouts/warm_queries.py)
+
+| Prototype | Numeric | Three Ivy queries | Complete-run observation |
+|---|---:|---:|---|
+| Tagged equality reasons plus a compact assignment trail | 0.998 | 1.000 | TLB 117.38 → 117.45 B instructions |
+| Lazy model-finder sets and direct iteration | 0.999 | 1.000 | TLB 117.78 → 117.74 B |
+| Faster arithmetic comparison and weakly cached numeral results | 0.980 | 0.999 | Numeric example 110.84 → 105.60 B |
+| Transfer rewrite-result ownership and specialize child publication | 0.999 | 0.997 | TLB 113.22 → 112.73 B |
+
+The 16-byte Boolean record and its 8-byte Boolean justification are already in the retained solver. The first row experiments with the separate equality-explanation and undo records. The arithmetic experiment gives a reproducible saving on numeric input. Its best configuration recovers about 2% on isolated numeric replay and leaves the two ticket obligations almost unchanged. None of these changes explains the 2.6–3.2× repeated-check ratio. The stronger target is eliminating entire repeated evaluations, especially when the model or the unchanged assertion prefix already determines the answer. [Complete-run measurements](perf/ivy_apple/holdouts/nov22b-internal-layout-runs.csv.gz) · [Prototype patches against g3 a7c09920a](perf/ivy_apple/holdouts/nov22b-internal-layout-prototypes.tar.gz)
