@@ -975,6 +975,15 @@ func (r *ArithRewriter) rewritePower(base, exponent ast.ASTHandle, out ast.ASTRe
 		}
 	}
 	if !integer && yn && y.IsNeg() {
+		if !xn && r.algebraicSimplify && y.IsInt() && y.Num.IsSmall() {
+			k := uint32(-int64(y.Num.Val))
+			if k >= 2 && k <= r.maxDegree {
+				status, err := r.rewriteBinomialPower(base, k, true, out)
+				if err != nil || status != RewriteFailed {
+					return status, err
+				}
+			}
+		}
 		// (^ t -k) --> (^ (/ 1 t) k)
 		one, e := r.makeNumeralInt(1, false)
 		if e != nil {

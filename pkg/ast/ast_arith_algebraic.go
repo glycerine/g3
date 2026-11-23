@@ -239,6 +239,38 @@ func (m *ASTManager) ArithmeticAlgebraicManager() (*polynomial.AlgebraicManager,
 	return w.manager, nil
 }
 
+// ArithmeticBinomialPower returns the exact rational kth power of an
+// irrational numeral when it is immediate from the defining polynomial.
+func (m *ASTManager) ArithmeticBinomialPower(h ASTHandle, k uint32) (numerator, denominator int64, ok bool, err error) {
+	if err := m.lock(); err != nil {
+		return 0, 0, false, err
+	}
+	defer m.mu.Unlock()
+	r, err := m.requireExpr(h)
+	if err != nil || m.arithmeticPlugin == nil || !m.unboundedAlgebraicReads() {
+		return 0, 0, false, err
+	}
+	id, ok, err := m.arithmeticAlgebraicID(m.arithmeticPlugin.family, r)
+	if err != nil || !ok {
+		return 0, 0, false, err
+	}
+	w := m.arithmeticPlugin.algebraic
+	if n := w.signedRadicand(id); n != 0 {
+		if k != 2 {
+			return 0, 0, false, nil
+		}
+		if n < 0 {
+			n = -n
+		}
+		return int64(n), 1, true, nil
+	}
+	v, err := w.value(id)
+	if err != nil {
+		return 0, 0, false, err
+	}
+	return w.manager.BinomialPowerFraction(v, k)
+}
+
 // ArithmeticAlgebraicNumeralValue recognizes an irrational arithmetic
 // numeral and copies its value into out. The caller owns the copy and must
 // release it with the borrowed ArithmeticAlgebraicManager.
@@ -332,7 +364,7 @@ func (m *ASTManager) ArithmeticSquareRootNumeral(n int32, negative bool) (ASTHan
 	if err != nil {
 		return ASTHandle{}, err
 	}
-	if m.compactSquareRootsEnabled() {
+	if m.unboundedAlgebraicReads() {
 		for len(w.squareRoots) <= int(id) {
 			w.squareRoots = append(w.squareRoots, 0)
 		}
@@ -351,7 +383,7 @@ func (m *ASTManager) ArithmeticSquareRootNumeral(n int32, negative bool) (ASTHan
 	return m.arithmeticAlgebraicApp(w, id)
 }
 
-func (m *ASTManager) compactSquareRootsEnabled() bool {
+func (m *ASTManager) unboundedAlgebraicReads() bool {
 	return !ASTSourceDebug && !diagnostic.TraceCompiled() && m.TraceStream == nil &&
 		!m.BudgetField.InjectionArmed() && m.Limit.Limit == 0 && !m.Limit.CancelFlag()
 }

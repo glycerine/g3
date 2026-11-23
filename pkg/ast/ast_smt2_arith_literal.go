@@ -54,7 +54,7 @@ func (m *ASTManager) smt2PPArithLiteral(h ASTHandle, decimal bool, precision uin
 		if e != nil || family != arithmetic {
 			return ASTHandle{}, false, e
 		}
-		if !decimal && m.compactSquareRootsEnabled() {
+		if !decimal && m.unboundedAlgebraicReads() {
 			text, ok, err := m.exactAlgebraicSMT2Text(h, arithmetic)
 			if err != nil || !ok {
 				return ASTHandle{}, ok, err

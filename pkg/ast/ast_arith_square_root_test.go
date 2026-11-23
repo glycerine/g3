@@ -115,7 +115,7 @@ func TestArithmeticSquareRootNumeralReservationFailures(t *testing.T) {
 
 func TestCompactSquareRootPrintReadAndRecycle(t *testing.T) {
 	m := squareRootManager(t)
-	if !m.compactSquareRootsEnabled() {
+	if !m.unboundedAlgebraicReads() {
 		t.Skip("compact values require the ordinary arithmetic configuration")
 	}
 	for _, tc := range []struct {
@@ -156,7 +156,7 @@ func TestCompactSquareRootPrintReadAndRecycle(t *testing.T) {
 func TestCompactSquareRootRetriesFailedNumericRead(t *testing.T) {
 	for ordinal := int64(0); ordinal < 128; ordinal++ {
 		m := squareRootManager(t)
-		if !m.compactSquareRootsEnabled() {
+		if !m.unboundedAlgebraicReads() {
 			t.Skip("compact values require the ordinary arithmetic configuration")
 		}
 		h, err := m.ArithmeticSquareRootNumeral(19, true)

@@ -170,6 +170,12 @@ func (r *ArithRewriter) rewriteAlgebraicFold(kind int32, args ast.AppArguments, 
 	if !r.algebraicSimplify {
 		return RewriteFailed, nil
 	}
+	if k := args.Count(); kind == arithOpMul && k >= 2 && k <= r.maxDegree {
+		status, err := r.rewriteRepeatedFactor(args, out)
+		if err != nil || status != RewriteFailed {
+			return status, err
+		}
+	}
 	target, err := r.isAnumSimpTarget(nil, args)
 	if err != nil || !target {
 		return RewriteFailed, err
@@ -308,6 +314,49 @@ func (r *ArithRewriter) rewriteAlgebraicFold(kind int32, args ast.AppArguments, 
 	return RewriteDone, r.manager.SetRef(out, h)
 }
 
+func (r *ArithRewriter) rewriteRepeatedFactor(args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+	base, err := args.At(0)
+	if err != nil {
+		return RewriteFailed, err
+	}
+	for i := uint32(1); i < args.Count(); i++ {
+		h, err := args.At(i)
+		if err != nil || h != base {
+			return RewriteFailed, err
+		}
+	}
+	return r.rewriteBinomialPower(base, args.Count(), false, out)
+}
+
+// For a root of a*X^k + b, an explicit power and a product of k identical
+// factors both reduce to -b/a. A negative exponent takes its reciprocal.
+func (r *ArithRewriter) rewriteBinomialPower(base ast.ASTHandle, k uint32, inverse bool, out ast.ASTRef) (status RewriteStatus, err error) {
+	n, d, ok, err := r.manager.ArithmeticBinomialPower(base, k)
+	if err != nil || !ok {
+		return RewriteFailed, err
+	}
+	if inverse {
+		n, d = d, n
+	}
+	if d < 0 {
+		n, d = -n, -d
+	}
+	var h ast.ASTHandle
+	if d == 1 {
+		h, err = r.manager.ArithmeticNumeralInt64(n, false)
+	} else {
+		q := unumeral.NewRational()
+		defer func() { err = errors.Join(err, arithQDel(r.q(), &q)) }()
+		if err = r.q().SetFraction(&q, n, uint64(d)); err == nil {
+			h, err = r.makeNumeral(&q, false)
+		}
+	}
+	if err != nil {
+		return RewriteFailed, err
+	}
+	return RewriteDone, r.manager.SetRef(out, h)
+}
+
 // rewriteAlgebraicDivision is the m_anum_simp dispatch of
 // arith_rewriter::mk_div_core: mk_div_irrat_rat, mk_div_irrat_irrat or
 // mk_div_rat_irrat. dispatched reports that mk_div_core returns the
@@ -401,6 +450,12 @@ func (r *ArithRewriter) rewriteAlgebraicRationalRoot(xk *unumeral.Rational, den 
 // test, am.power(val, u_num_y, r), am.root(r, u_den_y, r), am.inv(r) for a
 // negative exponent and mk_numeral(r, false).
 func (r *ArithRewriter) rewriteAlgebraicPower(base ast.ASTHandle, num, den uint32, negative bool, out ast.ASTRef) (RewriteStatus, error) {
+	if den == 1 && num >= 2 && num <= r.maxDegree {
+		status, err := r.rewriteBinomialPower(base, num, negative, out)
+		if err != nil || status != RewriteFailed {
+			return status, err
+		}
+	}
 	manager, err := r.manager.ArithmeticAlgebraicManager()
 	if err != nil {
 		return RewriteFailed, err
