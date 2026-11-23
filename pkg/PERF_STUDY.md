@@ -3907,3 +3907,19 @@ python3 perf/ivy_apple/goal_instances/ground_proof_checker.py \
   --variant projection/control --goivy /path/to/ivy/goivy --abc /path/to/abc \
   --output /tmp/tlb-projection-checker
 ```
+
+### Would solving sibling goals together amortize the first push?
+
+With a common base, UNSAT for a disjunction of counterexample conditions proves every condition in the group impossible. A satisfiable or inconclusive group must be checked individually or split again. I tested this both on archived solver inputs and inside the full verifier, where the search state and the order of later checks also matter. Four repetitions of each full-checker configuration on nine inputs produced 324 transcripts and exit statuses matching the control. The experiment used the checker preceding the direct universal-premise change. [Whole-checker observations](perf/ivy_apple/holdouts/nov23-sibling-checkers.csv.gz)
+
+| Verification | g3, separate | g3, up to 8 siblings | g3, up to 64 siblings | Linked Z3, separate | Linked Z3, up to 64 siblings |
+|---|---:|---:|---:|---:|---:|
+| TLB | 106.92 | 95.91 | 134.97 | 69.78 | 51.45 |
+| Apple cf_live | 58.87 | 146.74 | 66.03 | 59.83 | 63.22 |
+| Apple dramc_nb2 | 162.02 | 197.75 | 155.41 | 168.08 | 164.31 |
+| Flash | 9.15 | 12.12 | 33.13 | 4.54 | 5.11 |
+| Hybrid reliable broadcast | 14.00 | 15.29 | 18.05 | 6.27 | 7.57 |
+
+Values are median billions of whole-process instructions. The grouped g3 checker first tries an available unit proof on each candidate. It groups consecutive built-in checks and stops at assumptions or unfamiliar callbacks. The timings include construction of the disjunction, unsuccessful group checks, and any individual fallback. The two TLB counterexamples and all 65 Flash counterexamples still appeared. Grouping eight siblings saved 11.01 billion instructions on TLB but added 87.87 billion on cf_live. Keeping this out of the default verifier avoids a larger regression on an independently measured input. [Frontend experiment and individual-check selections](perf/ivy_apple/holdouts/nov23-sibling-controls.tar.gz)
+
+The shell benchmark covers a different workload because its input contains the physical checks that reached the solver. It can replay all of them or only the checks that required ordinary search. Of 236 measured configurations and repetitions, 210 finished with the expected answers and 26 Raft replays hit the 150-second watchdog. The latter appear as censored runs. To reproduce a TLB selection, unpack the two archives below into one directory and run the benchmark with `--events tlb/events.csv.gz --selection tlb-selected.csv.gz --width 16 --cpu 2 --solver /path/to/z3 --output /tmp/tlb-sibling-replay`. Omitting the selection replays the full physical stream. [Shell benchmark](perf/ivy_apple/holdouts/sibling_goals.py) · [Measurements including cutoffs](perf/ivy_apple/holdouts/nov23-sibling-shell.csv.gz) · [Physical streams](perf/ivy_apple/holdouts/nov22b-physical-streams.tar.gz) · [Selections](perf/ivy_apple/holdouts/nov23-sibling-controls.tar.gz)
