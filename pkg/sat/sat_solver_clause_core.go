@@ -66,6 +66,17 @@ func (s *satSolverClauseState) simplifyClauseSpan(scope uint32, n *uint32, span 
 	if e := satSortClauseSpan(span, *n, &s.sorter); e != nil {
 		return false, e
 	}
+	if scope == 0 && span.column == nil && span.store == nil && *n != 0 && s.variables != nil {
+		literals := span.literals[:*n]
+		if uint64(literals[len(literals)-1]) < uint64(len(s.variables.assignment)) {
+			if err := s.variables.open(); err != nil {
+				return false, err
+			}
+			if unchangedBaseClause(literals, s.variables.assignment) {
+				return true, nil
+			}
+		}
+	}
 	prev := DefaultLiteral()
 	var j uint32
 	for i := uint32(0); i < *n; i++ {
@@ -111,6 +122,19 @@ func (s *satSolverClauseState) simplifyClauseSpan(scope uint32, n *uint32, span 
 	}
 	*n = j
 	return true, nil
+}
+
+// A sorted base clause of distinct, unassigned literals with no complementary
+// pair is already in its final form. The caller checked its largest index.
+func unchangedBaseClause(literals []Literal, assignment []lbool.LBool) bool {
+	prev := DefaultLiteral()
+	for _, lit := range literals {
+		if assignment[lit] != lbool.Undef || lit == prev || lit == prev.Negated() {
+			return false
+		}
+		prev = lit
+	}
+	return true
 }
 
 func (s *satSolverClauseState) selectWatchLiteral(a *ClauseAllocator, clause StoredClauseRef, start uint32) (uint32, error) {

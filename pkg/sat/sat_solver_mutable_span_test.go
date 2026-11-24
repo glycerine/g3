@@ -56,6 +56,44 @@ func TestSATSolverMutableRuntimeClauseSpanMatchesFiniteSlice(t *testing.T) {
 		t.Fatal(b.Used())
 	}
 }
+
+func TestSATBaseClauseFilteringMatchesCapturedColumn(t *testing.T) {
+	solver, _, _ := satSolverCheckFixture(t)
+	for i := 0; i < 4; i++ {
+		_, err := solver.MkVar(false, true)
+		satOK(t, err)
+	}
+	state := solver.Variables.clauseState()
+	for mask := 0; mask < 81; mask++ {
+		x := mask
+		for v := 0; v < 4; v++ {
+			value := lbool.LBool(x%3 - 1)
+			x /= 3
+			solver.Variables.assignment[2*v] = value
+			solver.Variables.assignment[2*v+1] = value.Negated()
+		}
+		for _, input := range [][]Literal{{}, {6, 0, 4, 2}, {4, 1, 1, 7}, {6, 0, 2, 7}, {4, 2, 2, 10}} {
+			literals := append([]Literal(nil), input...)
+			column := &solver.auxLiterals
+			satOK(t, column.Shrink(0))
+			for _, lit := range input {
+				satOK(t, column.Push(uint32(lit)))
+			}
+			n, z := uint32(len(input)), uint32(len(input))
+			got, err := state.simplifyClause(0, &n, literals)
+			want, refErr := state.simplifyClauseSpan(0, &z, satConflictColumnSpan(column))
+			if got != want || n != z || err != refErr {
+				t.Fatalf("assignment %d, input %v: got (%v,%d,%v), want (%v,%d,%v)", mask, input, got, n, err, want, z, refErr)
+			}
+			for i, lit := range literals {
+				value, err := column.Read(uint32(i))
+				if err != nil || value != uint32(lit) {
+					t.Fatalf("assignment %d, input %v, word %d: slice %d, column %d, error %v", mask, input, i, lit, value, err)
+				}
+			}
+		}
+	}
+}
 func TestSATSolverMutableCapturedSpanRejectsClosedColumn(t *testing.T) {
 	b := arena.NewBudget(^uint64(0))
 	r, e := umemory.NewRuntime(umemory.RuntimeConfig{Budget: b})
