@@ -4974,3 +4974,22 @@ The two engines made the same search decisions and quantifier instantiations thr
 For toy consensus, each engine entered the theory reducer about 89,761 times per check. The average inclusive cost was roughly **3,364 instructions per call in Go and 417 in C++**. The difference accounts for about **23%** of the total solver-call instruction gap. Arithmetic comparisons lie inside that boundary. They ran about 7,153 times in both engines. On ticket 127, the theory reducer and the quantifier instance cache each contribute about 5.6 million excess instructions, against a 66.5 million total gap. An optimization that made either operation free would still leave most of that gap. Separate builds bracketed each method. Nested and overlapping costs cannot be added. [Matched method definitions](perf/ivy_apple/holdouts/query_operations.py) · [Raw call counts and search counters](perf/ivy_apple/holdouts/nov24-incremental-replay-profiles.tar.xz)
 
 Seven uninstrumented pairs on 13 queries also measured whole-shell replay, including the commands around the solver call. The extra check cost 114.50 / 33.71 million instructions on ticket 127 and 208.98 / 57.03 million on ticket 290. On the ten numeric queries the ratios ranged from **2.97× to 3.12×**. These slopes use 64 minus eight repetitions. All 64 cumulative search records matched on each of the twelve numeric and ticket queries. Toy consensus matched through repetition 45, then produced different search statistics on repetitions 46–64 while both engines continued to return UNSAT. Its longer whole-shell slope of 1,669.73 / 505.93 million therefore includes some search divergence. The 32-check solver comparison above ends before the divergence. [Portable replay runner](perf/ivy_apple/holdouts/warm_queries.py) · [Every sample and per-iteration outcome](perf/ivy_apple/holdouts/nov24-incremental-replay-profiles.tar.xz)
+
+### Owning a rename map once in the shared Ivy frontend
+
+When GoIvy renamed a clause, it built a substitution map and then copied every entry into the annotation. The clause operation now gives its newly allocated map directly to the built-in annotation. Public callers can still mutate the map they pass to `Rename` without affecting the annotation. Custom annotation implementations receive their usual `Rename` call. This improves the same frontend used by both solvers. [GoIvy implementation, tests and benchmark](https://github.com/glycerine/ivy/commit/10d7568c5) · [Raw measurements and release controls](perf/ivy_apple/holdouts/nov24-goivy-clause-renaming.tar.xz)
+
+| Names renamed | Previous | Changed | Bytes per rename, previous → changed |
+|---:|---:|---:|---:|
+| 1 | 1,199 ns | 722 ns | 824 → 488 |
+| 16 | 4,113 ns | 2,310 ns | 2,632 → 1,392 |
+| 128 | 24,069 ns | 12,425 ns | 19,272 → 9,712 |
+
+Each cell is the median of 17 alternating runs of 10,000 renames. In separate heap measurements, complete Hermes testing allocated about **1.59 GB less** on the g3 frontend path and **1.58 GB less** on the linked Z3 path. Full Apple saved approximately **0.80 GB** on each backend. These are cumulative Go heap allocations across a run. The linked solver's native heap is outside the Go counters. [Per-process allocation and collection counts](perf/ivy_apple/holdouts/nov24-goivy-clause-renaming.tar.xz)
+
+| Complete verification, billion instructions | g3 before | g3 after | Linked Z3 before | Linked Z3 after |
+|---|---:|---:|---:|---:|
+| Apple `ord_live.ivy`, all isolates | 767.48 | **756.96** | 1,041.66 | **1,030.83** |
+| Hermes testing, 6,338 checks | 1,082.04 | **1,064.02** | 1,222.69 | **1,202.76** |
+
+The table uses three complete before/after runs per cell on a pinned CPU. The long runs overlapped other work, so these comparisons use retired instructions. Ordinary Hermes had seven quiet rotations with medians of **7.850 → 7.837 s** on g3 and **6.861 s** on linked Z3 with the new frontend. Each backend reproduced the expected status and both output streams on **228 specs**, including 91 expected failures. The full GoIvy release test suite passed. The rfn2 trace matched across 2,334,030,415 bytes and Paxos matched all 27,855 reference lines. [Benchmark, allocation snapshots, corpus and trace results](perf/ivy_apple/holdouts/nov24-goivy-clause-renaming.tar.xz)
