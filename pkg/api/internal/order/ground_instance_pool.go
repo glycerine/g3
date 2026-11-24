@@ -15,6 +15,7 @@ type GroundInstancePool struct {
 	manager                   *ast.ASTManager
 	base                      []ast.ASTHandle
 	g                         groundProjection
+	observed                  *observedPool
 	rules                     []flatUniversalRule
 	facts                     []ast.ASTHandle
 	indexed, loaded, disabled bool
@@ -60,7 +61,9 @@ func (p *GroundInstancePool) start(steps uint32) {
 	k.firstGate = 2
 	k.gates = make(map[uint64]int32)
 	k.Clauses = []BooleanClause{{1}}
-	p.installed = make(map[[8]ast.ASTHandle]bool)
+	if p.observed == nil {
+		p.installed = make(map[[8]ast.ASTHandle]bool)
+	}
 	p.instances = make(map[groundRuleInstance]bool)
 	p.groundBoolEncoding = groundBoolEncoding{
 		result: []int32{0}, codes: []groundValueCode{{}},
@@ -233,7 +236,7 @@ func (p *GroundInstancePool) source(h ast.ASTHandle) (uint32, error) {
 	}
 	for ; p.nextInput < len(g.input); p.nextInput++ {
 		n := &g.input[p.nextInput]
-		if n.kind != ast.ASTApp || n.boolean {
+		if n.kind != ast.ASTApp || n.boolean && p.observed == nil {
 			continue
 		}
 		if _, ok := p.sorts[n.symbol]; ok {
@@ -244,6 +247,9 @@ func (p *GroundInstancePool) source(h ast.ASTHandle) (uint32, error) {
 			return 0, e
 		}
 		p.sorts[n.symbol] = st
+		if p.observed != nil {
+			continue
+		}
 		hd, e := p.manager.NodeHeader(n.expr)
 		if e != nil {
 			return 0, e
@@ -266,16 +272,6 @@ func (p *GroundInstancePool) root(h ast.ASTHandle) (uint32, error) {
 // other tuples or domain elements the source model contains.
 func (p *GroundInstancePool) join(k [8]ast.ASTHandle, n int) error {
 	g := &p.g
-	if !p.loaded {
-		for _, h := range p.facts {
-			v, e := p.root(h)
-			if e != nil {
-				return e
-			}
-			g.roots = append(g.roots, v)
-		}
-		p.loaded = true
-	}
 	if !p.installed[k] {
 		if len(p.installed) >= 1024 {
 			return errBitLimit
@@ -341,19 +337,37 @@ func (p *GroundInstancePool) join(k [8]ast.ASTHandle, n int) error {
 		}
 		p.installed[k] = true
 	}
-	if e := p.compileTerms(); e != nil {
-		return e
+	return nil
+}
+
+func (p *GroundInstancePool) loadFacts() error {
+	g := &p.g
+	if !p.loaded {
+		for _, h := range p.facts {
+			v, e := p.root(h)
+			if e != nil {
+				return e
+			}
+			g.roots = append(g.roots, v)
+		}
+		p.loaded = true
 	}
-	for _, v := range g.roots {
-		p.assertLiteral(p.result[v])
-	}
-	g.roots = g.roots[:0]
 	return nil
 }
 
 // Project builds the current goal as an assumption. minRules selects the
 // minimum number of eligible universal rules that justifies starting a pool.
-func (p *GroundInstancePool) Project(goal ast.ASTHandle, steps uint32, minRules int, limit *control.Reslimit) (query *GroundInstanceQuery, err error) {
+func (p *GroundInstancePool) Project(goal ast.ASTHandle, steps uint32, minRules int, limit *control.Reslimit) (*GroundInstanceQuery, error) {
+	return p.project(goal, steps, minRules, false, limit)
+}
+
+// ProjectObserved uses matches on uninterpreted applications when the
+// number of universal premises is small enough to index their patterns.
+func (p *GroundInstancePool) ProjectObserved(goal ast.ASTHandle, steps uint32, limit *control.Reslimit) (*GroundInstanceQuery, error) {
+	return p.project(goal, steps, minApplicationRules, true, limit)
+}
+
+func (p *GroundInstancePool) project(goal ast.ASTHandle, steps uint32, minRules int, observed bool, limit *control.Reslimit) (query *GroundInstanceQuery, err error) {
 	if p.disabled || steps == 0 {
 		return nil, nil
 	}
@@ -361,9 +375,22 @@ func (p *GroundInstancePool) Project(goal ast.ASTHandle, steps uint32, minRules 
 		p.disable()
 		return nil, nil
 	}
-	key, n, err := p.goalConstants(goal, limit)
-	if err != nil || n == 0 {
-		return nil, err
+	eligible := func() bool { return len(p.rules) >= minRules && (!observed || len(p.rules) < MinConstantPoolRules) }
+	if p.indexed && (!eligible() || p.g.manager != nil && observed != (p.observed != nil)) {
+		return nil, nil
+	}
+	var key [8]ast.ASTHandle
+	var n int
+	if observed {
+		ground, err := p.manager.IsGround(goal)
+		if err != nil || !ground {
+			return nil, err
+		}
+	} else {
+		key, n, err = p.goalConstants(goal, limit)
+		if err != nil || n == 0 {
+			return nil, err
+		}
 	}
 	defer func() {
 		if err == nil {
@@ -378,22 +405,45 @@ func (p *GroundInstancePool) Project(goal ast.ASTHandle, steps uint32, minRules 
 		if err := p.index(limit); err != nil {
 			return nil, err
 		}
-		if len(p.rules) < minRules {
-			p.disable()
-			return nil, nil
+	}
+	if !eligible() {
+		return nil, nil
+	}
+	if p.g.manager == nil {
+		if observed {
+			p.observed = new(observedPool)
 		}
 		p.start(steps)
 	}
 	k := &p.g.compiler
 	k.work, k.nextPoll, k.ceiling = 0, 0, int(min(steps, 500_000))
-	if err := p.join(key, n); err != nil {
+	if observed && p.observed.bySymbol == nil {
+		if err := p.indexApplications(); err != nil {
+			return nil, err
+		}
+	}
+	if err := p.loadFacts(); err != nil {
 		return nil, err
+	}
+	if !observed {
+		if err := p.join(key, n); err != nil {
+			return nil, err
+		}
+		// Preserve the constant pool's clause order when adding a new sibling.
+		if err := p.compileFacts(); err != nil {
+			return nil, err
+		}
 	}
 	id, err := p.root(goal)
 	if err != nil {
 		return nil, err
 	}
-	if err := p.compileTerms(); err != nil {
+	if observed {
+		if err := p.matchApplications(id); err != nil {
+			return nil, err
+		}
+	}
+	if err := p.compileFacts(); err != nil {
 		return nil, err
 	}
 	lit := p.result[id]
@@ -408,4 +458,16 @@ func (p *GroundInstancePool) Project(goal ast.ASTHandle, steps uint32, minRules 
 		return nil, err
 	}
 	return &GroundInstanceQuery{Variables: k.Vars, Clauses: k.Clauses, Goal: lit, Work: uint32(k.work), units: &p.units}, nil
+}
+
+func (p *GroundInstancePool) compileFacts() error {
+	g := &p.g
+	if e := p.compileTerms(); e != nil {
+		return e
+	}
+	for _, v := range g.roots {
+		p.assertLiteral(p.result[v])
+	}
+	g.roots = g.roots[:0]
+	return nil
 }

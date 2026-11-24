@@ -1,12 +1,12 @@
 package api
 
 import (
-	"github.com/glycerine/g3/pkg/util/control"
 	"runtime"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -167,8 +167,10 @@ func BenchmarkVerificationGroundInstanceSiblings(b *testing.B) {
 // Measure the private projection above already loaded, independent source
 // solvers. Run with -cpu=1 and -benchtime=1x for a resident-heap observation.
 func BenchmarkGroundInstanceWorkerMemory(b *testing.B) {
-	const workers = 8
-	input := appleBenchmarkInput(b, "tlb_ground_instance_siblings")
+	benchmarkGroundWorkerMemory(b, appleBenchmarkInput(b, "tlb_ground_instance_siblings"), 8, false)
+}
+
+func benchmarkGroundWorkerMemory(b *testing.B, input string, workers int, observed bool) {
 	type worker struct {
 		manager *ast.ASTManager
 		source  *APISimpleSolver
@@ -185,6 +187,8 @@ func BenchmarkGroundInstanceWorkerMemory(b *testing.B) {
 		owners[i] = worker{manager: m, source: source, roots: roots}
 	}
 	var active, idle float64
+	var proved int
+	b.ReportAllocs()
 	b.ResetTimer()
 	b.StopTimer()
 	for i := 0; i < b.N; i++ {
@@ -195,7 +199,16 @@ func BenchmarkGroundInstanceWorkerMemory(b *testing.B) {
 			pair := [2]ast.ASTHandle{w.roots[0]}
 			for _, goal := range w.roots[1:] {
 				pair[1] = goal
-				_, err := w.pool.prove(w.source, w.manager, pair[:], 2_000_000, 192)
+				var yes bool
+				var err error
+				if observed {
+					yes, err = w.pool.proveObserved(w.source, w.manager, pair[:], 350_000)
+				} else {
+					yes, err = w.pool.prove(w.source, w.manager, pair[:], 2_000_000, 192)
+				}
+				if yes {
+					proved++
+				}
 				astTestMust(b, err)
 			}
 		}
@@ -207,6 +220,8 @@ func BenchmarkGroundInstanceWorkerMemory(b *testing.B) {
 		idle += raftLiveHeap() - base
 	}
 	runtime.KeepAlive(owners)
+	b.ReportMetric(float64(len(owners[0].roots)-1), "goals/solver")
+	b.ReportMetric(float64(proved)/float64(workers*b.N), "refutations/solver")
 	b.ReportMetric(active/float64(workers*b.N), "active-B/solver")
 	b.ReportMetric(idle/float64(workers*b.N), "released-B/solver")
 }

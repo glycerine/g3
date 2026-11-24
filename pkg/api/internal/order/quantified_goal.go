@@ -109,6 +109,7 @@ type groundProjection struct {
 	global, local, version       []uint32
 	epoch                        uint32
 	bindings, quantifiers, roots []uint32
+	bindingSorts                 []ast.ASTHandle
 	implications                 []groundImplication
 }
 

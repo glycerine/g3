@@ -39,6 +39,14 @@ func (s *groundInstanceSolver) close() error {
 }
 
 func (s *groundInstanceSolver) prove(src *APISimpleSolver, m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32, minRules int) (proved bool, err error) {
+	return s.proveInstances(src, m, assertions, steps, minRules, false)
+}
+
+func (s *groundInstanceSolver) proveObserved(src *APISimpleSolver, m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (bool, error) {
+	return s.proveInstances(src, m, assertions, steps, 0, true)
+}
+
+func (s *groundInstanceSolver) proveInstances(src *APISimpleSolver, m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32, minRules int, observed bool) (proved bool, err error) {
 	if len(assertions) < 2 || len(assertions) > 8192 || steps == 0 {
 		return false, nil
 	}
@@ -87,7 +95,12 @@ func (s *groundInstanceSolver) prove(src *APISimpleSolver, m *ast.ASTManager, as
 	if parent.CancelFlag() {
 		return false, nil
 	}
-	q, err := s.pool.Project(goal, steps, minRules, limit)
+	var q *order.GroundInstanceQuery
+	if observed {
+		q, err = s.pool.ProjectObserved(goal, steps, limit)
+	} else {
+		q, err = s.pool.Project(goal, steps, minRules, limit)
+	}
 	if q == nil || err != nil {
 		if s.pool.Disabled() {
 			err = errors.Join(err, s.resetSAT())
@@ -108,6 +121,9 @@ func (s *groundInstanceSolver) prove(src *APISimpleSolver, m *ast.ASTManager, as
 	}
 	if conflict {
 		return true, nil
+	}
+	if observed {
+		return false, nil
 	}
 	return s.search(src, m, q)
 }

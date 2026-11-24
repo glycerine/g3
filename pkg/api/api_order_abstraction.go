@@ -55,6 +55,7 @@ type orderProofState struct {
 	definitions        *premiseDefinitions
 	enumeration        *enumerationRefutation
 	instances          *groundInstanceSolver
+	expectedGoals      int
 	previousGoalProved bool
 	recent             *recentRefutations
 	bits               *orderBooleanSolver
@@ -81,6 +82,7 @@ func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
 // The count affects scheduling only. All goals can still use the source solver.
 func (s *APISimpleSolver) BeginOrderProofBatchForGoals(count int) *OrderProofBatch {
 	b := s.BeginOrderProofBatch()
+	b.state.expectedGoals = count
 	if count >= 48 && b.state.plans.enabled {
 		b.state.instances = new(groundInstanceSolver)
 	}
@@ -271,6 +273,20 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 	limit := parent.ResourceLimit()
 	combined, ok := s.solver.(*solver.CombinedSolver)
 	original := ok && combined.HasOriginalAssertions()
+	if p.expectedGoals >= 24 && original && reuse && !ast.ASTValidateHandles && p.plans.reusable(parent) {
+		proofs, err := parent.ProofsEnabled()
+		if err != nil {
+			return false, err
+		}
+		if !proofs {
+			if p.instances == nil {
+				p.instances = new(groundInstanceSolver)
+			}
+			if yes, err := p.instances.proveObserved(s, parent, assertions, min(maxSteps, 350_000)); yes || err != nil || limit.CancelFlag() {
+				return yes, err
+			}
+		}
+	}
 	// Propagate an existing index before constructing another projection.
 	triedUnits := reuse && original && p.groundPremises.PreparedFor(parent, assertions)
 	if triedUnits {
@@ -315,13 +331,13 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 						return yes, e
 					}
 				}
-				if consistent && original && reuse && p.instances != nil && !ast.ASTValidateHandles && p.plans.reusable(parent) {
+				if consistent && original && reuse && p.expectedGoals >= 48 && p.instances != nil && !ast.ASTValidateHandles && p.plans.reusable(parent) {
 					enabled, e := parent.ProofsEnabled()
 					if e != nil {
 						return false, e
 					}
 					if !enabled {
-						if yes, e := p.instances.prove(s, parent, assertions, min(maxSteps, 2_000_000), 192); yes || e != nil || limit.CancelFlag() {
+						if yes, e := p.instances.prove(s, parent, assertions, min(maxSteps, 2_000_000), order.MinConstantPoolRules); yes || e != nil || limit.CancelFlag() {
 							return yes, e
 						}
 					}

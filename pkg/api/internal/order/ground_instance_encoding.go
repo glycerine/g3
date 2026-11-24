@@ -60,6 +60,10 @@ func (p *GroundInstancePool) eq(a, b uint32) int32 {
 	v := int32(1)
 	if p.g.terms[a].boolean {
 		v = p.g.compiler.ite(p.result[a], p.result[b], -p.result[b])
+	} else if p.observed != nil {
+		// Different data terms may denote the same value. A fresh Boolean
+		// equality atom relaxes the model without bounding its domain.
+		v = p.newVar()
 	} else {
 		x, y := p.codes[a], p.codes[b]
 		for j := 0; j < max(x.width, y.width); j++ {
@@ -92,6 +96,10 @@ func (p *GroundInstancePool) compileTerms() error {
 		vs := p.result
 		v := int32(0)
 		var code groundValueCode
+		if !t.boolean && p.observed != nil {
+			p.result = append(p.result, 0)
+			continue
+		}
 		if !t.boolean {
 			st, ok := p.sorts[t.symbol]
 			if !ok {
@@ -139,6 +147,9 @@ func (p *GroundInstancePool) compileTerms() error {
 			}
 		}
 		p.result = append(p.result, v)
+		if p.observed != nil {
+			continue
+		}
 		p.codes = append(p.codes, code)
 		if p.dataITE[t.symbol] {
 			if vs[a[0]] == 0 || g.terms[a[1]].boolean || g.terms[a[2]].boolean {

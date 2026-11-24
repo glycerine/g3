@@ -70,6 +70,14 @@ func (g *groundProjection) ground(i uint32, depth int) (uint32, error) {
 			return 0, inapplicable
 		}
 		w := g.bindings[len(g.bindings)-1-int(n.index)]
+		// Application matches bind directly to interned ground terms. Constant
+		// tuples in the ordinary projection bind to source input nodes.
+		if g.bindingSorts != nil {
+			if n.sort != g.bindingSorts[len(g.bindingSorts)-1-int(n.index)] {
+				return 0, inapplicable
+			}
+			return w, nil
+		}
 		if n.sort != g.input[w].sort {
 			return 0, inapplicable
 		}

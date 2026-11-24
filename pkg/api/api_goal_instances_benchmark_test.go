@@ -124,6 +124,16 @@ func appleBenchmarkInput(b testing.TB, name string) string {
 
 func verificationBenchmarkInput(b testing.TB, suite, name string) string {
 	b.Helper()
+	script := verificationBenchmarkScript(b, suite, name)
+	input, _, ok := strings.Cut(script, "\n(check-sat)")
+	if !ok {
+		b.Fatal("captured input is missing check-sat")
+	}
+	return input
+}
+
+func verificationBenchmarkScript(b testing.TB, suite, name string) string {
+	b.Helper()
 	f, err := os.Open("../perf/" + suite + "/test_vectors/" + name + ".smt2.gz")
 	if err != nil {
 		b.Fatal(err)
@@ -138,11 +148,7 @@ func verificationBenchmarkInput(b testing.TB, suite, name string) string {
 	if err != nil {
 		b.Fatal(err)
 	}
-	input, _, ok := strings.Cut(string(data), "\n(check-sat)")
-	if !ok {
-		b.Fatal("captured input is missing check-sat")
-	}
-	return input
+	return string(data)
 }
 
 func benchmarkGoalInstances(b *testing.B, input string, useInstances bool) error {
