@@ -322,7 +322,7 @@ func TestMacroUtilQuasiConversionClauseConditionsAndHints(t *testing.T) {
 	}
 }
 
-func quantifiedMacro(t *testing.T, m *ast.ASTManager, declaration ast.ASTHandle, definition ast.ASTHandle, sort ast.ASTHandle) ast.ASTHandle {
+func quantifiedMacro(t testing.TB, m *ast.ASTManager, declaration ast.ASTHandle, definition ast.ASTHandle, sort ast.ASTHandle) ast.ASTHandle {
 	t.Helper()
 	v, err := m.MkVar(0, sort)
 	must(t, err)
