@@ -62,6 +62,7 @@ type SmallBytes struct {
 	heads                     [64]uint64
 	freeCounts                [64]uint32
 	requested, directoryBytes uint64
+	chunkSearch, emptyChunks  uint32 // Entries before chunkSearch are occupied.
 	closed                    bool
 }
 
@@ -258,10 +259,10 @@ func (a *SmallBytes) newChunk(class, directSize uint32) (uint32, error) {
 		return 0, ErrConfig
 	}
 	page := uint32(len(a.chunks))
-	for i := range a.chunks {
-		if a.chunks[i].data == nil {
-			page = uint32(i)
-			break
+	if a.emptyChunks != 0 {
+		page = a.chunkSearch
+		for a.chunks[page].data != nil {
+			page++
 		}
 	}
 	var newDir []smallByteChunk
@@ -308,7 +309,9 @@ func (a *SmallBytes) newChunk(class, directSize uint32) (uint32, error) {
 		a.chunks = append(a.chunks, c)
 	} else {
 		a.chunks[page] = c
+		a.emptyChunks--
 	}
+	a.chunkSearch = page + 1
 	if class != 0 {
 		a.latest[class] = page + 1
 	}
@@ -413,6 +416,8 @@ func (a *SmallBytes) releaseChunk(i int) {
 	c := &a.chunks[i]
 	a.config.Descriptors.Budget.Release(uint64(len(c.data)) + uint64(len(c.blocks))*uint64(reflect.TypeOf(smallByteBlock{}).Size()))
 	*c = smallByteChunk{}
+	a.emptyChunks++
+	a.chunkSearch = min(a.chunkSearch, uint32(i))
 }
 
 // Consolidate translates the source floor-count criterion exactly, including
@@ -466,6 +471,7 @@ func (a *SmallBytes) Reset() {
 		}
 	}
 	a.chunks = a.chunks[:0]
+	a.chunkSearch, a.emptyChunks = 0, 0
 	a.latest = [64]uint32{}
 	a.heads = [64]uint64{}
 	a.freeCounts = [64]uint32{}
