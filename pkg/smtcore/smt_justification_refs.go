@@ -154,8 +154,8 @@ const (
 // discriminant and typed payload fields.
 type SMTEqualityJustification struct {
 	kind          SMTEqualityJustificationKind
-	literal       SMTLiteral
 	commutativity bool
+	literal       SMTLiteral
 	justification SMTJustification
 }
 

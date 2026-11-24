@@ -27,89 +27,66 @@ type SMTEnodeOptions struct {
 // SMTEnode is the concrete congruence-closure node. Owner and argument nodes
 // are borrowed from the enclosing SMT context.
 type SMTEnode struct {
-	manager                               *ast.ASTManager
+	manager                *ast.ASTManager
+	root, next, congruence *SMTEnode
+	arguments              []*SMTEnode
+	// sourceParents is m_parents of a class root. Creation adds parents,
+	// and merging adds those that remain congruence roots.
+	sourceParents                         []*SMTEnode
+	disequalities                         []smtDisequalityEntry // meaningful on class roots
+	theoryVariables                       SMTTheoryVarList
+	trans                                 SMTTransJustification
 	owner, declaration                    ast.ASTHandle
-	root, next, congruence                *SMTEnode
+	labels, propagatedLabels              approx.UintSet
 	classSize, generation, functionDeclID uint32
 	internalScopeLevel                    uint32
+	// The owner keeps its declaration alive for these cached properties.
+	family                                ast.FamilyID
+	declKind                              int32
+	labelHash                             int8
 	mark, mark2, interpreted              bool
 	suppressArguments, equality           bool
 	commutative, boolean, mergeTruthValue bool
-	congruenceEnabled                     bool
-	arguments                             []*SMTEnode
-	// sourceParents is the source m_parents of a class root: parents added at
-	// creation, and on merge only those that stay congruence roots
-	// (reinsert_parents_into_cg_table).
-	sourceParents            []*SMTEnode
-	sourceParentMark         bool
-	transMark                bool                  // transient, one ancestor search
-	disequalities            []smtDisequalityEntry // meaningful on class roots
-	theoryVariables          SMTTheoryVarList
-	trans                    SMTTransJustification
-	labelHash                int8
-	labels, propagatedLabels approx.UintSet
-	// family and declKind are GetFamilyID and GetDeclKind of the owner,
-	// read at creation; the owner (held by the enode) keeps its declaration.
-	family   ast.FamilyID
-	declKind int32
+	congruenceEnabled, sourceParentMark   bool
+	transMark                             bool // transient, one ancestor search
 }
 
 func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions) (*SMTEnode, error) {
 	if m == nil {
 		return nil, ast.ErrASTDomain
 	}
-	kind, err := m.GetKind(owner)
+	header, err := m.NodeHeader(owner)
 	if err != nil {
 		return nil, err
 	}
-	if kind != ast.ASTApp {
+	if header.Kind != ast.ASTApp {
 		return nil, ast.ErrASTDomain
 	}
-	declaration, err := m.GetDecl(owner)
+	boolean, err := m.HasBoolSort(owner)
 	if err != nil {
 		return nil, err
 	}
-	sort, err := m.GetSort(owner)
-	if err != nil {
-		return nil, err
-	}
-	booleanSort, err := m.MkBoolSort()
-	if err != nil {
-		return nil, err
-	}
-	boolean := sort == booleanSort
 	if options.MergeTruthValue && !boolean {
 		return nil, ast.ErrASTDomain
 	}
-	family, err := m.GetFamilyID(declaration)
-	if err != nil {
-		return nil, err
-	}
-	op, err := m.GetDeclKind(declaration)
-	if err != nil {
-		return nil, err
-	}
-	flags, err := m.GetFuncDeclFlags(declaration)
+	flags, err := m.GetFuncDeclFlags(header.Decl)
 	if err != nil {
 		return nil, err
 	}
 	n := &SMTEnode{
-		manager: m, owner: owner, declaration: declaration,
+		manager: m, owner: owner, declaration: header.Decl,
 		classSize: 1, generation: options.Generation, functionDeclID: math.MaxUint32,
 		internalScopeLevel: options.InternalScopeLevel, suppressArguments: options.SuppressArguments,
-		equality: family == m.BasicFamilyID() && op == ast.ASTOpEq,
+		equality: header.Family == m.BasicFamilyID() && header.DeclKind == ast.ASTOpEq,
 		boolean:  boolean, mergeTruthValue: options.MergeTruthValue,
 		congruenceEnabled: options.CongruenceEnabled, labelHash: -1,
 		theoryVariables: *NewDefaultSMTTheoryVarList(),
 		trans:           SMTTransJustification{Justification: NullSMTEqualityJustification()},
-		family:          family, declKind: op,
+		family:          header.Family, declKind: header.DeclKind,
 	}
 	n.root, n.next = n, n
 	if !options.SuppressArguments {
-		count, err := m.GetNumArgs(owner)
-		if err != nil {
-			return nil, err
-		}
+		count := header.NumArgs
 		n.arguments = make([]*SMTEnode, count)
 		for i := uint32(0); i < count; i++ {
 			argument, err := m.GetArg(owner, i)
