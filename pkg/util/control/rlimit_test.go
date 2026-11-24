@@ -352,3 +352,29 @@ func TestResourceLimitGrowthFailureAndPeak(t *testing.T) {
 		t.Fatal("budget leak")
 	}
 }
+
+func TestTryIncOffsetPreservesSingleStepFallback(t *testing.T) {
+	var r Reslimit
+	if err := r.Push(3); err != nil {
+		t.Fatal(err)
+	}
+	if r.TryIncOffset(4) || r.Count() != 0 || !r.TryIncOffset(3) || r.Count() != 3 {
+		t.Fatal("expected exact inclusive charge and no partial charge")
+	}
+	if r.TryIncOffset(1) || r.Count() != 3 || r.Inc() || r.Count() != 4 {
+		t.Fatal("fallback must charge the first failing step")
+	}
+	r.Pop()
+	r.Cancel()
+	if r.TryIncOffset(2) || r.Count() != 3 {
+		t.Fatal("consumed a canceled block")
+	}
+	if err := r.Uncharged(func() error {
+		if !r.TryIncOffset(2) || r.Count() != 5 {
+			t.Fatal("suspended limit rejected a block")
+		}
+		return nil
+	}); err != nil || r.Count() != 3 {
+		t.Fatal("owner count after suspension", err, r.Count())
+	}
+}

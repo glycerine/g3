@@ -71,6 +71,19 @@ func (r *Reslimit) IncOffset(offset uint32) bool {
 	r.Steps += uint64(offset)
 	return (!r.cancellationRequested() && (r.Limit == 0 || r.Steps <= r.Limit)) || r.suspended
 }
+
+// TryIncOffset charges a block only if all of its steps can run. On failure
+// the caller can resume single-step accounting from the original count.
+func (r *Reslimit) TryIncOffset(offset uint32) bool {
+	r.CheckOpen()
+	if !r.suspended && (r.cancellationRequested() ||
+		r.Limit != 0 && (r.Steps > r.Limit || uint64(offset) > r.Limit-r.Steps)) {
+		return false
+	}
+	r.Steps += uint64(offset)
+	return true
+}
+
 func (r *Reslimit) Push(delta uint32) error {
 	r.CheckOpen()
 	if len(r.Limits) == cap(r.Limits) {

@@ -345,6 +345,11 @@ func (m *Manager) ExpandMacros(term, proof ast.ASTHandle, dependency ast.ASTDepe
 	if !m.HasMacros() {
 		return resultDependency, nil
 	}
+	if m.chargeUnchangedExpansion(term) {
+		// The output and proof references can alias. Publish the term last,
+		// as the proof-free traversal does.
+		return resultDependency, m.manager.SetRef(out, term)
+	}
 	oldTerm, err := m.manager.NewRef(term)
 	if err != nil {
 		return resultDependency, err
