@@ -5185,3 +5185,23 @@ python3 perf/ivy_apple/holdouts/private_plan_cost.py \
   --reference /tmp/ticket-reference --abc /path/to/abc --capture-inputs \
   --rounds 2 --cpu 2 --output /tmp/ticket-private-plans
 ```
+
+### When preprocessing fewer premises pays for a second solver
+
+On ordinary Hermes, the old wide private search proved 153 of 166 goals. Together those attempts retired **5.02 billion instructions**. Each omitted fewer than 220 conjuncts. Sending these goals through the existing narrower searches and incremental solver reduced complete verification from **5.107 to 4.413 seconds**, versus **6.879 seconds** for linked Z3. A successful private proof can still cost more than the solver work it saves. On Apple rfn2 the observed wide attempt omitted at least 220 conjuncts and established a contradiction. [Per-attempt selections, costs and whole-verifier measurements](perf/ivy_apple/holdouts/nov24-wide-premise-selection.tar.xz)
+
+Commit `37a8cf71d` applies the existing 220-conjunct maximum in both directions. A reusable wide refutation can select at most 220 conjuncts and must omit at least 220. Selection can stop as soon as the included count exceeds the applicable maximum. The existing bounded narrow searches and the full source solver can still decide the goal. The threshold controls speculative work and has no role in the validity of a returned proof. The test covers both sides of the 219/220 omission boundary. [Selection and search](api/api_verification_goal.go) · [Boundary tests and captured benchmark](api/api_verification_goal_test.go)
+
+| Complete verifier | Previous g3, seconds | Current g3, seconds | Linked Z3, seconds | Previous / current / Z3, billion instructions |
+|---|---:|---:|---:|---:|
+| Ordinary Hermes | 5.107 | **4.413** | 6.879 | 35.085 / **30.355** / 50.288 |
+| Hybrid reliable broadcast | 1.575 | **1.453** | 0.923 | 10.414 / **9.577** / 5.889 |
+| Ticket protocol | 0.565 | **0.530** | 0.251 | 3.738 / **3.496** / 1.470 |
+
+Elapsed figures are medians of seven complete rotating triplets on an idle physical core. Each successful run had at least 95% process occupancy and 95% idle time on the sibling hardware thread. Instruction figures come from three separate pinned triplets. Across the same instruction panel TLB measured 87.523 → 86.684 billion and alternating-bit protocol 3.886 → 3.674 billion. Apple rfn2 measured 11.814 → 11.891 billion and toy consensus 2.800 → 2.807 billion. All 228 compatibility cases matched the expected exit and both output streams, including 91 expected verification failures. Release, checked and debug focused tests passed. Apple rfn2 retained its 2,334,030,415-byte trace, and all 27,855 Paxos output lines matched. [Raw attempts, paired baseline exits, policy alternatives and trace checks](perf/ivy_apple/holdouts/nov24-wide-premise-selection.tar.xz)
+
+In seven alternating samples of ten iterations, the captured ticket goal took **13.825 → 8.033 ms**, **3,513,464 → 2,318,503 bytes**, and **13,915 → 7,888 allocations** per attempt. Both versions returned inconclusive and the ordinary solver independently proved the full fixture UNSAT. The Apple rfn2 goal retained one private refutation per iteration, with 34,659 allocations in both configurations and 44.086 / 44.804 ms median time. Run the benchmark from `pkg`. [Fixtures, benchmark and full-solver control](api/api_verification_goal_test.go)
+
+```sh
+go test ./api -run '^$' -bench '^BenchmarkVerificationPremiseSearch$' -benchtime=10x -count=7
+```
