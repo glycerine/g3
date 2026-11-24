@@ -75,7 +75,7 @@ func BenchmarkEnumerationSearch(b *testing.B) {
 			{"Core", []order.Problem{fixture.problem(batch.Core)}},
 		} {
 			b.Run(strconv.Itoa(i+1)+"/"+test.name, func(b *testing.B) {
-				benchmarkEnumerationSearch(b, test.queries)
+				benchmarkEnumerationSearch(b, test.queries, 6_000_000)
 			})
 		}
 	}
@@ -97,12 +97,30 @@ func BenchmarkEnumerationRenamedHistory(b *testing.B) {
 		for j, q := range batch.History {
 			history[j] = fixture.problem(q)
 		}
-		b.Run(names[i]+"/Warm", func(b *testing.B) { benchmarkEnumerationSearch(b, history) })
-		b.Run(names[i]+"/Cold", func(b *testing.B) { benchmarkEnumerationSearch(b, history[len(history)-1:]) })
+		b.Run(names[i]+"/Warm", func(b *testing.B) { benchmarkEnumerationSearch(b, history, 6_000_000) })
+		b.Run(names[i]+"/Cold", func(b *testing.B) { benchmarkEnumerationSearch(b, history[len(history)-1:], 6_000_000) })
 	}
 }
 
-func benchmarkEnumerationSearch(b *testing.B, queries []order.Problem) {
+// Replay the same preceding checks with their original budgets. Vary only
+// the allowance on the last goal, so its learned clauses and starting
+// resource count have the same history in each comparison.
+func BenchmarkEnumerationWarmBudget(b *testing.B) {
+	fixture := loadEnumerationFixture(b, "test_vectors/apple_enumeration_search.json.gz")
+	for i, batch := range fixture.Batches {
+		queries := make([]order.Problem, len(batch.History))
+		for j, q := range batch.History {
+			queries[j] = fixture.problem(q)
+		}
+		for _, millions := range []int{6, 9, 12} {
+			b.Run(strconv.Itoa(i+1)+"/"+strconv.Itoa(millions)+"M", func(b *testing.B) {
+				benchmarkEnumerationSearch(b, queries, uint32(millions)*1_000_000)
+			})
+		}
+	}
+}
+
+func benchmarkEnumerationSearch(b *testing.B, queries []order.Problem, lastBudget uint32) {
 	parent, err := NewSMTContext()
 	if err != nil {
 		b.Fatal(err)
@@ -117,33 +135,49 @@ func benchmarkEnumerationSearch(b *testing.B, queries []order.Problem) {
 		b.Fatal(err)
 	}
 	var goalsProved int
+	var finalResources uint64
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var proof orderProofState
+		if err := proof.start(m, enumerationSearch); err != nil {
+			b.Fatal(err)
+		}
+		manager, err := proof.ctx.Manager()
+		if err != nil {
+			b.Fatal(err)
+		}
+		limit := manager.ResourceLimit()
 		for j, q := range queries {
-			if proof.ctx == nil {
-				if err := proof.start(m, enumerationSearch); err != nil {
-					b.Fatal(err)
-				}
-			}
 			if proof.needsNewDeclarations(q) {
 				b.Fatal("incompatible declarations within a captured kernel lifetime")
 			}
-			proved, err := proof.check(m, q, 6_000_000, true)
+			budget := uint32(6_000_000)
+			last := j == len(queries)-1
+			var countBefore uint64
+			if last {
+				budget = lastBudget
+				countBefore = limit.Count()
+			}
+			proved, err := proof.check(m, q, budget, true)
 			if err != nil {
 				b.Fatal(err)
 			}
-			if !proved || j == len(queries)-1 {
+			if last {
+				finalResources += limit.Count() - countBefore
 				if err := proof.release(); err != nil {
 					b.Fatal(err)
 				}
-			}
-			if j == len(queries)-1 && proved {
-				goalsProved++
+				if proved {
+					goalsProved++
+				}
+			} else if !proved {
+				_ = proof.release()
+				b.Fatalf("preceding check %d of %d exhausted its recorded budget", j+1, len(queries))
 			}
 		}
 	}
 	b.ReportMetric(float64(len(queries)), "checks/op")
 	b.ReportMetric(float64(goalsProved)/float64(b.N), "final-proofs/op")
+	b.ReportMetric(float64(finalResources)/float64(b.N), "final-resources/op")
 }

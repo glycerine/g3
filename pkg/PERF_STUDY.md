@@ -5648,3 +5648,25 @@ I also held a few unused bound variables in the source arena before checking the
 | 31 | 1,126.05 | 1,129.84 | +0.3% |
 
 The wider selection remains a benchmark experiment. Its apparent gain on the initial layout depended on search order. Native Z3 also exhibits name sensitivity on the standalone terminal goal. After loading all assertions, both engines reported identical counters for both spellings at 160,000 more resource units. At 320,000, the original names had reached 132 decisions and 5,861 quantifier instantiations, and the renamed input had reached 130 and 5,862. Both had zero final checks and zero restarts at that point. Across three terminal inputs and fourteen budgets, g3 and Z3 agreed on all recorded search counters for each spelling. Comparing instruction cost at a fixed search and varying the initial layout when testing a new search policy address two distinct sources of variation. [Standalone inputs and paired checkpoints](perf/ivy_apple/holdouts/nov24-enumeration-symbol-history.tar.xz)
+
+### What happens if a warm private solver finishes the proof?
+
+Two source checks on the complete Apple `ord_live2` used **224.96 billion instructions** after a private solver had already spent six million resource units searching each goal. In a live experiment I allowed up to twelve million units when the goal was already asserted and the private solver had proved a sibling with compatible premises and declarations. Across the entire spec the extra enumeration work cost **37.97 billion instructions**. Both expensive source checks disappeared. All 754 private queries had exactly the same declarations, ordered premises and goals in the two runs. All source results, exit status and both output streams matched. [Per-call measurements and query comparisons](perf/ivy_apple/holdouts/nov24-warm-enumeration-replay.tar.xz)
+
+| Complete workload, original arena layout | Private queries | Enumeration, billion instructions | Source checks | Source checks, billion instructions |
+|---|---:|---:|---:|---:|
+| Apple `ord_live2` | 754 | 709.95 → 747.92 | 18 → 16 | 224.98 → 0.023 |
+| Its `sys_live` isolate | 438 | 609.84 → 655.12 | 2 → 0 | 212.82 → 0 |
+
+On the complete spec, batch 14 goals 110 and 132 accounted for the two eliminated source checks. The original private solver lifetimes are available in the Go benchmark. The table gives the resources consumed by the final query alone. Earlier queries in each history used the same six-million allowance in every run and all completed their proofs. [Benchmark and fixtures](api/api_enumeration_search_benchmark_test.go) · [Raw benchmark output](perf/ivy_apple/holdouts/nov24-warm-enumeration-replay.tar.xz)
+
+| Captured query | Checks in history | Terminal result at 6M | Terminal result at 9M | Terminal result at 12M |
+|---:|---:|---:|---:|---:|
+| 1 | 58 | Exhausted | Exhausted | Exhausted |
+| 2 | 57 | Exhausted | Exhausted | Proved at 11,727,289 |
+| 3 | 58 | Exhausted | Proved at 8,383,616 | Proved at 8,383,616 |
+| 4 | 36 | Exhausted | Proved at 7,618,875 | Proved at 7,618,875 |
+| 5, goal 110 | 9 | Exhausted | Proved at 8,834,336 | Proved at 8,834,336 |
+| 6, goal 132 | 13 | Exhausted | Proved at 7,984,558 | Proved at 7,984,558 |
+
+Only queries 5 and 6 were already asserted when their original private search exhausted its budget. The first four were speculative attempts before the first push. The benefit of spending more at those earlier points depends on what the frontend would do next. Also, proving goal 110 kept its solver alive for goal 111 in the live experiment. The benchmark for goal 132 deliberately reproduces its original thirteen-check history. Run `go test -tags=xtrace_off -run '^$' -bench '^BenchmarkEnumerationWarmBudget$' -benchtime=1x -cpu=1 ./api` from `pkg` to repeat the comparison. [Original solver lifetimes and results](perf/ivy_apple/holdouts/nov24-warm-enumeration-replay.tar.xz)
