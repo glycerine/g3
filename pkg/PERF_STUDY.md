@@ -5480,3 +5480,29 @@ On the complete `ord_live2.ivy` run, changing the first two eligible ground-inst
 Each cell is the median of two full runs pinned to the same CPU for that policy. Forcing that one fallback restored **119.56 billion** of the 142.48 billion instructions saved under the all-batches intervention. Each route tried the ordinary private assertion proof and its smaller selection of relevant premises at batch 13 goal 132. The finite enumeration solver discharged the goal after the batch-13 intervention. Under the original schedule it exhausted its opportunity, and the concrete solver made 341,096 decisions and generated 72,857 quantifier instances. [Per-goal route logs and separate solver statistics](perf/ivy_apple/holdouts/nov24-apple-batch-intervention.tar.xz)
 
 At the start of batch 14, before the new solver had attempted a private proof, the original run had consumed 484 more fresh IDs and retained 28 more AST nodes and one more frontend root. At goal 98 its concrete solver generated **183,669** quantifier instances against **116,425** with the all-batches intervention. At goal 110 it performed another **251,810** instantiations, while the alternative private enumeration solver refuted that goal. At goal 132 both runs used the concrete solver and generated **406,784** and **307,457** instances respectively. Several parts of the parent state changed together, so the counts cannot isolate the effect of fresh naming. A reusable optimization target is the small number of exhausted enumeration queries and the search history that reaches them. The batch coordinates provide a way to test that explanation without encoding a benchmark-specific schedule in the solver. [Parent state at each goal and cumulative counter snapshots](perf/ivy_apple/holdouts/nov24-apple-batch-intervention.tar.xz)
+
+### November 24 — When wide-clause input becomes faster than Z3
+
+On 16,384 clauses of width 512, g3 went from **1.034 s to 0.326 s**, against **0.531 s** for in-tree Z3. At width 64 and 131,072 clauses, the two engines finished within 3% of each other. These are complete elapsed times from opening the DIMACS file through printing the SAT model. The driver checks each distinct assignment against the generated clauses and compares the search counters across engines. [Quiet-core benchmark](perf/ivy_raft/quiet_wide_clauses.py) · [All timing attempts and CPU occupancy](perf/ivy_raft/nov24-clause-sort-input.tar.xz)
+
+| Clause width | Clauses | Earlier g3, s | Current g3, s | Z3, s |
+|---:|---:|---:|---:|---:|
+| 16 | 65,536 | 0.156 | 0.118 | **0.064** |
+| 64 | 131,072 | 1.001 | 0.494 | **0.481** |
+| 128 | 32,768 | 0.497 | **0.207** | 0.251 |
+| 512 | 16,384 | 1.034 | **0.326** | 0.531 |
+
+Each elapsed cell is the median of seven complete rotations. All three processes in an accepted rotation occupied their pinned CPU for at least 95% of their elapsed time, and its hardware sibling was at least 95% idle during each process. The 16-literal input took 1,023 decisions and the other three took 1,025. An independent four-engine experiment separated the cost of sorting and parsing. The following values are median **millions of retired user instructions** over three pinned process rotations. [Four-way measurements and benchmark inputs](perf/ivy_raft/nov24-clause-sort-input.tar.xz) · [Instruction benchmark](perf/ivy_raft/wide_clauses.py)
+
+| Width | Clauses | Earlier g3 | Sorting alone | Sorting and parsing | Z3 |
+|---:|---:|---:|---:|---:|---:|
+| 16 | 16,384 | 292.6 | 261.2 | 184.5 | 130.1 |
+| 32 | 16,384 | 525.2 | 433.2 | 277.6 | 244.9 |
+| 64 | 65,536 | 4,085.4 | 3,120.4 | 1,937.0 | 1,920.6 |
+| 128 | 8,192 | 1,022.7 | 741.6 | 427.2 | 481.3 |
+| 256 | 4,096 | 1,043.9 | 720.9 | 406.0 | 483.1 |
+| 512 | 4,096 | 2,136.4 | 1,410.5 | 780.1 | 969.8 |
+
+Commit `80ea1d9b9` sorts distinct literal words from the same aligned 4,096-word range by setting bits in a 512-byte local bitmap and emitting them in ascending order. It also recognizes monotone inputs. Across 648 sort benchmark process readings, the sorted result retained every literal, including duplicates, and all timed sorts recorded zero allocations. The dense 64-word input used **4.30× fewer instructions** than the comparison sort, and the dense 1,024-word input used **10.03× fewer**. A duplicate near the end of a 64-word input cost about 9% extra, since the bitmap pass had to fall back after inspecting most of the slice. Sparse 256-word inputs were within 1%. [Sorter](sat/sat_literal_sort.go) · [Workload shapes and reference-sort comparison](sat/sat_literal_sort_test.go)
+
+Commit `463b8f58d` scans digits in the buffer already filled by the reader and reuses the checked variable count within a clause. It synchronizes a caller-owned buffered reader before solver callbacks and on return. Tests cover 32-bit literal wraparound, a final read that supplies both data and an error, numbers spanning buffer boundaries, and closing a solver inside the input reader. The eight-hole pigeonhole contradiction remained at 36.34 billion instructions against Z3's 8.05 billion, with identical decision and conflict counts. All 228 GoIvy corpus cases reproduced reference output and exit status. TLB measured 60.24 → 60.35 billion instructions, hybrid broadcast 9.48 → 9.52, and Ticket 3.41 → 3.45. These two changes pay off when wide clauses dominate runtime. [Stream regressions and parser benchmark](sat/dimacs_buffer_test.go) · [Search controls, verifier results and ten independent trial patches](perf/ivy_raft/nov24-clause-sort-input.tar.xz)
