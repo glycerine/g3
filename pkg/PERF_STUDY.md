@@ -5626,3 +5626,25 @@ Instruction counts are medians of three rotating pinned runs per executable. Eac
 **SAT watch relocation.** While propagating a literal with tracing and extensions inactive, the solver can borrow the watch directory. For each moved clause it checks the destination owner, bounds, liveness and generation. A destination with spare capacity can accept the watch immediately. Growth still invalidates the old iterator backing. The four eight-hole input orderings used **7.4%, 7.4%, 3.9% and 7.4% fewer instructions**. All search counters matched the native solver on every ordering. Caching a location inside the watch instead raised the original search from 34.61 to 36.74–37.46 billion instructions in the prototype measurements. [Propagation](sat/sat_solver_propagation.go) · [Recycled destination regression](sat/sat_solver_propagation_test.go) · [Raw prototype comparisons](perf/ivy_raft/nov24-sat-watch-relocation.tar.xz)
 
 The benefit depends on the workload. Fifteen more rotations of a three-literal SAT propagation chain gave 220.11 → 220.72 million instructions under ordinary GC and 165.82 → 167.02 million with GC disabled. Across five whole Ivy workloads the instruction change ranged from −0.2% to +0.6%. Both production changes reproduced the saved output, diagnostics and exit status for all 228 held-out Ivy cases, including 91 expected nonzero exits. Each generated SAT model was checked against every input clause. [Eight SAT inputs, controls and whole-verifier results](perf/ivy_raft/nov24-sat-watch-relocation.tar.xz)
+
+### Why the apparent 10% Apple premise-selection gain changes sign
+
+On full Apple `ord_live2`, batch 14 goal 110, the ordinary source check cost **85.66 billion instructions**. A wider premise-selection experiment eliminated that call when a later private enumeration solver finished its proof within six million resource units. The nine successive queries sent to that private solver were byte-identical across the two runs after one consistent renaming of generated symbols, including declarations, ordered premises and goals. Substituting the other run's names into the original history reproduced the effect in both directions. [Recorded queries](api/test_vectors/apple_enumeration_renamed.json.gz) · [Crossed replays and original call counts](perf/ivy_apple/holdouts/nov24-enumeration-symbol-history.tar.xz)
+
+| g3 private solver, same terminal obligation | Original names | Renamed symbols |
+|---|---|---|
+| After the eight preceding checks | Budget exhausted | Proved |
+| With a fresh solver | Proved | Budget exhausted |
+
+Each result repeated in both crossed histories. The focused Go benchmark reports the number of terminal refutations and treats budget exhaustion as an inconclusive search. Run `go test -tags=xtrace_off -run '^$' -bench '^BenchmarkEnumerationRenamedHistory$' -benchtime=1x -cpu=1 ./api` from `pkg`. [Benchmark](api/api_enumeration_search_benchmark_test.go)
+
+I also held a few unused bound variables in the source arena before checking the full spec. The formulas supplied by GoIvy and the reported verification outcomes stayed the same. The table gives median billions of retired user instructions from two pairs, with the execution order reversed in the second pair. [Per-run results](perf/ivy_apple/holdouts/nov24-enumeration-symbol-history.tar.xz)
+
+| Extra bound variables | Current g3 | Experimental selection | Change |
+|---:|---:|---:|---:|
+| 0 | 1,237.21 | 1,113.97 | −10.0% |
+| 1 | 1,181.00 | 1,171.36 | −0.8% |
+| 7 | 1,141.44 | 1,178.14 | +3.2% |
+| 31 | 1,126.05 | 1,129.84 | +0.3% |
+
+The wider selection remains a benchmark experiment. Its apparent gain on the initial layout depended on search order. Native Z3 also exhibits name sensitivity on the standalone terminal goal. After loading all assertions, both engines reported identical counters for both spellings at 160,000 more resource units. At 320,000, the original names had reached 132 decisions and 5,861 quantifier instantiations, and the renamed input had reached 130 and 5,862. Both had zero final checks and zero restarts at that point. Across three terminal inputs and fourteen budgets, g3 and Z3 agreed on all recorded search counters for each spelling. Comparing instruction cost at a fixed search and varying the initial layout when testing a new search policy address two distinct sources of variation. [Standalone inputs and paired checkpoints](perf/ivy_apple/holdouts/nov24-enumeration-symbol-history.tar.xz)
