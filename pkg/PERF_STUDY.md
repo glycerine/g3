@@ -5670,3 +5670,18 @@ On the complete spec, batch 14 goals 110 and 132 accounted for the two eliminate
 | 6, goal 132 | 13 | Exhausted | Proved at 7,984,558 | Proved at 7,984,558 |
 
 Only queries 5 and 6 were already asserted when their original private search exhausted its budget. The first four were speculative attempts before the first push. The benefit of spending more at those earlier points depends on what the frontend would do next. Also, proving goal 110 kept its solver alive for goal 111 in the live experiment. The benchmark for goal 132 deliberately reproduces its original thirteen-check history. Run `go test -tags=xtrace_off -run '^$' -bench '^BenchmarkEnumerationWarmBudget$' -benchtime=1x -cpu=1 ./api` from `pkg` to repeat the comparison. [Original solver lifetimes and results](perf/ivy_apple/holdouts/nov24-warm-enumeration-replay.tar.xz)
+
+### Reusing a refuted conjunct across ARM verification goals
+
+On the complete `test/arm_rules3.ivy` spec, g3 took **0.551 s** after the change, down from **0.669 s**. Linked Z3 took **0.366 s**. These are medians from seven rotating comparisons of the same frontend on one physical core. The new g3 took 17.6% less wall time and still took 1.51× as long as Z3. The five separate hardware-counter rotations below include startup, translation and all 115 printed verification passes. [Raw measurements, trace comparisons and reproduction instructions](perf/ivy_apple/holdouts/nov24-refuted-conjuncts.tar.xz)
+
+| Complete ARM rules spec | Previous g3 | g3 at `5ffad336a` | Linked Z3 |
+|---|---:|---:|---:|
+| Median wall time on a quiet core, seconds | 0.669 | 0.551 | 0.366 |
+| Median retired user instructions, billions | 4.365 | 3.570 | 2.193 |
+
+Five goals shared the same implication. Under identical premises, an earlier check had proved `P` impossible. A later goal required both `P` and `¬Q`, so it was already refuted. Three of these opportunities arose after the frontend had pushed the goal. They were 18–20 entries apart in a history of whole goals. Enlarging the exact-match history to 128 entries still missed them. Keeping eight previously refuted signed expressions separately captured the gain. Capacities one, two and four all missed it. A retained expression carries its manager, arena slot and generation. Changing any premise clears the history. [Observed formula shapes and history-size trials](perf/ivy_apple/holdouts/nov24-refuted-conjuncts.tar.xz)
+
+The solver examines at most 32 AST nodes in a lookup. The history record grew from 176 to 400 bytes on amd64 and is allocated on first use by an eligible solver. The focused benchmark measured 5.35 ns for an exact repeat, 95.1 ns for a negated implication containing a refuted conjunct and 45.8 ns for an independent goal. All three allocated zero bytes per lookup. A four-assignment Boolean truth table checks the direction of implication, and the public API test obtains a satisfiable result after changing the premises. [Tests and Go benchmark](api/api_order_recent_test.go)
+
+All 228 compatibility cases matched the recorded exit status, stdout and stderr, including 91 expected failures. Trace-enabled builds matched on all 2,334,030,415 compared bytes for Apple `rfn2`. The normalized Paxos `log3` comparison matched all 27,855 lines. Independent timing on the preceding candidate measured 0.669 s → 0.556 s on ARM. In the three-rotation hardware panel, the changes on Ticket, ordinary Hermes, Raft, TLB and both Apple `rfn2` and `dramc_nb2` were each below 1% in either direction. The measured benefit so far is on ARM. [Validation and per-run results](perf/ivy_apple/holdouts/nov24-refuted-conjuncts.tar.xz)
