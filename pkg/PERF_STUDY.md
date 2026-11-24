@@ -2,6 +2,8 @@
 
 ## November 24 verification results
 
+Restricting speculative proof searches to E-matching reduced complete ticket-protocol verification from **0.702 to 0.573 s**. Linked Z3 took **0.252 s**. On Apple cf_live the same change took g3 from 5.621 to **5.237 s**, versus **10.331 s** for linked Z3. Each median covers seven complete rotations on a quiet physical core. [Proof selection, held-out protocols and measured costs](#using-e-matching-for-private-refutation-attempts)
+
 The retained change to quantifier triggers brought ordinary Hermes to **5.006 s**, ahead of linked Z3 at **6.791 s** on the same GoIvy frontend. The previous g3 took 7.722 s in the same seven rotations. Complete Apple and Hermes testing also favored g3 in the earlier timing pairs. The table identifies the number of qualifying runs per engine for each comparison. [Trigger timing and proof controls](#connecting-disjoint-quantifier-triggers) · [Complete Apple and Hermes testing](#reusing-ownership-of-unchanged-assertions)
 
 | Complete workload, median elapsed | g3 | Linked Z3 | Runs per engine |
@@ -5150,4 +5152,36 @@ python3 perf/ivy_apple/incremental_cost/rewriter_call_cost.py \
   --goivy /path/to/ivy/goivy --spec /path/to/examples/liveness/tlb.ivy \
   --reference /tmp/tlb-reference --expect-exit 1 --abc /path/to/abc \
   --cpu 2 --operation app --rounds 5 --output /tmp/tlb-app-cost
+```
+
+### Using E-matching for private refutation attempts
+
+A verification batch can try proving a goal with a subset of its premises in a private solver. A contradiction there proves the full problem inconsistent. A satisfying interpretation of the subset leaves the original goal open. The private solver previously spent substantial time finding such interpretations and discarded them. Commit `b7caff4fa` selects E-matching alone for eligible reusable refutation attempts. The original solver retains its normal search and model construction whenever the private attempt returns inconclusive. [Search policy](api/api_proof_plan_context.go) · [Private and original solver regression](api/api_proof_plan_quantifiers_test.go)
+
+| Complete verifier, median billions of retired user instructions | Previous g3 | Current g3 | Linked Z3 |
+|---|---:|---:|---:|
+| Ticket protocol | 4.628 | **3.762** | 1.473 |
+| Apple cf_live | 41.874 | **39.135** | 54.744 |
+| Ordinary Hermes | 36.115 | **35.411** | 50.129 |
+| Hybrid reliable broadcast | 10.685 | **10.389** | 5.885 |
+| ARM rules 3 | 4.527 | **4.439** | 2.211 |
+| TLB | 88.556 | **87.902** | 65.622 |
+| Apple dramc_nb2 | 126.941 | **125.694** | 139.582 |
+| Apple rfn2 | **11.816** | 11.897 | 49.154 |
+| raftok | **17.848** | 18.190 | 19.704 |
+
+The panel used the same GoIvy frontend, inputs and CPU within each of three rotations. Separate elapsed-time runs rotated the three engines together and required 95% process occupancy and 95% idle time on the sibling hardware thread throughout each run. Seven qualifying ticket medians were **0.702 / 0.573 / 0.252 s** for previous g3, current g3 and linked Z3. The corresponding cf_live medians were **5.621 / 5.237 / 10.331 s**. All 228 verifier compatibility cases reproduced their expected exit and both output streams, including 91 cases with expected verification failures. Checked, debug and release focused tests passed. The Apple rfn2 trace matched across 2,334,030,415 bytes, as did the complete 27,855-line Paxos output. [Individual measurements, corpus comparisons and trace checks](perf/ivy_apple/holdouts/nov24-private-refutation-search.tar.xz)
+
+On ticket, the three wide searches with satisfiable premises fell from **707 million to 53 million instructions** inside the private check. All six wide searches that established a contradiction still succeeded. On cf_live, all 22 successful wide refutations survived, while eleven other attempts fell from **3.135 billion to 724 million** check instructions. A width-two native finite-domain replay found a model for all three ticket subsets and ten of the eleven cf_live subsets. Width three yielded models for all eleven. Those models independently explain why a contradiction search could stop early. [Per-plan components, SMT inputs and 1,104 model experiments](perf/ivy_apple/holdouts/nov24-private-refutation-search.tar.xz)
+
+In five ten-iteration Go benchmark samples, the median satisfying ticket fixture went from **53.46 to 4.29 ms**, 7,287,232 to 1,192,647 bytes and **50,526 to 6,176 allocations** per attempt. The contradiction fixture measured 2.56 / 2.57 ms and 3,922 / 3,836 allocations. Each measured iteration used the same public verification-batch lifecycle as the verifier. In a separate policy experiment, eliminating every wide attempt raised whole Apple `ord_live2.ivy` from 1.193 to 1.291 trillion instructions. A fixed 12,000-step limit raised it to 1.300 trillion. Keeping the wide searches with the retained E-matching policy used 1.157 trillion. Expensive refutations still pay for themselves on that input. [Benchmark and captured fixtures](api/api_proof_plan_quantifiers_test.go) · [Policy experiments](perf/ivy_apple/holdouts/nov24-private-refutation-search.tar.xz)
+
+Run the Go fixture from `pkg`. The observer can also record every selected group of premises during a complete verification, with separate counters for setup, assertion and search. On two complete ticket runs it independently reproduced all 31 plan records per run, including their resource counts and outcomes. The input pathname must have the same spelling used to generate the reference diagnostics. [Portable observer](perf/ivy_apple/holdouts/private_plan_cost.py)
+
+```sh
+go test ./api -run '^$' -bench '^BenchmarkTicketPrivatePlans$' -benchtime=10x -count=5
+python3 perf/ivy_apple/holdouts/private_plan_cost.py \
+  --goivy /path/to/ivy/goivy --spec /path/to/ticket_protocol.ivy \
+  --reference /tmp/ticket-reference --abc /path/to/abc --capture-inputs \
+  --rounds 2 --cpu 2 --output /tmp/ticket-private-plans
 ```
