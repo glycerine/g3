@@ -152,3 +152,15 @@ func BenchmarkHermesPremiseVerification(b *testing.B) {
 		})
 	}
 }
+
+// Both terminal checks need the concrete solver after the ground projection.
+func BenchmarkShortPremiseFallback(b *testing.B) {
+	for _, tc := range []struct{ name, fixture string }{
+		{"Ticket", "ticket_batch6"},
+		{"AlternatingBit", "alternating_bit_batch10"},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			benchmarkVerificationGoals(b, "test_vectors/"+tc.fixture+".smt2.gz", 1)
+		})
+	}
+}
