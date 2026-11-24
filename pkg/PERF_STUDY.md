@@ -5523,3 +5523,18 @@ Bounding a private SAT search at 256 decision levels reduced work on both full A
 | Hybrid reliable broadcast | 9.55 | 9.58 | **5.89** |
 
 Values are median billions of whole-process retired user instructions. TLB and `rfn2` have five rotations, and the other displayed workloads have three. Every engine reproduced the expected exit and both output streams on each measured workload. Seven separately timed quiet-core rotations put TLB at **9.006 s before, 8.759 s after and 10.075 s on linked Z3**. The 228-input corpus included 91 expected nonzero exits. Native Z3 confirmed all 4,646 private refutations among 8,640 generated goals. The median additional live heap per loaded worker was 877,541 bytes. Enabled `rfn2` tracing matched across 2,334,030,415 bytes, and the normalized Paxos replay matched across 27,855 lines. [All eleven verifier comparisons, timing attempts, depth trials and controls](perf/ivy_apple/holdouts/nov24-private-decision-depth.tar.xz)
+
+### Skipping writes when a sorted base clause survives intact
+
+On clauses of width 64, scanning the sorted literals once for assignments, duplicate variables and out-of-range variables cut the median from 1.937 to 1.475 billion instructions over 65,536 clauses. The old path wrote each surviving literal back to the same slot. Commit `57aeffa91` lets the SAT solver consume the slice directly when all variables are distinct and unassigned at the base scope. Clauses that need simplification still use the existing routine. The focused differential test compares the output buffer as well as the result across 81 assignments and five clause shapes. [Clause normalization](sat/sat_solver_clause_core.go) · [Differential test](sat/sat_solver_mutable_span_test.go)
+
+| Literals per clause | Clauses | g3 before | g3 after | In-tree Z3 |
+|---:|---:|---:|---:|---:|
+| 16 | 16,384 | 185 | 157 | **130** |
+| 32 | 16,384 | 278 | **221** | 245 |
+| 64 | 65,536 | 1,937 | **1,475** | 1,921 |
+| 128 | 8,192 | 427 | **313** | 481 |
+| 256 | 4,096 | 406 | **292** | 483 |
+| 512 | 4,096 | 780 | **552** | 970 |
+
+Values are median millions of whole-process retired user instructions across three rotations. Seven separately timed quiet-core rotations measured **0.432 s** on g3 and **0.476 s** on Z3 for 131,072 clauses of width 64. At width 512 with 16,384 clauses the medians were **0.259 s** and **0.518 s**. Z3 still finished first at widths 16 and 32 in the timing series. On the harder eight-hole pigeonhole search, g3 used 36.33 billion instructions versus Z3's 8.05 billion. Four complete verifier workloads changed by at most 1% in either direction. All 228 corpus comparisons matched the reference, including 91 expected nonzero exits. [Raw counts, timing triples, trial overlays and controls](perf/ivy_raft/nov24-base-clause-scan.tar.xz)
