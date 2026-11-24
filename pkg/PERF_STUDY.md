@@ -4919,3 +4919,17 @@ Thirteen alternating pairs on CPU 15, with 10,000 pops per sample, gave these me
 | Atoms introduced inside the popped scope | 13.822 µs | **13.195 µs** | 1.05 |
 
 These results compare the two requested make targets. The native fixture has its delayed activity queue enabled. The Go target times the default fixture, and the separate Go benchmark `BenchmarkSMTScopeRestorationWithQueue` enables the matching queue and brackets only the pop with a monotonic clock. [Go benchmark](smtcore/smt_hotpath_benchmark_test.go) · [Native benchmark](../src/test/smt_scope_restoration.cpp) · [Per-worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
+
+### The scope benchmark with the same activity queue
+
+With the delayed activity queue enabled in both solvers, the 128-atom scoped pop took **18.878 µs in Go and 12.641 µs in C++**. When the atoms survived the pop, g3 took **281.8 ns** and Z3 took **480.1 ns**. Each median covers 13 alternating pairs of 10,000 pops pinned to CPU 15. We required at least 95% process CPU occupancy and at least 95% sibling idle time during each run. One native attempt failed admission and was repeated. The Go measurement uses the fixture’s `pop-ns/op` metric. Reproduce with `go test ./smtcore -run '^$' -bench '^BenchmarkSMTScopeRestorationWithQueue$' -cpu=1 -benchtime=10000x` and `../build/test-z3 smt_scope_restoration 10000 Both`. [Individual timings and admission readings](perf/scope_restoration/pop_phases/nov24-queue-elapsed.csv)
+
+| Instructions per queue-enabled pop | g3 | In-tree Z3 | g3 minus Z3 |
+|---|---:|---:|---:|
+| Full pop, scoped atoms | 202,770 | 144,725 | +58,045 |
+| Undo interleaved trail entries | 57,361 | 19,657 | +37,704 |
+| Pop relevance scope | 19,471 | 8,036 | +11,435 |
+| Restore learned clauses | 106,688 | 89,217 | +17,471 |
+| Full pop, surviving atoms | 2,312 | 3,695 | −1,383 |
+
+Undo accounts for **65% of the scoped instruction gap**. The three named subphases add to more than the whole-pop difference because the remaining work costs more in the native fixture. Each row is a separate hardware-counter experiment on CPU 45, with nine alternating pairs, 1,500 observed intervals after eight warmup pops and an empty interval subtracted in each pair. Counter running time equaled enabled time in all 126 readings. The fixture checks that scoped atoms are actually retired and republished, watch clauses keep their original identities and surviving atoms keep their relevance. [Raw thread counters](perf/scope_restoration/pop_phases/nov24-queue-instructions.csv) · [Measurement driver](perf/scope_restoration/pop_phases/measure.py)
