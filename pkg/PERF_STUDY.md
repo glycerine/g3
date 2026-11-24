@@ -2,7 +2,7 @@
 
 ## November 24 verification results
 
-On the original 128-atom scope benchmark, g3 now takes **11.47 µs** for `ScopedAtoms`. With the same delayed activity queue as C++, g3 takes **13.98 µs**, down from 17.54 µs. Linked Z3 takes **12.74 µs**. Nine complete, quiet rotations measured both Go fixtures and the native control. The remaining queue-enabled elapsed gap is 9.7%. [Scope costs, ownership checks and benchmarks](#retiring-runs-of-scoped-boolean-variables)
+On the 128-atom scope benchmark, g3 takes **11.30 µs** for `ScopedAtoms` in its original Make fixture. With the same delayed activity queue as C++, g3 takes **13.57 µs**, versus **12.61 µs** for Z3 in the latest nine quiet rotations. The remaining queue-enabled elapsed gap is 7.6%. [Scoped Boolean retirement](#retiring-runs-of-scoped-boolean-variables) · [Pending relevance notifications](#retiring-pending-relevance-notifications)
 
 | Complete workload, median elapsed | g3 | Linked Z3 | Runs per engine |
 |---|---:|---:|---:|
@@ -5301,3 +5301,19 @@ A screen of 710 distinct Ivy inputs compared the same GoIvy frontend linked to g
 The table uses medians of three additional alternating pairs. The 37-specification confirmation panel combined large absolute and relative deficits with eight previously measured wins. All 222 processes in that panel reproduced their expected results. TLB alone accounts for about five times the gap of the next-largest case. Later production measurements put hybrid at 9.58 and ticket at 3.50 billion instructions. [Per-specification ranking and confirmation data](perf/ivy_apple/holdouts/nov24-complete-solver-survey.tar.xz) · [Subsequent production comparison](#when-preprocessing-fewer-premises-pays-for-a-second-solver)
 
 Six pairs differed in diagnostic text during the screen. Five produced identical panic reasons and function sequences with differing executable addresses or stack details. A sixth printed equivalent SMT expressions. The fork checked their exclusive-or as UNSAT. Six other pairs reached the time cap. With 1,800 seconds per process on the shared host, four of these completed on both engines with matching outputs. g3 used fewer instructions on all four, including the 419-check Raft run at 22.2 versus 214.6 billion and full Apple `ord_live2.ivy` at 1.16 versus 1.96 trillion. Both engines reached the cap on finite-state Flash. Only g3 completed ordinary Apple within this particular capped run. Independent complete Apple timings appear above. [Diagnostic comparison, SMT witness and long-run counters](perf/ivy_apple/holdouts/nov24-complete-solver-survey.tar.xz) · [Survey driver](perf/ivy_apple/holdouts/spec_survey.py)
+
+### Retiring pending relevance notifications
+
+Scope pop unmarks a trail of expressions and releases their references. A separate notification queue makes the newly marked expressions available to callers. Every new mark after the last queue filter or drain appends the same expression to both lists. Commit `b3d94b979` uses this shared suffix to remove pending notifications that the pop just retired. Older queue entries are checked against their current relevance. Duplicate notifications retain their original order. A callback can drain the queue or reactivate a mark, and a refused reference release can interrupt the pop. These paths recheck membership. The solver keeps two scalar fields for this bookkeeping. [Implementation and retry path](smtcore/smt_relevancy.go) · [12,000 randomized operations and callback controls](smtcore/smt_relevancy_retirement_test.go)
+
+| 128 atoms, 64 clauses | g3 before | g3 after | In-tree Z3 |
+|---|---:|---:|---:|
+| Instructions in scoped relevance pop | 19,514 | **12,262** | 8,073 |
+| Instructions in complete scoped pop | 171,786 | **163,743** | 144,762 |
+| Scoped pop with delayed queue | 13.927 µs | **13.571 µs** | 12.608 µs |
+| Scoped pop in original Go Make fixture | 11.462 µs | **11.299 µs** | |
+| Surviving atoms with delayed queue | 314 ns | **291 ns** | 481 ns |
+
+Each instruction reading brackets 1,500 timed pops on the solver thread, with nine rotations per engine. The corresponding empty brackets cost 54 instructions in g3 and 37 in Z3. Elapsed medians use nine complete rotations of 10,000 pops per engine. One partial rotation failed the quiet-core check and was excluded from all three elapsed columns. [All measurements, including incomplete attempts](perf/scope_restoration/pop_phases/nov24-pending-relevance.tar.xz) · [Quiet benchmark driver](perf/scope_restoration/quiet.py)
+
+A separate audit tested each candidate removal against the full live mark table. On TLB it confirmed 90,690 eligible entries out of 90,930 notifications examined across the complete verification. On ARM rules the count was 3,516 of 3,518, on ordinary Hermes 19,801 of 19,819, and on Apple rfn2 148 of 151. These totals explain why a 37% reduction in relevance-pop instructions has little effect on complete verification time. Every one of the 228 corpus processes matched its reference exit and both output streams. The 2,334,030,415-byte rfn2 trace and all 27,855 normalized Paxos output lines matched. Release, checked and debug relevance tests passed. [Audit and compatibility results](perf/scope_restoration/pop_phases/nov24-pending-relevance.tar.xz)
