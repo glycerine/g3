@@ -7,8 +7,12 @@ import "github.com/glycerine/g3/pkg/ast"
 type groundUnits struct {
 	clauses              []BooleanClause
 	offsets, occurrences []int32
-	values               []int8
-	trail                []int32
+	unitAssignments
+}
+
+type unitAssignments struct {
+	values []int8
+	trail  []int32
 }
 
 func literalSlot(lit int32) int {
@@ -17,7 +21,7 @@ func literalSlot(lit int32) int {
 	}
 	return int(2 * lit)
 }
-func (u *groundUnits) assign(lit int32) bool {
+func (u *unitAssignments) assign(lit int32) bool {
 	v := lit
 	sign := int8(1)
 	if v < 0 {
@@ -31,7 +35,7 @@ func (u *groundUnits) assign(lit int32) bool {
 	u.trail = append(u.trail, lit)
 	return true
 }
-func (u *groundUnits) undo(mark int) {
+func (u *unitAssignments) undo(mark int) {
 	for _, lit := range u.trail[mark:] {
 		if lit < 0 {
 			lit = -lit

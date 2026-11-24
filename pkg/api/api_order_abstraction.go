@@ -54,6 +54,7 @@ type orderProofState struct {
 	witnessPremises    *witnessPremises
 	definitions        *premiseDefinitions
 	enumeration        *enumerationRefutation
+	instances          *groundInstanceSolver
 	previousGoalProved bool
 	recent             *recentRefutations
 	bits               *orderBooleanSolver
@@ -73,6 +74,17 @@ func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
 	p := &orderProofState{source: s}
 	p.plans.enabled = s != nil && s.owner != nil && s.owner.ownsDefaultArena
 	return &OrderProofBatch{state: p}
+}
+
+// BeginOrderProofBatchForGoals accepts the expected number of sibling
+// conditions. Long batches can amortize a shared Boolean solver over them.
+// The count affects scheduling only. All goals can still use the source solver.
+func (s *APISimpleSolver) BeginOrderProofBatchForGoals(count int) *OrderProofBatch {
+	b := s.BeginOrderProofBatch()
+	if count >= 48 && b.state.plans.enabled {
+		b.state.instances = new(groundInstanceSolver)
+	}
+	return b
 }
 
 // Prove has the same result contract as ProveUnsatByOrderAbstraction.
@@ -152,6 +164,13 @@ func (b *OrderProofBatch) Close() error {
 	err := b.state.enumeration.release()
 	if err == nil {
 		b.state.enumeration = nil
+	}
+	if b.state.instances != nil {
+		e := b.state.instances.close()
+		err = errors.Join(err, e)
+		if e == nil {
+			b.state.instances = nil
+		}
 	}
 	b.state.transitionPremises = order.TransitionPremises{}
 	b.state.quantifiedPremises = order.QuantifiedPremises{}
@@ -294,6 +313,17 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 				if reuse && original {
 					if yes, e := p.universalPremises.Refutes(parent, assertions, maxSteps, combined.CanDeferFirstPush()); yes || e != nil || limit.CancelFlag() {
 						return yes, e
+					}
+				}
+				if consistent && original && reuse && p.instances != nil && !ast.ASTValidateHandles && p.plans.reusable(parent) {
+					enabled, e := parent.ProofsEnabled()
+					if e != nil {
+						return false, e
+					}
+					if !enabled {
+						if yes, e := p.instances.prove(s, parent, assertions, min(maxSteps, 2_000_000), 192); yes || e != nil || limit.CancelFlag() {
+							return yes, e
+						}
 					}
 				}
 				if consistent && original {
