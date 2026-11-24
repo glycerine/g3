@@ -1339,11 +1339,7 @@ func (s *SMTInternalizerState) preInternalizeDeep(expression ast.ASTHandle) erro
 	if err != nil {
 		return err
 	}
-	for _, existing := range s.boolExpr[SMTFirstBoolVar:] {
-		if err = order.SetBooleanInternalized(existing, true); err != nil {
-			return err
-		}
-	}
+	order.variables = s.boolVar
 	for _, theory := range s.theoryOrder {
 		if !theory.DefaultInternalizer() {
 			if err = order.SetNonDefaultFamily(theory.FamilyID(), true); err != nil {

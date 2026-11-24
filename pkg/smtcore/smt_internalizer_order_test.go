@@ -96,3 +96,44 @@ func TestSMTInternalizationOrderTheoryOperatorIsNotTermITE(t *testing.T) {
 		}
 	}
 }
+
+func TestSMTInternalizationOrderScopedBooleanCutoff(t *testing.T) {
+	m := astTestManager(t)
+	a := smtRelevancyBool(t, m, "a")
+	b := smtRelevancyBool(t, m, "b")
+	shared, err := m.MkOr(a, b)
+	astTestMust(t, err)
+	root, err := m.MkIff(shared, a)
+	astTestMust(t, err)
+	astTestMust(t, m.IncRef(root))
+	t.Cleanup(func() { astTestMust(t, m.DecRef(root)) })
+	ctx, _, state := smtInternalizerFixture(t, m, nil)
+	live, err := NewSMTInternalizationOrder(m, ctx)
+	astTestMust(t, err)
+	live.variables = state.boolVar
+
+	check := func(wantChild bool) {
+		t.Helper()
+		items, err := live.Sort(root)
+		astTestMust(t, err)
+		for _, item := range items {
+			if item.Expression == b {
+				if !wantChild {
+					t.Fatal("visited child of an internalized Boolean")
+				}
+				return
+			}
+		}
+		if wantChild {
+			t.Fatal("skipped child of a Boolean without a live variable")
+		}
+	}
+	check(true)
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.Internalize(shared, true))
+	check(false)
+	astTestMust(t, state.PopScopes(1))
+	// A different expression can now acquire the same variable number.
+	astTestMust(t, state.Internalize(smtRelevancyBool(t, m, "other"), true))
+	check(true)
+}

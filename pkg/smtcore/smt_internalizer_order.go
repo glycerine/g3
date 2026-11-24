@@ -12,6 +12,7 @@ type SMTInternalizationItem struct {
 type SMTInternalizationOrder struct {
 	manager             *ast.ASTManager
 	context             *SMTCheckerContext
+	variables           smtBoolVarTable
 	booleanInternalized map[ast.ASTHandle]bool
 	nonDefaultFamilies  map[ast.FamilyID]bool
 }
@@ -40,6 +41,15 @@ func (o *SMTInternalizationOrder) SetNonDefaultFamily(family ast.FamilyID, nonDe
 	}
 	o.nonDefaultFamilies[family] = nonDefault
 	return nil
+}
+
+// The solver supplies its live expression index for the duration of Sort.
+// Standalone orders use the entries supplied by SetBooleanInternalized.
+func (o *SMTInternalizationOrder) hasBoolean(expression ast.ASTHandle) bool {
+	if o.variables.t != nil {
+		return o.variables.get(expression) >= SMTFirstBoolVar
+	}
+	return o.booleanInternalized[expression]
 }
 
 func (o *SMTInternalizationOrder) isBoolean(expression ast.ASTHandle) (bool, error) {
@@ -77,7 +87,7 @@ func (o *SMTInternalizationOrder) visitChildren(item SMTInternalizationItem, col
 	if err != nil {
 		return false, err
 	}
-	if boolean && o.booleanInternalized[item.Expression] || !boolean && o.context.enodes.get(item.Expression) != nil {
+	if boolean && o.hasBoolean(item.Expression) || !boolean && o.context.enodes.get(item.Expression) != nil {
 		return true, nil
 	}
 	family, err := o.manager.GetFamilyID(item.Expression)
