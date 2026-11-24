@@ -63,6 +63,7 @@ func (t *SMTEnodeTrail) Undo(mark int) error {
 			return ast.ErrASTDomain
 		}
 	}
+	clear(t.entries[mark:])
 	t.entries = t.entries[:mark]
 	return nil
 }

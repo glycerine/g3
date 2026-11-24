@@ -40,7 +40,13 @@ func TestSMTEnodeTrailGenerationAndLabelHash(t *testing.T) {
 		t.Fatal("duplicate label hash guard", err)
 	}
 
+	beforeUndo := trail.entries
 	astTestMust(t, trail.Undo(mark))
+	for _, entry := range beforeUndo[mark:] {
+		if entry.node != nil {
+			t.Fatal("rolled-back label trail still holds node")
+		}
+	}
 	if node.Generation() != 7 || node.HasLabelHash() || !node.Root().Labels().Empty() || trail.Len() != mark {
 		t.Fatal("trail did not restore enode fields")
 	}

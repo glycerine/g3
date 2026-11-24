@@ -12,6 +12,15 @@ import (
 // states. Keep the input DAG alive so that Pop releases the internalized
 // applications while the next round can reuse exactly the same input.
 func BenchmarkSMTCongruenceScopeMemory(b *testing.B) {
+	benchmarkSMTCongruenceScopeMemory(b, false)
+}
+
+// E-matching also trails label changes on the nodes it uses as candidates.
+func BenchmarkSMTEnodeLabelScopeMemory(b *testing.B) {
+	benchmarkSMTCongruenceScopeMemory(b, true)
+}
+
+func benchmarkSMTCongruenceScopeMemory(b *testing.B, labelNodes bool) {
 	const workers, roots = 8, 64
 	type worker struct {
 		f     *smtEqualityUndoFixture
@@ -45,6 +54,10 @@ func BenchmarkSMTCongruenceScopeMemory(b *testing.B) {
 					for k, h := range w.input {
 						if k%16 != 0 {
 							astTestMust(b, w.f.s.Internalize(h, false))
+							if labelNodes {
+								node := w.f.s.context.enodes.get(h)
+								astTestMust(b, node.SetLabelHash(&w.f.s.enodeTrail))
+							}
 						}
 					}
 				}
