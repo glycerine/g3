@@ -1488,6 +1488,10 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
 			continue
 		}
+		remaining := len(s.coreTrail) - scope.coreTrailLimit
+		if top == smtCoreTrailBoolVar && remaining%booleanRetireBlock == 0 && s.retireSharedBooleans(scope) {
+			continue
+		}
 		if !s.retiringBoolean {
 			expression := s.boolExpr[len(s.boolExpr)-1]
 			// mk_bool_var assigns IDs in creation order, so this trail entry
@@ -1529,25 +1533,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			if int(variable) < s.equalityAtomCursor {
 				s.unindexEqualityAtom(variable, expression)
 			}
-			s.context.exprs.retireBoolean(expression, s.relevancy == nil)
-			// The owning trail still exposes the expression if reference release is interrupted.
-			s.boolExpr = s.boolExpr[:variable]
-			if page := s.gatePage(variable); page != nil {
-				slot := uint32(variable) % smtBoolGatesPerPage
-				if page.compound != nil {
-					page.compound.gates[slot] = nil
-				}
-				if page.notChildren != nil {
-					page.notChildren[slot] = ast.ASTHandle{}
-				}
-			}
-			s.booleanData[variable].SetNullJustification()
-			s.booleanData = s.booleanData[:variable]
-			s.activity = s.activity[:variable]
-			s.assignment = s.assignment[:2*variable]
-			s.watches[2*variable].recycle()
-			s.watches[2*variable+1].recycle()
-			s.watches = s.watches[:2*variable]
+			s.removeBooleanSlots(int(variable))
 			s.retiringBoolean, s.retiringBooleanRoot = true, expression
 		}
 		if !s.retiringBooleanRoot.IsNull() {
@@ -1993,6 +1979,90 @@ func (s *SMTInternalizerState) initTrueProof() error {
 	}
 	s.ownedJustifications = append(s.ownedJustifications, owner)
 	return nil
+}
+
+// Probe at block boundaries so trails dominated by last references stay linear.
+const booleanRetireBlock = 16
+
+// retireSharedBooleans removes a run from the top of the core trail. All ASTs
+// in the accepted suffix stay live, so neither destructors nor observers can
+// see the intermediate queue or binding changes. Other entries use scalar undo.
+func (s *SMTInternalizerState) retireSharedBooleans(scope smtInternalizerScope) bool {
+	if ast.ASTValidateHandles || smtcoreSourceDebug || s.retiringBoolean || s.relevanceActivity.delayed != nil || s.theoryAwareBranching != nil {
+		return false
+	}
+	top, high := len(s.coreTrail), len(s.boolExpr)
+	floor := max(scope.firstScopedBoolVar(), s.equalityAtomCursor, high-(top-scope.coreTrailLimit))
+	if high <= floor {
+		return false
+	}
+	cacheScores := s.searching && (s.cachedActivity || s.caseSplitStrategy == 2)
+	basic, ok := s.basicActivity.PrepareActivityErase(&s.activity, floor, high)
+	if !ok {
+		return false
+	}
+	delayed, ok := s.delayedActivity.PrepareActivityErase(&s.activity, floor, high)
+	if !ok {
+		return false
+	}
+	trailBase := top - high
+	low := high
+	for low > floor {
+		end := low
+		for low > floor && end-low < booleanRetireBlock && s.coreTrail[trailBase+low-1] == smtCoreTrailBoolVar {
+			if cacheScores && s.activity[low-1] > 0 {
+				break
+			}
+			low--
+		}
+		shared := s.manager.ReleaseSharedAppSuffix(s.boolExpr[low:end])
+		low = end - shared
+		if shared < booleanRetireBlock {
+			break
+		}
+	}
+	n := high - low
+	if n == 0 {
+		return false
+	}
+	basic.EraseSuffix(n)
+	delayed.EraseSuffix(n)
+	s.removeBooleanSlots(low)
+	s.coreTrail = s.coreTrail[:top-n]
+	s.statistics.NumDelBoolVar += uint32(n)
+	return true
+}
+
+// removeBooleanSlots drops the dense suffix after removing queue membership.
+// The scalar undo retains its last owned expression past len while retrying a
+// partially completed decrement.
+func (s *SMTInternalizerState) removeBooleanSlots(low int) {
+	if len(s.gatePages) != 0 {
+		// Clear gates a page at a time. Leaf variables need no gate storage.
+		high := len(s.boolExpr)
+		for pageIndex := min((high-1)/smtBoolGatesPerPage, len(s.gatePages)-1); pageIndex >= low/smtBoolGatesPerPage; pageIndex-- {
+			page := &s.gatePages[pageIndex]
+			base := pageIndex * smtBoolGatesPerPage
+			from, to := max(0, low-base), min(smtBoolGatesPerPage, high-base)
+			if page.compound != nil {
+				clear(page.compound.gates[from:to])
+			}
+			if page.notChildren != nil {
+				clear(page.notChildren[from:to])
+			}
+		}
+	}
+	for i := len(s.boolExpr) - 1; i >= low; i-- {
+		s.context.exprs.retireBoolean(s.boolExpr[i], s.relevancy == nil)
+		s.booleanData[i].SetNullJustification()
+		s.watches[2*i].recycle()
+		s.watches[2*i+1].recycle()
+	}
+	s.boolExpr = s.boolExpr[:low]
+	s.booleanData = s.booleanData[:low]
+	s.activity = s.activity[:low]
+	s.assignment = s.assignment[:2*low]
+	s.watches = s.watches[:2*low]
 }
 
 // The core trail still owns the last expression while a fallible release is

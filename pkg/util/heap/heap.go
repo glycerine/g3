@@ -256,7 +256,8 @@ func (h *Int) CheckInvariant() bool {
 }
 func (h *Int) up(i int32) error {
 	if h.activity != nil {
-		return h.placeActivity(i, h.values[i], activityUp)
+		h.placeActivity(i, h.values[i], activityUp)
+		return h.cassertInvariant()
 	}
 	v := h.values[i]
 	for p := i / 2; p != 0 && h.lt(v, h.values[p]); p = i / 2 {
@@ -279,7 +280,7 @@ const (
 
 // placeActivity fills a hole in an activity heap. Erasing an interior value
 // can move its replacement either way. A priority update supplies the direction.
-func (h *Int) placeActivity(i, v int32, dir activityDirection) error {
+func (h *Int) placeActivity(i, v int32, dir activityDirection) {
 	values, indices, activity := h.values, h.indices, *h.activity
 	score := activity[v]
 	parent := i / 2
@@ -308,11 +309,11 @@ func (h *Int) placeActivity(i, v int32, dir activityDirection) error {
 	}
 	values[i] = v
 	indices[v] = i
-	return h.cassertInvariant()
 }
 func (h *Int) down(i int32) error {
 	if h.activity != nil {
-		return h.placeActivity(i, h.values[i], activityDown)
+		h.placeActivity(i, h.values[i], activityDown)
+		return h.cassertInvariant()
 	}
 	v := h.values[i]
 	for {
@@ -441,13 +442,11 @@ func (h *Int) eraseAt(v, i int32) error {
 	if i < 1 || int64(i) >= int64(len(h.values)) {
 		return ErrValue
 	}
-	last := h.values[len(h.values)-1]
-	h.indices[v] = 0
-	h.values = h.values[:len(h.values)-1]
-	h.epoch++
+	last := h.takeLastForErase(v)
 	if int(i) < len(h.values) {
 		if h.activity != nil && !diagnostic.DebugBuild {
-			return h.placeActivity(i, last, activityEither)
+			h.placeActivity(i, last, activityEither)
+			return nil
 		}
 		h.values[i] = last
 		h.indices[last] = i
@@ -463,6 +462,98 @@ func (h *Int) eraseAt(v, i int32) error {
 	}
 	return h.cassertInvariant()
 }
+
+// Remove v and return the former last value, which fills v's hole if the
+// hole is still within the live heap.
+func (h *Int) takeLastForErase(v int32) int32 {
+	last := h.values[len(h.values)-1]
+	h.indices[v] = 0
+	h.values = h.values[:len(h.values)-1]
+	h.epoch++
+	return last
+}
+
+// A prepared erase borrows the heap until EraseSuffix. It has no allocation
+// and permits a caller to validate two queues before changing either owner.
+type activityErase struct {
+	heap      *Int
+	low, high int
+	epoch     uint64
+}
+
+// PrepareActivityErase checks whether removing any suffix of [low, high) can
+// proceed without callbacks or epoch overflow. Nil optional queues are empty.
+// The owner must keep the heap and its borrowed activity slice unchanged until
+// EraseSuffix. A false result leaves all membership and iterator state intact.
+func (h *Int) PrepareActivityErase(scores *[]float64, low, high int) (activityErase, bool) {
+	if low < 0 || high < low || scores == nil || high > len(*scores) {
+		return activityErase{}, false
+	}
+	if h == nil {
+		return activityErase{low: low, high: high}, true
+	}
+	if diagnostic.DebugBuild || h.self != h || h.closed || h.activity != scores || uint64(high-low) > ^uint64(0)-h.epoch {
+		return activityErase{}, false
+	}
+	return activityErase{heap: h, low: low, high: high, epoch: h.epoch}, true
+}
+
+// EraseSuffix erases the last count IDs in descending order. As with a slice
+// bound, count must fit the prepared range. An invalid count or mutation
+// of the prepared heap causes a panic before any entries are removed.
+func (r activityErase) EraseSuffix(count int) {
+	if count < 0 || count > r.high-r.low {
+		panic("heap: count exceeds prepared activity range")
+	}
+	h := r.heap
+	if h == nil {
+		return
+	}
+	if h.epoch != r.epoch || h.closed {
+		panic("heap: prepared activity range was invalidated")
+	}
+	low, high := r.high-count, min(r.high, len(h.indices))
+	if low >= high || len(h.values) <= 1 {
+		return
+	}
+	// With at most one member outside the range, there is only one possible
+	// final layout. Otherwise replay the exact descending erases, including ties.
+	if len(h.values)-2 <= high-low && h.eraseAllButOne(low, high) {
+		return
+	}
+	for v := high - 1; v >= low; v-- {
+		if pos := h.indices[v]; pos != 0 {
+			last := h.takeLastForErase(int32(v))
+			if int(pos) < len(h.values) {
+				h.placeActivity(pos, last, activityEither)
+			}
+		}
+	}
+}
+
+func (h *Int) eraseAllButOne(low, high int) bool {
+	var survivor int32 = -1
+	for _, v := range h.values[1:] {
+		if int(v) >= low && int(v) < high {
+			continue
+		}
+		if survivor >= 0 {
+			return false
+		}
+		survivor = v
+	}
+	end := 1
+	if survivor >= 0 {
+		h.values[1] = survivor
+		h.indices[survivor] = 1
+		end = 2
+	}
+	h.epoch += uint64(len(h.values) - end)
+	h.values = h.values[:end]
+	clear(h.indices[low:high])
+	return true
+}
+
 func (h *Int) Increased(v int32) error {
 	if e := h.canChange(); e != nil {
 		return e

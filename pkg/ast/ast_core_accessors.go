@@ -345,6 +345,27 @@ func (m *ASTManager) IncRefHeld(h ASTHandle) error {
 	return nil
 }
 
+// ReleaseSharedAppSuffix consumes one reference to each application at the
+// end of owned that will survive its decrement. It stops before any deletion,
+// invalid handle, or other node kind. No destructor or trace callback runs.
+func (m *ASTManager) ReleaseSharedAppSuffix(owned []ASTHandle) int {
+	if astValidateHandles || m == nil || !m.lockFree() {
+		return 0
+	}
+	for i := len(owned) - 1; i >= 0; i-- {
+		h := owned[i]
+		if h.origin != m.origin || h.slot == 0 || h.slot >= m.nextNode {
+			return len(owned) - 1 - i
+		}
+		n := m.nodeAt(h.slot)
+		if !n.live || n.generation != h.generation || n.kind != ASTApp || n.rc <= 1 {
+			return len(owned) - 1 - i
+		}
+		n.rc--
+	}
+	return len(owned)
+}
+
 // DecRefHeldConsumed is DecRefConsumed for a handle the caller holds a
 // reference to. Normal builds skip the handle validation when the node
 // survives; the last reference takes DecRefConsumed's deletion path.

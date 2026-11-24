@@ -1,4 +1,4 @@
-"""Count instructions per retired Boolean in the queue-enabled scoped pop on Linux/amd64."""
+"""Count instructions per scalar Boolean retirement in the queue-enabled scoped pop on Linux/amd64."""
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -30,7 +30,7 @@ def instrument(source, first, last, boundaries, phase, event):
 def go_boundaries(body):
     queue = body.index("if (s.cachedActivity")
     binding = body.index("if s.quantifiers != nil")
-    slots = body.index("s.boolExpr = s.boolExpr[:variable]")
+    slots = body.index("s.removeBooleanSlots(int(variable))")
     retry = body.index("s.retiringBoolean, s.retiringBooleanRoot = true")
     release = body.index("if !s.retiringBooleanRoot.IsNull()")
     done = body.index("s.retiringBoolean = false")
@@ -66,6 +66,9 @@ def build_go(output, phase, fixture):
     output.mkdir()
     state = PKG / "smtcore/smt_internalizer_state.go"
     code = state.read_text()
+    # Each counter interval covers one scalar undo. The regular phase driver
+    # measures complete pops with the production batch path enabled.
+    code = replace_once(code, "&& s.retireSharedBooleans(scope)", "&& false")
     start = code.index("for len(s.coreTrail) > scope.coreTrailLimit")
     patched = instrument(code[start:], "if !s.retiringBoolean {",
                          "s.statistics.NumDelBoolVar++", go_boundaries, phase, "scopePhaseEvent")
@@ -116,7 +119,7 @@ def run(binary, engine, args, visits_per_pop=VARIABLES):
         command.extend([str(args.iterations), "ScopedAtoms"])
     env = dict(os.environ, SCOPE_THREAD_EVENT="1", SCOPE_PHASE="3", GOMAXPROCS="1")
     result = subprocess.check_output(command, cwd=binary.parent, env=env, text=True)
-    matches = re.findall(r"(\d+) intervals" if engine == "g3" else r"intervals (\d+)", result)
+    matches = re.findall(r"(?<![\d.])(\d+)(?:\.0+)? intervals" if engine == "g3" else r"intervals (\d+)", result)
     expected = visits_per_pop * (args.iterations - WARMUP)
     if not matches or int(matches[-1]) != expected:
         raise ValueError(f"expected {expected} intervals from {binary}")
