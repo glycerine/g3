@@ -55,7 +55,6 @@ type orderProofState struct {
 	definitions        *premiseDefinitions
 	enumeration        *enumerationRefutation
 	previousGoalProved bool
-	finiteEnumeration  bool
 	recent             *recentRefutations
 	bits               *orderBooleanSolver
 	// Keep a failed side-condition cleanup reachable for release's retry.
@@ -338,7 +337,7 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 		}
 	}
 	if p.ctx == nil {
-		if err := p.start(parent); err != nil {
+		if err := p.start(parent, orderSearch); err != nil {
 			return false, err
 		}
 	}
@@ -346,7 +345,7 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 		allowance := min(proof.SearchSteps/8, 150_000)
 		proof.SearchSteps -= allowance
 		side := orderProofState{source: s}
-		err := side.start(parent)
+		err := side.start(parent, orderSearch)
 		var established bool
 		if err == nil {
 			established, err = side.check(parent, c.Condition, allowance, false)
@@ -365,9 +364,17 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 	return p.check(parent, proof.Order, proof.SearchSteps, reuse)
 }
 
-func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
+type refutationSearch uint8
+
+const (
+	orderSearch refutationSearch = iota
+	enumerationSearch
+	eMatchingSearch
+)
+
+func (p *orderProofState) start(parent *ast.ASTManager, search refutationSearch) (err error) {
 	newContext := cmd_context.NewRefutationContext
-	if p.finiteEnumeration {
+	if search == enumerationSearch {
 		newContext = cmd_context.NewEnumerationRefutationContext
 	}
 	command, err := newContext(parent.Budget())
@@ -390,8 +397,15 @@ func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
 	if err := params.SetBool("smt.macro_finder", true); err != nil {
 		return err
 	}
-	if p.finiteEnumeration {
+	switch search {
+	case enumerationSearch:
 		if err := params.SetUInt("smt.relevancy", 1); err != nil {
+			return err
+		}
+	case eMatchingSearch:
+		// Only UNSAT discharges a private plan. The caller has a full solver
+		// for inconclusive plans and for constructing a concrete model.
+		if err := params.SetBool("smt.mbqi", false); err != nil {
 			return err
 		}
 	}

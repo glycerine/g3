@@ -108,7 +108,7 @@ func BenchmarkRaftOrderScopes(b *testing.B) {
 						if err := proof.release(); err != nil {
 							b.Fatal(err)
 						}
-						if err := proof.start(m); err != nil {
+						if err := proof.start(m, orderSearch); err != nil {
 							b.Fatal(err)
 						}
 					}

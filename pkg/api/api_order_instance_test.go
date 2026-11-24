@@ -308,7 +308,7 @@ func TestOrderProofConditionalPointUpdate(t *testing.T) {
 				// The specialized counterexample is impossible at (p,q) even
 				// when the actual counterexample away from (p,q) is satisfiable.
 				trial := orderProofState{source: s}
-				astTestMust(t, trial.start(manager))
+				astTestMust(t, trial.start(manager, orderSearch))
 				t.Cleanup(func() { astTestMust(t, trial.release()) })
 				established, err := trial.check(manager, proof.Conditional.Condition, 100_000, false)
 				astTestMust(t, err)
@@ -418,7 +418,7 @@ func TestOrderProofLiftsImplicationThroughQuantifiedPredicates(t *testing.T) {
 			}
 			if tc.lift {
 				check := orderProofState{source: s}
-				astTestMust(t, check.start(manager))
+				astTestMust(t, check.start(manager, orderSearch))
 				t.Cleanup(func() { astTestMust(t, check.release()) })
 				established, err := check.check(manager, side, 100_000, false)
 				astTestMust(t, err)

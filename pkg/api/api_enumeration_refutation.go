@@ -41,8 +41,8 @@ func (p *enumerationRefutation) check(m *ast.ASTManager, forms []ast.ASTHandle) 
 		}
 	}
 	if p.kernel == nil {
-		p.kernel = &orderProofState{finiteEnumeration: true}
-		if err := p.kernel.start(m); err != nil {
+		p.kernel = &orderProofState{}
+		if err := p.kernel.start(m, enumerationSearch); err != nil {
 			return false, errors.Join(err, p.release())
 		}
 	}

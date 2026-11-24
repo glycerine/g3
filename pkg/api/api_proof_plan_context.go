@@ -25,7 +25,11 @@ func (c *proofPlanContext) acquire(parent *ast.ASTManager, source *APISimpleSolv
 	}
 	if c.aux == nil {
 		c.parent, c.aux = parent, &orderProofState{source: source}
-		if err := c.aux.start(parent); err != nil {
+		search := orderSearch
+		if reuse {
+			search = eMatchingSearch
+		}
+		if err := c.aux.start(parent, search); err != nil {
 			return nil, errors.Join(err, c.close())
 		}
 	}
