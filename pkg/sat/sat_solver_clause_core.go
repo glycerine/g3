@@ -3,8 +3,6 @@ package sat
 // Source: src/sat/sat_solver.cpp:367–465; src/sat/sat_solver.h value/lvl accessors.
 
 import (
-	"sort"
-
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -44,21 +42,6 @@ func (s *satSolverClauseState) level(l Literal) (uint32, error) {
 		return 0, arena.ErrBounds
 	}
 	return s.levels[l.variable()], nil
-}
-
-// Native source-order sort over the captured literal slice. Equal literal words
-// carry identical values, so stability is not observable. The caller keeps
-// this concrete adapter in its existing state to reuse the interface box.
-type satLiteralOrder struct{ values []Literal }
-
-func (a *satLiteralOrder) Len() int           { return len(a.values) }
-func (a *satLiteralOrder) Less(i, j int) bool { return a.values[i] < a.values[j] }
-func (a *satLiteralOrder) Swap(i, j int)      { a.values[i], a.values[j] = a.values[j], a.values[i] }
-
-func (a *satLiteralOrder) sort(values []Literal) {
-	a.values = values
-	sort.Sort(a)
-	a.values = nil
 }
 
 func (s *satSolverClauseState) simplifyClause(scope uint32, n *uint32, lits []Literal) (bool, error) {
