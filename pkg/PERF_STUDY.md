@@ -5592,3 +5592,20 @@ Two experiments narrow the implementation choices. Fusing the internalization an
 Clearing the table at search initialization and every decision-scope push or pop left **zero hits on all six inputs**. That version paid for maintaining the table without avoiding a rewrite. A second experiment inspected descendants through depth 12. All observed repeated identity roots contained only uninterpreted terms and basic Boolean operations within the inspected depth. None of the inspected nodes had a substitution mapping.
 
 I also tried checking whether small AND/OR argument lists already satisfied the normalizer's constraints. This runs inside the existing rewriter and leaves child traversal and its resource accounting intact. Across 90 rotating process measurements, four versions reproduced every integer search statistic on all six queries. The version checking slices of up to eight arguments reduced median instructions from 29.52 to 29.10 billion on full query 1, 24.95 to 24.62 on query 3, and 30.11 to 29.65 on query 6. A 1–2% reduction leaves most of the gap measured above. I kept these as benchmark overlays. A larger rewriter gain would require reducing the cost of the traversal itself while preserving its cache and budget behavior. [Implementations, per-run counters and reproduction instructions](perf/ivy_apple/holdouts/nov24-rewrite-resource-replay.tar.xz)
+
+### How much work buys another proof on a wider set of original premises?
+
+I captured all 33 additional premise sets that a selective second search tried during a complete run of Apple `ord_live2`. Each contains the original goal and a subset of the original positive conjuncts. In-tree Z3 independently found **30 UNSAT and three SAT**. The live g3 experiment proved 18 with a 20,000-unit private search. Each UNSAT subset is sufficient to refute its full input. The three SAT subsets show why the checker must continue with the remaining premises after an inconclusive attempt. [Exact SMT-LIB inputs, batch and goal numbers, and oracle answers](perf/ivy_apple/holdouts/nov24-selected-premise-replay.tar.xz)
+
+| Fresh standalone configuration | Resource limit | Refutations in both solvers, of 30 | g3 billion instructions | Z3 billion instructions |
+|---|---:|---:|---:|---:|
+| Macro finder on, model-based instantiation off | 20,000 | 10 | 5.42 | 2.70 |
+| Same settings | 50,000 | 26 | 6.66 | 3.02 |
+| Same settings | 250,000 | 30 | 10.54 | 4.05 |
+| Macro finder off, model-based instantiation on | 20,000 | 18 | 5.57 | 2.70 |
+| Same settings | 50,000 | 27 | 6.84 | 3.02 |
+| Same settings | 100,000 | 30 | 8.08 | 3.32 |
+
+Each cost sums one CPU-pinned process per input and includes parsing and startup. Across **495 paired comparisons** (33 inputs, three solver configurations and five budgets), g3 and Z3 matched on answer, decisions, conflicts, quantifier instantiations and resource count. The live private solver translates into a reusable manager and charges that work to its own budget. Those differences matter even at the same nominal limit. With macro finding enabled and a 250,000-unit budget, g3 proved all 30 refutable selections in the live checker as well. [Standalone comparison driver](perf/ivy_apple/holdouts/selected_premise_budget.py)
+
+Completing more private proofs does not by itself establish a verification speedup. A separate pair of full `ord_live2` runs with per-goal counters found that all 18 goals newly refuted by the 20,000-unit selection had already avoided a subsequent check in the baseline. The largest measured saving came later. Batch 14, goal 110 used **117.65 → 28.38 billion** instructions inside the GoIvy check call, although that goal never attempted the wider selection. Across the spec, early proof attempts rose from 595.44 to 627.24 billion, while the subsequent check calls fell from 573.45 to 425.81 billion. Comparing earlier proof histories and varying the source arena's initial numbering can distinguish a reusable gain from sensitivity to search order. The wider selection remains experimental.

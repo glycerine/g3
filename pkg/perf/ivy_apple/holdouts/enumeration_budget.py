@@ -26,7 +26,7 @@ def query_text(fixture, index, form, budget):
             + "(push 1)\n" + query["Goal"] + "(check-sat)\n")
 
 
-def measure(binary, text, cpu, perf, counters):
+def measure(binary, text, cpu, perf, counters, answers=("unsat", "unknown")):
     command = ["taskset", "-c", str(cpu)] if cpu is not None else []
     if perf:
         command += [perf, "stat", "-e", "instructions:u,cycles:u", "-x,", "-o", counters, "--"]
@@ -36,7 +36,7 @@ def measure(binary, text, cpu, perf, counters):
                             check=True)
     wall = time.monotonic() - start
     lines = result.stdout.splitlines()
-    if result.stderr or not lines or lines[0] not in ("unsat", "unknown") or "(error " in result.stdout:
+    if result.stderr or not lines or lines[0] not in answers or "(error " in result.stdout:
         raise ValueError((binary, result.stdout[:500], result.stderr[:500]))
     stats = {k: int(v) for k, v in re.findall(r":([\w-]+)\s+(\d+)(?=[\s)])", result.stdout)}
     hardware = {}
