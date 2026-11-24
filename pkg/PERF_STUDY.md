@@ -6018,3 +6018,30 @@ The medians cover five reversed-order pairs of fresh processes and a full garbag
 The complete Apple ord_live2 verification inserted 16,156,819 tuples, including 11,965,402 with two bindings. Its busiest table held 38,576 live tuples, of which 31,495 had two bindings. Ordinary Hermes inserted 104,056 five-binding tuples. Across five complete Hermes runs, cumulative process allocation fell from 1,443.06 to 1,435.28 MB and the allocation count fell by 104,156. TLB allocation fell from 2,990.97 to 2,981.28 MB. rfn2, which inserted only 720 tuples, measured 889.12 and 889.21 MB. [Per-set census and complete verifier counters](perf/ivy_apple/fingerprints/nov24-fingerprint-records.tar.xz)
 
 All 228 compatibility cases matched the reference status and both output streams. The six standalone Apple queries also preserved their reported search statistics. In three full, budget-limited queries, g3 measured 29.03, 24.73 and 29.38 billion instructions with the new layout, compared with 29.12, 24.74 and 29.44 billion previously. In-tree Z3 used 9.46, 8.50 and 9.56 billion. Fingerprint storage accounts for little of that threefold instruction difference. [Exact tuple, scope, collision and ownership tests](smtcore/fingerprints_test.go) · [Three-way solver comparisons](perf/ivy_apple/fingerprints/nov24-fingerprint-records.tar.xz)
+
+### Activity-queue insertion and garbage collection during wide scope pops
+
+Restoring a scoped Boolean variable inserts it back into the case-split activity heap. At 2,048 variables this insertion path used **206,916 more instructions per pop in g3** than in in-tree Z3. That accounts for 50% of the independently measured 413,924-instruction gap in restoring all learned clauses, or 32% of the 642,701-instruction gap in the complete scope pop. At 4,096 variables the insertion difference was 415,240 instructions, again about half the clause-restoration gap. [Whole-pop measurements](#scope-restoration-cost-as-the-number-of-atoms-grows) · [720 phase samples](perf/scope_restoration/pop_phases/nov24-wide-clause-instructions.csv)
+
+| Instructions per pop, g3 / in-tree Z3 | 128 variables | 2,048 variables | 4,096 variables |
+| --- | ---: | ---: | ---: |
+| Rebind all atom occurrences | 68,526 / 66,551 | 1,154,000 / 1,068,130 | 2,270,591 / 2,137,537 |
+| Restore each occurrence's Boolean variable | 60,013 / 60,215 | 991,114 / 966,754 | 1,955,787 / 1,934,786 |
+| Publish newly restored variables | 37,740 / 28,471 | 642,608 / 458,850 | 1,254,638 / 918,977 |
+| Insert the published variables into the activity queue | 24,431 / 11,703 | 397,478 / 190,562 | 797,641 / 382,401 |
+| Select and install the clause watches | 11,518 / 11,328 | 236,391 / 181,248 | 436,136 / 362,496 |
+| Release saved atom references | 12,736 / 8,704 | 195,658 / 139,264 | 388,142 / 278,528 |
+
+The first four rows measure successively narrower regions of the same loop. Each row subtracts the median cost of empty counter brackets at exactly the same source location and visit count. Five rotating rounds used CPU 38, one solver thread, eight warmups, and six even widths from 4 to 4,096. Both fixtures verify the restored atoms, clause identities and watch contents. For replay, run `python3 perf/scope_restoration/pop_phases/restoration.py --dir /tmp/wide-clauses --cpu 38 --pairs 5 --widths 4 32 128 512 2048 4096 --phase bindings --phase atom --phase publish --phase queue --phase watches --phase release`. [Go and C++ instrumentation sites](perf/scope_restoration/pop_phases/restoration.py)
+
+A separate seven-round experiment changed the Go collector setting for each fresh process. At 4,096 variables, disabling automatic collection reduced complete-pop instructions from **5.98 million to 4.80 million**, with in-tree Z3 at **4.61 million**. At 2,048 variables it reduced 2.84 million to 2.40 million, with Z3 at 2.27 million. Relevance rollback at that width stayed within nine instructions per pop across the four Go settings. These counts include GC work performed by the measured solver thread. Allocation during the rest of the benchmark round can cause collection to overlap the measured pop. The effects of collection and the nested activity-queue measurements overlap and cannot be added. [700 GC measurements](perf/scope_restoration/pop_phases/nov24-wide-scope-gc.csv)
+
+| Variables | g3, GOGC=25 | g3, GOGC=100 | g3, GOGC=400 | g3, GOGC=off | In-tree Z3 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 32 | 42,031 | 40,395 | 40,395 | 40,395 | 38,061 |
+| 128 | 161,769 | 159,816 | 153,375 | 153,375 | 144,717 |
+| 512 | 626,618 | 663,173 | 603,032 | 603,032 | 570,855 |
+| 2,048 | 2,552,293 | 2,844,957 | 2,402,651 | 2,402,651 | 2,274,720 |
+| 4,096 | 5,692,727 | 5,978,086 | 5,245,502 | 4,804,079 | 4,611,966 |
+
+Each table entry is the median complete-pop count per iteration less the corresponding median empty bracket. All hardware counters ran for their full enabled interval. GC timing in this fixed-length benchmark makes the relationship with GOGC nonmonotonic. The existing short-clause pool covers the first 64 concurrent clauses. At 2,048 variables, 960 additional short clauses receive separately allocated atom buffers each round. This allocation site can be tested directly while keeping the normal collector setting and measuring retained bytes per worker. Replay with `python3 perf/scope_restoration/pop_phases/gc_widths.py --output /tmp/gc-widths --cpu 19`. [GC comparison driver](perf/scope_restoration/pop_phases/gc_widths.py) · [Short-clause storage](smtcore/smt_clause.go)

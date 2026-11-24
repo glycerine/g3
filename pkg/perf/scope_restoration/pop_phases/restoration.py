@@ -4,6 +4,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import csv
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -11,6 +12,7 @@ import sys
 
 from measure import HERE, PKG, ROOT, WARMUP, make_variable
 from variables import go_fixture, native_fixture, run
+from widths import go_width_fixture, native_width_fixture
 
 
 # Source file, containing region, inclusive start, exclusive end.
@@ -70,20 +72,23 @@ def main():
     parser.add_argument("--dir", required=True, type=Path, help="new output directory")
     parser.add_argument("--build", default=ROOT / "build", type=Path)
     parser.add_argument("--pairs", type=int, default=9)
-    parser.add_argument("--iterations", type=int, default=408)
+    parser.add_argument("--iterations", type=int, help="pops per run, including eight warmups")
+    parser.add_argument("--widths", type=int, nargs="+", help="repeat each phase at these even atom counts")
     parser.add_argument("--jobs", type=int, default=2, help="concurrent builds")
     parser.add_argument("--go-overlay", type=Path, help="Go source overlay to measure")
     parser.add_argument("--phase", action="append", choices=GO,
                         help="repeat to select individual operations (default: all)")
     args = parser.parse_args()
-    if args.pairs < 1 or args.iterations <= WARMUP or args.jobs < 1:
+    if args.pairs < 1 or (args.iterations is not None and args.iterations <= WARMUP) or args.jobs < 1:
         parser.error("supply positive pairs and jobs, and more than eight iterations")
+    if args.widths and any(width < 4 or width % 2 for width in args.widths):
+        parser.error("use even widths of at least four atoms")
     phases = list(dict.fromkeys(args.phase or GO))
     replacements = json.loads(args.go_overlay.read_text())["Replace"] if args.go_overlay else {}
     output = args.dir.resolve()
     output.mkdir(parents=True)
     fixture = output / "smt_hotpath_benchmark_test.go"
-    fixture.write_text(go_fixture())
+    fixture.write_text(go_fixture(go_width_fixture(PKG / "smtcore" / fixture.name) if args.widths else None))
     build = args.build.resolve(strict=True)
     config = (build / "config.mk").read_text()
     makefile = (build / "Makefile").read_text()
@@ -93,7 +98,8 @@ def main():
         name = re.search(r"\$\((includes_\d+)\).*\.\./src/" + re.escape(relative), makefile)[1]
         return make_variable(config, "CXXFLAGS") + make_variable(makefile, name)
 
-    shared = native_fixture(output, build, compiler, flags("test/smt_scope_restoration.cpp"))
+    shared = native_fixture(output, build, compiler, flags("test/smt_scope_restoration.cpp"),
+                            native_width_fixture() if args.widths else None)
 
     def prepare(key):
         phase, engine, empty = key
@@ -130,20 +136,32 @@ def main():
     with ThreadPoolExecutor(args.jobs) as pool:
         binaries = dict(zip(keys, pool.map(prepare, keys)))
     writer = csv.writer(sys.stdout, lineterminator="\n")
-    writer.writerow(["phase", "mode", "cpu", "pair", "engine", "pops", "intervals",
+    writer.writerow((["width"] if args.widths else []) +
+                    ["phase", "mode", "cpu", "pair", "engine", "pops", "intervals",
                      "instructions", "enabled_ns", "running_ns"])
+    widths = args.widths or [128]
+    fixed_iterations = args.iterations
     for pair in range(args.pairs):
         order = phases[pair % len(phases):] + phases[:pair % len(phases)]
-        for phase in order:
-            selected = [key for key in keys if key[0] == phase]
-            for key in (selected if pair % 2 == 0 else reversed(selected)):
-                _, engine, empty = key
-                row = run(binaries[key], engine, args, VISITS[phase])
-                if row[-1] != row[-2]:
-                    raise ValueError(f"multiplexed thread counter for {phase}/{engine}")
-                writer.writerow([phase, "empty" if empty else "body", args.cpu, pair + 1,
-                                 engine, args.iterations - WARMUP, *row])
-                sys.stdout.flush()
+        offset = pair % len(widths)
+        for width in widths[offset:] + widths[:offset]:
+            if args.widths:
+                os.environ["SCOPE_ATOMS"] = str(width)
+                args.iterations = fixed_iterations or WARMUP + max(24, min(512, 36864 // width))
+            else:
+                args.iterations = fixed_iterations or 408
+            for phase in order:
+                selected = [key for key in keys if key[0] == phase]
+                visits = VISITS[phase] * width // 128 if VISITS[phase] > 1 else 1
+                for key in (selected if pair % 2 == 0 else reversed(selected)):
+                    _, engine, empty = key
+                    row = run(binaries[key], engine, args, visits)
+                    if row[-1] != row[-2]:
+                        raise ValueError(f"multiplexed thread counter for {phase}/{engine}")
+                    writer.writerow(([width] if args.widths else []) +
+                                    [phase, "empty" if empty else "body", args.cpu, pair + 1,
+                                     engine, args.iterations - WARMUP, *row])
+                    sys.stdout.flush()
 
 
 if __name__ == "__main__":

@@ -49,8 +49,9 @@ def native_boundaries(body):
             "release": (release, len(body)), "rest": (binding, len(body))}
 
 
-def go_fixture():
-    source = (PKG / "smtcore/smt_hotpath_benchmark_test.go").read_text()
+def go_fixture(source=None):
+    if source is None:
+        source = (PKG / "smtcore/smt_hotpath_benchmark_test.go").read_text()
     source = replace_once(source, "var elapsed time.Duration",
                           "var elapsed time.Duration\nstartScopeCounter()\ndefer finishScopeCounter()")
     source = replace_once(source, "start := time.Now()",
@@ -82,8 +83,9 @@ def build_go(output, phase, fixture):
                     "-o", output / "bench", "./smtcore"], cwd=PKG, check=True)
 
 
-def native_fixture(output, build, compiler, flags):
-    fixture = (ROOT / "src/test/smt_scope_restoration.cpp").read_text()
+def native_fixture(output, build, compiler, flags, fixture=None):
+    if fixture is None:
+        fixture = (ROOT / "src/test/smt_scope_restoration.cpp").read_text()
     fixture = replace_once(fixture, "auto start = clock::now();",
                            f"scope_phase_active = round >= {WARMUP};\nauto start = clock::now();")
     fixture = replace_once(fixture, "elapsed += clock::now() - start;",
@@ -119,6 +121,10 @@ def run(binary, engine, args, visits_per_pop=VARIABLES):
         command.extend([str(args.iterations), "ScopedAtoms"])
     env = dict(os.environ, SCOPE_THREAD_EVENT="1", SCOPE_PHASE="3", GOMAXPROCS="1")
     result = subprocess.check_output(command, cwd=binary.parent, env=env, text=True)
+    if getattr(args, "widths", None):
+        measured = re.search(r"\b(\d+)(?:\.0+)? atoms/op\b", result)
+        if not measured or int(measured[1]) != int(env["SCOPE_ATOMS"]):
+            raise ValueError(f"unexpected atom count from {binary}")
     matches = re.findall(r"(?<![\d.])(\d+)(?:\.0+)? intervals" if engine == "g3" else r"intervals (\d+)", result)
     expected = visits_per_pop * (args.iterations - WARMUP)
     if not matches or int(matches[-1]) != expected:

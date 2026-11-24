@@ -37,6 +37,16 @@ def native_width_fixture():
     return replace_once(source, "smt::clause* clauses[num_clauses];", "std::vector<smt::clause*> clauses(num_clauses);")
 
 
+def build_width_fixtures(output, build):
+    path = PKG / "smtcore/smt_hotpath_benchmark_test.go"
+    fixture = output / path.name
+    fixture.write_text(go_width_fixture(path))
+    overlay = output / "overlay.json"
+    overlay.write_text(json.dumps({"Replace": {str(path): str(fixture)}}))
+    return {"g3": build_go(output / "g3", overlay, "instructions:u"),
+            "native": build_native(output / "native", build.resolve(), "instructions:u", native_width_fixture())}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True, help="new output directory")
@@ -49,13 +59,7 @@ def main():
         parser.error("use positive rounds and even widths of at least four atoms")
     output = args.output.resolve()
     output.mkdir(parents=True)
-    path = PKG / "smtcore/smt_hotpath_benchmark_test.go"
-    fixture = output / path.name
-    fixture.write_text(go_width_fixture(path))
-    overlay = output / "overlay.json"
-    overlay.write_text(json.dumps({"Replace": {str(path): str(fixture)}}))
-    bins = {"g3": build_go(output / "g3", overlay, "instructions:u"),
-            "native": build_native(output / "native", args.build.resolve(), "instructions:u", native_width_fixture())}
+    bins = build_width_fixtures(output, args.build)
     with (output / "runs.csv").open("w") as dest:
         writer = csv.writer(dest)
         writer.writerow("round width case phase engine intervals instructions enabled running".split())
