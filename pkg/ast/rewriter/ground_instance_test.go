@@ -83,8 +83,14 @@ func TestGroundInstancePlansConditionalSharing(t *testing.T) {
 		}
 	}
 
+	for i := 0; i < 5; i++ {
+		compare(root, []ast.ASTHandle{left, right}, 2*maxGroundInstanceNodes-1)
+	}
+	if len(plans.bodies) != 0 {
+		t.Fatal("a substitution near its resource limit started compiling a plan")
+	}
 	for i := 0; i < 8; i++ {
-		compare(root, []ast.ASTHandle{left, right}, 0)
+		compare(root, []ast.ASTHandle{left, right}, 2*maxGroundInstanceNodes)
 	}
 	if !ast.ASTValidateHandles && !diagnostic.TraceCompiled() && plans.bodies[root].plan == nil {
 		t.Fatal("hot conditional body never compiled")
@@ -93,6 +99,7 @@ func TestGroundInstancePlansConditionalSharing(t *testing.T) {
 		{right, left}, {truth, left}, {falsity, right}, {left}, {{}, right}, {x, right},
 	} {
 		compare(root, args, 0)
+		compare(root, args, 2*maxGroundInstanceNodes)
 	}
 	for budget := uint32(1); budget <= 20; budget++ {
 		compare(root, []ast.ASTHandle{right, left}, budget)

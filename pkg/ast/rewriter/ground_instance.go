@@ -44,6 +44,8 @@ type groundApplication struct {
 	first, arity, dest uint16
 }
 
+const maxGroundInstanceNodes = 384
+
 func (c *GroundInstancePlans) release() error {
 	if len(c.held) == 0 {
 		return nil
@@ -64,7 +66,7 @@ func (c *GroundInstancePlans) Clear() error {
 }
 
 // Substitute uses the ordinary var_subst for cold terms, symbolic bindings,
-// folding conditionals, binders, traces and bounded resource checks.
+// folding conditionals, binders, traces and substitutions near a resource limit.
 func (c *GroundInstancePlans) Substitute(s *VarSubstitution, body ast.ASTHandle, bindings []ast.ASTHandle, out ast.ASTRef) error {
 	if s == nil {
 		return ast.ErrASTHandle
@@ -80,8 +82,14 @@ func (c *GroundInstancePlans) Substitute(s *VarSubstitution, body ast.ASTHandle,
 	if c.manager != nil && c.manager != m {
 		return ast.ErrASTHandle
 	}
+	limit := m.ResourceLimit()
 	if !r.substituteVariables || !s.standardOrder || diagnostic.TraceCompiled() || m.TraceStream != nil ||
-		m.Budget().InjectionArmed() || m.ResourceLimit().Limit != 0 || m.ResourceLimit().CancelFlag() {
+		m.Budget().InjectionArmed() || limit.CancelFlag() {
+		return s.Substitute(body, bindings, out)
+	}
+	// apply polls twice per application. Let the ordinary traversal handle
+	// any budget that could interrupt a plan between two different AST writes.
+	if limit.Limit != 0 && (limit.Steps >= limit.Limit || limit.Limit-limit.Steps < 2*maxGroundInstanceNodes) {
 		return s.Substitute(body, bindings, out)
 	}
 	plan := c.plan(m, body)
@@ -149,7 +157,7 @@ func compileGroundInstance(m *ast.ASTManager, root ast.ASTHandle) *groundInstanc
 		if id, ok := ids[h]; ok {
 			return id, true
 		}
-		if depth >= 64 || len(p.values) == 384 || m.ResourceLimit().CancelFlag() {
+		if depth >= 64 || len(p.values) == maxGroundInstanceNodes || m.ResourceLimit().CancelFlag() {
 			return 0, false
 		}
 		kind, _, n, ground, err := m.SubstitutionShape(h)

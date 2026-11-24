@@ -93,18 +93,22 @@ func BenchmarkSMTQuantifierBodySubstitution(b *testing.B) {
 // path on unique ordered tuples. Each group of 1,024 tuples shares the same
 // body and 32 binding terms. Reset discards the batch of retained instances.
 func BenchmarkSMTQuantifierInstanceStream(b *testing.B) {
-	benchmarkSMTQuantifierInstanceStream(b, 32)
+	benchmarkSMTQuantifierInstanceStream(b, 32, false)
+}
+
+func BenchmarkSMTBoundedQuantifierInstanceStream(b *testing.B) {
+	benchmarkSMTQuantifierInstanceStream(b, 32, true)
 }
 
 func BenchmarkSMTQuantifierInstanceBatches(b *testing.B) {
 	for _, width := range []int{4, 8, 16, 32} {
 		b.Run(strconv.Itoa(width*width), func(b *testing.B) {
-			benchmarkSMTQuantifierInstanceStream(b, width)
+			benchmarkSMTQuantifierInstanceStream(b, width, false)
 		})
 	}
 }
 
-func benchmarkSMTQuantifierInstanceStream(b *testing.B, width int) {
+func benchmarkSMTQuantifierInstanceStream(b *testing.B, width int, bounded bool) {
 	m := astTestManager(b)
 	sort, err := m.MkBoolSort()
 	benchmarkMust(b, err)
@@ -144,12 +148,21 @@ func benchmarkSMTQuantifierInstanceStream(b *testing.B, width int) {
 	out, err := m.NewRef(ast.ASTHandle{})
 	benchmarkMust(b, err)
 	b.Cleanup(func() { benchmarkMust(b, m.DelRef(&out)) })
+	limit := m.ResourceLimit()
+	if bounded {
+		benchmarkMust(b, limit.Push(6_000_000))
+		defer limit.Pop()
+	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		k := i % (len(atoms) * len(atoms))
 		if k == 0 && i != 0 {
 			benchmarkMust(b, cache.Reset())
+			if bounded {
+				limit.Pop()
+				benchmarkMust(b, limit.Push(6_000_000))
+			}
 		}
 		tuple := [2]*SMTEnode{atoms[k/len(atoms)], atoms[k%len(atoms)]}
 		hit, err := cache.Instantiate(q, tuple[:], out)
