@@ -5798,3 +5798,17 @@ Rebuilding the linked Z3 control at the same frontend revision confirmed the Her
 | ARM rules 3 | 0.554 | 0.555 | 0.364 | 3.54 / 2.21 |
 
 Times are medians of seven rotating whole-verifier runs on CPU 0. Each accepted process used at least 95% of its CPU while its hardware sibling was at least 95% idle. Instruction counts come from five separate rotating triplets per input. On Raft without assumptions the current pair used 21.32 / 214.57 billion instructions, on Apple rfn2 11.71 / 49.05 billion, on TLB 60.24 / 65.65 billion, and on Ticket 3.48 / 1.47 billion. All 165 runs in the instruction panel matched the expected exit status, stdout and stderr. The rebuilt native frontend also matched the full 228-case compatibility corpus, including its 91 expected failures. [Run manifests and commands](perf/ivy_apple/holdouts/nov24-current-frontend-comparison.tar.xz)
+
+### Quantifier substitution under a finite search budget
+
+A finite resource limit used to force every quantifier substitution through the ordinary AST traversal. The compiled substitution plan already knows how to reconstruct a ground instance, and charges exactly two polls per application. A plan contains at most 384 nodes. When 768 or more steps remain, it can finish within the limit. Near exhaustion g3 uses the ordinary traversal, preserving the point at which an interrupted substitution stops. Plans belong to one solver and continue to use its arena. [Implementation](ast/rewriter/ground_instance.go) · [Budget-boundary tests](ast/rewriter/ground_instance_test.go)
+
+| Workload | Previous g3 | g3 with bounded plan reuse | Change |
+|---|---:|---:|---:|
+| Quantifier stream, finite budget, instructions per instance | 28,967 | 19,229 | −33.6% |
+| Same stream, unbounded, instructions per instance | 19,176 | 19,174 | <0.1% |
+| Complete Apple ord_live, billion instructions | 726.79 | 725.30 | −0.2% |
+| Complete Apple ord_live2, billion instructions | 1,045.75 | 1,024.85 | −2.0% |
+| Apple ord_live2 sys_live isolate, billion instructions | 925.84 | 906.52 | −2.1% |
+
+The stream results are medians of seven rotating instruction-count slopes. The verifier figures average two runs per build in reversed order. The complete ord_live2 saving was **20.90 billion instructions**. On all six saved solver histories, every sibling verdict and resource increment agreed between the two builds at terminal budgets of 6, 9 and 12 million steps, for **693 paired checks**. All 228 compatibility cases matched their reference output and exit, including 91 expected failures. The host ran concurrent work during the instruction measurements. [Go benchmarks](smtcore/smt_quantifier_substitution_benchmark_test.go) · [Every measured count, focused test and portable replay](perf/ivy_apple/holdouts/nov24-bounded-ground-substitution.tar.xz)
