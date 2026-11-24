@@ -14,6 +14,8 @@ On the original 128-atom scope benchmark, g3 now takes **11.47 µs** for `Scoped
 
 The Hermes, hybrid and ticket rows include the limit on speculative searches over wide premise sets. TLB still used **86.68 billion instructions** in the same verification panel, versus **65.67 billion** for linked Z3. Earlier matched first-push measurements attributed 55% of the 11.49-billion-instruction gap at that boundary to value propagation, trigger inference and BV sharing. Both engines made 961,604 application-processing calls in TLB value propagation. Calibrated samples put g3 at 2,011 instructions per call and Z3 at 385. [Wide premise selection](#when-preprocessing-fewer-premises-pays-for-a-second-solver) · [Matched rewriter calls](#the-cost-of-the-same-rewriter-operation-in-go-and-c) · [Complete Apple and Hermes testing](#reusing-ownership-of-unchanged-assertions)
 
+Across a separate screen of 710 distinct Ivy inputs, 228 short runs produced proof results and matched both output streams and exit status. g3 used fewer instructions than linked Z3 on 191 and more on 37. The largest absolute deficit was TLB. [Full survey and holdouts](#finding-the-largest-remaining-verification-gaps)
+
 ## November 23 verification results
 
 Eliminating existential witnesses defined by equalities reduced the complete 1,986-check Apple `ord_live2.ivy` verification from **3.54 to 2.84 trillion instructions**. Linked Z3 still used 1.97 trillion. On 8,192 independent positive square roots, g3 took **0.212 s** against Z3’s **0.327 s** by solving once and reconstructing every variable. [Whole Apple verification](#eliminating-equality-defined-existential-variables-in-verification-conditions) · [Nonlinear search and exact models](#solving-repeated-independent-polynomial-systems-once)
@@ -5282,3 +5284,20 @@ python3 perf/scope_restoration/quiet.py --go g3 /tmp/g3-smtcore.test \
 python3 perf/scope_restoration/pop_phases/restoration.py --cpu 0 \
   --dir /tmp/g3-scope-operations > /tmp/g3-scope-operations.csv
 ```
+
+### Finding the largest remaining verification gaps
+
+A screen of 710 distinct Ivy inputs compared the same GoIvy frontend linked to g3 or Z3. It used the g3 build with E-matching for private refutations, before the subsequent wide-premise cutoff. With a 150-second cap on each process, 698 pairs finished with identical output streams and exit status. Of those, 228 printed proof results, including 90 expected verification failures. g3 retired fewer instructions on 191 and more on 37. The remaining exact pairs included frontend-only and error-reporting inputs. The corpus contains examples of different sizes and purposes, so the 191 count describes this inventory. [Inputs, alias mapping, build metadata and every process reading](perf/ivy_apple/holdouts/nov24-complete-solver-survey.tar.xz)
+
+| Selected complete verification | g3, billion instructions | Linked Z3, billion | Excess in g3 |
+|---|---:|---:|---:|
+| TLB | 87.84 | 65.62 | 22.22 |
+| Hybrid reliable broadcast | 10.30 | 5.89 | 4.41 |
+| ARM rules | 4.42 | 2.21 | 2.21 |
+| Ticket protocol, POPL18 | 3.67 | 1.47 | 2.20 |
+| Flash (`examples/ivy/flash2.ivy`) | 6.30 | 4.30 | 2.00 |
+| Alternating-bit protocol, POPL18 | 3.89 | 2.00 | 1.90 |
+
+The table uses medians of three additional alternating pairs. The 37-specification confirmation panel combined large absolute and relative deficits with eight previously measured wins. All 222 processes in that panel reproduced their expected results. TLB alone accounts for about five times the gap of the next-largest case. Later production measurements put hybrid at 9.58 and ticket at 3.50 billion instructions. [Per-specification ranking and confirmation data](perf/ivy_apple/holdouts/nov24-complete-solver-survey.tar.xz) · [Subsequent production comparison](#when-preprocessing-fewer-premises-pays-for-a-second-solver)
+
+Six pairs differed in diagnostic text during the screen. Five produced identical panic reasons and function sequences with differing executable addresses or stack details. A sixth printed equivalent SMT expressions. The fork checked their exclusive-or as UNSAT. Six other pairs reached the time cap. With 1,800 seconds per process on the shared host, four of these completed on both engines with matching outputs. g3 used fewer instructions on all four, including the 419-check Raft run at 22.2 versus 214.6 billion and full Apple `ord_live2.ivy` at 1.16 versus 1.96 trillion. Both engines reached the cap on finite-state Flash. Only g3 completed ordinary Apple within this particular capped run. Independent complete Apple timings appear above. [Diagnostic comparison, SMT witness and long-run counters](perf/ivy_apple/holdouts/nov24-complete-solver-survey.tar.xz) · [Survey driver](perf/ivy_apple/holdouts/spec_survey.py)
