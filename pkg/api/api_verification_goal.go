@@ -2,7 +2,10 @@ package api
 
 import "github.com/glycerine/g3/pkg/ast"
 
-const maxWidePremises = 220
+const (
+	maxNarrowPremises = 32
+	maxWidePremises   = 220
+)
 
 // A first push preprocesses the entire base. After proving a sibling goal,
 // try a small set of original conjuncts in a separate bounded SMT context.
@@ -45,7 +48,8 @@ func (p *orderProofState) proveRelevantPremises(m *ast.ASTManager, assertions []
 		input := append(subset, goal)
 		return p.checkProofPlan(m, &shortPremisePlan{source: assertions, selected: input}, steps)
 	}
-	if yes, err := check(defs.selectRows(m, symbols, false, 32), 6000); yes || err != nil || m.ResourceLimit().CancelFlag() {
+	narrow := defs.selectRows(m, symbols, false, maxNarrowPremises)
+	if yes, err := check(narrow, 6000); yes || err != nil || m.ResourceLimit().CancelFlag() {
 		return yes, err
 	}
 	wideLimit := maxWidePremises
@@ -53,6 +57,11 @@ func (p *orderProofState) proveRelevantPremises(m *ast.ASTManager, assertions []
 		// An inconclusive search pays for both the private solver and the
 		// source's first push. Require it to save a full batch of premises.
 		wideLimit = min(wideLimit, len(base.rows)-maxWidePremises)
+		// After the definition search has already paid for a solver check,
+		// try additional constraints only if they still fit a small plan.
+		if len(narrow) != 0 {
+			wideLimit = min(wideLimit, maxNarrowPremises)
+		}
 	}
 	if yes, err := check(defs.selectRows(m, symbols, true, wideLimit), 100000); yes || err != nil || m.ResourceLimit().CancelFlag() {
 		return yes, err
@@ -69,7 +78,7 @@ func (p *orderProofState) proveRelevantPremises(m *ast.ASTManager, assertions []
 				break
 			}
 		}
-		if len(subset) > 32 {
+		if len(subset) > maxNarrowPremises {
 			return false, nil
 		}
 	}

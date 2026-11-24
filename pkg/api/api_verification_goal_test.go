@@ -94,8 +94,38 @@ func TestVerificationWidePremiseSavings(t *testing.T) {
 	}
 }
 
+func TestVerificationWideSearchAfterDefinitions(t *testing.T) {
+	for _, size := range []int{maxNarrowPremises, maxNarrowPremises + 1} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			// The definitions connect alpha to gamma. The ground gamma fact
+			// finishes the proof, and each ground pad fact adds a wide row.
+			var facts strings.Builder
+			facts.WriteString("(gamma k)")
+			for i := 0; i < size-3; i++ {
+				fmt.Fprintf(&facts, " (pad%d k)", i)
+			}
+			ctx, s := orderSolver(t, relevantPremiseExample(facts.String(), maxWidePremises))
+			m, err := ctx.Manager()
+			astTestMust(t, err)
+			roots, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			batch := s.BeginOrderProofBatch()
+			t.Cleanup(func() { astTestMust(t, batch.Close()) })
+			want := size <= maxNarrowPremises || !batch.state.plans.reusable(m)
+			got, err := batch.state.proveRelevantPremises(m, roots)
+			if err != nil || got != want {
+				t.Fatalf("wide search with %d rows gave %t, want %t, error %v", size, got, want, err)
+			}
+			result, err := s.Check()
+			if err != nil || result != lbool.False {
+				t.Fatalf("complete check gave %v, error %v", result, err)
+			}
+		})
+	}
+}
+
 func BenchmarkVerificationPremiseSearch(b *testing.B) {
-	for _, name := range []string{"ticket_wide_goal", "rfn2-5"} {
+	for _, name := range []string{"ticket_wide_goal", "rfn2-5", "cf_live_overlapping_premises", "tlb_overlapping_premises"} {
 		b.Run(name, func(b *testing.B) {
 			ctx, source := orderSolver(b, appleBenchmarkInput(b, name))
 			m, err := ctx.Manager()
