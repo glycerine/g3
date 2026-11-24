@@ -78,7 +78,7 @@ func smtEqualityUndoImage(s *SMTInternalizerState) []smtEnodeImage {
 		image = append(image, smtEnodeImage{
 			node: node, root: node.root, next: node.next, classSize: node.classSize,
 			parents: slices.Clone(node.sourceParents), transTarget: node.trans.Target,
-			justKind: node.trans.Justification.Kind(),
+			justKind: node.trans.justification().Kind(),
 		})
 	}
 	return image
@@ -96,7 +96,7 @@ func requireSMTEqualityImage(t *testing.T, s *SMTInternalizerState, want []smtEn
 			t.Fatalf("enode %d replaced", i)
 		case node.root != saved.root || node.next != saved.next || node.classSize != saved.classSize:
 			t.Fatalf("enode %d class differs after undo", i)
-		case node.trans.Target != saved.transTarget || node.trans.Justification.Kind() != saved.justKind:
+		case node.trans.Target != saved.transTarget || node.trans.justification().Kind() != saved.justKind:
 			t.Fatalf("enode %d proof tree differs after undo", i)
 		case !slices.Equal(node.sourceParents, saved.parents):
 			t.Fatalf("enode %d parents %d differ from saved %d", i, len(node.sourceParents), len(saved.parents))

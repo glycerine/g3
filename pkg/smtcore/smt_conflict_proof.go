@@ -181,7 +181,7 @@ func (b *smtConflictProofBuilder) equalityBranchProofs(node, ancestor *SMTEnode)
 		if next == nil {
 			return nil, ast.ErrASTDomain
 		}
-		proof, err := b.equalityJustificationProof(node, next, node.trans.Justification)
+		proof, err := b.equalityJustificationProof(node, next, node.trans.justification())
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +235,7 @@ func (b *smtConflictProofBuilder) prefetchEquality(first, second, common *SMTEno
 	visit := func(node, ancestor *SMTEnode) {
 		for node != nil && node != ancestor {
 			next := node.trans.Target
-			steps = b.equalityEdgeSteps(steps, node, next, node.trans.Justification)
+			steps = b.equalityEdgeSteps(steps, node, next, node.trans.justification())
 			node = next
 		}
 	}

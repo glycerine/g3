@@ -23,7 +23,7 @@ func TestSMTConflictProofReconstructsEnodeEqualityBranch(t *testing.T) {
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, justification.Release(m)) })
 	left.root = root
-	left.trans = SMTTransJustification{Target: root, Justification: NewSMTEqualityJustification(justification)}
+	left.trans = newSMTEqualityEdge(nil, root, NewSMTEqualityJustification(justification))
 	builder := &smtConflictProofBuilder{
 		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
 		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),
@@ -66,7 +66,7 @@ func TestSMTConflictProofBuildsEqualityRootAndConflictJustifications(t *testing.
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, iffWrapper.Release(m)) })
 	variableNode.root = truthNode
-	variableNode.trans = SMTTransJustification{Target: truthNode, Justification: NewSMTEqualityJustification(iffWrapper)}
+	variableNode.trans = newSMTEqualityEdge(nil, truthNode, NewSMTEqualityJustification(iffWrapper))
 	builder := &smtConflictProofBuilder{
 		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
 		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),
@@ -96,7 +96,7 @@ func TestSMTConflictProofBuildsEqualityRootAndConflictJustifications(t *testing.
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, negativeWrapper.Release(m)) })
 	negativeNode.root = falseNode
-	negativeNode.trans = SMTTransJustification{Target: falseNode, Justification: NewSMTEqualityJustification(negativeWrapper)}
+	negativeNode.trans = newSMTEqualityEdge(nil, falseNode, NewSMTEqualityJustification(negativeWrapper))
 	negativeRoot, err := NewSMTEqualityRootJustification(negativeNode)
 	astTestMust(t, err)
 	negativeRootProof, err := builder.objectProof(negativeRoot)
@@ -151,9 +151,9 @@ func TestSMTConflictProofBuildsCongruenceEquality(t *testing.T) {
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, childWrapper.Release(m)) })
 	an.root = an2
-	an.trans = SMTTransJustification{Target: an2, Justification: NewSMTEqualityJustification(childWrapper)}
+	an.trans = newSMTEqualityEdge(nil, an2, NewSMTEqualityJustification(childWrapper))
 	first.root = second
-	first.trans = SMTTransJustification{Target: second, Justification: NewSMTEqualityCongruence(false)}
+	first.trans = newSMTEqualityEdge(nil, second, NewSMTEqualityCongruence(false))
 	builder := &smtConflictProofBuilder{
 		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
 		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),

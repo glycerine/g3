@@ -29,7 +29,7 @@ func (s *SMTInternalizerState) pushCoreTrail(kind smtCoreTrailKind) {
 // proof tree are derived again on undo, so one merge costs one fixed trail entry.
 func (s *SMTInternalizerState) recordEqualityUndo(r1, left, r2 *SMTEnode) {
 	s.equalityTrail = append(s.equalityTrail, smtEqualityUndo{
-		r1: r1, left: left, r2: r2, r2NumSourceParents: len(r2.sourceParents), r2NumDisequalities: len(r2.disequalities),
+		r1: r1, left: left, r2: r2, r2NumSourceParents: len(r2.sourceParents), r2NumDisequalities: len(r2.disequalityEntries()),
 		r2TheoryVariables: cloneSMTTheoryVariables(r2.theoryVariables),
 	})
 	s.pushCoreTrail(smtCoreTrailAddEq)
@@ -116,7 +116,7 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 		// restore theory vars
 		r2.theoryVariables = entry.r2TheoryVariables
 		// 'Proof' tree
-		entry.left.trans = SMTTransJustification{Justification: NullSMTEqualityJustification()}
+		entry.left.trans = smtEqualityEdge{}
 		smtInvertTrans(r1)
 		entry.stage = 4
 	}
@@ -126,12 +126,12 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 func smtInvertTrans(node *SMTEnode) {
 	current := node.trans.Target
 	previous := node
-	justification := node.trans.Justification
-	previous.trans = SMTTransJustification{Justification: NullSMTEqualityJustification()}
+	justification := node.trans.reason
+	previous.trans = smtEqualityEdge{}
 	for current != nil {
 		next := current.trans.Target
-		nextJustification := current.trans.Justification
-		current.trans = SMTTransJustification{Target: previous, Justification: justification}
+		nextJustification := current.trans.reason
+		current.trans = smtEqualityEdge{Target: previous, reason: justification}
 		previous, justification, current = current, nextJustification, next
 	}
 }
@@ -511,7 +511,7 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 		return fmt.Errorf("merge theory variables: %w", err)
 	}
 	smtInvertTrans(left)
-	left.trans = SMTTransJustification{Target: right, Justification: justification}
+	left.trans = newSMTEqualityEdge(s, right, justification)
 	s.equalityTrail[trailIndex].merged = true
 	if err := s.detachCongruenceParents(r1); err != nil {
 		return fmt.Errorf("detach congruence parents: %w", err)
@@ -534,7 +534,7 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	}
 	r1.next, r2.next = r2.next, r1.next
 	r2.classSize += r1.classSize
-	r2.disequalities = append(r2.disequalities, r1.disequalities...)
+	r2.addDisequalities(r1.disequalityEntries()...)
 	return nil
 }
 

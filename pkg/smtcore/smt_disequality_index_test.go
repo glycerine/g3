@@ -64,8 +64,8 @@ func TestDisequalityIsRestoredByScopePop(t *testing.T) {
 		t.Fatal("scoped disequality survived pop")
 	}
 	for i := 2; i < 5; i++ {
-		if len(node(i).disequalities) != 0 {
-			t.Fatalf("node %d kept %d entries", i, len(node(i).disequalities))
+		if len(node(i).disequalityEntries()) != 0 {
+			t.Fatalf("node %d kept %d entries", i, len(node(i).disequalityEntries()))
 		}
 	}
 	if s.inconsistent {
@@ -90,8 +90,8 @@ func TestDisequalityUndoToleratesAnyTrailOrder(t *testing.T) {
 	astTestMust(t, s.addDisequality(node(0), node(3), smtDiseqLiteral(t, f.m, s, f.base[0], f.base[3])))
 	astTestMust(t, s.PopScopes(1))
 	for i := range f.base {
-		if len(node(i).disequalities) != 0 {
-			t.Fatalf("node %d kept %d entries", i, len(node(i).disequalities))
+		if len(node(i).disequalityEntries()) != 0 {
+			t.Fatalf("node %d kept %d entries", i, len(node(i).disequalityEntries()))
 		}
 	}
 }
@@ -224,7 +224,7 @@ func TestContextSetDisequalIsRestoredByScopePop(t *testing.T) {
 		t.Fatal("SetDisequal did not record")
 	}
 	astTestMust(t, s.PopScopes(1))
-	if s.context.isDisequal(a, b) || len(a.disequalities) != 0 || len(b.disequalities) != 0 || len(s.context.disequalityTrail) != 0 {
+	if s.context.isDisequal(a, b) || len(a.disequalityEntries()) != 0 || len(b.disequalityEntries()) != 0 || len(s.context.disequalityTrail) != 0 {
 		t.Fatal("direct disequality survived its scope")
 	}
 }

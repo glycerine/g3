@@ -31,7 +31,7 @@ func TestTransReachesWalksWithoutAllocating(t *testing.T) {
 	for _, h := range f.base[:6] {
 		nodes = append(nodes, s.context.enodes.get(h))
 	}
-	saved := make([]SMTTransJustification, len(nodes))
+	saved := make([]smtEqualityEdge, len(nodes))
 	for i, node := range nodes {
 		saved[i] = node.trans
 	}

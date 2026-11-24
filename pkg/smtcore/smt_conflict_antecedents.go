@@ -228,7 +228,7 @@ func (e *SMTAntecedentExpander) expandBranch(node, ancestor *SMTEnode) error {
 		if next == nil {
 			return ast.ErrASTDomain
 		}
-		if err := e.expandEqualityJustification(node, next, node.trans.Justification); err != nil {
+		if err := e.expandEqualityJustification(node, next, node.trans.justification()); err != nil {
 			return err
 		}
 		node = next

@@ -95,7 +95,11 @@ func NewSMTBooleanJustification(value SMTJustification) (SMTBooleanJustification
 	if value == nil {
 		return SMTBooleanJustification{}, ast.ErrASTHandle
 	}
-	return SMTBooleanJustification{ref: unsafe.Add(unsafe.Pointer(&value), SMTBooleanJustificationObject)}, nil
+	return smtObjectReason(value), nil
+}
+
+func smtObjectReason(value SMTJustification) SMTBooleanJustification {
+	return SMTBooleanJustification{ref: unsafe.Add(unsafe.Pointer(&value), SMTBooleanJustificationObject)}
 }
 func NullSMTBooleanJustification() SMTBooleanJustification { return SMTBooleanJustification{} }
 
@@ -150,8 +154,8 @@ const (
 	SMTEqualityJustificationObject
 )
 
-// SMTEqualityJustification replaces the source tagged pointer with a concrete
-// discriminant and typed payload fields.
+// SMTEqualityJustification is the comparable value passed to proof and theory
+// code. Transitivity edges pack this value when storing it on a node.
 type SMTEqualityJustification struct {
 	kind          SMTEqualityJustificationKind
 	commutativity bool
@@ -181,6 +185,59 @@ func (j SMTEqualityJustification) UsedCommutativity() (bool, bool) {
 }
 func (j SMTEqualityJustification) Justification() (SMTJustification, bool) {
 	return j.justification, j.kind == SMTEqualityJustificationObject
+}
+
+// Each transitivity edge stores its target and one GC-traced word. A nil
+// reason denotes an unlinked node. Congruence uses two distinct aligned
+// addresses. Equations and proof objects share the Boolean reason encoding.
+type smtEqualityEdge struct {
+	Target *SMTEnode
+	reason SMTBooleanJustification
+}
+
+var smtCongruenceTokens [2]uint32
+
+func newSMTEqualityEdge(s *SMTInternalizerState, target *SMTEnode, j SMTEqualityJustification) smtEqualityEdge {
+	e := smtEqualityEdge{Target: target}
+	switch j.kind {
+	case SMTEqualityJustificationAxiom:
+		e.reason = NewSMTBooleanAxiom()
+	case SMTEqualityJustificationCongruence:
+		token := &smtCongruenceTokens[0]
+		if j.commutativity {
+			token = &smtCongruenceTokens[1]
+		}
+		e.reason.ref = unsafe.Pointer(token)
+	case SMTEqualityJustificationEquation:
+		if s != nil {
+			e.reason = s.binaryReason(j.literal)
+		} else {
+			e.reason = NewSMTBooleanBinaryClause(j.literal)
+		}
+	case SMTEqualityJustificationObject:
+		if j.justification != nil {
+			e.reason = smtObjectReason(j.justification)
+		}
+	}
+	return e
+}
+
+func (e smtEqualityEdge) justification() SMTEqualityJustification {
+	switch e.reason.Kind() {
+	case SMTBooleanJustificationAxiom:
+		return NewSMTEqualityAxiom()
+	case SMTBooleanJustificationBinaryClause:
+		lit, _ := e.reason.Literal()
+		return NewSMTEqualityEquation(lit)
+	case SMTBooleanJustificationObject:
+		obj, _ := e.reason.Justification()
+		return NewSMTEqualityJustification(obj)
+	default:
+		if e.reason.ref == nil {
+			return NullSMTEqualityJustification()
+		}
+		return NewSMTEqualityCongruence(e.reason.ref == unsafe.Pointer(&smtCongruenceTokens[1]))
+	}
 }
 
 // SMTBoolVarData follows smt_bool_var_data.h: a reason and two packed words.

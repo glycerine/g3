@@ -254,12 +254,12 @@ func TestSMTDynamicAckConflictUsesAreCountedWithinTheConflict(t *testing.T) {
 		b, err = NewSMTEnode(manager, values[1], nil, SMTEnodeOptions{})
 		astTestMust(t, err)
 	}
-	b.root, b.trans = a, SMTTransJustification{Target: a, Justification: NewSMTEqualityAxiom()}
+	b.root, b.trans = a, newSMTEqualityEdge(nil, a, NewSMTEqualityAxiom())
 	decl, err := manager.MkFuncDecl(astTestSymbol(t, manager, "dynamic-ack-inline-f"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
 	astTestMust(t, err)
 	fa := smtCGTestApplication(t, manager, decl, []ast.ASTHandle{values[0]}, []*SMTEnode{a})
 	fb := smtCGTestApplication(t, manager, decl, []ast.ASTHandle{values[1]}, []*SMTEnode{b})
-	fb.root, fb.trans = fa, SMTTransJustification{Target: fa, Justification: NewSMTEqualityCongruence(false)}
+	fb.root, fb.trans = fa, newSMTEqualityEdge(nil, fa, NewSMTEqualityCongruence(false))
 	resolver, err := NewSMTConflictResolver(state)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, resolver.Close()) })

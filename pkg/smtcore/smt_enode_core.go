@@ -33,9 +33,9 @@ type SMTEnode struct {
 	// sourceParents is m_parents of a class root. Creation adds parents,
 	// and merging adds those that remain congruence roots.
 	sourceParents                         []*SMTEnode
-	disequalities                         []smtDisequalityEntry // meaningful on class roots
+	disequalities                         *smtEnodeDisequalities // meaningful on class roots
 	theoryVariables                       SMTTheoryVarList
-	trans                                 SMTTransJustification
+	trans                                 smtEqualityEdge
 	owner, declaration                    ast.ASTHandle
 	labels, propagatedLabels              approx.UintSet
 	classSize, generation, functionDeclID uint32
@@ -81,7 +81,6 @@ func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 		boolean:  boolean, mergeTruthValue: options.MergeTruthValue,
 		congruenceEnabled: options.CongruenceEnabled, labelHash: -1,
 		theoryVariables: *NewDefaultSMTTheoryVarList(),
-		trans:           SMTTransJustification{Justification: NullSMTEqualityJustification()},
 		family:          header.Family, declKind: header.DeclKind,
 	}
 	n.root, n.next = n, n
@@ -161,6 +160,26 @@ type smtDisequalityEntry struct {
 	reason      SMTLiteral
 }
 
+// Only roots that receive a disequality need a list header.
+type smtEnodeDisequalities struct{ entries []smtDisequalityEntry }
+
+func (n *SMTEnode) disequalityEntries() []smtDisequalityEntry {
+	if n.disequalities == nil {
+		return nil
+	}
+	return n.disequalities.entries
+}
+
+func (n *SMTEnode) addDisequalities(entries ...smtDisequalityEntry) {
+	if len(entries) == 0 {
+		return
+	}
+	if n.disequalities == nil {
+		n.disequalities = new(smtEnodeDisequalities)
+	}
+	n.disequalities.entries = append(n.disequalities.entries, entries...)
+}
+
 func (e *smtDisequalityEntry) otherRoot(root *SMTEnode) *SMTEnode {
 	if e.left.root == root {
 		return e.right.root
@@ -175,11 +194,13 @@ func smtFindDisequality(first, second *SMTEnode) (*smtDisequalityEntry, bool) {
 		return nil, false
 	}
 	near, far := first.root, second.root
-	if len(near.disequalities) > len(far.disequalities) {
+	entries, otherEntries := near.disequalityEntries(), far.disequalityEntries()
+	if len(entries) > len(otherEntries) {
 		near, far = far, near
+		entries = otherEntries
 	}
-	for i := len(near.disequalities) - 1; i >= 0; i-- {
-		entry := &near.disequalities[i]
+	for i := len(entries) - 1; i >= 0; i-- {
+		entry := &entries[i]
 		if entry.otherRoot(near) == far {
 			return entry, true
 		}
@@ -190,21 +211,24 @@ func smtFindDisequality(first, second *SMTEnode) (*smtDisequalityEntry, bool) {
 // truncateDisequalities ignores lengths above the current one: a scope pop undoes
 // merges and disequalities on separate trails, and either can reach a root first.
 func (n *SMTEnode) truncateDisequalities(length int) {
-	if length < len(n.disequalities) {
-		clear(n.disequalities[length:])
-		n.disequalities = n.disequalities[:length]
+	if n.disequalities != nil && length < len(n.disequalities.entries) {
+		clear(n.disequalities.entries[length:])
+		n.disequalities.entries = n.disequalities.entries[:length]
 	}
 }
 
 func (n *SMTEnode) removeDisequalitiesWith(other *SMTEnode) {
-	kept := n.disequalities[:0]
-	for _, entry := range n.disequalities {
+	if n.disequalities == nil {
+		return
+	}
+	kept := n.disequalities.entries[:0]
+	for _, entry := range n.disequalities.entries {
 		if entry.otherRoot(n) != other {
 			kept = append(kept, entry)
 		}
 	}
-	clear(n.disequalities[len(kept):])
-	n.disequalities = kept
+	clear(n.disequalities.entries[len(kept):])
+	n.disequalities.entries = kept
 }
 
 func (n *SMTEnode) IsTrueEquality() bool {

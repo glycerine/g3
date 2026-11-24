@@ -183,9 +183,9 @@ func (c *SMTCheckerContext) SetDisequal(first, second *SMTEnode, disequal bool) 
 // recordDisequality files an entry on both current roots, undone by scope pops.
 func (c *SMTCheckerContext) recordDisequality(entry smtDisequalityEntry) {
 	r1, r2 := entry.left.root, entry.right.root
-	c.disequalityTrail = append(c.disequalityTrail, smtDisequalityUndo{r1, len(r1.disequalities)}, smtDisequalityUndo{r2, len(r2.disequalities)})
-	r1.disequalities = append(r1.disequalities, entry)
-	r2.disequalities = append(r2.disequalities, entry)
+	c.disequalityTrail = append(c.disequalityTrail, smtDisequalityUndo{r1, len(r1.disequalityEntries())}, smtDisequalityUndo{r2, len(r2.disequalityEntries())})
+	r1.addDisequalities(entry)
+	r2.addDisequalities(entry)
 }
 
 // undoDisequalities restores the root lists to a trail length from a scope.
