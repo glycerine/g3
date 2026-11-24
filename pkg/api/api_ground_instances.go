@@ -215,7 +215,11 @@ func (s *groundInstanceSolver) search(src *APISimpleSolver, m *ast.ASTManager, q
 		}
 		assumptions = []sat.Literal{lit}
 	}
-	result, err := s.sat.solver.Check(assumptions)
+	// Most refutations of the shared ground instances are shallow. Deeper
+	// searches spend their time completing models of this relaxation, which
+	// cannot establish satisfiability of the original quantified input.
+	const maxDecisionLevel = 256
+	result, err := s.sat.solver.CheckWithDecisionDepth(assumptions, maxDecisionLevel)
 	if err != nil {
 		return false, err
 	}

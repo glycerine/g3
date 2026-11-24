@@ -24,13 +24,13 @@ type satParallelPortfolio struct {
 	firstLaneError error
 }
 
-func (s *Solver) checkParallelSpan(count uint32, span satSolverLiteralSpan, lanes uint32) (result lbool.LBool, err error) {
+func (s *Solver) checkParallelSpan(count uint32, span satSolverLiteralSpan, lanes, maxLevel uint32) (result lbool.LBool, err error) {
 	p, err := newSATParallelPortfolio(s, lanes)
 	if err != nil {
 		return lbool.Undef, err
 	}
 	defer func() { err = errors.Join(err, p.close()) }()
-	if err = p.run(count, span); err != nil {
+	if err = p.run(count, span, maxLevel); err != nil {
 		return lbool.Undef, err
 	}
 	if err = p.adopt(); err != nil {
@@ -39,7 +39,7 @@ func (s *Solver) checkParallelSpan(count uint32, span satSolverLiteralSpan, lane
 	return p.result, nil
 }
 
-func (p *satParallelPortfolio) run(count uint32, span satSolverLiteralSpan) error {
+func (p *satParallelPortfolio) run(count uint32, span satSolverLiteralSpan, maxLevel uint32) error {
 	p.finished = -1
 	p.result = lbool.Undef
 	lanes := len(p.workers) + 1
@@ -48,7 +48,7 @@ func (p *satParallelPortfolio) run(count uint32, span satSolverLiteralSpan) erro
 		if i < len(p.workers) {
 			s = p.workers[i]
 		}
-		r, err := s.checkSpan(count, span)
+		r, err := s.checkSpanWithDepth(count, span, maxLevel)
 		if err != nil {
 			if i == 0 {
 				p.firstLaneError = err

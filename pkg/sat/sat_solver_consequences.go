@@ -282,7 +282,7 @@ func (s *Solver) getLiteralConsequencesBody(asms, lits satConsequenceInput, out 
 				}
 				isSat = lbool.Undef
 			} else {
-				isSat, err = s.boundedSearch()
+				isSat, err = s.boundedSearch(0)
 				if err != nil {
 					return lbool.Undef, err
 				}
@@ -398,7 +398,7 @@ func (s *Solver) getBoundedConsequencesBody(asms, vars satConsequenceInput, out 
 		if satStorageSourceDebug && s.propagation.inconsistent {
 			return lbool.Undef, ErrSATAssertion
 		}
-		result, err = s.boundedSearch()
+		result, err = s.boundedSearch(0)
 		if err != nil {
 			return lbool.Undef, err
 		}

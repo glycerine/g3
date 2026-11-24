@@ -288,7 +288,7 @@ func (s *Solver) backjumpStep() (lbool.LBool, bool, error) {
 	}
 	return lbool.True, false, nil
 }
-func (s *Solver) boundedSearch() (lbool.LBool, error) {
+func (s *Solver) boundedSearch(maxLevel uint32) (lbool.LBool, error) {
 	for {
 		if e := s.propagation.checkpoint(); e != nil {
 			return lbool.Undef, e
@@ -306,6 +306,11 @@ func (s *Solver) boundedSearch() (lbool.LBool, error) {
 		}
 		if e := s.gc.gc(); e != nil {
 			return lbool.Undef, e
+		}
+		// Abort at a propagation fixed point, before opening another decision
+		// scope. The caller can pop the assumption and reuse the learned clauses.
+		if maxLevel != 0 && s.Variables.scopeLevel >= maxLevel {
+			return lbool.Undef, satSolverAbort{}
 		}
 		yes, e := s.decision.decide()
 		if e != nil {
@@ -333,7 +338,19 @@ func (s *Solver) boundedSearch() (lbool.LBool, error) {
 func (s *Solver) Check(lits []Literal) (lbool.LBool, error) {
 	return s.checkSpan(uint32(len(lits)), satSolverLiteralSpan{literals: lits})
 }
+
+// CheckWithDecisionDepth returns Undef if propagation reaches a fixed point
+// at maxLevel open scopes. An assumption scope counts toward the bound.
+// A zero bound runs the ordinary search.
+func (s *Solver) CheckWithDecisionDepth(lits []Literal, maxLevel uint32) (lbool.LBool, error) {
+	return s.checkSpanWithDepth(uint32(len(lits)), satSolverLiteralSpan{literals: lits}, maxLevel)
+}
+
 func (s *Solver) checkSpan(count uint32, span satSolverLiteralSpan) (lbool.LBool, error) {
+	return s.checkSpanWithDepth(count, span, 0)
+}
+
+func (s *Solver) checkSpanWithDepth(count uint32, span satSolverLiteralSpan, maxLevel uint32) (lbool.LBool, error) {
 	if e := s.open(); e != nil {
 		return lbool.Undef, e
 	}
@@ -372,9 +389,9 @@ func (s *Solver) checkSpan(count uint32, span satSolverLiteralSpan) (lbool.LBool
 		return lbool.Undef, nil
 	}
 	if cfg.NumParallel > 1 && !s.conflict.parallelPresent {
-		return s.checkParallelSpan(count, span, cfg.NumParallel)
+		return s.checkParallelSpan(count, span, cfg.NumParallel, maxLevel)
 	}
-	r, e := s.checkCoreSpan(count, span)
+	r, e := s.checkCoreSpan(count, span, maxLevel)
 	var abort satSolverAbort
 	if errors.As(e, &abort) {
 		return lbool.Undef, nil
@@ -382,9 +399,9 @@ func (s *Solver) checkSpan(count uint32, span satSolverLiteralSpan) (lbool.LBool
 	return r, e
 }
 func (s *Solver) checkCore(lits []Literal) (lbool.LBool, error) {
-	return s.checkCoreSpan(uint32(len(lits)), satSolverLiteralSpan{literals: lits})
+	return s.checkCoreSpan(uint32(len(lits)), satSolverLiteralSpan{literals: lits}, 0)
 }
-func (s *Solver) checkCoreSpan(count uint32, span satSolverLiteralSpan) (lbool.LBool, error) {
+func (s *Solver) checkCoreSpan(count uint32, span satSolverLiteralSpan, maxLevel uint32) (lbool.LBool, error) {
 	if s.propagation.inconsistent {
 		return lbool.False, nil
 	}
@@ -420,7 +437,7 @@ func (s *Solver) checkCoreSpan(count uint32, span satSolverLiteralSpan) (lbool.L
 	}
 	if cfg.MaxConflicts > 0 && cfg.BurstSearch > 0 {
 		s.gc.restartThreshold = cfg.BurstSearch
-		r, e := s.boundedSearch()
+		r, e := s.boundedSearch(maxLevel)
 		if e != nil {
 			return lbool.Undef, e
 		}
@@ -453,7 +470,7 @@ func (s *Solver) checkCoreSpan(count uint32, span satSolverLiteralSpan) (lbool.L
 		if satStorageSourceDebug && s.propagation.inconsistent {
 			return lbool.Undef, ErrSATAssertion
 		}
-		r, e := s.boundedSearch()
+		r, e := s.boundedSearch(maxLevel)
 		if e != nil {
 			return lbool.Undef, e
 		}
