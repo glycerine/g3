@@ -86,6 +86,9 @@ func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 	n.root, n.next = n, n
 	if !options.SuppressArguments {
 		count := header.NumArgs
+		if count != 0 && byApp == nil {
+			return nil, ast.ErrASTDomain
+		}
 		n.arguments = make([]*SMTEnode, count)
 		for i := uint32(0); i < count; i++ {
 			argument, err := m.GetArg(owner, i)
@@ -97,7 +100,16 @@ func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 				return nil, ast.ErrASTDomain
 			}
 			n.arguments[i] = child
-			if options.UpdateChildrenParent {
+		}
+		// A lookup can fail or retire an earlier child. Publish the parent
+		// links only after every operand and root is available.
+		for _, child := range n.arguments {
+			if child.root == nil {
+				return nil, ast.ErrASTDomain
+			}
+		}
+		if options.UpdateChildrenParent {
+			for _, child := range n.arguments {
 				child.root.sourceParents = append(child.root.sourceParents, n)
 			}
 		}
