@@ -93,6 +93,18 @@ func BenchmarkSMTQuantifierBodySubstitution(b *testing.B) {
 // path on unique ordered tuples. Each group of 1,024 tuples shares the same
 // body and 32 binding terms. Reset discards the batch of retained instances.
 func BenchmarkSMTQuantifierInstanceStream(b *testing.B) {
+	benchmarkSMTQuantifierInstanceStream(b, 32)
+}
+
+func BenchmarkSMTQuantifierInstanceBatches(b *testing.B) {
+	for _, width := range []int{4, 8, 16, 32} {
+		b.Run(strconv.Itoa(width*width), func(b *testing.B) {
+			benchmarkSMTQuantifierInstanceStream(b, width)
+		})
+	}
+}
+
+func benchmarkSMTQuantifierInstanceStream(b *testing.B, width int) {
 	m := astTestManager(b)
 	sort, err := m.MkBoolSort()
 	benchmarkMust(b, err)
@@ -120,7 +132,7 @@ func BenchmarkSMTQuantifierInstanceStream(b *testing.B) {
 		b.Cleanup(func() { benchmarkMust(b, m.DelRef(&ref)) })
 	}
 	pin(q)
-	var atoms [32]*SMTEnode
+	atoms := make([]*SMTEnode, width)
 	for i := range atoms {
 		h, node := smtEnodeConstant(b, m, uint32(i+10), sort, 0)
 		pin(h)
@@ -143,6 +155,20 @@ func BenchmarkSMTQuantifierInstanceStream(b *testing.B) {
 		hit, err := cache.Instantiate(q, tuple[:], out)
 		if err != nil || hit {
 			b.Fatalf("tuple %d: cached=%v, err=%v", k, hit, err)
+		}
+	}
+	b.StopTimer()
+	if b.N > 0 {
+		last := (b.N - 1) % (width * width)
+		x, y := atoms[last%width].owner, atoms[last/width].owner
+		xy, yx := app(x, y), app(y, x)
+		shared, err := m.MkIte(xy, yx, x)
+		benchmarkMust(b, err)
+		want, err := m.MkIte(yx, app(shared, x), app(y, shared))
+		benchmarkMust(b, err)
+		got, err := m.RefGet(out)
+		if err != nil || got != want {
+			b.Fatalf("last instance %v, want %v (%v)", got, want, err)
 		}
 	}
 }

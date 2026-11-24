@@ -41,7 +41,7 @@ func NewSMTCachedVarSubstitution(m *ast.ASTManager) (*SMTCachedVarSubstitution, 
 	if m == nil {
 		return nil, ast.ErrASTDomain
 	}
-	c := &SMTCachedVarSubstitution{manager: m, entries: make(map[uint64]uint32)}
+	c := &SMTCachedVarSubstitution{manager: m}
 	c.self = c
 	var err error
 	c.substitution, err = rewriter.NewVarSubstitution(m, true)
@@ -144,6 +144,9 @@ func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, binding
 			return false, err
 		}
 	}
+	if c.entries == nil {
+		c.entries = make(map[uint64]uint32)
+	}
 	c.list = append(c.list, smtCachedSubstitutionEntry{start: uint32(start), count: uint32(len(owners)), next: c.entries[hash]})
 	c.entries[hash] = uint32(len(c.list))
 	return false, nil
@@ -162,31 +165,36 @@ func (c *SMTCachedVarSubstitution) Reset() error {
 	}
 	// cached_var_subst::reset releases m_refs and m_instances; m_proc
 	// (var_subst) keeps its reducer cache until its next call resets it.
-	return c.clearEntries()
+	return c.clearEntries(true)
 }
 
-func (c *SMTCachedVarSubstitution) clearEntries() error {
+// Match the native cache's reuse of its reference vector and hash table.
+// A quiet check sheds a previous spike. The absolute limits bound the
+// amount of empty storage each live solver can keep between checks.
+func keepSubstitutionStorage(used, capacity, small, limit int) bool {
+	return capacity <= limit && (capacity <= small || used >= capacity/8)
+}
+
+func (c *SMTCachedVarSubstitution) clearEntries(reuse bool) error {
 	if err := c.plans.Clear(); err != nil {
 		return err
 	}
 	// m_instances goes first: its entries index m_refs, which is then
 	// released front to back (an expr_ref_vector).
-	c.list = nil
-	c.entries = make(map[uint64]uint32)
-	for len(c.refs) != 0 {
-		consumed, err := c.manager.DecRefConsumed(c.refs[0])
-		if consumed {
-			c.refs = c.refs[1:]
-		}
-		if err != nil {
-			return err
-		}
-		if !consumed {
-			return ast.ErrASTPending
-		}
+	if reuse && keepSubstitutionStorage(len(c.list), cap(c.list), 64, 2048) {
+		c.list = c.list[:0]
+		clear(c.entries)
+	} else {
+		c.list = nil
+		c.entries = nil
 	}
-	c.refs = nil
-	return nil
+	keepRefs := reuse && keepSubstitutionStorage(len(c.refs), cap(c.refs), 256, 8192)
+	var err error
+	c.refs, err = c.manager.ShrinkHeldRefs(c.refs, 0)
+	if err == nil && !keepRefs {
+		c.refs = nil
+	}
+	return err
 }
 
 func (c *SMTCachedVarSubstitution) Close() error {
@@ -196,7 +204,7 @@ func (c *SMTCachedVarSubstitution) Close() error {
 	if c.closed {
 		return nil
 	}
-	if err := c.clearEntries(); err != nil {
+	if err := c.clearEntries(false); err != nil {
 		return err
 	}
 	if c.substitution != nil {
@@ -205,6 +213,7 @@ func (c *SMTCachedVarSubstitution) Close() error {
 		}
 		c.substitution = nil
 	}
+	c.scratch = nil
 	c.closed = true
 	return nil
 }

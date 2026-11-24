@@ -27,7 +27,7 @@ func TestSMTCachedVarSubstitutionDoesNotAllocateAPIReferencePerCachedHandle(t *t
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, m.DelRef(&out)) })
 	var warmReferences uint32
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 256; i++ {
 		owner, binding := smtEnodeConstant(t, m, uint32(34000+i), boolean, 0)
 		astTestMust(t, m.IncRef(owner))
 		h := owner
@@ -49,12 +49,20 @@ func TestSMTCachedVarSubstitutionDoesNotAllocateAPIReferencePerCachedHandle(t *t
 	if refs := m.Stats().LiveReferences; refs != warmReferences {
 		t.Fatalf("cache allocated %d extra API reference slots after warmup; want none", refs-warmReferences)
 	}
+	entryCapacity, refCapacity := cap(cache.list), cap(cache.refs)
 	astTestMust(t, cache.Reset())
 	if count, e := m.GetRefCount(quantifier); e != nil || count != 1 {
 		t.Fatal("reset did not release cached quantifier ownership", count, e)
 	}
 	if cache.Size() != 0 {
 		t.Fatal("reset retained cached substitutions")
+	}
+	if cap(cache.list) != entryCapacity || cap(cache.refs) != refCapacity || len(cache.entries) != 0 {
+		t.Fatal("busy batch lost reusable storage or retained a key")
+	}
+	astTestMust(t, cache.Reset())
+	if cache.entries != nil || cache.list != nil || cache.refs != nil {
+		t.Fatal("empty batch retained the previous peak")
 	}
 }
 
