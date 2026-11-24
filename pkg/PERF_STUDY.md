@@ -2,17 +2,15 @@
 
 ## November 24 verification results
 
-The retained g3 checkout beat linked Z3 on complete Apple `ord_live.ivy` and Hermes testing in two quiet, reverse-order timing pairs. Both backends used the same GoIvy frontend on a pinned CPU and reproduced the reference output. Ordinary Hermes still favored Z3. [Whole-run measurements](#reusing-ownership-of-unchanged-assertions) · [Ordinary Hermes experiments](#which-general-rewrites-are-worth-pursuing)
+The retained change to quantifier triggers brought ordinary Hermes to **5.006 s**, ahead of linked Z3 at **6.791 s** on the same GoIvy frontend. The previous g3 took 7.722 s in the same seven rotations. Complete Apple and Hermes testing also favored g3 in the earlier timing pairs. The table identifies the number of qualifying runs per engine for each comparison. [Trigger timing and proof controls](#connecting-disjoint-quantifier-triggers) · [Complete Apple and Hermes testing](#reusing-ownership-of-unchanged-assertions)
 
-| Complete workload, median elapsed | Retained g3 | Linked Z3 | Runs per engine |
+| Complete workload, median elapsed | g3 | Linked Z3 | Runs per engine |
 |---|---:|---:|---:|
 | Apple `ord_live.ivy`, all isolates | **97.81 s** | 164.35 s | 2 |
 | Hermes testing, 6,338 checks | **140.66 s** | 156.86 s | 2 |
-| Ordinary Hermes | 7.310 s | **6.406 s** | 5 |
+| Ordinary Hermes, 2,575 checks | **5.006 s** | 6.791 s | 7 |
 
-On ordinary Hermes, three checks expose a Cartesian product in quantifier matching. One five-variable formula alone produced 16,162 candidates on a check where Z3 produced 654. [Per-goal candidate counts](#which-quantifiers-drive-the-hermes-search)
-
-The separate conditional-rewrite prototype reached 6.585 s on ordinary Hermes. For general first-push preprocessing, value propagation, trigger inference and BV sharing account for 55% of TLB's 11.49-billion-instruction gap. [Matched native and Go pass measurements](#where-the-extra-first-push-instructions-go)
+TLB still used **88.44 billion instructions** in g3 versus **65.59 billion** in linked Z3. Earlier matched first-push measurements attributed 55% of the 11.49-billion-instruction gap at that boundary to value propagation, trigger inference and BV sharing. The ordinary Hermes gain came during search. [Matched first-push passes](#where-the-extra-first-push-instructions-go) · [Updated verification panel](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
 
 ## November 23 verification results
 
@@ -5106,3 +5104,26 @@ Ordinary Hermes runs 2,575 verification conditions. Across three runs the g3 fro
 The instrumented Go and C++ queues classified every candidate as already satisfied, reduced to true, or materialized as a lemma. All counts and their generation distributions repeated in two complete runs per backend and were independently reproduced with the portable driver. On goal 5/69 a single five-variable rule about timestamps and versions generated **16,162 candidates in g3, 634 with conditional factoring and 654 in Z3**. On goal 10/70 the same rule generated 67,956 / 29,516 / 44,637 candidates. On 14/69 it generated 24,591 / 3,162 / 5,345. In all three engines the inferred trigger for this rule has the same shape. Three applications of the timestamp/version relation cover all five variables, but one application shares no variable with either of the other two. This allows the matcher to combine two independent groups. The body also contains a successor relation that connects the groups. Conditional factoring changes which ground terms and assignments reach this trigger. The counts alone do not identify which earlier assignment caused the search to diverge. [Quantifier bodies, inferred patterns and counts](perf/ivy_apple/holdouts/nov24-quantifier-candidates.tar.xz)
 
 Run the driver with `--goivy`, `--spec`, `--reference`, `--cpu`, `--output`, and one `--goal` per batch and condition, such as `--goal 5-69`. The reference directory contains the expected stdout and stderr. Supply `--abc` when the input uses ABC. The benchmark creates a private Go workspace and relinks the matching in-tree C++ object into a private copy of the GoIvy archive. The observation runs check both output streams and exit status. The per-candidate instrumentation performs I/O and is excluded from elapsed-time measurements. [Reproduction driver](perf/ivy_apple/holdouts/quantifier_candidates.py) · [Native observer](../src/test/perf/ivy_quantifier_candidates.h)
+
+### Connecting disjoint quantifier triggers
+
+On ordinary Hermes, the verifier previously inferred the three-term trigger `R(x,a), R(y,b), R(x,c)` for a five-variable rule. Matching a value for `(y,b)` left every match for `(x,a,c)` available. The rule's body also mentions `S(b,a)`. Requiring a match for that term lets the eager matcher discard unrelated pairs before it constructs instances. The implementation looks for a term that connects the most disjoint groups and resolves ties in favor of a declaration occurring in fewer candidate terms. It uses the filtered candidates of the current quantifier and its bound variables. The solver registers the original trigger for a later matching round. Explicit triggers keep their original terms and order. [Candidate selection](ast/pattern/connected_multi_pattern.go) · [Incremental verifier configuration](smtcore/smt_asserted_patterns.go)
+
+| Complete ordinary Hermes, seven qualifying rotations | Previous g3 | g3 `d9d52ea74` | Linked Z3 |
+|---|---:|---:|---:|
+| Median elapsed | 7.722 s | **5.006 s** | 6.791 s |
+| Median retired user instructions | 59.09 billion | **35.97 billion** | 50.14 billion |
+
+g3 finished first in all seven qualifying rotations. Each rotation used one physical core for all three binaries with at least 95% process occupancy and at least 95% idle time on its SMT sibling. Three additional attempts failed the timing criteria. A separate three-rotation instruction panel measured 1.579 → **0.774 billion** on the independent `test/fba.ivy` specification, versus 0.978 billion for linked Z3. TLB measured 88.58 → 88.44 billion, versus 65.59 billion for Z3. On Apple rfn2 the figures were 11.75 → 11.76 billion, versus 49.05 billion. These measurements used GoIvy `3d552b46c` with a private local dependency override. [Raw timing attempts, all short holdouts and build metadata](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
+
+| Ordinary Hermes location | Previous g3 candidates / instances | Current g3 | Linked Z3 |
+|---|---:|---:|---:|
+| Batch 5, goal 69 | 29,757 / 4,411 | **5,060 / 1,100** | 2,102 / 881 |
+| Batch 10, goal 70 | 107,005 / 12,512 | **19,241 / 2,100** | 88,100 / 11,934 |
+| Batch 14, goal 69 | 37,591 / 4,794 | **2,048 / 476** | 9,320 / 1,667 |
+
+The three current g3 count runs agreed down to the quantifier and generation. In an independent generated UNSAT problem with 128 source elements, the three-term trigger generated **41,152 instances** on both engines. Adding the joining relation reduced that to **two**. Median g3 instructions fell from **6.085 billion to 134 million** and native Z3 from **1.623 billion to 43 million**. The satisfiable companion with an empty joining relation generated zero instances with the joined trigger and 41,152 with the original. These process counts include startup, parsing, solving and statistics. Reproduce with `python3 perf/ivy_apple/holdouts/trigger_products.py --g3 /path/to/g3 --native ../build/z3 --cpu 2 --output /tmp/trigger-products`. [Generator and benchmark](perf/ivy_apple/holdouts/trigger_products.py) · [240 raw runs, inputs and per-goal histograms](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
+
+A second test makes the joining relation entirely absent before the first instantiation. With model-based instantiation disabled, requiring the joined trigger alone yields UNKNOWN on both solvers. The original trigger derives a fact about the missing relation, exposing a contradiction. Both solvers return UNSAT when they have the joined trigger followed by the original. The retained Go test also exercises explicit patterns, an extra eager pattern, and a solver configured without a delayed matching round. [Missing-relation regression](smtcore/smt_connected_triggers_test.go) · [SMT-LIB control inputs and answers](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
+
+All **228 verifier inputs** reproduced both expected output streams and exit status, including 91 inputs with expected verification failures. The **1,799 shell controls** matched solver outcomes. The bare datalog timeout case reached the external cap in both builds and returned the expected `unknown/timeout` when run with its packaged deadline. The 2,334,030,415-byte Apple rfn2 trace matched byte for byte, as did all 27,855 lines on the Paxos trace comparison. Focused tests passed in release, checked and debug configurations. [Corpus rows, normalized shell differences and trace results](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
