@@ -2,17 +2,19 @@
 
 ## November 24 verification results
 
-On the 128-atom scope benchmark, g3 takes **11.30 µs** for `ScopedAtoms` in its original Make fixture. With the same delayed activity queue as C++, g3 takes **13.57 µs**, versus **12.61 µs** for Z3 in the latest nine quiet rotations. The remaining queue-enabled elapsed gap is 7.6%. [Scoped Boolean retirement](#retiring-runs-of-scoped-boolean-variables) · [Pending relevance notifications](#retiring-pending-relevance-notifications)
+At 128 scoped atoms and 64 learned clauses, the median scope pop with the same delayed activity queue was **13.01 µs for g3 and 12.73 µs for in-tree Z3**, a 2.2% elapsed gap. The preceding g3 took 13.60 µs in the same eleven quiet rotations. The original Go Make fixture, which omits this queue, took 11.04 µs. [Heap change, six scope widths and verifier comparisons](#reusing-reserved-storage-in-the-case-split-activity-heap)
 
 | Complete workload, median elapsed | g3 | Linked Z3 | Runs per engine |
 |---|---:|---:|---:|
 | Apple `ord_live.ivy`, all isolates | **97.81 s** | 164.35 s | 2 |
 | Hermes testing, 6,338 checks | **140.66 s** | 156.86 s | 2 |
 | Ordinary Hermes, 2,575 checks | **4.413 s** | 6.879 s | 7 |
-| Hybrid reliable broadcast | 1.453 s | **0.923 s** | 7 |
-| Ticket protocol | 0.530 s | **0.251 s** | 7 |
+| TLB, 18,953 checks | **8.759 s** | 10.075 s | 7 |
+| Apple `rfn2`, 26 checks | **1.643 s** | 11.586 s | 7 |
+| Hybrid reliable broadcast | 1.321 s | **0.884 s** | 7 |
+| Ticket protocol | 0.476 s | **0.239 s** | 7 |
 
-The Hermes, hybrid and ticket rows include the limit on speculative searches over wide premise sets. TLB still used **86.68 billion instructions** in the same verification panel, versus **65.67 billion** for linked Z3. Earlier matched first-push measurements attributed 55% of the 11.49-billion-instruction gap at that boundary to value propagation, trigger inference and BV sharing. Both engines made 961,604 application-processing calls in TLB value propagation. Calibrated samples put g3 at 2,011 instructions per call and Z3 at 385. [Wide premise selection](#when-preprocessing-fewer-premises-pays-for-a-second-solver) · [Matched rewriter calls](#the-cost-of-the-same-rewriter-operation-in-go-and-c) · [Complete Apple and Hermes testing](#reusing-ownership-of-unchanged-assertions)
+Each row compares both engines through the same GoIvy frontend within its measurement series. On TLB, sharing ground instances across sibling checks and bounding the depth of speculative searches reduced elapsed time. In five complete pairs at the activity-heap release, TLB used 60.03 billion g3 instructions. On Ticket and hybrid, concrete checks and first-push preprocessing still account for much of the remaining gap. [Complete Apple and Hermes](#reusing-ownership-of-unchanged-assertions) · [Ordinary Hermes](#hermes-hybrid-broadcast-and-arm-with-both-backends-built-from-goivy-832e392ef) · [TLB](#limiting-decision-depth-inside-a-private-ground-proof) · [Ticket, hybrid and rfn2](#november-24--avoiding-duplicated-search-on-large-premise-sets)
 
 Across a separate screen of 710 distinct Ivy inputs, 228 short runs produced proof results and matched both output streams and exit status. g3 used fewer instructions than linked Z3 on 191 and more on 37. The largest absolute deficit was TLB. [Full survey and holdouts](#finding-the-largest-remaining-verification-gaps)
 
@@ -6045,3 +6047,39 @@ A separate seven-round experiment changed the Go collector setting for each fres
 | 4,096 | 5,692,727 | 5,978,086 | 5,245,502 | 4,804,079 | 4,611,966 |
 
 Each table entry is the median complete-pop count per iteration less the corresponding median empty bracket. All hardware counters ran for their full enabled interval. GC timing in this fixed-length benchmark makes the relationship with GOGC nonmonotonic. The existing short-clause pool covers the first 64 concurrent clauses. At 2,048 variables, 960 additional short clauses receive separately allocated atom buffers each round. This allocation site can be tested directly while keeping the normal collector setting and measuring retained bytes per worker. Replay with `python3 perf/scope_restoration/pop_phases/gc_widths.py --output /tmp/gc-widths --cpu 19`. [GC comparison driver](perf/scope_restoration/pop_phases/gc_widths.py) · [Short-clause storage](smtcore/smt_clause.go)
+
+
+### Reusing reserved storage in the case-split activity heap
+
+At 128 scoped variables, restoring the case-split queue took the complete pop from **13.597 to 13.009 µs**. In-tree Z3 took **12.729 µs**. Each median covers eleven complete quiet rotations with 10,000 iterations per engine and the delayed queue enabled in both implementations. In the original Go Make fixture, which omits that queue, the medians were 10.977 and 11.044 µs. The speedup comes from reusing space in the priority heap when restored variables already have inverse-index slots. [Heap implementation](util/heap/heap.go) · [Solver integration](smtcore/smt_activity_heap_queue.go) · [All measurements, trial patches and replay](perf/scope_restoration/pop_phases/nov24-restored-activity-insertion.tar.xz)
+
+| Scoped variables | Clause restoration before → after, instructions | Complete pop before → after, instructions | In-tree Z3 complete pop |
+| ---: | ---: | ---: | ---: |
+| 4 | 3,188 → 3,018 | 7,993 → 7,833 | 7,986 |
+| 32 | 25,704 → 24,332 | 40,400 → 39,028 | 38,065 |
+| 128 | 106,800 → 101,352 | 161,628 → 156,218 | 144,730 |
+| 512 | 443,402 → 417,979 | 671,758 → 654,844 | 570,966 |
+| 2,048 | 1,823,756 → 1,748,356 | 2,827,077 → 2,774,362 | 2,274,999 |
+| 4,096 | 3,647,827 → 3,439,202 | 5,641,017 → 5,450,292 | 4,611,764 |
+
+Each cell subtracts the median empty-bracket count from the median phase count over nine rotating rounds. These measurements use one solver thread and ordinary Go GC. At 4,096 variables, 838,528 instructions per pop still separate g3 from Z3. The release keeps the heap's original comparison, inverse positions and mutation epoch. When either queue needs to grow, ordinary insertion handles it. A randomized test compares both complete heap arrays after each insertion, including ties and unordered floating-point scores. [Regression test](util/heap/reserved_activity_test.go) · [Queue insertion and GC attribution](#activity-queue-insertion-and-garbage-collection-during-wide-scope-pops)
+
+Five rotating pairs on eleven complete verifiers showed changes within 1% in either direction. Ticket used 3.239 → 3.261 billion instructions, hybrid broadcast 9.103 → 9.191, rfn2 11.762 → 11.708, and TLB 59.984 → 60.030. All 228 independent inputs matched reference output, diagnostics and exit status, including 91 expected nonzero exits. Six standalone Apple solver inputs kept their answers and integer search statistics across both g3 builds and in-tree Z3. The archive also includes the watch and multi-insertion cursor prototypes and three ways of sharing heap placement. Baseline is `60b797e01` and release is `9e49402ae`. [Measurements and reproduction instructions](perf/scope_restoration/pop_phases/nov24-restored-activity-insertion.tar.xz)
+
+
+### How overflow pages affect memory after most clauses are retired
+
+With 4,096 scoped variables, grouping short overflow clauses in pages of sixteen reduced allocations per complete round from **8,100 to 2,640** and allocated bytes from **552,386 to 435,732**. The median complete pop nevertheless rose from **5.64 to 5.85 million solver-thread instructions** across seven rotations. More importantly for independent workers, the benefit depended on which clauses survived. [Storage alternatives, allocation counts and hardware measurements](perf/scope_restoration/saved_clause_atoms/nov24-overflow-lifetimes.tar.xz)
+
+| Layout | All live, bytes per clause | 64 adjacent survivors, bytes per worker | 64 spaced survivors, bytes per worker | Idle pool, bytes per worker |
+| --- | ---: | ---: | ---: | ---: |
+| Current independent overflow buffers | 236.3 | 17,760 | 17,856 | 2,400 |
+| One allocation per short overflow buffer | 236.3 | 17,760 | 17,376 | 2,400 |
+| Additional 4-clause pages | 197.0 | 15,072 | 25,280 | 2,624 |
+| Additional 16-clause pages | 181.5 | 14,016 | 47,616 | 3,008 |
+| Replace final resident page with a 16-clause page | 181.5 | 13,424 | 47,616 | 2,416 |
+| Single word per saved slot/generation and trailing sign bits | 221.5 | 16,896 | 16,576 | 2,560 |
+
+The fixture holds 1,024 three-literal clauses in each of 32 independent workers. It retains the last 64 clauses or every sixteenth clause, then collects the heap before and after retiring those survivors. A single survivor keeps its entire overflow page reachable. This accounts for the **2.67×** sparse-retention cost of the 16-slot layout. Packing the slot and generation into one word improved both survivor arrangements, but changed complete-pop instructions from 5.17 to 5.25 million at width 4,096 in its own seven-round comparison. [Go benchmark](smtcore/smt_clause_atom_memory_benchmark_test.go) · [Per-worker results](perf/scope_restoration/saved_clause_atoms/nov24-overflow-lifetimes.tar.xz)
+
+The real verifiers rarely needed short overflow storage. Across all nine instrumented workloads, only the complete Apple `ord_live2` used it, with **25 short overflow allocations, 2,718 resident short allocations and 1,901 longer allocations**. Complete Apple `ord_live` made 1,164 resident short allocations and 561 longer ones. Ordinary Hermes made 188 and six. The page alternatives therefore stay in the benchmark archive. For the wide-scope fixture, the lower-risk follow-up is to reduce work per restored variable and per saved reference. [Per-workload allocation histograms and replay](perf/scope_restoration/saved_clause_atoms/nov24-overflow-lifetimes.tar.xz)
