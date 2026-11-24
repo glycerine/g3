@@ -41,7 +41,7 @@ func (u *instanceUnits) propagate(rows []BooleanClause, head int, limit *control
 // Reduce first propagates newly installed permanent clauses and then tries
 // the temporary goal. On interruption the caller discards any SAT state
 // that was synchronized against the previous permanent trail.
-func (q *GroundInstanceQuery) Reduce(limit *control.Reslimit) (conflict, complete bool) {
+func (q *GroundInstanceQuery) Reduce(limit *control.Reslimit, split bool) (conflict, complete bool) {
 	u := q.units
 	if u.conflict {
 		return true, true
@@ -84,5 +84,75 @@ func (q *GroundInstanceQuery) Reduce(limit *control.Reslimit) (conflict, complet
 		return true, true
 	}
 	defer u.undo(mark)
-	return u.propagate(q.Clauses, mark, limit)
+	conflict, complete = u.propagate(q.Clauses, mark, limit)
+	if !split || conflict || !complete {
+		return conflict, complete
+	}
+	return q.splitGoal(mark, 4, limit)
+}
+
+// splitGoal branches on a residual binary clause exposed by the last assignments.
+// Only a conflict on both signs proves a goal. Neither branch may leave units
+// on the shared trail, even if the private budget expires.
+func (q *GroundInstanceQuery) splitGoal(mark, depth int, limit *control.Reslimit) (conflict, complete bool) {
+	if depth == 0 {
+		return false, true
+	}
+	candidate, visited := q.splitCandidate(mark)
+	u := q.units
+	if !limit.IncOffset(uint32(visited + 1)) {
+		return false, false
+	}
+	if candidate == 0 {
+		return false, true
+	}
+	start := len(u.trail)
+	for _, lit := range [2]int32{candidate, -candidate} {
+		u.assign(lit)
+		conflict, complete = u.propagate(q.Clauses, start, limit)
+		if complete && !conflict {
+			conflict, complete = q.splitGoal(start, depth-1, limit)
+		}
+		u.undo(start)
+		if !complete || !conflict {
+			return false, complete
+		}
+	}
+	return true, true
+}
+
+// splitCandidate looks at a bounded number of trail positions and clause
+// occurrences. Prefer variables that occur with both signs in the premises.
+func (q *GroundInstanceQuery) splitCandidate(mark int) (int32, int) {
+	var candidate int32
+	best, visited := 0, 0
+	u := q.units
+	const maxVisits = 128
+	for i := len(u.trail) - 1; i >= mark && visited < maxVisits; i-- {
+		visited++
+		affected := u.occurrences[literalSlot(-u.trail[i])]
+		for _, id := range affected[:min(len(affected), maxVisits-visited)] {
+			visited++
+			// This clause contains a false literal and has at most three operands.
+			// It has a residual pair exactly when its other two literals are free.
+			var pair [2]int32
+			count := 0
+			for _, lit := range q.Clauses[id].literals() {
+				if q.Value(lit) == 0 {
+					pair[count] = lit
+					count++
+				}
+			}
+			if count != 2 {
+				continue
+			}
+			for _, lit := range pair {
+				score := 1 + min(len(u.occurrences[literalSlot(lit)]), len(u.occurrences[literalSlot(-lit)]))
+				if score > best {
+					best, candidate = score, lit
+				}
+			}
+		}
+	}
+	return candidate, visited
 }

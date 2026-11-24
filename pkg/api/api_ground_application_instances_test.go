@@ -36,7 +36,7 @@ func TestGroundApplicationInstancesAcrossGoals(t *testing.T) {
 	check := func(base []ast.ASTHandle, goal ast.ASTHandle, want bool) {
 		t.Helper()
 		query := append(append([]ast.ASTHandle(nil), base...), goal)
-		got, err := private.proveObserved(s, m, query, 350_000)
+		got, err := private.proveObserved(s, m, query, 350_000, false)
 		if err != nil || got != want {
 			t.Fatalf("base size %d, goal %v: proved %t, want %t, error %v", len(base), goal, got, want, err)
 		}

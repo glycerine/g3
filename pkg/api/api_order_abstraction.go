@@ -57,8 +57,10 @@ type orderProofState struct {
 	instances          *groundInstanceSolver
 	expectedGoals      int
 	previousGoalProved bool
-	recent             *recentRefutations
-	bits               *orderBooleanSolver
+	// Count the opening proof attempts up to the point where a case split is allowed.
+	openingAttempts uint8
+	recent          *recentRefutations
+	bits            *orderBooleanSolver
 	// Keep a failed side-condition cleanup reachable for release's retry.
 	pendingCondition *orderProofState
 	source           *APISimpleSolver
@@ -189,7 +191,12 @@ func (p *orderProofState) prove(maxSteps uint32, reuse bool) (bool, error) {
 	return p.proveWithGoal(maxSteps, reuse, ast.ASTHandle{})
 }
 
+const observedSplitWarmup = 2
+
 func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.ASTHandle) (proved bool, err error) {
+	if p.openingAttempts <= observedSplitWarmup {
+		p.openingAttempts++
+	}
 	var candidate *recentRefutations
 	defer func() {
 		if !reuse || !proved {
@@ -282,7 +289,8 @@ func (p *orderProofState) proveAssertions(parent *ast.ASTManager, assertions []a
 			if p.instances == nil {
 				p.instances = new(groundInstanceSolver)
 			}
-			if yes, err := p.instances.proveObserved(s, parent, assertions, min(maxSteps, 350_000)); yes || err != nil || limit.CancelFlag() {
+			// Early concrete checks can teach clauses that later siblings reuse.
+			if yes, err := p.instances.proveObserved(s, parent, assertions, min(maxSteps, 350_000), p.openingAttempts > observedSplitWarmup); yes || err != nil || limit.CancelFlag() {
 				return yes, err
 			}
 		}

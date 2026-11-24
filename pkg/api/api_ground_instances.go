@@ -38,15 +38,27 @@ func (s *groundInstanceSolver) close() error {
 	return nil
 }
 
+type groundInstanceMode uint8
+
+const (
+	groundInstanceSearch groundInstanceMode = iota
+	observedUnits
+	observedSplits
+)
+
 func (s *groundInstanceSolver) prove(src *APISimpleSolver, m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32, minRules int) (proved bool, err error) {
-	return s.proveInstances(src, m, assertions, steps, minRules, false)
+	return s.proveInstances(src, m, assertions, steps, minRules, groundInstanceSearch)
 }
 
-func (s *groundInstanceSolver) proveObserved(src *APISimpleSolver, m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32) (bool, error) {
-	return s.proveInstances(src, m, assertions, steps, 0, true)
+func (s *groundInstanceSolver) proveObserved(src *APISimpleSolver, m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32, split bool) (bool, error) {
+	mode := observedUnits
+	if split {
+		mode = observedSplits
+	}
+	return s.proveInstances(src, m, assertions, steps, 0, mode)
 }
 
-func (s *groundInstanceSolver) proveInstances(src *APISimpleSolver, m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32, minRules int, observed bool) (proved bool, err error) {
+func (s *groundInstanceSolver) proveInstances(src *APISimpleSolver, m *ast.ASTManager, assertions []ast.ASTHandle, steps uint32, minRules int, mode groundInstanceMode) (proved bool, err error) {
 	if len(assertions) < 2 || len(assertions) > 8192 || steps == 0 {
 		return false, nil
 	}
@@ -96,7 +108,7 @@ func (s *groundInstanceSolver) proveInstances(src *APISimpleSolver, m *ast.ASTMa
 		return false, nil
 	}
 	var q *order.GroundInstanceQuery
-	if observed {
+	if mode != groundInstanceSearch {
 		q, err = s.pool.ProjectObserved(goal, steps, limit)
 	} else {
 		q, err = s.pool.Project(goal, steps, minRules, limit)
@@ -115,14 +127,14 @@ func (s *groundInstanceSolver) proveInstances(src *APISimpleSolver, m *ast.ASTMa
 	if !limit.IncOffset(q.Work) {
 		return false, nil
 	}
-	conflict, complete := q.Reduce(limit)
+	conflict, complete := q.Reduce(limit, mode == observedSplits)
 	if !complete {
 		return false, s.resetSAT()
 	}
 	if conflict {
 		return true, nil
 	}
-	if observed {
+	if mode != groundInstanceSearch {
 		return false, nil
 	}
 	return s.search(src, m, q)

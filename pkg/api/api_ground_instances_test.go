@@ -202,7 +202,7 @@ func benchmarkGroundWorkerMemory(b *testing.B, input string, workers int, observ
 				var yes bool
 				var err error
 				if observed {
-					yes, err = w.pool.proveObserved(w.source, w.manager, pair[:], 350_000)
+					yes, err = w.pool.proveObserved(w.source, w.manager, pair[:], 350_000, false)
 				} else {
 					yes, err = w.pool.prove(w.source, w.manager, pair[:], 2_000_000, 192)
 				}
