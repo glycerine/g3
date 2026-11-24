@@ -5697,3 +5697,20 @@ Across 396 process runs, g3 and in-tree Z3 reproduced the same answers and repor
 | 6 | 30.13 → 29.44 | 30.08 → 29.99 | 30.16 → 29.34 | 9.56 |
 
 The first prototype retained a reference to the arena record holding each compiled operand's reference count, reused an equality declaration and used the existing congruence bucket directly. The stored reference costs eight bytes per compiled operand. The second prototype checked a short hash tag and consulted the full canonical table after a hint miss, before constructing a temporary application. Its saving was below 0.8% on every input. The third prototype combined stack storage for short argument lists, lookup of existing signed literals, direct watch registration, short-clause sorting and a fast path for existing expression records. Even its largest reduction was 2.7%. These experiments account for a small fraction of the 2.9–3.5× general-solver gap. They remain reproducible overlays. [Individual contributions and instructions for rerunning the comparisons](perf/ivy_apple/holdouts/nov24-quantifier-hot-paths.tar.xz)
+
+### Can Boolean guards eliminate the expensive enumeration searches?
+
+On the nine-check history ending at Apple goal 110, folding seven Boolean literals already asserted by the premises let g3 finish the last proof within six million resource units. The entire history used **105.8 billion instructions**, down from **144.9 billion** with the original formulas and the twelve-million terminal allowance needed to finish. On the thirteen-check history ending at goal 132, the same transformation raised the cost of a completed proof from **56.7 to 73.8 billion**. These are single pinned process counts per input and budget. They exclude the offline cost of finding the guards. [Inputs, per-run counters and replay driver](perf/ivy_apple/holdouts/nov24-enumeration-boolean-guards.tar.xz)
+
+| Captured history | Original formulas | Fold directly asserted literals | Fold literals forced by the propositional premises |
+|---|---|---|---|
+| 1, 58 checks | Exhausted at 12M | Exhausted at 12M | Exhausted at 12M |
+| 2, 57 checks | Proved at 12M | Proved at 12M | Exhausted on check 44 |
+| 3, 58 checks | Proved at 12M | Proved at 6M | Proved at 6M |
+| 4, 36 checks | Proved at 12M | Proved at 12M | Exhausted at 12M |
+| 5, 9 checks | Proved at 12M | Proved at 6M | Proved at 12M |
+| 6, 13 checks | Proved at 12M | Proved at 12M | Proved at 12M |
+
+The table shows the smaller successful terminal allowance of the two tested, 6M and 12M. Earlier checks always received 6M. The propositional experiment asked in-tree Z3 which nullary Boolean symbols must have a fixed truth value even when quantified formulas are relaxed. This can remove a guarded branch before quantifier search. In a fresh process on query 5, substituting the 32 values forced by the premises gave both engines UNSAT in **5,208,979 resource units**. Including the goal established 48 values, but both engines then exhausted the allowance. This difference in search order also appeared between fresh and incremental checks. [All 120 paired-engine observations and 36 incremental replays](perf/ivy_apple/holdouts/nov24-enumeration-boolean-guards.tar.xz)
+
+I also split on one or two remaining guard symbols and divided six million resource units equally among the two or four subproblems. A refutation requires every branch to finish UNSAT. For query 5, three of four branches finished and one exhausted its budget. None of the six full inputs gained a complete refutation under any tested split. Each of the six deliberately weakened inputs retained a satisfiable branch under every split. I kept the transformed inputs and replay tools for evaluating search changes. The mixed incremental results favor the existing production policy. [Per-branch results for both shells](perf/ivy_apple/holdouts/nov24-enumeration-boolean-guards.tar.xz)
