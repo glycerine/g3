@@ -77,8 +77,8 @@ func TestSMTDynamicAckManagerBuildsClauseProof(t *testing.T) {
 		t.Fatal("dynamic Ackermann proof clause", len(state.testClauses()))
 	}
 	clause := state.testClauses()[0].clause
-	if _, ok := clause.justification.(*smtDynamicAckJustification); !ok {
-		t.Fatalf("dynamic Ackermann justification %T", clause.justification)
+	if _, ok := clause.Justification().(*smtDynamicAckJustification); !ok {
+		t.Fatalf("dynamic Ackermann justification %T", clause.Justification())
 	}
 	builder := &smtConflictProofBuilder{
 		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
@@ -166,8 +166,8 @@ func TestSMTDynamicAckTripleWithProofs(t *testing.T) {
 	if clause == nil {
 		t.Fatal("dynamic Ackermann triple clause was not installed")
 	}
-	if _, ok := clause.justification.(*smtDynamicAckJustification); !ok {
-		t.Fatalf("dynamic Ackermann triple justification %T", clause.justification)
+	if _, ok := clause.Justification().(*smtDynamicAckJustification); !ok {
+		t.Fatalf("dynamic Ackermann triple justification %T", clause.Justification())
 	}
 	builder := &smtConflictProofBuilder{
 		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),

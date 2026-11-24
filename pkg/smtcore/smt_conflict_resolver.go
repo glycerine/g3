@@ -124,8 +124,8 @@ func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, le
 						return fail()
 					}
 				}
-				if clause.justification != nil {
-					antecedents, err := r.expander.expandReusing(clause.justification)
+				if j := clause.Justification(); j != nil {
+					antecedents, err := r.expander.expandReusing(j)
 					if err != nil {
 						return false, err
 					}
@@ -285,8 +285,8 @@ func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLit
 					return err
 				}
 			}
-			if clause.justification != nil {
-				antecedents, err := r.expander.ExpandJustification(clause.justification)
+			if j := clause.Justification(); j != nil {
+				antecedents, err := r.expander.ExpandJustification(j)
 				if err != nil {
 					return err
 				}
@@ -514,8 +514,8 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 					return err
 				}
 			}
-			if clause.justification != nil {
-				antecedents, err := r.expander.expandInSession(clause.justification)
+			if j := clause.Justification(); j != nil {
+				antecedents, err := r.expander.expandInSession(j)
 				if err != nil {
 					return err
 				}

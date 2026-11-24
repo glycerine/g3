@@ -11,7 +11,7 @@ import (
 
 func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLearnedClause) error {
 	if !saved.installed {
-		atoms := saved.clause.atoms
+		atoms := saved.clause.atomBuffer()
 		if atoms != nil {
 			offset := saved.clause.atomOffset()
 			if atoms.Len()-offset < len(saved.clause.literals) {

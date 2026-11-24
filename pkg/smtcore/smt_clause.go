@@ -22,29 +22,39 @@ type SMTClauseDeleteHandler interface {
 	ClauseDeleted(*ast.ASTManager, *SMTClause) error
 }
 
+// Replacing the pair preserves the proof visible through a previously copied
+// clause. The owning clause drops the pair when both fields become empty.
+type smtClauseAttachments struct {
+	proof   SMTJustification
+	handler SMTClauseDeleteHandler
+}
+
+// Lemmas use this state for activity and scope restoration. A caller can
+// also ask an auxiliary clause to retain its atoms.
+type smtClauseLemmaData struct {
+	atomPage *smtClauseAtomPage
+	atoms    *ast.RetainedLiteralBuffer
+	// reinitLevel and reinitSeq place the clause in m_clauses_to_reinit
+	// in push order. lemmaIndex is its position in the live lemma vector.
+	reinitSeq   uint64
+	lemmaIndex  int
+	reinitLevel uint32
+	activity    uint32
+}
+
 type SMTClause struct {
-	self               *SMTClause
-	manager            *ast.ASTManager
-	atomPage           *smtClauseAtomPage
-	atomSlot           uint8
+	self    *SMTClause
+	manager *ast.ASTManager
+	*smtClauseLemmaData
+	attachments        *smtClauseAttachments
 	kind               SMTClauseKind
 	reinit             bool
 	reinternalizeAtoms bool
-	// reinitLevel and reinitSeq place the clause in
-	// m_clauses_to_reinit[reinitLevel], in push order.
-	reinitLevel uint32
-	reinitSeq   uint64
-	// lemmaIndex is the position in the internalizer's live lemma vector.
-	lemmaIndex    int
-	atoms         *ast.RetainedLiteralBuffer
-	deleteHandler SMTClauseDeleteHandler
-	justification SMTJustification
-	activity      uint32
-	deleted       bool
-	closePhase    uint8
-	closed        bool
-	// literals is last: smtNewClauseStorage places a short clause's
-	// literal array right after it, in the same cache line or the next.
+	deleted            bool
+	closed             bool
+	closePhase         uint8
+	atomSlot           uint8
+	// Short clauses store their literal array immediately after this header.
 	literals []SMTLiteral
 }
 
@@ -74,13 +84,20 @@ type smtClauseStorage64 struct {
 	lits   [64]SMTLiteral
 }
 
-// smtNewClauseStorage returns a zero clause whose literals field holds a
-// copy of literals (length and capacity len(literals)).
-func smtNewClauseStorage(literals []SMTLiteral) *SMTClause {
+// smtNewClauseStorage copies the literals and allocates any requested lemma
+// state. The literal slice has length and capacity len(literals).
+func smtNewClauseStorage(literals []SMTLiteral, needsLemmaData bool) *SMTClause {
 	n := len(literals)
 	var clause *SMTClause
 	var storage []SMTLiteral
 	switch {
+	case needsLemmaData && n <= 4:
+		x := new(struct {
+			storage smtClauseStorage4
+			lemma   smtClauseLemmaData
+		})
+		clause, storage = &x.storage.clause, x.storage.lits[:n:n]
+		clause.smtClauseLemmaData = &x.lemma
 	case n <= 4:
 		x := &smtClauseStorage4{}
 		clause, storage = &x.clause, x.lits[:n:n]
@@ -98,6 +115,9 @@ func smtNewClauseStorage(literals []SMTLiteral) *SMTClause {
 		clause, storage = &x.clause, x.lits[:n:n]
 	default:
 		clause, storage = &SMTClause{}, make([]SMTLiteral, n)
+	}
+	if needsLemmaData && clause.smtClauseLemmaData == nil {
+		clause.smtClauseLemmaData = new(smtClauseLemmaData)
 	}
 	copy(storage, literals)
 	clause.literals = storage
@@ -122,17 +142,13 @@ func newSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClause
 	if proofs && justification == nil {
 		return nil, ast.ErrASTDomain
 	}
-	clause := smtNewClauseStorage(literals)
-	*clause = SMTClause{
-		manager:            manager,
-		literals:           clause.literals,
-		kind:               kind,
-		reinit:             saveAtoms,
-		reinternalizeAtoms: saveAtoms,
-		deleteHandler:      deleteHandler,
-		justification:      justification,
-	}
+	clause := smtNewClauseStorage(literals, kind != SMTClauseAux || saveAtoms)
 	clause.self = clause
+	clause.manager = manager
+	clause.kind = kind
+	clause.reinit = saveAtoms
+	clause.reinternalizeAtoms = saveAtoms
+	clause.setAttachments(justification, deleteHandler)
 	if kind != SMTClauseAux {
 		clause.activity = 1
 	}
@@ -227,20 +243,20 @@ func (c *SMTClause) SetNumLiterals(count int) error {
 }
 
 func (c *SMTClause) Justification() SMTJustification {
-	if c == nil {
+	if c == nil || c.attachments == nil {
 		return nil
 	}
-	return c.justification
+	return c.attachments.proof
 }
 
 func (c *SMTClause) SetJustification(justification SMTJustification) error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	if c.reinit || c.justification == nil || c.IsLemma() && justification != nil && justification.InRegion() {
+	if c.reinit || c.Justification() == nil || c.IsLemma() && justification != nil && justification.InRegion() {
 		return ast.ErrASTDomain
 	}
-	c.justification = justification
+	c.setAttachments(justification, c.attachments.handler)
 	return nil
 }
 
@@ -296,7 +312,7 @@ func (c *SMTClause) ReleaseAtoms() error {
 		return err
 	}
 	// clause::deallocate and release_atoms dec_ref the atoms first to last.
-	if c.atoms == nil {
+	if c.atomBuffer() == nil {
 		return nil
 	}
 	return c.atoms.Release(c.atomOffset(), len(c.literals))
@@ -310,11 +326,11 @@ func (c *SMTClause) MarkDeleted() error {
 		return ast.ErrASTDomain
 	}
 	c.deleted = true
-	if c.deleteHandler != nil {
-		if err := c.deleteHandler.ClauseDeleted(c.manager, c); err != nil {
+	if handler := c.deletionHandler(); handler != nil {
+		if err := handler.ClauseDeleted(c.manager, c); err != nil {
 			return err
 		}
-		c.deleteHandler = nil
+		c.setAttachments(c.Justification(), nil)
 	}
 	return nil
 }
@@ -371,20 +387,20 @@ func (c *SMTClause) Close() error {
 		return nil
 	}
 	if c.closePhase == 0 {
-		if c.deleteHandler != nil {
-			if err := c.deleteHandler.ClauseDeleted(c.manager, c); err != nil {
+		if handler := c.deletionHandler(); handler != nil {
+			if err := handler.ClauseDeleted(c.manager, c); err != nil {
 				return err
 			}
-			c.deleteHandler = nil
+			c.setAttachments(c.Justification(), nil)
 		}
 		c.closePhase = 1
 	}
 	if c.closePhase == 1 {
-		if c.IsLemma() && c.justification != nil {
-			if err := c.justification.Release(c.manager); err != nil {
+		if j := c.Justification(); c.IsLemma() && j != nil {
+			if err := j.Release(c.manager); err != nil {
 				return err
 			}
-			c.justification = nil
+			c.setAttachments(nil, c.deletionHandler())
 		}
 		c.closePhase = 2
 	}
@@ -442,6 +458,9 @@ func (p *smtClauseAtomPool) allocate(c *SMTClause, n int) error {
 
 // All references in this span have been consumed by ReleaseAtoms.
 func (c *SMTClause) discardAtoms() {
+	if c.smtClauseLemmaData == nil {
+		return
+	}
 	c.atoms = nil
 	if c.atomPage != nil {
 		c.atomPage.free |= 1 << c.atomSlot
@@ -451,3 +470,25 @@ func (c *SMTClause) discardAtoms() {
 }
 
 func (c *SMTClause) atomOffset() int { return int(c.atomSlot) * smtShortClauseAtoms }
+
+func (c *SMTClause) atomBuffer() *ast.RetainedLiteralBuffer {
+	if c.smtClauseLemmaData == nil {
+		return nil
+	}
+	return c.atoms
+}
+
+func (c *SMTClause) deletionHandler() SMTClauseDeleteHandler {
+	if c.attachments == nil {
+		return nil
+	}
+	return c.attachments.handler
+}
+
+func (c *SMTClause) setAttachments(proof SMTJustification, handler SMTClauseDeleteHandler) {
+	if proof == nil && handler == nil {
+		c.attachments = nil
+		return
+	}
+	c.attachments = &smtClauseAttachments{proof: proof, handler: handler}
+}

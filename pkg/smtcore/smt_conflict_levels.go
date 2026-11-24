@@ -76,8 +76,8 @@ func SMTBooleanJustificationMaxLevel(expander *SMTAntecedentExpander, consequent
 				return 0, err
 			}
 		}
-		if clause.justification != nil {
-			level, err := SMTJustificationMaxLevel(expander, clause.justification, levels)
+		if j := clause.Justification(); j != nil {
+			level, err := SMTJustificationMaxLevel(expander, j, levels)
 			if err != nil {
 				return 0, err
 			}

@@ -298,10 +298,11 @@ func (b *smtConflictProofBuilder) literalExpression(literal SMTLiteral) (ast.AST
 }
 
 func (b *smtConflictProofBuilder) clauseProof(clause *SMTClause) (ast.ASTHandle, error) {
-	if clause == nil || clause.justification == nil {
+	j := clause.Justification()
+	if j == nil {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	return b.objectProof(clause.justification)
+	return b.objectProof(j)
 }
 
 func (b *smtConflictProofBuilder) literalProof(literal SMTLiteral) (ast.ASTHandle, error) {
