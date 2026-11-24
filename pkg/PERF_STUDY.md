@@ -4892,3 +4892,30 @@ Commit `308e67d2b` gives each eligible batch one private manager for up to 16 ch
 All builds used GoIvy `88aca06ce`. The ordinary Hermes runs required at least 95% process CPU occupancy and 95% idle time on its sibling hardware thread. The other rows use four complete runs per engine for the two isolates and three for the two long workloads. In the independent compatibility corpus all 228 runs matched reference stdout, stderr and exit status, including 91 expected nonzero exits. With tracing enabled, the complete 2,334,030,415-byte rfn2 stdout matched and the Paxos output matched its Python reference. [Raw runs, corpus and trace checks](perf/ivy_apple/holdouts/nov23-batch-private-proof-contexts.tar.xz)
 
 In nine 100-iteration benchmark samples, creating a new context per check took **2.349 ms, 1,221,829 B and 3,081 allocations**. Reusing the manager took **0.571 ms, 322,626 B and 1,208 allocations**. A second experiment alternated the two modes in 15 pairs. Each sample covered exactly four 16-check rotations. The medians were 4.533 → **1.521 ms**, 1,221,838 → **315,288 B** and 3,081 → **1,193 allocations**. The two timing experiments ran under different host loads. The archive includes the 4-, 16- and 64-check lifetime trials and the experiment that retained translated terms. Run `go test ./api -run '^$' -bench '^BenchmarkPrivateProofPlanContexts$' -cpu=1 -benchtime=64x -benchmem`. [Retained benchmark](api/api_proof_plan_context_benchmark_test.go) · [Samples and alternatives](perf/ivy_apple/holdouts/nov23-batch-private-proof-contexts.tar.xz)
+
+### Small formulas that contain no expandable macro
+
+In 181,662 calls from 82 verification and shell workloads, g3 could determine the existing macro expander's result and exact step count for **149,762** calls by examining at most 32 AST nodes. An instrumented build still performed every original rewrite. All 149,762 returned the original handle and charged the predicted number of steps, including 59,766 calls under an explicit resource limit. The production probe tracks shared terms separately in each quantifier scope. A macro application, conditional or exhausted visit allowance goes through the general expander. A probe that succeeds reserves exactly the original step charge. If the charge would cross the limit, the original traversal takes its normal cancellation path. [Implementation](ast/macros/macro_expansion_identity.go) · [Tests for binders, shared nodes and step boundaries](ast/macros/macro_expansion_identity_test.go) · [Per-workload audit](perf/ivy_apple/holdouts/nov23-macro-expansion-misses.tar.xz)
+
+| Macro expansion, 21 paired samples of 500 calls | Previous g3, ns | g3 at 3ae6121be, ns | Go allocations before → after |
+|---|---:|---:|---:|
+| Unchanged leaf | 1,076 | **100** | 7 → 0 |
+| Unchanged chain | 3,179 | **245** | 16 → 0 |
+| Unchanged shared subterm | 3,519 | **321** | 19 → 0 |
+| Macro substitution | 32,751 | 33,798 | 95 → 95 |
+| Constant conditional | 28,877 | 28,411 | 97 → 97 |
+
+On 36 standalone quantified queries measured twice, the mean check fell from **257.55 to 242.99 million user instructions**. In-tree Z3 used 68.58 million. On 36 ground queries the means were 134.72, 135.38 and 40.61 million respectively. These counters bracket only the check. Across four complete runs per engine, TLB fell from **91.26 to 88.90 billion instructions**, against 65.84 billion with linked Z3. Hybrid reliable broadcast fell from 11.07 to 10.88 billion, against 5.90 billion. Ordinary Hermes moved from 58.15 to 57.94 billion, against 50.61 billion. The table shows why this change helps the quantified workload much more than workloads that actually substitute macros. Reproduce with `go test ./ast/macros -run '^TestMacroExpansion' -bench '^BenchmarkMacroExpansion$' -benchtime=500x -benchmem -cpu=1`. [Benchmark](ast/macros/macro_expansion_benchmark_test.go) · [Individual samples, shell phases and full proofs](perf/ivy_apple/holdouts/nov23-macro-expansion-misses.tar.xz)
+
+All 228 verifier controls matched both reference streams and exit status, including 91 expected failures. The 1,799-input shell comparison preserved normalized responses. The packaged datalog timeout produced the same timeout response on both builds. The 720-pair resource-limit sweep had 717 matching completed responses and three unbounded cases that reached the wall cap in both g3 builds. Adding a contradiction made those three decide UNSAT. The complete rfn2 trace matched on all 2,334,030,415 bytes. Paxos matched its Python reference across 27,855 output lines. [Controls and trace checks](perf/ivy_apple/holdouts/nov23-macro-expansion-misses.tar.xz)
+
+### Rerunning the original scope-restoration make targets
+
+Thirteen alternating pairs on CPU 15, with 10,000 pops per sample, gave these medians on the Threadripper 3960X. All runs restored 128 atoms and 64 clauses per operation. g3 reported zero allocations per operation in both cases. [Measurements](perf/scope_restoration/nov23-final-make-targets.csv) · [Make-target runner](perf/scope_restoration/make_targets.py)
+
+| Timed pop | g3, make bench | In-tree Z3, make cppbench | g3 / Z3 time |
+|---|---:|---:|---:|
+| Atoms surviving the pop | **376.7 ns** | 490.6 ns | 0.77 |
+| Atoms introduced inside the popped scope | 13.822 µs | **13.195 µs** | 1.05 |
+
+These results compare the two requested make targets. The native fixture has its delayed activity queue enabled. The Go target times the default fixture, and the separate Go benchmark `BenchmarkSMTScopeRestorationWithQueue` enables the matching queue and brackets only the pop with a monotonic clock. [Go benchmark](smtcore/smt_hotpath_benchmark_test.go) · [Native benchmark](../src/test/smt_scope_restoration.cpp) · [Per-worker benchmark](smtcore/smt_scope_workers_benchmark_test.go)
