@@ -93,6 +93,41 @@ func TestSATSolverPropagateClauseMoveUnitGlueAndConflict(t *testing.T) {
 		t.Fatal("mark used")
 	}
 }
+
+func TestSATPropagationMoveToRecycledList(t *testing.T) {
+	s, v, _ := satPropagationFixture(t, 4)
+	clause, err := s.clauses.MkClause([]Literal{1, 2, 4}, true)
+	satOK(t, err)
+	offset, err := s.clauses.Offset(clause)
+	satOK(t, err)
+	watch, err := newSATClauseWatch(2, offset)
+	satOK(t, err)
+	satPropagationPush(t, s, 0, watch)
+
+	// Propagating literal 0 moves this clause to the list for literal 5.
+	// Keep the old directory reference and give its replacement spare capacity.
+	lists := v.watches
+	old := lists.lists[5]
+	satOK(t, lists.store.Free(old))
+	current, err := lists.store.NewList()
+	satOK(t, err)
+	defer func() { lists.lists[5] = current }()
+	if old.slot != current.slot || old.generation == current.generation {
+		t.Fatal("expected a recycled destination slot")
+	}
+	satOK(t, lists.store.Push(current, watch))
+	satOK(t, lists.store.SetEnd(current, 0))
+	satOK(t, s.assign(0, satJustification{}))
+	if _, err = s.propagateCore(false); !errors.Is(err, arena.ErrInvalidSlot) {
+		t.Fatalf("move to a stale destination returned %v", err)
+	}
+	n, err := lists.store.Size(current)
+	satOK(t, err)
+	if n != 0 {
+		t.Fatalf("moved watch into the replacement list, size %d", n)
+	}
+}
+
 func TestSATSolverPropagateExternalActualDispatchBoundary(t *testing.T) {
 	s, v, _ := satPropagationFixture(t, 1)
 	s.extensionPresent = true

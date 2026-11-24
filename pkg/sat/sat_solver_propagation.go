@@ -148,6 +148,14 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 			return false, arena.ErrBounds
 		}
 		assignment := v.assignment
+		// Assignment can call out through a trace or extension. Only borrow the
+		// directory across watch moves when both are inactive.
+		var destinations []satSolverWatchListRef
+		store := v.watches.store
+		if !tracing && !satStorageSourceDebug && !s.extensionPresent {
+			destinations = v.watches.lists
+		}
+		records := store.records
 		for pos := uint32(0); pos < iter.end; pos++ {
 			w := data[pos]
 			keep := true
@@ -230,7 +238,19 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				}
 				replacement, moved := clause.moveWatch(not, assignment)
 				if moved {
-					if e = v.watches.pushClause(replacement.Negated().index(), c0, off); e != nil {
+					i := replacement.Negated().index()
+					dest := currentPropagationList(i, destinations, records, store.origin)
+					if dest != nil {
+						nextWatch, err := newSATClauseWatch(c0, off)
+						if err != nil {
+							return false, err
+						}
+						if dest.appendWithinCapacity(nextWatch) {
+							keep = false
+							break
+						}
+					}
+					if e = v.watches.pushClause(i, c0, off); e != nil {
 						return false, e
 					}
 					keep = false
@@ -339,4 +359,20 @@ func (s *satSolverPropagationState) finishPropagationList(i *satSolverWatchItera
 		return arena.ErrInvalidSlot
 	}
 	return x.setEnd(n)
+}
+
+// The propagation loop holds this directory while extensions and trace callbacks are inactive.
+func currentPropagationList(i uint32, lists []satSolverWatchListRef, records []satSolverWatchListRecord, owner uint64) *satSolverWatchListRecord {
+	if uint64(i) >= uint64(len(lists)) {
+		return nil
+	}
+	ref := lists[i]
+	if ref.owner != owner || uint64(ref.slot) >= uint64(len(records)) {
+		return nil
+	}
+	record := &records[ref.slot]
+	if !record.live || record.generation != ref.generation {
+		return nil
+	}
+	return record
 }

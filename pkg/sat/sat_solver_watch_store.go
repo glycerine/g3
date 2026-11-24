@@ -151,20 +151,39 @@ func (s *satSolverWatchStore) Push(r satSolverWatchListRef, w satWatched) error 
 	return x.push(w)
 }
 func (x *satSolverWatchListRecord) push(w satWatched) error {
+	if x.appendWithinCapacity(w) {
+		return nil
+	}
+	return x.growAndAppend(w)
+}
+
+// Appending within the existing backing keeps all outstanding iterators valid.
+func (x *satSolverWatchListRecord) appendWithinCapacity(w satWatched) bool {
+	b := x.backing
+	if b == nil {
+		return false
+	}
+	data := b.data
+	n := len(data)
+	if n >= cap(data) || uint64(n) >= uint64(^uint32(0)) {
+		return false
+	}
+	b.data = data[:n+1]
+	b.data[n] = w
+	return true
+}
+
+func (x *satSolverWatchListRecord) growAndAppend(w satWatched) error {
 	old := x.values()
 	if uint64(len(old)) >= uint64(^uint32(0)) {
 		return arena.ErrBounds
 	}
 	next := append(old, w)
-	if x.backing == nil || cap(old) != cap(next) {
-		if x.backing != nil {
-			x.backing.alive = false
-			x.backing.data = nil
-		}
-		x.backing = &satWatchBacking{data: next, alive: true}
-	} else {
-		x.backing.data = next
+	if x.backing != nil {
+		x.backing.alive = false
+		x.backing.data = nil
 	}
+	x.backing = &satWatchBacking{data: next, alive: true}
 	return nil
 }
 func (s *satSolverWatchStore) SetEnd(r satSolverWatchListRef, n uint32) error {
