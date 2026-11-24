@@ -192,7 +192,7 @@ const (
 
 const satClauseLiteralsOffset = 5 * 4
 
-// satClauseView borrows one clause for a propagation visit. Both allocators
+// satClauseView borrows one clause for a local operation. Both allocators
 // use the same little-endian header and literal words.
 type satClauseView []byte
 
@@ -263,30 +263,47 @@ func (a *ClauseAllocator) construct(r StoredClauseRef, id, n uint32, lits []Lite
 	return a.constructSpan(r, id, n, satSolverLiteralSpan{literals: lits}, learned)
 }
 func (a *ClauseAllocator) constructSpan(r StoredClauseRef, id, n uint32, span satSolverLiteralSpan, learned bool) error {
+	data, err := a.view(r)
+	if err != nil {
+		return err
+	}
+	if uint64(len(data)) < satClauseLiteralsOffset+4*uint64(n) {
+		return arena.ErrBounds
+	}
 	flags := uint32(0)
 	if learned {
 		flags = 4
 	}
-	for i, v := range [5]uint32{id, n, n, 0, flags} {
-		if e := a.writeWord(r, uint64(i), v); e != nil {
-			return e
+	// A failed source read leaves the header and copied prefix inspectable.
+	data.setWord(0, id)
+	data.setWord(1, n)
+	data.setWord(2, n)
+	data.setWord(3, 0)
+	data.setWord(4, flags)
+	dst := data[satClauseLiteralsOffset:]
+	var approx satApproxSet
+	if span.column == nil && span.store == nil {
+		if uint64(n) > uint64(len(span.literals)) {
+			return arena.ErrBounds
+		}
+		for _, lit := range span.literals[:n] {
+			binary.LittleEndian.PutUint32(dst, uint32(lit))
+			dst = dst[4:]
+			approx.insert(uint32(lit.variable()))
+		}
+	} else {
+		for i := uint32(0); i < n; i++ {
+			lit, err := span.literal(i)
+			if err != nil {
+				return err
+			}
+			binary.LittleEndian.PutUint32(dst, uint32(lit))
+			dst = dst[4:]
+			approx.insert(uint32(lit.variable()))
 		}
 	}
-	if span.column == nil && span.store == nil && uint64(len(span.literals)) < uint64(n) {
-		return arena.ErrBounds
-	}
-	for i := uint32(0); i < n; i++ {
-		lit, e := span.literal(i)
-		if e != nil {
-			return e
-		}
-		if e := a.writeWord(r, uint64(i)+5, uint32(lit)); e != nil {
-			return e
-		}
-	}
-	if e := a.MarkStrengthened(r); e != nil {
-		return e
-	}
+	data.setWord(3, uint32(approx))
+	data.setWord(4, flags|1)
 	if satStorageSourceDebug {
 		if _, e := a.CheckApprox(r); e != nil {
 			return e

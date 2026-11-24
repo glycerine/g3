@@ -82,3 +82,41 @@ func TestSATSolverMutableCapturedSpanRejectsClosedColumn(t *testing.T) {
 		t.Fatal(b.Used())
 	}
 }
+
+func TestClauseConstructorKeepsCopiedPrefixOnShortCapturedColumn(t *testing.T) {
+	budget := arena.NewBudget(1 << 20)
+	runtime, err := umemory.NewRuntime(umemory.RuntimeConfig{Budget: budget})
+	satOK(t, err)
+	allocator := satStore(t, budget)
+	var column satUintColumn
+	column.Bind(runtime)
+	for _, word := range []uint32{18, 43} {
+		satOK(t, column.Push(word))
+	}
+	clause, err := allocator.mkClauseSpan(3, satConflictColumnSpan(&column), true)
+	if !errors.Is(err, arena.ErrBounds) {
+		t.Fatalf("short column returned %v", err)
+	}
+	for i, want := range []Literal{18, 43} {
+		got, err := allocator.Literal(clause, uint32(i))
+		if err != nil || got != want {
+			t.Fatalf("literal %d = %v, %v; want %v", i, got, err, want)
+		}
+	}
+	approx, err := allocator.Approx(clause)
+	satOK(t, err)
+	learned, err := allocator.Learned(clause)
+	satOK(t, err)
+	strengthened, err := allocator.Strengthened(clause)
+	satOK(t, err)
+	if approx != 0 || !learned || strengthened {
+		t.Fatal("partial clause header", approx, learned, strengthened)
+	}
+	satOK(t, allocator.Delete(clause))
+	satOK(t, column.Finalize())
+	satOK(t, allocator.Close())
+	satOK(t, runtime.Close())
+	if budget.Used() != 0 {
+		t.Fatal(budget.Used())
+	}
+}
