@@ -5506,3 +5506,20 @@ Each elapsed cell is the median of seven complete rotations. All three processes
 Commit `80ea1d9b9` sorts distinct literal words from the same aligned 4,096-word range by setting bits in a 512-byte local bitmap and emitting them in ascending order. It also recognizes monotone inputs. Across 648 sort benchmark process readings, the sorted result retained every literal, including duplicates, and all timed sorts recorded zero allocations. The dense 64-word input used **4.30× fewer instructions** than the comparison sort, and the dense 1,024-word input used **10.03× fewer**. A duplicate near the end of a 64-word input cost about 9% extra, since the bitmap pass had to fall back after inspecting most of the slice. Sparse 256-word inputs were within 1%. [Sorter](sat/sat_literal_sort.go) · [Workload shapes and reference-sort comparison](sat/sat_literal_sort_test.go)
 
 Commit `463b8f58d` scans digits in the buffer already filled by the reader and reuses the checked variable count within a clause. It synchronizes a caller-owned buffered reader before solver callbacks and on return. Tests cover 32-bit literal wraparound, a final read that supplies both data and an error, numbers spanning buffer boundaries, and closing a solver inside the input reader. The eight-hole pigeonhole contradiction remained at 36.34 billion instructions against Z3's 8.05 billion, with identical decision and conflict counts. All 228 GoIvy corpus cases reproduced reference output and exit status. TLB measured 60.24 → 60.35 billion instructions, hybrid broadcast 9.48 → 9.52, and Ticket 3.41 → 3.45. These two changes pay off when wide clauses dominate runtime. [Stream regressions and parser benchmark](sat/dimacs_buffer_test.go) · [Search controls, verifier results and ten independent trial patches](perf/ivy_raft/nov24-clause-sort-input.tar.xz)
+
+### Limiting decision depth inside a private ground proof
+
+Bounding a private SAT search at 256 decision levels reduced work on both full Apple specifications, TLB and Hermes testing. A private ground problem retains only selected consequences of the original assertions. UNSAT proves the goal, while SAT still requires the ordinary quantified solver. The resource limit alone had allowed expensive searches for assignments that could never discharge the original goal. Commit `11b33ad26` returns control to the quantified solver when that private search reaches the depth limit. Each worker owns its search state. [Private solver call](api/api_ground_instances.go) · [Decision-boundary tests](sat/sat_solver_decision_depth_test.go)
+
+| Complete verification | g3 before | g3 with private depth limit | Linked Z3 |
+|---|---:|---:|---:|
+| TLB | 63.43 | **60.91** | 65.64 |
+| Entire Apple `ord_live.ivy` | 788.04 | **732.15** | 1,031.90 |
+| Entire Apple `ord_live2.ivy` | 1,303.61 | **1,239.75** | 1,961.20 |
+| Hermes testing | 1,106.44 | **1,064.45** | 1,203.72 |
+| Ordinary Raft | 22.22 | 22.20 | 214.57 |
+| Apple `dramc_nb2` | 124.25 | 124.57 | 140.17 |
+| Apple `rfn2` | 11.77 | 11.83 | 49.10 |
+| Hybrid reliable broadcast | 9.55 | 9.58 | **5.89** |
+
+Values are median billions of whole-process retired user instructions. TLB and `rfn2` have five rotations, and the other displayed workloads have three. Every engine reproduced the expected exit and both output streams on each measured workload. Seven separately timed quiet-core rotations put TLB at **9.006 s before, 8.759 s after and 10.075 s on linked Z3**. The 228-input corpus included 91 expected nonzero exits. Native Z3 confirmed all 4,646 private refutations among 8,640 generated goals. The median additional live heap per loaded worker was 877,541 bytes. Enabled `rfn2` tracing matched across 2,334,030,415 bytes, and the normalized Paxos replay matched across 27,855 lines. [All eleven verifier comparisons, timing attempts, depth trials and controls](perf/ivy_apple/holdouts/nov24-private-decision-depth.tar.xz)
