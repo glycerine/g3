@@ -127,3 +127,75 @@ func TestSMTFingerprintScratchReleasesRootsOnPopAndReset(t *testing.T) {
 		t.Fatal("reset retained fingerprint storage")
 	}
 }
+
+// Distinct enodes with the same owner hash to the same position. Mix these
+// with ordinary tuples, grow the table inside nested scopes and reuse the
+// vacated positions after each pop.
+func TestSMTFingerprintCollisionsAcrossScopeGrowth(t *testing.T) {
+	m := astTestManager(t)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	body, err := m.MkVar(0, boolean)
+	astTestMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body,
+	})
+	astTestMust(t, err)
+	const total = 176
+	var nodes [total]*SMTEnode
+	var results [total]*SMTFingerprint
+	for i := range nodes {
+		name := uint32(3000)
+		if i%3 == 0 {
+			name += uint32(i)
+		}
+		_, nodes[i] = smtEnodeConstant(t, m, name, boolean, 0)
+	}
+	set := NewSMTFingerprintSet()
+	insert := func(lo, hi int) {
+		t.Helper()
+		for i := lo; i < hi; i++ {
+			f, err := set.Insert(q, uint32(i), nodes[i:i+1])
+			astTestMust(t, err)
+			if f == nil {
+				t.Fatal("distinct colliding tuple rejected", i)
+			}
+			results[i] = f
+		}
+	}
+	check := func(live int) {
+		t.Helper()
+		if set.Size() != uint32(live) {
+			t.Fatal("wrong number of fingerprints", set.Size(), live)
+		}
+		for i := range nodes {
+			found, err := set.Contains(q, 0, nodes[i:i+1])
+			astTestMust(t, err)
+			if found != (i < live) {
+				t.Fatal("wrong membership", i, live)
+			}
+			if f := results[i]; f != nil {
+				arg, err := f.Arg(0)
+				astTestMust(t, err)
+				if arg != nodes[i] || f.Data() != q || f.DataHash() != uint32(i) {
+					t.Fatal("returned tuple changed", i)
+				}
+			}
+		}
+	}
+	insert(0, 9)
+	astTestMust(t, set.PushScope())
+	insert(9, 57)
+	astTestMust(t, set.PushScope())
+	insert(57, total)
+	check(total)
+	astTestMust(t, set.PopScopes(1))
+	check(57)
+	astTestMust(t, set.PushScope())
+	insert(57, 120)
+	check(120)
+	astTestMust(t, set.PopScopes(2))
+	check(9)
+	set.Reset()
+	check(0)
+}
