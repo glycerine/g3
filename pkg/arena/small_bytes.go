@@ -142,14 +142,27 @@ func (a *SmallBytes) ReadUint32LE(r SmallBytesRef, offset uint32) (uint32, error
 // Borrow returns a block's bytes in place. They stay valid until the block is
 // deallocated, because chunks never move. The caller must not retain them longer.
 func (a *SmallBytes) Borrow(r SmallBytesRef) ([]byte, error) {
-	d, err := a.descriptor(r)
-	if err != nil {
-		return nil, err
+	if a.closed {
+		return nil, ErrClosed
 	}
-	if d.length == 0 {
+	if r == (SmallBytesRef{}) {
 		return nil, nil
 	}
-	return a.chunks[d.page].data[d.offset : d.offset+d.length : d.offset+d.length], nil
+	s := a.descriptors
+	if uint32(r.Slot)-1 >= s.slots || r.Generation == 0 {
+		return nil, ErrInvalidSlot
+	}
+	page, index := s.location(r.Slot)
+	records := s.pages[page].records
+	if index >= uint32(len(records)) {
+		return nil, ErrInvalidSlot // Reset can release the entire record page.
+	}
+	d := &records[index]
+	if d.capacity != uint32(r.Generation) {
+		return nil, ErrInvalidSlot
+	}
+	end := d.offset + d.length
+	return a.chunks[d.page].data[d.offset:end:end], nil
 }
 
 // ReadUint32LEs fills dst from consecutive scalars with one validation.
@@ -186,14 +199,7 @@ func (a *SmallBytes) ReadUint32Pair(r SmallBytesRef, offset uint32) (uint32, uin
 // View returns the live payload bytes of r for reading. The view is valid
 // until the next allocation or release on a; callers must not write it.
 func (a *SmallBytes) View(r SmallBytesRef) ([]byte, error) {
-	d, err := a.descriptor(r)
-	if err != nil {
-		return nil, err
-	}
-	if d.length == 0 {
-		return nil, nil
-	}
-	return a.chunks[d.page].data[d.offset : d.offset+d.length : d.offset+d.length], nil
+	return a.Borrow(r)
 }
 
 // ReadUint32Quad reads four consecutive little-endian scalars with one
@@ -317,6 +323,14 @@ func (a *SmallBytes) newChunk(class, directSize uint32) (uint32, error) {
 	}
 	return page, nil
 }
+
+// The chunk supplies the block capacity. Keeping the generation in that word
+// of the descriptor lets Borrow validate the reference and locate its bytes
+// from one record. Recycle clears the record before the slot can be reused.
+func smallByteDescriptor(page, offset, length uint32, generation Generation) vectorDescriptor {
+	return vectorDescriptor{page: page, offset: offset, length: length, capacity: uint32(generation)}
+}
+
 func (a *SmallBytes) Allocate(size uint32) (SmallBytesRef, error) {
 	if a.closed {
 		return SmallBytesRef{}, ErrClosed
@@ -334,7 +348,7 @@ func (a *SmallBytes) Allocate(size uint32) (SmallBytesRef, error) {
 			a.descriptors.Recycle(slot)
 			return SmallBytesRef{}, e
 		}
-		a.descriptors.Write(slot, vectorDescriptor{page: page, length: size, capacity: size})
+		a.descriptors.Write(slot, smallByteDescriptor(page, 0, size, g))
 		a.requested += uint64(size)
 		return SmallBytesRef{slot, g}, nil
 	}
@@ -375,7 +389,7 @@ func (a *SmallBytes) Allocate(size uint32) (SmallBytesRef, error) {
 		offset = c.cursor
 		c.cursor += capacity
 	}
-	a.descriptors.Write(slot, vectorDescriptor{page: page, offset: offset, length: size, capacity: capacity})
+	a.descriptors.Write(slot, smallByteDescriptor(page, offset, size, g))
 	a.requested += uint64(size)
 	return SmallBytesRef{slot, g}, nil
 }
@@ -401,9 +415,9 @@ func (a *SmallBytes) Deallocate(size uint32, r SmallBytesRef) error {
 		a.requested -= uint64(size)
 		return a.descriptors.Recycle(r.Slot)
 	}
-	class := d.capacity / a.config.Alignment
 	c := &a.chunks[d.page]
-	block := d.offset / d.capacity
+	class := c.class
+	block := d.offset / (class * a.config.Alignment)
 	m := &c.blocks[block]
 	m.nextFree = a.heads[class] + 1
 	a.heads[class] = smallByteLocation(d.page, block)

@@ -2,6 +2,7 @@ package arena
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -129,5 +130,69 @@ func TestSmallBytesBorrowSeesTheBlockInPlace(t *testing.T) {
 	}
 	if _, err = store.Borrow(ref); err != ErrInvalidSlot {
 		t.Fatal("stale borrow", err)
+	}
+}
+
+func TestSmallBytesViewsAcrossSlotReuseAndReset(t *testing.T) {
+	for _, size := range []uint32{13, 300} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			a := newSmallTest(t, 80, nil)
+			old := smallAlloc(t, a, size)
+			check := func(ref SmallBytesRef, n int, wantErr error) {
+				t.Helper()
+				for _, access := range []func(SmallBytesRef) ([]byte, error){a.Borrow, a.View} {
+					data, err := access(ref)
+					if err != wantErr || len(data) != n || cap(data) != n {
+						t.Fatalf("ref %v: length %d, capacity %d, error %v; want %d and %v", ref, len(data), cap(data), err, n, wantErr)
+					}
+				}
+			}
+			check(old, int(size), nil)
+			check(SmallBytesRef{Slot: old.Slot}, 0, ErrInvalidSlot)
+			check(SmallBytesRef{Generation: old.Generation}, 0, ErrInvalidSlot)
+			smallFree(t, a, size, old)
+			fresh := smallAlloc(t, a, size+1)
+			if old.Slot != fresh.Slot || old.Generation == fresh.Generation {
+				t.Fatalf("expected slot reuse, got %v then %v", old, fresh)
+			}
+			check(old, 0, ErrInvalidSlot)
+			check(fresh, int(size+1), nil)
+			a.Reset()
+			check(fresh, 0, ErrInvalidSlot)
+			newPage := smallAlloc(t, a, size)
+			check(old, 0, ErrInvalidSlot)
+			check(fresh, 0, ErrInvalidSlot)
+			check(newPage, int(size), nil)
+			a.Close()
+			check(newPage, 0, ErrClosed)
+			check(SmallBytesRef{}, 0, ErrClosed)
+		})
+	}
+}
+
+func BenchmarkSmallBytesBorrow(b *testing.B) {
+	for _, size := range []uint32{32, 256} {
+		b.Run(fmt.Sprint(size), func(b *testing.B) {
+			store, err := NewSmallBytes(SmallBytesConfig{})
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.Cleanup(store.Close)
+			var refs [4096]SmallBytesRef
+			for i := range refs {
+				refs[i], err = store.Allocate(size)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				data, err := store.Borrow(refs[i*593&(len(refs)-1)])
+				if err != nil || len(data) != int(size) {
+					b.Fatal(len(data), err)
+				}
+			}
+		})
 	}
 }
