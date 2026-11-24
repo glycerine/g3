@@ -74,7 +74,7 @@ def build_go(directory, overlay, thread_event):
     return binary
 
 
-def build_native(directory, build, thread_event):
+def build_native(directory, build, thread_event, fixture=None):
     directory.mkdir()
     config = (build / "config.mk").read_text()
     makefile = (build / "Makefile").read_text()
@@ -90,7 +90,8 @@ def build_native(directory, build, thread_event):
         context = replace_once(context, call, f"{{scope_phase_event({phase}, true); {call} scope_phase_event({phase}, false);}}")
     context_file = directory / "smt_context.cpp"
     context_file.write_text("extern void scope_phase_event(int, bool);\n" + context)
-    fixture = (ROOT / "src/test/smt_scope_restoration.cpp").read_text()
+    if fixture is None:
+        fixture = (ROOT / "src/test/smt_scope_restoration.cpp").read_text()
     fixture = replace_once(fixture, "auto start = clock::now();", f"""
         scope_phase_active = round >= {WARMUP};
         scope_phase_event(0, true);

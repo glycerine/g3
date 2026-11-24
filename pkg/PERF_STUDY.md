@@ -5959,3 +5959,20 @@ The three standalone Ticket residuals closed after **2, 3 and 12 branching decis
 For 12,000 independently generated small CNFs, exhaustive enumeration found 3,836 satisfiable and 8,164 unsatisfiable. All four search configurations agreed with exhaustive enumeration on every case. On quantified inputs with known interpretations, two encodings preserved all 960 satisfiable trials and refuted 272 of 320 contradictory trials. The remaining 48 went back to the caller. Directional gate encoding and eliminating pure literals can reduce the installed formula further. For Ticket batch 6 those two changes reduced unassigned clauses from 7,272 to 5,160. [Generators, controls and individual clause counts](perf/ivy_apple/holdouts/nov24-terminal-ground-propagation.tar.xz)
 
 In five complete GoIvy rotations, trying this refutation when the released premise rule declined a second mixed search took Ticket from **3.314 to 3.105 billion instructions**. Hermes went from 26.564 to 26.390 billion. However, alternating bit rose from 2.943 to 3.118 billion, Hybrid from 9.216 to 9.411, and nested Ticket from 3.507 to 3.633. These are comparisons with the release in `5f9a22b74`. The DPLL code stays in the benchmark archive. An improvement across workloads would have to reduce the cost of generating instances on inconclusive attempts. Faster SAT search alone has little room left on the three successful Ticket checks. [Verifier overlays and per-workload comparisons](perf/ivy_apple/holdouts/nov24-terminal-ground-propagation.tar.xz)
+
+### Scope restoration cost as the number of atoms grows
+
+A queue-enabled search backtrack over four scoped atoms costs approximately 8,000 retired user instructions in both engines. At 128 atoms, g3 uses 12% more. At 2,048 atoms it uses 28% more. When the atoms survive the backtrack, both implementations largely avoid work proportional to the number of learned clauses. The widest surviving case took 2,343 instructions in g3 and 3,695 in Z3.
+
+| Scoped atoms | Learned clauses | g3 instructions per pop | Z3 instructions per pop | g3 instructions restoring clauses | Z3 instructions restoring clauses |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 4 | 2 | 7,992 | 7,985 | 3,188 | 2,824 |
+| 32 | 16 | 40,397 | 38,060 | 25,701 | 22,273 |
+| 128 | 64 | 162,087 | 144,731 | 107,025 | 89,218 |
+| 512 | 256 | 675,968 | 570,955 | 437,867 | 357,208 |
+| 2,048 | 1,024 | 2,917,718 | 2,275,017 | 1,843,646 | 1,429,722 |
+| 4,096 | 2,048 | 5,684,534 | 4,611,889 | 3,674,046 | 2,860,505 |
+
+At 2,048 atoms, restoring clauses accounts for about 414,000 of the 643,000 extra instructions. Undoing the core trail costs another 153,000 extra and retiring relevance costs 67,000 extra. Each phase was measured on its own run. This makes restoring clauses the first place to profile at larger widths, particularly the cost of re-creating Boolean variables as the literals are rebound.
+
+For each width, the g3 and in-tree Z3 fixtures preserve the same ternary learned clauses and validate every restored literal and clause identity. The table gives the median solver-thread instruction count per call minus the engine's median empty measurement. Five rounds rotated width and engine order on CPU 13. Eight warm-up pops preceded each measurement. Fixture setup, validation, and outer-scope cleanup were outside the counters. Reproduce with `python3 perf/scope_restoration/pop_phases/widths.py --cpu 13 --output /tmp/new-scope-widths`. [Benchmark driver](perf/scope_restoration/pop_phases/widths.py) · [All 770 phase measurements](perf/scope_restoration/pop_phases/nov24-width-instructions.csv)
