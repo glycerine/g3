@@ -5976,3 +5976,27 @@ A queue-enabled search backtrack over four scoped atoms costs approximately 8,00
 At 2,048 atoms, restoring clauses accounts for about 414,000 of the 643,000 extra instructions. Undoing the core trail costs another 153,000 extra and retiring relevance costs 67,000 extra. Each phase was measured on its own run. This makes restoring clauses the first place to profile at larger widths, particularly the cost of re-creating Boolean variables as the literals are rebound.
 
 For each width, the g3 and in-tree Z3 fixtures preserve the same ternary learned clauses and validate every restored literal and clause identity. The table gives the median solver-thread instruction count per call minus the engine's median empty measurement. Five rounds rotated width and engine order on CPU 13. Eight warm-up pops preceded each measurement. Fixture setup, validation, and outer-scope cleanup were outside the counters. Reproduce with `python3 perf/scope_restoration/pop_phases/widths.py --cpu 13 --output /tmp/new-scope-widths`. [Benchmark driver](perf/scope_restoration/pop_phases/widths.py) · [All 770 phase measurements](perf/scope_restoration/pop_phases/nov24-width-instructions.csv)
+
+### Can matching known literals avoid most quantified instances?
+
+On four captured Ivy goals, matching quantified predicate arguments against ground literals cut the instructions needed for an independent refutation by 3.7–5.6×. The positional strategy tries combinations of observed ground arguments. The alternative first selects ground predicates with the required declaration and sign, then unifies their arguments with the quantified pattern. Each accepted substitution produces an instance of the original universal. If the bounded search runs out of instances or decisions, the caller still has to solve the original query.
+
+| Captured goal | Positional selection, millions of instructions | Literal matching, millions of instructions |
+| --- | ---: | ---: |
+| Hermes batch 7, goal 1 | 323.60 | 88.18 |
+| Hybrid broadcast batch 32, goal 1 | 415.83 | 82.15 |
+| Liveness 2 batch 12, goal 1 | 255.65 | 45.25 |
+| Ticket batch 5, goal 1 | 213.27 | 49.27 |
+
+Each cell is the lowest median of two complete processes among configurations that proved that goal. These figures describe attainable standalone costs with settings selected after measurement. The sweep covered 27 original captures, seven selection strategies and five parameter settings. Three other Ticket goals exposed a limit of matching known literals. The positional strategy proved them in 76, 73 and 77 million instructions. None of the signed strategies proved them within its budget. Four signed configurations also ran on 1,280 generated quantified formulas each. Every configuration left all 960 formulas with explicit models unrefuted and proved all 320 explicit contradictions. [Archived Go checker, original goals, generators and all measurements](perf/ivy_apple/holdouts/nov24-signed-ground-instances.tar.xz)
+
+The complete incremental verifier already closes many of these goals cheaply. An observer measured literal matching on every nontrivial goal and then let the existing verifier make its original decision. The last column sums the existing early proof, push and check instructions on exactly those goals where the observer returned a proof. The figures are medians of three complete runs. They do not quantify any change in later incremental solver state that would result from skipping a successful check.
+
+| Spec | Goals proved / attempted | Matching cost on successes, billions | Matching cost on misses, billions | Existing solver work on the successes, billions |
+| --- | ---: | ---: | ---: | ---: |
+| Hermes | 2,033 / 2,570 | 90.36 | 42.56 | 5.63 |
+| Ticket | 166 / 280 | 6.21 | 9.74 | 0.47 |
+| Hybrid broadcast | 434 / 837 | 17.02 | 29.14 | 1.25 |
+| ARM rules 3 | 38 / 114 | 0.41 | 6.68 | 0.004 |
+
+Four rotations of nine configurations on 14 complete verifier workloads produced 504 matching exit codes and transcripts. Trying the observed-literal strategy at a terminal goal raised Hybrid from 9.186 to 9.516 billion instructions, Ticket from 3.267 to 3.478 billion and ARM from 3.468 to 3.570 billion. The matcher stays in the study archive. The larger opportunity would be to share the cost of normalizing and indexing premises across sibling goals in a single solver. On Hermes, a fresh matcher spent 16× the existing work even on the goals it proved. Any shared implementation has to pay for both rebuilding at changed premises and discarding goal-dependent facts. [Verifier overlays, per-goal counters and reproducible smoke test](perf/ivy_apple/holdouts/nov24-signed-ground-instances.tar.xz)
