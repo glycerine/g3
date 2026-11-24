@@ -21,6 +21,114 @@ func checkAfterBatchProof(s *APISimpleSolver, batch *OrderProofBatch) (lbool.LBo
 	return s.Check()
 }
 
+func TestRecentRefutedConjunctTruthTable(t *testing.T) {
+	f := newSMTAPIFixture(t, "QF_UF", nil)
+	sort := f.pin(f.c.BoolSort())
+	p := f.pin(f.c.Constant("p", sort))
+	q := f.pin(f.c.Constant("q", sort))
+	notP := f.pin(f.c.Not(p))
+	notQ := f.pin(f.c.Not(q))
+	and := f.pin(f.c.And(p, q))
+	or := f.pin(f.c.Or(p, q))
+	implies := f.pin(f.c.Implies(p, q))
+	notImplies := f.pin(f.c.Not(implies))
+	notOr := f.pin(f.c.Not(or))
+	doubleNotP := f.pin(f.c.Not(notP))
+	// Bits enumerate the four assignments to (p,q), starting at (false,false).
+	masks := map[ast.ASTHandle]uint8{
+		p: 0b1100, q: 0b1010, notP: 0b0011, notQ: 0b0101,
+		and: 0b1000, or: 0b1110, implies: 0b1011, notImplies: 0b0100,
+		notOr: 0b0001, doubleNotP: 0b1100,
+	}
+	required := map[[2]ast.ASTHandle]bool{
+		{p, and}: true, {q, and}: true, {p, notImplies}: true,
+		{notQ, notImplies}: true, {notP, notOr}: true, {notQ, notOr}: true,
+		{doubleNotP, and}: true,
+	}
+	for old, oldMask := range masks {
+		premise := f.pin(f.c.Not(old))
+		var recent recentRefutations
+		if recent.lookup(f.m, []ast.ASTHandle{premise, old}) {
+			t.Fatal("empty history reported a proof")
+		}
+		// The premise and the whole old goal contradict by construction.
+		recent.remember()
+		for goal, mask := range masks {
+			hit := recent.lookup(f.m, []ast.ASTHandle{premise, goal})
+			if hit && mask&^oldMask != 0 {
+				t.Fatalf("remembered %04b refuted satisfiable goal %04b", oldMask, mask)
+			}
+			if required[[2]ast.ASTHandle{old, goal}] && !hit {
+				t.Fatalf("missed required conjunct %04b in goal %04b", oldMask, mask)
+			}
+		}
+		// p and q can both hold once the old premise is gone.
+		if recent.lookup(f.m, []ast.ASTHandle{and}) {
+			t.Fatal("reused a signed conjunct after dropping the premise")
+		}
+	}
+}
+
+func TestOrderProofBatchReusesARefutedConjunct(t *testing.T) {
+	f := newSMTAPIFixture(t, "QF_UF", nil)
+	s, err := f.c.NewSolver()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, s.Close()) })
+	batch := s.BeginOrderProofBatch()
+	t.Cleanup(func() { astTestMust(t, batch.Close()) })
+	sort := f.pin(f.c.BoolSort())
+	p := f.pin(f.c.Constant("p", sort))
+	q := f.pin(f.c.Constant("q", sort))
+	notP := f.pin(f.c.Not(p))
+	goal := f.pin(f.c.Not(f.pin(f.c.Implies(q, p))))
+	astTestMust(t, s.Assert(p))
+	astTestMust(t, s.Push())
+	astTestMust(t, s.Assert(notP))
+	answer, err := checkAfterBatchProof(s, batch)
+	if err != nil || answer != lbool.False {
+		t.Fatal("initial contradiction", answer, err)
+	}
+	astTestMust(t, s.Pop(1))
+	astTestMust(t, s.Push())
+	astTestMust(t, s.Assert(goal))
+	if proved, err := batch.Prove(); err != nil || !proved {
+		t.Fatal("the new goal requires the previously refuted literal", proved, err)
+	}
+	astTestMust(t, s.Reset())
+	astTestMust(t, s.Assert(q))
+	astTestMust(t, s.Assert(goal))
+	answer, err = checkAfterBatchProof(s, batch)
+	if err != nil || answer != lbool.True {
+		t.Fatal("the changed premises allow q=true and p=false", answer, err)
+	}
+}
+
+func BenchmarkRecentRefutedConjunct(b *testing.B) {
+	c, s := orderSolver(b, `(declare-const p Bool)(declare-const q Bool)
+		(assert p)(assert (not p))(assert (not (=> q p)))(assert (not q))`)
+	m, err := c.Manager()
+	astTestMust(b, err)
+	forms, err := solver.Assertions(s.solver)
+	astTestMust(b, err)
+	for i, name := range []string{"Exact", "NegatedImplication", "Independent"} {
+		b.Run(name, func(b *testing.B) {
+			var recent recentRefutations
+			if recent.lookup(m, forms[:2]) {
+				b.Fatal("unexpected initial hit")
+			}
+			recent.remember()
+			query := []ast.ASTHandle{forms[0], forms[i+1]}
+			want := i != 2
+			b.ReportAllocs()
+			for b.Loop() {
+				if recent.lookup(m, query) != want {
+					b.Fatalf("wrong lookup for %s", name)
+				}
+			}
+		})
+	}
+}
+
 func TestOrderProofBatchReusesOnlyIdenticalPremises(t *testing.T) {
 	f := newSMTAPIFixture(t, "QF_UF", nil)
 	s, err := f.c.NewSolver()
@@ -339,7 +447,7 @@ func TestOrderProofBatchRejectsRecycledArenaSlots(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, f.m.IncRef(old))
 	var r recentRefutations
-	if r.lookup([]ast.ASTHandle{p, old}) {
+	if r.lookup(f.m, []ast.ASTHandle{p, old}) {
 		t.Fatal("unexpected hit in new batch")
 	}
 	r.remember()
@@ -348,7 +456,7 @@ func TestOrderProofBatchRejectsRecycledArenaSlots(t *testing.T) {
 	if old.Slot() != now.Slot() || now.Generation() == old.Generation() {
 		t.Fatal("control requires recycled slot", old, now)
 	}
-	if r.lookup([]ast.ASTHandle{p, now}) {
+	if r.lookup(f.m, []ast.ASTHandle{p, now}) {
 		t.Fatal("reused the old goal after reclamation")
 	}
 }

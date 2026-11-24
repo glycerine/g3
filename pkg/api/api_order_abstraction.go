@@ -92,8 +92,8 @@ func (s *APISimpleSolver) BeginOrderProofBatchForGoals(count int) *OrderProofBat
 // can reuse identical premises in the same generated language or match a
 // ground query against a universally quantified premise. An inconclusive
 // attempt releases the private kernel before the caller's concrete check.
-// The batch can also reuse a recent concrete UNSAT result under exactly
-// the same ordered assertions. Each source solver observes its own checks.
+// With the same ordered premises, a goal can reuse a prior refutation of
+// itself or one of its required conjuncts. Each solver observes its own checks.
 func (b *OrderProofBatch) Prove() (bool, error) {
 	if b == nil || b.state == nil || b.state.source == nil {
 		return false, ErrSMTContextOwner
@@ -251,7 +251,7 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 		if p.recent == nil {
 			p.recent = new(recentRefutations)
 		}
-		if p.recent.lookup(assertions) {
+		if p.recent.lookup(parent, assertions) {
 			return !limit.CancelFlag(), nil
 		}
 		candidate = p.recent
