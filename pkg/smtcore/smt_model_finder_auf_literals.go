@@ -175,11 +175,7 @@ func (g *smtModelFinderAUFGraph) populateLiteral(info smtModelFinderAUFLiteral) 
 		// relevant context term of that sort (paper section 4.1).
 		// begin_enodes() traverses the context in internalization order.
 		state := g.finder.state
-		enodes := state.enodeStack
-		if state.context.registeredEnodes != nil {
-			enodes = state.context.registeredEnodes
-		}
-		for _, enode := range enodes {
+		for _, enode := range state.context.registrationOrder() {
 			if !g.finder.state.isRelevant(enode.owner) {
 				continue
 			}

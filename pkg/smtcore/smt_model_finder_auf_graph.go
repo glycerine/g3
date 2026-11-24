@@ -262,7 +262,7 @@ func (g *smtModelFinderAUFGraph) populateFunctionArgument(info smtModelFinderFVa
 			argument.mono, variable.mono = true, true
 		}
 	}
-	for _, application := range context.byDeclaration[info.function] {
+	for _, application := range context.declarationEnodes(info.function) {
 		if application == nil || !g.finder.state.isRelevant(application.owner) {
 			continue
 		}

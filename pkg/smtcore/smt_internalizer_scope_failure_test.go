@@ -55,6 +55,12 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 					if state.retiringEnode == nil || state.retiringEnodeRoot.IsNull() {
 						t.Fatal("enode retirement lost its live owner")
 					}
+					node := state.retiringEnode
+					for _, current := range state.context.declarationEnodes(node.declaration) {
+						if current == node {
+							t.Fatal("first declaration lookup returned a partially retired enode")
+						}
+					}
 				case "boolean":
 					// Close retires the root scope, where context::init's
 					// true/false enodes precede the Boolean variable's turn.

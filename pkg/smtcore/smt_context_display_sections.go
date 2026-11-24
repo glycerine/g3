@@ -137,16 +137,8 @@ func (s *SMTInternalizerState) DisplayDeclarationEnodes(out io.Writer) error {
 		return err
 	}
 	var rows []smtDisplayDeclarationRow
-	for declaration, nodes := range s.context.byDeclaration {
-		// Source mk_enode registers only non-equality enodes with arguments;
-		// the Go checker also indexes constants and equalities for lookup.
-		var retained []*SMTEnode
-		for _, node := range nodes {
-			if node.NumArgs() != 0 && !node.IsEquality() {
-				retained = append(retained, node)
-			}
-		}
-		if len(retained) == 0 {
+	for declaration, nodes := range s.context.matchingDeclarations() {
+		if len(nodes) == 0 {
 			continue
 		}
 		id, err := s.manager.GetASTID(declaration)
@@ -154,7 +146,7 @@ func (s *SMTInternalizerState) DisplayDeclarationEnodes(out io.Writer) error {
 			return err
 		}
 		// ast.h decl::get_decl_id removes the declaration-ID namespace bit.
-		rows = append(rows, smtDisplayDeclarationRow{id: id - (1 << 31), nodes: retained})
+		rows = append(rows, smtDisplayDeclarationRow{id: id - (1 << 31), nodes: nodes})
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].id < rows[j].id })
 	for _, row := range rows {

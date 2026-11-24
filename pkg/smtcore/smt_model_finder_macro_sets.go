@@ -44,7 +44,7 @@ func (f *SMTModelFinder) populateMacroInstantiationSets(quantifier ast.ASTHandle
 			f.sets[quantifier] = sets
 		}
 		set := sets[fvar.variable]
-		for _, application := range f.state.context.byDeclaration[chosen] {
+		for _, application := range f.state.context.declarationEnodes(chosen) {
 			if application == nil || !f.state.isRelevant(application.owner) {
 				continue
 			}

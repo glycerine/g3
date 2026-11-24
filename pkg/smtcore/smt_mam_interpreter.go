@@ -158,7 +158,7 @@ func (it *smtMAMInterpreter) mkDepth2Vector(j2 *smtMAMJoint2, f ast.ASTHandle, i
 // enodesOf is context::begin_enodes_of(lbl)..end_enodes_of(lbl):
 // m_decl2enodes keeps the non-equality enodes with arguments.
 func (it *smtMAMInterpreter) enodesOf(lbl ast.ASTHandle) []*SMTEnode {
-	return it.state.context.decl2enodes[lbl]
+	return it.state.context.matchingDeclarations()[lbl]
 }
 
 func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32) *SMTEnode {

@@ -12,7 +12,7 @@ import (
 // internalized, assigned, and merged.
 type SMTCheckerContext struct {
 	// A caller may register borrowed enodes alongside the internalizer's owned
-	// enodes. Only such a context needs a separate list in registration order.
+	// enodes. A shared checker needs its own registration order when there is more than one owner.
 	registeredEnodes []*SMTEnode
 	manager          *ast.ASTManager
 	relevancy        *SMTRelevancyPropagator
@@ -23,7 +23,7 @@ type SMTCheckerContext struct {
 	byDeclaration    map[ast.ASTHandle][]*SMTEnode
 	// decl2enodes is context::m_decl2enodes: per declaration, the enodes
 	// with arguments that are not equalities, in creation order.
-	// enodes_of(lbl) reads it directly.
+	// The matching interpreter reads these ranges directly after its first lookup.
 	decl2enodes      map[ast.ASTHandle][]*SMTEnode
 	disequalityTrail []smtDisequalityUndo
 	// diseqTmp is the owner of context::m_is_diseq_tmp: is_diseq builds
@@ -59,8 +59,6 @@ func NewSMTCheckerContext(manager *ast.ASTManager) (*SMTCheckerContext, error) {
 	return &SMTCheckerContext{
 		manager: manager, exprs: exprs, relevant: smtRelevantTable{exprs},
 		assignments: smtAssignmentTable{t: exprs}, enodes: smtEnodeTable{exprs},
-		byDeclaration: make(map[ast.ASTHandle][]*SMTEnode),
-		decl2enodes:   make(map[ast.ASTHandle][]*SMTEnode),
 	}, nil
 }
 
@@ -128,6 +126,46 @@ func (c *SMTCheckerContext) getAssignment(n ast.ASTHandle) lbool.LBool {
 	return c.assignments.get(n)
 }
 
+// A standalone checker can register borrowed nodes. A context attached to one
+// internalizer already has its registration order in that internalizer's trail.
+func (c *SMTCheckerContext) registrationOrder() []*SMTEnode {
+	if c.registeredEnodes != nil || c.assignments.s == nil {
+		return c.registeredEnodes
+	}
+	return c.assignments.s.enodeStack
+}
+
+func (n *SMTEnode) isMatchingApplication() bool {
+	return len(n.arguments) != 0 && !n.IsEquality()
+}
+
+// Build each index on its first read. Some solvers never ask for candidates.
+// An interrupted AST release can leave an unregistered node on the trail.
+func (c *SMTCheckerContext) buildDeclarationIndex(matchingOnly bool) map[ast.ASTHandle][]*SMTEnode {
+	index := make(map[ast.ASTHandle][]*SMTEnode)
+	for _, n := range c.registrationOrder() {
+		if matchingOnly && !n.isMatchingApplication() || c.enodes.get(n.owner) != n {
+			continue
+		}
+		index[n.declaration] = append(index[n.declaration], n)
+	}
+	return index
+}
+
+func (c *SMTCheckerContext) declarationEnodes(declaration ast.ASTHandle) []*SMTEnode {
+	if c.byDeclaration == nil {
+		c.byDeclaration = c.buildDeclarationIndex(false)
+	}
+	return c.byDeclaration[declaration]
+}
+
+func (c *SMTCheckerContext) matchingDeclarations() map[ast.ASTHandle][]*SMTEnode {
+	if c.decl2enodes == nil {
+		c.decl2enodes = c.buildDeclarationIndex(true)
+	}
+	return c.decl2enodes
+}
+
 func (c *SMTCheckerContext) RegisterEnode(node *SMTEnode, relevant bool) error {
 	return c.registerEnode(node, relevant, true)
 }
@@ -154,8 +192,10 @@ func (c *SMTCheckerContext) registerEnode(node *SMTEnode, relevant, borrowed boo
 			c.registeredEnodes = append(c.registeredEnodes, node)
 		}
 		c.enodes.set(node.owner, node)
-		c.byDeclaration[node.declaration] = append(c.byDeclaration[node.declaration], node)
-		if len(node.arguments) != 0 && !node.IsEquality() {
+		if c.byDeclaration != nil {
+			c.byDeclaration[node.declaration] = append(c.byDeclaration[node.declaration], node)
+		}
+		if c.decl2enodes != nil && node.isMatchingApplication() {
 			c.decl2enodes[node.declaration] = append(c.decl2enodes[node.declaration], node)
 		}
 	}
@@ -394,7 +434,7 @@ func (c *SMTChecker) congruentEnodeWithFlags(declaration ast.ASTHandle, commutat
 		}
 		return found, nil
 	}
-	for _, candidate := range c.context.byDeclaration[declaration] {
+	for _, candidate := range c.context.declarationEnodes(declaration) {
 		if len(candidate.arguments) != len(arguments) {
 			continue
 		}

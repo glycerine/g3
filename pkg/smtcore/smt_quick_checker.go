@@ -66,7 +66,7 @@ func (q *SMTQuickChecker) collectorCheckArg(node *SMTEnode, parent ast.ASTHandle
 	if parent.IsNull() || !conservative {
 		return true
 	}
-	for _, current := range q.context.byDeclaration[parent] {
+	for _, current := range q.context.declarationEnodes(parent) {
 		if !q.context.isRelevant(current.owner) || !current.IsCongruenceRoot() || position >= uint32(len(current.arguments)) {
 			continue
 		}
@@ -108,7 +108,7 @@ func (q *SMTQuickChecker) collectCore(expression, parent ast.ASTHandle, parentPo
 					continue
 				}
 				temporary[index].Reset()
-				for _, current := range q.context.byDeclaration[decl] {
+				for _, current := range q.context.declarationEnodes(decl) {
 					if q.context.isRelevant(current.owner) && current.IsCongruenceRoot() && q.collectorCheckArg(current, parent, parentPosition, true) && position < uint32(len(current.arguments)) {
 						root := current.arguments[position].root
 						present, err := sets[index].Contains(root.owner)
@@ -126,7 +126,7 @@ func (q *SMTQuickChecker) collectCore(expression, parent ast.ASTHandle, parentPo
 				continue
 			}
 			found[index] = true
-			for _, current := range q.context.byDeclaration[decl] {
+			for _, current := range q.context.declarationEnodes(decl) {
 				if q.context.isRelevant(current.owner) && current.IsCongruenceRoot() && q.collectorCheckArg(current, parent, parentPosition, conservative) && position < uint32(len(current.arguments)) {
 					root := current.arguments[position].root
 					q.collNodes[root.owner] = root
@@ -255,7 +255,7 @@ func (q *SMTQuickChecker) congruent(declaration ast.ASTHandle, arguments []*SMTE
 		}
 		return table.FindApp(declaration, arguments, flags.Commutative)
 	}
-	for _, candidate := range q.context.byDeclaration[declaration] {
+	for _, candidate := range q.context.declarationEnodes(declaration) {
 		if !candidate.IsCongruenceRoot() || len(candidate.arguments) != len(arguments) {
 			continue
 		}

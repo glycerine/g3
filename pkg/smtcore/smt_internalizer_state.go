@@ -355,6 +355,11 @@ func newSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 	}
 	state.booleanData[0].Initialize(0)
 	// The checker context reads Boolean values from m_assignment itself.
+	if previous := context.assignments.s; previous != nil && !previous.closed && context.registeredEnodes == nil {
+		// The checker can borrow enodes from both owners after it is rebound.
+		context.registeredEnodes = make([]*SMTEnode, len(previous.enodeStack))
+		copy(context.registeredEnodes, previous.enodeStack)
+	}
 	context.assignments.s = state
 	// context::init creates the true variable through mk_bool_var, which
 	// counts it in m_num_mk_bool_var.
@@ -1156,19 +1161,24 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if s.context.enodes.get(node.owner) != node {
 		return fmt.Errorf("enode owner %d is not current: %w", node.owner.Slot(), ast.ErrASTDomain)
 	}
-	bucket := s.context.byDeclaration[node.declaration]
-	at := s.context.declarationIndex(bucket, node)
-	if at < 0 {
-		return fmt.Errorf("enode absent from declaration %d (size %d): %w", node.declaration.Slot(), len(bucket), ast.ErrASTDomain)
+	var bucket []*SMTEnode
+	at := -1
+	if s.context.byDeclaration != nil {
+		bucket = s.context.byDeclaration[node.declaration]
+		at = s.context.declarationIndex(bucket, node)
+		if at < 0 {
+			return fmt.Errorf("enode absent from declaration %d (size %d): %w", node.declaration.Slot(), len(bucket), ast.ErrASTDomain)
+		}
 	}
-	apps := s.context.decl2enodes[node.declaration]
-	indexed := len(node.arguments) != 0 && !node.IsEquality()
+	indexed := s.context.decl2enodes != nil && node.isMatchingApplication()
+	var apps []*SMTEnode
 	appAt := -1
 	if indexed {
+		apps = s.context.decl2enodes[node.declaration]
 		appAt = s.context.declarationIndex(apps, node)
-	}
-	if indexed && appAt < 0 {
-		return fmt.Errorf("enode absent from matching applications of declaration %d: %w", node.declaration.Slot(), ast.ErrASTDomain)
+		if appAt < 0 {
+			return fmt.Errorf("enode absent from matching applications of declaration %d: %w", node.declaration.Slot(), ast.ErrASTDomain)
+		}
 	}
 	var local [4]smtRemovedParent
 	interior, err := node.detachParentsForDeletion(true, local[:0])
@@ -1201,7 +1211,9 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	}
 	// Popped tails are cleared: a Go backing array would keep the
 	// deleted enode reachable.
-	s.context.byDeclaration[node.declaration] = removeEnodeAt(bucket, at)
+	if at >= 0 {
+		s.context.byDeclaration[node.declaration] = removeEnodeAt(bucket, at)
+	}
 	if indexed {
 		s.context.decl2enodes[node.declaration] = removeEnodeAt(apps, appAt)
 	}

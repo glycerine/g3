@@ -72,7 +72,7 @@ func (c *SMTModelChecker) checkRecursiveFunction(md *protomodel.ProtoModel, q as
 		return false, err
 	}
 	defer func() { result = errors.Join(result, c.manager.DelRef(&evaluated)) }()
-	for _, node := range c.state.context.byDeclaration[declaration] {
+	for _, node := range c.state.context.declarationEnodes(declaration) {
 		if !c.state.isRelevant(node.owner) {
 			continue
 		}
