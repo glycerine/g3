@@ -1,7 +1,7 @@
 """Compare the Go and C++ theory reducers with many calls per hardware reading.
 
-Supply a Go test executable built from pkg/ast/rewriter and the native
-src/test/perf/theory_reduction.cpp executable linked to the in-tree libz3.a.
+Supply a Go test executable built from pkg/ast/rewriter. By default the native
+fixture links to the configured in-tree libz3.a in a temporary directory.
 The CSV includes complete process counters at two iteration counts. Their
 difference removes fixed process setup and gives an uninstrumented loop slope.
 """
@@ -13,7 +13,11 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from native_benchmark import ROOT, build_native
 
 
 CASES = ("UF", "Not", "DoubleNot", "Or", "OrDuplicate", "Iff")
@@ -23,7 +27,9 @@ MODES = ("Core", "Blank")
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--go", type=Path, required=True)
-    parser.add_argument("--native", type=Path, required=True)
+    parser.add_argument("--native", type=Path, help="use an existing native benchmark executable")
+    parser.add_argument("--build", type=Path, default=ROOT / "build",
+                        help="configured in-tree Makefile build containing libz3.a")
     parser.add_argument("--cpu", type=int, required=True)
     parser.add_argument("--perf", default="perf")
     parser.add_argument("--rounds", type=int, default=5)
@@ -35,6 +41,9 @@ def main():
         parser.error("supply positive rounds and 0 < low < high")
     env = dict(os.environ, GOMAXPROCS="1", GOGC="100", LC_ALL="C")
     with tempfile.TemporaryDirectory() as tmp, a.output.open("x", newline="") as out:
+        native = a.native.resolve() if a.native else Path(tmp) / "theory_reduction"
+        if not a.native:
+            build_native(a.build.resolve(), native, ROOT / "src/test/perf/theory_reduction.cpp")
         counter = Path(tmp) / "counter.csv"
         writer = csv.writer(out)
         writer.writerow(("round", "cpu", "engine", "case", "mode", "iterations",
@@ -51,7 +60,7 @@ def main():
                                        f"-test.bench=^BenchmarkTheoryReduction$/^{case}$/^{mode}$",
                                        f"-test.benchtime={n}x"]
                             else:
-                                cmd = [a.native.resolve(), case, mode, str(n)]
+                                cmd = [native, case, mode, str(n)]
                             perf_cmd = ["taskset", "-c", str(a.cpu), a.perf, "stat",
                                         "-e", "instructions:u", "-x,", "-o", counter, "--"]
                             res = subprocess.run(perf_cmd + cmd, check=True, env=env,

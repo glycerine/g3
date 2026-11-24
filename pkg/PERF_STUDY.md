@@ -5221,3 +5221,27 @@ Both engines called the core theory reducer about **584,500 times** during first
 The constant-folding rows count different amounts of work. Go filters by child position before entering the measured function. Five alternating offsets per engine measured each operation in a separate build. Probe placement affects generated code. For example, sampling the outer Go theory reducer gave 886 instructions per call, while sampling its inner method in a different binary gave 977. Those values cannot be subtracted to calculate wrapper overhead. [Portable Go and in-tree C++ measurement driver](perf/ivy_apple/incremental_cost/rewriter_call_cost.py)
 
 A further seven-offset experiment classified sampled calls by operator **after** the ending counter read. Each engine also ran an empty function with the same argument types, sampling arrangement and input. Subtracting its cost gave **1,174 / 84** instructions for negation, **2,119 / 362** for disjunction and **324 / 7** for an uninterpreted function, in g3 / Z3 order. The TLB recordings contained 19,717 / 19,704 negation samples, 9,321 / 9,321 disjunction samples and 28,820 / 28,855 uninterpreted-function samples. The uninterpreted case is particularly simple in the native code. A family-ID load and branch return a failed reduction immediately. The Go path calls an AST-manager accessor before returning the same result. The measurements include the generated code around that call. Whole-verifier measurements are necessary to establish the benefit of changing it. [Per-rule ranges, matched empty-function runs and both observers](perf/ivy_apple/incremental_cost/nov24-reduction-rule-costs.tar.xz)
+
+### Theory reduction with the hardware probes outside the loop
+
+A two-argument uninterpreted function takes **110 g3 instructions and 25 native instructions** to reject in a direct call to the theory reducer. A Boolean equivalence between distinct atoms takes **2,635 and 223**. Both implementations leave the expression alone in each of those cases. This independently confirms a per-call cost even when both solvers receive exactly the same operator and arguments. [Go fixture](ast/rewriter/th_rewriter_benchmark_test.go) · [In-tree Z3 fixture](../src/test/perf/theory_reduction.cpp)
+
+| User instructions per call, after empty-call subtraction | g3 | Z3 |
+|---|---:|---:|
+| Uninterpreted function of two atoms | 110 | 25 |
+| Negation of an atom | 897 | 104 |
+| Double negation, returning the atom | 794 | 115 |
+| Disjunction of distinct atoms | 1,464 | 312 |
+| Disjunction of an atom with itself, returning the atom | 1,573 | 293 |
+| Equivalence of distinct atoms | 2,635 | 223 |
+
+Each of seven rounds on CPU 33 ran fresh processes at 200,000 and 1,200,000 calls. The difference in process instructions divided by one million estimates the cost of one more iteration. Each table entry is the median paired difference between that slope and the slope of an empty callee with the same signature. The empty loops themselves cost about 43 instructions in Go and 13 in C++. All 336 readings ran without counter multiplexing. Both fixtures check the final reduction status and the identity of the returned expression. These direct loops reuse the operands and work outside the full traversal. The first-push samples above capture the actual mix of operands and execution paths. [Every process measurement](perf/ivy_apple/incremental_cost/nov24-direct-reduction.csv.gz)
+
+From `pkg`, use the following commands with a configured native build containing `libz3.a`. The driver compiles the C++ fixture against this fork and writes individual readings for both engines. [Paired benchmark driver](perf/ivy_apple/incremental_cost/theory_reduction.py)
+
+```sh
+go test -c -pgo=off -o /tmp/g3-theory-reduction.test ./ast/rewriter
+python3 perf/ivy_apple/incremental_cost/theory_reduction.py \
+  --go /tmp/g3-theory-reduction.test --cpu 0 --rounds 7 \
+  --low 200000 --high 1200000 --output /tmp/g3-theory-reduction.csv
+```
