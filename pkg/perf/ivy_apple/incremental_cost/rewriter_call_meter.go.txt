@@ -1,0 +1,95 @@
+// This package is compiled only into the single-worker Linux benchmark.
+package visitmeter
+
+import (
+	"fmt"
+	"os"
+	"runtime"
+	"strconv"
+	"syscall"
+	"unsafe"
+)
+
+var active bool
+var fd uintptr
+var calls, samples, sum, offset uint64
+
+func monotonicNS() int64 {
+	var t syscall.Timespec
+	_, _, err := syscall.RawSyscall(syscall.SYS_CLOCK_GETTIME, 1, uintptr(unsafe.Pointer(&t)), 0)
+	if err != 0 {
+		panic(err)
+	}
+	return t.Nano()
+}
+
+func instructions() uint64 {
+	var values [3]uint64
+	n, _, err := syscall.RawSyscall(syscall.SYS_READ, fd, uintptr(unsafe.Pointer(&values[0])), 24)
+	if err != 0 || n != 24 || values[1] != values[2] {
+		panic("incomplete instruction counter read")
+	}
+	return values[0]
+}
+
+//go:noinline
+func Enter() uint64 {
+	if !active {
+		return 0
+	}
+	calls++
+	if (calls+offset)%67 != 0 {
+		return 0
+	}
+	samples++
+	return instructions()
+}
+
+//go:noinline
+func Leave(start uint64) {
+	if start != 0 {
+		sum += instructions() - start
+	}
+}
+
+//go:noinline
+func calibrate() { defer Leave(Enter()) }
+
+func Begin(name string) func() {
+	if active || name != "propagate-values" && name != "pattern-inference" && name != "maximizing-bv-sharing" {
+		return func() {}
+	}
+	runtime.LockOSThread()
+	var attr struct {
+		Type, Size                                    uint32
+		Config, Period, SampleType, ReadFormat, Flags uint64
+		Padding                                       [16]byte
+	}
+	attr.Size = uint32(unsafe.Sizeof(attr))
+	attr.Config = 1          // PERF_COUNT_HW_INSTRUCTIONS
+	attr.Flags = 1<<5 | 1<<6 // exclude kernel and hypervisor
+	attr.ReadFormat = 3      // total time enabled and running
+	var err syscall.Errno
+	fd, _, err = syscall.RawSyscall6(syscall.SYS_PERF_EVENT_OPEN, uintptr(unsafe.Pointer(&attr)), 0, ^uintptr(0), ^uintptr(0), 0, 0)
+	if err != 0 {
+		panic(err)
+	}
+	tid := syscall.Gettid()
+	active = true
+	calls, samples, sum, offset = 0, 0, 0, 0
+	for i := 0; i < 9; i++ {
+		calls = 66
+		calibrate()
+	}
+	empty := sum / samples
+	offset, _ = strconv.ParseUint(os.Getenv("VISIT_OFFSET"), 10, 64)
+	calls, samples, sum = 0, 0, 0
+	start := monotonicNS()
+	return func() {
+		stop := monotonicNS()
+		active = false
+		syscall.Close(int(fd))
+		runtime.UnlockOSThread()
+		fmt.Fprintln(os.Stderr, "VISIT-COST", name, tid, start, stop, calls, samples, sum, empty)
+	}
+}

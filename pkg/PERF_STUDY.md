@@ -10,7 +10,7 @@ The retained change to quantifier triggers brought ordinary Hermes to **5.006 s*
 | Hermes testing, 6,338 checks | **140.66 s** | 156.86 s | 2 |
 | Ordinary Hermes, 2,575 checks | **5.006 s** | 6.791 s | 7 |
 
-TLB still used **88.44 billion instructions** in g3 versus **65.59 billion** in linked Z3. Earlier matched first-push measurements attributed 55% of the 11.49-billion-instruction gap at that boundary to value propagation, trigger inference and BV sharing. The ordinary Hermes gain came during search. [Matched first-push passes](#where-the-extra-first-push-instructions-go) · [Updated verification panel](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
+TLB still used **88.44 billion instructions** in g3 versus **65.59 billion** in linked Z3. Earlier matched first-push measurements attributed 55% of the 11.49-billion-instruction gap at that boundary to value propagation, trigger inference and BV sharing. The ordinary Hermes gain came during search. Within TLB value propagation, both engines made 961,604 application-processing calls. Five calibrated samples put g3 at 2,011 instructions per call and Z3 at 385. [Rewriter operation measurements](#the-cost-of-the-same-rewriter-operation-in-go-and-c) · [Matched first-push passes](#where-the-extra-first-push-instructions-go) · [Updated verification panel](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
 
 ## November 23 verification results
 
@@ -5127,3 +5127,27 @@ The three current g3 count runs agreed down to the quantifier and generation. In
 A second test makes the joining relation entirely absent before the first instantiation. With model-based instantiation disabled, requiring the joined trigger alone yields UNKNOWN on both solvers. The original trigger derives a fact about the missing relation, exposing a contradiction. Both solvers return UNSAT when they have the joined trigger followed by the original. The retained Go test also exercises explicit patterns, an extra eager pattern, and a solver configured without a delayed matching round. [Missing-relation regression](smtcore/smt_connected_triggers_test.go) · [SMT-LIB control inputs and answers](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
 
 All **228 verifier inputs** reproduced both expected output streams and exit status, including 91 inputs with expected verification failures. The **1,799 shell controls** matched solver outcomes. The bare datalog timeout case reached the external cap in both builds and returned the expected `unknown/timeout` when run with its packaged deadline. The 2,334,030,415-byte Apple rfn2 trace matched byte for byte, as did all 27,855 lines on the Paxos trace comparison. Focused tests passed in release, checked and debug configurations. [Corpus rows, normalized shell differences and trace results](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
+
+### The cost of the same rewriter operation in Go and C++
+
+During value propagation on TLB’s 58 first pushes, the two engines visited the same number of expressions and processed the same number of application frames. g3 spent about **5.2× as many instructions processing an application**. Its two cache operations also cost more at almost identical call counts. Flash and hybrid reliable broadcast independently reproduced the application-processing gap. [Per-push raw counts, calibration and summaries](perf/ivy_apple/incremental_cost/nov24-rewriter-operation-costs.tar.xz)
+
+| TLB value propagation | g3 calls | Z3 calls | g3 instructions per sampled call | Z3 instructions per sampled call |
+|---|---:|---:|---:|---:|
+| Visit an expression | 898,606 | 898,606 | 818 | 121 |
+| Process an application frame | 961,604 | 961,604 | 2,011 | 385 |
+| Look up a rewrite result | 861,963 | 861,971 | 132 | 20 |
+| Insert a rewrite result | 418,504 | 418,508 | 723 | 133 |
+
+The table uses the median of five within-run means on g3 `b7caff4fa` and the Z3 library linked to GoIvy `3d552b46c`. Each binary measured one operation at one of every 67 calls and subtracted its own empty sampling cost. Five offsets covered different calls. These are inclusive measurements. Processing a frame can visit a child and insert a result, so summing the four rows would count some work twice. A separate build on the preceding g3 revision gave 1,987 versus 385 instructions per application. On Flash the portable driver measured 2,404 versus 443 across 43,012 calls on both engines. On hybrid it measured 2,201 versus 402 across 67,557 calls on both. [Matched measurements and both builds](perf/ivy_apple/incremental_cost/nov24-rewriter-operation-costs.tar.xz)
+
+An independent observer recorded what the cache actually stored. During TLB value propagation **418,201 of 418,504 insertions mapped an expression to itself**. Every insertion was fresh. Of 837,008 lookup misses in allocated caches, 418,504 immediately repeated the preceding miss on the same key. Among the caches released inside this phase, 79,296 held only identity mappings, comprising 401,346 entries. Every one of those nodes had enough external references to survive release. During BV sharing all 403,615 insertions were identity mappings. This suggests testing a smaller representation for short lists of unchanged nodes and measuring the effect on complete verification. The tests must preserve reference counts during rewriting, the order of any actual destruction, eviction behavior and interrupted cleanup. [Cache contents and lifetime observations](perf/ivy_apple/incremental_cost/nov24-rewriter-operation-costs.tar.xz)
+
+To repeat a measurement, supply a reference directory with the expected stdout and stderr and run the driver once per operation. For TLB use `--expect-exit 1` to include the two expected proof failures. The driver creates its own Go workspace, links the local g3 checkout, and instruments the in-tree objects used by GoIvy. For cache operations it wraps the actual functions in the linked archive. It verifies both output streams and the exit status in every observation run. [Benchmark driver](perf/ivy_apple/incremental_cost/rewriter_call_cost.py) · [Go meter](perf/ivy_apple/incremental_cost/rewriter_call_meter.go.txt) · [Native meter](../src/test/perf/ivy_rewriter_call_cost.h)
+
+```sh
+python3 perf/ivy_apple/incremental_cost/rewriter_call_cost.py \
+  --goivy /path/to/ivy/goivy --spec /path/to/examples/liveness/tlb.ivy \
+  --reference /tmp/tlb-reference --expect-exit 1 --abc /path/to/abc \
+  --cpu 2 --operation app --rounds 5 --output /tmp/tlb-app-cost
+```
