@@ -5838,3 +5838,16 @@ The scope-pop profile led to a second full-population scan. If base relevance no
 Cells are median **solver-thread user instructions per push/assert/pop**, with 8,000 scopes per bracket and nine rotating measurements per engine. At 16,384 unrelated Booleans, g3 used 7.4% fewer instructions than native Z3 on the solver thread. At the two smaller populations it used 11–14% more. Process-level measurements independently put g3 at 18,541–20,553 instructions per scope. On a quiet core, g3 took **2.394 µs** and Z3 **1.552 µs** per scope with 16,384 unrelated Booleans. At zero unrelated Booleans the elapsed times were 2.544 and 1.549 µs. These are medians of seven rotating pairs of 400,000 operations. The 14 Ivy runs had no surviving notification prefix on this path. These figures describe the deep incremental SMT workload. [Go and C++ measurements, runnable comparison and coverage](perf/ivy_apple/holdouts/nov24-relevance-notification-survivors.tar.xz)
 
 An early prototype assumed that applications always marked an expression once. The randomized reference filter caught a stale pending notification at operation 649. With explicit duplicate detection, the final implementation matched the independent reference after **12,288,000 operations**. All 228 verification cases matched their expected exit, stdout and stderr. [Differential oracle, focused tests and corpus results](perf/ivy_apple/holdouts/nov24-relevance-notification-survivors.tar.xz)
+
+### Can explicit model-table counterexamples rescue the expensive Apple searches?
+
+The model checker can sometimes identify a concrete tuple at which a quantified premise fails in the candidate model. Installing that tuple as a quantifier instance changes the next search. On Apple history 1, installing a unique tuple only during the terminal check turned a twelve-million-step miss into a proof, at **100.69 billion instructions** for the 58-check history. On history 2 the same policy lost a previously successful proof. Collecting two tuples similarly rescued history 1 and lost history 6. The two packaged replays verify every recorded model-table counter along with the outcome. [Policies, 288 solver histories and reproduction driver](perf/ivy_apple/holdouts/nov24-model-table-witnesses.tar.xz)
+
+| Whole verifier, billion instructions | Previous g3 | First explicit tuple | Unique tuple | Check the evaluated body |
+|---|---:|---:|---:|---:|
+| Apple ord_live2 | 1,046.8 | 1,122.6 | 1,258.3 | 1,277.7 |
+| Its sys_live isolate | 926.4 | 889.2 | 1,078.3 | 1,092.7 |
+| Apple ord_live | 727.4 | 736.4 | 727.0 | 729.5 |
+| Issue 73 | 155.1 | 149.5 | 151.5 | 156.4 |
+
+The first-tuple policy saved 37.2 billion instructions on sys_live and cost 75.8 billion on its complete spec. These are whole-process medians across two rotations on the long Apple runs and three on Issue 73. All 90 complete verification runs across seven workloads matched the reference exit and output. The measured policies remain experimental. A production policy would need evidence that the earlier witness saves enough later search under the same sequence of sibling goals. [Per-run counters and implementation patches](perf/ivy_apple/holdouts/nov24-model-table-witnesses.tar.xz)
