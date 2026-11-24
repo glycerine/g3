@@ -42,6 +42,15 @@ func (s *SMTInternalizerState) basicActivityCreated(v int32) error {
 	if s.basicActivity == nil {
 		return nil
 	}
+	if !smtcoreSourceDebug {
+		target, other := s.basicActivity, s.delayedActivity
+		if other != nil && s.searching {
+			target, other = other, target
+		}
+		if (other == nil || v < other.Bounds()) && target.TryInsertReservedActivity(v) {
+			return nil
+		}
+	}
 	if smtcoreSourceDebug || v >= s.basicActivity.Bounds() {
 		if err := s.basicActivity.Reserve(v + 1); err != nil {
 			return err

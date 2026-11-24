@@ -256,7 +256,7 @@ func (h *Int) CheckInvariant() bool {
 }
 func (h *Int) up(i int32) error {
 	if h.activity != nil {
-		h.placeActivity(i, h.values[i], activityUp)
+		h.placeActivityUp(i, h.values[i])
 		return h.cassertInvariant()
 	}
 	v := h.values[i]
@@ -270,49 +270,54 @@ func (h *Int) up(i int32) error {
 	return h.cassertInvariant()
 }
 
-type activityDirection uint8
-
-const (
-	activityUp activityDirection = iota
-	activityDown
-	activityEither
-)
-
-// placeActivity fills a hole in an activity heap. Erasing an interior value
-// can move its replacement either way. A priority update supplies the direction.
-func (h *Int) placeActivity(i, v int32, dir activityDirection) {
+func (h *Int) placeActivityUp(i, v int32) {
 	values, indices, activity := h.values, h.indices, *h.activity
 	score := activity[v]
 	parent := i / 2
-	if dir == activityUp || dir == activityEither && parent != 0 && score > activity[values[parent]] {
-		for parent != 0 && score > activity[values[parent]] {
-			moved := values[parent]
-			values[i] = moved
-			indices[moved] = i
-			i = parent
-			parent = i / 2
-		}
-	} else {
-		for left := uint64(i) * 2; left < uint64(len(values)); left = uint64(i) * 2 {
-			child := int32(left)
-			if left+1 < uint64(len(values)) && activity[values[child+1]] > activity[values[child]] {
-				child++
-			}
-			moved := values[child]
-			if !(activity[moved] > score) {
-				break
-			}
-			values[i] = moved
-			indices[moved] = i
-			i = child
-		}
+	for parent != 0 && score > activity[values[parent]] {
+		moved := values[parent]
+		values[i] = moved
+		indices[moved] = i
+		i = parent
+		parent = i / 2
 	}
 	values[i] = v
 	indices[v] = i
 }
+
+func (h *Int) placeActivityDown(i, v int32) {
+	values, indices, activity := h.values, h.indices, *h.activity
+	score := activity[v]
+	for left := uint64(i) * 2; left < uint64(len(values)); left = uint64(i) * 2 {
+		child := int32(left)
+		if left+1 < uint64(len(values)) && activity[values[child+1]] > activity[values[child]] {
+			child++
+		}
+		moved := values[child]
+		if !(activity[moved] > score) {
+			break
+		}
+		values[i] = moved
+		indices[moved] = i
+		i = child
+	}
+	values[i] = v
+	indices[v] = i
+}
+
+// When erasing an interior variable, its replacement can move in either direction.
+func (h *Int) replaceActivity(i, v int32) {
+	activity := *h.activity
+	if parent := i / 2; parent != 0 && activity[v] > activity[h.values[parent]] {
+		h.placeActivityUp(i, v)
+		return
+	}
+	h.placeActivityDown(i, v)
+}
+
 func (h *Int) down(i int32) error {
 	if h.activity != nil {
-		h.placeActivity(i, h.values[i], activityDown)
+		h.placeActivityDown(i, h.values[i])
 		return h.cassertInvariant()
 	}
 	v := h.values[i]
@@ -336,6 +341,26 @@ func (h *Int) down(i int32) error {
 	h.indices[v] = i
 	return h.cassertInvariant()
 }
+
+// TryInsertReservedActivity inserts v using the heap's existing storage.
+// A false return leaves the heap untouched so the caller can use Reserve and Insert.
+func (h *Int) TryInsertReservedActivity(v int32) bool {
+	if diagnostic.DebugBuild || h == nil || h.self != h || h.closed || h.activity == nil || h.epoch == ^uint64(0) {
+		return false
+	}
+	if uint(v) >= uint(len(h.indices)) || h.indices[v] != 0 || uint(v) >= uint(len(*h.activity)) {
+		return false
+	}
+	if len(h.values) == cap(h.values) || len(h.values) >= 1<<31-1 {
+		return false
+	}
+	i := len(h.values)
+	h.values = h.values[:i+1]
+	h.placeActivityUp(int32(i), v)
+	h.epoch++
+	return true
+}
+
 func (h *Int) Insert(v int32) error {
 	if e := h.canChange(); e != nil {
 		return e
@@ -445,7 +470,7 @@ func (h *Int) eraseAt(v, i int32) error {
 	last := h.takeLastForErase(v)
 	if int(i) < len(h.values) {
 		if h.activity != nil && !diagnostic.DebugBuild {
-			h.placeActivity(i, last, activityEither)
+			h.replaceActivity(i, last)
 			return nil
 		}
 		h.values[i] = last
@@ -525,7 +550,7 @@ func (r activityErase) EraseSuffix(count int) {
 		if pos := h.indices[v]; pos != 0 {
 			last := h.takeLastForErase(int32(v))
 			if int(pos) < len(h.values) {
-				h.placeActivity(pos, last, activityEither)
+				h.replaceActivity(pos, last)
 			}
 		}
 	}
