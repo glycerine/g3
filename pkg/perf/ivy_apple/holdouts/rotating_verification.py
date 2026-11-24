@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rotate current g3, previous g3 and linked Z3 on a single Linux CPU."""
+"""Rotate g3 and linked Z3 on one Linux CPU, optionally including a previous g3 build."""
 import argparse
 import csv
 import os
@@ -57,8 +57,9 @@ def measure_time(checker, args, directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for label in ("g3", "previous", "native", "spec", "reference", "output"):
+    for label in ("g3", "native", "spec", "reference", "output"):
         parser.add_argument("--" + label, required=True, type=Path)
+    parser.add_argument("--previous", type=Path, help="Optional previous g3 build to include in the rotation")
     parser.add_argument("--cpu", required=True, type=int)
     parser.add_argument("--isolate", default="")
     parser.add_argument("--perf", help="Linux perf executable for hardware counters; omit for direct wall and CPU timing")
@@ -71,7 +72,8 @@ def main():
     if min(args.rounds, args.max_attempts, args.wait_seconds) <= 0 or not 0 <= args.min_idle <= 1:
         parser.error("rounds, attempts and wait must be positive, idle must be in [0,1]")
     args.spec = args.spec.absolute()
-    checkers = [(label, getattr(args, label).resolve(strict=True)) for label in ("g3", "previous", "native")]
+    checkers = [(label, checker.resolve(strict=True)) for label in ("g3", "previous", "native")
+                if (checker := getattr(args, label)) is not None]
     expected = [(args.reference / stream).read_bytes() for stream in ("stdout", "stderr")]
     siblings = thread_siblings(args.cpu)
     cpus = [args.cpu, *siblings]
