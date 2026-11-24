@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"math"
 	"reflect"
@@ -65,6 +66,44 @@ func TestASTSymbolPayloadCodecAndPhysicalCharges(t *testing.T) {
 	astTestMust(t, m.allocator.Deallocate(uint32(len(values))*24, p))
 	if _, e = m.readSymbol(p, 0); e == nil {
 		t.Fatal("dead payload accepted")
+	}
+}
+
+func TestASTSymbolPayloadShortFinalRecord(t *testing.T) {
+	m := astTestManager(t)
+	s := astTestSymbol(t, m, "short-symbol")
+	var encoded [astSymbolBytes]byte
+	for i, word := range s.SymbolWords() {
+		binary.LittleEndian.PutUint32(encoded[4*i:], word)
+	}
+	for length := uint32(0); length <= astSymbolBytes; length++ {
+		size := astSymbolBytes + length
+		p, err := m.allocator.Allocate(size)
+		astTestMust(t, err)
+		data, err := m.allocator.Borrow(p)
+		astTestMust(t, err)
+		for i := range data {
+			data[i] = 0xff
+		}
+		err = m.writeSymbol(p, 1, s)
+		if length < astSymbolBytes && !errors.Is(err, arena.ErrBounds) || length == astSymbolBytes && err != nil {
+			t.Fatalf("write with %d bytes left: %v", length, err)
+		}
+		// The scalar writer commits each complete word, including padding.
+		want := bytes.Repeat([]byte{0xff}, int(size))
+		copy(want[astSymbolBytes:], encoded[:length/4*4])
+		if !bytes.Equal(data, want) {
+			t.Fatalf("write with %d bytes left: %x, want %x", length, data, want)
+		}
+		got, err := m.readSymbol(p, 1)
+		if length >= 20 {
+			if err != nil || got != s {
+				t.Fatalf("read with %d bytes left: %v, %v", length, got, err)
+			}
+		} else if !errors.Is(err, arena.ErrBounds) {
+			t.Fatalf("read with %d bytes left: %v", length, err)
+		}
+		astTestMust(t, m.allocator.Deallocate(size, p))
 	}
 }
 

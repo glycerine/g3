@@ -148,11 +148,21 @@ func (m *ASTManager) writeSymbol(p arena.SmallBytesRef, index uint32, s usymbol.
 	if _, e = m.Symbols.FromToken(s.Token()); e != nil {
 		return e
 	}
+	data, e := m.allocator.Borrow(p)
+	if e != nil {
+		return e
+	}
+	if uint64(off) > uint64(len(data)) {
+		return arena.ErrBounds
+	}
+	data = data[off:]
 	words := s.SymbolWords()
-	for i, v := range [6]uint32{words[0], words[1], words[2], words[3], words[4], 0} {
-		if e := m.writeWord(p, off+uint32(i)*4, v); e != nil {
-			return e
+	for _, word := range [6]uint32{words[0], words[1], words[2], words[3], words[4], 0} {
+		if len(data) < 4 {
+			return arena.ErrBounds
 		}
+		binary.LittleEndian.PutUint32(data, word)
+		data = data[4:]
 	}
 	return nil
 }
@@ -162,12 +172,8 @@ func (m *ASTManager) readSymbol(p arena.SmallBytesRef, index uint32) (usymbol.Sy
 		return usymbol.Symbol{}, e
 	}
 	var v [5]uint32
-	for i := range v {
-		w, e := m.readWord(p, offset+uint32(i)*4)
-		if e != nil {
-			return usymbol.Symbol{}, e
-		}
-		v[i] = w
+	if e := m.allocator.ReadUint32LEs(p, offset, v[:]); e != nil {
+		return usymbol.Symbol{}, e
 	}
 	return m.Symbols.DecodeSymbolWords(v)
 }

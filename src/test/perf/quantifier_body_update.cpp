@@ -1,4 +1,4 @@
-// Counterpart to BenchmarkASTQuantifierBodyUpdate.
+// Counterpart to BenchmarkASTQuantifierBodyUpdate and BenchmarkASTQuantifierConstruction.
 #include "ast/ast.h"
 #include <chrono>
 #include <iomanip>
@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace {
-void run(unsigned binders, bool retained, unsigned iterations) {
+void run(unsigned binders, bool retained, unsigned iterations, bool update) {
     ast_manager m;
     sort* boolean = m.mk_bool_sort();
     std::vector<sort*> sorts(binders, boolean);
@@ -18,12 +18,16 @@ void run(unsigned binders, bool retained, unsigned iterations) {
     quantifier_ref original(m.mk_forall(binders, sorts.data(), names.data(), body), m);
     expr_ref next_body(m.mk_not(body), m);
     quantifier_ref existing(m);
+    auto make_quantifier = [&]() {
+        return update ? m.update_quantifier(original, next_body)
+                      : m.mk_forall(binders, sorts.data(), names.data(), next_body);
+    };
     if (retained)
-        existing = m.update_quantifier(original, next_body);
+        existing = make_quantifier();
 
     auto start = std::chrono::steady_clock::now();
     for (unsigned i = 0; i < iterations; ++i) {
-        quantifier_ref result(m.update_quantifier(original, next_body), m);
+        quantifier_ref result(make_quantifier(), m);
         VERIFY(result.get() != original.get() && (!retained || result.get() == existing.get()));
     }
     auto elapsed = std::chrono::steady_clock::now() - start;
@@ -33,10 +37,15 @@ void run(unsigned binders, bool retained, unsigned iterations) {
 }
 }
 
-int main() {
+int main(int argc, char** argv) {
+    bool update = argc == 1;
+    if (!update && (argc != 2 || std::string(argv[1]) != "construct")) {
+        std::cerr << "usage: quantifier_body_update [construct]\n";
+        return 1;
+    }
     memory::initialize(0);
     std::cout << "binders,lifetime,iterations,ns_per_op\n";
     for (unsigned n : {1u, 2u, 4u, 8u, 64u})
         for (bool retained : {false, true})
-            run(n, retained, 20000);
+            run(n, retained, 20000, update);
 }

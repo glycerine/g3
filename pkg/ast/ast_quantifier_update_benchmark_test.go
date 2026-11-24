@@ -10,6 +10,14 @@ import (
 // A changed quantifier body keeps the binder sorts and names. Measure both
 // publication of a new live node and lookup of an already retained result.
 func BenchmarkASTQuantifierBodyUpdate(b *testing.B) {
+	benchmarkASTQuantifier(b, true)
+}
+
+func BenchmarkASTQuantifierConstruction(b *testing.B) {
+	benchmarkASTQuantifier(b, false)
+}
+
+func benchmarkASTQuantifier(b *testing.B, update bool) {
 	for _, binders := range []int{1, 2, 4, 8, 64} {
 		b.Run(strconv.Itoa(binders), func(b *testing.B) {
 			m := astTestManager(b)
@@ -29,18 +37,25 @@ func BenchmarkASTQuantifierBodyUpdate(b *testing.B) {
 			newBody, err := m.MkNot(body)
 			astTestMust(b, err)
 			astTestPin(b, m, newBody)
+			spec := ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: newBody}
+			makeQuantifier := func() (ASTHandle, error) {
+				if update {
+					return m.UpdateQuantifierBody(root, newBody)
+				}
+				return m.MkQuantifier(spec)
+			}
 			for _, name := range []string{"Fresh", "Retained"} {
 				b.Run(name, func(b *testing.B) {
 					var retained ASTHandle
 					if name == "Retained" {
-						retained, err = m.UpdateQuantifierBody(root, newBody)
+						retained, err = makeQuantifier()
 						astTestMust(b, err)
 						astTestPin(b, m, retained)
 					}
 					b.ReportAllocs()
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
-						got, err := m.UpdateQuantifierBody(root, newBody)
+						got, err := makeQuantifier()
 						if err != nil || got == root || (!retained.IsNull() && got != retained) {
 							b.Fatal(got, err)
 						}
