@@ -74,7 +74,10 @@ type SMTRelevancyPropagator struct {
 	scopes                []smtRelevancyScope
 	newlyRelevant         []ast.ASTHandle
 	newlyRelevantRemovals uint64
-	propagating           bool
+	// After the last filter or drain, setRelevant appended the same handles
+	// to the notification queue and the owning relevant trail, in order.
+	newlyRelevantBase int
+	propagating       bool
 	// An interrupted pop has already unmarked the expressions of this scope.
 	// Zero means idle; otherwise retry at scopes[interruptedPop-1].
 	interruptedPop int
@@ -200,12 +203,14 @@ func (p *SMTRelevancyPropagator) DrainNewlyRelevant() []ast.ASTHandle {
 	}
 	result := append([]ast.ASTHandle(nil), p.newlyRelevant...)
 	p.newlyRelevant = nil
+	p.newlyRelevantBase = 0
 	return result
 }
 
 // Theory propagation has already delivered these marks through notifyRelevant.
 // Keep up to one short batch for the next propagation round.
 func (p *SMTRelevancyPropagator) discardNewlyRelevant() {
+	p.newlyRelevantBase = 0
 	const maxRetainedMarks = 512 // 8 KiB of pointer-free handles.
 	if cap(p.newlyRelevant) > maxRetainedMarks {
 		p.newlyRelevant = nil
@@ -990,19 +995,22 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 	target := len(p.scopes) - int(count)
 	for len(p.scopes) > target {
 		level := target
+		additions := p.context.exprs.relevanceAdditions
+		retiredNotifications := 0
 		if p.interruptedPop != 0 {
 			level = p.interruptedPop - 1
 			if target > level {
 				return ast.ErrASTPending
 			}
 		} else {
+			retiredNotifications = min(len(p.newlyRelevant)-p.newlyRelevantBase, len(p.relevant)-p.scopes[level].relevantLimit)
 			for i := len(p.relevant); i > p.scopes[level].relevantLimit; i-- {
 				h := p.relevant[i-1]
 				p.context.relevant.del(h)
 				p.traceUnmark(h)
 			}
 		}
-		if err := p.finishPop(level); err != nil {
+		if err := p.finishPop(level, retiredNotifications, additions); err != nil {
 			p.interruptedPop = level + 1
 			return err
 		}
@@ -1011,7 +1019,7 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 	return nil
 }
 
-func (p *SMTRelevancyPropagator) finishPop(newLevel int) error {
+func (p *SMTRelevancyPropagator) finishPop(newLevel, retiredNotifications int, additions uint64) error {
 	scope := p.scopes[newLevel]
 	var err error
 	p.relevant, err = p.context.manager.ShrinkHeldRefs(p.relevant, scope.relevantLimit)
@@ -1023,6 +1031,12 @@ func (p *SMTRelevancyPropagator) finishPop(newLevel int) error {
 	// Count explicit mark removals too, since the checker can update them.
 	removals := p.context.exprs.relevanceRemovals
 	if removals != p.newlyRelevantRemovals {
+		// A callback during unmarking or reference release can drain the
+		// queue or reactivate a mark. An interrupted pop also rechecks
+		// the entire queue on retry.
+		if retiredNotifications <= len(p.newlyRelevant) && additions == p.context.exprs.relevanceAdditions {
+			p.newlyRelevant = p.newlyRelevant[:len(p.newlyRelevant)-retiredNotifications]
+		}
 		kept := p.newlyRelevant[:0]
 		for _, expression := range p.newlyRelevant {
 			if p.context.relevant.get(expression) {
@@ -1032,6 +1046,7 @@ func (p *SMTRelevancyPropagator) finishPop(newLevel int) error {
 		p.newlyRelevant = kept
 		p.newlyRelevantRemovals = removals
 	}
+	p.newlyRelevantBase = len(p.newlyRelevant)
 	if err := p.undoTrail(scope.trailLimit); err != nil {
 		return err
 	}
@@ -1092,7 +1107,7 @@ func (p *SMTRelevancyPropagator) release() error {
 		return nil
 	}
 	if p.interruptedPop != 0 {
-		if err := p.finishPop(p.interruptedPop - 1); err != nil {
+		if err := p.finishPop(p.interruptedPop-1, 0, 0); err != nil {
 			return err
 		}
 		p.interruptedPop = 0
@@ -1116,6 +1131,7 @@ func (p *SMTRelevancyPropagator) release() error {
 	}
 	p.relevant = nil
 	p.newlyRelevant = nil
+	p.newlyRelevantBase = 0
 	p.scopes = nil
 	p.ehs = nil
 	p.qhead = 0

@@ -2,6 +2,8 @@ package smtcore
 
 import (
 	"fmt"
+	"math/rand"
+	"slices"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -102,6 +104,9 @@ func TestSMTRelevancyPopRetriesOnlyUnconsumedOwners(t *testing.T) {
 	if len(visible) != 1 || visible[0] != outer || p.CanPropagate() || len(p.DrainNewlyRelevant()) != 0 {
 		t.Fatal("interrupted pop exposed retired relevance marks", visible)
 	}
+	// Callers can re-mark a live scoped handle directly through the checker
+	// while the propagator is waiting to retry the refused decrement.
+	astTestMust(t, context.SetRelevant(last, true))
 	astTestMust(t, m.IncRef(middle))
 	// Closing several scopes must finish the interrupted inner one first.
 	astTestMust(t, p.PopScopes(2))
@@ -110,6 +115,121 @@ func TestSMTRelevancyPopRetriesOnlyUnconsumedOwners(t *testing.T) {
 	}
 	if len(p.scopes) != 0 || len(p.relevant) != 0 || p.IsRelevant(outer) || p.CanPropagate() {
 		t.Fatal("retry left a nonempty scope")
+	}
+	if got := p.DrainNewlyRelevant(); !slices.Equal(got, []ast.ASTHandle{last}) {
+		t.Fatalf("lost reactivated notification after retry: %v", got)
+	}
+}
+
+func TestSMTRelevancyPendingQueueMatchesMarkTable(t *testing.T) {
+	m := astTestManager(t)
+	ctx, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	p, err := NewSMTRelevancyPropagator(ctx, true)
+	astTestMust(t, err)
+	var handles [12]ast.ASTHandle
+	for i := range handles {
+		handles[i] = smtRelevancyPinnedBool(t, m, fmt.Sprintf("pending-%d", i))
+	}
+	// Replay against an independent trail and filter the entire reference
+	// queue after each pop, including duplicate equal-class notifications.
+	rng := rand.New(rand.NewSource(240))
+	live := make(map[ast.ASTHandle]bool)
+	var trail, queue []ast.ASTHandle
+	var limits []int
+	for step := 0; step < 12000; step++ {
+		h := handles[rng.Intn(len(handles))]
+		switch rng.Intn(10) {
+		case 0, 1:
+			if len(limits) < 8 {
+				astTestMust(t, p.PushScope())
+				limits = append(limits, len(trail))
+			}
+		case 2, 3:
+			if len(limits) > 0 {
+				n := 1 + rng.Intn(len(limits))
+				astTestMust(t, p.PopScopes(uint32(n)))
+				level := len(limits) - n
+				base := limits[level]
+				for _, term := range trail[base:] {
+					delete(live, term)
+				}
+				limits, trail = limits[:level], trail[:base]
+				kept := queue[:0]
+				for _, term := range queue {
+					if live[term] {
+						kept = append(kept, term)
+					}
+				}
+				queue = kept
+			}
+		case 4:
+			value := rng.Intn(2) == 0
+			astTestMust(t, ctx.SetRelevant(h, value))
+			live[h] = value
+		case 5:
+			if got := p.DrainNewlyRelevant(); !slices.Equal(got, queue) {
+				t.Fatalf("drain at step %d: got %v, want %v", step, got, queue)
+			}
+			queue = nil
+		case 6:
+			p.discardNewlyRelevant()
+			queue = nil
+		case 7:
+			astTestMust(t, p.MarkRelevant(h))
+			if live[h] {
+				break
+			}
+			live[h] = true
+			trail = append(trail, h)
+			queue = append(queue, h)
+		default:
+			astTestMust(t, p.setRelevant(h))
+			live[h] = true
+			trail = append(trail, h)
+			queue = append(queue, h)
+		}
+		if !slices.Equal(p.newlyRelevant, queue) {
+			t.Fatalf("step %d: got %v, want %v", step, p.newlyRelevant, queue)
+		}
+	}
+	astTestMust(t, p.release())
+}
+
+func TestSMTRelevancyPendingQueueAfterCallback(t *testing.T) {
+	for _, action := range []string{"drain", "discard", "reactivate"} {
+		t.Run(action, func(t *testing.T) {
+			m := astTestManager(t)
+			ctx, err := NewSMTCheckerContext(m)
+			astTestMust(t, err)
+			p, err := NewSMTRelevancyPropagator(ctx, true)
+			astTestMust(t, err)
+			base := smtRelevancyPinnedBool(t, m, "base")
+			scoped := smtRelevancyPinnedBool(t, m, "scoped")
+			astTestMust(t, p.MarkRelevant(base))
+			astTestMust(t, p.PushScope())
+			astTestMust(t, p.MarkRelevant(scoped))
+			// Interleave the callback at the unmark/release boundary in PopScopes.
+			additions := ctx.exprs.relevanceAdditions
+			ctx.relevant.del(scoped)
+			var want []ast.ASTHandle
+			switch action {
+			case "drain":
+				if got := p.DrainNewlyRelevant(); !slices.Equal(got, []ast.ASTHandle{base, scoped}) {
+					t.Fatalf("drain %v", got)
+				}
+			case "discard":
+				p.discardNewlyRelevant()
+			case "reactivate":
+				astTestMust(t, ctx.SetRelevant(scoped, true))
+				want = []ast.ASTHandle{base, scoped}
+			}
+			astTestMust(t, p.finishPop(0, 1, additions))
+			if got := p.DrainNewlyRelevant(); !slices.Equal(got, want) {
+				t.Fatalf("after callback: got %v, want %v", got, want)
+			}
+			astTestMust(t, p.release())
+		})
 	}
 }
 

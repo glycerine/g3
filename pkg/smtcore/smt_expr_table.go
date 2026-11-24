@@ -37,11 +37,12 @@ type smtExprPage [smtExprPageSize]smtExprRecord
 // whose generation differs from a handle's describes a retired expression.
 // Only touched pages are allocated. Their records stay in slot order.
 type smtExprTable struct {
-	pages             []*smtExprPage
-	origin            uint64
-	enodeCount        int
-	boolVarCount      int
-	relevanceRemovals uint64
+	pages              []*smtExprPage
+	origin             uint64
+	enodeCount         int
+	boolVarCount       int
+	relevanceRemovals  uint64
+	relevanceAdditions uint64
 }
 
 func newSMTExprTable() *smtExprTable { return &smtExprTable{} }
@@ -252,6 +253,7 @@ func (r smtRelevantTable) set(h ast.ASTHandle, value bool) {
 	record := r.t.write(h)
 	record.flags |= smtExprHasRelevant
 	if value {
+		r.t.relevanceAdditions++
 		record.flags |= smtExprRelevant
 	} else if record.flags&smtExprRelevant != 0 {
 		r.t.relevanceRemovals++
