@@ -7,6 +7,62 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
+func TestPatternCollectorQueuedWideApplicationsAcrossBinders(t *testing.T) {
+	m := patternManager(t)
+	pin := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		patternMust(t, err)
+		patternMust(t, m.IncRef(h))
+		t.Cleanup(func() { patternMust(t, m.DecRef(h)) })
+		return h
+	}
+	refCount := func(h ast.ASTHandle) uint32 {
+		t.Helper()
+		n, err := m.GetRefCount(h)
+		patternMust(t, err)
+		return n
+	}
+	boolean := pin(m.MkBoolSort())
+	outer := pin(m.MkVar(1, boolean))
+	shifted := pin(m.MkVar(0, boolean))
+	repeat := func(h ast.ASTHandle) []ast.ASTHandle {
+		var args [8]ast.ASTHandle
+		for i := range args {
+			args[i] = h
+		}
+		return args[:]
+	}
+	f := pin(m.MkFuncDecl(symbol.Numerical(937), repeat(boolean), boolean, ast.ASTFuncDeclInfo{}))
+	plain := pin(m.MkApp(f, repeat(outer)))
+	mapped := pin(m.MkApp(f, repeat(shifted)))
+	// The conjunction itself is forbidden as a trigger, so revisiting it
+	// also exercises a completed cache entry with no collected info.
+	group := pin(m.MkFamilyApp(m.BasicFamilyID(), ast.ASTOpAnd, nil, repeat(plain)))
+	nested := pin(m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{boolean},
+		Names: []symbol.Symbol{symbol.Numerical(938)}, Body: group,
+	}))
+	root := pin(m.MkFamilyApp(m.BasicFamilyID(), ast.ASTOpAnd, nil,
+		[]ast.ASTHandle{group, nested, group, plain, nested, plain}))
+	c, err := newPatternCandidates(m, 2, nil, false)
+	patternMust(t, err)
+	t.Cleanup(func() { patternMust(t, c.close()) })
+	plainRefs, mappedRefs, groupRefs := refCount(plain), refCount(mapped), refCount(group)
+	for i := 0; i < 2; i++ {
+		patternMust(t, c.collect(root))
+		if len(c.candidates) != 2 || c.candidates[0] != plain || c.candidates[1] != mapped {
+			t.Fatalf("unexpected candidate order or binder mapping %v", c.candidates)
+		}
+		if refCount(plain) != plainRefs+1 || refCount(mapped) != mappedRefs+1 || refCount(group) != groupRefs {
+			t.Fatal("temporary references survived collection")
+		}
+		patternMust(t, c.resetCandidates())
+		if refCount(plain) != plainRefs || refCount(mapped) != mappedRefs {
+			t.Fatal("candidate references survived reset")
+		}
+	}
+}
+
 func TestPatternInferenceCollectorNestedDepthForbiddenAndOwnership(t *testing.T) {
 	m := patternManager(t)
 	b, err := m.MkBoolSort()

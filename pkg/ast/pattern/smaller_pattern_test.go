@@ -12,7 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func patternMust(t *testing.T, err error) {
+func patternMust(t testing.TB, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
@@ -92,12 +92,12 @@ func TestSmallerPatternSaveTraceBeforePairPublication(t *testing.T) {
 	}
 }
 
-func patternManager(t *testing.T) *ast.ASTManager {
+func patternManager(t testing.TB) *ast.ASTManager {
 	m, _, _ := patternManagerServices(t)
 	return m
 }
 
-func patternManagerServices(t *testing.T) (*ast.ASTManager, *symbol.Manager, *numeral.RationalService) {
+func patternManagerServices(t testing.TB) (*ast.ASTManager, *symbol.Manager, *numeral.RationalService) {
 	t.Helper()
 	b := arena.NewBudget(1 << 30)
 	sy, err := symbol.NewManager(symbol.Config{Budget: b})

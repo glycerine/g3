@@ -245,6 +245,8 @@ func (c *patternCandidates) collect(body ast.ASTHandle) (err error) {
 	}()
 	cache := make(map[collectKey]*collectedInfo)
 	stack := []collectKey{{node: body}}
+	reuse := !diagnostic.TraceCompiled() && !diagnostic.DebugBuild &&
+		c.manager.TraceStream == nil && !c.manager.BudgetField.InjectionArmed()
 	for len(stack) != 0 {
 		key := stack[len(stack)-1]
 		if err = c.traceCollectVisit(key); err != nil {
@@ -253,16 +255,24 @@ func (c *patternCandidates) collect(body ast.ASTHandle) (err error) {
 		if err = c.traceCollectInfo(key); err != nil {
 			return err
 		}
-		kind, e := c.manager.GetKind(key.node)
+		kind, _, count, e := c.manager.NodeShape(key.node)
 		if e != nil {
 			return e
 		}
 		visited := true
 		switch kind {
 		case ast.ASTApp:
-			count, e := c.manager.GetNumArgs(key.node)
-			if e != nil {
-				return e
+			// Several siblings can queue the same application before its first
+			// visit finishes. At depth zero the mapped term is the original.
+			// Keep each visit's temporary reference and release order.
+			if reuse && count >= 8 && key.delta == 0 {
+				if info, done := cache[key]; done {
+					if err = c.saveCollectInfo(cache, key, info, 238); err != nil {
+						return err
+					}
+					stack = stack[:len(stack)-1]
+					continue
+				}
 			}
 			for i := count; i != 0; i-- {
 				child, e := c.manager.GetArg(key.node, i-1)
