@@ -5205,3 +5205,19 @@ In seven alternating samples of ten iterations, the captured ticket goal took **
 ```sh
 go test ./api -run '^$' -bench '^BenchmarkVerificationPremiseSearch$' -benchtime=10x -count=7
 ```
+
+### Which reductions cost more during TLB's first push
+
+Both engines called the core theory reducer about **584,500 times** during first-push value propagation on TLB. They also processed exactly 209,317 variables. The Go cost per call is higher for the shared operations. Disjunction and negation account for much of the Boolean work at this boundary. [All per-push counts, sampled rules, calibrations and sources](perf/ivy_apple/incremental_cost/nov24-reduction-rule-costs.tar.xz)
+
+| Value propagation, 58 first pushes | g3 calls | Linked Z3 calls | g3 instructions per sampled call | Z3 instructions per sampled call |
+|---|---:|---:|---:|---:|
+| Core theory reduction | 584,509 | 584,512 | 977 | 98 |
+| Check for a substitution | 898,606 | 898,606 | 161 | 52 |
+| Process a variable | 209,317 | 209,317 | 208 | 26 |
+| Process a constant | 59,760 | 59,763 | 398 | 71 |
+| Check for constant folding | 125,768 | 731,036 | 78 | 10 |
+
+The constant-folding rows count different amounts of work. Go filters by child position before entering the measured function. Five alternating offsets per engine measured each operation in a separate build. Probe placement affects generated code. For example, sampling the outer Go theory reducer gave 886 instructions per call, while sampling its inner method in a different binary gave 977. Those values cannot be subtracted to calculate wrapper overhead. [Portable Go and in-tree C++ measurement driver](perf/ivy_apple/incremental_cost/rewriter_call_cost.py)
+
+A further seven-offset experiment classified sampled calls by operator **after** the ending counter read. Each engine also ran an empty function with the same argument types, sampling arrangement and input. Subtracting its cost gave **1,174 / 84** instructions for negation, **2,119 / 362** for disjunction and **324 / 7** for an uninterpreted function, in g3 / Z3 order. The TLB recordings contained 19,717 / 19,704 negation samples, 9,321 / 9,321 disjunction samples and 28,820 / 28,855 uninterpreted-function samples. The uninterpreted case is particularly simple in the native code. A family-ID load and branch return a failed reduction immediately. The Go path calls an AST-manager accessor before returning the same result. The measurements include the generated code around that call. Whole-verifier measurements are necessary to establish the benefit of changing it. [Per-rule ranges, matched empty-function runs and both observers](perf/ivy_apple/incremental_cost/nov24-reduction-rule-costs.tar.xz)

@@ -14,11 +14,31 @@ from first_push_rewrite_rows import G3, HERE, build_checker, make_value, native_
 OPS = {
     "visit": ("ast/rewriter/rewriter_engine.go", "func (r *rewriterEngine) visit(t "),
     "app": ("ast/rewriter/rewriter_engine.go", "func (r *rewriterEngine) processApp()"),
+    "constant": ("ast/rewriter/rewriter_engine.go", "func (r *rewriterEngine) processConst(t "),
+    "variable": ("ast/rewriter/rewriter_engine.go", "func (r *rewriterEngine) processVar(t "),
+    "fold": ("ast/rewriter/rewriter_engine.go", "func (r *rewriterEngine) constantFold(frameIndex "),
+    "substitution": ("ast/rewriter/th_rewriter.go", "func (c *theoryRewriterConfiguration) GetSubst("),
+    "reduce": ("ast/rewriter/th_rewriter.go", "func (c *theoryRewriterConfiguration) ReduceApp("),
+    "reduce-core": ("ast/rewriter/th_rewriter.go", "func (c *theoryRewriterConfiguration) reduceAppCore("),
     "find": ("ast/ast_activity_cache.go", "func (c *ActivityCache) Find("),
     "insert": ("ast/ast_activity_cache.go", "func (c *ActivityCache) Insert("),
 }
 HEADER = '#include "test/perf/ivy_rewriter_call_cost.h"\n'
 OFFSETS = [0, 17, 34, 51, 62]
+
+TEMPLATE_METHODS = {
+    "visit": "bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {",
+    "app": "void rewriter_tpl<Config>::process_app(app * t, frame & fr) {",
+    "constant": "void rewriter_tpl<Config>::process_const(app * t) {",
+    "variable": "void rewriter_tpl<Config>::process_var(var * v) {",
+    "fold": "bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {",
+}
+
+THEORY_METHODS = {
+    "substitution": "bool get_subst(expr * s, expr * & t, proof * & pr) {",
+    "reduce": "br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {",
+    "reduce-core": "br_status reduce_app_core(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {",
+}
 
 
 def replace_one(text, old, new):
@@ -77,21 +97,24 @@ def prepare_native(args, stage, files):
     hook = "if (!s.should_apply()) return true;"
     s = HEADER + "thread_local ivy_rewriter_cost::counts* ivy_rewriter_cost::active = nullptr;\n"
     s += replace_one(driver.read_text(), hook, hook + "\nivy_rewriter_cost::pass measured(s.id());")
-    template = args.operation in ("app", "visit")
-    if template:
+    theory = src / "ast/rewriter/th_rewriter.cpp"
+    patched = None
+    sample = "\nivy_rewriter_cost::sample measured;"
+    if args.operation in TEMPLATE_METHODS:
         inc = 'ast/rewriter/rewriter_def.h'
         h = src / inc
-        method = ("bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {" if args.operation == "visit"
-                  else "void rewriter_tpl<Config>::process_app(app * t, frame & fr) {")
-        h = edit(files, stage, h, HEADER + replace_one(h.read_text(), method, method + "\nivy_rewriter_cost::sample measured;"))
+        method = TEMPLATE_METHODS[args.operation]
+        h = edit(files, stage, h, HEADER + replace_one(h.read_text(), method, method + sample))
         include = f'#include "{inc}"'
         private = f'#include "{h}"'
         s = replace_one(s, include, private)
-        theory = src / "ast/rewriter/th_rewriter.cpp"
         patched = edit(files, stage, theory, replace_one(theory.read_text(), include, private))
+    elif args.operation in THEORY_METHODS:
+        method = THEORY_METHODS[args.operation]
+        patched = edit(files, stage, theory, HEADER + replace_one(theory.read_text(), method, method + sample))
     edit(files, stage, driver, s)
     native_library(args, stage, files, counter=None)
-    if template:
+    if patched is not None:
         lib = args.goivy / "z3vendor/native_lib/libz3.a"
         build = args.cpp_build
         member = "th_rewriter.o"
