@@ -223,9 +223,15 @@ func TestEqualityUndoRetiresNodesCreatedAfterMerge(t *testing.T) {
 	late, err := f.m.MkApp(f.binary, []ast.ASTHandle{f.base[0], f.base[2]})
 	astTestMust(t, err)
 	astTestMust(t, s.Internalize(late, false))
+	beforePop := s.enodeStack
 	astTestMust(t, s.PopScopes(1))
 	if s.context.enodes.get(late) != nil {
 		t.Fatal("late enode survived its scope")
+	}
+	for _, retired := range beforePop[len(s.enodeStack):] {
+		if retired != nil {
+			t.Fatal("popped stack retains a retired enode")
+		}
 	}
 	requireSMTEqualityImage(t, s, saved)
 	requireSMTCongruenceInvariant(t, s)

@@ -1480,11 +1480,13 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
 			continue
 		case smtCoreTrailEnode:
-			node := s.enodeStack[len(s.enodeStack)-1]
+			index := len(s.enodeStack) - 1
+			node := s.enodeStack[index]
 			if err := s.unregisterEnode(node); err != nil {
 				return fmt.Errorf("unregister enode: %w", err)
 			}
-			s.enodeStack = s.enodeStack[:len(s.enodeStack)-1]
+			s.enodeStack[index] = nil
+			s.enodeStack = s.enodeStack[:index]
 			s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
 			continue
 		}
