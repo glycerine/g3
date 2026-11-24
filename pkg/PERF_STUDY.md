@@ -5749,3 +5749,23 @@ g++ -O3 -std=c++11 -D_MP_INTERNAL -DNDEBUG -D_EXTERNAL_RELEASE -D_AMD64_ \
   ../src/test/perf/ast_translation_siblings.cpp ../build/libz3.a -lpthread -lrt -o /tmp/z3-translation
 taskset -c 17 /tmp/z3-translation 24
 ```
+
+### Reusing quantified applications across sibling goals
+
+Ordinary Hermes took **4.13 s** with the new ground-instance pool, down from **4.49 s**. These are medians of seven rotating whole-verifier runs on CPU 0. Every accepted process occupied the CPU at least 95% of the time with its sibling thread at least 95% idle. Separate five-run instruction medians fell from **30.65 to 27.46 billion**. The two g3 builds used GoIvy `832e392ef`. The archived linked Z3 control took 7.08 s and used an earlier frontend build. An independent three-round comparison that includes the AST translation change measured **30.64 → 27.13 billion** for the application change alone. [Timings, process counters and validation data](perf/ivy_apple/holdouts/nov24-ground-application-instances.tar.xz)
+
+| Complete verification | Previous g3, billion instructions | With application matching | Change |
+|---|---:|---:|---:|
+| Hermes RMW | 30.65 | 27.46 | −10.4% |
+| Raft without assumptions, test specification | 22.02 | 21.26 | −3.5% |
+| Test liveness 2 | 2.62 | 2.51 | −4.2% |
+| Hybrid broadcast | 9.47 | 9.30 | −1.8% |
+| TLB | 60.21 | 60.16 | −0.1% |
+| Flash 2 | 6.68 | 6.76 | +1.2% |
+| ARM rules 3 | 3.54 | 3.55 | +0.3% |
+
+The pool instantiates a universal premise when a ground application supplies a correctly sorted term for every binder. An instance can introduce terms that match another premise. With recursion disabled, ordinary Hermes used 30.30 billion instructions in the ablation series. Allowing up to 8 new instances per goal used 28.42 billion, and allowing 32 used 27.48 billion. An instrumented build avoided 89 of 1,331 calls to the concrete solver on Hermes. Other goals finished earlier inside the private proof path. The complete original Apple, Apple 2, sys_live and longer Hermes testing runs changed by less than 0.3% in a separate two-round panel. [Instantiation](api/internal/order/ground_application_instances.go) · [Ablations and whole-run controls](perf/ivy_apple/holdouts/nov24-ground-application-instances.tar.xz)
+
+Commit `ba98b3ada` enables this path for batches of at least 24 goals with 3–191 eligible universal premises. Each solver owns its pool. Only permanent ground facts and complete instances enter the shared clause list. Each sibling contributes a temporary assumption. Unit propagation can prove a contradiction, and an inconclusive result returns to the existing verification methods. The mixed-sort regression reverses binder order, changes the base, cancels a check and asks for opposite sibling goals. The complete 228-specification corpus matched the reference stdout, stderr and exit status, including 91 expected nonzero exits. The trace comparison matched 2,334,030,415 bytes on Apple rfn2 and all 27,855 normalized Paxos lines. [API tests and worker benchmark](api/api_ground_application_instances_test.go) · [Native oracle and corpus results](perf/ivy_apple/holdouts/nov24-ground-application-instances.tar.xz)
+
+The native oracle checked 8,640 goals under three successive premise lists. The private method proved 2,051, all of which native Z3 found UNSAT. The oracle included 3,855 SAT checks and no UNKNOWN results. Three unmodified Hermes batches added 123 native UNSAT controls. The private method alone proved 63/73, 9/25 and 21/25. With 32 independent solvers, each pool retained approximately 197, 407 and 185 KiB respectively above its loaded source solver. Closing the pools returned measured live heap to within tens of bytes per solver of baseline. To reproduce the lifetime measurement, run `go test -tags=xtrace_off ./api -run '^$' -bench '^BenchmarkGroundApplicationWorkerMemory$' -benchtime=1x -cpu=1`. The archive includes a standalone driver for rerunning both the native and Go oracles. [Fixtures, commands and raw heap readings](perf/ivy_apple/holdouts/nov24-ground-application-instances.tar.xz)
