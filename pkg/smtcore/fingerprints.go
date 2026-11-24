@@ -11,14 +11,58 @@ import (
 
 type SMTFingerprint struct {
 	data     ast.ASTHandle
-	dataHash uint32
 	args     []*SMTEnode
-	hash     uint64 // fingerprint_hash_proc of data and args, for removal
-	// next chains the fingerprints of one SMTFingerprintSet bucket, the
-	// most recently inserted first.
-	next *SMTFingerprint
-	// inline backs args when it is short (one allocation per fingerprint).
-	inline [4]*SMTEnode
+	dataHash uint32
+	hash     uint32
+}
+
+// Allocate common binding widths together with their fingerprint so a saved
+// result owns its arguments independently of the table and lookup scratch.
+func newSMTFingerprint(args []*SMTEnode) *SMTFingerprint {
+	var fingerprint *SMTFingerprint
+	switch len(args) {
+	case 0:
+		return new(SMTFingerprint)
+	case 1, 2:
+		row := new(struct {
+			SMTFingerprint
+			bindings [2]*SMTEnode
+		})
+		fingerprint = &row.SMTFingerprint
+		fingerprint.args = row.bindings[:len(args):len(args)]
+	case 3, 4:
+		row := new(struct {
+			SMTFingerprint
+			bindings [4]*SMTEnode
+		})
+		fingerprint = &row.SMTFingerprint
+		fingerprint.args = row.bindings[:len(args):len(args)]
+	case 5, 6:
+		row := new(struct {
+			SMTFingerprint
+			bindings [6]*SMTEnode
+		})
+		fingerprint = &row.SMTFingerprint
+		fingerprint.args = row.bindings[:len(args):len(args)]
+	case 7, 8:
+		row := new(struct {
+			SMTFingerprint
+			bindings [8]*SMTEnode
+		})
+		fingerprint = &row.SMTFingerprint
+		fingerprint.args = row.bindings[:len(args):len(args)]
+	default:
+		fingerprint = &SMTFingerprint{args: make([]*SMTEnode, len(args))}
+	}
+	copy(fingerprint.args, args)
+	return fingerprint
+}
+
+// A returned tuple can outlive the set. Keep hash chains in the table so
+// retaining one result never retains other tuples from its bucket.
+type smtFingerprintEntry struct {
+	*SMTFingerprint
+	previous int
 }
 
 func (f *SMTFingerprint) Data() ast.ASTHandle { return f.data }
@@ -35,14 +79,10 @@ func (f *SMTFingerprint) Arg(index uint32) (*SMTEnode, error) {
 // SMTFingerprintSet uses concrete quantifier handles for the only retained
 // instantiation of fingerprint::m_data. Entries preserve insertion order.
 type SMTFingerprintSet struct {
-	// buckets is fingerprint_set::m_set, hashed like fingerprint_hash_proc
-	// over the data and every argument: a power-of-two array of chains
-	// linked through SMTFingerprint.next. Each chain lists its entries
-	// newest first, so PopScopes, which removes in reverse insertion
-	// order, always unlinks a chain head. Lookups are exact-match only;
-	// nothing iterates the buckets.
-	buckets      []*SMTFingerprint
-	fingerprints []*SMTFingerprint
+	// A bucket's head and its links are one-based positions in insertion order.
+	// Zero denotes an empty bucket or the end of a chain.
+	buckets      []int
+	fingerprints []smtFingerprintEntry
 	scopes       []int
 	// dummy holds roots for fingerprint_set::mk_dummy. Its length covers every
 	// slot touched since the last pop, including the tail of an earlier, wider lookup.
@@ -86,18 +126,27 @@ func smtFingerprintHash(data ast.ASTHandle, args []*SMTEnode) uint64 {
 	return h
 }
 
-func (s *SMTFingerprintSet) bucket(hash uint64) uint64 {
-	return (hash ^ hash>>32) & uint64(len(s.buckets)-1)
+// The folded hash selects a bucket. A match also requires the same data
+// handle and identical enode pointers.
+func smtFingerprintBucketHash(data ast.ASTHandle, args []*SMTEnode) uint32 {
+	h := smtFingerprintHash(data, args)
+	return uint32(h ^ (h >> 32))
 }
 
-func (s *SMTFingerprintSet) find(hash uint64, data ast.ASTHandle, args []*SMTEnode) *SMTFingerprint {
+func (s *SMTFingerprintSet) bucket(hash uint32) int {
+	return int(uint(hash) & uint(len(s.buckets)-1))
+}
+
+func (s *SMTFingerprintSet) find(hash uint32, data ast.ASTHandle, args []*SMTEnode) *SMTFingerprint {
 	if len(s.buckets) == 0 {
 		return nil
 	}
-	for fingerprint := s.buckets[s.bucket(hash)]; fingerprint != nil; fingerprint = fingerprint.next {
-		if fingerprint.hash == hash && fingerprint.data == data && smtFingerprintArgsEqual(fingerprint.args, args) {
-			return fingerprint
+	for pos := s.buckets[s.bucket(hash)]; pos != 0; {
+		entry := s.fingerprints[pos-1]
+		if f := entry.SMTFingerprint; f.hash == hash && f.data == data && smtFingerprintArgsEqual(f.args, args) {
+			return f
 		}
+		pos = entry.previous
 	}
 	return nil
 }
@@ -109,63 +158,71 @@ func (s *SMTFingerprintSet) grow() {
 	if n < 64 {
 		n = 64
 	}
-	s.buckets = make([]*SMTFingerprint, n)
-	for _, fingerprint := range s.fingerprints {
-		b := s.bucket(fingerprint.hash)
-		fingerprint.next = s.buckets[b]
-		s.buckets[b] = fingerprint
+	s.buckets = make([]int, n)
+	for i := range s.fingerprints {
+		entry := &s.fingerprints[i]
+		b := s.bucket(entry.hash)
+		entry.previous = s.buckets[b]
+		s.buckets[b] = i + 1
 	}
 }
 
-// dummyRoots fills the mk_dummy buffer with the roots of args.
-func (s *SMTFingerprintSet) dummyRoots(args []*SMTEnode) ([]*SMTEnode, error) {
-	if len(args) > len(s.dummy) {
-		s.dummy = append(s.dummy, make([]*SMTEnode, len(args)-len(s.dummy))...)
-	}
-	roots := s.dummy[:len(args)]
-	for i, argument := range args {
-		if argument == nil || argument.root == nil {
-			return nil, ast.ErrASTDomain
+// roots borrows args when all enodes are their own roots. Otherwise it
+// fills the set's scratch slice and reports that the tuple changed.
+func (s *SMTFingerprintSet) roots(args []*SMTEnode) ([]*SMTEnode, bool, error) {
+	for i, a := range args {
+		if a == nil || a.root == nil {
+			return nil, false, ast.ErrASTDomain
 		}
-		roots[i] = argument.root
+		if a.root == a {
+			continue
+		}
+		if len(args) > len(s.dummy) {
+			s.dummy = append(s.dummy, make([]*SMTEnode, len(args)-len(s.dummy))...)
+		}
+		roots := s.dummy[:len(args)]
+		copy(roots, args[:i])
+		roots[i] = a.root
+		for j := i + 1; j < len(args); j++ {
+			b := args[j]
+			if b == nil || b.root == nil {
+				return nil, false, ast.ErrASTDomain
+			}
+			roots[j] = b.root
+		}
+		return roots, true, nil
 	}
-	return roots, nil
+	return args, false, nil
 }
 
 func (s *SMTFingerprintSet) Insert(data ast.ASTHandle, dataHash uint32, args []*SMTEnode) (*SMTFingerprint, error) {
 	if s == nil || data.IsNull() {
 		return nil, ast.ErrASTDomain
 	}
-	hash := smtFingerprintHash(data, args)
+	hash := smtFingerprintBucketHash(data, args)
 	if s.find(hash, data, args) != nil {
 		return nil, nil
 	}
-	dummy, err := s.dummyRoots(args)
+	roots, changed, err := s.roots(args)
 	if err != nil {
 		return nil, err
 	}
-	// When every argument is its own root the second probe repeats the
-	// first one exactly.
-	if !smtFingerprintArgsEqual(dummy, args) {
-		hash = smtFingerprintHash(data, dummy)
-		if s.find(hash, data, dummy) != nil {
+	if changed {
+		hash = smtFingerprintBucketHash(data, roots)
+		if s.find(hash, data, roots) != nil {
 			return nil, nil
 		}
 	}
-	fingerprint := &SMTFingerprint{data: data, dataHash: dataHash, hash: hash}
-	if len(dummy) <= len(fingerprint.inline) {
-		fingerprint.args = fingerprint.inline[:len(dummy):len(dummy)]
-		copy(fingerprint.args, dummy)
-	} else {
-		fingerprint.args = append([]*SMTEnode(nil), dummy...)
-	}
-	s.fingerprints = append(s.fingerprints, fingerprint)
-	if len(s.fingerprints) > len(s.buckets) {
-		s.grow() // links fingerprint too
+	fingerprint := newSMTFingerprint(roots)
+	fingerprint.data, fingerprint.dataHash, fingerprint.hash = data, dataHash, hash
+	s.fingerprints = append(s.fingerprints, smtFingerprintEntry{SMTFingerprint: fingerprint})
+	n := len(s.fingerprints)
+	if n > len(s.buckets) {
+		s.grow()
 	} else {
 		b := s.bucket(hash)
-		fingerprint.next = s.buckets[b]
-		s.buckets[b] = fingerprint
+		s.fingerprints[n-1].previous = s.buckets[b]
+		s.buckets[b] = n
 	}
 	return fingerprint, nil
 }
@@ -175,14 +232,17 @@ func (s *SMTFingerprintSet) Contains(data ast.ASTHandle, dataHash uint32, args [
 		return false, ast.ErrASTDomain
 	}
 	_ = dataHash // Source equality does not compare its cached hash.
-	if s.find(smtFingerprintHash(data, args), data, args) != nil {
+	if s.find(smtFingerprintBucketHash(data, args), data, args) != nil {
 		return true, nil
 	}
-	dummy, err := s.dummyRoots(args)
+	roots, changed, err := s.roots(args)
 	if err != nil {
 		return false, err
 	}
-	return s.find(smtFingerprintHash(data, dummy), data, dummy) != nil, nil
+	if !changed {
+		return false, nil
+	}
+	return s.find(smtFingerprintBucketHash(data, roots), data, roots) != nil, nil
 }
 
 func (s *SMTFingerprintSet) SlowContains(data ast.ASTHandle, dataHash uint32, args []*SMTEnode) (bool, error) {
@@ -212,17 +272,13 @@ func (s *SMTFingerprintSet) PopScopes(count uint32) error {
 	}
 	newLevel := len(s.scopes) - int(count)
 	oldSize := s.scopes[newLevel]
+	// Both insertion and grow link newer entries ahead of older ones.
+	// Walking this suffix backwards always removes the current bucket head.
 	for i := len(s.fingerprints) - 1; i >= oldSize; i-- {
-		fingerprint := s.fingerprints[i]
-		for link := &s.buckets[s.bucket(fingerprint.hash)]; *link != nil; link = &(*link).next {
-			if *link == fingerprint {
-				*link = fingerprint.next
-				break
-			}
-		}
-		fingerprint.next = nil
-		s.fingerprints[i] = nil
+		entry := s.fingerprints[i]
+		s.buckets[s.bucket(entry.hash)] = entry.previous
 	}
+	clear(s.fingerprints[oldSize:])
 	clear(s.dummy)
 	s.dummy = s.dummy[:0]
 	s.fingerprints = s.fingerprints[:oldSize]
@@ -237,7 +293,8 @@ func (s *SMTFingerprintSet) Display(manager *ast.ASTManager, out io.Writer) erro
 	if _, err := io.WriteString(out, "fingerprints:\n"); err != nil {
 		return err
 	}
-	for _, fingerprint := range s.fingerprints {
+	for _, entry := range s.fingerprints {
+		fingerprint := entry.SMTFingerprint
 		dataID, err := manager.GetASTID(fingerprint.data)
 		if err != nil {
 			return err

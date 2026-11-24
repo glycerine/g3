@@ -6000,3 +6000,21 @@ The complete incremental verifier already closes many of these goals cheaply. An
 | ARM rules 3 | 38 / 114 | 0.41 | 6.68 | 0.004 |
 
 Four rotations of nine configurations on 14 complete verifier workloads produced 504 matching exit codes and transcripts. Trying the observed-literal strategy at a terminal goal raised Hybrid from 9.186 to 9.516 billion instructions, Ticket from 3.267 to 3.478 billion and ARM from 3.468 to 3.570 billion. The matcher stays in the study archive. The larger opportunity would be to share the cost of normalizing and indexing premises across sibling goals in a single solver. On Hermes, a fresh matcher spent 16× the existing work even on the goals it proved. Any shared implementation has to pay for both rebuilding at changed premises and discarding goal-dependent facts. [Verifier overlays, per-goal counters and reproducible smoke test](perf/ivy_apple/holdouts/nov24-signed-ground-instances.tar.xz)
+
+### Bounding the memory held by a returned quantifier fingerprint
+
+A fingerprint records that a solver has already tried a quantifier with a particular tuple of enodes. Previously each returned record pointed to the previous record in its hash bucket. Keeping the newest result after resetting its set could keep the entire chain alive. The set now owns the collision links as integer positions. The returned result owns its binding arguments, with common widths allocated together with the record. Equality still compares the exact quantifier handle and every enode pointer.
+
+| Heap measurement across 64 independent workers | Previous | Current |
+| --- | ---: | ---: |
+| 256 live tuples per worker, 1 or 2 bindings, bytes per tuple | 114 | 91 |
+| 256 live tuples per worker, 5 or 6 bindings, bytes per tuple | 162 | 123 |
+| 256 live tuples per worker, 8 bindings, bytes per tuple | 178 | 139 |
+| After reset, one result from a 256-entry collision chain, bytes per worker | 24,576 | 64 |
+| After scope pop, reusable table and one 2-binding result, bytes per worker | 4,728 | 6,984 |
+
+The medians cover five reversed-order pairs of fresh processes and a full garbage collection at each lifetime boundary. The collision row deliberately gives 256 distinct enodes the same owner. It demonstrates a worst-case lifetime dependency. An empty table kept for reuse after pop costs 2,256 additional bytes per worker in the two-binding case because its insertion-order entries also hold the links. Reset releases that storage. [Go benchmark](smtcore/smt_fingerprint_tuple_memory_benchmark_test.go) · [Worker measurements and alternative table layouts](perf/ivy_apple/fingerprints/nov24-fingerprint-records.tar.xz)
+
+The complete Apple ord_live2 verification inserted 16,156,819 tuples, including 11,965,402 with two bindings. Its busiest table held 38,576 live tuples, of which 31,495 had two bindings. Ordinary Hermes inserted 104,056 five-binding tuples. Across five complete Hermes runs, cumulative process allocation fell from 1,443.06 to 1,435.28 MB and the allocation count fell by 104,156. TLB allocation fell from 2,990.97 to 2,981.28 MB. rfn2, which inserted only 720 tuples, measured 889.12 and 889.21 MB. [Per-set census and complete verifier counters](perf/ivy_apple/fingerprints/nov24-fingerprint-records.tar.xz)
+
+All 228 compatibility cases matched the reference status and both output streams. The six standalone Apple queries also preserved their reported search statistics. In three full, budget-limited queries, g3 measured 29.03, 24.73 and 29.38 billion instructions with the new layout, compared with 29.12, 24.74 and 29.44 billion previously. In-tree Z3 used 9.46, 8.50 and 9.56 billion. Fingerprint storage accounts for little of that threefold instruction difference. [Exact tuple, scope, collision and ownership tests](smtcore/fingerprints_test.go) · [Three-way solver comparisons](perf/ivy_apple/fingerprints/nov24-fingerprint-records.tar.xz)

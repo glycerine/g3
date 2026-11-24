@@ -99,7 +99,11 @@ func TestSMTFingerprintScratchReleasesRootsOnPopAndReset(t *testing.T) {
 	base, err := set.Insert(q, 0, args[:1])
 	astTestMust(t, err)
 	astTestMust(t, set.PushScope())
-	wide, err := set.Insert(q, 0, args[:])
+	_, alias := smtEnodeConstant(t, m, 2300, boolean, 0)
+	alias.root = args[width-1]
+	input := args
+	input[width-1] = alias
+	wide, err := set.Insert(q, 0, input[:])
 	astTestMust(t, err)
 	astTestMust(t, set.PushScope())
 	if found, err := set.Contains(q, 0, args[1:2]); err != nil || found {
@@ -119,12 +123,51 @@ func TestSMTFingerprintScratchReleasesRootsOnPopAndReset(t *testing.T) {
 			t.Fatal("saved argument", i, node, err)
 		}
 	}
-	if found, err := set.Contains(q, 0, args[1:]); err != nil || found {
+	if found, err := set.Contains(q, 0, input[1:]); err != nil || found {
 		t.Fatal("miss before reset", found, err)
 	}
 	set.Reset()
 	if set.dummy != nil || set.Size() != 0 {
 		t.Fatal("reset retained fingerprint storage")
+	}
+}
+
+func TestSMTFingerprintOwnsBindingStorage(t *testing.T) {
+	m := astTestManager(t)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	body, err := m.MkVar(0, boolean)
+	astTestMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body,
+	})
+	astTestMust(t, err)
+	_, root := smtEnodeConstant(t, m, 2290, boolean, 0)
+	_, alias := smtEnodeConstant(t, m, 2291, boolean, 0)
+	alias.root = root
+	set := NewSMTFingerprintSet()
+	for _, width := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 16} {
+		args := make([]*SMTEnode, width)
+		for i := range args {
+			args[i] = alias
+		}
+		fingerprint, err := set.Insert(q, uint32(width), args)
+		astTestMust(t, err)
+		if fingerprint == nil {
+			t.Fatalf("missing fingerprint of width %d", width)
+		}
+		clear(args)
+		clear(fingerprint.Args())
+		set.Reset()
+		if fingerprint.NumArgs() != uint32(width) || fingerprint.DataHash() != uint32(width) {
+			t.Fatalf("lost width or data hash for width %d", width)
+		}
+		for i := range args {
+			node, err := fingerprint.Arg(uint32(i))
+			if err != nil || node != root {
+				t.Fatalf("width %d argument %d lost its root", width, i)
+			}
+		}
 	}
 }
 
