@@ -5538,3 +5538,18 @@ On clauses of width 64, scanning the sorted literals once for assignments, dupli
 | 512 | 4,096 | 780 | **552** | 970 |
 
 Values are median millions of whole-process retired user instructions across three rotations. Seven separately timed quiet-core rotations measured **0.432 s** on g3 and **0.476 s** on Z3 for 131,072 clauses of width 64. At width 512 with 16,384 clauses the medians were **0.259 s** and **0.518 s**. Z3 still finished first at widths 16 and 32 in the timing series. On the harder eight-hole pigeonhole search, g3 used 36.33 billion instructions versus Z3's 8.05 billion. Four complete verifier workloads changed by at most 1% in either direction. All 228 corpus comparisons matched the reference, including 91 expected nonzero exits. [Raw counts, timing triples, trial overlays and controls](perf/ivy_raft/nov24-base-clause-scan.tar.xz)
+
+### Replaying the six private enumeration searches that exhausted their budget
+
+The complete `ord_live2` run discharged 748 of its 754 private enumeration queries. Replaying the six other queries with their original solver histories reproduced all six misses at the production budget of six million resource units. Starting each terminal query on a fresh solver proved one. Keeping the same budget and supplying an independently checked sufficient subset of the premises proved **all six**. This distinguishes two costs that a general optimization must address. Identifying sufficient premises can change the search substantially, and finding them must cost less than the fallback proof it avoids. [Replay benchmark](api/api_enumeration_search_benchmark_test.go) · [Six solver histories and core inputs](api/test_vectors/apple_enumeration_search.json.gz)
+
+| Query | Checks in captured solver lifetime | Original conjuncts | Sufficient conjuncts | g3 with a fresh solver and all premises | g3 with sufficient premises |
+|---:|---:|---:|---:|---|---|
+| 1 | 58 | 740 | 129 | Budget exhausted | Proved |
+| 2 | 57 | 740 | 163 | Budget exhausted | Proved |
+| 3 | 58 | 694 | 123 | Budget exhausted | Proved |
+| 4 | 36 | 954 | 119 | Budget exhausted | Proved |
+| 5 | 9 | 954 | 103 | Proved | Proved |
+| 6 | 13 | 954 | 206 | Budget exhausted | Proved |
+
+In-tree Z3 identified each sufficient set from individually named conjuncts. A second invocation read the selected conjuncts as ordinary assertions and confirmed UNSAT. Even on those subsets, five of six g3 queries exhausted a one-million-unit budget. Ranking premises by shared rare symbols missed all six at that budget. Z3 found models for all six selections of 64 ranked conjuncts, demonstrating that those selections discarded needed information. Reusing the exact conjuncts from earlier cores also missed all six at six million units. Pooling cores from all five *other* difficult queries, including later queries, rescued two. The capture and replay offer a way to test general premise selection independently of frontend costs. Core identities are used only in the benchmark. [Raw solver regimes, extraction, native checks, transfer experiments and reproduction commands](perf/ivy_apple/holdouts/nov24-enumeration-replay.tar.xz)
