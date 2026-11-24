@@ -11,41 +11,84 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-// Delete is enode::del_eh. The context undoes its trail in exact reverse
-// order, so each argument root's newest parent is this node.
+// Delete is enode::del_eh. A refused deletion leaves the node registered
+// with every argument root it had on entry.
 func (n *SMTEnode) Delete(updateChildrenParent bool) error {
-	if err := n.valid(); err != nil {
+	var local [4]smtRemovedParent
+	if _, err := n.detachParentsForDeletion(updateChildrenParent, local[:0]); err != nil {
 		return err
 	}
-	if n.classSize != 1 || n.root != n || n.next != n {
-		return fmt.Errorf("delete non-singleton enode (class %d root-self %t next-self %t): %w", n.classSize, n.root == n, n.next == n, ast.ErrASTDomain)
+	n.finishDeletion()
+	return nil
+}
+
+// The source normally pops the last parent. A parent registered later may
+// still be borrowed by the Go context, so an interior removal keeps its order.
+type smtRemovedParent struct {
+	argument int
+	position int
+}
+
+func (n *SMTEnode) detachParentsForDeletion(update bool, interior []smtRemovedParent) ([]smtRemovedParent, error) {
+	if err := n.valid(); err != nil {
+		return nil, err
 	}
-	if updateChildrenParent {
-		// enode::del_eh pops this node from each argument root's m_parents,
-		// once per argument: f(a, a) was pushed twice.
-		for index, argument := range n.arguments {
-			root := argument.root
-			found := false
-			for i := len(root.sourceParents) - 1; i >= 0; i-- {
-				if root.sourceParents[i] == n {
-					copy(root.sourceParents[i:], root.sourceParents[i+1:])
-					root.sourceParents[len(root.sourceParents)-1] = nil
-					root.sourceParents = root.sourceParents[:len(root.sourceParents)-1]
-					found = true
-					break
-				}
+	if n.classSize != 1 || n.root != n || n.next != n {
+		return nil, fmt.Errorf("delete non-singleton enode (class %d root-self %t next-self %t): %w", n.classSize, n.root == n, n.next == n, ast.ErrASTDomain)
+	}
+	if !update {
+		return nil, nil
+	}
+	for i, argument := range n.arguments {
+		if argument == nil || argument.root == nil {
+			n.restoreDeletionParents(i, interior)
+			return nil, fmt.Errorf("delete enode %d: retired argument %d: %w", n.owner.Slot(), i, ast.ErrASTDomain)
+		}
+		root := argument.root
+		parents := root.sourceParents
+		last := len(parents) - 1
+		if last < 0 || parents[last] != n {
+			position := last - 1
+			for position >= 0 && parents[position] != n {
+				position--
 			}
-			if !found {
+			if position < 0 {
+				n.restoreDeletionParents(i, interior)
 				operation, _ := n.manager.GetDeclKind(n.owner)
 				family, _ := n.manager.GetFamilyID(n.owner)
-				return fmt.Errorf("delete enode %d family %d operation %d argument %d missing from parents (parents %d): %w", n.owner.Slot(), family, operation, index, len(root.sourceParents), ast.ErrASTDomain)
+				return nil, fmt.Errorf("delete enode %d family %d operation %d argument %d missing from parents (parents %d): %w", n.owner.Slot(), family, operation, i, len(parents), ast.ErrASTDomain)
 			}
+			interior = append(interior, smtRemovedParent{i, position})
+			copy(parents[position:], parents[position+1:])
 		}
+		parents[last] = nil
+		root.sourceParents = parents[:last]
 	}
+	return interior, nil
+}
+
+// Undo exactly one removal for each argument in the processed prefix.
+// Shrinking the lists preserved the capacity needed to restore them.
+func (n *SMTEnode) restoreDeletionParents(count int, interior []smtRemovedParent) {
+	for i := count - 1; i >= 0; i-- {
+		root := n.arguments[i].root
+		last := len(root.sourceParents)
+		parents := root.sourceParents[:last+1]
+		at := last
+		if k := len(interior) - 1; k >= 0 && interior[k].argument == i {
+			at = interior[k].position
+			copy(parents[at+1:], parents[at:last])
+			interior = interior[:k]
+		}
+		parents[at] = n
+		root.sourceParents = parents
+	}
+}
+
+func (n *SMTEnode) finishDeletion() {
 	n.manager = nil
 	n.root, n.next, n.congruence = nil, nil, nil
 	n.sourceParents, n.arguments = nil, nil
-	return nil
 }
 
 // TransReaches walks the proof tree. Brent's check catches a corrupted cycle

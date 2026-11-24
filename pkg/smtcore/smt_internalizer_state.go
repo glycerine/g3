@@ -1139,14 +1139,21 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if indexed && (len(apps) == 0 || apps[len(apps)-1] != node) {
 		return fmt.Errorf("enode declaration %d is not decl2enodes tail: %w", node.declaration.Slot(), ast.ErrASTDomain)
 	}
+	var local [4]smtRemovedParent
+	interior, err := node.detachParentsForDeletion(true, local[:0])
+	if err != nil {
+		return fmt.Errorf("delete enode: %w", err)
+	}
 	// undo_mk_enode: erase e if e->is_cgr() && !e->is_true_eq() &&
 	// e->is_cgc_enabled(). A leaf has no m_cg.
 	if node.IsCongruenceRoot() && node.NumArgs() != 0 && node.congruenceEnabled && !node.IsTrueEquality() {
 		erased, err := s.congruence.Erase(node)
 		if err != nil {
+			node.restoreDeletionParents(len(node.arguments), interior)
 			return fmt.Errorf("erase congruence entry: %w", err)
 		}
 		if !erased && smtcoreSourceDebug {
+			node.restoreDeletionParents(len(node.arguments), interior)
 			return fmt.Errorf("congruence entry was absent: %w", ast.ErrASTDomain)
 		}
 	}
@@ -1176,9 +1183,7 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if s.relevancy == nil {
 		s.context.relevant.del(node.owner)
 	}
-	if err := node.Delete(true); err != nil {
-		return fmt.Errorf("delete enode: %w", err)
-	}
+	node.finishDeletion()
 	s.retiringEnode, s.retiringEnodeRoot = node, node.owner
 	return s.finishUnregisterEnode()
 }
