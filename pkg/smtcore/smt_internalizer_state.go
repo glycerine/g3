@@ -1120,6 +1120,32 @@ func (s *SMTInternalizerState) PushScope() error {
 	return nil
 }
 
+// Owned enodes retire in reverse creation order. A client of RegisterEnode
+// can append borrowed nodes of the same declaration after the retiring one.
+func (c *SMTCheckerContext) declarationIndex(nodes []*SMTEnode, node *SMTEnode) int {
+	last := len(nodes) - 1
+	if last >= 0 && nodes[last] == node {
+		return last
+	}
+	if c.registeredEnodes != nil {
+		for i := last - 1; i >= 0; i-- {
+			if nodes[i] == node {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+func removeEnodeAt(nodes []*SMTEnode, at int) []*SMTEnode {
+	last := len(nodes) - 1
+	if at != last {
+		copy(nodes[at:], nodes[at+1:])
+	}
+	nodes[last] = nil
+	return nodes[:last]
+}
+
 func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if s.retiringEnode != nil {
 		if s.retiringEnode != node {
@@ -1131,13 +1157,18 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 		return fmt.Errorf("enode owner %d is not current: %w", node.owner.Slot(), ast.ErrASTDomain)
 	}
 	bucket := s.context.byDeclaration[node.declaration]
-	if len(bucket) == 0 || bucket[len(bucket)-1] != node {
-		return fmt.Errorf("enode declaration %d is not bucket tail (size %d): %w", node.declaration.Slot(), len(bucket), ast.ErrASTDomain)
+	at := s.context.declarationIndex(bucket, node)
+	if at < 0 {
+		return fmt.Errorf("enode absent from declaration %d (size %d): %w", node.declaration.Slot(), len(bucket), ast.ErrASTDomain)
 	}
 	apps := s.context.decl2enodes[node.declaration]
 	indexed := len(node.arguments) != 0 && !node.IsEquality()
-	if indexed && (len(apps) == 0 || apps[len(apps)-1] != node) {
-		return fmt.Errorf("enode declaration %d is not decl2enodes tail: %w", node.declaration.Slot(), ast.ErrASTDomain)
+	appAt := -1
+	if indexed {
+		appAt = s.context.declarationIndex(apps, node)
+	}
+	if indexed && appAt < 0 {
+		return fmt.Errorf("enode absent from matching applications of declaration %d: %w", node.declaration.Slot(), ast.ErrASTDomain)
 	}
 	var local [4]smtRemovedParent
 	interior, err := node.detachParentsForDeletion(true, local[:0])
@@ -1163,20 +1194,16 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 		// follow this one and remain registered after this scope is popped.
 		for i := len(nodes) - 1; i >= 0; i-- {
 			if nodes[i] == node {
-				copy(nodes[i:], nodes[i+1:])
-				nodes[len(nodes)-1] = nil
-				s.context.registeredEnodes = nodes[:len(nodes)-1]
+				s.context.registeredEnodes = removeEnodeAt(nodes, i)
 				break
 			}
 		}
 	}
 	// Popped tails are cleared: a Go backing array would keep the
 	// deleted enode reachable.
-	bucket[len(bucket)-1] = nil
-	s.context.byDeclaration[node.declaration] = bucket[:len(bucket)-1]
+	s.context.byDeclaration[node.declaration] = removeEnodeAt(bucket, at)
 	if indexed {
-		apps[len(apps)-1] = nil
-		s.context.decl2enodes[node.declaration] = apps[:len(apps)-1]
+		s.context.decl2enodes[node.declaration] = removeEnodeAt(apps, appAt)
 	}
 	// Source relevancy marks belong to the expression's relevancy scope.
 	// A base mark can precede an enode created only in this retiring scope.
