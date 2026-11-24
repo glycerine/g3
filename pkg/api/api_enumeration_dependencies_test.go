@@ -156,7 +156,7 @@ func TestEnumerationPredicateDependencies(t *testing.T) {
 			for i, q := range formulas {
 				basis := append(slices.Clone(forms[:cut]), forms[cut+1+i])
 				input := append(basis, anchor)
-				v, e := batch.check(m, input)
+				v, e := batch.check(m, input, true)
 				astTestMust(t, e)
 				if v != !expects[i] {
 					t.Fatalf("%s formula %d expected truth %t: %s", definition, i, expects[i], q)
@@ -199,7 +199,7 @@ func TestEnumerationCyclicArgumentDependencies(t *testing.T) {
 		if proof == nil || !strings.Contains(proof.Premises(), "(forall ((garg") {
 			t.Fatal("missing cyclic dependency premises")
 		}
-		proved, err := batch.check(m, input)
+		proved, err := batch.check(m, input, true)
 		astTestMust(t, err)
 		if proved != (i == 0) {
 			t.Fatalf("query %d, proved %t", i, proved)

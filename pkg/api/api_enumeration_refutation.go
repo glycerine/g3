@@ -22,7 +22,7 @@ func (p *enumerationRefutation) release() error {
 	return nil
 }
 
-func (p *enumerationRefutation) check(m *ast.ASTManager, forms []ast.ASTHandle) (bool, error) {
+func (p *enumerationRefutation) check(m *ast.ASTManager, forms []ast.ASTHandle, asserted bool) (bool, error) {
 	if len(forms) < 2 || m.TraceStream != nil || m.Limit.CancelFlag() {
 		return false, nil
 	}
@@ -40,6 +40,13 @@ func (p *enumerationRefutation) check(m *ast.ASTManager, forms []ast.ASTHandle) 
 			return false, err
 		}
 	}
+	// An already asserted goal falls back to a full source check. A kernel
+	// that has proved a sibling under these same premises can finish some of
+	// those proofs more cheaply than starting that check.
+	budget := uint32(6_000_000)
+	if asserted && p.kernel != nil {
+		budget = 12_000_000
+	}
 	if p.kernel == nil {
 		p.kernel = &orderProofState{}
 		if err := p.kernel.start(m, enumerationSearch); err != nil {
@@ -48,7 +55,7 @@ func (p *enumerationRefutation) check(m *ast.ASTManager, forms []ast.ASTHandle) 
 	}
 	// The private search budget also covers assertion preprocessing. A
 	// failed proof gives the caller its ordinary solver and concrete model.
-	proved, err := p.kernel.check(m, *problem, 6_000_000, true)
+	proved, err := p.kernel.check(m, *problem, budget, true)
 	if err != nil || !proved {
 		return false, errors.Join(err, p.release())
 	}

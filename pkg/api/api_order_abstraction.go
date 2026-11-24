@@ -261,7 +261,7 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 		proved, err = p.proveRelevantPremises(parent, assertions)
 	}
 	if !proved && err == nil && reuse && p.enumeration != nil && !limit.CancelFlag() {
-		return p.enumeration.check(parent, assertions)
+		return p.enumeration.check(parent, assertions, goal.IsNull())
 	}
 	return proved, err
 }

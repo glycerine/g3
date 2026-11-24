@@ -91,7 +91,7 @@ func TestEnumerationProjectionMatchesConcreteModels(t *testing.T) {
 			if answer != tc.want {
 				t.Fatal("concrete answer", tc.goal, answer)
 			}
-			yes, err := batch.check(m, input)
+			yes, err := batch.check(m, input, true)
 			astTestMust(t, err)
 			if yes != (tc.want == lbool.False) {
 				t.Fatal("finite refutation", tc.goal, yes)
@@ -215,7 +215,7 @@ func TestEnumerationSelectionAcrossNarrowAndWideSiblingGoals(t *testing.T) {
 		if (projection != nil) != tc.selected {
 			t.Fatalf("goal %d selection = %t, want %t", i, projection != nil, tc.selected)
 		}
-		proved, err := batch.check(m, input)
+		proved, err := batch.check(m, input, true)
 		astTestMust(t, err)
 		if proved != (tc.selected && tc.unsat) {
 			t.Fatalf("goal %d private proof = %t", i, proved)

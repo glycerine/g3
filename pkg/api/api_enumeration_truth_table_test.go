@@ -76,7 +76,8 @@ func TestEnumerationQuantifiersAgainstTruthTables(t *testing.T) {
 			t.Cleanup(func() { astTestMust(t, batch.release()) })
 			for i, want := range wants {
 				input := append(slices.Clone(baseForms), forms[assertions+i])
-				proved, err := batch.check(m, input)
+				// Exercise both the speculative and already asserted goal paths.
+				proved, err := batch.check(m, input, i%2 == 1)
 				astTestMust(t, err)
 				if proved == want {
 					t.Fatalf("goal %d has truth value %v, refuted=%v", i, want, proved)
