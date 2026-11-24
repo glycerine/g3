@@ -6197,3 +6197,33 @@ GoIvy ran both g3 revisions and linked Z3 with the same frontend, one worker, a 
 | Raft, `raftok.ivy` | 2.44 | 2.41 | 2.65 | 1.10× |
 
 The complete Apple `ord_live2.ivy` specification took **154.74 s with g3** at `93b032763` and **539.81 s with linked Z3**, a 3.49× ratio. This separate two-engine rotation ran on CPU 20. The four three-engine comparisons used CPU 22. The before/after interval includes several solver changes. Throughput on these workloads cannot be attributed to any one record-size change. [Results and reference output](perf/ivy_apple/holdouts/nov24-verified-wall-times.tar.xz)
+
+### Watched binary clauses occupy 14.7 live bytes each
+
+Z3 installs a binary clause by putting one literal in each of two watch lists. g3 already does the same for propagation. To implement its ordered `Clauses()` snapshot and flush the watches, g3 also kept an 80-byte general clause record and separately allocated the two literals. Commit `7431b2b10` stores the pair in four bytes while both literal indices fit in 16 bits. Each solver independently widens its directory on the first larger index. Explicit proofs occupy a separate ordered list, and the public snapshot reconstructs its own literal copies. [Implementation](smtcore/smt_binary_clause_records.go) · [Native watch installation](../src/smt/smt_internalizer.cpp)
+
+| Live heap per installed clause, bytes | Previous g3 | Current g3 |
+| --- | ---: | ---: |
+| All binary, no root flags | 97.48 | 14.73 |
+| Half root flags, no explicit proofs | 97.52 | 16.14 |
+| One explicit proof, in the last record | 97.46 | 16.11 |
+| One proof per 32 clauses | 97.46 | 16.84 |
+| A proof on half the clauses | 97.46 | 28.09 |
+| A proof on every clause | 97.46 | 48.09 |
+| Mixed concrete and binary clauses | 248.20 | 223.20 |
+
+Each value is the median of seven alternating runs with eight independent solvers and 1,024 installed clauses per solver. The Go measurements include watch buffers, the directory, allocation size classes and populated proof attachments. On the same 96 preloaded atoms and 1,024 plain binary clauses, the in-tree Z3 build allocated **9.25 bytes per clause** in its watch buffers. Its small-object allocator recorded zero bytes, and the simultaneous glibc heap increase was 10.87 bytes per clause at eight solvers. Both native watches were counted for every clause. [Go directory benchmark](smtcore/smt_clause_directory_benchmark_test.go) · [Proof-density benchmark](smtcore/smt_binary_clause_proofs_benchmark_test.go) · [C++ benchmark](../src/test/perf/binary_clause_directory.cpp)
+
+| Verification point | Binary clauses | Previous Go heap, MiB | Current Go heap, MiB | Change, KiB |
+| --- | ---: | ---: | ---: | ---: |
+| Apple `ord_live2` | 31,213 | 151.26 | 148.44 | -2,879 |
+| Apple `ord_live` | 0 | 44.59 | 44.59 | +1 |
+| Apple `rfn2` | 4,429 | 20.33 | 19.92 | -422 |
+| Raft replay miss 6 | 3,285 | 74.78 | 74.47 | -318 |
+| Raft replay core 6 | 1,549 | 13.07 | 12.91 | -171 |
+| TLB | 327 | 30.45 | 30.40 | -49 |
+| Hybrid reliable broadcast | 148 | 8.23 | 8.22 | -12 |
+
+The heap measurements include the entire verifier process after a forced collection, at the same phase, enode count and concrete-clause count in both builds. Each complete Apple specification used three runs of each build. The other entries used five. The original Apple specification had zero binary clauses at this sample. Separate complete runs on six verification workloads put the change in median retired instructions between -0.55% and +0.68%. The measured gain is predominantly memory. [Experimental layouts, raw rows and replay](perf/scope_restoration/worker_trials/nov24-binary-clauses.tar.xz)
+
+An interrupted flush exposed a correctness bug. When the first binary watch was removed and the second was missing, retrying `Close()` attempted the first removal again and failed permanently. The directory now remembers which removal succeeded. The regression restores only the missing watch and finishes the second close. The test failed on the preceding commit and passed on the release. All 228 GoIvy compatibility cases matched both reference output streams and the expected exit. [Regression test](smtcore/smt_binary_clause_records_test.go) · [Test outputs](perf/scope_restoration/worker_trials/nov24-binary-clauses.tar.xz)
