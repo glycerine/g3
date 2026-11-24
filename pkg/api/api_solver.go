@@ -45,6 +45,8 @@ type smtContextState struct {
 	// api::context) keeps m_last_obj for this context.
 	lastObjectByResults bool
 	closed              bool
+	// NewSMTContext creates its own arena. Internal callers can supply a smaller budget.
+	ownsDefaultArena bool
 }
 
 // NewSMTContext constructs an independent solver context with source defaults.
@@ -58,7 +60,7 @@ func NewSMTContext() (*SMTContext, error) {
 	// Z3_mk_context makes no solver; the context's solver is initialized
 	// at its first use (init_solver).
 	command.UseAPISolverInitialization()
-	return &SMTContext{smtContextState: &smtContextState{command: command}}, nil
+	return &SMTContext{smtContextState: &smtContextState{command: command, ownsDefaultArena: true}}, nil
 }
 
 // NewSMTContextWithConfig copies the source configuration before constructing

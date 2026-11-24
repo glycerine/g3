@@ -11,7 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func orderSolver(t *testing.T, input string) (*SMTContext, *APISimpleSolver) {
+func orderSolver(t testing.TB, input string) (*SMTContext, *APISimpleSolver) {
 	t.Helper()
 	c, err := NewSMTContext()
 	astTestMust(t, err)

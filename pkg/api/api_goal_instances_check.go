@@ -5,6 +5,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -60,16 +61,26 @@ type privateProofPlan interface {
 }
 
 func (p *orderProofState) checkProofPlan(parent *ast.ASTManager, plan privateProofPlan, maxSteps uint32) (proved bool, err error) {
-	aux := &orderProofState{source: p.source}
-	defer func() {
-		if e := aux.release(); e != nil {
-			p.pendingCondition = aux
-			proved, err = false, errors.Join(err, e)
-		}
-	}()
-	if err = aux.start(parent); err != nil {
+	reuse := p.plans.enabled && !ast.ASTSourceDebug && !diagnostic.TraceCompiled() &&
+		parent.TraceStream == nil && !parent.Budget().InjectionArmed() &&
+		!parent.NumeralService().RuntimeOwner().AllocationLimited()
+	aux, err := p.plans.acquire(parent, p.source, reuse)
+	if err != nil {
 		return false, err
 	}
+	defer func() {
+		if reuse && err == nil && !parent.ResourceLimit().CancelFlag() {
+			// Reset drops the entire solver. The next plan translates and
+			// asserts its own terms into a fresh solver in this private manager.
+			if err = aux.child.Reset(); err == nil {
+				return
+			}
+		}
+		err = errors.Join(err, p.plans.close())
+		if err != nil {
+			proved = false
+		}
+	}()
 	m, err := aux.ctx.Manager()
 	if err != nil {
 		return false, err

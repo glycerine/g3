@@ -18,7 +18,7 @@ func astTestManager(t *testing.T) *ast.ASTManager {
 	t.Cleanup(func() { astTestMust(t, m.Close()) })
 	return m
 }
-func astTestMust(t *testing.T, e error) {
+func astTestMust(t testing.TB, e error) {
 	t.Helper()
 	if e != nil {
 		t.Fatal(e)

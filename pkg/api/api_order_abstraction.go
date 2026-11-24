@@ -46,6 +46,7 @@ func (s *APISimpleSolver) proveUnsatByOrderAbstraction(maxSteps uint32) (bool, e
 type OrderProofBatch struct{ state *orderProofState }
 
 type orderProofState struct {
+	plans              proofPlanContext
 	quantifiedPremises order.QuantifiedPremises
 	groundPremises     order.GroundPremises
 	universalPremises  order.UniversalPremises
@@ -70,7 +71,9 @@ type orderProofState struct {
 // BeginOrderProofBatch creates a batch confined to the source solver's owner.
 // A proof that needs search opens the auxiliary solver on demand.
 func (s *APISimpleSolver) BeginOrderProofBatch() *OrderProofBatch {
-	return &OrderProofBatch{state: &orderProofState{source: s}}
+	p := &orderProofState{source: s}
+	p.plans.enabled = s != nil && s.owner != nil && s.owner.ownsDefaultArena
+	return &OrderProofBatch{state: p}
 }
 
 // Prove has the same result contract as ProveUnsatByOrderAbstraction.
@@ -396,6 +399,9 @@ func (p *orderProofState) start(parent *ast.ASTManager) (err error) {
 }
 
 func (p *orderProofState) release() error {
+	if err := p.plans.close(); err != nil {
+		return err
+	}
 	if p.pendingCondition != nil {
 		if err := p.pendingCondition.release(); err != nil {
 			return err
