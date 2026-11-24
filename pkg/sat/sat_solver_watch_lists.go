@@ -82,6 +82,25 @@ func (w *satSolverWatchLists) Get(i uint32) (satSolverWatchListView, error) {
 	return satSolverWatchListView{w, i, w.backingID}, nil
 }
 
+// pushClause moves an existing clause watch to the current destination list.
+func (w *satSolverWatchLists) pushClause(i uint32, blocked Literal, offset satClauseOffset) error {
+	if err := w.open(); err != nil {
+		return err
+	}
+	if err := satWatchLogicalBounds(i, len(w.lists)); err != nil {
+		return err
+	}
+	watch, err := newSATClauseWatch(blocked, offset)
+	if err != nil {
+		return err
+	}
+	record, err := w.store.record(w.lists[i])
+	if err != nil {
+		return arena.ErrInvalidSlot
+	}
+	return record.push(watch)
+}
+
 type satSolverWatchListView struct {
 	owner     *satSolverWatchLists
 	index     uint32

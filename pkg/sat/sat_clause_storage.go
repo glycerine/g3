@@ -159,10 +159,10 @@ func (a *ClauseAllocator) readWordChecked(r StoredClauseRef, i uint64) (uint32, 
 	if e := a.validate(r); e != nil {
 		return 0, e
 	}
-	if i >= uint64(len(a.large[r.slot].data)) {
+	if i >= uint64(len(a.large[r.slot].data))/4 {
 		return 0, arena.ErrBounds
 	}
-	return a.large[r.slot].data[i], nil
+	return binary.LittleEndian.Uint32(a.large[r.slot].data[i*4:]), nil
 }
 func (a *ClauseAllocator) writeWord(r StoredClauseRef, i uint64, v uint32) error {
 	if r.storageKind != 0 || r.slot == 0 || a == nil || a.closed || r.owner != a.origin || a.self != a {
@@ -177,10 +177,10 @@ func (a *ClauseAllocator) writeWordChecked(r StoredClauseRef, i uint64, v uint32
 	if e := a.validate(r); e != nil {
 		return e
 	}
-	if i >= uint64(len(a.large[r.slot].data)) {
+	if i >= uint64(len(a.large[r.slot].data))/4 {
 		return arena.ErrBounds
 	}
-	a.large[r.slot].data[i] = v
+	binary.LittleEndian.PutUint32(a.large[r.slot].data[i*4:], v)
 	return nil
 }
 
@@ -190,41 +190,60 @@ const (
 	satClauseFlagUsed    uint32 = 8
 )
 
-// satClauseView is one validated clause's words for the duration of one
-// propagation visit. Clause storage does not move while propagation runs.
-type satClauseView struct {
-	small []byte
-	large []uint32
-}
+const satClauseLiteralsOffset = 5 * 4
+
+// satClauseView borrows one clause for a propagation visit. Both allocators
+// use the same little-endian header and literal words.
+type satClauseView []byte
 
 func (a *ClauseAllocator) view(r StoredClauseRef) (satClauseView, error) {
 	if r.storageKind == 0 && r.slot != 0 && a != nil && !a.closed && r.owner == a.origin && a.self == a {
-		data, e := a.storage.Borrow(arena.SmallBytesRef{Slot: arena.Slot(r.slot), Generation: arena.Generation(r.generation)})
-		return satClauseView{small: data}, e
+		return a.storage.Borrow(arena.SmallBytesRef{Slot: arena.Slot(r.slot), Generation: arena.Generation(r.generation)})
 	}
 	if e := a.validate(r); e != nil {
-		return satClauseView{}, e
+		return nil, e
 	}
-	return satClauseView{large: a.large[r.slot].data}, nil
+	return a.large[r.slot].data, nil
 }
-func (v satClauseView) word(i uint32) uint32 {
-	if v.small != nil {
-		return binary.LittleEndian.Uint32(v.small[i*4:])
-	}
-	return v.large[i]
-}
-func (v satClauseView) setWord(i, value uint32) {
-	if v.small != nil {
-		binary.LittleEndian.PutUint32(v.small[i*4:], value)
-		return
-	}
-	v.large[i] = value
-}
+func (v satClauseView) word(i uint64) uint32           { return binary.LittleEndian.Uint32(v[i*4:]) }
+func (v satClauseView) setWord(i uint64, value uint32) { binary.LittleEndian.PutUint32(v[i*4:], value) }
 func (v satClauseView) size() uint32                   { return v.word(1) }
-func (v satClauseView) literal(i uint32) Literal       { return Literal(v.word(5 + i)) }
-func (v satClauseView) setLiteral(i uint32, l Literal) { v.setWord(5+i, uint32(l)) }
+func (v satClauseView) literal(i uint32) Literal       { return Literal(v.word(5 + uint64(i))) }
+func (v satClauseView) setLiteral(i uint32, l Literal) { v.setWord(5+uint64(i), uint32(l)) }
 func (v satClauseView) flag(mask uint32) bool          { return v.word(4)&mask != 0 }
 func (v satClauseView) setFlag(mask uint32)            { v.setWord(4, v.word(4)|mask) }
+
+// watchedLiterals places the falsified watch second, as expected by propagation.
+func (v satClauseView) watchedLiterals(falsified Literal) (Literal, Literal) {
+	pair := v[satClauseLiteralsOffset : satClauseLiteralsOffset+8]
+	a := Literal(binary.LittleEndian.Uint32(pair))
+	b := Literal(binary.LittleEndian.Uint32(pair[4:]))
+	if a == falsified {
+		binary.LittleEndian.PutUint32(pair, uint32(b))
+		binary.LittleEndian.PutUint32(pair[4:], uint32(a))
+		return b, a
+	}
+	return a, b
+}
+
+// moveWatch installs the first remaining literal that is true or unassigned.
+func (v satClauseView) moveWatch(falsified Literal, assignment []lbool.LBool) (Literal, bool) {
+	n := v.size()
+	if n <= 2 {
+		return 0, false
+	}
+	rest := v[satClauseLiteralsOffset+8 : satClauseLiteralsOffset+4*uint64(n)]
+	for len(rest) >= 4 {
+		replacement := Literal(binary.LittleEndian.Uint32(rest))
+		if assignment[replacement.index()] != lbool.False {
+			v.setLiteral(1, replacement)
+			binary.LittleEndian.PutUint32(rest, uint32(falsified))
+			return replacement, true
+		}
+		rest = rest[4:]
+	}
+	return 0, false
+}
 
 func (a *ClauseAllocator) allocate(n uint32) (StoredClauseRef, error) {
 	bytes, _ := satClauseObjectBytes(n)
@@ -730,7 +749,7 @@ func (a *ClauseAllocator) Close() error {
 	}
 	for i := range a.large {
 		if a.large[i].live {
-			a.budget.Release(uint64(len(a.large[i].data)) * 4)
+			a.budget.Release(uint64(len(a.large[i].data)))
 			a.large[i].data = nil
 		}
 	}

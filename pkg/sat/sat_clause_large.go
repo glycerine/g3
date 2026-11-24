@@ -9,7 +9,7 @@ import (
 )
 
 type satLargeClauseEntry struct {
-	data             []uint32
+	data             []byte
 	generation, next uint32
 	live, retired    bool
 }
@@ -53,7 +53,7 @@ func (a *ClauseAllocator) allocateLarge(bytes uint64) (StoredClauseRef, error) {
 		a.budget.Release(dirBytes)
 		return StoredClauseRef{}, e
 	}
-	data := make([]uint32, int(bytes/4))
+	data := make([]byte, int(bytes))
 	if dir != nil {
 		a.budget.Release(a.largeDirectory)
 		a.largeDirectory = dirBytes
@@ -76,7 +76,7 @@ func (a *ClauseAllocator) releaseLarge(r StoredClauseRef) error {
 		return e
 	}
 	v := &a.large[r.slot]
-	bytes := uint64(len(v.data)) * 4
+	bytes := uint64(len(v.data))
 	a.budget.Release(bytes)
 	a.largeBytes -= bytes
 	v.data = nil

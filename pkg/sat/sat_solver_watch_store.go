@@ -148,6 +148,9 @@ func (s *satSolverWatchStore) Push(r satSolverWatchListRef, w satWatched) error 
 	if e != nil {
 		return e
 	}
+	return x.push(w)
+}
+func (x *satSolverWatchListRecord) push(w satWatched) error {
 	old := x.values()
 	if uint64(len(old)) >= uint64(^uint32(0)) {
 		return arena.ErrBounds

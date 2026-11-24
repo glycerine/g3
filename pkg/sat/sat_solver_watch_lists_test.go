@@ -27,6 +27,40 @@ func satVariableWatchFixture(t *testing.T) (*satSolverWatchLists, *arena.Budget)
 	})
 	return w, b
 }
+
+func TestSATMovedClauseWatchChecksDestination(t *testing.T) {
+	lists, _ := satVariableWatchFixture(t)
+	offset := satClauseOffset{owner: 5, slot: 11, generation: 3}
+	_, wantBounds := lists.Get(0)
+	if got := lists.pushClause(0, 8, offset); wantBounds == nil || got != wantBounds {
+		t.Fatalf("empty destination returned %v, want %v", got, wantBounds)
+	}
+	satOK(t, lists.PushEmpty())
+	old := lists.lists[0]
+	satOK(t, lists.Finalize())
+	satOK(t, lists.PushEmpty())
+	current := lists.lists[0]
+	if old.slot != current.slot || old.generation == current.generation {
+		t.Fatal("expected the destination slot to be reused")
+	}
+	lists.lists[0] = old
+	err := lists.pushClause(0, 8, offset)
+	lists.lists[0] = current
+	if !errors.Is(err, arena.ErrInvalidSlot) {
+		t.Fatalf("stale destination returned %v", err)
+	}
+	satOK(t, lists.pushClause(0, 8, offset))
+	view, err := lists.Get(0)
+	satOK(t, err)
+	watch, err := view.Read(0)
+	satOK(t, err)
+	want, err := newSATClauseWatch(8, offset)
+	satOK(t, err)
+	if watch != want {
+		t.Fatalf("moved watch %v, want %v", watch, want)
+	}
+}
+
 func TestSATSolverWatchListsRealRelocationAndPayloadLifetime(t *testing.T) {
 	w, b := satVariableWatchFixture(t)
 	satOK(t, w.PushEmpty())

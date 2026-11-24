@@ -217,47 +217,23 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				if tracing {
 					s.traceProcessingClause(c)
 				}
-				if c0 := clause.literal(0); c0 == not {
-					clause.setLiteral(0, clause.literal(1))
-					clause.setLiteral(1, c0)
-				}
-				c1 := clause.literal(1)
+				c0, c1 := clause.watchedLiterals(not)
 				if tracing {
 					s.traceClauseMismatch(l, c, c1 != not)
 				}
 				if clause.flag(satClauseFlagRemoved) || c1 != not {
 					break
 				}
-				c0 := clause.literal(0)
 				if assignment[c0.index()] == lbool.True {
 					w.SetClause(c0, off)
 					break
 				}
-				n := clause.size()
-				moved := false
-				for j := uint32(2); j < n; j++ {
-					replacement := clause.literal(j)
-					if assignment[replacement.index()] == lbool.False {
-						continue
-					}
-					clause.setLiteral(1, replacement)
-					clause.setLiteral(j, not)
-					dest, e := v.watches.Get(replacement.Negated().index())
-					if e != nil {
-						return false, e
-					}
-					nw, e := newSATClauseWatch(c0, off)
-					if e != nil {
-						return false, e
-					}
-					if e = dest.Push(nw); e != nil {
-						return false, e
-					}
-					moved = true
-					keep = false
-					break
-				}
+				replacement, moved := clause.moveWatch(not, assignment)
 				if moved {
+					if e = v.watches.pushClause(replacement.Negated().index(), c0, off); e != nil {
+						return false, e
+					}
+					keep = false
 					break
 				}
 				value := assignment[c0.index()]

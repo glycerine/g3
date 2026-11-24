@@ -72,13 +72,13 @@ func TestClauseViewMatchesCheckedAccessors(t *testing.T) {
 	}
 }
 
-// Large clauses live in a separate word store, reached by the same view.
+// Large clauses live in a separate allocation, reached by the same view.
 func TestClauseViewReadsLargeStorage(t *testing.T) {
 	a := satViewAllocator(t)
-	a.large = append(a.large, satLargeClauseEntry{data: make([]uint32, 9), generation: 3, live: true})
-	// The hand-built entry was never charged, so Close must not release it.
-	defer func() { a.large = nil }()
-	r := StoredClauseRef{owner: a.origin, slot: uint32(len(a.large) - 1), generation: 3, storageKind: 1}
+	r, err := a.allocateLarge(9 * 4)
+	if err != nil {
+		t.Fatal(err)
+	}
 	view, err := a.view(r)
 	if err != nil {
 		t.Fatal(err)
@@ -87,10 +87,19 @@ func TestClauseViewReadsLargeStorage(t *testing.T) {
 	view.setLiteral(2, Literal(99))
 	view.setFlag(satClauseFlagRemoved)
 	if view.size() != 4 || view.literal(2) != Literal(99) || !view.flag(satClauseFlagRemoved) || view.flag(satClauseFlagUsed) {
-		t.Fatal("large view", view.large)
+		t.Fatal("large view", view)
 	}
 	if got, err := a.readWord(r, 7); err != nil || got != 99 {
 		t.Fatal("large word through checked path", got, err)
+	}
+	if err := a.writeWord(r, 7, 101); err != nil || view.literal(2) != 101 {
+		t.Fatal("checked wide write", err, view.literal(2))
+	}
+	if err := a.releaseLarge(r); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.view(r); err == nil {
+		t.Fatal("released wide clause accepted")
 	}
 }
 
