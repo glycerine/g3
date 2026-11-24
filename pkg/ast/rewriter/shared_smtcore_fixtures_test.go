@@ -10,7 +10,7 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-func dynAckSourceFixture(t *testing.T) (*uparams.ParamsContext, *uparams.GlobalParamsService, *uparams.ParamsRef, *arena.Budget) {
+func dynAckSourceFixture(t testing.TB) (*uparams.ParamsContext, *uparams.GlobalParamsService, *uparams.ParamsRef, *arena.Budget) {
 	t.Helper()
 	c, sy, _ := paramsTestOwner(t)
 	b := arena.NewBudget(^uint64(0))
@@ -39,7 +39,7 @@ var _ umemory.ConstructionFailure = (*unumeral.RationalService)(nil)
 func catalogTestConfig(b *arena.Budget) uparams.GlobalParamsCatalogConfig {
 	return uparams.GlobalParamsCatalogConfig{Budget: b, Descriptions: arena.BytesRegionConfig{PageSize: 64, Descriptors: arena.Config{PageSize: 2, Budget: b}}, Text: arena.VectorConfig{PageSize: 64, Descriptors: arena.Config{PageSize: 2, Budget: b}}}
 }
-func paramsMust(t *testing.T, e error) {
+func paramsMust(t testing.TB, e error) {
 	t.Helper()
 	if e != nil {
 		t.Fatal(e)

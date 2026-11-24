@@ -15,7 +15,7 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-func boolRewriterConfigFixture(t *testing.T) (*ast.ASTManager, *uparams.ParamsContext, *uparams.GlobalParamsService, *uparams.ParamsRef) {
+func boolRewriterConfigFixture(t testing.TB) (*ast.ASTManager, *uparams.ParamsContext, *uparams.GlobalParamsService, *uparams.ParamsRef) {
 	t.Helper()
 	c, g, p, b := dynAckSourceFixture(t)
 	m, e := ast.NewASTManager(ast.ASTManagerConfig{Symbols: c.SymbolsField, Numerals: c.NumeralsField, Budget: b})

@@ -12,7 +12,7 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func satOK(t *testing.T, e error) {
+func satOK(t testing.TB, e error) {
 	t.Helper()
 	if e != nil {
 		t.Fatal(e)
@@ -35,7 +35,7 @@ func satSolverCheckFixture(t *testing.T) (*sat.Solver, *uparams.ParamsContext, u
 	t.Cleanup(func() { satOK(t, s.Close()) })
 	return s, ctx, p
 }
-func paramsTestOwner(t *testing.T) (*uparams.ParamsContext, *usymbol.Manager, *unumeral.RationalService) {
+func paramsTestOwner(t testing.TB) (*uparams.ParamsContext, *usymbol.Manager, *unumeral.RationalService) {
 	t.Helper()
 	b := arena.NewBudget(^uint64(0))
 	sy, e := usymbol.NewManager(usymbol.Config{Budget: b, PageSize: 64, DescriptorPageSize: 2})
