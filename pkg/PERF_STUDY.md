@@ -4853,3 +4853,24 @@ On the 6,338-check Hermes testing workload, g3 allocated **5.40 GB less** and ma
 Each long-run instruction count is the median of three complete alternating measurements per version on a pinned CPU. Ordinary Hermes used five pairs. Both backends use the same frontend change from GoIvy `95a9ad062` to `88aca06ce`. Heap totals come from separate complete processes and use decimal GB. On ordinary Hermes, five quiet samples per engine took **8.439 s before, 8.463 s after and 6.742 s with linked Z3**. The small instruction saving there did not yield a measurable elapsed-time improvement. [Complete paired samples, pinned timing controls and allocation measurements](perf/ivy_apple/holdouts/nov23-structural-sort-keys.tar.xz)
 
 A binary predicate key fell from **458.7 to 264.9 ns** and from seven allocations to two. A nested function key fell from **534.5 to 288.1 ns**, from eight allocations to two. The Boolean case stayed at two allocations. Reproduce these medians in GoIvy with `go test -tags=xtrace_off -run '^$' -bench '^BenchmarkConstantStructuralKey$' -benchtime=100000x -benchmem -cpu=1 -count=7`. All 228 verifier controls matched their reference stdout, stderr and exit status. With tracing enabled, the complete 2,334,030,415-byte rfn2 stdout matched before and after, including all 524,035 XTRACE records. The complete Paxos trace also matched its Python reference. The ordinary release-mode GoIvy suite passed in 58.97 s. A separate full-suite attempt with trace output enabled reached its 35-minute cap inside the long Apple test. [Benchmarks and trace comparisons](perf/ivy_apple/holdouts/nov23-structural-sort-keys.tar.xz)
+
+### Classifying assertions during first-push setup
+
+On 256 asserted clauses, the setup phase of the first push fell from **835.0 to 8.83 µs**. The old basic-arithmetic and sequence policies each scanned the assertions even when their configured backend did not consult those statistics. Ordinary Hermes took both walks in 539 solver setups. A fresh ground shell check could scan the same assertions five times before searching. g3 now reads the formulas when a policy needs the statistics and shares that result until setup returns. A failed setup drops its summary before a retry. The storage belongs to a single solver operation. [Setup implementation](smtcore/smt_asserted_bounds.go) · [Arithmetic backend selection](smtcore/smt_setup_basic_arithmetic.go) · [Retry test](smtcore/smt_setup_string_test.go)
+
+| Isolated setup, 256 clauses | Previous g3 | g3 after change | Bytes allocated before → after |
+|---|---:|---:|---:|
+| First push, logic selected | 834,955 ns | **8,833 ns** | 214,192 → **192** |
+| First check, automatic configuration | 2,073,771 ns | **434,928 ns** | 535,432 → **107,432** |
+
+The benchmark times the production setup call after constructing a fresh solver and asserting its clauses. At 32 clauses the corresponding times were 133.0 → 7.68 µs and 294.7 → 79.8 µs. Commits `3158e1d5f` and `111c1cb1d` also cover finite search limits. In 2,314 observed classifications the search-step charge was zero. Trace, diagnostic and injected allocation-failure paths preserve the original collection points. Reproduce with `go test ./smtcore -run '^$' -bench '^BenchmarkSMTAssertionFeatureSetup$' -cpu=1 -benchmem -benchtime=50x -count=9`. [Benchmark](smtcore/smt_setup_features_benchmark_test.go) · [Run data and commands](perf/ivy_apple/holdouts/nov23-assertion-feature-setup.tar.xz)
+
+| Complete GoIvy process, median billion user instructions | Previous g3 | g3 after change | Linked Z3 |
+|---|---:|---:|---:|
+| Ordinary Hermes | 62.46 | **61.58** | 50.37 |
+| TLB | 93.89 | **92.53** | 65.94 |
+| Apple cf_live | 45.14 | **43.65** | 55.06 |
+| Full Apple, 11,262 checks | 795.69 | **787.47** | 1,041.15 |
+| Apple rfn2 | 12.31 | **12.03** | 49.30 |
+
+The full Apple row uses three runs per engine and the other rows use four, pinned to the same CPU with the same GoIvy frontend. On 36 standalone ground queries, the mean check fell from 148.96 to **135.19 million instructions**. On 36 quantified queries it fell from 274.21 to **255.31 million**. In-tree Z3 used 40.61 and 68.58 million respectively. These counters exclude shell parsing. All 228 verifier controls matched reference stdout, stderr and exit status. Of 720 explicit resource-limit comparisons, 717 finished with matching responses and resource counts. Three unbounded arithmetic queries reached the wall cap in both builds. An added contradiction made all three decide UNSAT. The shell comparison covered 1,799 inputs, including a datalog example that returned the same timeout response when invoked with its intended timeout option. [Complete measurements and controls](perf/ivy_apple/holdouts/nov23-assertion-feature-setup.tar.xz)
