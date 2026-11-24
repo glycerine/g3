@@ -5731,3 +5731,21 @@ Giving each Apple enumeration its own SMT datatype reduced the cost of a fresh g
 Each cell is one CPU-pinned g3 process, in billions of retired user instructions for the entire history. Earlier siblings received six million units. Dropping coverage allows additional unnamed domain elements. A contradiction in that larger class still refutes the original query. This change also proved goal 110 with the smaller six-million terminal allowance, using 95.30 billion instructions for the history. It lost the proof of goal 132 even at twelve million. I kept coverage in the production encoder. [All 72 warm replays](perf/ivy_apple/holdouts/nov24-enumeration-carriers.tar.xz)
 
 On the fresh goal 110, the open domain proved UNSAT in 5,810,051 resource units. Bit vectors for all finite sorts also proved it, in 5,668,357 units. That encoding guarded quantified variables and constrained function results on non-power-of-two sorts. Neither change rescued any of the other five fresh full queries at six million. Across all 72 cold inputs, g3 and in-tree Z3 agreed on the verdict, decisions, conflicts, quantifier instances and resource count. Both engines found a model for every one of the 36 weakened inputs. Separate controls with 2, 3, 4, 5 and 8 elements tested the direction of the relaxation. All five exact encodings preserved all 30 answers on both engines. The open encoding admitted a model on all 15 controls whose contradiction required a finite carrier. [Cold fixtures and small-model controls](perf/ivy_apple/holdouts/nov24-enumeration-carriers.tar.xz)
+
+### Translating ASTs between independent solver arenas
+
+Translating a 1,024-leaf Boolean tree now takes **1.48 ms and 71 Go allocations**, down from **3.91 ms and 12,515 allocations**. When four related trees share the translation cache, the median falls from **2.60 to 0.88 ms**. In-tree Z3 took **0.33 and 0.23 ms** in those two cases. Each figure is the median of eleven rotating measurements on the same logical CPU with 24 translations per process and case. Other workloads were active on the host. [All 198 measurements](perf/ivy_apple/holdouts/nov24-ast-translation.csv)
+
+The old Go translator built a full source-node map, a visited set, a postorder list and a separate map of translated handles. Z3 carries each translated child to its parent on a result stack. The Go implementation now uses that traversal with a second slice for source children. Application arguments, declaration domains and quantifier patterns come directly from the completed children's positions. Each manager keeps its own arena. At 1,024 leaves this reduced allocated bytes per translation from 2,867,085 to 167,276 with a reset before each tree, and from 1,858,904 to 111,956 with reuse. The regression tests translate a 1,536-level shared DAG with both cache lifetimes and retry after injected destination allocation failures. [Go implementation](ast/ast_translation.go) · [Regression tests](ast/ast_translation_shared_test.go) · [C++ traversal](../src/ast/ast_translation.cpp)
+
+The translation speedup has a smaller effect on full verification. In three pinned rotations, ordinary Hermes used 30.70 → 30.64 billion instructions, hybrid broadcast 9.58 → 9.54 billion and Apple rfn2 11.79 → 11.79 billion. Those runs have identical proof outcomes. The Go and C++ benchmarks use the same four trees, creation order and cache-reset schedule. [Go benchmark](ast/ast_translation_siblings_benchmark_test.go) · [Native benchmark](../src/test/perf/ast_translation_siblings.cpp)
+
+From the Go module directory, with this fork's release static library in the build directory, run the two benchmarks with the same CPU affinity.
+
+```sh
+taskset -c 17 go test ./ast -run '^$' -bench '^BenchmarkASTTranslationSiblings$' -benchtime=24x -cpu=1
+g++ -O3 -std=c++11 -D_MP_INTERNAL -DNDEBUG -D_EXTERNAL_RELEASE -D_AMD64_ \
+  -D_USE_THREAD_LOCAL -D_LINUX_ -msse2 -fopenmp -I../src \
+  ../src/test/perf/ast_translation_siblings.cpp ../build/libz3.a -lpthread -lrt -o /tmp/z3-translation
+taskset -c 17 /tmp/z3-translation 24
+```

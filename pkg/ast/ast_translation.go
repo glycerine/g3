@@ -34,7 +34,6 @@ type astTranslationNode struct {
 	refCount         uint32
 	name             usymbol.Symbol
 	info             astTranslationInfo
-	children         []ASTHandle
 	index            uint32
 	forall           bool
 	declarationCount uint32
@@ -108,91 +107,86 @@ func (t *ASTTranslation) Translate(source ASTHandle) (ASTHandle, error) {
 	if source.IsNull() {
 		return ASTHandle{}, nil
 	}
-	if result, found, err := t.cache.Find(source); err != nil {
-		return ASTHandle{}, err
-	} else if found {
-		return result[0], nil
+	// A frame owns its suffix in the source-child and translated-result
+	// stacks. After its last child, replace that suffix with the new parent.
+	// Shared nodes use the persistent cache or a map local to this call.
+	type frame struct {
+		source                             ASTHandle
+		node                               astTranslationNode
+		firstChild, nextChild, firstResult int
 	}
-
-	nodes := make(map[ASTHandle]astTranslationNode)
-	seen := make(map[ASTHandle]bool)
-	order := make([]ASTHandle, 0, 64)
-	type visit struct {
-		node     ASTHandle
-		expanded bool
+	var frames []frame
+	var children, results []ASTHandle
+	var local map[ASTHandle]ASTHandle
+	if !t.persist {
+		local = make(map[ASTHandle]ASTHandle)
 	}
-	stack := []visit{{node: source}}
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		item := stack[last]
-		stack = stack[:last]
-		if cached, err := t.cacheContains(item.node); err != nil {
-			return ASTHandle{}, err
-		} else if cached {
-			continue
-		}
-		if item.expanded {
-			order = append(order, item.node)
-			continue
-		}
-		if seen[item.node] {
-			continue
-		}
-		seen[item.node] = true
-		node, err := t.snapshotNode(item.node)
-		if err != nil {
-			return ASTHandle{}, err
-		}
-		nodes[item.node] = node
-		stack = append(stack, visit{node: item.node, expanded: true})
-		for i := len(node.children) - 1; i >= 0; i-- {
-			child := node.children[i]
-			cached, err := t.cacheContains(child)
+	next := source
+	for {
+		var cached ASTHandle
+		if t.persist {
+			value, found, err := t.cache.Find(next)
 			if err != nil {
 				return ASTHandle{}, err
 			}
-			if !cached && !seen[child] {
-				stack = append(stack, visit{node: child})
+			if found {
+				cached = value[0]
 			}
+		} else {
+			cached = local[next]
 		}
-	}
-
-	results := make(map[ASTHandle]ASTHandle, len(order))
-	lookup := func(h ASTHandle) (ASTHandle, error) {
-		if r, found := results[h]; found {
-			return r, nil
-		}
-		if r, found, err := t.cache.Find(h); err != nil {
-			return ASTHandle{}, err
-		} else if found {
-			return r[0], nil
-		}
-		return ASTHandle{}, ErrASTDomain
-	}
-	for _, h := range order {
-		result, err := t.buildNode(nodes[h], lookup)
-		if err != nil {
-			return ASTHandle{}, err
-		}
-		results[h] = result
-		if t.persist && nodes[h].refCount > 1 {
-			if err = t.from.IncRef(h); err != nil {
+		if cached.IsNull() {
+			start := len(children)
+			node, err := t.snapshotNode(next, &children)
+			if err != nil {
 				return ASTHandle{}, err
 			}
-			if err = t.to.IncRef(result); err != nil {
-				_ = t.from.DecRef(h)
+			frames = append(frames, frame{source: next, node: node, firstChild: start, nextChild: start, firstResult: len(results)})
+		} else {
+			results = append(results, cached)
+		}
+		for len(frames) > 0 {
+			top := &frames[len(frames)-1]
+			if top.nextChild < len(children) {
+				next = children[top.nextChild]
+				top.nextChild++
+				break
+			}
+			result, err := t.buildNode(&top.node, results[top.firstResult:])
+			if err != nil {
 				return ASTHandle{}, err
 			}
-			if err = t.cache.Insert(h, [2]ASTHandle{result}); err != nil {
-				return ASTHandle{}, err
+			if top.node.refCount > 1 {
+				if t.persist {
+					if err = t.keep(top.source, result); err != nil {
+						return ASTHandle{}, err
+					}
+				} else {
+					local[top.source] = result
+				}
 			}
+			children = children[:top.firstChild]
+			results = append(results[:top.firstResult], result)
+			*top = frame{}
+			frames = frames[:len(frames)-1]
+		}
+		if len(frames) == 0 {
+			return results[0], nil
 		}
 	}
-	return lookup(source)
 }
 
-func (t *ASTTranslation) cacheContains(h ASTHandle) (bool, error) {
-	return t.cache.Contains(h)
+func (t *ASTTranslation) keep(source, result ASTHandle) error {
+	if err := t.from.IncRef(source); err != nil {
+		return err
+	}
+	if err := t.to.IncRef(result); err != nil {
+		return errors.Join(err, t.from.DecRef(source))
+	}
+	if err := t.cache.Insert(source, [2]ASTHandle{result}); err != nil {
+		return errors.Join(err, t.to.DecRef(result), t.from.DecRef(source))
+	}
+	return nil
 }
 
 // TranslateAST performs one translation with a nonpersistent cache.
@@ -205,7 +199,7 @@ func TranslateAST(source ASTHandle, from, to *ASTManager) (result ASTHandle, err
 	return t.Translate(source)
 }
 
-func (t *ASTTranslation) snapshotNode(h ASTHandle) (astTranslationNode, error) {
+func (t *ASTTranslation) snapshotNode(h ASTHandle, children *[]ASTHandle) (astTranslationNode, error) {
 	m := t.from
 	if err := m.lock(); err != nil {
 		return astTranslationNode{}, err
@@ -216,7 +210,8 @@ func (t *ASTTranslation) snapshotNode(h ASTHandle) (astTranslationNode, error) {
 		return astTranslationNode{}, err
 	}
 	n := astTranslationNode{kind: m.nodeAt(r.slot).kind, refCount: m.nodeAt(r.slot).rc}
-	appendChild := func(child astNodeRef) { n.children = append(n.children, m.external(child)) }
+
+	appendChild := func(child astNodeRef) { *children = append(*children, m.external(child)) }
 	switch n.kind {
 	case ASTSort:
 		v := m.sortAt(r.slot)
@@ -225,7 +220,7 @@ func (t *ASTTranslation) snapshotNode(h ASTHandle) (astTranslationNode, error) {
 		if err == nil {
 			for _, p := range n.info.params {
 				if p.kind == ASTParameterAST {
-					n.children = append(n.children, p.ast)
+					*children = append(*children, p.ast)
 				}
 			}
 		}
@@ -236,7 +231,7 @@ func (t *ASTTranslation) snapshotNode(h ASTHandle) (astTranslationNode, error) {
 		if err == nil {
 			for _, p := range n.info.params {
 				if p.kind == ASTParameterAST {
-					n.children = append(n.children, p.ast)
+					*children = append(*children, p.ast)
 				}
 			}
 			for i := uint32(0); i < v.arity; i++ {
@@ -297,6 +292,7 @@ func (t *ASTTranslation) snapshotNode(h ASTHandle) (astTranslationNode, error) {
 	default:
 		err = ErrASTDomain
 	}
+
 	return n, err
 }
 
@@ -338,7 +334,7 @@ func (t *ASTTranslation) translateSymbol(s usymbol.Symbol) (usymbol.Symbol, erro
 	return t.to.Symbols.Intern(text)
 }
 
-func (t *ASTTranslation) buildParameters(info astTranslationInfo, lookup func(ASTHandle) (ASTHandle, error)) ([]ASTParameter, error) {
+func (t *ASTTranslation) buildParameters(info astTranslationInfo, translated []ASTHandle) ([]ASTParameter, error) {
 	result := make([]ASTParameter, 0, len(info.params))
 	fail := func(err error) ([]ASTParameter, error) {
 		for i := len(result) - 1; i >= 0; i-- {
@@ -353,11 +349,11 @@ func (t *ASTTranslation) buildParameters(info astTranslationInfo, lookup func(AS
 		case ASTParameterInt:
 			p, err = t.to.NewParameterInt(source.integer)
 		case ASTParameterAST:
-			var h ASTHandle
-			h, err = lookup(source.ast)
-			if err == nil {
-				p, err = t.to.NewParameterAST(h)
+			if len(translated) == 0 {
+				return fail(ErrASTDomain)
 			}
+			p, err = t.to.NewParameterAST(translated[0])
+			translated = translated[1:]
 		case ASTParameterSymbol:
 			var s usymbol.Symbol
 			s, err = t.translateSymbol(source.symbol)
@@ -424,33 +420,18 @@ func (t *ASTTranslation) TranslateDependency(source ASTDependency) (ASTDependenc
 	return progress.Completed, nil
 }
 
-func (t *ASTTranslation) buildNode(n astTranslationNode, lookup func(ASTHandle) (ASTHandle, error)) (result ASTHandle, err error) {
-	child := func(i int) (ASTHandle, error) {
-		if i < 0 || i >= len(n.children) {
-			return ASTHandle{}, ErrASTDomain
-		}
-		return lookup(n.children[i])
-	}
+func (t *ASTTranslation) buildNode(n *astTranslationNode, translated []ASTHandle) (result ASTHandle, err error) {
 	switch n.kind {
 	case ASTVar:
-		sort, e := child(0)
-		if e != nil {
-			return ASTHandle{}, e
+		if len(translated) != 1 {
+			return ASTHandle{}, ErrASTDomain
 		}
-		return t.to.MkVar(n.index, sort)
+		return t.to.MkVar(n.index, translated[0])
 	case ASTApp:
-		decl, e := child(0)
-		if e != nil {
-			return ASTHandle{}, e
+		if len(translated) == 0 {
+			return ASTHandle{}, ErrASTDomain
 		}
-		args := make([]ASTHandle, len(n.children)-1)
-		for i := range args {
-			args[i], e = child(i + 1)
-			if e != nil {
-				return ASTHandle{}, e
-			}
-		}
-		return t.to.MkApp(decl, args)
+		return t.to.MkApp(translated[0], translated[1:])
 	case ASTSort, ASTFuncDecl:
 		name, e := t.translateSymbol(n.name)
 		if e != nil {
@@ -459,7 +440,7 @@ func (t *ASTTranslation) buildNode(n astTranslationNode, lookup func(ASTHandle) 
 		if n.kind == ASTSort && !n.info.present {
 			return t.to.MkUninterpretedSort(name, nil)
 		}
-		params, e := t.buildParameters(n.info, lookup)
+		params, e := t.buildParameters(n.info, translated)
 		if e != nil {
 			return ASTHandle{}, e
 		}
@@ -482,21 +463,12 @@ func (t *ASTTranslation) buildNode(n astTranslationNode, lookup func(ASTHandle) 
 				extra++
 			}
 		}
-		domainCount := len(n.children) - extra - 1
+		domainCount := len(translated) - extra - 1
 		if domainCount < 0 {
 			return ASTHandle{}, ErrASTDomain
 		}
-		domain := make([]ASTHandle, domainCount)
-		for i := range domain {
-			domain[i], e = child(extra + i)
-			if e != nil {
-				return ASTHandle{}, e
-			}
-		}
-		rangeSort, e := child(len(n.children) - 1)
-		if e != nil {
-			return ASTHandle{}, e
-		}
+		domain := translated[extra : extra+domainCount]
+		rangeSort := translated[len(translated)-1]
 		if !n.info.present {
 			return t.to.MkFuncDecl(name, domain, rangeSort, ASTFuncDeclInfo{})
 		}
@@ -507,40 +479,21 @@ func (t *ASTTranslation) buildNode(n astTranslationNode, lookup func(ASTHandle) 
 		defer func() { err = errors.Join(err, t.to.DelFuncDeclInfo(&info)) }()
 		return t.to.MkFuncDeclWithInfo(name, domain, rangeSort, info)
 	case ASTQuantifier:
-		if uint64(n.declarationCount)+1+uint64(n.patternCount)+uint64(n.noPatternCount) != uint64(len(n.children)) {
+		if uint64(n.declarationCount)+1+uint64(n.patternCount)+uint64(n.noPatternCount) != uint64(len(translated)) {
 			return ASTHandle{}, ErrASTDomain
 		}
-		spec := ASTQuantifierSpec{Forall: n.forall, Weight: n.weight}
-		for i := uint32(0); i < n.declarationCount; i++ {
-			h, e := child(int(i))
-			if e != nil {
-				return ASTHandle{}, e
-			}
-			spec.Sorts = append(spec.Sorts, h)
-			name, e := t.translateSymbol(n.declarationNames[i])
-			if e != nil {
-				return ASTHandle{}, e
-			}
-			spec.Names = append(spec.Names, name)
+		endSorts := int(n.declarationCount)
+		endPatterns := endSorts + 1 + int(n.patternCount)
+		spec := ASTQuantifierSpec{
+			Forall: n.forall, Weight: n.weight, Sorts: translated[:endSorts],
+			Body: translated[endSorts], Patterns: translated[endSorts+1 : endPatterns],
+			NoPatterns: translated[endPatterns:], Names: make([]usymbol.Symbol, endSorts),
 		}
-		bodyIndex := int(n.declarationCount)
-		spec.Body, err = child(bodyIndex)
-		if err != nil {
-			return ASTHandle{}, err
-		}
-		for i := uint32(0); i < n.patternCount; i++ {
-			h, e := child(bodyIndex + 1 + int(i))
-			if e != nil {
-				return ASTHandle{}, e
+		for i, name := range n.declarationNames {
+			spec.Names[i], err = t.translateSymbol(name)
+			if err != nil {
+				return ASTHandle{}, err
 			}
-			spec.Patterns = append(spec.Patterns, h)
-		}
-		for i := uint32(0); i < n.noPatternCount; i++ {
-			h, e := child(bodyIndex + 1 + int(n.patternCount+i))
-			if e != nil {
-				return ASTHandle{}, e
-			}
-			spec.NoPatterns = append(spec.NoPatterns, h)
 		}
 		spec.QID, err = t.translateSymbol(n.qid)
 		if err == nil {
