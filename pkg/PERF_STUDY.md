@@ -5824,3 +5824,17 @@ For assertions deeper than 1,024 nodes, g3 built a map of **every live Boolean v
 | 16,384 | 14,840,026 | 91,573 | 18,908 | 1,747,200 → 456 bytes |
 
 At 16,384 unrelated variables the scope required **162× fewer instructions**. g3 still spent 4.8× as many instructions as Z3 on the operation. Medians use five rotating, two-size process measurements. The scope includes assertion, push and pop. A CPU profile of indexed g3 at the smallest size attributed 66% of samples to retiring relevance notifications on pop. Fourteen complete GoIvy invocations, including both Apple specifications, Hermes, Raft and TLB, recorded **zero assertions over the depth threshold**. This change addresses deep incremental SMT inputs. The separate Apple substitution result above measures an optimization exercised by the verifiers. [Raw counters, threshold coverage and reproducible comparison](perf/ivy_apple/holdouts/nov24-deep-assertion-scaling.tar.xz)
+
+### What remained on the deep-assertion solver thread
+
+The scope-pop profile led to a second full-population scan. If base relevance notifications stayed pending, each sibling pop rechecked every surviving notification even when it retired only one new mark. g3 now keeps the surviving queue when it can account for every removal and knows the queued expressions are distinct. Marking an already-relevant member of an equality class forces the earlier notifications to be rechecked. A callback can drain the queue or reinstate a mark, and a failed reference release can interrupt a pop. These cases retain the full membership check when necessary. [Implementation](smtcore/smt_relevancy.go) · [Regression tests](smtcore/smt_relevancy_retirement_test.go)
+
+| Unrelated Booleans | Indexed g3 before the queue change | g3 with both changes | In-tree Z3 |
+|---:|---:|---:|---:|
+| 0 | 95,035 | 21,590 | 18,978 |
+| 1,024 | 94,773 | 21,115 | 18,994 |
+| 16,384 | 92,835 | 17,502 | 18,909 |
+
+Cells are median **solver-thread user instructions per push/assert/pop**, with 8,000 scopes per bracket and nine rotating measurements per engine. At 16,384 unrelated Booleans, g3 used 7.4% fewer instructions than native Z3 on the solver thread. At the two smaller populations it used 11–14% more. Process-level measurements independently put g3 at 18,541–20,553 instructions per scope. On a quiet core, g3 took **2.394 µs** and Z3 **1.552 µs** per scope with 16,384 unrelated Booleans. At zero unrelated Booleans the elapsed times were 2.544 and 1.549 µs. These are medians of seven rotating pairs of 400,000 operations. The 14 Ivy runs had no surviving notification prefix on this path. These figures describe the deep incremental SMT workload. [Go and C++ measurements, runnable comparison and coverage](perf/ivy_apple/holdouts/nov24-relevance-notification-survivors.tar.xz)
+
+An early prototype assumed that applications always marked an expression once. The randomized reference filter caught a stale pending notification at operation 649. With explicit duplicate detection, the final implementation matched the independent reference after **12,288,000 operations**. All 228 verification cases matched their expected exit, stdout and stderr. [Differential oracle, focused tests and corpus results](perf/ivy_apple/holdouts/nov24-relevance-notification-survivors.tar.xz)
