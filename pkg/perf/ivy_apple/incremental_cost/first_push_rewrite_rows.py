@@ -54,9 +54,6 @@ def native_library(args, stage, sources, unit="asserted_formulas", counter="ivy_
     archive = stage / "libz3.a"
     shutil.copyfile(lib, archive)
     subprocess.run(["ar", "rcs", archive, stage / member], check=True)
-    obj = stage / "row_counter.o"
-    subprocess.run(["c++", "-std=c++17", "-O2", "-fPIC", "-I", src, "-I", src / "api", "-c",
-                    src / "test/perf" / counter, "-o", obj], check=True)
     adapter = args.goivy / "smt/quantifier.go"
     text = adapter.read_text()
     name = "${SRCDIR}/../z3vendor/native_lib/libz3.a"
@@ -64,6 +61,11 @@ def native_library(args, stage, sources, unit="asserted_formulas", counter="ivy_
         raise ValueError("unrecognized GoIvy native archive setting")
     sources[adapter] = stage / "quantifier.go"
     sources[adapter].write_text(text.replace(name, str(archive)))
+    if counter is None:
+        return []
+    obj = stage / "row_counter.o"
+    subprocess.run(["c++", "-std=c++17", "-O2", "-fPIC", "-I", src, "-I", src / "api", "-c",
+                    src / "test/perf" / counter, "-o", obj], check=True)
     return ["-ldflags", f"-linkmode=external '-extldflags=-Wl,--wrap={wrap} {obj} {archive} -lstdc++ -lm -lgomp'"]
 
 
