@@ -9,13 +9,6 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (s *SMTInternalizerState) keepClauseAcrossPop(record *SMTInternalizedClause) bool {
-	if record.Binary && record.Lemma {
-		return !s.closing
-	}
-	return !s.closing && s.pendingPop != nil && s.pendingPop.preserve && record.clause != nil && record.clause.IsLemma()
-}
-
 func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLearnedClause) error {
 	if !saved.installed {
 		atoms := saved.clause.atoms

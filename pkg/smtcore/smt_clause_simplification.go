@@ -65,18 +65,6 @@ func (s *SMTInternalizerState) replaceSatisfiedClauseReasons(record *SMTInternal
 }
 
 func (s *SMTInternalizerState) simplifyClause(record *SMTInternalizedClause) (bool, error) {
-	if record.Binary {
-		for _, literal := range record.Literals {
-			value, err := s.Assignment(literal)
-			if err != nil {
-				return false, err
-			}
-			if value == lbool.True {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
 	clause := record.clause
 	if clause == nil || clause.InReinitStack() {
 		return false, nil

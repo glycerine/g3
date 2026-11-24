@@ -272,7 +272,7 @@ type SMTInternalizerState struct {
 	// keeps in neither vector.
 	auxClauses               []SMTInternalizedClause
 	lemmas                   []SMTInternalizedClause
-	binaryClauses            []SMTInternalizedClause
+	binaryClauses            smtBinaryClauseDirectory
 	ownedJustifications      []SMTJustification
 	assignedLiterals         []SMTLiteral
 	propagationHead          int
@@ -1390,7 +1390,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	delClauses := func(records []SMTInternalizedClause, limit int) error {
 		for index := len(records); index > limit; index-- {
 			record := &records[index-1]
-			if flushing && !record.Binary && record.clause != nil {
+			if flushing && record.clause != nil {
 				// context::flush runs undo_trail_stack(0) before del_clauses: the
 				// watches go now, the clause (its proof, then its atoms) after the
 				// trail, auxiliary clauses before lemmas, newest first. The record
@@ -1416,8 +1416,8 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	if flushing {
 		// Watch-only binary clauses live in no clause vector; flush drops
 		// their watch lists.
-		if err := delClauses(s.binaryClauses, 0); err != nil {
-			return err
+		if err := s.detachBinaryClauses(); err != nil {
+			return fmt.Errorf("close clause: %w", err)
 		}
 	}
 	compactClauses := func() {
@@ -1429,8 +1429,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 		clear(s.auxClauses[scope.auxClauseLimit:])
 		s.auxClauses = s.auxClauses[:scope.auxClauseLimit]
 		if flushing {
-			clear(s.binaryClauses)
-			s.binaryClauses = nil
+			s.binaryClauses = smtBinaryClauseDirectory{}
 		}
 	}
 	if !flushing {

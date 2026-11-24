@@ -115,7 +115,7 @@ func (q *SMTActivityCaseSplitQueue) occurrencePhase(variable int32) bool {
 			record := &records[i]
 			// m_lit_occs holds clause objects only: mk_clause returns before
 			// add_lit_occs for a watch-only binary clause.
-			if record.Binary || record.clause == nil {
+			if record.clause == nil {
 				continue
 			}
 			for _, literal := range record.clause.literals {

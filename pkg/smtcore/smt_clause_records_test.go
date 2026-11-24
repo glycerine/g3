@@ -7,5 +7,5 @@ func (s *SMTInternalizerState) testClauses() []SMTInternalizedClause {
 	for _, records := range s.clauseRecordLists() {
 		result = append(result, records...)
 	}
-	return result
+	return s.binaryClauses.appendSnapshots(result)
 }

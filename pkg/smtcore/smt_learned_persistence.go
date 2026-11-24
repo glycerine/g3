@@ -340,24 +340,23 @@ func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearn
 			if err != nil {
 				return err
 			}
-			lemmas, binaries, assigned := len(s.lemmas), len(s.binaryClauses), len(s.assignedLiterals)
+			lemmas, binaries, assigned := len(s.lemmas), s.binaryClauses.count(), len(s.assignedLiterals)
 			first := literals[0]
 			assignment := s.assignment[first.Index()]
 			err = s.addLearnedClauseWithProof(literals, saved.snapshot.proof, false)
-			var added *SMTInternalizedClause
-			if len(s.lemmas) > lemmas {
-				added = &s.lemmas[len(s.lemmas)-1]
-			} else if len(s.binaryClauses) > binaries {
-				added = &s.binaryClauses[len(s.binaryClauses)-1]
-			}
-			if added != nil {
+			addedLemma := len(s.lemmas) > lemmas
+			if addedLemma || s.binaryClauses.count() > binaries {
 				saved.installed = true
-				saved.clause = added.clause
+				if addedLemma {
+					saved.clause = s.lemmas[len(s.lemmas)-1].clause
+				} else {
+					saved.clause = nil
+				}
 				if err != nil {
-					record := *added
-					justification := NewSMTBooleanClause(record.clause)
-					if record.Binary {
-						justification = s.binaryReason(record.Literals[1].Negated())
+					justification := NewSMTBooleanClause(saved.clause)
+					if !addedLemma {
+						pair := s.binaryClauses.pair(s.binaryClauses.count() - 1)
+						justification = s.binaryReason(pair[1].Negated())
 					}
 					remaining := s.learnedAssignmentRemainder(first, assignment, assigned, justification)
 					saved.pending = &remaining

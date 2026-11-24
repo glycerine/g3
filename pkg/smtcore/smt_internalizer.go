@@ -77,13 +77,12 @@ func smtInternalizerGateOperation(operation int32) bool {
 // numClauseRecords counts the stored clauses: m_aux_clauses, m_lemmas and
 // the watch-only binary clauses.
 func (s *SMTInternalizerState) numClauseRecords() int {
-	return len(s.auxClauses) + len(s.lemmas) + len(s.binaryClauses)
+	return len(s.auxClauses) + len(s.lemmas) + s.binaryClauses.count()
 }
 
-// clauseRecordLists returns m_aux_clauses, m_lemmas and the watch-only
-// binary clauses, in that order.
-func (s *SMTInternalizerState) clauseRecordLists() [3][]SMTInternalizedClause {
-	return [3][]SMTInternalizedClause{s.auxClauses, s.lemmas, s.binaryClauses}
+// clauseRecordLists returns the concrete auxiliary clauses and lemmas in source order.
+func (s *SMTInternalizerState) clauseRecordLists() [2][]SMTInternalizedClause {
+	return [2][]SMTInternalizedClause{s.auxClauses, s.lemmas}
 }
 
 // Clauses lists the auxiliary clauses, then the lemmas in m_lemmas order,
@@ -106,7 +105,7 @@ func (s *SMTInternalizerState) Clauses() []SMTInternalizedClause {
 			result = append(result, record)
 		}
 	}
-	return result
+	return s.binaryClauses.appendSnapshots(result)
 }
 
 func (s *SMTInternalizerState) Inconsistent() bool { return s != nil && s.inconsistent }
@@ -326,7 +325,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			_ = s.watches[first.Negated().Index()].RemoveLiteral(second)
 			return err
 		}
-		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: []SMTLiteral{first, second}, Root: root, Binary: true, Lemma: lemma, Proof: proof})
+		s.binaryClauses.add(first, second, root, lemma, proof)
 		value, err := s.Assignment(second)
 		if err != nil {
 			return err

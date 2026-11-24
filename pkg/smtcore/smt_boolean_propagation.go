@@ -197,17 +197,6 @@ func (s *SMTInternalizerState) closeClause(record *SMTInternalizedClause) error 
 	if record == nil {
 		return nil
 	}
-	if record.Binary {
-		if len(record.Literals) != 2 {
-			return ast.ErrASTDomain
-		}
-		first, second := record.Literals[0], record.Literals[1]
-		if !s.watches[first.Negated().Index()].RemoveLiteral(second) || !s.watches[second.Negated().Index()].RemoveLiteral(first) {
-			return ast.ErrASTDomain
-		}
-		record.Binary = false
-		return nil
-	}
 	if record.clause == nil {
 		return nil
 	}
