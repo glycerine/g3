@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // Each verification batch can retain one private AST manager between plans.
@@ -15,6 +16,12 @@ type proofPlanContext struct {
 	parent  *ast.ASTManager
 	aux     *orderProofState
 	uses    int
+}
+
+func (c *proofPlanContext) reusable(parent *ast.ASTManager) bool {
+	return c.enabled && !ast.ASTSourceDebug && !diagnostic.TraceCompiled() &&
+		parent.TraceStream == nil && !parent.Budget().InjectionArmed() &&
+		!parent.NumeralService().RuntimeOwner().AllocationLimited()
 }
 
 func (c *proofPlanContext) acquire(parent *ast.ASTManager, source *APISimpleSolver, reuse bool) (*orderProofState, error) {

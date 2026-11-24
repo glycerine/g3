@@ -159,10 +159,13 @@ func (d *premiseDefinitions) sharedRarest(row []ast.ASTHandle, active map[ast.AS
 
 // Follow definitions backwards from the goal, one complete layer at a time.
 // The wider pass also admits related constraints and positive ground facts.
-func (d *premiseDefinitions) selectRows(m *ast.ASTManager, goal []ast.ASTHandle, wider bool) []ast.ASTHandle {
-	depth, maximum := 4, 32
+func (d *premiseDefinitions) selectRows(m *ast.ASTManager, goal []ast.ASTHandle, wider bool, maximum int) []ast.ASTHandle {
+	if maximum <= 0 {
+		return nil
+	}
+	depth := 4
 	if wider {
-		depth, maximum = 2, 220
+		depth = 2
 	}
 	active := make(map[ast.ASTHandle]bool, len(goal))
 	for _, h := range goal {

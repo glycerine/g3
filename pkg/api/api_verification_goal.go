@@ -2,6 +2,8 @@ package api
 
 import "github.com/glycerine/g3/pkg/ast"
 
+const maxWidePremises = 220
+
 // A first push preprocesses the entire base. After proving a sibling goal,
 // try a small set of original conjuncts in a separate bounded SMT context.
 // A satisfiable or unknown subset leaves the full query undecided.
@@ -43,10 +45,16 @@ func (p *orderProofState) proveRelevantPremises(m *ast.ASTManager, assertions []
 		input := append(subset, goal)
 		return p.checkProofPlan(m, &shortPremisePlan{source: assertions, selected: input}, steps)
 	}
-	if yes, err := check(defs.selectRows(m, symbols, false), 6000); yes || err != nil || m.ResourceLimit().CancelFlag() {
+	if yes, err := check(defs.selectRows(m, symbols, false, 32), 6000); yes || err != nil || m.ResourceLimit().CancelFlag() {
 		return yes, err
 	}
-	if yes, err := check(defs.selectRows(m, symbols, true), 100000); yes || err != nil || m.ResourceLimit().CancelFlag() {
+	wideLimit := maxWidePremises
+	if p.plans.reusable(m) {
+		// An inconclusive search pays for both the private solver and the
+		// source's first push. Require it to save a full batch of premises.
+		wideLimit = min(wideLimit, len(base.rows)-maxWidePremises)
+	}
+	if yes, err := check(defs.selectRows(m, symbols, true, wideLimit), 100000); yes || err != nil || m.ResourceLimit().CancelFlag() {
 		return yes, err
 	}
 	var subset []ast.ASTHandle

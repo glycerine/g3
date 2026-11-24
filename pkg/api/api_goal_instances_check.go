@@ -5,7 +5,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -61,9 +60,7 @@ type privateProofPlan interface {
 }
 
 func (p *orderProofState) checkProofPlan(parent *ast.ASTManager, plan privateProofPlan, maxSteps uint32) (proved bool, err error) {
-	reuse := p.plans.enabled && !ast.ASTSourceDebug && !diagnostic.TraceCompiled() &&
-		parent.TraceStream == nil && !parent.Budget().InjectionArmed() &&
-		!parent.NumeralService().RuntimeOwner().AllocationLimited()
+	reuse := p.plans.reusable(parent)
 	aux, err := p.plans.acquire(parent, p.source, reuse)
 	if err != nil {
 		return false, err

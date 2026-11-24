@@ -11,15 +11,15 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func relevantPremiseExample(last string) string {
+func relevantPremiseExample(last string, padding int) string {
 	var b strings.Builder
 	b.WriteString("(declare-sort U 0)(declare-const k U)(declare-fun alpha (U) Bool)(declare-fun beta (U) Bool)(declare-fun gamma (U) Bool)")
-	for i := 0; i < 20; i++ {
+	for i := 0; i < padding; i++ {
 		fmt.Fprintf(&b, "(declare-fun pad%d (U) Bool)", i)
 	}
 	b.WriteString("(assert (and (forall ((v U)) (= (alpha v) (beta v))) (forall ((v U)) (= (beta v) (gamma v))) ")
 	b.WriteString(last)
-	for i := 0; i < 20; i++ {
+	for i := 0; i < padding; i++ {
 		fmt.Fprintf(&b, " (forall ((v U)) (pad%d v))", i)
 	}
 	b.WriteString("))(assert (not (alpha k)))")
@@ -37,7 +37,7 @@ func TestVerificationDefinitionSelection(t *testing.T) {
 		{"disjunction", "(or (gamma k) (not (beta k)))", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, s := orderSolver(t, relevantPremiseExample(tc.last))
+			ctx, s := orderSolver(t, relevantPremiseExample(tc.last, 20))
 			m, err := ctx.Manager()
 			astTestMust(t, err)
 			roots, err := solver.Assertions(s.solver)
@@ -65,6 +65,54 @@ func TestVerificationDefinitionSelection(t *testing.T) {
 					t.Fatalf("omitted free variable %v, %v", yes, err)
 				}
 			}
+		})
+	}
+}
+
+func TestVerificationWidePremiseSavings(t *testing.T) {
+	for _, omitted := range []int{20, maxWidePremises - 1, maxWidePremises} {
+		t.Run(fmt.Sprint(omitted), func(t *testing.T) {
+			// The two definitions and ground fact suffice. All other
+			// conjuncts are independent universal predicates.
+			ctx, s := orderSolver(t, relevantPremiseExample("(gamma k)", omitted))
+			m, err := ctx.Manager()
+			astTestMust(t, err)
+			roots, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			batch := s.BeginOrderProofBatch()
+			t.Cleanup(func() { astTestMust(t, batch.Close()) })
+			want := omitted >= maxWidePremises || !batch.state.plans.reusable(m)
+			proved, err := batch.state.proveRelevantPremises(m, roots)
+			if err != nil || proved != want {
+				t.Fatalf("omitting %d conjuncts gave %t, want %t, error %v", omitted, proved, want, err)
+			}
+			result, err := s.Check()
+			if err != nil || result != lbool.False {
+				t.Fatalf("concrete result %v, error %v", result, err)
+			}
+		})
+	}
+}
+
+func BenchmarkVerificationPremiseSearch(b *testing.B) {
+	for _, name := range []string{"ticket_wide_goal", "rfn2-5"} {
+		b.Run(name, func(b *testing.B) {
+			ctx, source := orderSolver(b, appleBenchmarkInput(b, name))
+			m, err := ctx.Manager()
+			astTestMust(b, err)
+			roots, err := solver.Assertions(source.solver)
+			astTestMust(b, err)
+			var proofs int
+			b.ReportAllocs()
+			for b.Loop() {
+				batch := source.BeginOrderProofBatch()
+				proved, err := batch.state.proveRelevantPremises(m, roots)
+				astTestMust(b, errors.Join(err, batch.Close()))
+				if proved {
+					proofs++
+				}
+			}
+			b.ReportMetric(float64(proofs)/float64(b.N), "refutations/op")
 		})
 	}
 }
