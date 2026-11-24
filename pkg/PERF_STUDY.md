@@ -5553,3 +5553,28 @@ The complete `ord_live2` run discharged 748 of its 754 private enumeration queri
 | 6 | 13 | 954 | 206 | Budget exhausted | Proved |
 
 In-tree Z3 identified each sufficient set from individually named conjuncts. A second invocation read the selected conjuncts as ordinary assertions and confirmed UNSAT. Even on those subsets, five of six g3 queries exhausted a one-million-unit budget. Ranking premises by shared rare symbols missed all six at that budget. Z3 found models for all six selections of 64 ranked conjuncts, demonstrating that those selections discarded needed information. Reusing the exact conjuncts from earlier cores also missed all six at six million units. Pooling cores from all five *other* difficult queries, including later queries, rescued two. The capture and replay offer a way to test general premise selection independently of frontend costs. Core identities are used only in the benchmark. [Raw solver regimes, extraction, native checks, transfer experiments and reproduction commands](perf/ivy_apple/holdouts/nov24-enumeration-replay.tar.xz)
+
+### What still costs three times as much when both solvers follow the same search?
+
+On three captured Apple enumeration queries, g3 executed **2.91–3.13×** as many instructions as in-tree Z3. On all six sufficient premise sets, both solvers completed the proof with identical search counters and g3 executed **3.43–3.53×** as many instructions. These are standalone solver processes reading identical SMT-LIB. Across 105 paired measurements on 18 inputs, the two solvers agreed on every reported integer search statistic, including decisions, conflicts, propagations, resource counts and quantifier instantiations. The pairs included 23 UNSAT, 24 SAT and 58 budget-limited UNKNOWN results across four solver configurations. [Standalone comparison benchmark](perf/ivy_apple/holdouts/enumeration_budget.py)
+
+| Terminal query, full premises | Quantifier instances | Decisions | Conflicts | g3 billion instructions | Z3 billion instructions | g3/Z3 |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 129,420 | 21,613 | 143 | 29.42 | 9.49 | 3.10× |
+| 3 | 74,669 | 12,449 | 152 | 24.86 | 8.53 | 2.91× |
+| 6 | 138,649 | 16,553 | 182 | 30.12 | 9.61 | 3.13× |
+
+The table uses three rotating, CPU-pinned process measurements per engine at six million resource units. All three full queries exhausted that budget. With sufficient premises, query 1 finished in 2,190,289 resource units and used 10.58 versus 3.00 billion instructions. Query 6 finished in 2,468,846 units and used 13.23 versus 3.81 billion. These ratios describe retired user instructions. The host also ran other work during measurement.
+
+| Sampled instructions in billions, g3 / Z3 | Query 1 | Query 3 | Query 6 |
+|---|---:|---:|---:|
+| Processing a quantifier-queue entry | 14.81 / 4.94 | 10.57 / 3.67 | 19.92 / 6.24 |
+| ↳ Checking whether the instance is already satisfied | 3.55 / 1.96 | 3.28 / 1.91 | 3.86 / 1.79 |
+| ↳ Substituting the bound variables | 2.42 / 0.94 | 1.18 / 0.44 | 3.74 / 1.37 |
+| ↳ Rewriting the instantiated body | 3.32 / 0.74 | 2.42 / 0.50 | 5.00 / 1.34 |
+| ↳ Internalizing the resulting assertion | 3.77 / 0.91 | 2.70 / 0.62 | 5.36 / 1.23 |
+| Counterexample search during model checking | 8.74 / 2.43 | 7.53 / 1.98 | 1.29 / 0.38 |
+
+The queue accounts for **50%, 42% and 67%** of excess instructions respectively, using the two whole-process totals as the denominator. The four indented rows are portions of that queue work. Counterexample search can itself run a solver, so its row can overlap the queue. Counts are three-run medians from hardware instruction samples with Go frame pointers and native DWARF stacks. Inlining and truncated stacks limit attribution. [Go instance construction](smtcore/smt_qi_instance.go) · [C++ instance construction](../src/smt/qi_queue.cpp)
+
+Two experiments narrow the implementation choices. Fusing the internalization and literal lookup of asserted disjuncts saved about 0.2–0.4 billion instructions on the hard queries. That addresses only a small part of internalization. A more promising opportunity is repeated rewriting. On query 1, 84,619 of 131,061 rewrites revisited an input whose previous rewrite had left it unchanged. Every one of those inputs again rewrote to itself. Those calls consumed 64% of the rewriter loop iterations. The corresponding shares were 63% on query 3 and 32% on query 6. A bounded 4,096-entry table indexed by AST slot identified 40%, 44% and 17% of all iterations, respectively. These are measured opportunities. Solver-local reuse still needs to preserve substitution changes, cache and reference lifetimes, proof dependencies, cancellation and resource-budget boundaries. [Raw counters, profiles, trial implementations and stack analysis](perf/ivy_apple/holdouts/nov24-enumeration-matched-search.tar.xz)
