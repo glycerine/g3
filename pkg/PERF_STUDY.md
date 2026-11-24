@@ -5812,3 +5812,15 @@ A finite resource limit used to force every quantifier substitution through the 
 | Apple ord_live2 sys_live isolate, billion instructions | 925.84 | 906.52 | −2.1% |
 
 The stream results are medians of seven rotating instruction-count slopes. The verifier figures average two runs per build in reversed order. The complete ord_live2 saving was **20.90 billion instructions**. On all six saved solver histories, every sibling verdict and resource increment agreed between the two builds at terminal budgets of 6, 9 and 12 million steps, for **693 paired checks**. All 228 compatibility cases matched their reference output and exit, including 91 expected failures. The host ran concurrent work during the instruction measurements. [Go benchmarks](smtcore/smt_quantifier_substitution_benchmark_test.go) · [Every measured count, focused test and portable replay](perf/ivy_apple/holdouts/nov24-bounded-ground-substitution.tar.xz)
+
+### Internalizing a deep assertion in a solver with thousands of existing Boolean variables
+
+For assertions deeper than 1,024 nodes, g3 built a map of **every live Boolean variable** before sorting the assertion's dependencies. Z3 consults its Boolean-variable index when the traversal reaches a term. g3 now uses its solver-local, generation-checked expression index the same way. The benchmark asserts a 1,025-application chain once, creates unrelated Boolean variables, then repeatedly pushes, asserts one more application of the same function and pops. Both solvers verify that the extension retires and the shared chain survives. [Go implementation](smtcore/smt_internalizer.go) · [Go benchmark](smtcore/smt_deep_assertion_benchmark_test.go) · [C++ benchmark](../src/test/perf/deep_shared_assertion.cpp)
+
+| Unrelated live Booleans | Previous g3, instructions per scope | Indexed g3 | In-tree Z3 | Go allocation per scope, before → after |
+|---:|---:|---:|---:|---:|
+| 0 | 1,151,295 | 93,153 | 18,978 | 108,960 → 456 bytes |
+| 1,024 | 2,123,894 | 93,865 | 18,993 | 218,176 → 456 bytes |
+| 16,384 | 14,840,026 | 91,573 | 18,908 | 1,747,200 → 456 bytes |
+
+At 16,384 unrelated variables the scope required **162× fewer instructions**. g3 still spent 4.8× as many instructions as Z3 on the operation. Medians use five rotating, two-size process measurements. The scope includes assertion, push and pop. A CPU profile of indexed g3 at the smallest size attributed 66% of samples to retiring relevance notifications on pop. Fourteen complete GoIvy invocations, including both Apple specifications, Hermes, Raft and TLB, recorded **zero assertions over the depth threshold**. This change addresses deep incremental SMT inputs. The separate Apple substitution result above measures an optimization exercised by the verifiers. [Raw counters, threshold coverage and reproducible comparison](perf/ivy_apple/holdouts/nov24-deep-assertion-scaling.tar.xz)
