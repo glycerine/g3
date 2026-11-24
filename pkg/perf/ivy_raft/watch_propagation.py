@@ -14,7 +14,7 @@ import time
 from propagation_dimacs import dimacs
 
 
-def formulas():
+def formulas(permutations=0):
     for width in (2, 3, 6):
         variables = 12_000
         clauses = [
@@ -49,6 +49,16 @@ def formulas():
             for bird in range(holes + 1):
                 clauses.extend([[-literal(bird, hole), -literal(earlier, hole)] for earlier in range(bird)])
         yield f"pigeon{holes}", holes * (holes + 1), clauses, "unsat"
+        variables = holes * (holes + 1)
+        for seed in range(permutations):
+            rng = random.Random(28000 + seed)
+            names = sorted(range(1, variables + 1), key=lambda _: rng.random())
+            renamed = [[names[abs(lit) - 1] if lit > 0 else -names[-lit - 1] for lit in clause]
+                       for clause in clauses]
+            for clause in renamed:
+                rng.shuffle(clause)
+            rng.shuffle(renamed)
+            yield f"pigeon{holes}-s{seed}", variables, renamed, "unsat"
 
 
 def check_output(output, expected, variables, clauses):
@@ -71,17 +81,23 @@ def main():
     parser.add_argument("--cpu", type=int)
     parser.add_argument("--perf", type=Path, help="Linux perf executable for user instructions and cycles")
     parser.add_argument("--rounds", type=int, default=5)
+    parser.add_argument("--permutations", type=int, default=0,
+                        help="additional deterministic variable, literal and clause orderings per pigeonhole input")
+    parser.add_argument("--compare-heuristics", action="store_true",
+                        help="allow different decision and conflict counts across solvers")
     parser.add_argument("--case", action="append", choices=[f"propagate{i}" for i in (2, 3, 6)]
                         + [f"planted{i}" for i in (3, 5, 8)] + ["pigeon7", "pigeon8"])
     args = parser.parse_args()
     if args.rounds < 1:
         parser.error("--rounds must be positive")
+    if args.permutations < 0:
+        parser.error("--permutations must be nonnegative")
     solvers = [solver.resolve() for solver in args.solvers]
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["case", "round", "solver", "answer", "instructions", "cycles", "seconds", "decisions", "conflicts"])
     with tempfile.TemporaryDirectory() as directory:
-        for name, variables, clauses, expected in formulas():
-            if args.case and name not in args.case:
+        for name, variables, clauses, expected in formulas(args.permutations):
+            if args.case and name.split("-s")[0] not in args.case:
                 continue
             path = Path(directory) / f"{name}.cnf"
             path.write_text(dimacs(variables, clauses))
@@ -102,7 +118,9 @@ def main():
                         raise RuntimeError((solver, name, result.returncode, result.stderr))
                     stats = check_output(result.stdout, expected, variables, clauses)
                     if expected == "unsat":
-                        if "decisions" not in stats or reference is not None and stats != reference:
+                        if "decisions" not in stats or "conflicts" not in stats:
+                            raise ValueError(f"{solver} omitted search counters on {name}")
+                        if not args.compare_heuristics and reference is not None and stats != reference:
                             raise ValueError(f"{solver} search counters on {name} differ from the reference")
                         reference = stats
                     hardware = {}

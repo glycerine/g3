@@ -5404,3 +5404,29 @@ The table gives median billions of whole-process retired user instructions. TLB,
 GoIvy supplies the number of sibling goals when it opens a verification batch. When a batch has at least 48 goals and its base has at least 192 eligible universal premises, the solver can retain their ground instances, propagate permanent units and check each new goal as a temporary Boolean assumption. Each worker owns its data. Eight concurrently live, independently populated workers used a median **877,541 additional live bytes per solver**, measured over seven repetitions. After closing the workers the median difference from the initial heap was 63 bytes per solver. Across 8,640 generated goals with changing premise lists, native Z3 confirmed all 4,646 private refutations. The oracle returned SAT for 3,855 goals and UNKNOWN for none. [Solver implementation](api/api_ground_instances.go) · [Replay and per-worker memory benchmarks](api/api_ground_instances_test.go) · [Heap measurements and oracle controls](perf/ivy_apple/holdouts/nov24-ground-instance-release.tar.xz)
 
 The regressions on the two complete Apple specifications and Hermes came with expensive satisfiable searches in the Boolean relaxation. A satisfiable answer there leaves the original quantified condition open. On full `ord_live`, the private SAT solver spent 21.50 s on 237 such answers and 1.36 s on 195 refutations in an instrumented run. On TLB it spent 0.35 s on 359 satisfiable answers and 0.21 s on 593 refutations. This identifies a specific opportunity to limit the depth of private SAT search while leaving the ordinary verification budget available for fallback. [Per-search sizes, outcomes, resource counts and timings](perf/ivy_apple/holdouts/nov24-ground-instance-release.tar.xz)
+
+### How much does a direct clause lookup cost per solver?
+
+On the eight-hole pigeonhole problem, keeping a byte slice for each clause lowered g3 from **36.51 to 31.75 billion instructions**. At 65,536 four-literal clauses, it cost **2,351,120 additional live bytes per solver** after every clause had been visited. Four independent allocators were measured together, with the reference arrays allocated before the baseline heap reading. Deleting three quarters of the clauses invalidated every deleted reference, but the directory stayed allocated until close. [Measurements, heap test and experimental patches](perf/ivy_raft/nov24-watch-layouts.tar.xz)
+
+| Clause lookup | Eight-hole instructions, billions | Live bytes per solver after visits |
+|---|---:|---:|
+| Existing arena | 36.51 | 4,825,984 |
+| Direct-mapped cache, 4,096 entries | 34.88 | 4,957,072 |
+| Per-slot byte slice | 31.75 | 7,177,104 |
+
+The 256-entry and 1,024-entry caches increased instructions to 38.45 and 37.78 billion. The three runs for each layout preserved the integer search counters on the contradiction and three control inputs. With one clause identity encoded in each eight-byte watch, another prototype reduced the ground-instance benchmark from **877,541 to 772,687 live bytes per worker**. The eight-hole result changed from 36.52 to 35.80 billion instructions. That encoding stores overflow identities in a table that grows until the worker closes. Bounding this table's lifetime is the remaining design issue before using it in long-lived workers. [Raw search counters, allocation measurements and code](perf/ivy_raft/nov24-watch-layouts.tar.xz)
+
+### A faster watch choice on one ordering can double the search on another
+
+A long clause can move its watch to the first literal that is true or unassigned. Looking farther for a true literal reduced instructions by 19% on the original eight-hole input. Reordering the same variables, literals and clauses changed both the number of decisions and the cost of that choice. Each cell is the median of three pinned whole-process instruction readings, in billions. [Inputs, search counts and hardware readings](perf/ivy_raft/nov24-watch-layouts.tar.xz)
+
+| Eight-hole input order | Current g3 | g3 preferring a true literal | In-tree Z3 |
+|---|---:|---:|---:|
+| Original | 36.52 | 29.56 | 8.05 |
+| Permutation 0 | 38.93 | 76.84 | 8.59 |
+| Permutation 1 | 84.77 | 68.27 | 11.44 |
+| Permutation 2 | 29.75 | 75.13 | 6.44 |
+| Permutation 3 | 87.30 | 29.34 | 12.30 |
+
+The five Go policies and native Z3 agreed with exhaustive enumeration on all 320 small controls, including 203 satisfiable inputs whose printed models were checked clause by clause. The two regressions above rule out replacing the current watch choice on the strength of the original input. To reproduce the comparisons, pass the solver executables to the watch benchmark with `--case pigeon8 --permutations 4 --compare-heuristics`. Its default mode still requires identical integer search counters across solvers on the contradictions. [Benchmark driver](perf/ivy_raft/watch_propagation.py)
