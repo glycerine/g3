@@ -6227,3 +6227,17 @@ Each value is the median of seven alternating runs with eight independent solver
 The heap measurements include the entire verifier process after a forced collection, at the same phase, enode count and concrete-clause count in both builds. Each complete Apple specification used three runs of each build. The other entries used five. The original Apple specification had zero binary clauses at this sample. Separate complete runs on six verification workloads put the change in median retired instructions between -0.55% and +0.68%. The measured gain is predominantly memory. [Experimental layouts, raw rows and replay](perf/scope_restoration/worker_trials/nov24-binary-clauses.tar.xz)
 
 An interrupted flush exposed a correctness bug. When the first binary watch was removed and the second was missing, retrying `Close()` attempted the first removal again and failed permanently. The directory now remembers which removal succeeded. The regression restores only the missing watch and finishes the second close. The test failed on the preceding commit and passed on the release. All 228 GoIvy compatibility cases matched both reference output streams and the expected exit. [Regression test](smtcore/smt_binary_clause_records_test.go) · [Test outputs](perf/scope_restoration/worker_trials/nov24-binary-clauses.tar.xz)
+
+### Enode deletion preserves parent and declaration order on scope-pop retries
+
+Three reproducible failures occurred during the memory-layout work. A direct enode deletion panicked on an already retired child. A refused scope pop removed earlier parent occurrences before detecting a missing occurrence, preventing retry. A public borrowed enode registered after an owned application of the same declaration also prevented that application’s scope from popping. Commits `c8bdbb2f4` and `1911b04a8` cover all three paths. An earlier construction fix in `7fc72b85b` validates every child lookup before publishing any parent link. [Deletion and retry tests](smtcore/smt_enode_deletion_retry_test.go) · [Borrowed-registration regression](smtcore/smt_borrowed_declaration_test.go)
+
+On a healthy graph, deleting the tail occurrence needs no extra storage. If an occurrence lies in the middle, g3 records its original position. A later refusal restores the previous positions, including duplicates. The declaration index also retains the order of surviving borrowed nodes. Ordinary solver-owned nodes still retire from the tail. [Deletion implementation](smtcore/smt_enode_aux.go) · [Scope pop](smtcore/smt_internalizer_state.go)
+
+| Distinct applications | Previous g3 instructions per retired enode | Rollback release | In-tree Z3 |
+| ---: | ---: | ---: | ---: |
+| 32 | 6,931 | 6,884 | 979 |
+| 256 | 7,062 | 6,925 | 907 |
+| 2,048 | 7,752 | 7,771 | 917 |
+
+The benchmark retains one in sixteen applications. Each cell is the median of seven paired high-minus-low process instruction counts. A prototype that preflighted parent lists at every deletion cost 8,185 instructions per retired enode at width 2,048, against 7,652 for its control. The release measurements include the complete push, internalize and pop cycle. Both fix releases reproduced all 228 compatibility outcomes. The gap to Z3 warrants work on term registration and child lookup as well as teardown. [Matched benchmark](smtcore/smt_enode_scope_batch_benchmark_test.go) · [Raw counts, experimental source patches and compatibility rows](perf/scope_restoration/worker_trials/nov24-enode-deletion.tar.xz)
