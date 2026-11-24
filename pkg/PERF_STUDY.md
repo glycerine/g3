@@ -4993,3 +4993,18 @@ Each cell is the median of 17 alternating runs of 10,000 renames. In separate he
 | Hermes testing, 6,338 checks | 1,082.04 | **1,064.02** | 1,222.69 | **1,202.76** |
 
 The table uses three complete before/after runs per cell on a pinned CPU. The long runs overlapped other work, so these comparisons use retired instructions. Ordinary Hermes had seven quiet rotations with medians of **7.850 → 7.837 s** on g3 and **6.861 s** on linked Z3 with the new frontend. Each backend reproduced the expected status and both output streams on **228 specs**, including 91 expected failures. The full GoIvy release test suite passed. The rfn2 trace matched across 2,334,030,415 bytes and Paxos matched all 27,855 reference lines. [Benchmark, allocation snapshots, corpus and trace results](perf/ivy_apple/holdouts/nov24-goivy-clause-renaming.tar.xz)
+
+### Keeping quantifier-instance cache storage local to a solver
+
+Each check cleared its quantifier-instance cache by dropping the lookup table, tuple records and reference storage. The next check allocated all three again. Commit `17110e632` releases the AST owners in their original order, clears the table and reuses bounded capacity in that solver. A solver that never instantiates a quantifier allocates no table. A drop in occupancy also releases excess capacity after a large batch. [Implementation](smtcore/cached_var_subst.go) · [Peak-capacity and failure tests](smtcore/cached_var_subst_ownership_regression_test.go)
+
+| Distinct tuples between resets | g3 before, ns/tuple | g3 after, ns/tuple | In-tree Z3, ns/tuple | Go heap bytes/tuple, before → after |
+|---:|---:|---:|---:|---:|
+| 16 | 2,432 | **2,131** | 769 | 391 → **107** |
+| 64 | 2,157 | **1,918** | 800 | 385 → **98** |
+| 256 | 1,991 | **1,799** | 796 | 346 → **86** |
+| 1,024 | 2,084 | **1,830** | 829 | 444 → **96** |
+
+The Go and C++ fixtures instantiate the same quantified DAG with the same tuple sequence. Every request must miss, and the last result must equal the independently constructed DAG. Each cell is the median of 21 rotating runs of 65,536 tuples per width on CPU 45. Across all four widths together, eleven hardware-counter rotations measured **5.767 → 5.233 billion instructions** for g3 and **2.339 billion** for Z3. In a separate g3 recording, 37% of the remaining sampled instructions fell under application construction. C++ also spends about a third of its smaller instruction budget constructing applications. The source comparison points to per-application cost and substitution traversal as the next questions in this fixture. [Go benchmark](smtcore/smt_quantifier_substitution_benchmark_test.go) · [C++ benchmark](../src/test/perf/quantifier_instance_batches.cpp) · [Raw runs, profiles and capacity trials](perf/ivy_apple/holdouts/nov24-quantifier-instance-batches.tar.xz)
+
+The cache change alone saved little across complete specs. Four pinned instruction-count rotations measured **88.51 → 88.27 billion** on TLB, **58.67 → 58.34 billion** on ordinary Hermes and **127.29 → 127.28 billion** on Apple dramc_nb2. Linked Z3 used 65.56, 50.17 and 140.11 billion respectively. All 228 verifier cases, including 91 expected failures, produced matching status and output. The 1,799 shell controls matched outcomes, the packaged datalog timeout returned the expected result on both versions, the rfn2 trace matched byte-for-byte, and all 27,855 Paxos lines matched. [Per-workload measurements and release controls](perf/ivy_apple/holdouts/nov24-quantifier-instance-batches.tar.xz)
