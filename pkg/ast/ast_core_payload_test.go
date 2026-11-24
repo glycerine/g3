@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"reflect"
@@ -64,6 +65,42 @@ func TestASTSymbolPayloadCodecAndPhysicalCharges(t *testing.T) {
 	astTestMust(t, m.allocator.Deallocate(uint32(len(values))*24, p))
 	if _, e = m.readSymbol(p, 0); e == nil {
 		t.Fatal("dead payload accepted")
+	}
+}
+
+func TestCopiedQuantifierPayloadOwnershipAndRollback(t *testing.T) {
+	m := astTestManager(t)
+	for _, size := range []uint32{24, 512} {
+		source, err := m.allocator.Allocate(size)
+		astTestMust(t, err)
+		want := make([]byte, size)
+		for i := range want {
+			want[i] = byte(i + 1)
+			astTestMust(t, m.allocator.Write(source, uint32(i), want[i]))
+		}
+		before := m.allocator.Stats().RequestedBytes
+		if p, err := m.copyQuantifierPayload(source, size+1, 1); !errors.Is(err, arena.ErrBounds) || p != (arena.SmallBytesRef{}) {
+			t.Fatalf("short source of %d bytes returned %v, %v", size, p, err)
+		}
+		if got := m.allocator.Stats().RequestedBytes; got != before {
+			t.Fatalf("failed copy retained %d bytes, previously %d", got, before)
+		}
+		p, err := m.copyQuantifierPayload(source, size, 1)
+		astTestMust(t, err)
+		astTestMust(t, m.allocator.Write(source, size-1, 17))
+		astTestMust(t, m.allocator.Deallocate(size, source))
+		data, err := m.allocator.View(p)
+		astTestMust(t, err)
+		if !bytes.Equal(data, want) {
+			t.Fatalf("copy of %d bytes changed with its source", size)
+		}
+		if dead, err := m.copyQuantifierPayload(source, size, 1); err == nil || dead != (arena.SmallBytesRef{}) {
+			t.Fatalf("stale source of %d bytes returned %v, %v", size, dead, err)
+		}
+		if got := m.allocator.Stats().RequestedBytes; got != before {
+			t.Fatalf("stale source left %d bytes, expected %d", got, before)
+		}
+		astTestMust(t, m.allocator.Deallocate(size, p))
 	}
 }
 

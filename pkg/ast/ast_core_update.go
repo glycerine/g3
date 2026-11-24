@@ -50,15 +50,19 @@ func (m *ASTManager) copyQuantifierPayload(p arena.SmallBytesRef, count, stride 
 	if e != nil {
 		return arena.SmallBytesRef{}, e
 	}
-	for i := uint32(0); i < bytes; i++ {
-		b, e := m.allocator.Read(p, i)
-		if e == nil {
-			e = m.allocator.Write(out, i, b)
+	// Take both views after allocation, while the source quantifier owns
+	// its payload and this candidate owns the destination.
+	src, e := m.allocator.View(p)
+	if e == nil {
+		var dst []byte
+		dst, e = m.allocator.Borrow(out)
+		if e == nil && copy(dst, src) != int(bytes) {
+			e = arena.ErrBounds
 		}
-		if e != nil {
-			m.allocator.Deallocate(bytes, out)
-			return arena.SmallBytesRef{}, e
-		}
+	}
+	if e != nil {
+		m.allocator.Deallocate(bytes, out)
+		return arena.SmallBytesRef{}, e
 	}
 	return out, nil
 }
