@@ -5430,3 +5430,36 @@ A long clause can move its watch to the first literal that is true or unassigned
 | Permutation 3 | 87.30 | 29.34 | 12.30 |
 
 The five Go policies and native Z3 agreed with exhaustive enumeration on all 320 small controls, including 203 satisfiable inputs whose printed models were checked clause by clause. The two regressions above rule out replacing the current watch choice on the strength of the original input. To reproduce the comparisons, pass the solver executables to the watch benchmark with `--case pigeon8 --permutations 4 --compare-heuristics`. Its default mode still requires identical integer search counters across solvers on the contradictions. [Benchmark driver](perf/ivy_raft/watch_propagation.py)
+
+### November 24 — Removing quadratic growth from the byte arena
+
+Growing an arena to 16,384 simultaneously live 256-byte allocations took **90.63 ms**. With commit `af3f04978` it takes **2.73 ms**, a 33.1× speedup. Each of those allocations needs a dedicated chunk. The old allocator searched from slot zero for every new chunk, even when all previous slots were occupied. Growing to *n* chunks therefore inspected *n(n−1)/2* occupied slots. The arena now counts vacant slots and remembers where a search can start. With zero vacancies it appends immediately. When a chunk is released it moves the search start back if needed, preserving reuse of the lowest available slot. The two counters occupy eight bytes per arena. [Arena implementation](arena/small_bytes.go) · [Failure, reuse and reset regression](arena/small_bytes_chunk_directory_test.go)
+
+| DIMACS clause width | Live clauses | Previous g3 | g3 with the directory change | In-tree Z3 |
+|---:|---:|---:|---:|---:|
+| 16 | 16,384 | 0.400 | 0.400 | 0.130 |
+| 64 | 4,096 | 0.421 | 0.354 | 0.125 |
+| 64 | 16,384 | 2.467 | 1.393 | 0.484 |
+| 64 | 65,536 | 22.729 | 5.554 | 1.921 |
+| 64 | 131,072 | 79.774 | 11.096 | 3.836 |
+| 64 | 262,144 | 297.179 | **22.125** | 7.667 |
+
+The table gives median billions of retired user instructions for complete solver processes, including parsing, clause creation, search and writing the model. Each rotation used the same generated clause stream and CPU for all three engines. The largest input had two rotations and the others had three. Every run reported 1,025 decisions, zero conflicts and the requested clause count. The driver checked every distinct printed model against every input clause. Smaller 16-literal clauses share a chunk and showed no measurable benefit at the tested population. [Portable DIMACS benchmark](perf/ivy_raft/wide_clauses.py) · [Raw measurements, allocator variants and corpus](perf/ivy_raft/nov24-chunk-directory.tar.xz)
+
+Reuse also improved. In a population of 16,384 chunks, freeing and refilling 64 scattered holes fell from **381.1 to 32.7 µs**. Refilling 64 holes at the tail fell from **791.9 to 13.7 µs**. An in-place min-heap brought scattered refill down to 18.5 µs, with similar dense growth and a slightly slower tail refill. The simpler two-counter implementation preserves allocation order and changes the search state only after a successful reservation. These are medians of five pinned microbenchmark runs. The TLB, Ticket, hybrid broadcast and ARM verification controls moved by at most 1.1% in either direction. The exact release reproduced the reference exit and both output streams on all 228 GoIvy corpus cases, including 91 expected nonzero exits. [Allocator benchmark](arena/small_bytes_chunk_benchmark_test.go) · [Individual samples](perf/ivy_raft/nov24-chunk-directory.tar.xz)
+
+### November 24 — Building SAT clauses in one pass
+
+After the directory fix, g3 still retired 2.89× as many instructions as Z3 on the largest 64-literal input. Sampling the 16,384-clause run found repeated calls to the arena descriptor from word reads and writes. Constructing a clause located the destination again for each literal. Marking the clause strengthened then read back all its literals to build the approximate variable set used by subsumption. Commit `7e98bf847` borrows the freshly allocated clause once and accumulates that mask while copying. A captured source that fails partway still leaves its learned flag and successfully copied words visible. Strengthening and the final mask are published after the copy succeeds. [Clause constructor](sat/sat_clause_storage.go) · [Short captured input regression](sat/sat_solver_mutable_span_test.go)
+
+| Entire solver process | g3 before | g3 after | In-tree Z3 |
+|---|---:|---:|---:|
+| 16,384 clauses of width 16 | 0.400 | 0.293 | 0.130 |
+| 16,384 clauses of width 64 | 1.394 | 1.027 | 0.484 |
+| 65,536 clauses of width 64 | 5.555 | 4.065 | 1.921 |
+| 8,192 clauses of width 128 | 1.379 | 1.023 | 0.481 |
+| Forced chain with clauses up to six literals | 0.285 | 0.248 | 0.088 |
+| Planted model with eight literals per clause | 0.586 | 0.445 | 0.190 |
+| Eight-hole pigeonhole contradiction | 36.519 | 36.324 | 8.052 |
+
+Values are median billions of retired user instructions over three pinned rotations. The directory and constructor changes together reduced the 65,536-clause input from **22.73 to 4.07 billion instructions**. The binary-clause control used 0.038 billion before and after this constructor change. On the eight-hole contradiction, propagation accounted for most of the time and all three engines again made 31,417 decisions and encountered 25,200 conflicts. TLB used 60.82 → 60.20 billion instructions across three whole-verifier rotations. Ticket, Hermes and hybrid broadcast changed by less than 0.5% in magnitude. All 228 independent corpus cases matched their reference outputs and exits. [Raw three-way measurements and independent stage experiments](perf/ivy_raft/nov24-clause-construction.tar.xz) · [DIMACS driver](perf/ivy_raft/wide_clauses.py) · [Search controls](perf/ivy_raft/watch_propagation.py)
