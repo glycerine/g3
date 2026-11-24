@@ -36,6 +36,7 @@ func NewIncrementalStrategicSolverFactory(logic string, config smtcore.SMTSolver
 	config.CheckIntegerModelRegions = true
 	config.CheckUninterpretedModelTables = true
 	config.SimplifyInitialPushOnce = true
+	config.PreferConnectedMultiPatterns = true
 	return newStrategicSolverFactory(logic, config, os.Stdout, true)
 }
 

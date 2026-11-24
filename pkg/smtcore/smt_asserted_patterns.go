@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/macros"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (k *SMTKernel) inferPendingPatterns() (result error) {
@@ -36,6 +37,20 @@ func (k *SMTKernel) inferPendingPatterns() (result error) {
 	proofs, err := k.manager.ProofsEnabled()
 	if err != nil {
 		return err
+	}
+	if k.connectedMultiPatterns {
+		q := k.internalizer.quantifierManager
+		// The first inferred multi-pattern goes to the eager matcher and its
+		// fallback to the delayed matcher under these settings.
+		connected := !proofs && !ast.ASTSourceDebug && !diagnostic.TraceCompiled() &&
+			q != nil && q.maxEagerMultipatterns == 0 && q.maxLazyMultipatternMatching > 0 &&
+			k.manager.TraceStream == nil && !k.manager.Budget().InjectionArmed() &&
+			!k.manager.NumeralService().RuntimeOwner().AllocationLimited() &&
+			k.manager.ResourceLimit().Limit == 0 && !k.manager.ResourceLimit().CancelFlag() &&
+			k.smtState.MaxConflicts == ^uint32(0)
+		if err = k.patternInference.SetConnectedMultiPatterns(connected); err != nil {
+			return err
+		}
 	}
 	for _, row := range k.assertions[k.assertedHead:] {
 		if proofs {

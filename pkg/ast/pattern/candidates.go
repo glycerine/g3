@@ -29,6 +29,7 @@ type patternCandidates struct {
 	pendingPatternRefs []ast.ASTRef
 	numBindings        uint32
 	blockLoops         bool
+	preferConnected    bool
 	avoidSkolems       bool
 	nestedArithOnly    bool
 	forbiddenFamilies  map[ast.FamilyID]struct{}

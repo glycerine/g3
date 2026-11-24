@@ -47,6 +47,9 @@ type SMTSolverConfig struct {
 	// SimplifyInitialPushOnce runs one macro search and simplifier sequence
 	// while committing a fresh verification solver's first nonempty base.
 	SimplifyInitialPushOnce bool
+	// PreferConnectedMultiPatterns enables selective and fallback E-matching
+	// triggers for incremental verification.
+	PreferConnectedMultiPatterns bool
 }
 
 type smtTrackedAssertion struct {
@@ -182,6 +185,7 @@ func newSMTSolver(m *ast.ASTManager, p *uparams.ParamsRef, logic string, config 
 		return nil, cleanupServices(errors.Join(err, config.Params.Del(&value)))
 	}
 	kernel.skipRepeatedPreprocessing = config.SkipRepeatedPreprocessing
+	kernel.connectedMultiPatterns = config.PreferConnectedMultiPatterns
 	kernel.simplifyInitialPushOnce = config.SimplifyInitialPushOnce
 	if err = kernel.configurePreprocessing(config.Params, globals, &value, sourceParams); err != nil {
 		return nil, cleanupServices(errors.Join(err, kernel.Close(), config.Params.Del(&value)))

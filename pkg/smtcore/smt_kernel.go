@@ -131,6 +131,7 @@ type SMTKernel struct {
 	preprocess                bool
 	skipRepeatedPreprocessing bool
 	simplifyInitialPushOnce   bool
+	connectedMultiPatterns    bool
 	timerClock                func() (uint64, error)
 	closing                   bool
 	closed                    bool

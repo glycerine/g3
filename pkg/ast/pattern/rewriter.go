@@ -166,3 +166,21 @@ func (r *InferenceRewriter) Close() error {
 	r.closed = true
 	return nil
 }
+
+// SetConnectedMultiPatterns enables a more selective first trigger for
+// inferred multi-patterns with independent groups of variables. The ordinary
+// multi-pattern is retained for delayed matching. Clear prior rewrite results
+// when changing the policy between assertion batches.
+func (r *InferenceRewriter) SetConnectedMultiPatterns(enabled bool) error {
+	if r == nil || r.self != r || r.closed || r.candidates == nil || r.traversal == nil {
+		return ast.ErrASTHandle
+	}
+	if r.candidates.preferConnected == enabled {
+		return nil
+	}
+	if err := r.traversal.Reset(); err != nil {
+		return err
+	}
+	r.candidates.preferConnected = enabled
+	return nil
+}

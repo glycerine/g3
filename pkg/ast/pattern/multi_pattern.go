@@ -54,15 +54,26 @@ func (c *patternCandidates) selectMulti(candidates []ast.ASTHandle, maxPatterns 
 	for j := 0; j < len(states); j++ {
 		current := states[j]
 		if uint32(len(current.freeVars)) == c.numBindings {
-			pattern, err := c.manager.MkFamilyApp(2, 0, nil, current.exprs)
+			var err error
+			if c.preferConnected && len(result) == 0 && maxPatterns == 1 {
+				term, e := c.connectingTerm(current.exprs, candidates)
+				if e != nil {
+					return result, e
+				}
+				if !term.IsNull() {
+					joined := make([]ast.ASTHandle, len(current.exprs)+1)
+					copy(joined, current.exprs)
+					joined[len(current.exprs)] = term
+					result, err = c.appendMultiPattern(result, joined)
+					if err != nil {
+						return result, err
+					}
+				}
+			}
+			result, err = c.appendMultiPattern(result, current.exprs)
 			if err != nil {
 				return result, err
 			}
-			owned, err := c.manager.NewRef(pattern)
-			if err != nil {
-				return result, err
-			}
-			result = append(result, owned)
 			if uint64(len(result)) >= uint64(maxPatterns) {
 				return result, nil
 			}
@@ -106,4 +117,16 @@ func (c *patternCandidates) selectMulti(candidates []ast.ASTHandle, maxPatterns 
 		}
 	}
 	return result, nil
+}
+
+func (c *patternCandidates) appendMultiPattern(patterns []ast.ASTRef, terms []ast.ASTHandle) ([]ast.ASTRef, error) {
+	pattern, err := c.manager.MkFamilyApp(2, 0, nil, terms)
+	if err != nil {
+		return patterns, err
+	}
+	ref, err := c.manager.NewRef(pattern)
+	if err != nil {
+		return patterns, err
+	}
+	return append(patterns, ref), nil
 }
