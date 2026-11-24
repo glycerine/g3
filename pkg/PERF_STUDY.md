@@ -2,17 +2,17 @@
 
 ## November 24 verification results
 
-Restricting speculative proof searches to E-matching reduced complete ticket-protocol verification from **0.702 to 0.573 s**. Linked Z3 took **0.252 s**. On Apple cf_live the same change took g3 from 5.621 to **5.237 s**, versus **10.331 s** for linked Z3. Each median covers seven complete rotations on a quiet physical core. [Proof selection, held-out protocols and measured costs](#using-e-matching-for-private-refutation-attempts)
-
-The retained change to quantifier triggers brought ordinary Hermes to **5.006 s**, ahead of linked Z3 at **6.791 s** on the same GoIvy frontend. The previous g3 took 7.722 s in the same seven rotations. Complete Apple and Hermes testing also favored g3 in the earlier timing pairs. The table identifies the number of qualifying runs per engine for each comparison. [Trigger timing and proof controls](#connecting-disjoint-quantifier-triggers) · [Complete Apple and Hermes testing](#reusing-ownership-of-unchanged-assertions)
+On the original 128-atom scope benchmark, g3 now takes **11.47 µs** for `ScopedAtoms`. With the same delayed activity queue as C++, g3 takes **13.98 µs**, down from 17.54 µs. Linked Z3 takes **12.74 µs**. Nine complete, quiet rotations measured both Go fixtures and the native control. The remaining queue-enabled elapsed gap is 9.7%. [Scope costs, ownership checks and benchmarks](#retiring-runs-of-scoped-boolean-variables)
 
 | Complete workload, median elapsed | g3 | Linked Z3 | Runs per engine |
 |---|---:|---:|---:|
 | Apple `ord_live.ivy`, all isolates | **97.81 s** | 164.35 s | 2 |
 | Hermes testing, 6,338 checks | **140.66 s** | 156.86 s | 2 |
-| Ordinary Hermes, 2,575 checks | **5.006 s** | 6.791 s | 7 |
+| Ordinary Hermes, 2,575 checks | **4.413 s** | 6.879 s | 7 |
+| Hybrid reliable broadcast | 1.453 s | **0.923 s** | 7 |
+| Ticket protocol | 0.530 s | **0.251 s** | 7 |
 
-TLB still used **88.44 billion instructions** in g3 versus **65.59 billion** in linked Z3. Earlier matched first-push measurements attributed 55% of the 11.49-billion-instruction gap at that boundary to value propagation, trigger inference and BV sharing. The ordinary Hermes gain came during search. Within TLB value propagation, both engines made 961,604 application-processing calls. Five calibrated samples put g3 at 2,011 instructions per call and Z3 at 385. [Rewriter operation measurements](#the-cost-of-the-same-rewriter-operation-in-go-and-c) · [Matched first-push passes](#where-the-extra-first-push-instructions-go) · [Updated verification panel](perf/ivy_apple/holdouts/nov24-connected-triggers.tar.xz)
+The Hermes, hybrid and ticket rows include the limit on speculative searches over wide premise sets. TLB still used **86.68 billion instructions** in the same verification panel, versus **65.67 billion** for linked Z3. Earlier matched first-push measurements attributed 55% of the 11.49-billion-instruction gap at that boundary to value propagation, trigger inference and BV sharing. Both engines made 961,604 application-processing calls in TLB value propagation. Calibrated samples put g3 at 2,011 instructions per call and Z3 at 385. [Wide premise selection](#when-preprocessing-fewer-premises-pays-for-a-second-solver) · [Matched rewriter calls](#the-cost-of-the-same-rewriter-operation-in-go-and-c) · [Complete Apple and Hermes testing](#reusing-ownership-of-unchanged-assertions)
 
 ## November 23 verification results
 
@@ -5244,4 +5244,41 @@ go test -c -pgo=off -o /tmp/g3-theory-reduction.test ./ast/rewriter
 python3 perf/ivy_apple/incremental_cost/theory_reduction.py \
   --go /tmp/g3-theory-reduction.test --cpu 0 --rounds 7 \
   --low 200000 --high 1200000 --output /tmp/g3-theory-reduction.csv
+```
+
+### Retiring runs of scoped Boolean variables
+
+Commit `0ec8f45c4` reduces the cost of unwinding a run of Boolean variables whose expressions survive the pop. The previous path visited both queue owners and shortened five dense slices for each variable. The new path validates the two queues once, releases the surviving applications, erases the exact descending sequence of queue members, and shortens the slices once. When at most one member survives a heap erase, the final heap order is already determined. With multiple survivors the heap performs the normal sifts, including tie handling. The arena retains ownership of all expressions and queues within their solver. [Trail retirement](smtcore/smt_internalizer_state.go) · [Activity heap](util/heap/heap.go) · [Arena reference release](ast/ast_core_accessors.go)
+
+| Median elapsed per pop, 10,000 pops per run | Previous g3 | Current g3 | Z3 |
+|---|---:|---:|---:|
+| Scoped atoms, original Go Make fixture | 12.680 µs | **11.467 µs** | |
+| Scoped atoms, delayed activity queue on both engines | 17.540 µs | **13.978 µs** | 12.742 µs |
+| Surviving atoms, original Go Make fixture | 353 ns | 359 ns | |
+| Surviving atoms, delayed activity queue on both engines | 298 ns | 312 ns | 479 ns |
+
+The native fixture always enables the delayed queue. Each median contains nine complete rotations on one physical core per rotation, with at least 95% occupancy and an idle sibling for at least 95% of every execution. One incomplete attempt was excluded. The benchmark checks the restored atoms and clauses outside the timed pop. Nine separate alternating invocations of the literal Make targets measured `ScopedAtoms` at 11.812 µs for `make bench` and 14.305 µs for `make cppbench`; these runs shared the machine with other experiments. [Go fixtures](smtcore/smt_hotpath_benchmark_test.go) · [Quiet comparison](perf/scope_restoration/quiet.py) · [Make-target driver](perf/scope_restoration/make_targets.py)
+
+| Queue-enabled scoped pop, solver-thread instructions | Previous g3 | Current g3 | Z3 |
+|---|---:|---:|---:|
+| Undo core trail | 57,507 | **26,064** | 19,694 |
+| Restore learned clauses | 108,264 | 107,590 | 89,254 |
+| Pop relevance marks and owners | 19,536 | 19,524 | 8,073 |
+| Complete pop | 203,388 | **170,598** | 144,762 |
+
+Each cell is the median of nine independently bracketed runs with 1,500 counted pops. Empty intervals took 54 instructions in g3 and 37 in Z3. Core-trail undo accounts for 31,443 of the 32,790 instructions saved per pop. In a second experiment with an empty interval at each individual source boundary, publishing one Boolean variable took 299 instructions in Go and 222 in C++. The queue callbacks within publication took 191 and 91. Filtering the Go pending-relevance notifications took 7,576 instructions per pop. The C++ relevance propagator has no corresponding notification list. These nested intervals identify the next measurements and overlap their parents. [Phase driver](perf/scope_restoration/pop_phases/measure.py) · [Per-operation counters](perf/scope_restoration/pop_phases/restoration.py)
+
+Reference lifetime determines how much a pop can batch. With 8,192 Boolean variables, eleven quiet paired samples measured 216.0 → **124.7 µs** when all expressions survived and 292.4 → **278.3 µs** when every 29th expression lost its last owner. All-last-reference pops cost 1.626 → **1.680 ms** and alternating last references cost 0.994 → **1.085 ms**. An earlier unbounded scan took approximately 26.6 ms on the all-last case because each scalar release retried nearly the whole remaining trail. The retained implementation examines 16 entries at a time and spaces new probes 16 trail entries apart. It stops before a destructor, score-cache update, indexed equality or non-Boolean trail entry requires ordinary processing. [Lifetime benchmark](smtcore/smt_scoped_ref_lifetime_benchmark_test.go) · [Interruption and cached-score tests](smtcore/smt_scoped_boolean_retirement_test.go)
+
+All 228 compatibility cases matched the expected exit and both output streams, including 91 expected failures. Apple rfn2's 26 checks reproduced the 2,334,030,415-byte trace. All 27,855 normalized Paxos output lines matched. The heap tests compare exact entries, inverse indices and iterator epochs over 350 randomized layouts. Release tests passed for the three affected packages, along with focused checked and debug tests. Five independent-process worker measurements gave 52,918 → 52,917 idle bytes per solver at 1,024 solvers × 128 atoms and 782,850 → 782,853 at 48 × 2,048. The paired TLB verifier runs stayed around 86.6 billion instructions. The demonstrated speedup applies to scoped Boolean retirement. [Heap controls](util/heap/activity_range_test.go) · [Worker benchmark](smtcore/smt_scope_workers_benchmark_test.go) · [Raw timings, counters, populations and verifier controls](perf/scope_restoration/pop_phases/nov24-scoped-boolean-ranges.tar.xz)
+
+To reproduce the comparison, build `./smtcore` with `go test -c -pgo=off -o /tmp/g3-smtcore.test ./smtcore`. Run the following from `pkg` on Linux with the in-tree native build.
+
+```sh
+python3 perf/scope_restoration/quiet.py --go g3 /tmp/g3-smtcore.test \
+  --native ../build/test-z3 --rounds 9 --output /tmp/g3-scope-wall
+python3 perf/scope_restoration/quiet.py --go g3 /tmp/g3-smtcore.test \
+  --lifetimes --rounds 11 --output /tmp/g3-scope-lifetimes
+python3 perf/scope_restoration/pop_phases/restoration.py --cpu 0 \
+  --dir /tmp/g3-scope-operations > /tmp/g3-scope-operations.csv
 ```
