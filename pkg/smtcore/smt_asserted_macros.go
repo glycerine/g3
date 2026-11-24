@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/macros"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (k *SMTKernel) findPendingMacros() (result error) {
@@ -49,21 +50,55 @@ func (k *SMTKernel) swapPendingFormulaBatch(batch *macros.FormulaBatch) (result 
 	}); err != nil {
 		return err
 	}
+	// A pass can return the very same justified rows it received. Both
+	// vectors already hold their own references to this prefix. Keep the
+	// kernel's owners in place and acquire replacements only from the
+	// first differing row. The checked proof-mode read also services any
+	// pending manager cleanup before a completely unchanged batch returns.
+	count := batch.Len()
+	first := 0
+	if count > 0 && k.assertedHead < len(k.assertions) &&
+		!ast.ASTValidateHandles && !ast.ASTSourceDebug && !diagnostic.TraceCompiled() &&
+		k.manager.TraceStream == nil && !k.manager.Budget().InjectionArmed() {
+		disabled, err := k.manager.ProofsDisabled()
+		if err != nil {
+			return err
+		}
+		if disabled {
+			for _, old := range k.assertions[k.assertedHead:] {
+				if first == count {
+					break
+				}
+				row, err := batch.At(first)
+				if err != nil {
+					return err
+				}
+				if row.Expression != old.Formula || row.Proof != old.Proof {
+					break
+				}
+				first++
+			}
+		}
+	}
+	head := k.assertedHead + first
+	if first == count && head == len(k.assertions) {
+		return nil
+	}
 	// Save just the displaced owners immediately past the replacement rows.
 	// The two ranges can overlap when a batch shrinks. Both tails fit after
 	// Grow, so appendAssertion can reuse the committed prefix throughout.
-	count := batch.Len()
-	original := slices.Grow(k.assertions, count)
-	end := k.assertedHead + count
-	pending := original[end : len(original)+count]
-	copy(pending, original[k.assertedHead:])
-	k.assertions = original[:k.assertedHead]
+	remaining := count - first
+	original := slices.Grow(k.assertions, remaining)
+	end := head + remaining
+	pending := original[end : len(original)+remaining]
+	copy(pending, original[head:])
+	k.assertions = original[:head]
 	defer func() {
 		if result != nil {
-			for _, assertion := range k.assertions[k.assertedHead:] {
+			for _, assertion := range k.assertions[head:] {
 				result = errors.Join(result, k.manager.DecRef(assertion.Proof), k.manager.DecRef(assertion.Formula))
 			}
-			copy(original[k.assertedHead:], pending)
+			copy(original[head:], pending)
 			k.assertions = original
 			return
 		}
@@ -73,7 +108,7 @@ func (k *SMTKernel) swapPendingFormulaBatch(batch *macros.FormulaBatch) (result 
 			result = errors.Join(result, k.manager.DecRef(assertion.Formula), k.manager.DecRef(assertion.Proof))
 		}
 	}()
-	for i := 0; i < count; i++ {
+	for i := first; i < count; i++ {
 		row, err := batch.At(i)
 		if err != nil {
 			return err

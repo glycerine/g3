@@ -243,3 +243,93 @@ func TestSMTAssertedTermITEDefinitionPreservesUnchangedConjunction(t *testing.T)
 		}
 	}
 }
+
+func TestSMTAssertedBatchKeepsPrefixOwners(t *testing.T) {
+	m := astTestManager(t)
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	var terms [4]ast.ASTHandle
+	for i := range terms {
+		terms[i], err = m.MkVar(uint32(i), sort)
+		astTestMust(t, err)
+		astTestMust(t, m.IncRef(terms[i]))
+	}
+	astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	proof, err := m.MkProofAsserted(terms[1])
+	astTestMust(t, err)
+	astTestMust(t, m.IncRef(proof))
+	astTestMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
+	handles := append(terms[:], proof)
+	base := make([]uint32, len(handles))
+	for i, h := range handles {
+		base[i], err = m.GetRefCount(h)
+		astTestMust(t, err)
+	}
+	k := &SMTKernel{manager: m}
+	t.Cleanup(func() {
+		astTestMust(t, k.restoreAssertions(0))
+		for _, h := range handles {
+			astTestMust(t, m.DecRef(h))
+		}
+	})
+	committed := SMTKernelAssertion{Formula: terms[0]}
+	astTestMust(t, k.appendAssertion(committed.Formula, committed.Proof))
+	k.assertedHead = 1
+	a := SMTKernelAssertion{Formula: terms[1]}
+	b := SMTKernelAssertion{Formula: terms[2]}
+	c := SMTKernelAssertion{Formula: terms[3]}
+	proved := SMTKernelAssertion{Formula: terms[1], Proof: proof}
+	for _, pending := range [][]SMTKernelAssertion{
+		{a, b}, {a, b}, {a, b, c}, {a, c}, {proved, c}, {proved, a, a}, {proved}, {},
+	} {
+		batch, err := macros.NewFormulaBatch(m)
+		astTestMust(t, err)
+		for _, row := range pending {
+			astTestMust(t, batch.Insert(macros.Formula{Expression: row.Formula, Proof: row.Proof}))
+		}
+		astTestMust(t, k.swapPendingFormulaBatch(batch))
+		astTestMust(t, batch.Close())
+		want := append([]SMTKernelAssertion{committed}, pending...)
+		if !reflect.DeepEqual(k.assertions, want) || k.assertedHead != 1 {
+			t.Fatalf("published %v with head %d, want %v with head 1", k.assertions, k.assertedHead, want)
+		}
+		for i, h := range handles {
+			count := base[i]
+			for _, row := range want {
+				if row.Formula == h || row.Proof == h {
+					count++
+				}
+			}
+			got, err := m.GetRefCount(h)
+			astTestMust(t, err)
+			if got != count {
+				t.Fatalf("handle %v after publishing %v has %d owners, want %d", h, pending, got, count)
+			}
+		}
+	}
+
+	// The second row cannot acquire its stale proof. The first row is
+	// shared with the old batch, and the old tail must survive the retry.
+	astTestMust(t, k.appendAssertion(a.Formula, a.Proof))
+	astTestMust(t, k.appendAssertion(b.Formula, b.Proof))
+	astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	stale, err := m.MkProofHypothesis(c.Formula)
+	astTestMust(t, err)
+	astTestMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
+	batch := newSwapBatch(t, m)
+	astTestMust(t, batch.Insert(macros.Formula{Expression: a.Formula}))
+	astTestMust(t, batch.Insert(macros.Formula{Expression: c.Formula, Proof: stale}))
+	astTestMust(t, m.DecRef(stale))
+	want := []SMTKernelAssertion{committed, a, b}
+	if err := k.swapPendingFormulaBatch(batch); !errors.Is(err, ast.ErrASTHandle) || !reflect.DeepEqual(k.assertions, want) {
+		t.Fatalf("failed swap left %v, err %v", k.assertions, err)
+	}
+	if err := batch.Reset(); !errors.Is(err, ast.ErrASTHandle) {
+		t.Fatalf("stale batch reset returned %v", err)
+	}
+	astTestMust(t, batch.Insert(macros.Formula{Expression: a.Formula}))
+	astTestMust(t, k.swapPendingFormulaBatch(batch))
+	if !reflect.DeepEqual(k.assertions, want[:2]) {
+		t.Fatalf("retry after a stale proof left %v", k.assertions)
+	}
+}

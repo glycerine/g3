@@ -118,3 +118,51 @@ func TestSMTPendingAssertionSwapRollback(t *testing.T) {
 		})
 	}
 }
+
+// BenchmarkSMTAssertedBatchReplacement measures publication after a preprocessing
+// pass. Both batches own their rows throughout. Each iteration checks the same
+// ordered prefix but can replace the first or last pending assertion.
+func BenchmarkSMTAssertedBatchReplacement(b *testing.B) {
+	for _, width := range []int{8, 128, 1024} {
+		for _, change := range []string{"Identical", "Last", "First"} {
+			b.Run(fmt.Sprintf("%s/%d", change, width), func(b *testing.B) {
+				m := astTestManager(b)
+				sort, err := m.MkBoolSort()
+				astTestMust(b, err)
+				k := &SMTKernel{manager: m}
+				b.Cleanup(func() { astTestMust(b, k.restoreAssertions(0)) })
+				batches := [2]*macros.FormulaBatch{newSwapBatch(b, m), newSwapBatch(b, m)}
+				for version := range batches {
+					for j := 0; j < width; j++ {
+						index := j
+						if version == 1 && (change == "Last" && j == width-1 || change == "First" && j == 0) {
+							index = width
+						}
+						h, err := m.MkVar(uint32(index), sort)
+						astTestMust(b, err)
+						astTestMust(b, batches[version].Insert(macros.Formula{Expression: h}))
+					}
+				}
+				astTestMust(b, k.swapPendingFormulaBatch(batches[0]))
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					if err := k.swapPendingFormulaBatch(batches[(i+1)&1]); err != nil {
+						b.Fatal(err)
+					}
+				}
+				b.StopTimer()
+				if len(k.assertions) != width {
+					b.Fatal(len(k.assertions))
+				}
+				for j, a := range k.assertions {
+					row, err := batches[b.N&1].At(j)
+					astTestMust(b, err)
+					if a.Formula != row.Expression || a.Proof != row.Proof {
+						b.Fatal(j)
+					}
+				}
+			})
+		}
+	}
+}
