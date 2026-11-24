@@ -23,23 +23,66 @@ func (e *DIMACSParseExit) Unwrap() error { return ErrDIMACSUnexpectedChar }
 // dimacsStreamBuffer is the source one-character lookahead buffer. Any stream
 // failure has the same observable effect as std::istream::get returning EOF.
 type dimacsStreamBuffer struct {
-	input *bufio.Reader
-	value int
+	input     *bufio.Reader
+	value     int
+	window    []byte
+	borrowed  int
+	shared    bool
+	knownVars uint32
 }
 
 func newDIMACSStreamBuffer(input io.Reader) *dimacsStreamBuffer {
 	b := &dimacsStreamBuffer{input: bufio.NewReader(input)}
+	if r, ok := input.(*bufio.Reader); ok {
+		b.shared = r == b.input
+	}
 	b.advance()
 	return b
 }
 
 func (b *dimacsStreamBuffer) advance() {
-	v, err := b.input.ReadByte()
-	if err != nil {
+	if len(b.window) == 0 && !b.refill() {
 		b.value = -1
 		return
 	}
-	b.value = int(v)
+	b.value = int(b.window[0])
+	b.window = b.window[1:]
+}
+
+func (b *dimacsStreamBuffer) commitWindow() {
+	consumed := b.borrowed - len(b.window)
+	if b.shared && consumed != 0 {
+		// Preserve UnreadByte on the caller's reader, including at EOF.
+		_, _ = b.input.Discard(consumed - 1)
+		_, _ = b.input.ReadByte()
+	} else if consumed != 0 {
+		_, _ = b.input.Discard(consumed)
+	}
+	b.window = nil
+	b.borrowed = 0
+}
+
+// A solver callback or the caller can observe a shared reader's position.
+func (b *dimacsStreamBuffer) syncShared() {
+	if b.shared {
+		b.commitWindow()
+	}
+}
+
+func (b *dimacsStreamBuffer) refill() bool {
+	b.commitWindow()
+	if b.input.Buffered() == 0 {
+		// The underlying Read can call back into the solver. Use ReadByte
+		// to preserve the reader's last successful byte on an input error.
+		b.knownVars = 0
+		if _, err := b.input.ReadByte(); err != nil {
+			return false
+		}
+		_ = b.input.UnreadByte()
+	}
+	b.borrowed = b.input.Buffered()
+	b.window, _ = b.input.Peek(b.borrowed)
+	return true
 }
 
 func (b *dimacsStreamBuffer) skipWhitespace() {
@@ -74,10 +117,23 @@ func (b *dimacsStreamBuffer) parseInt() (int32, error) {
 	// The source accumulates in a 32-bit int; its signed overflow is UB.
 	// FORK FIX #125 accumulates in unsigned (the wraparound the release
 	// build shows), and g3 does the same.
-	var value uint32
-	for b.value >= '0' && b.value <= '9' {
-		value = value*10 + uint32(b.value-'0')
-		b.advance()
+	value := uint32(b.value - '0')
+digits:
+	for {
+		for i, ch := range b.window {
+			digit := ch - '0'
+			if digit > 9 {
+				b.value = int(ch)
+				b.window = b.window[i+1:]
+				break digits
+			}
+			value = value*10 + uint32(digit)
+		}
+		b.window = nil
+		if !b.refill() {
+			b.value = -1
+			break
+		}
 	}
 	if negative {
 		value = -value
@@ -87,6 +143,7 @@ func (b *dimacsStreamBuffer) parseInt() (int32, error) {
 
 func (b *dimacsStreamBuffer) readClause(solver *Solver, literals []Literal) ([]Literal, error) {
 	literals = literals[:0]
+	b.knownVars = 0
 	for {
 		parsed, err := b.parseInt()
 		if err != nil {
@@ -103,15 +160,19 @@ func (b *dimacsStreamBuffer) readClause(solver *Solver, literals []Literal) ([]L
 		}
 		// The source deliberately uses the absolute DIMACS number as its SAT
 		// variable, leaving variable zero unused.
-		n, err := solver.sourceNumVars()
-		if err != nil {
-			return literals, err
-		}
-		for variable >= uint32(n) {
-			if _, err = solver.MkVar(false, true); err != nil {
+		if variable >= b.knownVars {
+			n, err := solver.sourceNumVars()
+			if err != nil {
 				return literals, err
 			}
-			n++
+			for variable >= n {
+				b.syncShared()
+				if _, err = solver.MkVar(false, true); err != nil {
+					return literals, err
+				}
+				n++
+			}
+			b.knownVars = n
 		}
 		literals = append(literals, MakeLiteral(BoolVar(variable), parsed < 0))
 	}
@@ -131,6 +192,7 @@ func ParseDIMACS(input io.Reader, solver *Solver) error {
 		return err
 	}
 	buffer := newDIMACSStreamBuffer(input)
+	defer buffer.syncShared()
 	literals := make([]Literal, 0)
 	for {
 		buffer.skipWhitespace()
@@ -145,6 +207,7 @@ func ParseDIMACS(input io.Reader, solver *Solver) error {
 			if err != nil {
 				return err
 			}
+			buffer.syncShared()
 			if err = solver.MkClause(literals); err != nil {
 				return err
 			}

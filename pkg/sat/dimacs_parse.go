@@ -18,6 +18,7 @@ func ReadDIMACSCNF(input io.Reader) (DIMACSCNF, error) {
 		return DIMACSCNF{}, errors.Join(ErrDIMACSParse, io.ErrUnexpectedEOF)
 	}
 	buffer := newDIMACSStreamBuffer(input)
+	defer buffer.syncShared()
 	var result DIMACSCNF
 	for {
 		buffer.skipWhitespace()
