@@ -280,7 +280,7 @@ func TestSMTAssertedBatchKeepsPrefixOwners(t *testing.T) {
 	c := SMTKernelAssertion{Formula: terms[3]}
 	proved := SMTKernelAssertion{Formula: terms[1], Proof: proof}
 	for _, pending := range [][]SMTKernelAssertion{
-		{a, b}, {a, b}, {a, b, c}, {a, c}, {proved, c}, {proved, a, a}, {proved}, {},
+		{a, b}, {a, b}, {a, b, c}, {a, a, c}, {b, a, c}, {a, c}, {proved, c}, {proved, a, a}, {proved}, {},
 	} {
 		batch, err := macros.NewFormulaBatch(m)
 		astTestMust(t, err)
@@ -309,9 +309,10 @@ func TestSMTAssertedBatchKeepsPrefixOwners(t *testing.T) {
 	}
 
 	// The second row cannot acquire its stale proof. The first row is
-	// shared with the old batch, and the old tail must survive the retry.
+	// shared with the old batch, and the last row is a shared suffix.
 	astTestMust(t, k.appendAssertion(a.Formula, a.Proof))
 	astTestMust(t, k.appendAssertion(b.Formula, b.Proof))
+	astTestMust(t, k.appendAssertion(c.Formula, c.Proof))
 	astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
 	stale, err := m.MkProofHypothesis(c.Formula)
 	astTestMust(t, err)
@@ -319,8 +320,9 @@ func TestSMTAssertedBatchKeepsPrefixOwners(t *testing.T) {
 	batch := newSwapBatch(t, m)
 	astTestMust(t, batch.Insert(macros.Formula{Expression: a.Formula}))
 	astTestMust(t, batch.Insert(macros.Formula{Expression: c.Formula, Proof: stale}))
+	astTestMust(t, batch.Insert(macros.Formula{Expression: c.Formula}))
 	astTestMust(t, m.DecRef(stale))
-	want := []SMTKernelAssertion{committed, a, b}
+	want := []SMTKernelAssertion{committed, a, b, c}
 	if err := k.swapPendingFormulaBatch(batch); !errors.Is(err, ast.ErrASTHandle) || !reflect.DeepEqual(k.assertions, want) {
 		t.Fatalf("failed swap left %v, err %v", k.assertions, err)
 	}

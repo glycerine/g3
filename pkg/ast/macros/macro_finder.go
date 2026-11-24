@@ -60,6 +60,17 @@ func (b *FormulaBatch) At(i int) (Formula, error) {
 	}
 	return b.rows[i], nil
 }
+
+// MatchesJustification reports whether the row still owns this expression
+// and proof. Dependencies are separate from the solver's justified rows.
+func (b *FormulaBatch) MatchesJustification(i int, expression, proof ast.ASTHandle) bool {
+	if b == nil || b.self != b || b.closed || uint(i) >= uint(len(b.rows)) {
+		return false
+	}
+	row := &b.rows[i]
+	return row.Expression == expression && row.Proof == proof
+}
+
 func (b *FormulaBatch) Insert(row Formula) error {
 	if err := b.open(); err != nil {
 		return err

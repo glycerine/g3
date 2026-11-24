@@ -50,13 +50,12 @@ func (k *SMTKernel) swapPendingFormulaBatch(batch *macros.FormulaBatch) (result 
 	}); err != nil {
 		return err
 	}
-	// A pass can return the very same justified rows it received. Both
-	// vectors already hold their own references to this prefix. Keep the
-	// kernel's owners in place and acquire replacements only from the
-	// first differing row. The checked proof-mode read also services any
-	// pending manager cleanup before a completely unchanged batch returns.
+	// The kernel and batch already own the rows they have in common.
+	// Keep the common prefix, and also the suffix when it stays at the
+	// same indices. The proof-mode read services pending manager cleanup
+	// even if the entire batch stays in place.
 	count := batch.Len()
-	first := 0
+	first, suffix := 0, 0
 	if count > 0 && k.assertedHead < len(k.assertions) &&
 		!ast.ASTValidateHandles && !ast.ASTSourceDebug && !diagnostic.TraceCompiled() &&
 		k.manager.TraceStream == nil && !k.manager.Budget().InjectionArmed() {
@@ -69,14 +68,19 @@ func (k *SMTKernel) swapPendingFormulaBatch(batch *macros.FormulaBatch) (result 
 				if first == count {
 					break
 				}
-				row, err := batch.At(first)
-				if err != nil {
-					return err
-				}
-				if row.Expression != old.Formula || row.Proof != old.Proof {
+				if !batch.MatchesJustification(first, old.Formula, old.Proof) {
 					break
 				}
 				first++
+			}
+			if count == len(k.assertions)-k.assertedHead && first < count {
+				for i := count - 1; i > first; i-- {
+					old := k.assertions[k.assertedHead+i]
+					if !batch.MatchesJustification(i, old.Formula, old.Proof) {
+						break
+					}
+					suffix++
+				}
 			}
 		}
 	}
@@ -84,14 +88,13 @@ func (k *SMTKernel) swapPendingFormulaBatch(batch *macros.FormulaBatch) (result 
 	if first == count && head == len(k.assertions) {
 		return nil
 	}
-	// Save just the displaced owners immediately past the replacement rows.
-	// The two ranges can overlap when a batch shrinks. Both tails fit after
-	// Grow, so appendAssertion can reuse the committed prefix throughout.
-	remaining := count - first
+	// Preserve displaced owners beyond the final length until all new rows
+	// have been acquired. The copy can overlap when a batch shrinks.
+	remaining := count - first - suffix
 	original := slices.Grow(k.assertions, remaining)
-	end := head + remaining
+	end := k.assertedHead + count
 	pending := original[end : len(original)+remaining]
-	copy(pending, original[head:])
+	copy(pending, original[head:len(original)-suffix])
 	k.assertions = original[:head]
 	defer func() {
 		if result != nil {
@@ -102,13 +105,15 @@ func (k *SMTKernel) swapPendingFormulaBatch(batch *macros.FormulaBatch) (result 
 			k.assertions = original
 			return
 		}
+		// Appending stops just before the retained suffix.
+		k.assertions = original[:end]
 		// m_formulas.shrink(m_qhead): ~justified_expr releases the
 		// formula, then the proof.
 		for _, assertion := range pending {
 			result = errors.Join(result, k.manager.DecRef(assertion.Formula), k.manager.DecRef(assertion.Proof))
 		}
 	}()
-	for i := first; i < count; i++ {
+	for i := first; i < count-suffix; i++ {
 		row, err := batch.At(i)
 		if err != nil {
 			return err
