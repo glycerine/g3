@@ -5463,3 +5463,20 @@ After the directory fix, g3 still retired 2.89× as many instructions as Z3 on t
 | Eight-hole pigeonhole contradiction | 36.519 | 36.324 | 8.052 |
 
 Values are median billions of retired user instructions over three pinned rotations. The directory and constructor changes together reduced the 65,536-clause input from **22.73 to 4.07 billion instructions**. The binary-clause control used 0.038 billion before and after this constructor change. On the eight-hole contradiction, propagation accounted for most of the time and all three engines again made 31,417 decisions and encountered 25,200 conflicts. TLB used 60.82 → 60.20 billion instructions across three whole-verifier rotations. Ticket, Hermes and hybrid broadcast changed by less than 0.5% in magnitude. All 228 independent corpus cases matched their reference outputs and exits. [Raw three-way measurements and independent stage experiments](perf/ivy_raft/nov24-clause-construction.tar.xz) · [DIMACS driver](perf/ivy_raft/wide_clauses.py) · [Search controls](perf/ivy_raft/watch_propagation.py)
+
+### How one early refutation changes later Apple checks
+
+On the complete `ord_live2.ivy` run, changing the first two eligible ground-instance attempts in batch 13 saved **151 billion retired instructions**. Applying the same change to every other batch saved **0.18 billion**. Both runs used the ordinary verification entry point and reproduced the reference output and exit. Batch and goal numbers below identify experimental interventions only. [Raw measurements, observer patches and reproduction procedures](perf/ivy_apple/holdouts/nov24-apple-batch-intervention.tar.xz)
+
+| Batches that skip the first two eligible attempts | Whole-process instructions, billions |
+|---|---:|
+| None | 1,239.88 |
+| Batch 13 only | 1,088.91 |
+| All except batch 13 | 1,239.70 |
+| Batch 14 only | 1,236.94 |
+| All | 1,097.40 |
+| All, with the ordinary solver forced at batch 13 goal 132 | 1,216.95 |
+
+Each cell is the median of two full runs pinned to the same CPU for that policy. Forcing that one fallback restored **119.56 billion** of the 142.48 billion instructions saved under the all-batches intervention. Each route tried the ordinary private assertion proof and its smaller selection of relevant premises at batch 13 goal 132. The finite enumeration solver discharged the goal after the batch-13 intervention. Under the original schedule it exhausted its opportunity, and the concrete solver made 341,096 decisions and generated 72,857 quantifier instances. [Per-goal route logs and separate solver statistics](perf/ivy_apple/holdouts/nov24-apple-batch-intervention.tar.xz)
+
+At the start of batch 14, before the new solver had attempted a private proof, the original run had consumed 484 more fresh IDs and retained 28 more AST nodes and one more frontend root. At goal 98 its concrete solver generated **183,669** quantifier instances against **116,425** with the all-batches intervention. At goal 110 it performed another **251,810** instantiations, while the alternative private enumeration solver refuted that goal. At goal 132 both runs used the concrete solver and generated **406,784** and **307,457** instances respectively. Several parts of the parent state changed together, so the counts cannot isolate the effect of fresh naming. A reusable optimization target is the small number of exhausted enumeration queries and the search history that reaches them. The batch coordinates provide a way to test that explanation without encoding a benchmark-specific schedule in the solver. [Parent state at each goal and cumulative counter snapshots](perf/ivy_apple/holdouts/nov24-apple-batch-intervention.tar.xz)
