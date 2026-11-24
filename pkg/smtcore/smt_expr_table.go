@@ -249,8 +249,11 @@ func (r smtRelevantTable) get(h ast.ASTHandle) bool {
 	record := r.t.read(h)
 	return record != nil && record.flags&smtExprRelevant != 0
 }
-func (r smtRelevantTable) set(h ast.ASTHandle, value bool) {
+
+// set returns whether the expression already had a live relevance mark.
+func (r smtRelevantTable) set(h ast.ASTHandle, value bool) bool {
 	record := r.t.write(h)
+	marked := record.flags&smtExprRelevant != 0
 	record.flags |= smtExprHasRelevant
 	if value {
 		r.t.relevanceAdditions++
@@ -259,6 +262,7 @@ func (r smtRelevantTable) set(h ast.ASTHandle, value bool) {
 		r.t.relevanceRemovals++
 		record.flags &^= smtExprRelevant
 	}
+	return marked
 }
 func (r smtRelevantTable) del(h ast.ASTHandle) {
 	if record := r.t.read(h); record != nil {

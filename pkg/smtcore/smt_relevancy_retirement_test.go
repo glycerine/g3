@@ -224,7 +224,7 @@ func TestSMTRelevancyPendingQueueAfterCallback(t *testing.T) {
 				astTestMust(t, ctx.SetRelevant(scoped, true))
 				want = []ast.ASTHandle{base, scoped}
 			}
-			astTestMust(t, p.finishPop(0, 1, additions))
+			astTestMust(t, p.finishPop(0, 1, additions, true))
 			if got := p.DrainNewlyRelevant(); !slices.Equal(got, want) {
 				t.Fatalf("after callback: got %v, want %v", got, want)
 			}
@@ -279,4 +279,32 @@ func TestSMTRelevancyTrailKeepsRefusedOwnerAfterUnlink(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSMTRelevancyPopOfRepeatedUndrainedMark(t *testing.T) {
+	m := astTestManager(t)
+	ctx, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	p, err := NewSMTRelevancyPropagator(ctx, true)
+	astTestMust(t, err)
+	a := smtRelevancyPinnedBool(t, m, "a")
+	b := smtRelevancyPinnedBool(t, m, "b")
+	c := smtRelevancyPinnedBool(t, m, "c")
+	astTestMust(t, p.MarkRelevant(a))
+	astTestMust(t, p.MarkRelevant(b))
+	// Leave two base notifications pending across many sibling scopes.
+	for range 10 {
+		astTestMust(t, p.PushScope())
+		astTestMust(t, p.MarkRelevant(c))
+		astTestMust(t, p.PopScopes(1))
+	}
+	astTestMust(t, p.PushScope())
+	// Equal-class events can mark a member a second time.
+	astTestMust(t, p.setRelevant(a))
+	astTestMust(t, p.MarkRelevant(c))
+	astTestMust(t, p.PopScopes(1))
+	if got := p.DrainNewlyRelevant(); !slices.Equal(got, []ast.ASTHandle{b}) {
+		t.Fatalf("pending notifications after duplicate retires: %v", got)
+	}
+	astTestMust(t, p.release())
 }

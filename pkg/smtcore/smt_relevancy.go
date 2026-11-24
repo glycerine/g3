@@ -150,7 +150,11 @@ func (p *SMTRelevancyPropagator) addLiteralWatch(expression ast.ASTHandle, value
 // of n's class without checking whether the member is already relevant, so
 // a member can be recorded (and relevant_eh run) twice.
 func (p *SMTRelevancyPropagator) setRelevant(expression ast.ASTHandle) error {
-	p.context.relevant.set(expression, true)
+	if p.context.relevant.set(expression, true) {
+		// Popping a second mark can invalidate an earlier notification for
+		// the same expression. Recheck the existing queue in that case.
+		p.newlyRelevantBase = len(p.newlyRelevant)
+	}
 	// m_relevant_exprs is an expr_ref_vector: it owns a reference.
 	if err := p.context.manager.IncRef(expression); err != nil {
 		return err
@@ -997,12 +1001,14 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 		level := target
 		additions := p.context.exprs.relevanceAdditions
 		retiredNotifications := 0
+		uniqueSuffix := false
 		if p.interruptedPop != 0 {
 			level = p.interruptedPop - 1
 			if target > level {
 				return ast.ErrASTPending
 			}
 		} else {
+			uniqueSuffix = p.newlyRelevantBase == 0 && p.context.exprs.relevanceRemovals == p.newlyRelevantRemovals
 			retiredNotifications = min(len(p.newlyRelevant)-p.newlyRelevantBase, len(p.relevant)-p.scopes[level].relevantLimit)
 			for i := len(p.relevant); i > p.scopes[level].relevantLimit; i-- {
 				h := p.relevant[i-1]
@@ -1010,7 +1016,7 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 				p.traceUnmark(h)
 			}
 		}
-		if err := p.finishPop(level, retiredNotifications, additions); err != nil {
+		if err := p.finishPop(level, retiredNotifications, additions, uniqueSuffix); err != nil {
 			p.interruptedPop = level + 1
 			return err
 		}
@@ -1019,7 +1025,7 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 	return nil
 }
 
-func (p *SMTRelevancyPropagator) finishPop(newLevel, retiredNotifications int, additions uint64) error {
+func (p *SMTRelevancyPropagator) finishPop(newLevel, retiredNotifications int, additions uint64, uniqueSuffix bool) error {
 	scope := p.scopes[newLevel]
 	var err error
 	p.relevant, err = p.context.manager.ShrinkHeldRefs(p.relevant, scope.relevantLimit)
@@ -1031,22 +1037,30 @@ func (p *SMTRelevancyPropagator) finishPop(newLevel, retiredNotifications int, a
 	// Count explicit mark removals too, since the checker can update them.
 	removals := p.context.exprs.relevanceRemovals
 	if removals != p.newlyRelevantRemovals {
+		checkSurvivors := true
 		// A callback during unmarking or reference release can drain the
 		// queue or reactivate a mark. An interrupted pop also rechecks
 		// the entire queue on retry.
 		if retiredNotifications <= len(p.newlyRelevant) && additions == p.context.exprs.relevanceAdditions {
 			p.newlyRelevant = p.newlyRelevant[:len(p.newlyRelevant)-retiredNotifications]
+			// Each retired queue entry accounts for one mark removal. If the
+			// entire queue was unique, its surviving entries are still marked.
+			checkSurvivors = !uniqueSuffix || removals-p.newlyRelevantRemovals != uint64(retiredNotifications)
 		}
-		kept := p.newlyRelevant[:0]
-		for _, expression := range p.newlyRelevant {
-			if p.context.relevant.get(expression) {
-				kept = append(kept, expression)
+		if checkSurvivors {
+			kept := p.newlyRelevant[:0]
+			for _, expression := range p.newlyRelevant {
+				if p.context.relevant.get(expression) {
+					kept = append(kept, expression)
+				}
 			}
+			p.newlyRelevant = kept
+			p.newlyRelevantBase = len(kept)
 		}
-		p.newlyRelevant = kept
 		p.newlyRelevantRemovals = removals
+	} else {
+		p.newlyRelevantBase = len(p.newlyRelevant)
 	}
-	p.newlyRelevantBase = len(p.newlyRelevant)
 	if err := p.undoTrail(scope.trailLimit); err != nil {
 		return err
 	}
@@ -1107,7 +1121,7 @@ func (p *SMTRelevancyPropagator) release() error {
 		return nil
 	}
 	if p.interruptedPop != 0 {
-		if err := p.finishPop(p.interruptedPop-1, 0, 0); err != nil {
+		if err := p.finishPop(p.interruptedPop-1, 0, 0, false); err != nil {
 			return err
 		}
 		p.interruptedPop = 0
