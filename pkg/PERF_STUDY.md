@@ -6331,3 +6331,33 @@ Across nine complete Ticket runs, g3 produced 9,667 instruction samples and link
 The last three columns count mutually exclusive leaf samples. The GC column counts named Go collector, object lookup and write-barrier routines in each executable. The difference in those samples accounts for about 15% of Ticket's observed sample gap and 27% of hybrid's. Shrinking solver allocations can address part of that cost. For the larger share on Ticket, the next comparison should count AST visits per instantiated formula and the cost of each visit inside rewriting. On hybrid, the initial push also deserves its own comparison. It appeared on 4,673 g3 stacks, and 5,181 samples across the run passed through pending-assertion reduction. [Sampler, per-round symbols and exclusive grouping rules](perf/ivy_apple/holdouts/nov24-verifier-instruction-stacks.tar.xz)
 
 Each process ran on one pinned CPU with GOMAXPROCS 1 and GOGC 100. The sampling period was 3,000,017 retired user instructions. All 126 profiles had zero throttle and loss records. Each verifier matched the reference exit status, stdout and stderr, including the expected failed verification in Liveness 2. Native frame-pointer unwinding often stopped in the linked library, which limits comparisons of inclusive call stacks. The table uses leaf counts and includes the frontend. Extracting the archive reproduced its aggregate CSV, and the replay script completed a fresh GCD pair. [Measurements and reproduction](perf/ivy_apple/holdouts/nov24-verifier-instruction-stacks.tar.xz)
+
+### An eight-byte directory entry for each auxiliary and learned clause
+
+Z3 keeps one clause pointer in each of its two directories. g3 used to copy an 80-byte record containing a pointer, a literal slice header, proof and owner information, and scope-cleanup state into each directory. Commit `b836f6052` stores one typed Go pointer per entry. The 64-byte clause header records the original width of a short clause and the progress of watch removal. Clauses that actually need a proof, owner or separately allocated literal array retain that information until the entry retires. This preserves the registered literals when a caller shortens a clause, the public snapshot during an interrupted pop, and the ability to resume cleanup. [Directory operations](smtcore/smt_concrete_clause_record.go) · [Scope and public-view tests](smtcore/smt_closed_clause_widths_test.go)
+
+A Raft replay reached the same state in both engines with **7,559 concrete clauses and 5,740 enodes**. The old Go directories occupied **708,560 bytes**, the new ones **66,680**, and the two Z3 vectors **65,488**. Capacity growth explains the remaining differences between equal-width entries. Five Go observations per layout matched the phase, both watch counts, auxiliary and learned counts, proof and saved-atom counts, and watch-directory length at the selected native position. The whole Go process used 22.91 → 22.26 MiB after forced collection at that point. [Raft inputs, state-selection keys and per-engine observations](perf/scope_restoration/worker_trials/nov24-concrete-clause-directory.tar.xz)
+
+| 1,024 clauses in each of eight independent solvers | Previous g3 live B/clause | Current g3 live B/clause | Z3 requested B/clause |
+| --- | ---: | ---: | ---: |
+| Binary | 14.73 | 14.73 | 9.25 |
+| Plain auxiliary, three literals | 176.0 | 108.0 | 52.83 |
+| Learned, three literals | 224.0 | 156.0 | 52.83 |
+| Explicitly justified, three literals | 232.0 | 164.0 | 60.83 |
+| Mixed | 189.2 | 106.3 | 45.75 |
+
+The Go columns are medians from nine fresh processes per population. The native column sums three directly measured components. For a plain ternary clause Z3 requested 24 bytes for the object, 20.50 bytes across the watch buffers and 8.33 bytes for its directory capacity. Go's forced-GC heap delta and Z3's requested sizes have different allocator boundaries. At the largest sampled concrete population in Apple `ord_live2`, 54,968 clauses and 22,785 enodes, the measured Go heap fell **145.71 → 141.79 MiB**. On the Raft query with 35,650 clauses it fell **72.51 → 69.21 MiB**. Sampling matched phase and population before collection. These are live heap measurements at those states. [Go population benchmark](smtcore/smt_clause_directory_benchmark_test.go) · [C++ population benchmark](../src/test/perf/binary_clause_directory.cpp) · [Whole-verifier heap observations](perf/scope_restoration/worker_trials/nov24-concrete-clause-directory.tar.xz)
+
+| Push, register 256 clauses and pop | Width | Previous instructions/clause | Current instructions/clause |
+| --- | ---: | ---: | ---: |
+| Plain | 3 | 2,016 | 1,962 |
+| With explicit AST proof | 3 | 2,959 | 3,109 |
+| With public snapshot | 3 | 2,371 | 2,331 |
+| Plain | 8 | 2,846 | 2,786 |
+| With explicit AST proof | 8 | 3,809 | 3,820 |
+| Plain | 65 | 10,906 | 11,049 |
+| With explicit AST proof | 65 | 11,882 | 12,074 |
+
+Short proof-bearing clauses incurred the largest measured cost, **5.1% more instructions** at width three. Plain short clauses used 2–3% fewer. Each cell subtracts an empty counter bracket on the same solver thread in each of nine rotations. Across five rotations of six complete verifications, whole-process instruction changes ranged from −1.02% on ARM to +0.04% on Hermes. All 228 GoIvy corpus results matched. Six direct SMT inputs also matched the answers and integer search counters of the in-tree C++ executable. The release passed the `smtcore` suite and focused checked, debug/trace and checkptr tests. Commit `7db84a8c8` additionally makes the invariant checker return its domain error before dereferencing a corrupt nil directory entry. [Lifecycle benchmark](smtcore/smt_clause_directory_cycle_benchmark_test.go) · [Rebuildable layouts and raw measurements](perf/scope_restoration/worker_trials/nov24-concrete-clause-directory.tar.xz)
+
+The remaining gap for plain ternary clauses is about 55 bytes per clause. The difference between g3’s 64-byte general clause header and Z3’s eight-byte header is 56 bytes before literals. A smaller plain-clause body is a better candidate for the next memory experiment than further changes to the directory. The proof and retry fixtures above constrain which fields can move out of that body.
