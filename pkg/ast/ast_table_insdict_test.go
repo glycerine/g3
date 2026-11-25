@@ -50,7 +50,7 @@ func TestASTCanonicalTableFollowsInsdict(t *testing.T) {
 			k := int(r.next() % g.keySpace)
 			if r.next()%10 < 6 {
 				if d.Put(k, true) {
-					m.table.add(astTableHash(uint32(k)), ref(k), 0, false)
+					m.table.add(uint32(k), astTableHash(uint32(k)), ref(k), 0, false)
 				}
 			} else {
 				found := d.Del(k)

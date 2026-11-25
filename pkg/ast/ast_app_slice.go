@@ -64,7 +64,7 @@ func (m *ASTManager) registerSliceApp(r, decl astNodeRef, domain *astFuncDeclRec
 	mixed := astTableHash(hash)
 	var slot uint64
 	if m.table.size != 0 {
-		existing, found, index, err := m.tableLookup(r, mixed)
+		existing, found, index, err := m.tableLookup(r, hash, mixed)
 		if err != nil {
 			if inline {
 				return astNodeRef{}, false, nil
@@ -90,7 +90,7 @@ func (m *ASTManager) registerSliceApp(r, decl astNodeRef, domain *astFuncDeclRec
 		return astNodeRef{}, false, nil
 	}
 	m.nodeAt(r.slot).hash = hash
-	m.table.add(mixed, r, slot, m.table.size != 0)
+	m.table.add(hash, mixed, r, slot, m.table.size != 0)
 	result, err := m.publishSliceApp(r, domain, operands[:len(input)])
 	return result, true, err
 }

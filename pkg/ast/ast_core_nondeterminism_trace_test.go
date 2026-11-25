@@ -82,9 +82,8 @@ func TestASTNondeterminismTraceFollowsProcessDebugTag(t *testing.T) {
 		tag  byte
 	}
 	var bucket []hidden
-	h := astTableHash(hash)
 	for slot, ix := range m.table.indices {
-		if ix >= 0 && m.table.entries[ix].hash == h {
+		if ix >= 0 && m.table.entries[ix].hash == hash {
 			bucket = append(bucket, hidden{slot, ix, m.table.tags[slot]})
 			m.table.indices[slot], m.table.tags[slot] = astSlotDummy, astTagDummy
 		}

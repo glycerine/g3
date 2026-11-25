@@ -38,7 +38,7 @@ type astCanonicalTable struct {
 }
 
 type astTableEntry struct {
-	hash uint64 // insdict.Mix64 of the node hash
+	hash uint32 // Structural hash before mixing for the probe.
 	ref  astNodeRef
 }
 
@@ -105,9 +105,10 @@ func (t *astCanonicalTable) rebuild(size int) {
 		if e.ref.slot == 0 {
 			continue
 		}
-		slot := t.freeSlot(e.hash)
+		mixed := astTableHash(e.hash)
+		slot := t.freeSlot(mixed)
 		t.indices[slot] = int32(len(t.entries))
-		t.tags[slot] = astTableTag(e.hash)
+		t.tags[slot] = astTableTag(mixed)
 		t.entries = append(t.entries, e)
 	}
 	if len(t.entries) < len(old) && cap(old) >= capacity {
@@ -118,7 +119,7 @@ func (t *astCanonicalTable) rebuild(size int) {
 // add appends a key known to be absent (insdict Put of a new key); slot is
 // the empty slot where the failed lookup ended, valid only while the table
 // has no holes and no rebuild is due.
-func (t *astCanonicalTable) add(h uint64, ref astNodeRef, slot uint64, haveSlot bool) {
+func (t *astCanonicalTable) add(hash uint32, mixed uint64, ref astNodeRef, slot uint64, haveSlot bool) {
 	if t.indices == nil {
 		t.rebuild(astTableMinSlots)
 		haveSlot = false
@@ -128,11 +129,11 @@ func (t *astCanonicalTable) add(h uint64, ref astNodeRef, slot uint64, haveSlot 
 		haveSlot = false
 	}
 	if !haveSlot || int(t.size) != len(t.entries) {
-		slot = t.freeSlot(h)
+		slot = t.freeSlot(mixed)
 	}
 	t.indices[slot] = int32(len(t.entries))
-	t.tags[slot] = astTableTag(h)
-	t.entries = append(t.entries, astTableEntry{hash: h, ref: ref})
+	t.tags[slot] = astTableTag(mixed)
+	t.entries = append(t.entries, astTableEntry{hash: hash, ref: ref})
 	t.size++
 }
 
@@ -154,10 +155,10 @@ func (m *ASTManager) initTable() {
 
 // tableLookup finds the entry structurally equal to key, or reports the
 // empty slot where the probe ended.
-func (m *ASTManager) tableLookup(key astNodeRef, h uint64) (astNodeRef, bool, uint64, error) {
+func (m *ASTManager) tableLookup(key astNodeRef, hash uint32, mixed uint64) (astNodeRef, bool, uint64, error) {
 	t := &m.table
-	tag := astTableTag(h)
-	i, perturb := h&t.mask, h
+	tag := astTableTag(mixed)
+	i, perturb := mixed&t.mask, mixed
 	for {
 		ctrl := t.tags[i]
 		if ctrl == astTagEmpty {
@@ -165,7 +166,7 @@ func (m *ASTManager) tableLookup(key astNodeRef, h uint64) (astNodeRef, bool, ui
 		}
 		if ctrl == tag {
 			e := &t.entries[t.indices[i]]
-			if e.hash == h {
+			if e.hash == hash {
 				other := e.ref
 				equal, err := m.compareNodes(other, key)
 				if err != nil {
@@ -185,23 +186,25 @@ func (m *ASTManager) tableFind(key astNodeRef) (astNodeRef, bool, error) {
 	if m.table.size == 0 {
 		return astNodeRef{}, false, nil
 	}
-	r, found, _, e := m.tableLookup(key, astTableHash(m.nodeAt(key.slot).hash))
+	hash := m.nodeAt(key.slot).hash
+	r, found, _, e := m.tableLookup(key, hash, astTableHash(hash))
 	return r, found, e
 }
 
 func (m *ASTManager) tableInsert(key astNodeRef) (astNodeRef, bool, error) {
 	t := &m.table
-	h := astTableHash(m.nodeAt(key.slot).hash)
+	hash := m.nodeAt(key.slot).hash
+	mixed := astTableHash(hash)
 	var slot uint64
 	haveSlot := false
 	if t.indices != nil {
-		old, found, s, e := m.tableLookup(key, h)
+		old, found, s, e := m.tableLookup(key, hash, mixed)
 		if e != nil || found {
 			return old, false, e
 		}
 		slot, haveSlot = s, true
 	}
-	t.add(h, key, slot, haveSlot)
+	t.add(hash, mixed, key, slot, haveSlot)
 	return key, true, nil
 }
 
@@ -224,7 +227,7 @@ func (m *ASTManager) tableEraseCaptured(key astNodeRef, hash uint32) error {
 	for t.tags[i] != astTagEmpty {
 		if t.tags[i] == tag {
 			ix := t.indices[i]
-			if e := &t.entries[ix]; e.ref == key && e.hash == h {
+			if e := &t.entries[ix]; e.ref == key && e.hash == hash {
 				t.indices[i] = astSlotDummy
 				t.tags[i] = astTagDummy
 				t.entries[ix] = astTableEntry{}
@@ -253,7 +256,7 @@ func (m *ASTManager) CompactMemory() error {
 		var fresh astCanonicalTable
 		for _, e := range t.entries {
 			if e.ref.slot != 0 {
-				fresh.add(e.hash, e.ref, 0, false)
+				fresh.add(e.hash, astTableHash(e.hash), e.ref, 0, false)
 			}
 		}
 		m.table = fresh
