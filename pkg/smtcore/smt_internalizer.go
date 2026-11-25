@@ -47,25 +47,26 @@ func (s *SMTInternalizerState) basicOperation(expression ast.ASTHandle) (int32, 
 	return header.DeclKind, true, nil
 }
 
-func (s *SMTInternalizerState) expressionTheory(expression ast.ASTHandle) (SMTTheoryInternalizer, error) {
-	family, err := s.manager.GetFamilyID(expression)
-	if err != nil {
-		return nil, err
-	}
-	return s.theories[family], nil
-}
-
-func (s *SMTInternalizerState) applySortConstraint(expression ast.ASTHandle, node *SMTEnode) error {
-	sort, err := s.manager.GetSort(expression)
-	if err != nil {
-		return err
-	}
-	family, err := s.manager.GetFamilyID(sort)
-	if err != nil {
-		return err
-	}
-	if theory := s.theories[family]; theory != nil {
-		return theory.ApplySortConstraint(node, sort)
+// The source's uninterpreted-term path applies the sort constraint twice.
+// A theory callback can change the solver, so look up both the sort and its
+// current theory again after an actual callback.
+func (s *SMTInternalizerState) applySortConstraint(expression ast.ASTHandle, node *SMTEnode, calls int) error {
+	for i := 0; i < calls; i++ {
+		sort, err := s.manager.GetSort(expression)
+		if err != nil {
+			return err
+		}
+		family, err := s.manager.GetFamilyID(sort)
+		if err != nil {
+			return err
+		}
+		theory := s.theories[family]
+		if theory == nil {
+			return nil
+		}
+		if err := theory.ApplySortConstraint(node, sort); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -640,7 +641,7 @@ func (s *SMTInternalizerState) Internalize(expression ast.ASTHandle, gateContext
 		return err
 	}
 	// One header read serves the kind, basic-operation and family tests
-	// of the formula path below.
+	// of both the formula and term paths.
 	header, err := s.manager.NodeHeader(expression)
 	if err != nil {
 		return err
@@ -659,7 +660,7 @@ func (s *SMTInternalizerState) Internalize(expression ast.ASTHandle, gateContext
 	if kind != ast.ASTApp || gateContext {
 		return ast.ErrASTDomain
 	}
-	return s.internalizeTerm(expression)
+	return s.internalizeTerm(expression, &header)
 }
 
 // smtHeaderBasicOperation is basicOperation on an already read header.
@@ -1208,12 +1209,9 @@ func (s *SMTInternalizerState) addGateConstraints(expression ast.ASTHandle, oper
 	return nil
 }
 
-func (s *SMTInternalizerState) internalizeTerm(expression ast.ASTHandle) error {
+func (s *SMTInternalizerState) internalizeTerm(expression ast.ASTHandle, header *ast.ASTNodeHeader) error {
+	theory := s.theories[header.Family]
 	if node := s.context.enodes.get(expression); node != nil {
-		theory, err := s.expressionTheory(expression)
-		if err != nil {
-			return err
-		}
 		if theory != nil && !theory.IsAttachedToVariable(node) {
 			handled, err := theory.InternalizeTerm(expression)
 			if err != nil {
@@ -1225,17 +1223,11 @@ func (s *SMTInternalizerState) internalizeTerm(expression ast.ASTHandle) error {
 		}
 		return nil
 	}
-	op, basic, err := s.basicOperation(expression)
-	if err != nil {
-		return err
-	}
+	op, basic := s.smtHeaderBasicOperation(header)
 	if basic && op == ast.ASTOpIte {
 		return s.internalizeTermITE(expression)
 	}
-	theory, err := s.expressionTheory(expression)
-	if err != nil {
-		return err
-	}
+	count := header.NumArgs
 	if theory != nil {
 		handled, err := theory.InternalizeTerm(expression)
 		if err != nil {
@@ -1246,32 +1238,66 @@ func (s *SMTInternalizerState) internalizeTerm(expression ast.ASTHandle) error {
 			if node == nil {
 				return ast.ErrASTDomain
 			}
-			return s.applySortConstraint(expression, node)
+			return s.applySortConstraint(expression, node, 1)
 		}
-	}
-	count, err := s.manager.GetNumArgs(expression)
-	if err != nil {
-		return err
-	}
-	for index := uint32(0); index < count; index++ {
-		argument, err := s.manager.GetArg(expression, index)
+		// The callback can release the expression before returning unhandled.
+		count, err = s.manager.GetNumArgs(expression)
 		if err != nil {
 			return err
 		}
-		if err = s.Internalize(argument, false); err != nil {
+	}
+	var inputs *smtTermInputs
+	if theory == nil && !ast.ASTValidateHandles && !smtcoreSourceDebug && !ast.ASTSourceDebug && s.manager.TraceStream == nil && !s.manager.Budget().InjectionArmed() {
+		children, ok, err := s.existingTermChildren(expression, count)
+		if err != nil {
 			return err
 		}
+		if ok {
+			inputs = &smtTermInputs{header: *header, children: children}
+		}
 	}
-	node, err := s.MkEnode(expression, false, false, true)
+	if inputs == nil {
+		for index := uint32(0); index < count; index++ {
+			argument, err := s.manager.GetArg(expression, index)
+			if err != nil {
+				return err
+			}
+			if err = s.Internalize(argument, false); err != nil {
+				return err
+			}
+		}
+	}
+	node, err := s.mkEnode(expression, false, false, true, inputs)
 	if err != nil {
 		return err
 	}
 	// internalize_uninterpreted ends with apply_sort_cnstr(n, e), and
 	// internalize_term applies it once more after it returns.
-	if err = s.applySortConstraint(expression, node); err != nil {
-		return err
+	return s.applySortConstraint(expression, node, 2)
+}
+
+// A term already in the equality graph needs no recursive internalization
+// when its declaration family has no theory and the term is non-Boolean.
+func (s *SMTInternalizerState) existingTermChildren(expression ast.ASTHandle, count uint32) ([]*SMTEnode, bool, error) {
+	if count == 0 {
+		return nil, true, nil
 	}
-	return s.applySortConstraint(expression, node)
+	if count != 2 {
+		return nil, false, nil
+	}
+	var pair [2]*SMTEnode
+	for i := range pair {
+		h, err := s.manager.GetArg(expression, uint32(i))
+		if err != nil {
+			return nil, false, err
+		}
+		child := s.context.enodes.get(h)
+		if child == nil || child.root == nil || child.boolean || s.theories[child.family] != nil {
+			return nil, false, nil
+		}
+		pair[i] = child
+	}
+	return []*SMTEnode{pair[0], pair[1]}, true, nil
 }
 
 func (s *SMTInternalizerState) internalizeTermITE(expression ast.ASTHandle) error {

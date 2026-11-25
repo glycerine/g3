@@ -946,6 +946,10 @@ func (s *SMTInternalizerState) WatchList(literal SMTLiteral) (*SMTWatchList, err
 const smtInitEnodes = 2
 
 func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArguments, mergeTruthValue, congruenceEnabled bool) (*SMTEnode, error) {
+	return s.mkEnode(expression, suppressArguments, mergeTruthValue, congruenceEnabled, nil)
+}
+
+func (s *SMTInternalizerState) mkEnode(expression ast.ASTHandle, suppressArguments, mergeTruthValue, congruenceEnabled bool, term *smtTermInputs) (*SMTEnode, error) {
 	if err := s.open(); err != nil {
 		return nil, err
 	}
@@ -959,10 +963,10 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 	if err := s.manager.IncRef(expression); err != nil {
 		return nil, err
 	}
-	node, err := NewSMTEnode(s.manager, expression, s.context.enodes.get, SMTEnodeOptions{
+	node, err := newSMTEnode(s.manager, expression, s.context.enodes.get, SMTEnodeOptions{
 		Generation: generation, InternalScopeLevel: s.scopeLevel, SuppressArguments: suppressArguments,
 		MergeTruthValue: mergeTruthValue, CongruenceEnabled: congruenceEnabled, UpdateChildrenParent: true,
-	})
+	}, term)
 	if err != nil {
 		_ = s.manager.DecRef(expression)
 		return nil, err

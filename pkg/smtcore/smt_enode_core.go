@@ -51,20 +51,38 @@ type SMTEnode struct {
 	transMark                             bool // transient, one ancestor search
 }
 
+// The internalizer has already checked the sort and resolved these children
+// without calling a theory. The public constructor accepts a caller's lookup.
+type smtTermInputs struct {
+	header   ast.ASTNodeHeader
+	children []*SMTEnode
+}
+
 func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions) (*SMTEnode, error) {
+	return newSMTEnode(m, owner, byApp, options, nil)
+}
+
+func newSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions, term *smtTermInputs) (*SMTEnode, error) {
 	if m == nil {
 		return nil, ast.ErrASTDomain
 	}
-	header, err := m.NodeHeader(owner)
-	if err != nil {
-		return nil, err
-	}
-	if header.Kind != ast.ASTApp {
-		return nil, ast.ErrASTDomain
-	}
-	boolean, err := m.HasBoolSort(owner)
-	if err != nil {
-		return nil, err
+	var header ast.ASTNodeHeader
+	var boolean bool
+	if term != nil {
+		header = term.header
+	} else {
+		var err error
+		header, err = m.NodeHeader(owner)
+		if err != nil {
+			return nil, err
+		}
+		if header.Kind != ast.ASTApp {
+			return nil, ast.ErrASTDomain
+		}
+		boolean, err = m.HasBoolSort(owner)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if options.MergeTruthValue && !boolean {
 		return nil, ast.ErrASTDomain
@@ -85,27 +103,31 @@ func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 	}
 	n.root, n.next = n, n
 	if !options.SuppressArguments {
-		count := header.NumArgs
-		if count != 0 && byApp == nil {
-			return nil, ast.ErrASTDomain
-		}
-		n.arguments = make([]*SMTEnode, count)
-		for i := uint32(0); i < count; i++ {
-			argument, err := m.GetArg(owner, i)
-			if err != nil {
-				return nil, err
-			}
-			child := byApp(argument)
-			if child == nil || child.root == nil {
+		if term != nil {
+			n.arguments = term.children
+		} else {
+			count := header.NumArgs
+			if count != 0 && byApp == nil {
 				return nil, ast.ErrASTDomain
 			}
-			n.arguments[i] = child
-		}
-		// A lookup can fail or retire an earlier child. Publish the parent
-		// links only after every operand and root is available.
-		for _, child := range n.arguments {
-			if child.root == nil {
-				return nil, ast.ErrASTDomain
+			n.arguments = make([]*SMTEnode, count)
+			for i := uint32(0); i < count; i++ {
+				argument, err := m.GetArg(owner, i)
+				if err != nil {
+					return nil, err
+				}
+				child := byApp(argument)
+				if child == nil || child.root == nil {
+					return nil, ast.ErrASTDomain
+				}
+				n.arguments[i] = child
+			}
+			// A lookup can fail or retire an earlier child. Publish the parent
+			// links only after every operand and root is available.
+			for _, child := range n.arguments {
+				if child.root == nil {
+					return nil, ast.ErrASTDomain
+				}
 			}
 		}
 		if options.UpdateChildrenParent {

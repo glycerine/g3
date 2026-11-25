@@ -45,8 +45,8 @@ func TestSMTAssumeEqualityScopedPhaseAndRelevancy(t *testing.T) {
 	astTestMust(t, err)
 	y, err := m.MkConst(astTestSymbol(t, m, "phase-y"), sort)
 	astTestMust(t, err)
-	astTestMust(t, state.internalizeTerm(x))
-	astTestMust(t, state.internalizeTerm(y))
+	astTestMust(t, state.Internalize(x, false))
+	astTestMust(t, state.Internalize(y, false))
 	// assume_eq applies to terms shared with arithmetic: attach the
 	// variables as theory_arith's internalize_var does.
 	arithmetic := state.Theory(family).(*SMTTheoryArith)
