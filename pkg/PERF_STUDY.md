@@ -6272,3 +6272,44 @@ The instruction measurements bracket registration, the indicated lookups and sco
 A prototype that scanned registrations independently on first lookup of each declaration took 17,795 instructions per enode for 512 distinct declarations and three matcher passes. Building the matcher index in one pass costs 9,072 in that series. Five singleton-storage variants also left a retired pointer visible in a range borrowed by the interpreter. The regression exercises nested scopes, suppressed arguments and reusing the same declaration. Another test builds the first index while a refused AST release still holds a retired node on the trail. [Borrowed range and checker ownership tests](smtcore/smt_decl_borrowed_candidates_test.go) · [Interrupted retirement](smtcore/smt_internalizer_scope_failure_test.go)
 
 At the sampled Apple `ord_live2` state the prototype changed whole-process live heap from 145.91 to 145.66 MiB. The exact release changed median whole-process instructions between -0.59% and +0.42% on six complete GoIvy verifiers. All 228 compatibility cases matched the expected exit status and both output streams. [Comparisons, archive replay and rejected layouts](perf/scope_restoration/worker_trials/nov24-declaration-indexes.tar.xz)
+
+### Shrinking the concrete clause header from 120 to 64 bytes
+
+Every g3 clause used to carry two Go interfaces for its justification and deletion handler, two pointers for saved atoms and several words of lemma bookkeeping. Ordinary auxiliary clauses use none of them. Commit `5ea5bf703` gives the clause an optional attachment for the two interfaces and an optional block for the lemma and atom state. Small learned clauses share one allocation with their activity block and literals. The C++ allocator places the used data directly after an eight-byte header and allocates optional words only when the clause requires them. [Go clause](smtcore/smt_clause.go) · [Native layout](../src/smt/smt_clause.cpp)
+
+| Live three-literal clause | Previous g3, bytes | Current g3, bytes | Z3 allocator request, bytes |
+| --- | ---: | ---: | ---: |
+| Ordinary auxiliary | 143.90 | 79.92 | 24 |
+| Justification | 143.90 | 111.90 | 32 |
+| Delete handler | 143.90 | 111.90 | 32 |
+| Learned | 143.90 | 127.90 | 24 |
+| Learned with saved atoms | 232.60 | 216.60 | 48 |
+| Mixed population | 145.10 | 90.76 | — |
+
+The table gives the median across seven fresh processes. Each process held 512 live clauses in each of eight independent solvers. The Go heap includes the literal backing and any optional storage. The native figure covers bytes requested from the AST manager’s small-object allocator. Each fixture checked the literals and the proofs or atoms it retained. On the Go side the ordinary clause header still includes the manager and owner-check pointers, two optional pointers, a slice header and packed status fields. [Go lifetime and heap benchmarks](smtcore/smt_clause_layout_benchmark_test.go) · [Matched native benchmark](../src/test/perf/clause_create_close.cpp)
+
+| Width and operation | Previous g3 instructions | New layout instructions | Native instructions |
+| --- | ---: | ---: | ---: |
+| 3 literals, bare | 1,052 | 692 | 230 |
+| 3 literals, proof | 1,073 | 986 | 243 |
+| 3 literals, learned | 1,068 | 949 | 231 |
+| 3 literals, saved | 1,921 | 1,825 | 371 |
+| 8 literals, bare | 1,103 | 814 | 229 |
+| 65 literals, bare | 1,752 | 1,366 | 420 |
+| 65 literals, saved | 17,575 | 17,580 | 2,919 |
+
+Each count covers one construction and close, using the median of seven paired high-minus-low instruction counts. The new-layout counter build preceded the final cleanup of repeated proof accessor calls. The allocation layout is identical to the commit. The sparse layout helped ordinary short clauses most. Saving 65 atoms still exercises the retained-atom machinery on every literal. [Raw counters, layouts and replay](perf/scope_restoration/worker_trials/nov24-concrete-clauses.tar.xz)
+
+| Verifier observation | Live concrete clauses | Previous heap, MiB | New heap, MiB | Change, KiB |
+| --- | ---: | ---: | ---: | ---: |
+| Apple `ord_live2` | 54,968 | 148.44 | 145.92 | -2,576 |
+| Apple `ord_live` | 10,421 | 44.59 | 44.02 | -581 |
+| Apple `rfn2` | 3,523 | 19.92 | 19.73 | -197 |
+| Raft replay miss 6 | 35,650 | 74.47 | 72.54 | -1,969 |
+| Raft replay core 6 | 7,071 | 12.91 | 12.50 | -411 |
+| TLB | 4,548 | 30.40 | 30.21 | -195 |
+| Hybrid reliable broadcast | 1,257 | 8.22 | 8.15 | -69 |
+
+The verifier heap measurements used the instrumented candidate at identical observed solver states after a forced collection. Apple used three runs per build, the other inputs five. The exact committed layout on six complete GoIvy workloads changed median process instructions by -0.07% to +0.16%. All 228 compatibility inputs reproduced their expected exit status and both output streams. Six bounded solver replays preserved the answer and four search counters. [Measurements and compatibility results](perf/scope_restoration/worker_trials/nov24-concrete-clauses.tar.xz)
+
+A four-literal inline prototype occupied 64 bytes per ordinary ternary clause, another 16 bytes below the committed representation. Its eight-literal construction and close cost 1,574 instructions versus 814 with the commit layout. A pointer-derived literal tail improved width eight to 708, then cost 2,054 at width 65 versus 1,366. A viable follow-up is a cheaper overflow representation for long clauses. The measured ordinary ternary gap to Z3 also includes the directory and watch buffers in a running solver. [Alternative layouts and raw counters](perf/scope_restoration/worker_trials/nov24-concrete-clauses.tar.xz)
