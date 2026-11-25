@@ -57,15 +57,14 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 		return err
 	}
 	for _, records := range s.clauseRecordLists() {
-		for index := range records {
-			record := records[index]
+		for _, record := range records {
 			clause := record.activeClause()
-			original := record.directoryLiterals()
-			if clause == nil || clause.Deleted() || len(original) < 2 {
+			if clause == nil || clause.Deleted() {
 				return ast.ErrASTDomain
 			}
 			literals := clause.Literals()
-			if len(literals) != len(original) {
+			original := record.directoryLiterals()
+			if len(literals) < 2 || len(literals) != len(original) {
 				return ast.ErrASTDomain
 			}
 			for literalIndex := range literals {

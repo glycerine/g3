@@ -8,6 +8,17 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+func TestSMTInvariantRejectsEmptyConcreteDirectoryEntry(t *testing.T) {
+	m := astTestManager(t)
+	_, _, s := smtInternalizerFixture(t, m, nil)
+	s.auxClauses = append(s.auxClauses, nil)
+	err := s.CheckInvariant()
+	s.auxClauses = s.auxClauses[:len(s.auxClauses)-1]
+	if !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatalf("empty entry returned %v", err)
+	}
+}
+
 func TestSMTRetiredDirectorySnapshotSurvivesRefusedPop(t *testing.T) {
 	m := astTestManager(t)
 	astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
