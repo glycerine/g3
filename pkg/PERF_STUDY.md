@@ -6313,3 +6313,21 @@ Each count covers one construction and close, using the median of seven paired h
 The verifier heap measurements used the instrumented candidate at identical observed solver states after a forced collection. Apple used three runs per build, the other inputs five. The exact committed layout on six complete GoIvy workloads changed median process instructions by -0.07% to +0.16%. All 228 compatibility inputs reproduced their expected exit status and both output streams. Six bounded solver replays preserved the answer and four search counters. [Measurements and compatibility results](perf/scope_restoration/worker_trials/nov24-concrete-clauses.tar.xz)
 
 A four-literal inline prototype occupied 64 bytes per ordinary ternary clause, another 16 bytes below the committed representation. Its eight-literal construction and close cost 1,574 instructions versus 814 with the commit layout. A pointer-derived literal tail improved width eight to 708, then cost 2,054 at width 65 versus 1,366. A viable follow-up is a cheaper overflow representation for long clauses. The measured ordinary ternary gap to Z3 also includes the directory and watch buffers in a running solver. [Alternative layouts and raw counters](perf/scope_restoration/worker_trials/nov24-concrete-clauses.tar.xz)
+
+### Where the complete Ticket and hybrid verifiers spend their instructions
+
+Across nine complete Ticket runs, g3 produced 9,667 instruction samples and linked Z3 produced 4,387. The g3 quantifier propagation stack contained 4,321 samples. Of those, 3,841 passed through the instantiation queue. Across the whole process, 2,486 samples passed through instance materialization and internalization and 2,474 through the general rewriter. These last two counts overlap because materialization calls the rewriter. Both engines used the same GoIvy frontend at `832e392ef`. [Decoded profiles, exact inputs and replay](perf/ivy_apple/holdouts/nov24-verifier-instruction-stacks.tar.xz)
+
+| Complete workload | g3 samples | Linked Z3 samples | g3 / Z3 | g3 AST-manager leaves | g3 rewriter leaves | Go GC leaves, g3 / Z3 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Ticket protocol | 9,667 | 4,387 | 2.20× | 2,742 | 991 | 1,088 / 317 |
+| Hybrid reliable broadcast | 27,416 | 17,594 | 1.56× | 6,600 | 2,541 | 3,913 / 1,242 |
+| ARM rules | 10,496 | 6,587 | 1.59× | 2,242 | 861 | 1,456 / 812 |
+| Alternating-bit protocol | 8,689 | 5,977 | 1.45× | 1,896 | 738 | 1,394 / 809 |
+| Liveness 2 | 7,061 | 4,975 | 1.42× | 1,901 | 640 | 929 / 265 |
+| GCD 2 | 2,571 | 1,502 | 1.71× | 450 | 226 | 488 / 318 |
+| FBA | 2,256 | 2,925 | 0.77× | 403 | 99 | 381 / 121 |
+
+The last three columns count mutually exclusive leaf samples. The GC column counts named Go collector, object lookup and write-barrier routines in each executable. The difference in those samples accounts for about 15% of Ticket's observed sample gap and 27% of hybrid's. Shrinking solver allocations can address part of that cost. For the larger share on Ticket, the next comparison should count AST visits per instantiated formula and the cost of each visit inside rewriting. On hybrid, the initial push also deserves its own comparison. It appeared on 4,673 g3 stacks, and 5,181 samples across the run passed through pending-assertion reduction. [Sampler, per-round symbols and exclusive grouping rules](perf/ivy_apple/holdouts/nov24-verifier-instruction-stacks.tar.xz)
+
+Each process ran on one pinned CPU with GOMAXPROCS 1 and GOGC 100. The sampling period was 3,000,017 retired user instructions. All 126 profiles had zero throttle and loss records. Each verifier matched the reference exit status, stdout and stderr, including the expected failed verification in Liveness 2. Native frame-pointer unwinding often stopped in the linked library, which limits comparisons of inclusive call stacks. The table uses leaf counts and includes the frontend. Extracting the archive reproduced its aggregate CSV, and the replay script completed a fresh GCD pair. [Measurements and reproduction](perf/ivy_apple/holdouts/nov24-verifier-instruction-stacks.tar.xz)
