@@ -6241,3 +6241,34 @@ On a healthy graph, deleting the tail occurrence needs no extra storage. If an o
 | 2,048 | 7,752 | 7,771 | 917 |
 
 The benchmark retains one in sixteen applications. Each cell is the median of seven paired high-minus-low process instruction counts. A prototype that preflighted parent lists at every deletion cost 8,185 instructions per retired enode at width 2,048, against 7,652 for its control. The release measurements include the complete push, internalize and pop cycle. Both fix releases reproduced all 228 compatibility outcomes. The gap to Z3 warrants work on term registration and child lookup as well as teardown. [Matched benchmark](smtcore/smt_enode_scope_batch_benchmark_test.go) · [Raw counts, experimental source patches and compatibility rows](perf/scope_restoration/worker_trials/nov24-enode-deletion.tar.xz)
+
+### Building declaration indexes when a solver first reads them
+
+Commit `eab0ce237` removes two eager per-declaration indexes from solvers that never query them. The checker and model finder can request every registered enode for a function. The matching interpreter needs only applications with arguments that are eligible for matching. The first reader builds its index from the existing registration order. Subsequent insertions and scope pops maintain each index that has a reader. A checker that borrows nodes or changes internalizers preserves the order across owners. The in-tree C++ matcher indexes a vector by declaration ID. Its entry contains only matching applications. [Go checker](smtcore/smt_checker.go) · [C++ context](../src/smt/smt_context.h)
+
+| 512 enodes per solver, eight solvers | Previous live increase, bytes/solver | Current live increase, bytes/solver | Saved, KiB/solver |
+| --- | ---: | ---: | ---: |
+| One shared declaration | 181,349 | 171,269 | 9.8 |
+| 64 declarations | 203,305 | 187,009 | 15.9 |
+| 512 distinct declarations | 506,305 | 402,457 | 101.4 |
+| 512 constants | 188,353 | 137,793 | 49.4 |
+| 64 declarations, half suppressed | 180,275 | 166,025 | 13.9 |
+
+| Different declarations | Timed access pattern | Previous instructions/enode | Current instructions/enode |
+| ---: | --- | ---: | ---: |
+| 1 | Create and pop | 8,789 | 4,979 |
+| 1 | One matcher lookup | 8,777 | 5,541 |
+| 1 | Three full matcher passes | 8,137 | 5,530 |
+| 1 | Three passes over both indexes | 8,842 | 9,169 |
+| 1 | Both lookups after each insertion | 9,447 | 9,559 |
+| 512 | Create and pop | 11,774 | 6,345 |
+| 512 | One matcher lookup | 14,229 | 7,400 |
+| 512 | Three full matcher passes | 14,926 | 9,042 |
+| 512 | Three passes over both indexes | 15,328 | 12,877 |
+| 512 | Both lookups after each insertion | 14,602 | 13,540 |
+
+The instruction measurements bracket registration, the indicated lookups and scope pop on a single OS thread. Seven rotations included the cost of an empty counter bracket. The base argument constants are created before the timer starts. An index first requested during the measurement must also visit those pre-existing constants. In the 2,048-application construction and pop benchmark, the cost per retired enode went from 7,825 to 6,532 instructions. Z3 took 917 in the companion fixture. [Declaration lookup benchmark](smtcore/smt_declaration_access_benchmark_test.go) · [Heap benchmark](smtcore/smt_declaration_population_benchmark_test.go) · [C++ scope fixture](../src/test/perf/enode_scope_batch.cpp)
+
+A prototype that scanned registrations independently on first lookup of each declaration took 17,795 instructions per enode for 512 distinct declarations and three matcher passes. Building the matcher index in one pass costs 9,072 in that series. Five singleton-storage variants also left a retired pointer visible in a range borrowed by the interpreter. The regression exercises nested scopes, suppressed arguments and reusing the same declaration. Another test builds the first index while a refused AST release still holds a retired node on the trail. [Borrowed range and checker ownership tests](smtcore/smt_decl_borrowed_candidates_test.go) · [Interrupted retirement](smtcore/smt_internalizer_scope_failure_test.go)
+
+At the sampled Apple `ord_live2` state the prototype changed whole-process live heap from 145.91 to 145.66 MiB. The exact release changed median whole-process instructions between -0.59% and +0.42% on six complete GoIvy verifiers. All 228 compatibility cases matched the expected exit status and both output streams. [Comparisons, archive replay and rejected layouts](perf/scope_restoration/worker_trials/nov24-declaration-indexes.tar.xz)
