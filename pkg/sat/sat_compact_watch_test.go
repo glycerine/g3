@@ -1,0 +1,132 @@
+package sat
+
+import (
+	"bytes"
+	"math"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+)
+
+func TestSATWatchFullWidthSequence(t *testing.T) {
+	store, _ := satWatchStoreFixture(t)
+	list, err := store.NewList()
+	satOK(t, err)
+	// Include both sides of every compressed address boundary. Real watches
+	// can come from recycled slots and separate clause storage regions.
+	offsets := []satClauseOffset{
+		{owner: 0, slot: 0, generation: 0, storageKind: 0},
+		{owner: 0, slot: 1<<24 - 1, generation: 126, storageKind: 1},
+		{owner: 0, slot: 1 << 24, generation: 1, storageKind: 0},
+		{owner: 0, slot: 7, generation: 127, storageKind: 1},
+		{owner: 0, slot: 7, generation: 128, storageKind: 0},
+		{owner: 0, slot: 7, generation: 1, storageKind: 2},
+		{owner: math.MaxUint64, slot: math.MaxUint32, generation: math.MaxUint32, storageKind: math.MaxUint32},
+	}
+	var clauses []satWatched
+	for _, offset := range offsets {
+		watch, err := newSATClauseWatch(10, offset)
+		satOK(t, err)
+		clauses = append(clauses, watch)
+	}
+	binary, err := newSATBinaryWatch(14, true)
+	satOK(t, err)
+	ternary, err := newSATTernaryWatch(6, 22)
+	satOK(t, err)
+	for _, watch := range clauses {
+		satOK(t, store.Push(list, watch))
+		satOK(t, store.Push(list, ternary))
+		satOK(t, store.Push(list, binary))
+	}
+	satOK(t, store.SortByKind(list))
+	want := make([]satWatched, 0, 3*len(offsets))
+	for range offsets {
+		want = append(want, binary)
+	}
+	for range offsets {
+		want = append(want, ternary)
+	}
+	want = append(want, clauses...)
+	check := func() {
+		t.Helper()
+		it, err := store.Iter(list)
+		satOK(t, err)
+		for i, expected := range want {
+			got, ok, err := it.Next()
+			satOK(t, err)
+			if !ok || got != expected {
+				t.Fatalf("watch %d got %+v, want %+v", i, got, expected)
+			}
+		}
+		_, ok, err := it.Next()
+		satOK(t, err)
+		if ok {
+			t.Fatal("extra watch after list end")
+		}
+	}
+	check()
+	found, err := store.EraseClauseWatch(list, offsets[2])
+	satOK(t, err)
+	if !found {
+		t.Fatal("full-width offset missing after sort")
+	}
+	i := 2*len(offsets) + 2
+	want = append(want[:i], want[i+1:]...)
+	check()
+	satOK(t, store.SetEnd(list, 1))
+	want = want[:1]
+	for i := len(clauses) - 1; i >= 0; i-- {
+		satOK(t, store.Push(list, clauses[i]))
+		want = append(want, clauses[i])
+	}
+	satOK(t, store.Write(list, 1, binary))
+	want[1] = binary
+	check()
+}
+
+type satWatchTraceWriter func([]byte) (int, error)
+
+func (w satWatchTraceWriter) Write(p []byte) (int, error) { return w(p) }
+
+// The trace writer can change a row while the propagation loop owns a copy
+// of the watch. The original full address belongs to that retained copy.
+func TestSATWatchKeepsOffsetAcrossTraceWrite(t *testing.T) {
+	s, v, _ := satPropagationFixture(t, 3)
+	list, err := v.watches.Get(0)
+	satOK(t, err)
+	other, err := newSATClauseWatch(4, satClauseOffset{owner: math.MaxUint64, slot: 7, generation: math.MaxUint32, storageKind: 1})
+	satOK(t, err)
+	satOK(t, list.Push(other))
+	satOK(t, list.SetEnd(0))
+	clause, err := s.clauses.MkClause([]Literal{2, 1, 4}, false)
+	satOK(t, err)
+	offset, err := s.clauses.Offset(clause)
+	satOK(t, err)
+	watch, err := newSATClauseWatch(4, offset)
+	satOK(t, err)
+	satOK(t, list.Push(watch))
+	called := false
+	tags := diagnostic.NewTraceTagsWithWriter(satWatchTraceWriter(func(p []byte) (int, error) {
+		if bytes.Contains(p, []byte("blocked literal")) {
+			called = true
+			if err := list.Write(0, other); err != nil {
+				return 0, err
+			}
+		}
+		return len(p), nil
+	}))
+	tags.Enable("propagate_clause_bug")
+	s.traceTags = tags
+	satOK(t, s.assign(4, satJustification{}))
+	satOK(t, s.assign(0, satJustification{}))
+	_, err = s.propagateCore(false)
+	satOK(t, err)
+	if called != tags.ShouldTrace("propagate_clause_bug") {
+		t.Fatal("trace callback coverage", called)
+	}
+	got, err := list.Read(0)
+	satOK(t, err)
+	if got != watch {
+		t.Fatalf("retained watch %+v, want %+v", got, watch)
+	}
+}

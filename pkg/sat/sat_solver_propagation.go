@@ -27,14 +27,14 @@ func satPropagationCursorRead(i *satSolverWatchIterator, n uint32) (satWatched, 
 	if e != nil {
 		return satWatched{}, e
 	}
-	return x.data[n], nil
+	return x.read(n), nil
 }
 func satPropagationCursorWrite(i *satSolverWatchIterator, n uint32, w satWatched) error {
 	x, e := satPropagationCursorRecord(i, n)
 	if e != nil {
 		return e
 	}
-	x.data[n] = w
+	x.store(n, w)
 	return nil
 }
 func (s *satSolverPropagationState) propagationConflictCleanup(i *satSolverWatchIterator, from uint32, to *uint32, w satSolverWatchListView) error {
@@ -48,7 +48,7 @@ func (s *satSolverPropagationState) propagationConflictCleanup(i *satSolverWatch
 		if *to <= from && uint64(i.end) <= uint64(len(backing.data)) {
 			count := i.end - from
 			if *to != from {
-				copy(backing.data[*to:*to+count], backing.data[from:i.end])
+				backing.copyRange(*to, from, i.end)
 			}
 			*to += count
 			return s.finishPropagationList(i, w, *to)
@@ -140,7 +140,7 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 		out := uint32(0)
 		// The list keeps its backing through this loop, since a clause's new
 		// watch is never this literal's. Only an extension can reallocate it.
-		var data []satWatched
+		var data []satWatchWords
 		if iter.backing != nil {
 			data = iter.backing.data
 		}
@@ -157,7 +157,22 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 		}
 		records := store.records
 		for pos := uint32(0); pos < iter.end; pos++ {
-			w := data[pos]
+			if tracing {
+				// A user-supplied trace writer can also relocate a list.
+				current, err := satPropagationCursorRecord(&iter, pos)
+				if err != nil {
+					return false, err
+				}
+				data = current.data
+			}
+			bits := data[pos]
+			// A trace or extension can overwrite a list entry in place. Retain
+			// the full offset captured with these words across such callbacks.
+			var savedOffset satClauseOffset
+			if extra := iter.backing.wide; extra != nil {
+				savedOffset = extra.values[pos]
+			}
+			w := satWatched{val1: bits.val1, val2: bits.val2}
 			keep := true
 			switch w.Kind() {
 			case 0:
@@ -209,14 +224,11 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				}
 				if assignment[blocked.index()] == lbool.True {
 					if tracing {
-						s.traceBlockedClause(blocked, w)
+						s.traceBlockedClause(blocked, iter.backing.read(pos))
 					}
 					break
 				}
-				off, e := w.ClauseOffset()
-				if e != nil {
-					return false, e
-				}
+				off := iter.backing.offset(bits, pos)
 				c := StoredClauseRef(off)
 				clause, e := s.clauses.view(c)
 				if e != nil {
@@ -233,22 +245,16 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 					break
 				}
 				if assignment[c0.index()] == lbool.True {
-					w.SetClause(c0, off)
+					w.val2 = 2 + uint32(c0)<<2
 					break
 				}
 				replacement, moved := clause.moveWatch(not, assignment)
 				if moved {
 					i := replacement.Negated().index()
 					dest := currentPropagationList(i, destinations, records, store.origin)
-					if dest != nil {
-						nextWatch, err := newSATClauseWatch(c0, off)
-						if err != nil {
-							return false, err
-						}
-						if dest.appendWithinCapacity(nextWatch) {
-							keep = false
-							break
-						}
+					if dest != nil && dest.appendEncoded(satWatchWords{bits.val1, 2 + uint32(c0)<<2}, iter.backing.owner) {
+						keep = false
+						break
 					}
 					if e = v.watches.pushClause(i, c0, off); e != nil {
 						return false, e
@@ -269,7 +275,10 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 					return false, nil
 				}
 				// Source retains this watch BEFORE increment/mark/assignment/glue actions.
-				data[out] = w
+				data[out] = satWatchWords{bits.val1, w.val2}
+				if extra := iter.backing.wide; extra != nil {
+					extra.values[out] = savedOffset
+				}
 				out++
 				keep = false
 				s.clausePropagations++
@@ -324,7 +333,10 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				return false, ErrSATAssertion
 			}
 			if keep {
-				data[out] = w
+				data[out] = satWatchWords{bits.val1, w.val2}
+				if extra := iter.backing.wide; extra != nil {
+					extra.values[out] = savedOffset
+				}
 				out++
 			}
 		}

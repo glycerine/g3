@@ -15,19 +15,13 @@ type satSolverWatchListRef struct {
 	slot, generation uint32
 }
 
-// The backing identity is borrowed by iterators. Finalization and real Go slice
-// growth invalidate old borrows; native payloads carry no encoded slot metadata.
-type satWatchBacking struct {
-	data  []satWatched
-	alive bool
-}
 type satSolverWatchListRecord struct {
 	backing          *satWatchBacking
 	generation, next uint32
 	live, retired    bool
 }
 
-func (x *satSolverWatchListRecord) values() []satWatched {
+func (x *satSolverWatchListRecord) values() []satWatchWords {
 	if x.backing == nil {
 		return nil
 	}
@@ -130,7 +124,7 @@ func (s *satSolverWatchStore) Read(r satSolverWatchListRef, i uint32) (satWatche
 	if e = satWatchLogicalBounds(i, len(x.values())); e != nil {
 		return satWatched{}, e
 	}
-	return x.backing.data[i], nil
+	return x.backing.read(i), nil
 }
 func (s *satSolverWatchStore) Write(r satSolverWatchListRef, i uint32, w satWatched) error {
 	x, e := s.record(r)
@@ -140,7 +134,7 @@ func (s *satSolverWatchStore) Write(r satSolverWatchListRef, i uint32, w satWatc
 	if e = satWatchLogicalBounds(i, len(x.values())); e != nil {
 		return e
 	}
-	x.backing.data[i] = w
+	x.backing.store(i, w)
 	return nil
 }
 func (s *satSolverWatchStore) Push(r satSolverWatchListRef, w satWatched) error {
@@ -169,7 +163,7 @@ func (x *satSolverWatchListRecord) appendWithinCapacity(w satWatched) bool {
 		return false
 	}
 	b.data = data[:n+1]
-	b.data[n] = w
+	b.store(uint32(n), w)
 	return true
 }
 
@@ -178,12 +172,18 @@ func (x *satSolverWatchListRecord) growAndAppend(w satWatched) error {
 	if uint64(len(old)) >= uint64(^uint32(0)) {
 		return arena.ErrBounds
 	}
-	next := append(old, w)
-	if x.backing != nil {
-		x.backing.alive = false
-		x.backing.data = nil
+	next := &satWatchBacking{data: append(old, satWatchWords{}), alive: true}
+	if prev := x.backing; prev != nil {
+		next.owner = prev.owner
+		next.ownerSet = prev.ownerSet
+		if prev.wide != nil {
+			next.wide = &satWideWatchOffsets{values: make([]satClauseOffset, cap(next.data))}
+			copy(next.wide.values, prev.wide.values[:len(old)])
+		}
+		prev.invalidate()
 	}
-	x.backing = &satWatchBacking{data: next, alive: true}
+	x.backing = next
+	next.store(uint32(len(old)), w)
 	return nil
 }
 func (s *satSolverWatchStore) SetEnd(r satSolverWatchListRef, n uint32) error {
@@ -225,7 +225,7 @@ func (s *satSolverWatchStore) eraseAt(r satSolverWatchListRef, i uint32) error {
 	if e = satWatchLogicalBounds(i, len(data)); e != nil {
 		return e
 	}
-	copy(data[i:], data[i+1:])
+	x.backing.copyRange(i, i+1, uint32(len(data)))
 	clear(data[len(data)-1:])
 	x.backing.data = data[:len(data)-1]
 	return nil
@@ -251,15 +251,9 @@ func (s *satSolverWatchStore) EraseClauseWatch(r satSolverWatchListRef, o satCla
 	if e != nil {
 		return false, e
 	}
-	for i, w := range x.values() {
-		if w.Clause() {
-			q, e := w.ClauseOffset()
-			if e != nil {
-				return false, e
-			}
-			if q == o {
-				return true, s.eraseAt(r, uint32(i))
-			}
+	for i, row := range x.values() {
+		if row.val2&3 == 2 && x.backing.offset(row, uint32(i)) == o {
+			return true, s.eraseAt(r, uint32(i))
 		}
 	}
 	return false, nil
@@ -270,8 +264,7 @@ func (s *satSolverWatchStore) Finalize(r satSolverWatchListRef) error {
 		return e
 	}
 	if x.backing != nil {
-		x.backing.alive = false
-		x.backing.data = nil
+		x.backing.invalidate()
 		x.backing = nil
 	}
 	return nil
@@ -303,8 +296,7 @@ func (s *satSolverWatchStore) Close() error {
 	}
 	for i := range s.records {
 		if b := s.records[i].backing; b != nil {
-			b.alive = false
-			b.data = nil
+			b.invalidate()
 		}
 	}
 	s.records = nil
@@ -331,11 +323,8 @@ func (i *satSolverWatchIterator) Next() (satWatched, bool, error) {
 	if i == nil || i.store == nil {
 		return satWatched{}, false, ErrSATOwner
 	}
-	if e := i.store.open(); e != nil {
-		return satWatched{}, false, e
-	}
 	if i.index == i.end {
-		return satWatched{}, false, nil
+		return satWatched{}, false, i.store.open()
 	}
 	w, e := satPropagationCursorRead(i, i.index)
 	if e != nil {
@@ -349,7 +338,8 @@ func (s *satSolverWatchStore) Contains(r satSolverWatchListRef, w satWatched) (b
 	if e != nil {
 		return false, e
 	}
-	for _, v := range x.values() {
+	for i := range x.values() {
+		v := x.backing.read(uint32(i))
 		if v.Equal(w) {
 			return true, nil
 		}

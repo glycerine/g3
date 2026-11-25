@@ -28,8 +28,11 @@ func (s *satSimplifier) sortBinaryWatches(w satSolverWatchListView) error {
 	if it.end < 2 {
 		return nil
 	}
-	data := it.backing.data[:it.end]
-	sort.SliceStable(data, func(i, j int) bool { return satSimplifierBinaryLess(data[i], data[j]) })
+	sorter := &it.store.sorter
+	sorter.b = it.backing
+	sorter.binary = true
+	sort.Stable(sorter)
+	*sorter = satWatchSortSlice{}
 	return nil
 }
 func (s *satSimplifier) eliminateDuplicateBinaries() error {
