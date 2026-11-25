@@ -66,7 +66,7 @@ func (c *SMTCheckerContext) SetRelevant(expression ast.ASTHandle, relevant bool)
 	if c == nil || c.manager == nil {
 		return ast.ErrASTHandle
 	}
-	if _, err := c.manager.GetKind(expression); err != nil {
+	if err := c.manager.ValidateHandle(expression); err != nil {
 		return err
 	}
 	c.relevant.set(expression, relevant)
@@ -80,15 +80,8 @@ func (c *SMTCheckerContext) SetAssignment(expression ast.ASTHandle, value lbool.
 	if value != lbool.False && value != lbool.Undef && value != lbool.True {
 		return ast.ErrASTDomain
 	}
-	// Checked builds validate the handle; normal builds, like the AST read
-	// accessors, rely on the caller (every hot caller passes a live
-	// m_bool_var2expr entry). A null handle is still refused.
-	if ast.ASTValidateHandles || smtcoreSourceDebug {
-		if _, err := c.manager.GetKind(expression); err != nil {
-			return err
-		}
-	} else if expression.IsNull() {
-		return ast.ErrASTHandle
+	if err := c.manager.ValidateHandle(expression); err != nil {
+		return err
 	}
 	c.assignments.set(expression, value)
 	return nil

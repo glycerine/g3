@@ -605,7 +605,7 @@ func (s *SMTInternalizerState) SetCachedGeneration(expression ast.ASTHandle, gen
 	if err := s.open(); err != nil {
 		return err
 	}
-	if _, err := s.manager.GetKind(expression); err != nil {
+	if err := s.manager.ValidateHandle(expression); err != nil {
 		return err
 	}
 	s.cachedGeneration.set(expression, generation)

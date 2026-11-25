@@ -159,7 +159,7 @@ func (c *SMTRelevantExprContext) SetRelevant(expression ast.ASTHandle, relevant 
 	if c == nil || c.manager == nil {
 		return ast.ErrASTHandle
 	}
-	if _, err := c.manager.GetKind(expression); err != nil {
+	if err := c.manager.ValidateHandle(expression); err != nil {
 		return err
 	}
 	c.relevant[expression] = relevant
@@ -173,7 +173,7 @@ func (c *SMTRelevantExprContext) SetAssignment(expression ast.ASTHandle, value l
 	if value != lbool.False && value != lbool.Undef && value != lbool.True {
 		return ast.ErrASTDomain
 	}
-	if _, err := c.manager.GetKind(expression); err != nil {
+	if err := c.manager.ValidateHandle(expression); err != nil {
 		return err
 	}
 	c.internalized[expression] = true
@@ -185,7 +185,7 @@ func (c *SMTRelevantExprContext) SetNotInternalized(expression ast.ASTHandle) er
 	if c == nil || c.manager == nil {
 		return ast.ErrASTHandle
 	}
-	if _, err := c.manager.GetKind(expression); err != nil {
+	if err := c.manager.ValidateHandle(expression); err != nil {
 		return err
 	}
 	delete(c.internalized, expression)

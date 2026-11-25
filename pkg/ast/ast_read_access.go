@@ -68,12 +68,14 @@ func (m *ASTManager) checkNode(r astNodeRef) error {
 // handles, or use a closed manager, through read accessors depend on it.
 const ASTValidateHandles = astValidateHandles
 
-// IsLiveHandle reports whether h names a live node of m. It always
-// validates, in every build; tests use it to probe that a node was deleted.
+// ValidateHandle checks that h names a live generation owned by m. Public
+// callers that store state by AST slot must validate before writing that slot.
+func (m *ASTManager) ValidateHandle(h ASTHandle) error {
+	_, err := m.readNodeChecked(h)
+	return err
+}
+
+// IsLiveHandle reports whether h names a live node of m in every build.
 func (m *ASTManager) IsLiveHandle(h ASTHandle) bool {
-	if m.lock() != nil {
-		return false
-	}
-	_, e := m.internal(h)
-	return e == nil
+	return m.ValidateHandle(h) == nil
 }
