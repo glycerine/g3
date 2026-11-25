@@ -153,19 +153,23 @@ func (s *SMTInternalizerState) selectRestoredWatches(literals []SMTLiteral) erro
 // variable. Reuse a surviving binding unless NOT needs its nongate enode.
 func (s *SMTInternalizerState) restoreLearnedAtom(expression ast.ASTHandle) (int32, error) {
 	table := s.context.exprs
-	record := table.read(expression)
-	found := record != nil && record.flags&smtExprHasBoolVar != 0
-	if found && s.notChild(record.boolVar).IsNull() {
-		return record.boolVar, nil
+	page := table.readPage(expression)
+	offset := expression.Slot() % smtExprPageSize
+	found := page != nil && page.records[offset].flags&smtExprHasBoolVar != 0
+	if found {
+		variable := page.variables[offset]
+		if s.notChild(variable).IsNull() {
+			return variable, nil
+		}
 	}
 	if !found && s.manager.TryIncRefHeldUninterpretedConstant(expression) {
 		variable := int32(len(s.boolExpr))
-		if record == nil {
+		if page == nil {
 			s.boolVar.set(expression, variable)
 		} else {
 			// The fast retain cannot run callbacks or grow the table.
-			record.boolVar = variable
-			record.flags |= smtExprHasBoolVar
+			page.variables[offset] = variable
+			page.records[offset].flags |= smtExprHasBoolVar
 			table.boolVarCount++
 		}
 		return s.publishBoolVar(expression, SMTBoolVarData{internalFlags: s.scopeLevel})

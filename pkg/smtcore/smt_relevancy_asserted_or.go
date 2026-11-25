@@ -10,14 +10,13 @@ import (
 // Expression records stay in their solver's pages, and the live parent AST
 // owns its syntactic children. Each callback reads their current assignments.
 type smtAssertedOr struct {
-	parent   *smtExprRecord
 	children []smtAssertedOrChild
 	witness  int
 }
 
 type smtAssertedOrChild struct {
-	mark    *smtExprRecord
-	negated *smtExprRecord // immediate argument of a syntactic NOT
+	slot    uint32
+	negated uint32 // immediate argument of a syntactic NOT, or zero
 }
 
 func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args []ast.ASTHandle, literals []SMTLiteral) error {
@@ -41,12 +40,14 @@ func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args
 		gate = &smtAssertedOr{children: make([]smtAssertedOrChild, len(args))}
 	}
 	gate.witness = -1
-	gate.parent = p.context.exprs.write(parent)
+	p.context.exprs.write(parent)
 	for i, literal := range literals {
-		gate.children[i].mark = p.context.exprs.write(args[i])
+		p.context.exprs.write(args[i])
+		gate.children[i].slot = args[i].Slot()
 		if literal.Sign() {
 			operand := p.internalizer.boolExpr[literal.Var()]
-			gate.children[i].negated = p.context.exprs.write(operand)
+			p.context.exprs.write(operand)
+			gate.children[i].negated = operand.Slot()
 		}
 	}
 	handler := smtRelevancyHandler{kind: smtRelevancyAssertedOr, target: parent, assertedOr: gate}
@@ -58,21 +59,30 @@ func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args
 	return nil
 }
 
+// Each installed watch holds its parent, which owns these registered children.
+func (t *smtExprTable) recordAt(slot uint32) *smtExprRecord {
+	page := t.pages[slot/smtExprPageSize]
+	return &page.records[slot%smtExprPageSize]
+}
+
 func (p *SMTRelevancyPropagator) assertedOrChildValue(child smtAssertedOrChild) lbool.LBool {
-	if child.negated != nil {
-		value, _ := p.context.assignments.lookupRecord(child.negated)
+	table := p.context.exprs
+	if child.negated != 0 {
+		record := table.recordAt(child.negated)
+		value, _ := p.context.assignments.lookupRecord(child.negated, record)
 		return value.Negated()
 	}
-	if child.mark.flags&smtExprHasBoolVar != 0 {
-		return p.internalizer.assignment[child.mark.boolVar<<1]
+	record := table.recordAt(child.slot)
+	if record.flags&smtExprHasBoolVar != 0 {
+		return p.internalizer.assignment[table.variableAt(child.slot)<<1]
 	}
-	value, _ := p.context.assignments.lookupRecord(child.mark)
+	value, _ := p.context.assignments.lookupRecord(child.slot, record)
 	return value
 }
 
 func (p *SMTRelevancyPropagator) propagateAssertedOr(parent ast.ASTHandle, gate *smtAssertedOr) error {
-	record := gate.parent
-	if record.generation != parent.Generation() || record.flags&smtExprRelevant == 0 {
+	record := p.context.exprs.read(parent)
+	if record == nil || record.flags&smtExprRelevant == 0 {
 		return nil
 	}
 	if p.internalizer == nil || record.flags&smtExprHasBoolVar != 0 {
@@ -85,7 +95,7 @@ func (p *SMTRelevancyPropagator) propagateAssertedOr(parent ast.ASTHandle, gate 
 	}
 	if gate.witness >= 0 {
 		child := gate.children[gate.witness]
-		if child.mark.flags&smtExprRelevant != 0 && p.assertedOrChildValue(child) == lbool.True {
+		if p.context.exprs.recordAt(child.slot).flags&smtExprRelevant != 0 && p.assertedOrChildValue(child) == lbool.True {
 			return nil
 		}
 	}
@@ -94,7 +104,7 @@ func (p *SMTRelevancyPropagator) propagateAssertedOr(parent ast.ASTHandle, gate 
 		if p.assertedOrChildValue(child) != lbool.True {
 			continue
 		}
-		if child.mark.flags&smtExprRelevant != 0 {
+		if p.context.exprs.recordAt(child.slot).flags&smtExprRelevant != 0 {
 			gate.witness = i
 			return nil
 		}

@@ -1,8 +1,7 @@
 package smtcore
 
-// Source: context::m_expr2bool_var, m_app2enode, and m_relevancy's mark, which
-// are vectors indexed by expression id. Here one record per AST slot holds all
-// of an expression's solver state, so a lookup is an index and a generation test.
+// Source: context::m_expr2bool_var, m_app2enode, cached generations and
+// relevance marks. Each solver indexes its own pages by AST slot.
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
@@ -19,19 +18,21 @@ const (
 )
 
 type smtExprRecord struct {
-	enode      *SMTEnode
-	generation uint32
-	boolVar    int32
-	// cachedGeneration is m_cached_generation's value when
-	// smtExprHasCachedGeneration is set.
-	cachedGeneration uint32
-	assignment       int8 // SetAssignment accepts the three lbool values.
-	flags            uint8
+	assignment int8 // SetAssignment accepts the three lbool values.
+	flags      uint8
 }
 
 const smtExprPageSize = 256
 
-type smtExprPage [smtExprPageSize]smtExprRecord
+// Keeping the pointers together shortens the region the GC must scan.
+// A page allocates cached generations on the first cache write.
+type smtExprPage struct {
+	cached      *[smtExprPageSize]uint32
+	enodes      [smtExprPageSize]*SMTEnode
+	generations [smtExprPageSize]uint32
+	variables   [smtExprPageSize]int32
+	records     [smtExprPageSize]smtExprRecord
+}
 
 // smtExprTable is owned by one SMTCheckerContext and borrows nothing. A record
 // whose generation differs from a handle's describes a retired expression.
@@ -49,24 +50,33 @@ func newSMTExprTable() *smtExprTable { return &smtExprTable{} }
 
 // read returns the live record for a handle, or nil.
 func (t *smtExprTable) read(h ast.ASTHandle) *smtExprRecord {
+	page := t.readPage(h)
+	if page == nil {
+		return nil
+	}
+	return &page.records[h.Slot()%smtExprPageSize]
+}
+
+func (t *smtExprTable) readPage(h ast.ASTHandle) *smtExprPage {
 	slot := h.Slot()
 	index := slot / smtExprPageSize
 	if uint64(index) >= uint64(len(t.pages)) || h.Origin() != t.origin {
 		return nil
 	}
 	page := t.pages[index]
-	if page == nil {
+	if page == nil || page.generations[slot%smtExprPageSize] != h.Generation() {
 		return nil
 	}
-	record := &page[slot%smtExprPageSize]
-	if record.generation != h.Generation() {
-		return nil
-	}
-	return record
+	return page
 }
 
 // write returns the record for a handle, retiring any older generation's state.
 func (t *smtExprTable) write(h ast.ASTHandle) *smtExprRecord {
+	page := t.writePage(h)
+	return &page.records[h.Slot()%smtExprPageSize]
+}
+
+func (t *smtExprTable) writePage(h ast.ASTHandle) *smtExprPage {
 	if t.origin == 0 {
 		t.origin = h.Origin()
 	} else if h.Origin() != t.origin {
@@ -82,27 +92,31 @@ func (t *smtExprTable) write(h ast.ASTHandle) *smtExprRecord {
 		page = new(smtExprPage)
 		t.pages[index] = page
 	}
-	record := &page[slot%smtExprPageSize]
-	if record.generation != h.Generation() {
+	offset := slot % smtExprPageSize
+	record := &page.records[offset]
+	if page.generations[offset] != h.Generation() {
 		if record.flags&smtExprRelevant != 0 {
 			t.relevanceRemovals++
 		}
-		if record.enode != nil {
+		if page.enodes[offset] != nil {
+			page.enodes[offset] = nil
 			t.enodeCount--
 		}
 		if record.flags&smtExprHasBoolVar != 0 {
 			t.boolVarCount--
 		}
-		*record = smtExprRecord{generation: h.Generation()}
+		*record = smtExprRecord{}
+		page.generations[offset] = h.Generation()
+		page.variables[offset] = 0
 	}
-	return record
+	return page
 }
 
 type smtEnodeTable struct{ t *smtExprTable }
 
 func (e smtEnodeTable) get(h ast.ASTHandle) *SMTEnode {
-	if record := e.t.read(h); record != nil {
-		return record.enode
+	if page := e.t.readPage(h); page != nil {
+		return page.enodes[h.Slot()%smtExprPageSize]
 	}
 	return nil
 }
@@ -111,17 +125,18 @@ func (e smtEnodeTable) lookup(h ast.ASTHandle) (*SMTEnode, bool) {
 	return node, node != nil
 }
 func (e smtEnodeTable) set(h ast.ASTHandle, node *SMTEnode) {
-	record := e.t.write(h)
-	if record.enode == nil && node != nil {
+	page := e.t.writePage(h)
+	slot := &page.enodes[h.Slot()%smtExprPageSize]
+	if *slot == nil && node != nil {
 		e.t.enodeCount++
-	} else if record.enode != nil && node == nil {
+	} else if *slot != nil && node == nil {
 		e.t.enodeCount--
 	}
-	record.enode = node
+	*slot = node
 }
 func (e smtEnodeTable) del(h ast.ASTHandle) {
-	if record := e.t.read(h); record != nil && record.enode != nil {
-		record.enode = nil
+	if page := e.t.readPage(h); page != nil && page.enodes[h.Slot()%smtExprPageSize] != nil {
+		page.enodes[h.Slot()%smtExprPageSize] = nil
 		e.t.enodeCount--
 	}
 }
@@ -134,8 +149,8 @@ func (e smtEnodeTable) all() []*SMTEnode {
 		if page == nil {
 			continue
 		}
-		for i := range page {
-			if node := page[i].enode; node != nil {
+		for i := range page.enodes {
+			if node := page.enodes[i]; node != nil {
 				result = append(result, node)
 			}
 		}
@@ -143,11 +158,16 @@ func (e smtEnodeTable) all() []*SMTEnode {
 	return result
 }
 
+// variableAt reads a slot whose Boolean presence flag has already been checked.
+func (t *smtExprTable) variableAt(slot uint32) int32 {
+	return t.pages[slot/smtExprPageSize].variables[slot%smtExprPageSize]
+}
+
 type smtBoolVarTable struct{ t *smtExprTable }
 
 func (b smtBoolVarTable) lookup(h ast.ASTHandle) (int32, bool) {
-	if record := b.t.read(h); record != nil && record.flags&smtExprHasBoolVar != 0 {
-		return record.boolVar, true
+	if page := b.t.readPage(h); page != nil && page.records[h.Slot()%smtExprPageSize].flags&smtExprHasBoolVar != 0 {
+		return page.variables[h.Slot()%smtExprPageSize], true
 	}
 	return 0, false
 }
@@ -156,17 +176,18 @@ func (b smtBoolVarTable) get(h ast.ASTHandle) int32 {
 	return variable
 }
 func (b smtBoolVarTable) set(h ast.ASTHandle, variable int32) {
-	record := b.t.write(h)
+	page := b.t.writePage(h)
+	offset := h.Slot() % smtExprPageSize
+	record := &page.records[offset]
 	if record.flags&smtExprHasBoolVar == 0 {
 		b.t.boolVarCount++
 	}
-	record.boolVar = variable
+	page.variables[offset] = variable
 	record.flags |= smtExprHasBoolVar
 }
 func (b smtBoolVarTable) del(h ast.ASTHandle) {
 	if record := b.t.read(h); record != nil && record.flags&smtExprHasBoolVar != 0 {
 		record.flags &^= smtExprHasBoolVar
-		record.boolVar = 0
 		b.t.boolVarCount--
 	}
 }
@@ -181,7 +202,7 @@ func (t *smtExprTable) retireBoolean(h ast.ASTHandle, clearRelevance bool) {
 		t.boolVarCount--
 	}
 	record.flags &^= smtExprHasBoolVar | smtExprHasAssignment
-	record.boolVar, record.assignment = 0, 0
+	record.assignment = 0
 	if clearRelevance {
 		if record.flags&smtExprRelevant != 0 {
 			t.relevanceRemovals++
@@ -206,10 +227,10 @@ type smtAssignmentTable struct {
 }
 
 func (a smtAssignmentTable) lookup(h ast.ASTHandle) (lbool.LBool, bool) {
-	return a.lookupRecord(a.t.read(h))
+	return a.lookupRecord(h.Slot(), a.t.read(h))
 }
 
-func (a smtAssignmentTable) lookupRecord(record *smtExprRecord) (lbool.LBool, bool) {
+func (a smtAssignmentTable) lookupRecord(slot uint32, record *smtExprRecord) (lbool.LBool, bool) {
 	if record == nil {
 		return 0, false
 	}
@@ -217,7 +238,7 @@ func (a smtAssignmentTable) lookupRecord(record *smtExprRecord) (lbool.LBool, bo
 		return lbool.LBool(record.assignment), true
 	}
 	if a.s != nil && record.flags&smtExprHasBoolVar != 0 {
-		return a.s.assignment[record.boolVar<<1], true
+		return a.s.assignment[a.t.variableAt(slot)<<1], true
 	}
 	return 0, false
 }
@@ -275,7 +296,7 @@ func (r smtRelevantTable) del(h ast.ASTHandle) {
 
 // smtCacheGenerationTable is context::m_cached_generation (obj_map<expr,
 // unsigned>) and m_cache_generation_visited (obj_hashtable<expr>) as two
-// flags and a field of the expression records. touched lists the handles
+// flags and a lazily allocated generation column. touched lists the handles
 // with either flag set, so reset clears exactly those records.
 type smtCacheGenerationTable struct {
 	t       *smtExprTable
@@ -283,8 +304,8 @@ type smtCacheGenerationTable struct {
 }
 
 func (c *smtCacheGenerationTable) get(h ast.ASTHandle) (uint32, bool) {
-	if record := c.t.read(h); record != nil && record.flags&smtExprHasCachedGeneration != 0 {
-		return record.cachedGeneration, true
+	if page := c.t.readPage(h); page != nil && page.records[h.Slot()%smtExprPageSize].flags&smtExprHasCachedGeneration != 0 {
+		return page.cached[h.Slot()%smtExprPageSize], true
 	}
 	return 0, false
 }
@@ -297,7 +318,11 @@ func (c *smtCacheGenerationTable) record(h ast.ASTHandle) *smtExprRecord {
 }
 func (c *smtCacheGenerationTable) set(h ast.ASTHandle, generation uint32) {
 	record := c.record(h)
-	record.cachedGeneration = generation
+	page := c.t.pages[h.Slot()/smtExprPageSize]
+	if page.cached == nil {
+		page.cached = new([smtExprPageSize]uint32)
+	}
+	page.cached[h.Slot()%smtExprPageSize] = generation
 	record.flags |= smtExprHasCachedGeneration
 }
 
@@ -313,7 +338,6 @@ func (c *smtCacheGenerationTable) reset() {
 	for _, h := range c.touched {
 		if record := c.t.read(h); record != nil {
 			record.flags &^= smtExprHasCachedGeneration | smtExprCacheGenerationVisited
-			record.cachedGeneration = 0
 		}
 	}
 	clear(c.touched)

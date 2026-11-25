@@ -270,7 +270,7 @@ func (c *SMTCheckerContext) checkDisequality(decl ast.ASTHandle, left, right *SM
 		return true, nil
 	}
 	record := c.exprs.read(root)
-	value, assigned := c.assignments.lookupRecord(record)
+	value, assigned := c.assignments.lookupRecord(root.Slot(), record)
 	return assigned && value == lbool.False && c.recordRelevant(record), nil
 }
 
@@ -464,8 +464,11 @@ func (c *SMTChecker) enodeWithHeader(expression ast.ASTHandle, header ast.ASTNod
 		}
 		return c.bindings[len(c.bindings)-int(index)-1], nil
 	}
-	if record := c.context.exprs.read(expression); record != nil && record.enode != nil && c.context.recordRelevant(record) {
-		return record.enode, nil
+	if page := c.context.exprs.readPage(expression); page != nil {
+		index := expression.Slot() % smtExprPageSize
+		if node := page.enodes[index]; node != nil && c.context.recordRelevant(&page.records[index]) {
+			return node, nil
+		}
 	}
 	if header.Kind != ast.ASTApp || header.NumArgs == 0 {
 		return nil, nil
@@ -523,7 +526,7 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, header ast.ASTNodeHeade
 		}
 	}
 	record := c.context.exprs.read(expression)
-	if assignment, found := c.context.assignments.lookupRecord(record); found && c.context.recordRelevant(record) {
+	if assignment, found := c.context.assignments.lookupRecord(expression.Slot(), record); found && c.context.recordRelevant(record) {
 		// Ordinary atoms use the assignment we just read. get_assignment
 		// interprets the false constant and the operand of a NOT specially.
 		if manager.IsFalse(expression) {

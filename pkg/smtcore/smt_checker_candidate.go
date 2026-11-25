@@ -60,9 +60,11 @@ func (c *SMTChecker) candidateEnodeWithRefs(p *smtCandidateBody, n *smtCandidate
 		}
 		return c.bindings[len(c.bindings)-1-int(n.operand)], nil
 	}
-	record := c.context.exprs.read(n.expression)
-	if record != nil && record.enode != nil && c.context.recordRelevant(record) {
-		return record.enode, nil
+	if page := c.context.exprs.readPage(n.expression); page != nil {
+		index := n.expression.Slot() % smtExprPageSize
+		if node := page.enodes[index]; node != nil && c.context.recordRelevant(&page.records[index]) {
+			return node, nil
+		}
 	}
 	if n.first == n.end || n.op == candidateOpaque {
 		return nil, nil
@@ -142,7 +144,7 @@ func (c *SMTChecker) checkCandidate(p *smtCandidateBody, id uint16, want bool) (
 
 func (c *SMTChecker) checkCandidateCore(p *smtCandidateBody, n *smtCandidateNode, refs uint32, want bool) (bool, error) {
 	record := c.context.exprs.read(n.expression)
-	if value, ok := c.context.assignments.lookupRecord(record); ok && c.context.recordRelevant(record) {
+	if value, ok := c.context.assignments.lookupRecord(n.expression.Slot(), record); ok && c.context.recordRelevant(record) {
 		if n.op == candidateNot || n.op == candidateFalse {
 			value = c.context.getAssignment(n.expression)
 		}
