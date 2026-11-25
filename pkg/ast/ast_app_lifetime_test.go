@@ -36,7 +36,7 @@ func TestASTInlineApplicationDiamondLifetime(t *testing.T) {
 		if slot != want.slot || m.nodeAt(slot).live {
 			t.Fatalf("free slot %d, want dead placement %d", slot, want.slot)
 		}
-		slot = m.nodeAt(slot).nextFree
+		slot = m.nodeAt(slot).kindIndex
 	}
 	if got := m.nodeAt(decl.slot).rc; got != 1 {
 		t.Fatalf("declaration has %d references after cascade, want 1", got)

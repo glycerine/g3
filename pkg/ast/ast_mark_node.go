@@ -7,14 +7,14 @@ func (m *ASTManager) nodeMark(r astNodeRef, plane uint8, owner uint64, op uint8,
 		return false, e
 	}
 	n := m.nodeAt(r.slot)
-	oldOwner := n.markOwner1
-	bit := n.mark1
+	bit := n.hasFlag(astFirstMark)
 	if plane == 2 {
-		oldOwner = n.markOwner2
-		bit = n.mark2
+		bit = n.hasFlag(astSecondMark)
 	}
-	if ASTSourceDebug && oldOwner != 0 && oldOwner != owner {
-		return false, ErrASTDomain
+	if ASTSourceDebug {
+		if old := m.nodeMarkOwner(r.slot, plane); old != 0 && old != owner {
+			return false, ErrASTDomain
+		}
 	}
 	if op == 0 {
 		return bit, nil
@@ -24,12 +24,11 @@ func (m *ASTManager) nodeMark(r astNodeRef, plane uint8, owner uint64, op uint8,
 		owner = 0
 	}
 	if plane == 1 {
-		n.mark1 = flag
-		n.markOwner1 = owner // actual Go action identity; source reads it only in DEBUG
+		n.setFlag(astFirstMark, flag)
 	} else {
-		n.mark2 = flag
-		n.markOwner2 = owner // actual Go action identity; source reads it only in DEBUG
+		n.setFlag(astSecondMark, flag)
 	}
+	m.setNodeMarkOwner(r.slot, plane, owner)
 	return flag, nil
 }
 func (m *ASTManager) publicNodeMark(h ASTHandle, plane uint8, owner uint64, op uint8, flag bool) (bool, error) {
@@ -37,11 +36,10 @@ func (m *ASTManager) publicNodeMark(h ASTHandle, plane uint8, owner uint64, op u
 		return false, e
 	}
 	defer m.mu.Unlock()
-	r, e := m.internal(h)
-	if e != nil {
-		return false, e
+	if h.origin != m.origin {
+		return false, ErrASTHandle
 	}
-	return m.nodeMark(r, plane, owner, op, flag)
+	return m.nodeMark(astNodeRef{h.slot, h.generation}, plane, owner, op, flag)
 }
 func (m *ASTManager) MarkNode1(h ASTHandle, flag bool, owner uint64) error {
 	_, e := m.publicNodeMark(h, 1, owner, 1, flag)
@@ -64,4 +62,23 @@ func (m *ASTManager) IsNodeMarked1(h ASTHandle, owner uint64) (bool, error) {
 }
 func (m *ASTManager) IsNodeMarked2(h ASTHandle, owner uint64) (bool, error) {
 	return m.publicNodeMark(h, 2, owner, 0, false)
+}
+
+func (m *ASTManager) nodeMarkOwner(slot uint32, plane uint8) uint64 {
+	p := m.nodes[(slot-1)/astPageSize].markOwners[plane-1]
+	if p == nil {
+		return 0
+	}
+	return p[(slot-1)%astPageSize]
+}
+
+func (m *ASTManager) setNodeMarkOwner(slot uint32, plane uint8, owner uint64) {
+	p := &m.nodes[(slot-1)/astPageSize].markOwners[plane-1]
+	if *p == nil {
+		if owner == 0 {
+			return
+		}
+		*p = new(astMarkOwnerPage)
+	}
+	(*p)[(slot-1)%astPageSize] = owner
 }

@@ -11,13 +11,13 @@ func (s *astSharedMarkState) mark(m *ASTManager, r astNodeRef, flag bool) error 
 	}
 	n := m.nodeAt(r.slot)
 	if !flag {
-		n.shared = false
+		n.flags &^= astShared
 		return nil
 	}
-	if n.shared {
+	if n.hasFlag(astShared) {
 		return nil
 	}
-	n.shared = true
+	n.flags |= astShared
 	s.nodes = append(s.nodes, r)
 	return nil
 }
@@ -26,7 +26,7 @@ func (s *astSharedMarkState) reset(m *ASTManager) error {
 		if e := m.validNode(r); e != nil {
 			return e
 		}
-		m.nodeAt(r.slot).shared = false
+		m.nodeAt(r.slot).flags &^= astShared
 	}
 	s.nodes = s.nodes[:0]
 	return nil
@@ -70,7 +70,7 @@ func (s *ASTSharedOccurrencesMark) IsMarked(h ASTHandle) (bool, error) {
 	if e != nil {
 		return false, e
 	}
-	return m.nodeAt(r.slot).shared, nil
+	return m.nodeAt(r.slot).hasFlag(astShared), nil
 }
 func (s *ASTSharedOccurrencesMark) Mark(h ASTHandle, flag bool) error {
 	m, e := s.owner.lock()

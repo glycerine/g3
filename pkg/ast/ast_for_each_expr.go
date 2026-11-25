@@ -216,10 +216,11 @@ func (m *ASTManager) acknowledgeExprMark(node astNodeRef, owner uint64) error {
 		return nil
 	} // ended exact generation, no replacement read
 	n := m.nodeAt(node.slot)
-	if !n.mark1 && n.markOwner1 == 0 {
+	old := m.nodeMarkOwner(node.slot, 1)
+	if !n.hasFlag(astFirstMark) && old == 0 {
 		return nil
 	} // actual earlier reset consumed action
-	if n.markOwner1 != owner {
+	if old != owner {
 		return ErrASTDomain
 	}
 	_, e := m.nodeMark(node, 1, owner, 2, false)

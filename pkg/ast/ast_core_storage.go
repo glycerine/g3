@@ -108,12 +108,31 @@ type ASTQuantifierSpec struct {
 }
 
 type astNodeRecord struct {
-	generation, nextFree, id, hash, rc, kindIndex uint32
-	kind                                          ASTKind
-	live, mark1, mark2, shared, closeMark         bool
-	wasSubstitutionKey                            bool // May occur in a substitution. Cleared on slot reuse.
-	markOwner1, markOwner2                        uint64
+	generation, id, hash, rc, kindIndex uint32
+	kind                                ASTKind
+	live                                bool
+	flags                               astNodeFlags
 }
+
+type astNodeFlags uint8
+
+const (
+	astFirstMark astNodeFlags = 1 << iota
+	astSecondMark
+	astShared
+	astCloseMark
+	astWasSubstitutionKey
+)
+
+func (n *astNodeRecord) hasFlag(bit astNodeFlags) bool { return n.flags&bit != 0 }
+func (n *astNodeRecord) setFlag(bit astNodeFlags, on bool) {
+	if on {
+		n.flags |= bit
+	} else {
+		n.flags &^= bit
+	}
+}
+
 type astSortRecord struct {
 	nextFree uint32
 	name     usymbol.Symbol
@@ -176,7 +195,7 @@ type astAppRecord struct {
 	inlineArgs [astInlineArgs]astNodeRef
 }
 
-// Four compact references fit in the existing 128-byte node slot.
+// Short applications keep up to four full generation-checked child references.
 const astInlineArgs = 4
 
 type astVarRecord struct {
@@ -233,25 +252,24 @@ const astPageSize = 64
 // second page. app[i] is meaningful only while slot i holds a live
 // application; allocateNode clears it when an application takes the slot.
 type astNodePage struct {
-	slots [astPageSize]astNodeSlot
+	markOwners [2]*astMarkOwnerPage
+	slots      [astPageSize]astNodeSlot
 }
 
-// astNodeSlot is one slot's node record and application record, padded to
-// two cache lines: the node record and the application record's leading
-// fields fill the first line, and a page (8192 bytes, so 8192-aligned)
-// keeps every slot on a 128-byte boundary.
+// The hot node and its application operands use a single, pointer-free
+// slot. While a slot is free, kindIndex holds the next free node slot.
 type astNodeSlot struct {
 	node astNodeRecord
 	app  astAppRecord
-	_    [astNodeSlotPad]byte
 }
 
-const astNodeSlotPad = 128 - unsafe.Sizeof(astNodeRecord{}) - unsafe.Sizeof(astAppRecord{})
+// An untouched mark plane costs only the pointer in its node page.
+type astMarkOwnerPage [astPageSize]uint64
 
-// The owner budget charges the original records, including three child
-// references. The fourth uses existing slot padding, so the page reservation
-// and fault-injection boundary stay the same.
-const astNodePageBytes = uint64(astPageSize) * uint64(unsafe.Sizeof(astNodeRecord{})+unsafe.Offsetof(astAppRecord{}.inlineArgs)+3*unsafe.Sizeof(astNodeRef{}))
+// The owner budget uses the original 48-byte node record and three child
+// references. Keeping the same reservation preserves allocation refusals.
+const astNodeBudgetBytes = 48
+const astNodePageBytes = uint64(astPageSize) * uint64(astNodeBudgetBytes+unsafe.Offsetof(astAppRecord{}.inlineArgs)+3*unsafe.Sizeof(astNodeRef{}))
 
 type astSortPage [astPageSize]astSortRecord
 type astFuncDeclPage [astPageSize]astFuncDeclRecord

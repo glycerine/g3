@@ -79,7 +79,7 @@ func (m *ASTManager) allocateNode(kind ASTKind) (astNodeRef, error) {
 	for m.freeNode != 0 {
 		slot = m.freeNode
 		n := m.nodeAt(slot)
-		m.freeNode = n.nextFree
+		m.freeNode = n.kindIndex
 		if n.generation == math.MaxUint32 {
 			slot = 0
 			continue
@@ -98,6 +98,7 @@ func (m *ASTManager) allocateNode(kind ASTKind) (astNodeRef, error) {
 		m.nextNode++
 		generation = 1
 	}
+
 	n := m.nodeAt(slot)
 	*n = astNodeRecord{generation: generation, kind: kind, id: math.MaxUint32}
 	if kind == ASTApp {
@@ -109,7 +110,7 @@ func (m *ASTManager) allocateNode(kind ASTKind) (astNodeRef, error) {
 	}
 	index, e := m.allocateKind(kind)
 	if e != nil {
-		n.nextFree = m.freeNode
+		n.kindIndex = m.freeNode
 		m.freeNode = slot
 		return astNodeRef{}, e
 	}
@@ -152,11 +153,17 @@ func (m *ASTManager) freeNodeStorage(r astNodeRef) error {
 	return nil
 }
 
-// A freshly allocated inline application owns no payload or child references.
+// Release both mark owners before linking the slot into the free list.
 func (m *ASTManager) returnNodeSlot(slot uint32) {
 	n := m.nodeAt(slot)
+	owners := &m.nodes[(slot-1)/astPageSize].markOwners
+	for _, p := range owners {
+		if p != nil {
+			p[(slot-1)%astPageSize] = 0
+		}
+	}
 	n.live = false
-	n.nextFree = m.freeNode
+	n.kindIndex = m.freeNode
 	m.freeNode = slot
 	m.liveNodes--
 }

@@ -18,11 +18,13 @@ func TestASTSharedOccurrencePublishesBeforeRefcountAssertion(t *testing.T) {
 	r, err := m.internal(h)
 	astTestMust(t, err)
 	n := m.nodeAt(r.slot)
-	oldRC, oldShared := n.rc, n.shared
-	n.rc, n.shared = math.MaxUint32, true
+	oldRC, oldShared := n.rc, n.hasFlag(astShared)
+	n.rc = math.MaxUint32
+	n.flags |= astShared
 	var marks astSharedMarkState
 	_, err = s.process(m, r, &marks)
-	n.rc, n.shared = oldRC, oldShared
+	n.rc = oldRC
+	n.setFlag(astShared, oldShared)
 	m.mu.Unlock()
 	if !errors.Is(err, ErrASTDomain) {
 		t.Fatalf("source INC assertion after set publication: %v", err)

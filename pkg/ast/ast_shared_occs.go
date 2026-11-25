@@ -86,7 +86,7 @@ func (s *ASTSharedOccurrences) process(m *ASTManager, r astNodeRef, v *astShared
 	case ASTApp:
 		count := m.appAt(r.slot).count
 		if n.rc > 1 && (s.config.TrackAtomic || count > 0) {
-			if n.shared {
+			if n.hasFlag(astShared) {
 				return true, s.insert(m, r)
 			}
 			if e := v.mark(m, r, true); e != nil {
@@ -100,7 +100,7 @@ func (s *ASTSharedOccurrences) process(m *ASTManager, r astNodeRef, v *astShared
 		return false, nil
 	case ASTVar:
 		if s.config.TrackAtomic && n.rc > 1 {
-			if n.shared {
+			if n.hasFlag(astShared) {
 				return true, s.insert(m, r)
 			}
 			return true, v.mark(m, r, true)
@@ -108,7 +108,7 @@ func (s *ASTSharedOccurrences) process(m *ASTManager, r astNodeRef, v *astShared
 		return true, nil
 	case ASTQuantifier:
 		if n.rc > 1 {
-			if n.shared {
+			if n.hasFlag(astShared) {
 				return true, s.insert(m, r)
 			}
 			if e := v.mark(m, r, true); e != nil {

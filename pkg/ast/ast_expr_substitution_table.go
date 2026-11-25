@@ -22,7 +22,7 @@ func (m *ASTManager) substFind(t *astExprSubstTable, key astNodeRef) (uint64, bo
 	if e != nil {
 		return 0, false, e
 	}
-	if !record.wasSubstitutionKey {
+	if !record.hasFlag(astWasSubstitutionKey) {
 		return token, false, nil
 	}
 	_, found := t.entries.Get2(token)

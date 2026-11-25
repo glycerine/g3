@@ -62,7 +62,7 @@ func TestInlineFourthOperandIdentity(t *testing.T) {
 	if !astValidateHandles && !ASTSourceDebug && m.appAt(a.slot).args != (arena.SmallBytesRef{}) {
 		t.Fatal("four operands allocated a separate payload")
 	}
-	if unsafe.Sizeof(astNodeSlot{}) != 128 {
+	if unsafe.Sizeof(astNodeSlot{}) != 100 {
 		t.Fatal("node slot", unsafe.Sizeof(astNodeSlot{}))
 	}
 }

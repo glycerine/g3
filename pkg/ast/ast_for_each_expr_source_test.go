@@ -326,7 +326,7 @@ func TestASTExprVisitorSourceMarkedBeforeTrailAppendOwnsExactPendingLeaf(t *test
 		for i := 0; i < idx; i++ {
 			r, e2 := m.internal(args[i])
 			astTestMust(t, e2)
-			if m.nodeAt(r.slot).mark1 {
+			if m.nodeAt(r.slot).hasFlag(astFirstMark) {
 				t.Fatal("source completed trail mark remained", i)
 			}
 		}
@@ -335,7 +335,7 @@ func TestASTExprVisitorSourceMarkedBeforeTrailAppendOwnsExactPendingLeaf(t *test
 		e2 = m.cleanupExprVisitFrame()
 		m.mu.Unlock()
 		astTestMust(t, e2)
-		if f.active || f.pendingMark.slot != 0 || f.invocation != serial || f.bodyCause != body || f.sourceCause != nil || f.ownCause != nil || f.unlistedNode != pending || f.unlistedOwner != owner || m.nodeAt(pending.slot).mark1 {
+		if f.active || f.pendingMark.slot != 0 || f.invocation != serial || f.bodyCause != body || f.sourceCause != nil || f.ownCause != nil || f.unlistedNode != pending || f.unlistedOwner != owner || m.nodeAt(pending.slot).hasFlag(astFirstMark) {
 			t.Fatal("own ACK replayed body or lost history")
 		}
 		if m.BudgetField.Used() != before || m.Stats() != graph {
@@ -443,7 +443,7 @@ func TestASTExprVisitorSourceReleaseRetryKeepsOriginalUnlistedMarkHistory(t *tes
 	if history == nil || !history.acknowledged || history.node != pending || history.owner != owner || history.invocation != serial || history.bodyCause != body {
 		t.Fatal("archived exact tuple lost after own ACK")
 	}
-	if m.exprVisitHistory != history || m.nodeAt(pending.slot).mark1 || m.BudgetField.Used() != before+history.bytes || m.Stats().AllocatedBytes < history.bytes {
+	if m.exprVisitHistory != history || m.nodeAt(pending.slot).hasFlag(astFirstMark) || m.BudgetField.Used() != before+history.bytes || m.Stats().AllocatedBytes < history.bytes {
 		t.Fatal("own leaf ACK lost enclosing-context charged history")
 	}
 }
@@ -533,7 +533,7 @@ func TestASTExprVisitorSourcePendingMarkCannotClearForeignActualMark(t *testing.
 	m.mu.Lock()
 	e = m.cleanupExprVisitFrame()
 	m.mu.Unlock()
-	if !errors.Is(e, ErrASTDomain) || !errors.Is(f.ownCause, ErrASTDomain) || f.pendingMark != token || f.pendingOwner != owner || f.invocation != serial || f.bodyCause != body || !m.nodeAt(token.slot).mark1 || m.nodeAt(token.slot).markOwner1 != foreign || m.BudgetField.Used() != before {
+	if !errors.Is(e, ErrASTDomain) || !errors.Is(f.ownCause, ErrASTDomain) || f.pendingMark != token || f.pendingOwner != owner || f.invocation != serial || f.bodyCause != body || !m.nodeAt(token.slot).hasFlag(astFirstMark) || m.nodeMarkOwner(token.slot, 1) != foreign || m.BudgetField.Used() != before {
 		t.Fatal("foreign mark adopted", e)
 	}
 	// Real owner actions remove the foreign mark; then exact old invocation can

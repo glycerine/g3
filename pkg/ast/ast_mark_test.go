@@ -253,7 +253,7 @@ func TestASTMarkLockedTraversalHelpers(t *testing.T) {
 	astTestMust(t, marker.closeLocked(m))
 	m.BudgetField.FailAfter(-1)
 	m.mu.Unlock()
-	if m.nodeAt(h.slot).mark1 {
+	if m.nodeAt(h.slot).hasFlag(astFirstMark) {
 		t.Fatal("lexical locked reset")
 	}
 }

@@ -349,7 +349,7 @@ func (m *ASTManager) closeCore(source bool) error {
 	for m.table.size != 0 {
 		for s := uint32(1); s < m.nextNode; s++ {
 			if m.nodeAt(s).live {
-				m.nodeAt(s).closeMark = false
+				m.nodeAt(s).flags &^= astCloseMark
 			}
 		}
 		for _, r := range m.tableEntries() {
@@ -365,7 +365,7 @@ func (m *ASTManager) closeCore(source bool) error {
 					}
 					continue
 				}
-				m.nodeAt(child.slot).closeMark = true
+				m.nodeAt(child.slot).flags |= astCloseMark
 			}
 			slot, g := m.infoForNode(r)
 			if slot != 0 {
@@ -395,7 +395,7 @@ func (m *ASTManager) closeCore(source bool) error {
 						continue
 					}
 					if v.Kind == ASTParameterAST && v.ast.slot != 0 {
-						m.nodeAt(v.ast.slot).closeMark = true
+						m.nodeAt(v.ast.slot).flags |= astCloseMark
 					}
 				}
 			}
@@ -403,7 +403,7 @@ func (m *ASTManager) closeCore(source bool) error {
 		// Select roots in native dictionary order, then delete that snapshot.
 		var roots []astNodeRef
 		for _, r := range m.tableEntries() {
-			if !m.nodeAt(r.slot).closeMark {
+			if !m.nodeAt(r.slot).hasFlag(astCloseMark) {
 				roots = append(roots, r)
 			}
 		}

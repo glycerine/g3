@@ -85,7 +85,7 @@ func (m *ASTManager) substInsert(s ASTExprSubstitution, key, def, proof, dep ast
 	entry, found := t.entries.Get2(token)
 	if !found {
 		entry = astExprSubstEntry{key: key}
-		record.wasSubstitutionKey = true
+		record.flags |= astWasSubstitutionKey
 		t.entries.Put(token, entry)
 		// m_subst.insert_if_not_there2(c, 0)
 		if t.layout == nil {
@@ -207,7 +207,7 @@ func (m *ASTManager) substLookupOutputs(state *astExprSubstState, key astNodeRef
 	if e != nil {
 		return false, e
 	}
-	if !record.wasSubstitutionKey {
+	if !record.hasFlag(astWasSubstitutionKey) {
 		return false, nil
 	}
 	a, found := state.base.entries.Get2(token)
