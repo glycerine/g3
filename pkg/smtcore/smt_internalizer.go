@@ -640,19 +640,14 @@ func (s *SMTInternalizerState) Internalize(expression ast.ASTHandle, gateContext
 	if err := s.open(); err != nil {
 		return err
 	}
-	// One header read serves the kind, basic-operation and family tests
-	// of both the formula and term paths.
-	header, err := s.manager.NodeHeader(expression)
+	// Validate the incoming expression before reading its arena slot.
+	header, boolean, err := s.manager.ExpressionHeader(expression)
 	if err != nil {
 		return err
 	}
 	kind := header.Kind
 	if kind == ast.ASTVar {
 		return ast.ErrASTDomain
-	}
-	boolean, err := s.isBoolean(expression)
-	if err != nil {
-		return err
 	}
 	if boolean {
 		return s.internalizeFormula(expression, gateContext, &header)

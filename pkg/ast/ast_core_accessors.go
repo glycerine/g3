@@ -120,10 +120,14 @@ func (m *ASTManager) NodeHeader(h ASTHandle) (ASTNodeHeader, error) {
 	}
 	v := m.appAt(r.slot)
 	if v.declCached && !ASTSourceDebug {
-		return ASTNodeHeader{Kind: ASTApp, RefCount: n.rc, NumArgs: v.count, Family: v.declFamily, DeclKind: v.declKind, Decl: m.external(v.decl)}, nil
+		return m.cachedAppHeader(n, v), nil
 	}
 	family, declKind, e := m.declIdentity(v.decl)
 	return ASTNodeHeader{Kind: ASTApp, RefCount: n.rc, NumArgs: v.count, Family: family, DeclKind: declKind, Decl: m.external(v.decl)}, e
+}
+
+func (m *ASTManager) cachedAppHeader(n *astNodeRecord, v *astAppRecord) ASTNodeHeader {
+	return ASTNodeHeader{Kind: ASTApp, RefCount: n.rc, NumArgs: v.count, Family: v.declFamily, DeclKind: v.declKind, Decl: m.external(v.decl)}
 }
 
 // NodeShape is NodeHeader's Kind, RefCount and NumArgs alone, in one read:
@@ -524,4 +528,30 @@ func (m *ASTManager) HasBoolSort(h ASTHandle) (bool, error) {
 	}
 	sort, err := m.sortOf(r)
 	return sort == m.boolSort && err == nil, err
+}
+
+// ExpressionHeader returns NodeHeader and the Boolean result-sort predicate.
+// A handle crossing the SMT entry point is checked before indexing the arena.
+func (m *ASTManager) ExpressionHeader(h ASTHandle) (ASTNodeHeader, bool, error) {
+	if !astValidateHandles && m != nil && m.lockFree() {
+		if h.origin != m.origin || h.slot == 0 || h.slot >= m.nextNode {
+			return ASTNodeHeader{}, false, ErrASTHandle
+		}
+		slot := m.nodeSlotAt(h.slot)
+		if !slot.node.live || slot.node.generation != h.generation {
+			return ASTNodeHeader{}, false, ErrASTHandle
+		}
+		app := &slot.app
+		if slot.node.kind == ASTApp && app.declCached && !ASTSourceDebug && app.rangeSort.slot != 0 {
+			return m.cachedAppHeader(&slot.node, app), app.rangeSort == m.boolSort, nil
+		}
+	} else if _, err := m.readNodeChecked(h); err != nil {
+		return ASTNodeHeader{}, false, err
+	}
+	header, err := m.NodeHeader(h)
+	if err != nil {
+		return header, false, err
+	}
+	sort, err := m.sortOf(astNodeRef{h.slot, h.generation})
+	return header, err == nil && sort == m.boolSort, err
 }

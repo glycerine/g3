@@ -72,16 +72,12 @@ func newSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 		header = term.header
 	} else {
 		var err error
-		header, err = m.NodeHeader(owner)
+		header, boolean, err = m.ExpressionHeader(owner)
 		if err != nil {
 			return nil, err
 		}
 		if header.Kind != ast.ASTApp {
 			return nil, ast.ErrASTDomain
-		}
-		boolean, err = m.HasBoolSort(owner)
-		if err != nil {
-			return nil, err
 		}
 	}
 	if options.MergeTruthValue && !boolean {
