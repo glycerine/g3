@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func scopeRestorationLiterals(t *testing.T, s *SMTInternalizerState, expressions ...ast.ASTHandle) []SMTLiteral {
+func scopeRestorationLiterals(t testing.TB, s *SMTInternalizerState, expressions ...ast.ASTHandle) []SMTLiteral {
 	t.Helper()
 	result := make([]SMTLiteral, len(expressions))
 	for i, e := range expressions {

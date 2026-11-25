@@ -270,8 +270,8 @@ type SMTInternalizerState struct {
 	// every lemma, and only a base-scope pop truncates m_lemmas.
 	// binaryClauses holds the watch-only binary clauses, which the source
 	// keeps in neither vector.
-	auxClauses               []SMTInternalizedClause
-	lemmas                   []SMTInternalizedClause
+	auxClauses               []*SMTClause
+	lemmas                   []*SMTClause
 	binaryClauses            smtBinaryClauseDirectory
 	ownedJustifications      []SMTJustification
 	assignedLiterals         []SMTLiteral
@@ -1416,25 +1416,25 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			if !saved.retired {
 				continue
 			}
-			record := &s.lemmas[saved.recordIndex]
-			if record.clause != saved.clause {
+			record := s.lemmas[saved.recordIndex]
+			if record.activeClause() != saved.clause {
 				return ast.ErrASTDomain
 			}
-			for record.closeWatches < 2 {
-				literal := record.clause.literals[record.closeWatches]
-				if int(literal.Var()) < booleanLimit && !s.watches[literal.Negated().Index()].RemoveClause(record.clause) {
+			for record.watchProgress() < 2 {
+				literal := saved.clause.literals[record.watchProgress()]
+				if int(literal.Var()) < booleanLimit && !s.watches[literal.Negated().Index()].RemoveClause(saved.clause) {
 					return ast.ErrASTDomain
 				}
-				record.closeWatches++
+				record.advanceWatch()
 			}
 		}
 	}
 	// del_clauses(v, old_size) deletes v[old_size..] newest first:
 	// pop_scope_core runs it on m_lemmas, then on m_aux_clauses.
-	delClauses := func(records []SMTInternalizedClause, limit int) error {
+	delClauses := func(records []*SMTClause, limit int) error {
 		for index := len(records); index > limit; index-- {
-			record := &records[index-1]
-			if flushing && record.clause != nil {
+			record := records[index-1]
+			if flushing && record.activeClause() != nil {
 				// context::flush runs undo_trail_stack(0) before del_clauses: the
 				// watches go now, the clause (its proof, then its atoms) after the
 				// trail, auxiliary clauses before lemmas, newest first. The record
@@ -1468,9 +1468,9 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 		// del_clause counts each deleted clause; binary clauses live only in
 		// the watch lists and are not counted.
 		s.statistics.NumDelClause += uint32(len(s.lemmas) - lemmaLimit + len(s.auxClauses) - scope.auxClauseLimit)
-		clear(s.lemmas[lemmaLimit:])
+		releaseDirectorySuffix(s.lemmas[lemmaLimit:])
 		s.lemmas = s.lemmas[:lemmaLimit]
-		clear(s.auxClauses[scope.auxClauseLimit:])
+		releaseDirectorySuffix(s.auxClauses[scope.auxClauseLimit:])
 		s.auxClauses = s.auxClauses[:scope.auxClauseLimit]
 		if flushing {
 			s.binaryClauses = smtBinaryClauseDirectory{}
@@ -1605,16 +1605,15 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	}
 	if flushing {
 		// del_clauses(m_aux_clauses, 0); del_clauses(m_lemmas, 0): newest first.
-		for _, records := range [][]SMTInternalizedClause{s.auxClauses, s.lemmas} {
+		for _, records := range [][]*SMTClause{s.auxClauses, s.lemmas} {
 			for index := len(records); index > 0; index-- {
-				record := &records[index-1]
-				if record.clause == nil {
+				record := records[index-1]
+				if record.activeClause() == nil {
 					continue
 				}
-				if err := record.clause.Close(); err != nil {
+				if err := record.retireFromDirectory(); err != nil {
 					return fmt.Errorf("close clause: %w", err)
 				}
-				record.clause = nil
 			}
 		}
 		compactClauses()

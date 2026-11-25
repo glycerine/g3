@@ -168,7 +168,7 @@ func TestSMTClauseSimplificationRetainsWrappedRegionProofReason(t *testing.T) {
 	if !consistent {
 		t.Fatal("unexpected first propagation conflict")
 	}
-	deleted, err := state.simplifyClause(&state.auxClauses[0])
+	deleted, err := state.simplifyClause(state.auxClauses[0])
 	astTestMust(t, err)
 	if deleted {
 		t.Fatal("partially simplified clause was deleted")

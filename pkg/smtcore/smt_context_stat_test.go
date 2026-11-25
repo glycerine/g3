@@ -29,8 +29,10 @@ func TestSMTContextStatisticsClauseOccurrencesLevelsAndProfile(t *testing.T) {
 	lemma, err := NewSMTClause(m, []SMTLiteral{la.Negated(), lc}, SMTClauseLearned, nil, nil, false, nil)
 	astTestMust(t, err)
 	astTestMust(t, lemma.SetActivity(5))
-	state.auxClauses = append(state.auxClauses, SMTInternalizedClause{clause: aux})
-	state.lemmas = append(state.lemmas, SMTInternalizedClause{clause: lemma})
+	aux.registerDirectory(false, ast.ASTHandle{}, nil)
+	state.auxClauses = append(state.auxClauses, aux)
+	lemma.registerDirectory(false, ast.ASTHandle{}, nil)
+	state.lemmas = append(state.lemmas, lemma)
 	t.Cleanup(func() {
 		if len(state.scopes) != 0 {
 			astTestMust(t, state.PopScopes(uint32(len(state.scopes))))

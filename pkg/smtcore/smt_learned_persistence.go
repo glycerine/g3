@@ -224,7 +224,7 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit, firstScoped int) ([
 		start = len(s.lemmas)
 	}
 	for index := start; index < len(s.lemmas); index++ {
-		clause := s.lemmas[index].clause
+		clause := s.lemmas[index].activeClause()
 		if clause == nil || !clause.IsLemma() {
 			continue
 		}
@@ -293,7 +293,7 @@ func (s *SMTInternalizerState) reinitCandidates(level int, result []smtPreserved
 				continue
 			}
 			index := clause.lemmaIndex
-			if index < 0 || index >= len(s.lemmas) || s.lemmas[index].clause != clause {
+			if index < 0 || index >= len(s.lemmas) || s.lemmas[index].activeClause() != clause {
 				clear(result[first:])
 				return result[:first], ast.ErrASTDomain
 			}
@@ -348,7 +348,7 @@ func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearn
 			if addedLemma || s.binaryClauses.count() > binaries {
 				saved.installed = true
 				if addedLemma {
-					saved.clause = s.lemmas[len(s.lemmas)-1].clause
+					saved.clause = s.lemmas[len(s.lemmas)-1].activeClause()
 				} else {
 					saved.clause = nil
 				}
@@ -516,7 +516,7 @@ func (s *SMTInternalizerState) checkReinitCandidates(result []smtPreservedLearne
 		candidates[result[i].clause] = result[i].recordIndex
 	}
 	for index := range s.lemmas {
-		clause := s.lemmas[index].clause
+		clause := s.lemmas[index].activeClause()
 		if clause == nil || !clause.IsLemma() {
 			continue
 		}

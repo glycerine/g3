@@ -268,7 +268,7 @@ func benchmarkSMTScopeRestoration(b *testing.B, withQueue bool) {
 					benchmarkMust(b, s.AddLearnedClauseWithProof([]SMTLiteral{
 						literals[2*j], literals[2*j+1].Negated(), literals[(2*j+2)%len(literals)],
 					}, ast.ASTHandle{}))
-					original[j] = s.lemmas[j].clause
+					original[j] = s.lemmas[j].activeClause()
 				}
 				var err error
 				if withQueue {
@@ -292,10 +292,10 @@ func benchmarkSMTScopeRestoration(b *testing.B, withQueue bool) {
 					literals[j] = NewSMTLiteral(variable, false)
 				}
 				for j, record := range s.lemmas {
-					if record.clause != original[j] {
+					if record.activeClause() != original[j] {
 						b.Fatal("backtrack replaced a learned clause object")
 					}
-					got := record.clause.literals
+					got := record.activeClause().literals
 					if len(got) != 3 {
 						b.Fatal("backtrack changed clause length", j, got)
 					}

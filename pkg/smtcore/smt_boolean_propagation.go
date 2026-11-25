@@ -164,7 +164,11 @@ func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(liter
 	}
 	// Like clause::mk, acquire expression roots when the lemma is created,
 	// before any search pop can retire its Boolean bindings.
-	clause, err := newSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.savedAtoms)
+	// Auxiliary justifications belong to the scope. A concrete directory
+	// entry needs extra storage only for a published proof, a lemma owner,
+	// or a literal array allocated separately from the clause.
+	needsDirectory := !proof.IsNull() || len(literals) > smtMaxInlineClauseLiterals || kind != SMTClauseAux && owner != nil
+	clause, err := newSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.savedAtoms, needsDirectory)
 	if err != nil {
 		if owner != nil {
 			err = errors.Join(err, owner.Release(s.manager))
@@ -193,44 +197,43 @@ func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(liter
 	return clause, owner, nil
 }
 
-func (s *SMTInternalizerState) closeClause(record *SMTInternalizedClause) error {
-	if record == nil {
+func (s *SMTInternalizerState) closeClause(clause *SMTClause) error {
+	if clause.activeClause() == nil {
 		return nil
 	}
-	if record.clause == nil {
-		return nil
-	}
-	if err := s.detachClause(record); err != nil {
+	if err := s.detachClause(clause); err != nil {
 		return err
 	}
-	if err := record.clause.Close(); err != nil {
-		return err
-	}
-	record.clause = nil
-	return nil
+	return clause.retireFromDirectory()
 }
 
-// detachClause is remove_cls_occs: the clause leaves its two watch lists,
-// and an auxiliary clause's borrowed justification is released.
-func (s *SMTInternalizerState) detachClause(record *SMTInternalizedClause) error {
-	for record.closeWatches < 2 {
-		literal, err := record.clause.Literal(int(record.closeWatches))
-		if err != nil {
+// detachClause is remove_cls_occs. A failed watch removal or justification
+// release can be retried without removing an already detached watch.
+func (s *SMTInternalizerState) detachClause(clause *SMTClause) error {
+	progress := clause.watchProgress()
+	if progress < 2 {
+		if err := clause.open(); err != nil {
 			return err
 		}
-		if !s.watches[literal.Negated().Index()].RemoveClause(record.clause) {
-			return ast.ErrASTDomain
+		for ; progress < 2; progress++ {
+			if int(progress) >= len(clause.literals) {
+				return ast.ErrASTDomain
+			}
+			literal := clause.literals[progress]
+			if !s.watches[literal.Negated().Index()].RemoveClause(clause) {
+				return ast.ErrASTDomain
+			}
+			clause.advanceWatch()
 		}
-		record.closeWatches++
 	}
-	// Auxiliary clauses do not own their optional proof justification. Lemma
-	// clauses do, so their record only keeps a non-owning interface reference.
-	if record.owner != nil && !record.clause.IsLemma() {
-		if err := record.owner.Release(s.manager); err != nil {
-			return err
+	if e := clause.directoryDetails(); e != nil && e.owner != nil {
+		if !clause.IsLemma() {
+			if err := e.owner.Release(s.manager); err != nil {
+				return err
+			}
 		}
+		e.owner = nil
 	}
-	record.owner = nil
 	return nil
 }
 

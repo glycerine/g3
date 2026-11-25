@@ -29,7 +29,7 @@ func (s *SMTInternalizerState) DisplayClauseSections(out io.Writer) error {
 			records = s.lemmas
 		}
 		for i := range records {
-			clause := records[i].clause
+			clause := records[i].activeClause()
 			if clause == nil {
 				continue
 			}

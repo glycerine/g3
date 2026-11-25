@@ -81,8 +81,8 @@ func (s *SMTInternalizerState) numClauseRecords() int {
 }
 
 // clauseRecordLists returns the concrete auxiliary clauses and lemmas in source order.
-func (s *SMTInternalizerState) clauseRecordLists() [2][]SMTInternalizedClause {
-	return [2][]SMTInternalizedClause{s.auxClauses, s.lemmas}
+func (s *SMTInternalizerState) clauseRecordLists() [2][]*SMTClause {
+	return [2][]*SMTClause{s.auxClauses, s.lemmas}
 }
 
 // Clauses lists the auxiliary clauses, then the lemmas in m_lemmas order,
@@ -93,16 +93,17 @@ func (s *SMTInternalizerState) Clauses() []SMTInternalizedClause {
 	}
 	result := make([]SMTInternalizedClause, 0, s.numClauseRecords())
 	for _, records := range s.clauseRecordLists() {
-		for index := range records {
-			record := records[index]
-			literals := record.Literals
-			if record.clause != nil {
-				literals = record.clause.Literals()
+		for _, r := range records {
+			out := SMTInternalizedClause{Root: r.directoryFlags&smtRecordRoot != 0, closeWatches: r.watchProgress()}
+			if e := r.directoryDetails(); e != nil {
+				out.Proof = e.proof
 			}
-			record.Literals = append([]SMTLiteral(nil), literals...)
-			record.clause = nil
-			record.owner = nil
-			result = append(result, record)
+			literals := r.Literals()
+			if r.directoryFlags&smtRecordRetired != 0 {
+				literals = r.directoryLiterals()
+			}
+			out.Literals = append([]SMTLiteral(nil), literals...)
+			result = append(result, out)
 		}
 	}
 	return s.binaryClauses.appendSnapshots(result)
@@ -379,12 +380,12 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		s.ownedJustifications = append(s.ownedJustifications, owner)
 		owner = nil
 	}
-	record := SMTInternalizedClause{Literals: clause.literals, Root: root, Proof: proof, clause: clause, owner: owner}
+	clause.registerDirectory(root, proof, owner)
 	if lemma {
 		clause.lemmaIndex = len(s.lemmas)
-		s.lemmas = append(s.lemmas, record) // m_lemmas.push_back(cls)
+		s.lemmas = append(s.lemmas, clause) // m_lemmas.push_back(cls)
 	} else {
-		s.auxClauses = append(s.auxClauses, record) // m_aux_clauses.push_back(cls)
+		s.auxClauses = append(s.auxClauses, clause) // m_aux_clauses.push_back(cls)
 	}
 	// Source mk_clause counts a two-literal clause that is not stored as a
 	// binary watch only in m_num_mk_clause (case 2 falls through).

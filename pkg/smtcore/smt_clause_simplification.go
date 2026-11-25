@@ -8,8 +8,8 @@ import (
 	"strconv"
 )
 
-func (s *SMTInternalizerState) replaceSatisfiedClauseReasons(record *SMTInternalizedClause) error {
-	clause := record.clause
+func (s *SMTInternalizerState) replaceSatisfiedClauseReasons(record *SMTClause) error {
+	clause := record.activeClause()
 	proofs, err := s.manager.ProofsEnabled()
 	if err != nil {
 		return err
@@ -52,20 +52,20 @@ func (s *SMTInternalizerState) replaceSatisfiedClauseReasons(record *SMTInternal
 				return err
 			}
 			s.ownedJustifications = append(s.ownedJustifications, updated)
-		} else if record.owner != nil {
+		} else if detail := record.directoryDetails(); detail != nil && detail.owner != nil {
 			// Auxiliary clauses normally own their region proof wrapper through
 			// the record. Earlier simplification can wrap it in unit-resolution
 			// reasons, so the original owner may be below antecedent in the
 			// chain. The replacement reason still borrows that original owner.
-			s.ownedJustifications = append(s.ownedJustifications, record.owner)
-			record.owner = nil
+			s.ownedJustifications = append(s.ownedJustifications, detail.owner)
+			detail.owner = nil
 		}
 	}
 	return nil
 }
 
-func (s *SMTInternalizerState) simplifyClause(record *SMTInternalizedClause) (bool, error) {
-	clause := record.clause
+func (s *SMTInternalizerState) simplifyClause(record *SMTClause) (bool, error) {
+	clause := record.activeClause()
 	if clause == nil || clause.InReinitStack() {
 		return false, nil
 	}
@@ -100,7 +100,7 @@ func (s *SMTInternalizerState) simplifyClause(record *SMTInternalizedClause) (bo
 		if err := clause.SetNumLiterals(kept); err != nil {
 			return false, err
 		}
-		record.Literals = clause.literals
+		record.setDirectoryLiterals(clause.literals)
 	}
 	if len(removed) != 0 {
 		proofs, err := s.manager.ProofsEnabled()
@@ -127,7 +127,7 @@ func (s *SMTInternalizerState) simplifyClause(record *SMTInternalizedClause) (bo
 // simplifyClauseRecords is context::simplify_clauses(clauses, starting_at):
 // satisfied clauses are deleted as they are found, the others counted in
 // m_simp_counter.
-func (s *SMTInternalizerState) simplifyClauseRecords(records *[]SMTInternalizedClause, startingAt int) (deleted int, result error) {
+func (s *SMTInternalizerState) simplifyClauseRecords(records *[]*SMTClause, startingAt int) (deleted int, result error) {
 	clauses := *records
 	if startingAt < 0 || startingAt > len(clauses) {
 		return 0, ast.ErrASTDomain
@@ -141,12 +141,12 @@ func (s *SMTInternalizerState) simplifyClauseRecords(records *[]SMTInternalizedC
 		}
 	}()
 	for ; i < len(clauses); i++ {
-		satisfied, err := s.simplifyClause(&clauses[i])
+		satisfied, err := s.simplifyClause(clauses[i])
 		if err != nil {
 			return deleted, err
 		}
 		if satisfied {
-			if err = s.delClause(&clauses[i]); err != nil {
+			if err = s.delClause(clauses[i]); err != nil {
 				return deleted, err
 			}
 			deleted++
@@ -155,10 +155,10 @@ func (s *SMTInternalizerState) simplifyClauseRecords(records *[]SMTInternalizedC
 		record := clauses[i]
 		clauses[j] = record
 		if lemmas && i != j {
-			record.clause.lemmaIndex = j
+			record.activeClause().lemmaIndex = j
 		}
 		j++
-		s.simplifyCounter += len(record.clause.literals)
+		s.simplifyCounter += len(record.activeClause().literals)
 	}
 	return deleted, nil
 }

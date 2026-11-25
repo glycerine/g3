@@ -32,8 +32,9 @@ type smtClauseAttachments struct {
 // Lemmas use this state for activity and scope restoration. A caller can
 // also ask an auxiliary clause to retain its atoms.
 type smtClauseLemmaData struct {
-	atomPage *smtClauseAtomPage
-	atoms    *ast.RetainedLiteralBuffer
+	directory *smtClauseDirectoryDetails
+	atomPage  *smtClauseAtomPage
+	atoms     *ast.RetainedLiteralBuffer
 	// reinitLevel and reinitSeq place the clause in m_clauses_to_reinit
 	// in push order. lemmaIndex is its position in the live lemma vector.
 	reinitSeq   uint64
@@ -46,14 +47,14 @@ type SMTClause struct {
 	self    *SMTClause
 	manager *ast.ASTManager
 	*smtClauseLemmaData
-	attachments        *smtClauseAttachments
-	kind               SMTClauseKind
-	reinit             bool
-	reinternalizeAtoms bool
-	deleted            bool
-	closed             bool
-	closePhase         uint8
-	atomSlot           uint8
+	attachments                    *smtClauseAttachments
+	kind                           SMTClauseKind
+	reinit                         bool
+	reinternalizeAtoms             bool
+	directoryFlags, directoryWidth uint8
+	closed                         bool
+	closePhase                     uint8
+	atomSlot                       uint8
 	// Short clauses store their literal array immediately after this header.
 	literals []SMTLiteral
 }
@@ -63,6 +64,8 @@ type SMTClause struct {
 // literals in the same allocation, right after the header's literals field,
 // so BCP's clause visit reads its literals from the same or the adjacent
 // cache line rather than from a separate object. Longer clauses keep a separate literal array.
+const smtMaxInlineClauseLiterals = 64
+
 type smtClauseStorage4 struct {
 	clause SMTClause
 	lits   [4]SMTLiteral
@@ -81,16 +84,43 @@ type smtClauseStorage32 struct {
 }
 type smtClauseStorage64 struct {
 	clause SMTClause
-	lits   [64]SMTLiteral
+	lits   [smtMaxInlineClauseLiterals]SMTLiteral
 }
 
 // smtNewClauseStorage copies the literals and allocates any requested lemma
 // state. The literal slice has length and capacity len(literals).
-func smtNewClauseStorage(literals []SMTLiteral, needsLemmaData bool) *SMTClause {
+func smtNewClauseStorage(literals []SMTLiteral, needsLemmaData, needsDirectory bool) *SMTClause {
 	n := len(literals)
 	var clause *SMTClause
 	var storage []SMTLiteral
 	switch {
+	case needsDirectory && n <= 4:
+		x := new(struct {
+			storage smtClauseStorage4
+			lemma   smtClauseLemmaData
+			detail  smtClauseDirectoryDetails
+		})
+		clause, storage = &x.storage.clause, x.storage.lits[:n:n]
+		clause.smtClauseLemmaData = &x.lemma
+		clause.directory = &x.detail
+	case needsDirectory && n <= 8:
+		x := new(struct {
+			storage smtClauseStorage8
+			lemma   smtClauseLemmaData
+			detail  smtClauseDirectoryDetails
+		})
+		clause, storage = &x.storage.clause, x.storage.lits[:n:n]
+		clause.smtClauseLemmaData = &x.lemma
+		clause.directory = &x.detail
+	case needsDirectory && n > smtMaxInlineClauseLiterals:
+		x := new(struct {
+			clause SMTClause
+			lemma  smtClauseLemmaData
+			detail smtClauseDirectoryDetails
+		})
+		clause, storage = &x.clause, make([]SMTLiteral, n)
+		clause.smtClauseLemmaData = &x.lemma
+		clause.directory = &x.detail
 	case needsLemmaData && n <= 4:
 		x := new(struct {
 			storage smtClauseStorage4
@@ -110,14 +140,24 @@ func smtNewClauseStorage(literals []SMTLiteral, needsLemmaData bool) *SMTClause 
 	case n <= 32:
 		x := &smtClauseStorage32{}
 		clause, storage = &x.clause, x.lits[:n:n]
-	case n <= 64:
+	case n <= smtMaxInlineClauseLiterals:
 		x := &smtClauseStorage64{}
 		clause, storage = &x.clause, x.lits[:n:n]
 	default:
 		clause, storage = &SMTClause{}, make([]SMTLiteral, n)
 	}
-	if needsLemmaData && clause.smtClauseLemmaData == nil {
-		clause.smtClauseLemmaData = new(smtClauseLemmaData)
+	if clause.smtClauseLemmaData == nil {
+		switch {
+		case needsDirectory:
+			extra := new(struct {
+				lemma  smtClauseLemmaData
+				detail smtClauseDirectoryDetails
+			})
+			clause.smtClauseLemmaData = &extra.lemma
+			clause.directory = &extra.detail
+		case needsLemmaData:
+			clause.smtClauseLemmaData = new(smtClauseLemmaData)
+		}
 	}
 	copy(storage, literals)
 	clause.literals = storage
@@ -125,10 +165,10 @@ func smtNewClauseStorage(literals []SMTLiteral, needsLemmaData bool) *SMTClause 
 }
 
 func NewSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle) (*SMTClause, error) {
-	return newSMTClause(manager, literals, kind, justification, deleteHandler, saveAtoms, expressions, nil)
+	return newSMTClause(manager, literals, kind, justification, deleteHandler, saveAtoms, expressions, nil, false)
 }
 
-func newSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle, pool *smtClauseAtomPool) (*SMTClause, error) {
+func newSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle, pool *smtClauseAtomPool, needsDirectory bool) (*SMTClause, error) {
 	if manager == nil || len(literals) < 2 || kind > SMTClauseAuxLemma {
 		return nil, ast.ErrASTDomain
 	}
@@ -142,7 +182,7 @@ func newSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClause
 	if proofs && justification == nil {
 		return nil, ast.ErrASTDomain
 	}
-	clause := smtNewClauseStorage(literals, kind != SMTClauseAux || saveAtoms)
+	clause := smtNewClauseStorage(literals, kind != SMTClauseAux || saveAtoms, needsDirectory)
 	clause.self = clause
 	clause.manager = manager
 	clause.kind = kind
@@ -186,10 +226,10 @@ func (c *SMTClause) InReinitStack() bool { return c != nil && c.reinit }
 func (c *SMTClause) ReinternalizeAtoms() bool {
 	return c != nil && c.reinternalizeAtoms
 }
-func (c *SMTClause) Deleted() bool { return c != nil && c.deleted }
+func (c *SMTClause) Deleted() bool { return c != nil && c.directoryFlags&smtClauseDeleted != 0 }
 
 func (c *SMTClause) Literals() []SMTLiteral {
-	if c == nil {
+	if c == nil || c.closed {
 		return nil
 	}
 	return c.literals
@@ -322,10 +362,10 @@ func (c *SMTClause) MarkDeleted() error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	if c.deleted {
+	if c.Deleted() {
 		return ast.ErrASTDomain
 	}
-	c.deleted = true
+	c.directoryFlags |= smtClauseDeleted
 	if handler := c.deletionHandler(); handler != nil {
 		if err := handler.ClauseDeleted(c.manager, c); err != nil {
 			return err
@@ -386,31 +426,42 @@ func (c *SMTClause) Close() error {
 	if c.closed {
 		return nil
 	}
-	if c.closePhase == 0 {
-		if handler := c.deletionHandler(); handler != nil {
-			if err := handler.ClauseDeleted(c.manager, c); err != nil {
+	// Plain clauses have no fallible cleanup. Handler callbacks, proof ownership and
+	// saved-atom release retain their individual retry points when present.
+	a := c.attachments
+	if c.atomBuffer() != nil || a != nil && (a.handler != nil || c.IsLemma() && a.proof != nil) {
+		if c.closePhase == 0 {
+			if handler := c.deletionHandler(); handler != nil {
+				if err := handler.ClauseDeleted(c.manager, c); err != nil {
+					return err
+				}
+				c.setAttachments(c.Justification(), nil)
+			}
+			c.closePhase = 1
+		}
+		if c.closePhase == 1 {
+			if j := c.Justification(); c.IsLemma() && j != nil {
+				if err := j.Release(c.manager); err != nil {
+					return err
+				}
+				c.setAttachments(nil, c.deletionHandler())
+			}
+			c.closePhase = 2
+		}
+		if c.closePhase == 2 {
+			if err := c.ReleaseAtoms(); err != nil {
 				return err
 			}
-			c.setAttachments(c.Justification(), nil)
+			c.closePhase = 3
 		}
-		c.closePhase = 1
 	}
-	if c.closePhase == 1 {
-		if j := c.Justification(); c.IsLemma() && j != nil {
-			if err := j.Release(c.manager); err != nil {
-				return err
-			}
-			c.setAttachments(nil, c.deletionHandler())
-		}
-		c.closePhase = 2
+	if c.directoryWidth != 0 {
+		// A partially retired directory still publishes the registered range.
+		// This backing array shares the clause allocation.
+		c.literals = c.literals[:0]
+	} else {
+		c.literals = nil
 	}
-	if c.closePhase == 2 {
-		if err := c.ReleaseAtoms(); err != nil {
-			return err
-		}
-		c.closePhase = 3
-	}
-	c.literals = nil
 	c.discardAtoms()
 	c.manager = nil
 	c.closed = true

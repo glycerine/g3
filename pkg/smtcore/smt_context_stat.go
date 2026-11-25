@@ -18,7 +18,7 @@ func (s *SMTInternalizerState) LemmaAverageActivity() (uint32, error) {
 	var count uint64
 	for _, records := range s.clauseRecordLists() {
 		for i := range records {
-			clause := records[i].clause
+			clause := records[i].activeClause()
 			if clause == nil || clause.Kind() == SMTClauseAux {
 				continue
 			}
@@ -43,7 +43,7 @@ func (s *SMTInternalizerState) clauseLiteralOccurrences() ([]uint32, error) {
 	result := make([]uint32, len(s.assignment))
 	for _, records := range s.clauseRecordLists() {
 		for i := range records {
-			clause := records[i].clause
+			clause := records[i].activeClause()
 			if clause == nil {
 				continue
 			}
@@ -134,7 +134,7 @@ func (s *SMTInternalizerState) variableOccurrences() ([]uint32, error) {
 	result := make([]uint32, len(s.booleanData))
 	for _, records := range s.clauseRecordLists() {
 		for i := range records {
-			clause := records[i].clause
+			clause := records[i].activeClause()
 			if clause == nil {
 				continue
 			}
@@ -189,7 +189,7 @@ func (s *SMTInternalizerState) DisplayMinimumVariableOccurrences(out io.Writer) 
 	occurrences := make([]uint32, len(s.booleanData))
 	for _, records := range s.clauseRecordLists() {
 		for i := range records {
-			clause := records[i].clause
+			clause := records[i].activeClause()
 			if clause == nil || len(clause.Literals()) == 0 {
 				continue
 			}

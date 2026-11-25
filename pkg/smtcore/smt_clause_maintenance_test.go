@@ -146,16 +146,16 @@ func TestSMTClauseMaintenanceHalfKeepsSortedOrder(t *testing.T) {
 	var lemmas [4]*SMTClause
 	for index, activity := range []uint32{1, 2, 2, 1} {
 		astTestMust(t, state.AddLearnedClause(literals[index:index+3]))
-		lemmas[index] = state.lemmas[len(state.lemmas)-1].clause
+		lemmas[index] = state.lemmas[len(state.lemmas)-1].activeClause()
 		astTestMust(t, lemmas[index].SetActivity(activity))
 	}
 	order := func() []*SMTClause {
 		var result []*SMTClause
 		for index, record := range state.lemmas {
-			if record.clause.lemmaIndex != index {
-				t.Fatalf("lemma at %d still records index %d", index, record.clause.lemmaIndex)
+			if record.activeClause().lemmaIndex != index {
+				t.Fatalf("lemma at %d still records index %d", index, record.activeClause().lemmaIndex)
 			}
-			result = append(result, record.clause)
+			result = append(result, record.activeClause())
 		}
 		return result
 	}

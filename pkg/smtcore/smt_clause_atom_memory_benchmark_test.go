@@ -40,7 +40,7 @@ func BenchmarkSMTSavedClauseAtomMemory(b *testing.B) {
 				for i := range owners {
 					w := &owners[i]
 					for j := range w.live {
-						c, err := newSMTClause(w.manager, literals, SMTClauseLearned, nil, nil, true, w.expressions[:], &w.pool)
+						c, err := newSMTClause(w.manager, literals, SMTClauseLearned, nil, nil, true, w.expressions[:], &w.pool, false)
 						benchmarkMust(b, err)
 						w.live[j] = c
 					}

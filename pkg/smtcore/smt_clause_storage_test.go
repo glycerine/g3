@@ -34,7 +34,7 @@ func TestSMTClauseScratchAcrossNestedInsertion(t *testing.T) {
 		astTestMust(t, s.AddLearnedClause(ls[3:]))
 	}}
 	astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler(ls[:3], false, SMTClauseLearned, ast.ASTHandle{}, j, nil))
-	if len(s.lemmas) != 2 || !reflect.DeepEqual(s.lemmas[0].clause.Literals(), ls[3:]) || !reflect.DeepEqual(s.lemmas[1].clause.Literals(), ls[:3]) {
+	if len(s.lemmas) != 2 || !reflect.DeepEqual(s.lemmas[0].activeClause().Literals(), ls[3:]) || !reflect.DeepEqual(s.lemmas[1].activeClause().Literals(), ls[:3]) {
 		t.Fatal("nested clause insertion changed the outer or inner literals")
 	}
 }
@@ -48,7 +48,7 @@ func TestSMTClauseAtomPoolMixedLifetimes(t *testing.T) {
 	var pool smtClauseAtomPool
 	makeClause := func(ls []SMTLiteral) *SMTClause {
 		t.Helper()
-		c, err := newSMTClause(m, ls, SMTClauseLearned, nil, nil, true, expressions, &pool)
+		c, err := newSMTClause(m, ls, SMTClauseLearned, nil, nil, true, expressions, &pool, false)
 		astTestMust(t, err)
 		t.Cleanup(func() { astTestMust(t, c.Close()) })
 		return c
@@ -72,7 +72,7 @@ func TestSMTClauseAtomPoolMixedLifetimes(t *testing.T) {
 	}
 	astTestMust(t, c.Close())
 	// Fail after retaining the first atom. Close must release it and return the slot.
-	_, err := newSMTClause(m, []SMTLiteral{lit, NewSMTLiteral(2, false)}, SMTClauseLearned, nil, nil, true, expressions, &pool)
+	_, err := newSMTClause(m, []SMTLiteral{lit, NewSMTLiteral(2, false)}, SMTClauseLearned, nil, nil, true, expressions, &pool, false)
 	if !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("invalid atom", err)
 	}

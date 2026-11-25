@@ -58,16 +58,18 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 	}
 	for _, records := range s.clauseRecordLists() {
 		for index := range records {
-			record := &records[index]
-			if record.clause == nil || record.clause.Deleted() || len(record.Literals) < 2 {
+			record := records[index]
+			clause := record.activeClause()
+			original := record.directoryLiterals()
+			if clause == nil || clause.Deleted() || len(original) < 2 {
 				return ast.ErrASTDomain
 			}
-			literals := record.clause.Literals()
-			if len(literals) != len(record.Literals) {
+			literals := clause.Literals()
+			if len(literals) != len(original) {
 				return ast.ErrASTDomain
 			}
 			for literalIndex := range literals {
-				if literals[literalIndex] != record.Literals[literalIndex] && literalIndex >= 2 {
+				if literals[literalIndex] != original[literalIndex] && literalIndex >= 2 {
 					return ast.ErrASTDomain
 				}
 				if literals[literalIndex].Index() < 0 || int(literals[literalIndex].Index()) >= len(s.assignment) {
@@ -76,7 +78,7 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 			}
 			for watchIndex := 0; watchIndex < 2; watchIndex++ {
 				literal := literals[watchIndex]
-				if s.watches[literal.Negated().Index()].FindClause(record.clause) < 0 {
+				if s.watches[literal.Negated().Index()].FindClause(clause) < 0 {
 					return ast.ErrASTDomain
 				}
 			}

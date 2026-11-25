@@ -41,7 +41,7 @@ func (f *smtLayoutClauseFixture) create(mode string) (*SMTClause, error) {
 	case "Learned", "Saved":
 		k = SMTClauseLearned
 	}
-	return newSMTClause(f.m, f.lits, k, proof, handler, mode == "Saved", f.atoms, &f.pool)
+	return newSMTClause(f.m, f.lits, k, proof, handler, mode == "Saved", f.atoms, &f.pool, false)
 }
 
 func (f *smtLayoutClauseFixture) check(b *testing.B, c *SMTClause, mode string) {

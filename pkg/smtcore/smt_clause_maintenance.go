@@ -95,10 +95,11 @@ func (s *SMTInternalizerState) clauseHasUnknowns(clause *SMTClause, threshold ui
 
 // delClause is context::del_clause for a record of m_aux_clauses or
 // m_lemmas.
-func (s *SMTInternalizerState) delClause(record *SMTInternalizedClause) error {
+func (s *SMTInternalizerState) delClause(record *SMTClause) error {
 	if err := s.closeClause(record); err != nil {
 		return err
 	}
+	record.releaseDirectoryDetails()
 	s.statistics.NumDelClause++
 	return nil
 }
@@ -106,7 +107,7 @@ func (s *SMTInternalizerState) delClause(record *SMTInternalizedClause) error {
 // compactClauseRecords finishes an in-place filter of records that read
 // up to i and kept j records: on error the unread tail moves down behind
 // the kept prefix, so the list holds every live record exactly once.
-func compactClauseRecords(records []SMTInternalizedClause, i, j int) []SMTInternalizedClause {
+func compactClauseRecords(records []*SMTClause, i, j int) []*SMTClause {
 	if i != j {
 		j += copy(records[j:], records[i:])
 		clear(records[j:])
@@ -117,7 +118,7 @@ func compactClauseRecords(records []SMTInternalizedClause, i, j int) []SMTIntern
 // reindexLemmas repairs indices after sorting or compacting live records.
 func (s *SMTInternalizerState) reindexLemmas(start, end int) {
 	for i := start; i < end; i++ {
-		s.lemmas[i].clause.lemmaIndex = i
+		s.lemmas[i].activeClause().lemmaIndex = i
 	}
 }
 
@@ -152,8 +153,8 @@ func (s *SMTInternalizerState) garbageCollectLearnedClauses() error {
 }
 
 // clauseActivity is clause::get_activity of a lemma.
-func clauseActivity(record *SMTInternalizedClause) uint32 {
-	activity, _ := record.clause.Activity()
+func clauseActivity(record *SMTClause) uint32 {
+	activity, _ := record.activeClause().Activity()
 	return activity
 }
 
@@ -181,7 +182,7 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 	endAt := sz - int(config.Recent)
 	// std::stable_sort(m_lemmas.begin() + start_at, m_lemmas.begin() + end_at, clause_lt()).
 	old := s.lemmas[startAt:endAt]
-	sort.SliceStable(old, func(i, j int) bool { return clauseActivity(&old[i]) > clauseActivity(&old[j]) })
+	sort.SliceStable(old, func(i, j int) bool { return clauseActivity(old[i]) > clauseActivity(old[j]) })
 	startDelAt := (startAt + endAt) / 2
 	s.reindexLemmas(startAt, startDelAt)
 	i, j := startDelAt, startDelAt
@@ -198,30 +199,32 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 	}()
 	for ; i < endAt; i++ {
 		record := s.lemmas[i]
-		if s.clauseCanDelete(record.clause) {
-			s.traceDelInactiveLemma(record.clause)
-			if err := s.delClause(&s.lemmas[i]); err != nil {
+		clause := record.activeClause()
+		if s.clauseCanDelete(clause) {
+			s.traceDelInactiveLemma(clause)
+			if err := s.delClause(record); err != nil {
 				return err
 			}
 			numDelCls++
 			continue
 		}
 		s.lemmas[j] = record
-		record.clause.lemmaIndex = j
+		clause.lemmaIndex = j
 		j++
 	}
 	// keep recent clauses
 	for ; i < sz; i++ {
 		record := s.lemmas[i]
-		if record.clause.Deleted() && s.clauseCanDelete(record.clause) {
-			if err := s.delClause(&s.lemmas[i]); err != nil {
+		clause := record.activeClause()
+		if clause.Deleted() && s.clauseCanDelete(clause) {
+			if err := s.delClause(record); err != nil {
 				return err
 			}
 			numDelCls++
 			continue
 		}
 		s.lemmas[j] = record
-		record.clause.lemmaIndex = j
+		clause.lemmaIndex = j
 		j++
 	}
 	clear(s.lemmas[j:])
@@ -285,7 +288,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 	}()
 	for ; i < sz; i++ {
 		record := s.lemmas[i]
-		clause := record.clause
+		clause := record.activeClause()
 		activity, err := clause.Activity()
 		if err != nil {
 			return err
@@ -293,7 +296,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 		if s.clauseCanDelete(clause) {
 			if clause.Deleted() {
 				// clause is already marked for deletion
-				if err := s.delClause(&s.lemmas[i]); err != nil {
+				if err := s.delClause(record); err != nil {
 					return err
 				}
 				numDelCls++
@@ -313,7 +316,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 					return err
 				}
 				if unknowns {
-					if err := s.delClause(&s.lemmas[i]); err != nil {
+					if err := s.delClause(record); err != nil {
 						return err
 					}
 					numDelCls++
@@ -322,7 +325,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 			}
 		}
 		s.lemmas[j] = record
-		record.clause.lemmaIndex = j
+		clause.lemmaIndex = j
 		j++
 		if err = clause.SetActivity(uint32(float64(activity) / config.InverseDecay)); err != nil {
 			i++

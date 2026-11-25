@@ -20,13 +20,13 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 			// A clause whose watched variables survived the pop is still
 			// watched: reinit_clauses removes those watches first, since the
 			// clause may get new watch literals.
-			if record := &s.lemmas[saved.recordIndex]; saved.bindHead == 0 && record.clause == saved.clause {
-				for record.closeWatches < 2 {
-					literal := saved.clause.literals[record.closeWatches]
+			if record := s.lemmas[saved.recordIndex]; saved.bindHead == 0 && record.activeClause() == saved.clause {
+				for record.watchProgress() < 2 {
+					literal := saved.clause.literals[record.watchProgress()]
 					if !s.watches[literal.Negated().Index()].RemoveClause(saved.clause) {
 						return ast.ErrASTDomain
 					}
-					record.closeWatches++
+					record.advanceWatch()
 				}
 			}
 			for saved.bindHead < len(saved.clause.literals) {
@@ -45,17 +45,17 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 			if err := s.selectRestoredWatches(literals); err != nil {
 				return err
 			}
-			record := &s.lemmas[saved.recordIndex]
-			if record.clause != saved.clause || record.closeWatches != 2 {
+			record := s.lemmas[saved.recordIndex]
+			if record.activeClause() != saved.clause || record.watchProgress() != 2 {
 				return ast.ErrASTDomain
 			}
-			record.Literals = saved.clause.literals
+			record.setDirectoryLiterals(saved.clause.literals)
 			for _, literal := range saved.clause.literals[:2] {
 				if err := s.watches[literal.Negated().Index()].InsertClause(saved.clause); err != nil {
 					return err
 				}
 			}
-			record.closeWatches = 0
+			record.resetWatches()
 			saved.keepReinit = true
 		}
 		literals := saved.clause.literals
