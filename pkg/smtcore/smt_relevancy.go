@@ -150,14 +150,14 @@ func (p *SMTRelevancyPropagator) addLiteralWatch(expression ast.ASTHandle, value
 // of n's class without checking whether the member is already relevant, so
 // a member can be recorded (and relevant_eh run) twice.
 func (p *SMTRelevancyPropagator) setRelevant(expression ast.ASTHandle) error {
+	// A refused retain must leave the mark and its notification retryable.
+	if err := p.context.manager.IncRef(expression); err != nil {
+		return err
+	}
 	if p.context.relevant.set(expression, true) {
 		// Popping a second mark can invalidate an earlier notification for
 		// the same expression. Recheck the existing queue in that case.
 		p.newlyRelevantBase = len(p.newlyRelevant)
-	}
-	// m_relevant_exprs is an expr_ref_vector: it owns a reference.
-	if err := p.context.manager.IncRef(expression); err != nil {
-		return err
 	}
 	p.relevant = append(p.relevant, expression)
 	p.newlyRelevant = append(p.newlyRelevant, expression)
@@ -177,7 +177,7 @@ func (p *SMTRelevancyPropagator) MarkRelevant(expression ast.ASTHandle) error {
 	if !p.enabled || p.context.relevant.get(expression) {
 		return nil
 	}
-	if _, err := p.context.manager.GetKind(expression); err != nil {
+	if err := p.context.manager.ValidateHandle(expression); err != nil {
 		return err
 	}
 	if node := p.context.enodes.get(expression); node != nil {
@@ -311,11 +311,7 @@ func (p *SMTRelevancyPropagator) addHandler(source ast.ASTHandle, handler *smtRe
 	if p.context.relevant.get(source) {
 		return p.invoke(handler)
 	}
-	p.handlers.push(source, p.pool(handler))
-	if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyHandlerTrail, expression: source}); err != nil {
-		return err
-	}
-	return nil
+	return p.register(&p.handlers, smtRelevancyHandlerTrail, source, handler)
 }
 
 func (p *SMTRelevancyPropagator) AddDependency(source, target ast.ASTHandle) error {
@@ -330,10 +326,7 @@ func (p *SMTRelevancyPropagator) AddPairDependency(first, second, target ast.AST
 		return ast.ErrASTHandle
 	}
 	handler := smtRelevancyHandler{kind: smtRelevancyPair, target: target, pair: &smtRelevancyPairData{first: first, second: second}}
-	if err := p.addHandler(first, &handler); err != nil {
-		return err
-	}
-	return p.addHandler(second, &handler)
+	return p.addPairHandler(&handler)
 }
 
 // AddPairTargetsDependency installs one handler, as arith_eq_relevancy_eh
@@ -345,10 +338,30 @@ func (p *SMTRelevancyPropagator) AddPairTargetsDependency(first, second ast.ASTH
 	}
 	pair := &smtRelevancyPairData{first: first, second: second, targets: append([]ast.ASTHandle(nil), targets...)}
 	handler := smtRelevancyHandler{kind: smtRelevancyPairTargets, pair: pair}
-	if err := p.addHandler(first, &handler); err != nil {
+	return p.addPairHandler(&handler)
+}
+
+func (p *SMTRelevancyPropagator) addPairHandler(handler *smtRelevancyHandler) error {
+	if p.interruptedPop != 0 {
+		return ast.ErrASTPending
+	}
+	if !p.enabled {
+		return nil
+	}
+	first, second := handler.pair.first, handler.pair.second
+	if p.IsRelevant(first) || p.IsRelevant(second) {
+		// An already-relevant prerequisite invokes the handler immediately.
+		if err := p.addHandler(first, handler); err != nil {
+			return err
+		}
+		return p.addHandler(second, handler)
+	}
+	if err := p.context.manager.IncRefPair(first, second); err != nil {
 		return err
 	}
-	return p.addHandler(second, &handler)
+	p.linkRetained(&p.handlers, smtRelevancyHandlerTrail, first, handler)
+	p.linkRetained(&p.handlers, smtRelevancyHandlerTrail, second, handler)
+	return nil
 }
 
 func (p *SMTRelevancyPropagator) AddAndHandler(parent ast.ASTHandle) error {
@@ -386,17 +399,9 @@ func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, 
 		return p.invoke(handler)
 	case lbool.Undef:
 		if value {
-			p.positiveWatch.push(expression, p.pool(handler))
-			if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyPositiveWatchTrail, expression: expression}); err != nil {
-				return err
-			}
-		} else {
-			p.negativeWatch.push(expression, p.pool(handler))
-			if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyNegativeWatchTrail, expression: expression}); err != nil {
-				return err
-			}
+			return p.register(&p.positiveWatch, smtRelevancyPositiveWatchTrail, expression, handler)
 		}
-		return nil
+		return p.register(&p.negativeWatch, smtRelevancyNegativeWatchTrail, expression, handler)
 	default:
 		return ast.ErrASTDomain
 	}
@@ -408,6 +413,14 @@ func (p *SMTRelevancyPropagator) AddWatchTarget(expression ast.ASTHandle, value 
 	}
 	if !p.enabled {
 		return nil
+	}
+	if p.interruptedPop != 0 {
+		return ast.ErrASTPending
+	}
+	// The assignment read may inspect a NOT's operand before a watch is
+	// retained, including when a satisfied watch fires immediately.
+	if err := p.context.manager.ValidateHandle(expression); err != nil {
+		return err
 	}
 	assignment := p.assignment(expression)
 	if !value {
@@ -510,6 +523,11 @@ func (p *SMTRelevancyPropagator) AddTermITEWatches(parent, thenEquality, elseEqu
 func (p *SMTRelevancyPropagator) validateBasicApplication(expression ast.ASTHandle, operation int32) (uint32, error) {
 	if p == nil || p.context == nil {
 		return 0, ast.ErrASTHandle
+	}
+	// The watches retain the children, so validate the supplied parent
+	// before reading its slot to choose those children.
+	if err := p.context.manager.ValidateHandle(expression); err != nil {
+		return 0, err
 	}
 	kind, err := p.context.manager.GetKind(expression)
 	if err != nil {
@@ -1103,14 +1121,18 @@ func (p *SMTRelevancyPropagator) undoTrail(limit int) error {
 	return nil
 }
 
-// pushTrail is relevancy_propagator_imp::push_trail: the trail owns a
-// reference to its node.
-func (p *SMTRelevancyPropagator) pushTrail(entry smtRelevancyTrail) error {
-	if err := p.context.manager.IncRef(entry.expression); err != nil {
+func (p *SMTRelevancyPropagator) register(table *smtRelevancyTable, kind smtRelevancyTrailKind, source ast.ASTHandle, handler *smtRelevancyHandler) error {
+	if err := p.context.manager.IncRef(source); err != nil {
 		return err
 	}
-	p.trail = append(p.trail, entry)
+	p.linkRetained(table, kind, source, handler)
 	return nil
+}
+
+// The trail owns the source reference for each published link.
+func (p *SMTRelevancyPropagator) linkRetained(table *smtRelevancyTable, kind smtRelevancyTrailKind, source ast.ASTHandle, handler *smtRelevancyHandler) {
+	p.trail = append(p.trail, smtRelevancyTrail{kind: kind, expression: source})
+	table.push(source, p.pool(handler))
 }
 
 // release is ~relevancy_propagator_imp (context::flush): undo_trail(0)

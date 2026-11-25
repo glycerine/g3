@@ -434,6 +434,31 @@ func (m *ASTManager) IncRef(h ASTHandle) error {
 		return e
 	}
 	defer m.mu.Unlock()
+	return m.incRef(h)
+}
+
+// IncRefPair acquires both references together. Equal handles acquire two
+// references and null handles are ignored, as in two calls to IncRef.
+func (m *ASTManager) IncRefPair(first, second ASTHandle) error {
+	if err := m.lock(); err != nil {
+		return err
+	}
+	defer m.mu.Unlock()
+	if err := m.incRef(first); err != nil {
+		return err
+	}
+	if err := m.incRef(second); err != nil {
+		// Neither increment runs callbacks. Restore the original count even
+		// when it was zero: a failed acquisition must not delete that AST.
+		if !first.IsNull() {
+			m.nodeAt(first.slot).rc--
+		}
+		return err
+	}
+	return nil
+}
+
+func (m *ASTManager) incRef(h ASTHandle) error {
 	if h.IsNull() {
 		return nil
 	}
