@@ -113,21 +113,22 @@ func (f *DIMACSFrontend) runContext(ctx context.Context, oneShotFile bool) (err 
 	if signals.RunStopped() {
 		return finishTimeout(f.solver)
 	}
+	loaded := false
 	if oneShotFile && !diagnostic.TraceCompiled() {
-		count, value := f.probeUniformModel()
+		var model sat.Model
+		model, loaded, err = f.prepareFile()
+		if err != nil {
+			return err
+		}
 		if signals.InterruptCount() != 0 {
 			return finishInterrupt(f.solver)
 		}
 		if signals.RunStopped() {
 			return finishTimeout(f.solver)
 		}
-		if value != lbool.Undef {
+		if model != nil {
 			if err := writeShellText(f.output, "sat\n"); err != nil {
 				return err
-			}
-			model := make(sat.Model, int(count)+1)
-			for i := range model {
-				model[i] = value
 			}
 			if err := writeDIMACSModel(f.output, model); err != nil {
 				return err
@@ -138,8 +139,10 @@ func (f *DIMACSFrontend) runContext(ctx context.Context, oneShotFile bool) (err 
 			return nil
 		}
 	}
-	if err = sat.ParseDIMACS(f.input, f.solver); err != nil {
-		return err
+	if !loaded {
+		if err = sat.ParseDIMACS(f.input, f.solver); err != nil {
+			return err
+		}
 	}
 	if signals.InterruptCount() != 0 {
 		return finishInterrupt(f.solver)

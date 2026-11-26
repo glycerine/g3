@@ -8,23 +8,32 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+const dimacsModelMaxVariable = 100_000
+
 // ProbeDIMACSUniformModel tries the two uniform assignments against all
 // clauses of a fresh formula. Undef leaves the verdict to normal ingestion
 // and solving. The caller supplies an independent, bounded reader.
 func (s *Solver) ProbeDIMACSUniformModel(input io.Reader) (uint32, lbool.LBool) {
-	if s.open() != nil || input == nil || s.Variables.NumVars() != 0 || s.Variables.scopeLevel != 0 || s.propagation.inconsistent ||
-		s.Limit.Closed() || s.Limit.Limit != 0 || s.Limit.CancelFlag() || s.propagation.extensionPresent {
-		return 0, lbool.Undef
-	}
-	cfg, err := s.config.State()
-	if err != nil || cfg.DimacsDisplay || cfg.MaxConflicts != ^uint32(0) || cfg.NumParallel > 1 || cfg.MaxMemory != uint64(^uint(0)) {
-		return 0, lbool.Undef
-	}
-	verbose, err := diagnostic.ProcessVerboseEnabled(2)
-	if err != nil || verbose || s.budget.InjectionArmed() || s.budget.Limit()-s.budget.Used() < 1<<30 {
+	if !s.canProbeDIMACSModel(input) {
 		return 0, lbool.Undef
 	}
 	return scanDIMACSUniformModel(input, s.Limit)
+}
+
+func (s *Solver) canProbeDIMACSModel(input io.Reader) bool {
+	if s.open() != nil || input == nil || s.Variables.NumVars() != 0 || s.Variables.scopeLevel != 0 || s.propagation.inconsistent ||
+		s.Limit.Closed() || s.Limit.Limit != 0 || s.Limit.CancelFlag() || s.propagation.extensionPresent {
+		return false
+	}
+	cfg, err := s.config.State()
+	if err != nil || cfg.DimacsDisplay || cfg.MaxConflicts != ^uint32(0) || cfg.NumParallel > 1 || cfg.MaxMemory != uint64(^uint(0)) {
+		return false
+	}
+	verbose, err := diagnostic.ProcessVerboseEnabled(2)
+	if err != nil || verbose || s.budget.InjectionArmed() || s.budget.Limit()-s.budget.Used() < 1<<30 {
+		return false
+	}
+	return true
 }
 
 func scanDIMACSUniformModel(input io.Reader, limit *control.Reslimit) (uint32, lbool.LBool) {
@@ -48,7 +57,7 @@ func scanDIMACSUniformModel(input io.Reader, limit *control.Reslimit) (uint32, l
 				break
 			}
 			// Bound the model's size before taking the magnitude.
-			if lit < -100000 || lit > 100000 {
+			if lit < -dimacsModelMaxVariable || lit > dimacsModelMaxVariable {
 				return 0, lbool.Undef
 			}
 			if lit > 0 {

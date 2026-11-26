@@ -26,14 +26,13 @@ func TestDIMACSFrontendDetectsCNFFile(t *testing.T) {
 	}
 }
 
-func TestDIMACSFileUniformModel(t *testing.T) {
+func TestDIMACSFileModelProbes(t *testing.T) {
 	for _, tc := range []struct {
 		name, clauses, model string
-		fast                 bool
 	}{
-		{"positive", "1 -2 0\n2 0\n", "1 2 ", true},
-		{"negative", "-1 2 0\n-2 0\n", "-1 -2 ", true},
-		{"ordinary search", "1 0\n-2 0\n", "1 -2 ", false},
+		{"positive", "1 -2 0\n2 0\n", "1 2 "},
+		{"negative", "-1 2 0\n-2 0\n", "-1 -2 "},
+		{"mixed assignment", "1 0\n-2 0\n", "1 -2 "},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "model.cnf")
@@ -48,8 +47,7 @@ func TestDIMACSFileUniformModel(t *testing.T) {
 			if !strings.HasPrefix(out.String(), "sat\n"+tc.model+"\n") {
 				t.Fatalf("model output %q", out.String())
 			}
-			wantAllocations := !tc.fast || diagnostic.TraceCompiled()
-			if allocated := strings.Contains(out.String(), ":mk-bool-var"); allocated != wantAllocations {
+			if allocated := strings.Contains(out.String(), ":mk-bool-var"); allocated != diagnostic.TraceCompiled() {
 				t.Fatalf("unexpected DIMACS path:\n%s", out.String())
 			}
 		})
@@ -71,9 +69,9 @@ func TestDIMACSFileUniformModelHonorsConflictLimit(t *testing.T) {
 	}
 }
 
-func TestDIMACSFileUniformModelFallsBackOnMalformedSuffix(t *testing.T) {
+func TestDIMACSFileModelProbesFallBackOnMalformedSuffix(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "malformed.cnf")
-	source := "c " + strings.Repeat(" ", 4096) + "\np cnf 2 2\n1 0\n2 x\n"
+	source := "c " + strings.Repeat(" ", 4096) + "\np cnf 3 3\n1 0\n-2 0\n3 x\n"
 	if err := os.WriteFile(path, []byte(source), 0600); err != nil {
 		t.Fatal(err)
 	}
