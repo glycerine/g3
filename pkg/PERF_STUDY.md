@@ -6882,3 +6882,29 @@ The experimental probe saved 0.57% and 0.54% of instructions in the two Ticket r
 | FBA | 107.24 ms | 107.28 ms | 136.98 ms | +0.42% |
 
 The table uses nine same-core rotations with default GC. With GC off, the seven-rotation comparison found instruction reductions of 0.23–0.49% across all four verifiers. FBA elapsed time rose 1.15% with GC off. All verifier outputs and exit statuses matched. In eleven release rotations, the two Ticket standalone replays used 0.62% and 0.54% fewer instructions and toy consensus used 0.33% fewer. Every run matched native decisions, conflicts, instantiations and resource counts. The ordinary AST, rewriter, SMT core and API suites passed, as did focused checked/debug/trace tests and vet. [Release comparison and test results](perf/ivy_apple/holdouts/nov26-rewrite-steps.tar.xz)
+
+## November 26 — Value-sweep dependencies and exact ground ordering
+
+The value-sweep observer recorded successful substitution reads while rewriting each row. It distinguished bindings introduced in the current sweep, which disappear on pop, from previously committed bindings. For a row revisited with the same input, it compared the set of directly observed key/value pairs against the forward visit. It also recorded rewrite-result cache hits and the resource charge. The builds reproduced the complete reference outputs and expected exits. [Observer, per-verifier counts and transcripts](perf/ivy_apple/holdouts/nov26-value-dependencies.tar.xz)
+
+| Complete verifier | Rows per sweep | Reverse rows with the same input and direct read set | Of those, rows that changed | Of those, rows whose resource charge changed |
+| --- | ---: | ---: | ---: | ---: |
+| Hybrid | 3,736 | 3,536 | 10 | 382 |
+| Ticket | 1,376 | 1,014 | 4 | 60 |
+| ARM rules | 1,042 | 825 | 2 | 143 |
+| FBA | 76 | 66 | 0 | 2 |
+| TLB | 29,197 | 28,980 | 156 | 1,967 |
+
+Every changed row in this comparison read at least one cache entry whose result differed from the original subterm. The prior rewrite that produced that cache entry may have applied a substitution. Looking only at the current row's substitution calls misses this dependency. Even a row with an unchanged result can have a different mix of cache hits and resource polls. The forward and reverse sweeps remain in their source order. A future skip must account for dependencies propagated through cached subterms as well as direct substitution hits. [Sweep implementation](smtcore/smt_asserted_propagate.go) · [Full counts](perf/ivy_apple/holdouts/nov26-value-dependencies.tar.xz)
+
+Ground equalities offer a separate way to eliminate a traversal. The term order previously built a depth map by walking both sides. The arena already caches the same depth for ground applications because their argument trees contain no quantifiers. The order now reads that depth directly and expands only saturated nodes. A regression forces a tie in both cached depths and makes the declaration-ID tie break favor the shallower term. It fails when the implementation treats saturation as an exact depth. [Ordering implementation](smtcore/smt_asserted_propagate.go) · [Arena depth calculation](ast/ast_core_register.go) · [Saturation regression](smtcore/smt_asserted_substitution_test.go)
+
+| Unary levels in the ground ordering benchmark | Previous g3 | Released g3 | Previous / current bytes allocated |
+| --- | ---: | ---: | ---: |
+| 1 | 113.9 ns | **44.9 ns** | 0 / 0 |
+| 16 | 1,902 ns | **44.8 ns** | 1,384 / 0 |
+| 1,024 | 92,209 ns | **60.7 ns** | 108,504 / 0 |
+
+The benchmark checks the orientation on every comparison and constructs the terms before timing. These are medians of nine rotating 4,000-iteration samples. Whole-verifier changes were small and mixed. Hybrid used 0.10% and 0.12% fewer instructions in two panels. Ticket's first elapsed median rose 4.52%, and the second rose 0.83%. TLB used 0.20% fewer instructions and took 0.46% longer. The isolated benchmark measures term ordering, which occupies a small fraction of those runs. All verifier transcripts matched. Two standalone Ticket replays and the toy-consensus replay matched native decisions, conflicts, instantiations and resource counts. The ordinary SMT core and API suites, focused checked/debug/trace tests and vet passed. [Checked-in benchmark](smtcore/smt_asserted_ground_depth_benchmark_test.go) · [Raw benchmark panels](perf/ivy_apple/holdouts/nov26-value-dependencies.tar.xz)
+
+Two experimental caches kept up to four or eight identity results in the existing queue and built the normal table on spill. They held both original references and released them together when every term survived. On TLB the eight-entry version used 0.16% fewer instructions and took 4.49% less elapsed time in the first three rotations. With GC off it used 0.04% more instructions, took 1.82% longer and recorded 1.03% more L1 data-load misses. The short caches also had mixed results across hybrid, Ticket, ARM and FBA. A production spill would have to preserve table growth on duplicate insertions to reproduce the order of later releases. Keep the existing representation given these measurements. [Cache prototypes and controls](perf/ivy_apple/holdouts/nov26-value-dependencies.tar.xz)
