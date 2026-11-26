@@ -359,3 +359,51 @@ func TestSMTRelevancyTheoryPropagationConsumesOnlyPendingMarks(t *testing.T) {
 		t.Fatalf("first batch changed to %v", first)
 	}
 }
+
+func TestSMTRelevancyChecksCanonicalTermITEEquality(t *testing.T) {
+	m := astTestManager(t)
+	_, p, s := smtInternalizerFixture(t, m, nil)
+	condition := smtRelevancyBool(t, m, "term-ite-condition")
+	sort, err := m.MkSort(astTestSymbol(t, m, "CanonicalTermITESort"), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	thenTerm, err := m.MkConst(astTestSymbol(t, m, "term-ite-then"), sort)
+	astTestMust(t, err)
+	elseTerm, err := m.MkConst(astTestSymbol(t, m, "term-ite-else"), sort)
+	astTestMust(t, err)
+	root, err := m.MkIte(condition, thenTerm, elseTerm)
+	astTestMust(t, err)
+	astTestMust(t, s.Internalize(root, false))
+	astTestMust(t, s.markRelevant(root))
+	literal, err := s.Literal(condition)
+	astTestMust(t, err)
+
+	for _, branch := range []struct {
+		name    string
+		literal SMTLiteral
+		term    ast.ASTHandle
+	}{
+		{"then", literal, thenTerm},
+		{"else", literal.Negated(), elseTerm},
+	} {
+		t.Run(branch.name, func(t *testing.T) {
+			astTestMust(t, s.PushScope())
+			defer func() { astTestMust(t, s.PopScopes(1)) }()
+			astTestMust(t, s.AssignLiteral(branch.literal, NewSMTBooleanAxiom()))
+			ok, err := s.PropagateCore()
+			astTestMust(t, err)
+			if !ok {
+				t.Fatal("unexpected propagation conflict")
+			}
+			canonical, err := s.MkEqAtom(root, branch.term)
+			astTestMust(t, err)
+			raw, err := m.MkEq(root, branch.term)
+			astTestMust(t, err)
+			if canonical == raw || !p.IsRelevant(canonical) || p.IsRelevant(raw) {
+				t.Fatal("expected only the canonical defining equality to be relevant")
+			}
+			if err := p.Check([]ast.ASTHandle{root}); err != nil {
+				t.Fatalf("relevance check rejected the canonical defining equality: %v", err)
+			}
+		})
+	}
+}

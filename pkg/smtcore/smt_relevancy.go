@@ -866,7 +866,14 @@ func (p *SMTRelevancyPropagator) checkITE(expression ast.ASTHandle) error {
 		}
 		return nil
 	}
-	equality, err := p.context.manager.MkEq(expression, branch)
+	// The internalizer marks the theory's canonical equality for the branch.
+	// Standalone term ITE handlers use the raw equality.
+	var equality ast.ASTHandle
+	if p.internalizer != nil {
+		equality, err = p.internalizer.mkEqualityAtom(expression, branch)
+	} else {
+		equality, err = p.context.manager.MkEq(expression, branch)
+	}
 	if err != nil {
 		return err
 	}
