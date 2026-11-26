@@ -6927,3 +6927,29 @@ Twelve pairs per replay sampled one in 1,000,003 retired user instructions, with
 Three trial builds preserved the replay counters. Reusing the already resolved signed child binding during watch setup reduced matched Ticket instructions by **0.32% and 0.24%**. Feeding unsat promotion through the compiled candidate checker stayed within 0.04% on the two Ticket inputs. The apparent 2% toy consensus improvement for compiled promotion shrank to 0.10% with GC disabled. Fusing a definite substitution miss with the subsequent arena node-shape read saved about **0.49%** on each incremental Ticket replay and **0.31%** on toy consensus with GC off. The fused path validates the current substitution generation and the AST key before skipping the ordinary lookup. It reads live cache state and preserves frame work and resource polls. [Overlay source and independent rotations](perf/ivy_apple/holdouts/nov26-qi-path.tar.xz)
 
 On the complete Ticket, hybrid, ARM and FBA verifiers, the fused path reduced median paired instructions by **0.28%, 0.22%, 0.14% and 0.19%** respectively with GC off. The default-GC panel had mixed cycle results, including **+1.22% on ARM** and **−1.75% on hybrid**. All rotations reproduced exact exit status and output streams. The prototypes remain in the archive. The next test should combine measurements of theory frame pushes, cache hits, reductions and result-root releases in the two engines with a tighter proofless application-frame loop. Scope and reclamation order, theory callbacks, cache effects and resource polls are part of that comparison. [Whole-verifier rows and trial drivers](perf/ivy_apple/holdouts/nov26-qi-path.tar.xz)
+
+## November 26 — Exact theory rewrite work per quantifier instance
+
+The Go and in-tree C++ observers count operations between the queue's entry into the theory rewriter and its return, after substitution and before lemma assembly. Each observer and both stock binaries agreed on the UNSAT result, decisions, conflicts, instantiations and resource counts. The earlier sampled phase timings used the same solver code and inputs. [Observer builds, three replays and exact counters](perf/ivy_apple/holdouts/nov26-qi-frames.tar.xz)
+
+| Event inside the instance theory rewriter | Ticket 127 | Ticket 290 | Toy consensus 18 |
+| --- | ---: | ---: | ---: |
+| Rewrite calls in both engines | 1,389 | 1,241 | 906 |
+| Term visits in both engines | 14,482 | 16,935 | 19,065 |
+| Frame steps in both engines | 12,218 | 15,793 | 16,270 |
+| Cache hits on first probe in both engines | 4,510 | 5,104 | 5,400 |
+| Nonconstant application reductions in both engines | 6,726 | 8,404 | 8,553 |
+| Result-stack releases in both engines | 14,482 | 16,935 | 19,082 |
+| Extra frame-entry cache probes in native Z3 | 3,597 | 3,705 | 3,328 |
+
+Substitution hits, application-frame steps, unsuccessful reductions and constant visits also agreed exactly. Every extra native frame-entry probe missed. Dividing the prior phase estimates by the exact step counts gives roughly **2,646 versus 628** instructions per step on Ticket 127 and **2,512 versus 633** on Ticket 290, g3 versus native. These normalized values include phase work outside the frame loop, including cache probes and result ownership. They establish the scale of the physical implementation gap on these replays. [Prior instruction profiles](#november-26--quantifier-queue-phases-on-matched-ticket-checks) · [Census](perf/ivy_apple/holdouts/nov26-qi-frames.tar.xz)
+
+| Go overlay | Median paired instruction change across the three replays | Median paired cycle change |
+| --- | ---: | ---: |
+| Local loop index and depth | −0.07% to +0.01% | −0.30% to −0.03% |
+| Call-local argument cursor | +0.33% to +0.61% | +1.04% to +1.30% |
+| Call-local cursor with cached ITE test | +0.17% to +0.20% | −0.21% to −0.15% |
+| Cursor carried across child visits in each frame | −0.06% to −0.03% | −0.60% to −0.18% |
+| Transfer an owning result register directly to the result stack | −0.19% to −0.13% | +1.41% to +2.68% |
+
+Seven rotations tested the call-local changes at default GC. Five tested the frame-lifetime cursor with GC disabled, and seven tested ownership transfer with GC disabled. All timed runs matched the four search counters. The frame-lifetime cursor adds a pointer to every rewriter frame. The five prototypes stay archived. A larger loop redesign should account for the entire per-frame path, including arena result storage and configured reduction, with a separate budget for allocated and retained bytes per rewriter. Keep the census as a semantic baseline for mechanical changes. Continue the separate first-push and SAT experiments where identical search counts already expose larger concentrated costs. [Trial drivers and raw rows](perf/ivy_apple/holdouts/nov26-qi-frames.tar.xz)
