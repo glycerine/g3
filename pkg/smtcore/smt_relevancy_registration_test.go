@@ -151,6 +151,50 @@ func TestSMTRelevancyPairRejectsForeignSecondSource(t *testing.T) {
 	}
 }
 
+func TestSMTRelevancyDependencyRejectsRecycledSource(t *testing.T) {
+	m := astTestManager(t)
+	a := smtRelevancyPinnedBool(t, m, "old-source-operand")
+	b := smtRelevancyPinnedBool(t, m, "live-source-operand")
+	target := smtRelevancyPinnedBool(t, m, "live-target")
+	refusedTarget := smtRelevancyPinnedBool(t, m, "refused-target")
+	old, err := m.MkNot(a)
+	astTestMust(t, err)
+	astTestMust(t, m.IncRef(old))
+	astTestMust(t, m.DecRef(old))
+	live, err := m.MkNot(b)
+	astTestMust(t, err)
+	astTestPin(t, m, live)
+	if live.Slot() != old.Slot() || live.Generation() == old.Generation() {
+		t.Fatal("fixture requires a recycled source slot")
+	}
+
+	ctx, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	p, err := NewSMTRelevancyPropagator(ctx, true)
+	astTestMust(t, err)
+	before, err := m.GetRefCount(live)
+	astTestMust(t, err)
+	astTestMust(t, p.AddDependency(live, target))
+	head := p.handlers.head(live)
+	astTestMust(t, p.PushScope())
+	refused := p.AddDependency(old, refusedTarget)
+	if got := p.handlers.head(live); refused != ast.ErrASTHandle || got != head || p.handlers.head(old) != 0 || len(p.ehs) != 1 || len(p.trail) != 1 {
+		t.Fatalf("stale dependency: err=%v live head=%d (want %d) handlers=%d trail=%d", refused, got, head, len(p.ehs), len(p.trail))
+	}
+	astTestMust(t, p.MarkRelevant(live))
+	astTestMust(t, p.Propagate())
+	if !p.IsRelevant(target) || p.IsRelevant(refusedTarget) {
+		t.Fatal("the live dependency must fire after stale registration is refused")
+	}
+	astTestMust(t, p.PopScopes(1))
+	astTestMust(t, p.release())
+	after, err := m.GetRefCount(live)
+	astTestMust(t, err)
+	if p.handlers.head(live) != 0 || after != before {
+		t.Fatalf("release left a handler or source reference: head=%d refs=%d (want %d)", p.handlers.head(live), after, before)
+	}
+}
+
 func TestSMTRelevancyWatchRejectsRecycledNot(t *testing.T) {
 	m := astTestManager(t)
 	a := smtRelevancyPinnedBool(t, m, "old-operand")
