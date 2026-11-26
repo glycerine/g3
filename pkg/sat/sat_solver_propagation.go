@@ -94,10 +94,9 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 		if satStorageSourceDebug && s.inconsistent {
 			return false, ErrSATAssertion
 		}
-		l, e := v.trailRead(v.qhead)
-		if e != nil {
-			return false, e
-		}
+		// Size validated this trail and qhead. A successful checkpoint does
+		// not invoke callbacks or mutate the trail.
+		l := v.trail.values[v.qhead]
 		if tracing {
 			s.tracePropagating(l)
 		}
@@ -334,7 +333,17 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				out++
 			}
 		}
-		if e = s.finishPropagationList(&iter, list, out); e != nil {
+		if destinations != nil {
+			// The list record itself is stable. Verify that a move did not
+			// replace its backing, including on the final watch.
+			if record.backing != iter.backing {
+				return false, arena.ErrInvalidSlot
+			}
+			e = record.setEnd(out)
+		} else {
+			e = s.finishPropagationList(&iter, list, out)
+		}
+		if e != nil {
 			return false, e
 		}
 	}
