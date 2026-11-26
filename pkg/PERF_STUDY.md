@@ -6541,3 +6541,46 @@ Nine rotations on CPU 13 matched every verdict, decision count and conflict coun
 The separate full Apple `ord_live2` timing completed three qualifying pairs on CPU 19 with GoIvy `07cdeec61` and the same ABC executable. The g3 binary used `47792d65b`. Its median was **143.28 s** versus **488.97 s** for linked Z3. Each transcript contained 1,986 PASS lines. The two additional native attempts matched the transcript and missed the preset sibling-idle threshold. The archive retains them and the build manifest. [Complete timings and transcript](perf/ivy_apple/holdouts/nov26-watch-attachment-and-proof-checks.tar.xz)
 
 With g3 at `c8512b43d`, three paired Ticket runs with direct timing measured **0.428 / 0.219 s**. Hybrid took **1.316 / 0.886 s** in the paired hardware-counter comparison. Both backends matched both output streams and exit status. A theory-rewriter prototype read a basic equality's fixed shape and both arguments through one AST access. Ordinary AST and rewriter tests passed. Nine paired observations per engine moved the Ticket median from **3.227 to 3.218 billion instructions**, and hybrid from **9.164 to 9.159 billion**. The prototype remains experimental. The low yield of this and the earlier candidate-refcount trial motivates counting and eliminating complete reducer or materialization work. [Verifier comparisons, build manifests and overlay](perf/ivy_apple/holdouts/nov26-watch-attachment-and-proof-checks.tar.xz)
+
+## November 26 — Validate a DIMACS model before building the solver
+
+Commit `9c85114a1` checks whether assigning every variable true or every variable false satisfies every clause in a standalone DIMACS file. It uses the same scanner as ordinary ingestion. A clause with no literal of one polarity rules out that assignment. Once both assignments are ruled out, the probe returns control to the solver. A verified assignment can be printed without creating variables, clauses, watches or a solver search state. The proof applies to either sign, and a satisfying model can differ from the model produced by search. [Model probe](sat/sat_dimacs_uniform.go) · [One-shot file frontend](shell/dimacs_uniform_model.go)
+
+The probe covers regular files from 4 KiB through 4 MiB, with observed variable numbers up to 100,000. Its independent reader leaves the file position available for ordinary ingestion after a miss. The ordinary path handles malformed tokens, incomplete clauses, streaming and borrowed inputs, tracked cores, tracing, explicitly limited searches and other out-of-scope configurations. A successful probe emits the normal DIMACS verdict and assignment. Solver-only statistics are absent because those events did not occur. The CLI regressions cover both polarities, a mixed formula, an invalid suffix and a finite conflict limit. Ordinary SAT, shell and command suites passed, as did the focused checked/debug/trace tests. [CLI regressions](cmd/g3/dimacs_frontend_file_test.go)
+
+| Complete DIMACS command | Previous g3, ms | g3 with model probe, ms | In-tree Z3, ms | Million instructions, previous / probe / Z3 |
+| --- | ---: | ---: | ---: | ---: |
+| propagate2 | 30.21 | **18.11** | 19.22 | 86.07 / 11.51 / 48.58 |
+| propagate3 | 35.85 | **16.85** | 21.50 | 136.03 / 13.77 / 60.01 |
+| propagate6 | 44.42 | **17.82** | 23.22 | 214.45 / 20.57 / 87.81 |
+| planted3 | 32.51 | **15.89** | 17.85 | 170.85 / 5.07 / 32.85 |
+| planted5 | 40.75 | **18.90** | 25.83 | 164.82 / 28.62 / 98.83 |
+| planted8 | 59.68 | **22.87** | 36.08 | 315.68 / 59.15 / 190.34 |
+| planted3-mixed | 19.01 | 18.50 | **15.22** | 22.43 / 22.47 / 10.72 |
+| planted5-mixed | 41.11 | 40.77 | **26.01** | 165.06 / 165.35 / 98.96 |
+| planted8-mixed | 60.02 | 59.25 | **36.43** | 315.71 / 321.58 / 190.40 |
+
+The release comparison used seven rotations on CPU 7. The driver checked every model against the complete CNF. Flipping the odd-numbered variables produced the three mixed-polarity controls. Both uniform models failed on them and every backend matched decisions and conflicts. One earlier default-GC panel showed a 35-million-instruction increase on planted8-mixed. With automatic GC disabled, seven rotations measured 252.23 million before the probe and 252.55 million after. The default-GC release panel measured a 5.87-million increase and a slightly lower elapsed median. All eight pigeonhole checks still beat Z3 in a separate three-rotation confirmation. [Benchmark driver](perf/ivy_raft/watch_propagation.py) · [Release, GC and mixed-polarity controls](perf/ivy_apple/holdouts/nov26-uniform-dimacs-and-search-costs.tar.xz)
+
+### Where the matched ordinary SAT search spends its time
+
+On ordinary file ingestion at `6ed5d6e09`, the original planted3 case took **156.06 million instructions inside g3's solver check versus 23.90 million in Z3**. The two solvers took 465 decisions, found 114 conflicts and entered propagation 7,698 times. The instrumented regions below are inclusive. Asymmetric branching and backward subsumption contribute to their enclosing passes. The observer reads instructions on the calling thread, and the raw rows include empty-bracket calibration. [Both phase observers and measurements](perf/ivy_apple/holdouts/nov26-uniform-dimacs-and-search-costs.tar.xz)
+
+| Ordinary planted3 operation | Calls g3 / Z3 | Million instructions g3 / Z3 |
+| --- | ---: | ---: |
+| Simplify problem | 1 / 1 | **104.36 / 15.40** |
+| Simplifier | 2 / 2 | 58.66 / 8.48 |
+| Backward subsumption | 2,500 / 2,500 | 20.81 / 1.49 |
+| Register clauses in simplifier | 3 / 3 | 13.79 / 3.51 |
+| Asymmetric branching | 1 / 1 | 32.64 / 4.02 |
+| Stable clause sort inside asymmetric branching | 1 / 1 | 6.50 / 0.20 |
+| Propagation | 7,698 / 7,698 | 29.55 / 6.08 |
+| Resolve conflict | 114 / 114 | 28.02 / 3.86 |
+
+A linear check for an already sorted clause vector saved about 6.1 million instructions. Skipping sorting and compaction for a watch list with an already unique, sorted binary prefix saved 3.9 million. Borrowing a clause once while updating its occurrence lists saved 3.3 million. Together the prototypes reduced ordinary planted3 on standard input from **170.85 to 157.41 million instructions** in nine rotations. Reusing clause views in backward subsumption alone saved at most 1.4 million. These alternatives remain experimental. The test driver can feed CNF through standard input to exercise the ordinary path. Native timing and instruction costs differ between file and stdin input, so compare engines using the same input mode. [Individual and combined prototypes](perf/ivy_apple/holdouts/nov26-uniform-dimacs-and-search-costs.tar.xz)
+
+### Mixed-polarity model repair experiment
+
+The first model-repair prototype used slice-per-literal occurrence lists. The second stored normalized literals and clause ends in flat arrays and stored occurrence entries in one indexed array. Both start from an all-false model and try bounded flips on unsatisfied clauses, preferring a variable that would invalidate the fewest satisfied clauses. The flat version independently checks every clause before accepting a model. As a standalone executable it took **13.51, 18.27 and 22.98 ms** on the three mixed controls versus **14.56, 25.46 and 35.72 ms** for Z3. The earlier slice-based version took **14.24, 26.76 and 38.18 ms** in the same panel. [Prototype sources and panel](perf/ivy_apple/holdouts/nov26-uniform-dimacs-and-search-costs.tar.xz)
+
+Through the actual CLI, the flat prototype took **15.29, 20.12 and 24.86 ms** on the mixed controls, against **14.69, 25.91 and 36.23 ms** for Z3. The corresponding g3 baselines were **18.08, 40.96 and 57.71 ms**. Retired instructions fell to **6.00, 35.94 and 72.57 million**, respectively. Every model passed the independent CNF oracle. The prototype returned control to the ordinary solver on padded pigeonhole inputs and contradictory units, and preserved the malformed-input diagnostic. Padding triggers the probe without changing the formula. Measured miss overhead was **0.24–0.91 million instructions** on those four inputs. The prototype still needs a production work bound, cancellation coverage and wider holdouts before adoption. [CLI trial and bounded misses](perf/ivy_apple/holdouts/nov26-uniform-dimacs-and-search-costs.tar.xz)
