@@ -178,6 +178,44 @@ func TestSATSimplifierNativeCollectorPairedPublicationAndUnsignedCost(t *testing
 	b.FailAfter(-1)
 }
 
+func TestSATSimplifierCollectorFinishesCompactionAfterOutputRefusal(t *testing.T) {
+	k, a, u, b := satSimplifierKernelFixture(t, 3)
+	source := satMk(t, a, satLs(0, 2), false)
+	first := satMk(t, a, satLs(0, 2, 4), false)
+	second := satMk(t, a, satLs(0, 2, 5), false)
+	deadBefore := satMk(t, a, satLs(0, 3, 4), false)
+	deadAfter := satMk(t, a, satLs(0, 3, 5), false)
+	for _, c := range []StoredClauseRef{deadBefore, first, deadAfter, second} {
+		satOK(t, u.Insert(c))
+	}
+	for _, c := range []StoredClauseRef{deadBefore, deadAfter} {
+		satOK(t, a.SetRemoved(c, true))
+		satOK(t, u.Erase(c))
+	}
+	out, err := NewSATClauseVector(a, b)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, out.Close()) })
+	lits, ref := satKernelOutput(t, b)
+	k.subCounter = 100
+	if err := k.collectSubsumed1Core(source, out, lits, satSolverLiteralListRef{}, 0); err != ErrSATOwner {
+		t.Fatalf("refused literal output returned %v", err)
+	}
+	got, err := out.Get(0)
+	satOK(t, err)
+	n, err := lits.Size(ref)
+	satOK(t, err)
+	if got != first || out.Size() != 1 || n != 0 || k.subCounter != 95 {
+		t.Fatal("the refusal did not preserve the first candidate's output prefix")
+	}
+	view, err := u.Get(0)
+	satOK(t, err)
+	record, err := view.record()
+	satOK(t, err)
+	if len(record.payload) != 2 || record.payload[0] != first || record.payload[1] != second || record.liveSize != 2 {
+		t.Fatal("cleanup did not compact all retired occurrences in order", record.payload)
+	}
+}
+
 func TestSATSimplifierApproximateFilterAndFirstTie(t *testing.T) {
 	k, a, u, b := satSimplifierKernelFixture(t, 35)
 	c := satMk(t, a, satLs(0, 2), false)

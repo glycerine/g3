@@ -1,5 +1,7 @@
 package sat
 
+import "github.com/glycerine/g3/pkg/arena"
+
 // Source: src/sat/sat_simplifier.cpp; src/sat/sat_simplifier.h.
 
 func (k *satSimplifierKernel) occurrenceCount(l Literal) (uint32, error) {
@@ -95,18 +97,26 @@ func (k *satSimplifierKernel) subsumes1(c1, c2 StoredClauseRef, out *Literal) (b
 	if e != nil {
 		return false, e
 	}
+	return k.subsumes1WithViews(c1, nil, v2, out)
+}
+
+func (k *satSimplifierKernel) subsumes1WithViews(c1 StoredClauseRef, v1, v2 satClauseView, out *Literal) (bool, error) {
 	n2 := v2.size()
 	for i := uint32(0); i < n2; i++ {
 		l := v2.literal(i)
-		if e = k.markVisited(l); e != nil {
+		if e := k.markVisited(l); e != nil {
 			return false, e
 		}
 	}
 	r := true
 	*out = DefaultLiteral()
-	v1, e := k.clauseView(c1)
-	if e != nil {
-		return false, e
+	if v1 == nil {
+		// A direct call resolves the source after publishing the candidate marks.
+		var e error
+		v1, e = k.clauseView(c1)
+		if e != nil {
+			return false, e
+		}
 	}
 	n1 := v1.size()
 	for i := uint32(0); i < n1; i++ {
@@ -133,7 +143,7 @@ func (k *satSimplifierKernel) subsumes1(c1, c2 StoredClauseRef, out *Literal) (b
 	}
 	for i := uint32(0); i < n2; i++ {
 		l := v2.literal(i)
-		if e = k.unmarkVisited(l); e != nil {
+		if e := k.unmarkVisited(l); e != nil {
 			return false, e
 		}
 	}
@@ -213,53 +223,73 @@ func (k *satSimplifierKernel) collectSubsumed1Core(c StoredClauseRef, out *satCl
 	if e != nil {
 		return e
 	}
-	it, e := view.Begin()
+	record, e := view.record()
 	if e != nil {
 		return e
 	}
-	// Actual source iterator destructor completes lazy compaction on every lexical
-	// exit. A guarded destructor error does not replace the original refusal.
+	it := satClauseUseListsIterator{view: view, size: uint32(len(record.payload))}
+	// Once iteration reaches its first live clause, the source destructor
+	// finishes compaction even if the collector returns an error.
+	started := false
 	defer func() {
+		if !started && err != nil {
+			return
+		}
 		if e := it.Close(); err == nil {
 			err = e
 		}
 	}()
+	// The scan only changes visitation marks, use-list entries and output
+	// slices. No operation can relocate or release the borrowed source.
+	var v1 satClauseView
+	var n1 uint32
+	var a1 satApproxSet
 	for !it.AtEnd() {
-		c2, e := it.Current()
+		c2 := record.payload[it.i]
+		v2, e := k.allocator.view(c2)
 		if e != nil {
 			return e
 		}
-		if satStorageSourceDebug {
-			dead, e := k.clauseRemoved(c2)
-			if e != nil {
-				return e
-			}
-			if dead {
-				return ErrSATAssertion
-			}
+		if len(v2) < satClauseLiteralsOffset {
+			return arena.ErrBounds
 		}
-		yes, e := k.candidate(c, c2)
-		if e != nil {
-			return e
+		if v2.flag(satClauseFlagRemoved) {
+			it.i++
+			continue
 		}
-		if yes {
-			var l Literal
-			yes, e = k.subsumes1(c, c2, &l)
-			if e != nil {
-				return e
-			}
-			if yes {
-				if e = out.Push(c2); e != nil {
+		if it.j != it.i {
+			record.payload[it.j] = c2
+		}
+		started = true
+		if c != c2 {
+			if v1 == nil {
+				v1, e = k.clauseView(c)
+				if e != nil {
 					return e
 				}
-				if e = lits.Push(list, l); e != nil {
+				n1, a1 = v1.size(), satApproxSet(v1.word(3))
+			}
+			n2 := v2.size()
+			if n1 <= n2 && a1.approxSubset(satApproxSet(v2.word(3))) {
+				// The size operands are unsigned, including on underflow.
+				k.subCounter = int32(uint32(k.subCounter) - (n1 + n2))
+				var l Literal
+				yes, e := k.subsumes1WithViews(c, v1, v2, &l)
+				if e != nil {
 					return e
+				}
+				if yes {
+					if e = out.Push(c2); e != nil {
+						return e
+					}
+					if e = lits.Push(list, l); e != nil {
+						return e
+					}
 				}
 			}
 		}
-		if e = it.Next(); e != nil {
-			return e
-		}
+		it.i++
+		it.j++
 	}
 	return nil
 }
