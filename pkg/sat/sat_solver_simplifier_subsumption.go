@@ -91,30 +91,26 @@ func (k *satSimplifierKernel) subsumes1(c1, c2 StoredClauseRef, out *Literal) (b
 	if out == nil {
 		return false, ErrSATOwner
 	}
-	n2, e := k.clauseSize(c2)
+	v2, e := k.clauseView(c2)
 	if e != nil {
 		return false, e
 	}
+	n2 := v2.size()
 	for i := uint32(0); i < n2; i++ {
-		l, e := k.clauseLiteral(c2, i)
-		if e != nil {
-			return false, e
-		}
+		l := v2.literal(i)
 		if e = k.markVisited(l); e != nil {
 			return false, e
 		}
 	}
 	r := true
 	*out = DefaultLiteral()
-	n1, e := k.clauseSize(c1)
+	v1, e := k.clauseView(c1)
 	if e != nil {
 		return false, e
 	}
+	n1 := v1.size()
 	for i := uint32(0); i < n1; i++ {
-		l, e := k.clauseLiteral(c1, i)
-		if e != nil {
-			return false, e
-		}
+		l := v1.literal(i)
 		marked, e := k.isMarked(l)
 		if e != nil {
 			return false, e
@@ -136,10 +132,7 @@ func (k *satSimplifierKernel) subsumes1(c1, c2 StoredClauseRef, out *Literal) (b
 		}
 	}
 	for i := uint32(0); i < n2; i++ {
-		l, e := k.clauseLiteral(c2, i)
-		if e != nil {
-			return false, e
-		}
+		l := v2.literal(i)
 		if e = k.unmarkVisited(l); e != nil {
 			return false, e
 		}
@@ -150,29 +143,25 @@ func (k *satSimplifierKernel) subsumes0(c1, c2 StoredClauseRef) (bool, error) {
 	if e := k.open(); e != nil {
 		return false, e
 	}
-	n2, e := k.clauseSize(c2)
+	v2, e := k.clauseView(c2)
 	if e != nil {
 		return false, e
 	}
+	n2 := v2.size()
 	for i := uint32(0); i < n2; i++ {
-		l, e := k.clauseLiteral(c2, i)
-		if e != nil {
-			return false, e
-		}
+		l := v2.literal(i)
 		if e = k.markVisited(l); e != nil {
 			return false, e
 		}
 	}
 	r := true
-	n1, e := k.clauseSize(c1)
+	v1, e := k.clauseView(c1)
 	if e != nil {
 		return false, e
 	}
+	n1 := v1.size()
 	for i := uint32(0); i < n1; i++ {
-		l, e := k.clauseLiteral(c1, i)
-		if e != nil {
-			return false, e
-		}
+		l := v1.literal(i)
 		yes, e := k.isMarked(l)
 		if e != nil {
 			return false, e
@@ -183,10 +172,7 @@ func (k *satSimplifierKernel) subsumes0(c1, c2 StoredClauseRef) (bool, error) {
 		}
 	}
 	for i := uint32(0); i < n2; i++ {
-		l, e := k.clauseLiteral(c2, i)
-		if e != nil {
-			return false, e
-		}
+		l := v2.literal(i)
 		if e = k.unmarkVisited(l); e != nil {
 			return false, e
 		}
@@ -197,25 +183,21 @@ func (k *satSimplifierKernel) candidate(c1, c2 StoredClauseRef) (bool, error) {
 	if c2 == c1 {
 		return false, nil
 	}
-	n1, e := k.clauseSize(c1)
+	v1, e := k.clauseView(c1)
 	if e != nil {
 		return false, e
 	}
-	n2, e := k.clauseSize(c2)
+	n1 := v1.size()
+	v2, e := k.clauseView(c2)
 	if e != nil {
 		return false, e
 	}
+	n2 := v2.size()
 	if n1 > n2 {
 		return false, nil
 	}
-	a1, e := k.clauseApprox(c1)
-	if e != nil {
-		return false, e
-	}
-	a2, e := k.clauseApprox(c2)
-	if e != nil {
-		return false, e
-	}
+	a1 := satApproxSet(v1.word(3))
+	a2 := satApproxSet(v2.word(3))
 	if !a1.approxSubset(a2) {
 		return false, nil
 	}

@@ -40,12 +40,15 @@ func (k *satSimplifierKernel) clauseLiteral(c StoredClauseRef, i uint32) (Litera
 	}
 	return a.Literal(c, i)
 }
-func (k *satSimplifierKernel) clauseApprox(c StoredClauseRef) (satApproxSet, error) {
-	a, e := k.clauseReader(c)
-	if e != nil {
-		return 0, e
+
+// clauseView resolves the allocator and generation once. The subsumption
+// scans borrow it only while reading clauses and changing visitation marks.
+func (k *satSimplifierKernel) clauseView(c StoredClauseRef) (satClauseView, error) {
+	a, err := k.clauseReader(c)
+	if err != nil {
+		return nil, err
 	}
-	return a.Approx(c)
+	return a.view(c)
 }
 func (k *satSimplifierKernel) clauseRemoved(c StoredClauseRef) (bool, error) {
 	a, e := k.clauseReader(c)
