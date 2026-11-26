@@ -687,7 +687,7 @@ func (p *SMTRelevancyPropagator) propagateITE(expression ast.ASTHandle) error {
 	return p.MarkRelevant(branch)
 }
 
-func (p *SMTRelevancyPropagator) Propagate() error {
+func (p *SMTRelevancyPropagator) Propagate() (result error) {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
@@ -698,9 +698,19 @@ func (p *SMTRelevancyPropagator) Propagate() error {
 		return nil
 	}
 	p.propagating = true
-	defer func() { p.propagating = false }()
+	var head int
+	var expression ast.ASTHandle
+	defer func() {
+		p.propagating = false
+		// Retry the failed expression if a callback left it in the queue.
+		// Completed marks are already relevant and won't be delivered again.
+		if result != nil && p.qhead == head+1 && head < len(p.relevant) && p.relevant[head] == expression {
+			p.qhead = head
+		}
+	}()
 	for p.qhead < len(p.relevant) {
-		expression := p.relevant[p.qhead]
+		head = p.qhead
+		expression = p.relevant[head]
 		p.tracePropagate(expression)
 		p.qhead++
 		kind, err := p.context.manager.GetKind(expression)

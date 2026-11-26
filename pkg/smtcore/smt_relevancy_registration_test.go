@@ -120,6 +120,43 @@ func TestSMTRelevancyMarkRefusal(t *testing.T) {
 	}
 }
 
+func TestSMTRelevancyPropagationRetriesRefusedDependency(t *testing.T) {
+	var p *SMTRelevancyPropagator
+	var refused error
+	m, _, _, trigger := smtQuantifierRefusalFixture(t, func() { refused = p.Propagate() })
+	ctx, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	p, err = NewSMTRelevancyPropagator(ctx, true)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.release()) }()
+	source := smtRelevancyPinnedBool(t, m, "propagation-source")
+	target := smtRelevancyPinnedBool(t, m, "propagation-target")
+	child := smtRelevancyPinnedBool(t, m, "propagation-child")
+	astTestMust(t, p.AddDependency(source, target))
+	astTestMust(t, p.AddDependency(target, child))
+	astTestMust(t, p.PushScope())
+	astTestMust(t, p.MarkRelevant(source))
+
+	trigger()
+	if refused != ast.ErrASTPending || p.IsRelevant(target) || p.IsRelevant(child) {
+		t.Fatalf("refused propagation: err=%v target=%t child=%t", refused, p.IsRelevant(target), p.IsRelevant(child))
+	}
+	if !p.CanPropagate() {
+		t.Error("refused propagation lost the pending source")
+	}
+	astTestMust(t, p.Propagate())
+	if p.CanPropagate() || !p.IsRelevant(target) || !p.IsRelevant(child) {
+		t.Error("retry did not mark both reachable dependencies")
+	}
+	if got, want := p.DrainNewlyRelevant(), []ast.ASTHandle{source, target, child}; !slices.Equal(got, want) {
+		t.Errorf("notifications after retry %v, want %v", got, want)
+	}
+	astTestMust(t, p.PopScopes(1))
+	if len(p.RelevantExpressions()) != 0 {
+		t.Fatal("pop did not remove the retried marks")
+	}
+}
+
 func TestSMTRelevancyPairRejectsForeignSecondSource(t *testing.T) {
 	m, other := astTestManager(t), astTestManager(t)
 	a := smtRelevancyPinnedBool(t, m, "first")
