@@ -1,11 +1,16 @@
 package shell
 
-// Source: src/shell/dimacs_frontend.cpp:96,112. The source reads the current
-// process SAT module after command-line assignments have been applied.
+import "errors"
+
+// Source: src/shell/dimacs_frontend.cpp read_dimacs reads dimacs.core from the
+// SAT parameters with a false default. Read the current SAT module so callers
+// can still update the setting between constructing and running the frontend.
 func (f *DIMACSFrontend) coreEnabled() (bool, error) {
-	value, err := f.globals.SourceGetValueName("sat.dimacs.core")
+	options, err := f.globals.SourceGetModuleName("sat")
 	if err != nil {
 		return false, err
 	}
-	return value == "true", nil
+	key := "dimacs.core"
+	core, err := f.globals.Context.GetBoolName(&options, &key, false)
+	return core, errors.Join(err, f.globals.Context.Del(&options))
 }
