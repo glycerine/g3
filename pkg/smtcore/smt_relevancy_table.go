@@ -99,10 +99,11 @@ func (t *smtRelevancyTable) push(h ast.ASTHandle, handler uint32) {
 	t.heads[s] = index
 }
 
-// pop drops the newest handler of h's list and recycles its cell.
-func (t *smtRelevancyTable) pop(h ast.ASTHandle) {
+// pop drops the newest handler of h's list and returns its pool index.
+func (t *smtRelevancyTable) pop(h ast.ASTHandle) uint32 {
 	index := t.head(h)
 	cell := t.link(index) // an absent list panics (index 0)
+	handler := cell.handler
 	if t.dense(h) {
 		t.heads[h.Slot()] = cell.previous
 	} else if cell.previous == 0 {
@@ -112,4 +113,5 @@ func (t *smtRelevancyTable) pop(h ast.ASTHandle) {
 	}
 	*cell = smtRelevancyLink{previous: t.free}
 	t.free = index
+	return handler
 }

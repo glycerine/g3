@@ -43,8 +43,10 @@ const (
 	smtRelevancyHandlerTrail smtRelevancyTrailKind = iota
 	smtRelevancyPositiveWatchTrail
 	smtRelevancyNegativeWatchTrail
-	smtRelevancyUnlinkedTrail
+	smtRelevancyRefTrail // an owned reference without a list link
 )
+
+const smtRelevancyWatchOwnsParent smtRelevancyTrailKind = 1 << 7
 
 type smtRelevancyTrail struct {
 	kind       smtRelevancyTrailKind
@@ -467,7 +469,11 @@ func (p *SMTRelevancyPropagator) AddAndWatches(parent ast.ASTHandle) error {
 // AddOrWatches installs the shared handler used by the internalizer for a
 // Boolean disjunction. A true child can select itself once parent is relevant.
 func (p *SMTRelevancyPropagator) AddOrWatches(parent ast.ASTHandle) error {
-	handler := smtRelevancyHandler{kind: smtRelevancyOr, target: parent}
+	return p.addOrWatches(parent, smtRelevancyOr)
+}
+
+func (p *SMTRelevancyPropagator) addOrWatches(parent ast.ASTHandle, kind smtRelevancyHandlerKind) error {
+	handler := smtRelevancyHandler{kind: kind, target: parent}
 	count, err := p.validateBasicApplication(parent, ast.ASTOpOr)
 	if err != nil {
 		return err
@@ -1116,21 +1122,28 @@ func (p *SMTRelevancyPropagator) undoTrail(limit int) error {
 	for len(p.trail) > limit {
 		i := len(p.trail) - 1
 		entry := p.trail[i]
-		switch entry.kind {
+		var handler uint32
+		switch entry.kind &^ smtRelevancyWatchOwnsParent {
 		case smtRelevancyHandlerTrail:
 			p.handlers.pop(entry.expression)
 		case smtRelevancyPositiveWatchTrail:
-			p.positiveWatch.pop(entry.expression)
+			handler = p.positiveWatch.pop(entry.expression)
 		case smtRelevancyNegativeWatchTrail:
-			p.negativeWatch.pop(entry.expression)
-		case smtRelevancyUnlinkedTrail:
+			handler = p.negativeWatch.pop(entry.expression)
+		case smtRelevancyRefTrail:
 		default:
 			return ast.ErrASTDomain
 		}
 		p.trail = p.trail[:i]
+		if entry.kind&smtRelevancyWatchOwnsParent != 0 {
+			// This was the last watch to unlink. Its trail slot now owns
+			// just the parent, including if the source decrement fails.
+			parent := p.ehs[handler-1].target
+			p.trail = append(p.trail, smtRelevancyTrail{kind: smtRelevancyRefTrail, expression: parent})
+		}
 		consumed, err := p.context.manager.DecRefConsumed(entry.expression)
 		if !consumed {
-			entry.kind = smtRelevancyUnlinkedTrail
+			entry.kind = smtRelevancyRefTrail
 			p.trail = append(p.trail, entry)
 			if err == nil {
 				return ast.ErrASTPending
@@ -1144,14 +1157,22 @@ func (p *SMTRelevancyPropagator) undoTrail(limit int) error {
 }
 
 func (p *SMTRelevancyPropagator) register(table *smtRelevancyTable, kind smtRelevancyTrailKind, source ast.ASTHandle, handler *smtRelevancyHandler) error {
-	if err := p.context.manager.IncRef(source); err != nil {
+	if handler.kind == smtRelevancyAssertedOr && handler.pooled == 0 {
+		// The first watch owns the shared parent reference and is the last
+		// watch removed when this scope is retired.
+		if err := p.context.manager.IncRefPair(source, handler.target); err != nil {
+			return err
+		}
+		kind |= smtRelevancyWatchOwnsParent
+	} else if err := p.context.manager.IncRef(source); err != nil {
 		return err
 	}
 	p.linkRetained(table, kind, source, handler)
 	return nil
 }
 
-// The trail owns the source reference for each published link.
+// The trail owns the source reference for each link. The first deferred
+// watch of an asserted OR also owns the handler's parent reference.
 func (p *SMTRelevancyPropagator) linkRetained(table *smtRelevancyTable, kind smtRelevancyTrailKind, source ast.ASTHandle, handler *smtRelevancyHandler) {
 	p.trail = append(p.trail, smtRelevancyTrail{kind: kind, expression: source})
 	table.push(source, p.pool(handler))

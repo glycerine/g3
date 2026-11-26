@@ -25,7 +25,7 @@ func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args
 	}
 	for _, literal := range literals {
 		if literal.Var() < SMTFirstBoolVar {
-			return p.AddOrWatches(parent)
+			return p.addOrWatches(parent, smtRelevancyAssertedOr)
 		}
 	}
 	var gate *smtAssertedOr
@@ -59,7 +59,8 @@ func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args
 	return nil
 }
 
-// Each installed watch holds its parent, which owns these registered children.
+// The asserted OR handler holds its parent through the trail. The parent
+// keeps the child slots live, including each syntactic NOT's operand.
 func (t *smtExprTable) recordAt(slot uint32) *smtExprRecord {
 	page := t.pages[slot/smtExprPageSize]
 	return &page.records[slot%smtExprPageSize]
@@ -85,7 +86,7 @@ func (p *SMTRelevancyPropagator) propagateAssertedOr(parent ast.ASTHandle, gate 
 	if record == nil || record.flags&smtExprRelevant == 0 {
 		return nil
 	}
-	if p.internalizer == nil || record.flags&smtExprHasBoolVar != 0 {
+	if gate == nil || p.internalizer == nil || record.flags&smtExprHasBoolVar != 0 {
 		// A later internalization can give the parent a gate and signed
 		// Boolean literals. Use that gate's assignment rules while bound.
 		return p.propagateOr(parent)

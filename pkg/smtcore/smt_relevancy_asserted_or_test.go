@@ -177,3 +177,75 @@ func TestSMTAssertedOrAfterParentVariableReuse(t *testing.T) {
 		t.Fatal("a cleared witness must be reselected in argument order")
 	}
 }
+
+func TestSMTAssertedOrWatchRetainsPremarkedParent(t *testing.T) {
+	for _, mode := range []string{"compact", "reserved-literal"} {
+		t.Run(mode, func(t *testing.T) {
+			m := astTestManager(t)
+			ctx, p, s := smtInternalizerFixture(t, m, nil)
+			terms, literals := benchmarkSMTBooleansForTest(t, m, s, "premarked-or", 2)
+			args := []ast.ASTHandle{terms[0], terms[1]}
+			if mode == "reserved-literal" {
+				falsehood, err := m.MkFalse()
+				astTestMust(t, err)
+				args = append(args, falsehood)
+			}
+			root, err := m.MkOrArray(args)
+			astTestMust(t, err)
+			astTestMust(t, m.IncRef(root))
+			astTestMust(t, s.PushScope())
+			// The checker mark has no owning propagation entry. Assert must
+			// leave a live parent for both deferred watches.
+			astTestMust(t, ctx.SetRelevant(root, true))
+			astTestMust(t, s.Assert(root, ast.ASTHandle{}, 0))
+			astTestMust(t, m.DecRef(root))
+			if !m.IsLiveHandle(root) {
+				t.Error("the deferred watch lost its parent when the caller released it")
+			}
+			args[0], args[1] = args[1], args[0]
+			replacement, err := m.MkOrArray(args)
+			astTestMust(t, err)
+			astTestPin(t, m, replacement)
+			astTestMust(t, ctx.SetRelevant(replacement, true))
+			astTestMust(t, s.AssignLiteral(literals[1], NewSMTBooleanAxiom()))
+			ok, err := s.PropagateCore()
+			astTestMust(t, err)
+			if !ok || !p.IsRelevant(terms[1]) || p.IsRelevant(terms[0]) {
+				t.Fatalf("expected only the true disjunct to become relevant: %v", p.RelevantExpressions())
+			}
+			astTestMust(t, s.PopScopes(1))
+			if m.IsLiveHandle(root) || p.IsRelevant(terms[1]) || !p.IsRelevant(replacement) {
+				t.Fatal("pop did not retire the assertion while preserving the independent mark")
+			}
+		})
+	}
+}
+
+func TestSMTAssertedOrPopRetriesParentAndSourceRelease(t *testing.T) {
+	var p *SMTRelevancyPropagator
+	var refused error
+	m, _, _, trigger := smtQuantifierRefusalFixture(t, func() { refused = p.PopScopes(1) })
+	_, p, s := smtInternalizerFixture(t, m, nil)
+	terms, literals := benchmarkSMTBooleansForTest(t, m, s, "refused-or", 2)
+	root, err := m.MkOrArray(terms)
+	astTestMust(t, err)
+	astTestMust(t, p.PushScope())
+	// One child is already false, leaving one deferred watch that owns
+	// both the parent and the source. The busy manager refuses the source
+	// decrement after that watch has been unlinked.
+	astTestMust(t, s.SetAssignment(literals[0].Var(), lbool.False))
+	astTestMust(t, p.addAssertedOrWatches(root, terms, literals))
+	before, err := m.GetRefCount(terms[1])
+	astTestMust(t, err)
+	trigger()
+	if refused != ast.ErrASTPending || p.positiveWatch.head(terms[1]) != 0 || !m.IsLiveHandle(root) {
+		t.Fatalf("refused pop must unlink the watch and keep its owners: %v", refused)
+	}
+	astTestMust(t, p.PopScopes(1))
+	after, err := m.GetRefCount(terms[1])
+	astTestMust(t, err)
+	// The source loses the watch's reference and the parent's child edge.
+	if m.IsLiveHandle(root) || after+2 != before || p.positiveWatch.head(terms[1]) != 0 {
+		t.Fatalf("retry did not retire both owners: source references %d → %d", before, after)
+	}
+}
