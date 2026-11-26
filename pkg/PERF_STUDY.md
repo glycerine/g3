@@ -6459,3 +6459,47 @@ The memory increase matters at worker scale. With 2,048 clauses in each of 24 in
 In a separate observation run, Ticket rewrote 5,387 roots during its nine physical first pushes. Hybrid rewrote 16,315 roots in 34. A repeat used the same live formula and proof handles, substitution revision, rewrite mode and AND-elimination state. It also returned the same expression. Repeats represented **7,848 of 59,926 rewrite steps on Ticket** and **13,152 of 217,514 on hybrid**. That is 13.1% and 6.0% of tracked steps within these rewrite calls. This census counts resource steps and omits other first-push work. It makes a whole-root cache a lower priority than eliminating repeated work inside a traversal or across shared subexpressions. The next census should match visiting, cache lookup and application reduction on the heaviest hybrid batches against the equivalent Z3 passes. [Observer patch and per-push census](perf/ivy_apple/holdouts/nov26-clause-borrow-and-first-push.tar.xz)
 
 The current release passed the ordinary Go suite across all 114 tracked package directories. Three complete same-core rotations measured Raft at **2.716 / 32.853 s**, raftok at **2.435 / 2.640 s**, Apple dramc_nb2 at **15.992 / 18.987 s**, and Apple rfn2 at **1.626 / 11.071 s** for g3 / linked Z3. Both backends used GoIvy `07cdeec61` and the same ABC executable. The expected output streams and exit status matched on every run. The full Apple ord_live2 comparison continues in its own timing directory. [Current build and timing rows](perf/ivy_apple/holdouts/nov26-clause-borrow-and-first-push.tar.xz)
+
+## November 26 — DIMACS capacity proof and control costs
+
+### Prove the capacity contradiction before CDCL
+
+Counted watched-literal operations agree exactly between g3 at `47792d65b` and the in-tree Z3 fork on the four eight-hole inputs and two satisfiable propagation controls. On the hardest permutation both engines visited **139,941,240** long-clause watches, skipped **66,501,761** on the blocking literal, examined **387,406,208** replacement candidates and moved **60,535,565** watches. With identical work and different instruction counts, the ordinary implementation still has a substantial per-operation gap. [Observer source and all counters](perf/ivy_apple/holdouts/nov26-dimacs-capacity-and-controls.tar.xz)
+
+Commit `35c6ff567` adds a bounded, read-only check in the one-shot DIMACS frontend. Each selected disjunction requires at least one true literal. The selected disjunctions share no variables, so those witnesses must be distinct. A group has capacity one only when the original CNF contains a binary exclusion for every pair of group members. A satisfying assignment would therefore give a matching from the disjunctions to distinct groups. Failure to find such a matching proves UNSAT, including when only a subset has too few groups. Incomplete exclusion components contribute singleton groups. The probe accepts either polarity, and found the contradiction through all three tested renamings and orderings of each input. It caps both the input region examined and the number of watch rows read. The ordinary solver handles an inconclusive probe, tracked cores, trace or verbose runs and constrained resource settings. [Capacity proof](sat/sat_clause_capacity.go) · [DIMACS dispatch](shell/dimacs_frontend.go)
+
+| DIMACS input | Previous g3, ms | Capacity proof build, ms | In-tree Z3, ms |
+| --- | ---: | ---: | ---: |
+| pigeon7 | 112.91 | **17.99** | 44.39 |
+| pigeon7-s0 | 290.97 | **16.64** | 109.16 |
+| pigeon7-s1 | 181.07 | **15.91** | 77.13 |
+| pigeon7-s2 | 172.26 | **15.48** | 71.57 |
+| pigeon8 | 3,133.12 | **16.55** | 1,407.79 |
+| pigeon8-s0 | 3,325.09 | **16.33** | 1,404.07 |
+| pigeon8-s1 | 5,912.26 | **16.10** | 1,929.47 |
+| pigeon8-s2 | 2,498.78 | **16.22** | 1,032.35 |
+
+Three rotations per input ran on CPU 12 with user-mode instruction and cycle counters. Every engine reported UNSAT. The capacity build ran no CDCL decisions or conflicts on these eight inputs. Instructions for pigeon8-s1 fell from **68.35 billion to 4.59 million**, against **11.44 billion** in Z3. This gain applies to inputs with the proved capacity structure within the probe limits. The benchmark's heuristic comparison mode accepts omitted zero search counters. Its ordinary mode still requires matching search statistics. [Benchmark driver](perf/ivy_raft/watch_propagation.py) · [Raw benchmark rows](perf/ivy_apple/holdouts/nov26-dimacs-capacity-and-controls.tar.xz)
+
+The soundness test checks all 32,768 undirected exclusion graphs on six literals against direct enumeration of the eight possible joint witnesses. Solver tests include mixed literal polarity, a strict subset deficiency, a single missing exclusion, a successful matching, a canceled probe and a bounded resource limit. The CLI test exercises the early verdict and the trace-build search fallback. Ordinary SAT, shell and g3 command package suites passed, as did the focused checked/debug/trace tests and vet for SAT and shell. [Solver and exclusion-graph tests](sat/sat_clause_capacity_test.go) · [Command regression](cmd/g3/dimacs_frontend_unsat_test.go)
+
+### Satisfiable DIMACS controls
+
+Z3 writes model values to a buffered C++ stream. Go was invoking formatted output for each value directly on the shell writer. Commit `442c1c1a0` converts literals with `strconv.AppendInt` and writes batches of at most 4 KiB. All six control models remained byte-for-byte identical to the prior g3 build, and the driver checked each against its complete CNF. A focused regression covers positive, negative and omitted values, multiple batches and refusal after a short write. These measurements cover the whole command, including process startup, ingestion, search and output. [Model output](shell/dimacs_model.go) · [Output regression](shell/dimacs_model_test.go)
+
+| Satisfiable input | Before / batched / Z3, ms | Before / batched / Z3, million instructions |
+| --- | ---: | ---: |
+| propagate2 | 38.05 / **30.69** / 20.68 | 106.53 / **93.06** / 48.58 |
+| propagate3 | 46.08 / **36.75** / 20.51 | 183.56 / **158.93** / 60.01 |
+| propagate6 | 56.15 / **45.55** / 23.24 | 250.54 / **231.00** / 87.81 |
+| planted3 | 34.18 / **33.93** / 18.01 | 187.21 / **186.33** / 32.85 |
+| planted5 | 47.16 / **42.91** / 25.68 | 197.91 / **190.92** / 98.83 |
+| planted8 | 66.00 / **61.49** / 36.19 | 360.83 / **353.64** / 190.34 |
+
+Five rotations per input ran on CPU 13 for the release comparison. Another seven-rotation prototype panel agrees on the direction of the change. The remaining gap is **1.48–1.96× elapsed time**. On the propagation chain, output optimization saved 13–25 million instructions, while the remaining excess is 44–143 million. Measure parsing, solver variable and clause creation, solving and model extraction as separate intervals before selecting the next target. [Both comparison panels, tests and model byte check](perf/ivy_apple/holdouts/nov26-dimacs-capacity-and-controls.tar.xz)
+
+### Arena and Ticket trials
+
+Two overlays put the fast location in the existing small-block descriptor footprint while retaining the full generation ledger. The first variant added about **2 live bytes per ternary clause** and increased whole-SAT instructions by **2.0%** across all four eight-hole orderings. A second variant folded the hot validation and lookup into specialized leaves. It moved whole-SAT instructions between **−0.70% and +0.09%**. Its warm ternary-view pass took **390 μs**, versus **335 μs** at baseline and **203 μs** with the duplicate 16-byte directory. Both packed variants passed focused arena checks. The index-based watch scan added instructions. The typed little-endian watch scan reduced instructions by **2.2–3.4%**, with little elapsed improvement on three of the four orderings. All counters matched. These alternatives remain in the study. [Descriptor and scan overlays, measurements and tests](perf/ivy_apple/holdouts/nov26-dimacs-capacity-and-controls.tar.xz)
+
+Removing all dynamic reference-count reads from the compiled candidate checker failed `TestSMTQuantifierCandidateRepeatedDisequality`. The held sort changed on the second candidate. A narrower version avoided only counts when the compiled node has no memo entry. It passed the tests but changed full Ticket median instructions from **3.240 to 3.248 billion** and hybrid from **9.197 to 9.165 billion** across nine qualifying rotations per engine. The corresponding linked Z3 counts were **1.472 and 5.872 billion**. All attempted transcripts matched. These measurements do not support shipping the narrower path. Ticket's materialization and theory reduction and hybrid's first pushes remain the verifier priorities. [Candidate overlays, refusals and complete-verifier counters](perf/ivy_apple/holdouts/nov26-dimacs-capacity-and-controls.tar.xz)
