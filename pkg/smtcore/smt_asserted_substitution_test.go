@@ -3,6 +3,7 @@ package smtcore
 import (
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -230,5 +231,52 @@ func TestSMTAssertedSubstitutionIncompatibleEqualityFallsThrough(t *testing.T) {
 	astTestMust(t, err)
 	if !found || !m.IsTrue(def) {
 		t.Fatal("incompatible equality was not recorded as n -> true", found, def)
+	}
+}
+
+func TestSMTAssertedSubstitutionOrdersSaturatedGroundTerms(t *testing.T) {
+	m := astTestManager(t)
+	k := smtTestKernel(t, m)
+	sort, err := m.MkSort(astTestSymbol(t, m, "saturated-depth-sort"), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	low, err := m.MkFuncDecl(astTestSymbol(t, m, "depth-low"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	high, err := m.MkFuncDecl(astTestSymbol(t, m, "depth-high"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	lowID, err := m.GetASTID(low)
+	astTestMust(t, err)
+	highID, err := m.GetASTID(high)
+	astTestMust(t, err)
+	if lowID >= highID {
+		t.Fatal("the shallow term must win the declaration-ID tie break")
+	}
+	spine, err := m.MkConst(astTestSymbol(t, m, "depth-constant"), sort)
+	astTestMust(t, err)
+	for depth := 1; depth < math.MaxUint16-1; depth++ {
+		spine, err = m.MkApp(low, []ast.ASTHandle{spine})
+		astTestMust(t, err)
+	}
+	shorter, err := m.MkApp(high, []ast.ASTHandle{spine})
+	astTestMust(t, err)
+	wrapped, err := m.MkApp(low, []ast.ASTHandle{spine})
+	astTestMust(t, err)
+	longer, err := m.MkApp(low, []ast.ASTHandle{wrapped})
+	astTestMust(t, err)
+	for _, term := range []ast.ASTHandle{shorter, longer} {
+		depth, err := m.GetDepth(term)
+		astTestMust(t, err)
+		if depth != math.MaxUint16 {
+			t.Fatalf("expected a saturated arena depth, got %d", depth)
+		}
+	}
+	equality, err := m.MkEq(shorter, longer)
+	astTestMust(t, err)
+	smtHoldSubstitutionInput(t, m, equality)
+	astTestMust(t, k.addAssertionSubstitution(SMTKernelAssertion{Formula: equality}, make(map[ast.ASTHandle]uint32)))
+	var value, proof ast.ASTHandle
+	found, err := m.ExprSubstitutionFindProof(k.assertedSubstitution, longer, &value, &proof)
+	astTestMust(t, err)
+	if !found || value != shorter {
+		t.Fatal("the deeper ground term must be replaced with the shallower one")
 	}
 }

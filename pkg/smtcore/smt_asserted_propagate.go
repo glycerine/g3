@@ -6,6 +6,7 @@ package smtcore
 import (
 	"errors"
 	"io"
+	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -23,33 +24,32 @@ func (k *SMTKernel) assertedRelation(h ast.ASTHandle) (ast.ASTHandle, ast.ASTHan
 	return left, right, err == nil, err
 }
 
-func (k *SMTKernel) assertedDepth(h ast.ASTHandle, cache map[ast.ASTHandle]uint32) (uint32, error) {
+// assertedGroundDepth receives a side of a ground equality or one of its
+// children. With no quantifiers, the arena's cached depth uses the same
+// recurrence. Expand saturated nodes to recover the exact ordering.
+func (k *SMTKernel) assertedGroundDepth(h ast.ASTHandle, cache map[ast.ASTHandle]uint32) (uint32, error) {
+	depth, err := k.manager.GetDepth(h)
+	if err != nil || depth < math.MaxUint16 {
+		return depth, err
+	}
 	if value, found := cache[h]; found {
 		return value, nil
 	}
-	kind, err := k.manager.GetKind(h)
+	count, err := k.manager.GetNumArgs(h)
 	if err != nil {
 		return 0, err
 	}
-	depth := uint32(1)
-	if kind == ast.ASTApp {
-		count, err := k.manager.GetNumArgs(h)
+	depth = 1
+	for i := uint32(0); i < count; i++ {
+		child, err := k.manager.GetArg(h, i)
 		if err != nil {
 			return 0, err
 		}
-		for i := uint32(0); i < count; i++ {
-			child, err := k.manager.GetArg(h, i)
-			if err != nil {
-				return 0, err
-			}
-			childDepth, err := k.assertedDepth(child, cache)
-			if err != nil {
-				return 0, err
-			}
-			if childDepth+1 > depth {
-				depth = childDepth + 1
-			}
+		childDepth, err := k.assertedGroundDepth(child, cache)
+		if err != nil {
+			return 0, err
 		}
+		depth = max(depth, childDepth+1)
 	}
 	cache[h] = depth
 	return depth, nil
@@ -79,11 +79,11 @@ func (k *SMTKernel) assertedGreater(left, right ast.ASTHandle, depth map[ast.AST
 	}); err != nil {
 		return false, err
 	}
-	ld, err := k.assertedDepth(left, depth)
+	ld, err := k.assertedGroundDepth(left, depth)
 	if err != nil {
 		return false, err
 	}
-	rd, err := k.assertedDepth(right, depth)
+	rd, err := k.assertedGroundDepth(right, depth)
 	if err != nil || ld != rd {
 		return ld > rd, err
 	}
