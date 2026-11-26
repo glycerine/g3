@@ -149,6 +149,13 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 			destinations = v.watches.lists
 		}
 		records := store.records
+		var denseDestinations []satSolverWatchListRecord
+		// The outer lists append in the same order as a fresh store.
+		// Additional store allocations change the lengths. The first free
+		// can invalidate a reference and later change the allocation order.
+		if destinations != nil && !store.hasFreed && len(records) == len(destinations) {
+			denseDestinations = records
+		}
 		for pos := uint32(0); pos < iter.end; pos++ {
 			if tracing {
 				// A user-supplied trace writer can also relocate a list.
@@ -244,7 +251,12 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				replacement, moved := clause.moveWatch(not, assignment)
 				if moved {
 					i := replacement.Negated().index()
-					dest := currentPropagationList(i, destinations, records, store.origin)
+					var dest *satSolverWatchListRecord
+					if i < uint32(len(denseDestinations)) {
+						dest = &denseDestinations[i]
+					} else {
+						dest = currentPropagationList(i, destinations, records, store.origin)
+					}
 					if dest != nil && dest.appendEncoded(satWatchWords{bits.val1, 2 + uint32(c0)<<2}, iter.backing.owner) {
 						keep = false
 						break

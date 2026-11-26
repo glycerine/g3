@@ -36,6 +36,7 @@ type satSolverWatchStore struct {
 	origin, ownerBytes uint64
 	free               uint32
 	closed             bool
+	hasFreed           bool
 }
 
 func newSATSolverWatchStore(b *arena.Budget) (*satSolverWatchStore, error) {
@@ -278,6 +279,7 @@ func (s *satSolverWatchStore) Free(r satSolverWatchListRef) error {
 		return e
 	}
 	x.live = false
+	s.hasFreed = true
 	if x.generation == ^uint32(0) {
 		x.retired = true
 		return nil

@@ -6797,3 +6797,33 @@ Seven same-core rotations per verifier used GoIvy `07cdeec61`, the same ABC bina
 Passing the operand vector alone saved 0.34% and 0.25% on the Ticket replays. A 128-entry, 20 KiB weak recipe cache keyed by the quantifier and exact rewritten body offered no consistent additional reduction. Transferring the lemma reference directly into the queue avoided a retain/release pair and had a mixed effect on the toy control. The combined cache and reference-transfer overlay improved CLI Ticket instructions by up to 1.46% and increased toy consensus instructions by 2.23%. The released path shares a single assertion's operand slice and resolves each use against the current bindings. [Independent overlays](perf/ivy_apple/holdouts/nov26-instance-operands.tar.xz)
 
 The new scope test retires the atom's variable, reuses its index for a different expression, and then checks the signed literal after rebinding the original atom. It also exercises the nested NOT fallback. The ordinary SMT core, API and command suites, focused checked/debug/trace tests and vet passed. [Scope regression](smtcore/smt_internalizer_test.go) · [Test logs](perf/ivy_apple/holdouts/nov26-instance-operands.tar.xz)
+
+## November 26 — Matched SAT watch visits and literal inspections
+
+The Go and in-tree C++ observers counted the same work inside the propagation loop on all three inputs. This includes list visits, each watch kind, blocked clauses, true companion watches, individual tail literals inspected, watch moves, units and conflicts. Observations came from untimed builds and matched the release search counters. Pigeon8 used ordinary CDCL with verbosity 2. [Paired census and build script](perf/ivy_apple/holdouts/nov26-sat-watch-census.tar.xz)
+
+| Complete input | Watch visits | Blocked clause visits | Tail literals inspected | Watch moves |
+| --- | ---: | ---: | ---: | ---: |
+| Random 208 UNSAT | 63,464,181 | 32,181,268 | 45,972,761 | 20,074,268 |
+| Random 208 SAT | 25,171,738 | 12,090,981 | 18,750,716 | 7,646,417 |
+| Ordinary permuted pigeon8 | 123,853,701 | 58,968,339 | 308,332,456 | 51,382,214 |
+
+The matched uninstrumented executions retired **20.67 / 4.16 billion** instructions on the hard UNSAT case and **7.09 / 1.55 billion** on the hard SAT case, g3 / Z3. Each engine ran three fresh profiles per case, at one sample per 1,500,007 user instructions, with zero throttle or loss records. The Go propagation loop's own code accounted for 32.69% and 38.64% of Go samples, alongside 20.37% and 16.27% in arena borrow. The native loop accounted for 58.56% and 64.60% of native samples. On hard UNSAT these translate to about **106 versus 38 instructions per watch visit from the two loop bodies alone**. That normalization uses the whole propagation loop sample, including list setup, and excludes work attributed to callees. The Go arena borrow is also used by subsumption and conflict analysis. On hard UNSAT approximately two thirds of its attributed samples came from propagation stacks and about a quarter from subsumption. [Decoded samples and attribution](perf/ivy_apple/holdouts/nov26-sat-watch-census.tar.xz)
+
+A loop specialized for ordinary propagation saved 1.40% and 1.66% of whole-process instructions on the hard pair. Cycles increased by about 1% in both cases. Separately, borrowing the page directory once and decoding the full clause reference only when needed saved about 0.5% of instructions on the hard pair and 1.6% on pigeon8. Using a typed tail view alone saved 3.25% on pigeon8, with a small elapsed-time increase. All of these retained the same decisions, conflicts and propagation counts. [Independent variants and matched measurements](perf/ivy_apple/holdouts/nov26-sat-watch-census.tar.xz)
+
+### Direct destination lookup in a fresh watch store
+
+The outer watch lists and the store append in the same order until the first free. Propagation can index the store's records directly while their lengths match and trace and extension callbacks are inactive. An extra allocation in the store changes the lengths. The first free disables direct indexing for this store, because a live slot can then belong to a different reference. An early dense-prefix attempt accepted a deliberately stale reference in `TestSATPropagationMoveToRecycledList`. The released guard passes that test and keeps the checked path for reused destinations. [Store ownership](sat/sat_solver_watch_store.go) · [Propagation](sat/sat_solver_propagation.go) · [Recycled-list test](sat/sat_solver_propagation_test.go)
+
+| Complete input | Previous g3 | Released g3 | In-tree Z3 | Change in g3 instructions |
+| --- | ---: | ---: | ---: | ---: |
+| Random 208 UNSAT | 1,901 ms | **1,869 ms** | 788 ms | **−2.21%** |
+| Random 208 SAT | 705 ms | **692 ms** | 310 ms | **−2.47%** |
+| Ordinary permuted pigeon8 | 2,879 ms | **2,767 ms** | 1,419 ms | **−3.21%** |
+| Planted ternary, stdin | 32.73 ms | 32.78 ms | 20.28 ms | −0.003% |
+| Planted width eight, stdin | 57.43 ms | 59.48 ms | 70.33 ms | −1.37% |
+
+Seven same-core rotations covered the hard and planted cases, and five covered ordinary pigeon8. Every comparison matched decisions, conflicts and the three propagation counters. The driver verified each satisfying assignment against all clauses. Adding the borrowed physical directory to direct destination lookup had mixed results. [Final panels and independent variants](perf/ivy_apple/holdouts/nov26-sat-watch-census.tar.xz)
+
+Five complete GoIvy rotations per case matched both output streams and exit status. With default GC, instruction medians moved +0.55% on Ticket, −0.14% on hybrid and +1.41% on ARM. With automatic GC disabled, the three differences were within 0.03%. The ordinary arena, SAT and CLI suites passed, as did focused checked tests, the instrumented SAT and arena suites, and vet. [Verifier controls and test logs](perf/ivy_apple/holdouts/nov26-sat-watch-census.tar.xz)
