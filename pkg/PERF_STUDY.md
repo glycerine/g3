@@ -6520,3 +6520,24 @@ Commit `c8512b43d` sorts short lists using direct unsigned literal comparisons a
 | planted8 | 61.94 / 59.64 / 36.45 | 352.83 / **328.69** / 190.34 |
 
 The release comparison used nine rotations on CPU 13. All satisfying models checked against the input, and the search counters matched across all three engines. Whole-command instructions fell by **1.6–7.9%**, with mixed elapsed results on the shorter inputs. SAT, incremental SAT, shell and checked/debug/trace SAT passed, as did vet for SAT. Borrowing a clause once while attaching its watches reduced instructions by about **8% on the ternary chain** in a separate prototype. Validate the read bounds and the existing prefix on a refused append before adopting it. A separate zero-activity queue prototype saved up to **3.2 million instructions** with mixed elapsed results and stays experimental. The search-heavy planted3 control needs phase counts on propagation, cleaning and conflict analysis, with exact matched decisions and conflicts. [Individual alternatives and combined results](perf/ivy_apple/holdouts/nov26-dimacs-ingestion.tar.xz)
+
+### Reuse clause reads during attachment and propagation
+
+Commit `6ed5d6e09` reads all three ternary literals once before appending their watches. A long clause borrows its current storage after any scoped assignment and checks the blocking and watched literals in their original order. Propagation uses a single list lookup to capture the initial backing and count. It still revalidates the current list before publishing the new end. The scoped attachment, failure-prefix, extension and trace tests passed in the ordinary and checked builds. [Attachment and ordering](sat/sat_solver_clause_attach.go) · [Propagation](sat/sat_solver_propagation.go)
+
+| Satisfiable DIMACS input | Previous g3 / new g3 / Z3, ms | Previous g3 / new g3 / Z3, million instructions |
+| --- | ---: | ---: |
+| propagate2 | 29.89 / 31.25 / 20.54 | 89.09 / **86.03** / 48.58 |
+| propagate3 | 36.31 / 35.79 / 20.91 | 152.33 / **136.07** / 60.01 |
+| propagate6 | 44.64 / 43.68 / 23.20 | 221.97 / **214.43** / 87.81 |
+| planted3 | 33.71 / 33.16 / 18.65 | 183.28 / **170.83** / 32.85 |
+| planted5 | 41.29 / 40.09 / 25.54 | 175.82 / **164.84** / 98.83 |
+| planted8 | 59.26 / 56.91 / 35.81 | 329.06 / **315.47** / 190.34 |
+
+Nine rotations on CPU 13 matched every verdict, decision count and conflict count, and verified each satisfying model. Retired instructions fell by **3.4–10.7%**. Five inputs had lower median elapsed time. The binary propagation chain took 1.36 ms longer in this rotation. Elapsed time across these controls remains **1.52–1.88×** Z3. The next comparison should bracket conflict analysis, clause cleanup and propagation on planted3, where the two solvers make 465 decisions and see 114 conflicts and g3 still retires **5.20×** the native instructions. [Counters and tests](perf/ivy_apple/holdouts/nov26-watch-attachment-and-proof-checks.tar.xz)
+
+### Complete Apple timing and rewriter holdouts
+
+The separate full Apple `ord_live2` timing completed three qualifying pairs on CPU 19 with GoIvy `07cdeec61` and the same ABC executable. The g3 binary used `47792d65b`. Its median was **143.28 s** versus **488.97 s** for linked Z3. Each transcript contained 1,986 PASS lines. The two additional native attempts matched the transcript and missed the preset sibling-idle threshold. The archive retains them and the build manifest. [Complete timings and transcript](perf/ivy_apple/holdouts/nov26-watch-attachment-and-proof-checks.tar.xz)
+
+With g3 at `c8512b43d`, three paired Ticket runs with direct timing measured **0.428 / 0.219 s**. Hybrid took **1.316 / 0.886 s** in the paired hardware-counter comparison. Both backends matched both output streams and exit status. A theory-rewriter prototype read a basic equality's fixed shape and both arguments through one AST access. Ordinary AST and rewriter tests passed. Nine paired observations per engine moved the Ticket median from **3.227 to 3.218 billion instructions**, and hybrid from **9.164 to 9.159 billion**. The prototype remains experimental. The low yield of this and the earlier candidate-refcount trial motivates counting and eliminating complete reducer or materialization work. [Verifier comparisons, build manifests and overlay](perf/ivy_apple/holdouts/nov26-watch-attachment-and-proof-checks.tar.xz)
