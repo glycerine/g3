@@ -28,6 +28,7 @@ type rewriterEngine struct {
 	ready, closed            bool
 	substituteVariables      bool
 	modelBooleanShortCircuit bool
+	skipResumeCacheProbe     bool
 }
 
 func newRewriterEngine(m *ast.ASTManager, cfg Configuration) (*rewriterEngine, error) {
@@ -52,6 +53,11 @@ func (r *rewriterEngine) initMode(m *ast.ASTManager, cfg Configuration, proofGen
 	r.cfg = cfg
 	_, beta := cfg.(*betaReducerConfig)
 	r.substituteVariables = beta && !proofGen && !ast.ASTValidateHandles
+	_, theory := cfg.(*theoryRewriterConfiguration)
+	// visit already probed the cache. The standard theory configuration's
+	// pre-visit and frame checks cannot publish a result before the first
+	// step. Custom configurations can update the cache through callbacks.
+	r.skipResumeCacheProbe = r.substituteVariables || theory && !proofGen && !ast.ASTValidateHandles && !ast.ASTSourceDebug
 	if e := r.core.init(m, proofGen); e != nil {
 		return e
 	}
@@ -1186,9 +1192,7 @@ func (r *rewriterEngine) resume(out, proof ast.ASTRef) error {
 		}
 		fr := c.frames[len(c.frames)-1]
 		t := fr.curr
-		// visitSubstitution probes the cache immediately before pushing a beta
-		// frame. No other frame can publish a result before this first step.
-		if !r.substituteVariables && fr.state() == 0 && fr.index() == 0 && fr.cacheResult() {
+		if !r.skipResumeCacheProbe && fr.state() == 0 && fr.index() == 0 && fr.cacheResult() {
 			h, e := c.getCached(t)
 			if e != nil {
 				return e

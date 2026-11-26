@@ -268,6 +268,42 @@ func rewriterTestApp(t *testing.T, m *ast.ASTManager, d, arg ast.ASTHandle) ast.
 	astTestPin(t, m, h)
 	return h
 }
+
+type rewriterPreVisitCacheConfig struct {
+	DefaultConfiguration
+	engine     *rewriterEngine
+	key, value ast.ASTHandle
+}
+
+func (c *rewriterPreVisitCacheConfig) PreVisit(term ast.ASTHandle) (bool, error) {
+	if term == c.key {
+		return true, c.engine.core.cache.Insert(term, c.value)
+	}
+	return true, nil
+}
+
+func TestRewriterEngineProbesCacheAfterCustomPreVisit(t *testing.T) {
+	m := astTestManager(t)
+	a := goalTestAtom(t, m, "previsit-a")
+	b := goalTestAtom(t, m, "previsit-b")
+	d := rewriterTestDecl(t, m, "previsit-f")
+	child := rewriterTestApp(t, m, d, a)
+	root := rewriterTestApp(t, m, d, child)
+	want := rewriterTestApp(t, m, d, b)
+	out := astTestPin(t, m, ast.ASTHandle{})
+	cfg := rewriterPreVisitCacheConfig{key: child, value: b}
+	rw, err := newRewriterEngine(m, &cfg)
+	satOK(t, err)
+	defer func() { satOK(t, rw.Close()) }()
+	cfg.engine = rw
+	satOK(t, rw.Rewrite(root, out))
+	got, err := m.RefGet(out)
+	satOK(t, err)
+	if got != want {
+		t.Fatalf("custom pre-visit cache entry was ignored: got %v, want %v", got, want)
+	}
+}
+
 func TestRewriterEngineOriginalBoundedRevisitDepthsAndSubstitution(t *testing.T) {
 	m := astTestManager(t)
 	a := goalTestAtom(t, m, "depth-a")
