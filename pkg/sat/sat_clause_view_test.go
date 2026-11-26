@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func satViewAllocator(t *testing.T) *ClauseAllocator {
@@ -140,5 +141,44 @@ func TestClauseViewDoesNotAllocate(t *testing.T) {
 		view.setFlag(satClauseFlagUsed)
 	}); allocs != 0 {
 		t.Fatalf("%v allocations", allocs)
+	}
+}
+
+func TestClauseViewMoveWatchPreservesLiteralOrder(t *testing.T) {
+	for _, width := range []int{2, 5, 6, 7, 10, 17, 18, 19, 64} {
+		view := satClauseView(make([]byte, satClauseLiteralsOffset+4*width))
+		view.setWord(1, uint32(width))
+		assignment := make([]lbool.LBool, 2*width)
+		// Exercise every return position, including a false tail and the
+		// transition from a complete group to the remaining literals.
+		for first := 2; first <= width; first++ {
+			for index := range assignment {
+				assignment[index] = lbool.False
+			}
+			for index := range width {
+				view.setLiteral(uint32(index), Literal(2*index))
+			}
+			if first < width {
+				assignment[2*(width-1)] = lbool.True
+				assignment[2*first] = lbool.Undef
+			}
+			const falsified = Literal(2)
+			replacement, moved := view.moveWatch(falsified, assignment)
+			if moved != (first < width) || moved && replacement != Literal(2*first) {
+				t.Fatalf("width %d, first candidate at %d: got (%d, %t)", width, first, replacement, moved)
+			}
+			for index := range width {
+				want := Literal(2 * index)
+				switch {
+				case moved && index == 1:
+					want = replacement
+				case moved && index == first:
+					want = falsified
+				}
+				if got := view.literal(uint32(index)); got != want {
+					t.Fatalf("width %d, first candidate at %d, slot %d: want %d, got %d", width, first, index, want, got)
+				}
+			}
+		}
 	}
 }

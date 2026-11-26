@@ -233,16 +233,42 @@ func (v satClauseView) moveWatch(falsified Literal, assignment []lbool.LBool) (L
 		return 0, false
 	}
 	rest := v[satClauseLiteralsOffset+8 : satClauseLiteralsOffset+4*uint64(n)]
+	// Read four candidates from one bounded group. Stop at the first
+	// non-false literal, in clause order, before testing the remaining tail.
+	for len(rest) >= 16 {
+		group := rest[:16]
+		first := Literal(binary.LittleEndian.Uint32(group))
+		if assignment[first.index()] != lbool.False {
+			return v.installWatch(falsified, first, group)
+		}
+		second := Literal(binary.LittleEndian.Uint32(group[4:]))
+		if assignment[second.index()] != lbool.False {
+			return v.installWatch(falsified, second, group[4:])
+		}
+		third := Literal(binary.LittleEndian.Uint32(group[8:]))
+		if assignment[third.index()] != lbool.False {
+			return v.installWatch(falsified, third, group[8:])
+		}
+		fourth := Literal(binary.LittleEndian.Uint32(group[12:]))
+		if assignment[fourth.index()] != lbool.False {
+			return v.installWatch(falsified, fourth, group[12:])
+		}
+		rest = rest[16:]
+	}
 	for len(rest) >= 4 {
 		replacement := Literal(binary.LittleEndian.Uint32(rest))
 		if assignment[replacement.index()] != lbool.False {
-			v.setLiteral(1, replacement)
-			binary.LittleEndian.PutUint32(rest, uint32(falsified))
-			return replacement, true
+			return v.installWatch(falsified, replacement, rest)
 		}
 		rest = rest[4:]
 	}
 	return 0, false
+}
+
+func (v satClauseView) installWatch(falsified, replacement Literal, previous []byte) (Literal, bool) {
+	binary.LittleEndian.PutUint32(v[satClauseLiteralsOffset+4:], uint32(replacement))
+	binary.LittleEndian.PutUint32(previous, uint32(falsified))
+	return replacement, true
 }
 
 func (a *ClauseAllocator) allocate(n uint32) (StoredClauseRef, error) {
