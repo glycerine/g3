@@ -278,25 +278,16 @@ func (v satClauseUseListView) EraseNotRemoved(c StoredClauseRef) error {
 			return e
 		}
 	}
-	for i := uint32(0); uint64(i) < uint64(len(r.payload)); i++ {
-		x, e := v.read(i)
-		if e != nil {
-			return e
-		}
-		if x != c {
+	// No callbacks run while moving these references. Keep the list's order
+	// so subsumption sees the remaining clauses in the same sequence.
+	for i, ref := range r.payload {
+		if ref != c {
 			continue
 		}
-		for j := i + 1; uint64(j) < uint64(len(r.payload)); j++ {
-			x, e = v.read(j)
-			if e != nil {
-				return e
-			}
-			if e = v.write(j-1, x); e != nil {
-				return e
-			}
-		}
-		r.payload[len(r.payload)-1] = StoredClauseRef{}
-		r.payload = r.payload[:len(r.payload)-1]
+		copy(r.payload[i:], r.payload[i+1:])
+		end := len(r.payload) - 1
+		clear(r.payload[end:])
+		r.payload = r.payload[:end]
 		break
 	}
 	r.liveSize--
