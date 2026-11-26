@@ -126,16 +126,14 @@ func (p *SMTRelevancyPropagator) negatedArgument(expression ast.ASTHandle) (ast.
 	return child, err
 }
 
-// Source context::add_rel_watch receives a literal, then watches its positive
-// expression and signed truth value. Normalize before looking up watch keys.
+// Source context::get_literal strips one NOT. Its operand can have its own
+// Boolean variable, whose assignment event is what add_rel_watch watches.
 func (p *SMTRelevancyPropagator) literalWatch(expression ast.ASTHandle, value bool) (ast.ASTHandle, bool, error) {
-	for {
-		child, err := p.negatedArgument(expression)
-		if err != nil || child.IsNull() {
-			return expression, value, err
-		}
-		expression, value = child, !value
+	child, err := p.negatedArgument(expression)
+	if err != nil || child.IsNull() {
+		return expression, value, err
 	}
+	return child, !value, nil
 }
 
 func (p *SMTRelevancyPropagator) addLiteralWatch(expression ast.ASTHandle, value bool, handler *smtRelevancyHandler) error {

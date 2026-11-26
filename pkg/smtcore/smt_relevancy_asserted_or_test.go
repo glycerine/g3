@@ -93,6 +93,58 @@ func TestSMTAssertedOrNestedNot(t *testing.T) {
 	}
 }
 
+func TestSMTRelevancyWatchesNestedNotLiteral(t *testing.T) {
+	for _, mode := range []string{"asserted", "bound"} {
+		t.Run(mode, func(t *testing.T) {
+			m := astTestManager(t)
+			_, p, s := smtInternalizerFixture(t, m, nil)
+			a := smtRelevancyBool(t, m, "watch-nested-not-a")
+			b := smtRelevancyBool(t, m, "watch-nested-not-b")
+			seed := smtRelevancyBool(t, m, "watch-nested-not-seed")
+			marker := smtRelevancyBool(t, m, "watch-nested-not-marker")
+			inner, err := m.MkNot(a)
+			astTestMust(t, err)
+			outer, err := m.MkNot(inner)
+			astTestMust(t, err)
+			parent, err := m.MkOr(outer, b)
+			astTestMust(t, err)
+			astTestMust(t, s.Internalize(inner, false))
+			astTestMust(t, s.Internalize(seed, true))
+			if mode == "asserted" {
+				astTestMust(t, s.Assert(parent, ast.ASTHandle{}, 0))
+			} else {
+				astTestMust(t, s.Internalize(parent, true))
+				astTestMust(t, s.markRelevant(parent))
+			}
+			astTestMust(t, p.AddWatchTarget(seed, true, marker))
+			if p.IsRelevant(outer) || p.IsRelevant(marker) {
+				t.Fatal("watch fired before an assignment")
+			}
+			outerLit, err := s.Literal(outer)
+			astTestMust(t, err)
+			seedLit, err := s.Literal(seed)
+			astTestMust(t, err)
+			astTestMust(t, s.AssignLiteral(outerLit, NewSMTBooleanAxiom()))
+			astTestMust(t, s.AssignLiteral(seedLit, NewSMTBooleanAxiom()))
+			ok, err := s.PropagateCore()
+			astTestMust(t, err)
+			if !ok {
+				t.Fatal("unexpected Boolean conflict")
+			}
+			// The signed literal for outer is on inner's variable. Boolean
+			// propagation assigns a later, after the independent seed.
+			marks := p.RelevantExpressions()
+			outerIndex, markerIndex := slices.Index(marks, outer), slices.Index(marks, marker)
+			if outerIndex < 0 || markerIndex < 0 || outerIndex >= markerIndex {
+				t.Fatalf("the outer NOT watch must fire before the seed watch, got indices %d and %d", outerIndex, markerIndex)
+			}
+			if !p.IsRelevant(a) || p.IsRelevant(b) {
+				t.Fatal("relevance did not follow the true disjunct")
+			}
+		})
+	}
+}
+
 func TestSMTAssertedOrAfterParentVariableReuse(t *testing.T) {
 	m := astTestManager(t)
 	ctx, p, s := smtInternalizerFixture(t, m, nil)
