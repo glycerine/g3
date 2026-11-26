@@ -123,20 +123,15 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 		if e != nil {
 			return false, e
 		}
-		count, e := list.Size()
+		store := v.watches.store
+		record, e := store.record(v.watches.lists[l.index()])
 		if e != nil {
-			return false, e
+			return false, arena.ErrInvalidSlot
 		}
+		count := uint32(len(record.values()))
 		s.asymmCounter = int32(uint32(s.asymmCounter) - count)
 		s.probingCounter = int32(uint32(s.probingCounter) - count)
-		ref, e := list.ref()
-		if e != nil {
-			return false, e
-		}
-		iter, e := v.watches.store.Iter(ref)
-		if e != nil {
-			return false, e
-		}
+		iter := satSolverWatchIterator{store: store, backing: record.backing, end: count}
 		out := uint32(0)
 		// The list keeps its backing through this loop, since a clause's new
 		// watch is never this literal's. Only an extension can reallocate it.
@@ -151,7 +146,6 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 		// Assignment can call out through a trace or extension. Only borrow the
 		// directory across watch moves when both are inactive.
 		var destinations []satSolverWatchListRef
-		store := v.watches.store
 		if !tracing && !satStorageSourceDebug && !s.extensionPresent {
 			destinations = v.watches.lists
 		}

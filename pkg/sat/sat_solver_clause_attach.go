@@ -1,6 +1,7 @@
 package sat
 
 import (
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -77,19 +78,21 @@ func (s *satSolverClauseLifecycle) pushReinitStack(c StoredClauseRef) error {
 func (s *satSolverClauseLifecycle) attachTerClause(c StoredClauseRef) (bool, error) {
 	a := s.propagation.clauses
 	p := s.propagation
-	for i := uint32(0); i < 3; i++ {
-		l, e := a.Literal(c, i)
-		if e != nil {
-			return false, e
+	view, err := a.view(c)
+	if err != nil {
+		return false, err
+	}
+	// The first watch already requires all three literals. Appending watches
+	// makes no callbacks, so the same values serve each subsequent watch.
+	var literals [3]Literal
+	for i := range literals {
+		literals[i], err = view.attachmentLiteral(uint32(i))
+		if err != nil {
+			return false, err
 		}
-		x, e := a.Literal(c, (i+1)%3)
-		if e != nil {
-			return false, e
-		}
-		y, e := a.Literal(c, (i+2)%3)
-		if e != nil {
-			return false, e
-		}
+	}
+	for i, lit := range literals {
+		x, y := literals[(i+1)%3], literals[(i+2)%3]
 		if i == 1 {
 			x, y = y, x
 		}
@@ -97,7 +100,7 @@ func (s *satSolverClauseLifecycle) attachTerClause(c StoredClauseRef) (bool, err
 		if e != nil {
 			return false, e
 		}
-		if e = s.pushWatch(l.Negated(), w); e != nil {
+		if e = s.pushWatch(lit.Negated(), w); e != nil {
 			return false, e
 		}
 	}
@@ -109,10 +112,7 @@ func (s *satSolverClauseLifecycle) attachTerClause(c StoredClauseRef) (bool, err
 			} else if i == 2 {
 				j, k = 0, 1
 			}
-			x, e := a.Literal(c, j)
-			if e != nil {
-				return false, e
-			}
+			x := literals[j]
 			v, e := p.variables.valueLiteral(x)
 			if e != nil {
 				return false, e
@@ -120,10 +120,7 @@ func (s *satSolverClauseLifecycle) attachTerClause(c StoredClauseRef) (bool, err
 			if v != lbool.False {
 				continue
 			}
-			y, e := a.Literal(c, k)
-			if e != nil {
-				return false, e
-			}
+			y := literals[k]
 			v, e = p.variables.valueLiteral(y)
 			if e != nil {
 				return false, e
@@ -131,12 +128,8 @@ func (s *satSolverClauseLifecycle) attachTerClause(c StoredClauseRef) (bool, err
 			if v != lbool.False {
 				continue
 			}
-			l, e := a.Literal(c, i)
-			if e != nil {
-				return false, e
-			}
 			p.ternaryPropagations++
-			return true, p.assign(l, newSATTernaryJustification(x, y))
+			return true, p.assign(literals[i], newSATTernaryJustification(x, y))
 		}
 	}
 	return false, nil
@@ -235,11 +228,16 @@ func (s *satSolverClauseLifecycle) attachNaryClause(c StoredClauseRef) (bool, er
 			}
 		}
 	}
-	n, e := a.Size(c)
+	// A scoped assignment above can call out. Borrow the current storage
+	// after it, and check the two watched literals in their original order.
+	view, e := a.view(c)
 	if e != nil {
 		return false, e
 	}
-	block, e := a.Literal(c, n>>1)
+	if len(view) < 8 {
+		return false, arena.ErrBounds
+	}
+	block, e := view.attachmentLiteral(view.size() >> 1)
 	if e != nil {
 		return false, e
 	}
@@ -248,7 +246,7 @@ func (s *satSolverClauseLifecycle) attachNaryClause(c StoredClauseRef) (bool, er
 		return false, e
 	}
 	for i := uint32(0); i < 2; i++ {
-		l, e := a.Literal(c, i)
+		l, e := view.attachmentLiteral(i)
 		if e != nil {
 			return false, e
 		}
@@ -257,6 +255,21 @@ func (s *satSolverClauseLifecycle) attachNaryClause(c StoredClauseRef) (bool, er
 		}
 	}
 	return reinit, nil
+}
+
+func (v satClauseView) attachmentLiteral(i uint32) (Literal, error) {
+	if satStorageSourceDebug {
+		if len(v) < 8 {
+			return 0, arena.ErrBounds
+		}
+		if i >= v.size() {
+			return 0, ErrSATAssertion
+		}
+	}
+	if satClauseLiteralsOffset+4*(uint64(i)+1) > uint64(len(v)) {
+		return 0, arena.ErrBounds
+	}
+	return v.literal(i), nil
 }
 func (s *satSolverClauseLifecycle) attach(c StoredClauseRef) (bool, error) {
 	if e := s.open(); e != nil {
