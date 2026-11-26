@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/sat"
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -139,7 +140,17 @@ func (f *DIMACSFrontend) RunContext(ctx context.Context) (err error) {
 		}
 		defer func() { err = errors.Join(err, active.Close()) }()
 	}
-	status, err := active.Check(assumptions)
+	status := lbool.Undef
+	if !core && !diagnostic.TraceCompiled() {
+		var contradiction bool
+		contradiction, err = active.ProbeClauseCapacity()
+		if contradiction {
+			status = lbool.False
+		}
+	}
+	if err == nil && status == lbool.Undef {
+		status, err = active.Check(assumptions)
+	}
 	if signals.InterruptCount() != 0 {
 		return finishInterrupt(active)
 	}

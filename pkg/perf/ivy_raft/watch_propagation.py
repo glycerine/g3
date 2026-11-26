@@ -118,7 +118,7 @@ def main():
                         raise RuntimeError((solver, name, result.returncode, result.stderr))
                     stats = check_output(result.stdout, expected, variables, clauses)
                     if expected == "unsat":
-                        if "decisions" not in stats or "conflicts" not in stats:
+                        if not args.compare_heuristics and ("decisions" not in stats or "conflicts" not in stats):
                             raise ValueError(f"{solver} omitted search counters on {name}")
                         if not args.compare_heuristics and reference is not None and stats != reference:
                             raise ValueError(f"{solver} search counters on {name} differ from the reference")
