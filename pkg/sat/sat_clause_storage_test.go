@@ -300,6 +300,43 @@ func TestSATClauseWideExtentAndBudgetRefusal(t *testing.T) {
 		satOK(t, arena.ValidateRecordType(typ))
 	}
 }
+
+func TestSATClauseDirectArenaBoundary(t *testing.T) {
+	budget := arena.NewBudget(1 << 20)
+	a, err := NewSATClauseAllocator(satClauseAllocatorConfig{
+		Storage:        arena.SmallBytesConfig{Descriptors: arena.Config{Budget: budget}},
+		PooledOverride: true,
+	})
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, a.Close()) })
+	// The 20-byte clause header places these widths on opposite sides of 248 bytes.
+	var literals [57]Literal
+	for i := range literals {
+		literals[i] = Literal(2 * i)
+	}
+	pooled := satMk(t, a, literals[:56], false)
+	direct := satMk(t, a, literals[:], false)
+	if pooled.storageKind != 0 || direct.storageKind != 1 || a.storage.Stats().Live != 1 {
+		t.Fatal("clauses were routed to the wrong stores", pooled, direct)
+	}
+	offset, err := a.Offset(direct)
+	satOK(t, err)
+	satOK(t, a.Delete(direct))
+	if a.largeBytes != 0 || !a.IsLive(pooled) {
+		t.Fatal("direct release did not return its payload budget")
+	}
+	reused := satMk(t, a, literals[:], false)
+	if reused.slot != direct.slot || reused.generation <= direct.generation {
+		t.Fatal("direct storage did not advance the recycled slot", direct, reused)
+	}
+	if _, err := a.GetClause(offset); err != arena.ErrInvalidSlot {
+		t.Fatal("recycled direct clause revived a stale watch offset", err)
+	}
+	satOK(t, a.Close())
+	if budget.Used() != 0 {
+		t.Fatal("closing the clause allocator left a budget charge", budget.Used())
+	}
+}
 func TestSATClauseElimUnsignedWrapBoundary(t *testing.T) {
 	for _, c := range []struct {
 		size, index uint32

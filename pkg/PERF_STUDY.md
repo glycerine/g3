@@ -6714,3 +6714,27 @@ For 24 independent allocators holding 2,048 ternary clauses each, the simple 64-
 The SAT fixture retains 32 ternary clauses per worker at the base point and adds and retires 2,048 clauses per worker per iteration. The final rows are seven repetitions with three iterations. Forced-GC snapshots measure retained heap and are outside the timed intervals. The hybrid's ordinary SAT, arena and shell suites and checked/debug/trace SAT and arena suites passed with its ownership audit updated to count both stores. The original SCC fixture counted only small blocks, and failed when its 512-literal clause moved to the checked direct allocator. The updated audit checks liveness, uniqueness and the entire budget across both stores. Before integration, simplify the hybrid to its two used storage paths, charge both owner configurations explicitly, and recheck propagation, mixed warm retirement and complete hybrid, Ticket and ARM verifier holdouts. [Hybrid overlay and audit patch](perf/ivy_apple/holdouts/nov26-physical-clause-arena.tar.xz)
 
 The hybrid took **1.915 s and 0.706 s** on the hard pair in five rotations. Its paired Z3 times were **0.785 s and 0.311 s**. The baseline UNSAT timings varied between machine-load conditions, so the prior reclaiming panel is the cleaner estimate of the speedup. The hybrid kept identical search counters throughout. It also passed checked-handle tests with physical storage enabled, focused checkptr, and the test that retires an exhausted generation. [Hybrid timings and test logs](perf/ivy_apple/holdouts/nov26-physical-clause-arena.tar.xz)
+
+## November 26 — Release physical SAT clause pages
+
+The SAT allocator now places default pooled clauses on physical arena pages. Wide clauses go through the existing checked direct store at the 248-byte threshold. Explicit small-block configurations, temporary clauses and the source-debug direct path use `SmallBytes`. The arena charges its owner, class heads, directory and full backing pages, including the compatibility owner. Failed growth or reactivation leaves the existing charge and handles intact. Reopening a released page advances the generation beyond every generation that page issued. [Arena implementation](arena/clause_pages.go) · [SAT routing](sat/sat_clause_storage.go) · [Budget and lifetime tests](arena/clause_pages_test.go)
+
+| Input | Median elapsed, previous / release / in-tree Z3 | Billion cycles, previous / release |
+| --- | ---: | ---: |
+| Random 208, seed 3, UNSAT | 2,155 / **1,906** / 789 ms | 9.033 / **7.948** |
+| Random 208, seed 4, SAT | 760 / **707** / 308 ms | 3.141 / **2.848** |
+| Planted ternary, stdin | 33.11 / 33.11 / 20.17 ms | 0.0647 / 0.0620 |
+| Planted width eight, stdin | 59.41 / 57.15 / 68.20 ms | 0.1498 / 0.1456 |
+| Permuted pigeon8, ordinary CDCL | 3,348 / **2,888** / 1,422 ms | 14.123 / **12.148** |
+
+Seven rotations covered the first four inputs and three covered pigeon8. Every rotation matched decisions, conflicts and the three propagation counts, and checked every SAT model against the input. The hard UNSAT and SAT cases used 1.61% and 1.26% fewer instructions, 12.0% and 9.3% fewer cycles, and 15.4% and 9.5% fewer L1 data-load misses. Propagation still accounted for 59.63% and 69.68% of release instruction samples on the hard pair, including block borrowing. [Benchmark data and profiles](perf/ivy_apple/holdouts/nov26-physical-clause-release.tar.xz)
+
+The 24-allocator fixture reduced live ternary storage from **69.62 to 39.08 bytes per clause**. Width eight went from 93.99 to 67.47, and width 65 from 376 to 328. With 2,048 mixed-width clauses per worker, warm heap after retirement fell from **169,824 to 16,000 bytes per worker**. The wide-tail case fell from **205,280 to 37,760 bytes**. The mixed churn benchmark went from 5.51 to 5.73 ms per cycle and from 456 to 1,152 Go allocations across all workers. The wide-tail benchmark went from 23.15 to 21.01 ms. Each reported heap delta is measured beyond 32 retained ternaries per worker. [Checked-in mixed fixture](sat/sat_clause_churn_benchmark_test.go) · [Seven rotations per fixture](perf/ivy_apple/holdouts/nov26-physical-clause-release.tar.xz)
+
+| Complete GoIvy verifier | Previous g3 | Release g3 | Linked Z3 |
+| --- | ---: | ---: | ---: |
+| Ticket protocol | 478 ms | 456 ms | 246 ms |
+| Hybrid reliable broadcast | 1,242 ms | 1,244 ms | 872 ms |
+| ARM rules | 493 ms | 496 ms | 348 ms |
+
+Three qualifying rotations per verifier matched both output streams and exit status. The Go builds used GoIvy `07cdeec61` and the same ABC binary as the linked control. Default-GC median instruction counts increased 1.4% on Ticket, 0.2% on hybrid and 1.0% on ARM. With automatic GC disabled, all three instruction changes were within 0.05% across five rotations. The ordinary arena, SAT, SAT wrapper and tactic, shell, command, SMT core and API suites passed. The new boundary test exercised both SAT stores in ordinary and checked/debug/trace builds, and focused checked-handle and checkptr runs passed. [Verifier rows and test evidence](perf/ivy_apple/holdouts/nov26-physical-clause-release.tar.xz)

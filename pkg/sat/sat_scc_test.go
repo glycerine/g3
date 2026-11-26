@@ -384,8 +384,14 @@ func satSCCAudit(t *testing.T, c *satSCC, extra ...StoredClauseRef) {
 		}
 	}
 	small := a.storage.Stats()
-	if small.Live != uint32(len(refs)) {
-		t.Fatal("unnamed physical clause", small.Live, len(refs))
+	live := small.Live
+	for i := range a.large {
+		if a.large[i].live {
+			live++
+		}
+	}
+	if live != uint32(len(refs)) {
+		t.Fatal("unnamed physical clause", live, len(refs))
 	}
 	want := c.header + c.eliminator.header + l.ownerBytes
 	want += p.ownerBytes + v.Stats().TotalBytes

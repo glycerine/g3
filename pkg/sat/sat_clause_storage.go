@@ -53,7 +53,7 @@ type ClauseAllocator struct {
 	self                                   *ClauseAllocator
 	traceTags                              *udiag.TraceTags
 	origin                                 uint64
-	storage                                *arena.SmallBytes
+	storage                                *arena.ClauseBytes
 	ids                                    idgen.Generator
 	oomRuntime                             *umemory.Runtime
 	budget                                 *arena.Budget
@@ -89,7 +89,7 @@ func newSATClauseAllocator(c satClauseAllocatorConfig, tmp bool) (*ClauseAllocat
 		b.Release(n)
 		return nil, e
 	}
-	store, e := arena.NewSmallBytes(c.Storage)
+	store, e := arena.NewClauseBytes(c.Storage)
 	if e != nil {
 		b.Release(n)
 		return nil, e
@@ -250,7 +250,7 @@ func (a *ClauseAllocator) allocate(n uint32) (StoredClauseRef, error) {
 	if e := satClauseHostExtent(bytes, uint64(^uint(0)>>1)); e != nil {
 		return StoredClauseRef{}, e
 	}
-	if satClauseWideExtent(bytes) {
+	if satClauseWideExtent(bytes) || a.storage.RequiresDirect(bytes) {
 		return a.allocateLarge(bytes)
 	}
 	r, e := a.storage.Allocate(uint32(bytes))
