@@ -6857,3 +6857,28 @@ Three additional uniform random UNSAT inputs with 144, 180 and 220 variables mat
 Each individual watch list and subsumption candidate scan visited distinct clause references on all three observed runs. The observer matched the uninstrumented results and counters. Its simulated caches could also hit across lists and omit separate invalidation work, so the results favor a cache. A full-width generation column before or after each arena page's payload increased hard-case instructions by **1.0–1.4%** and cycles by **1.3–2.7%**. Packing occurrence references into eight bytes increased hard UNSAT instructions by **2.94%**. Combining packing with bulk erase saved **5.06%**, compared with **5.77%** for bulk erase with full references. Isolating the iterator change saved under 0.01%. Adding one-borrow clause routing to bulk operations saved roughly another 0.18% on hard UNSAT. The final change uses only the ordered erasure. [Untimed counts, prototype source, and timing comparisons](perf/ivy_apple/holdouts/nov26-clause-locality.tar.xz)
 
 A Go PGO build trained on ordinary pigeon8 used **4.92%** fewer instructions on the hard UNSAT holdout and **4.98%** fewer on the hard SAT holdout. Cycles fell **6.47%** and **0.22%** respectively. On the planted width-eight holdout it used **13.26%** fewer instructions and **8.06%** fewer cycles. Its in-sample pigeon8 result used **5.67%** fewer instructions with roughly flat cycles. PGO remains a separate build experiment. A release profile should use separate training and holdout sets spanning SAT, SMT and complete GoIvy verifiers. [Training profile and holdout measurements](perf/ivy_apple/holdouts/nov26-clause-locality.tar.xz)
+
+## November 26 — The second probe in quantifier rewriting
+
+The untimed observer followed every rewrite of a materialized instance in three standalone replays and three complete verifiers. It tracked the input's full arena identity within each rewriter and recorded which subterms hit the existing cache, which frames ran and how much resource fuel the rewrite charged. It preserved the standalone search counters and complete proof transcripts. [Observer, representative roots and exact transcripts](perf/ivy_apple/holdouts/nov26-rewrite-steps.tar.xz)
+
+| Complete verifier | Instance rewrites | Repeated ground roots | Repeats whose charge differs from the first visit | Hits in the first subterm probe | Lookups at frame entry |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Ticket | 14,647 | 5,339 | 1,777 | 49,374 | 32,752 |
+| Hybrid | 20,166 | 9,354 | 3,799 | 52,018 | 46,405 |
+| ARM rules | 5,274 | 3,660 | 982 | 7,637 | 17,276 |
+
+On Ticket replay 127, the most repeated live root took seven frames on its first visit and one frame on its final visit. The final traversal could read all three children from the current cache. On replay 290 the most repeated root still took nine frames and missed all four eligible child lookups on both visits. The same ground body can therefore require a different sequence of child visits as the cache changes. Full-result memoization keyed by the root would also have to replay the existing cache's access and ownership effects. [Per-root samples and counts](perf/ivy_apple/holdouts/nov26-rewrite-steps.tar.xz)
+
+Every frame-entry lookup in the six observations repeated a miss. The standard proofless theory configuration can push the frame after its first lookup without publishing a cache entry in between. The release skips the repeat in that configuration and retains it for custom configurations, proofs and checked/debug execution. The new custom configuration test publishes a result in `PreVisit`. A forced skip for all configurations fails the test. Native Z3 also has the two generic probes, so removing a Go probe recovers one local cost. [Go traversal](ast/rewriter/rewriter_engine.go) · [Custom configuration test](ast/rewriter/rewriter_engine_test.go) · [Native traversal](../src/ast/rewriter/rewriter_def.h)
+
+The experimental probe saved 0.57% and 0.54% of instructions in the two Ticket replays, with matching decisions, conflicts, instantiations and resource counts. Combining it with a fused AST read and a shorter unchanged-application completion path saved 1.48–1.56% in those replays with GC off. That combination cost 1.60% more instructions and 2.54% more elapsed time on FBA with normal GC. Concrete theory dispatch alone saved at most 0.26% on Ticket. Skipping an empty proof-register clear saved at most 0.32% across the complete GC-off runs and increased measured cycles on all four. These alternatives remain prototypes. [Standalone and complete-verifier rotations](perf/ivy_apple/holdouts/nov26-rewrite-steps.tar.xz)
+
+| Complete verifier | Previous g3 | Released g3 | Linked Z3 | Change in g3 instructions |
+| --- | ---: | ---: | ---: | ---: |
+| Ticket | 439 ms | **436 ms** | 235 ms | −0.88% |
+| Hybrid | 1,211 ms | 1,214 ms | 850 ms | −0.45% |
+| ARM rules | 473 ms | **470 ms** | 336 ms | −1.40% |
+| FBA | 107.24 ms | 107.28 ms | 136.98 ms | +0.42% |
+
+The table uses nine same-core rotations with default GC. With GC off, the seven-rotation comparison found instruction reductions of 0.23–0.49% across all four verifiers. FBA elapsed time rose 1.15% with GC off. All verifier outputs and exit statuses matched. In eleven release rotations, the two Ticket standalone replays used 0.62% and 0.54% fewer instructions and toy consensus used 0.33% fewer. Every run matched native decisions, conflicts, instantiations and resource counts. The ordinary AST, rewriter, SMT core and API suites passed, as did focused checked/debug/trace tests and vet. [Release comparison and test results](perf/ivy_apple/holdouts/nov26-rewrite-steps.tar.xz)
