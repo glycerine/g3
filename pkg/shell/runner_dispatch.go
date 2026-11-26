@@ -43,6 +43,9 @@ func (r *Runner) dispatch(ctx context.Context, kind InputKind) (result error) {
 			return err
 		}
 		defer func() { result = errors.Join(result, frontend.Close()) }()
+		if _, selected := r.command.Input.Selected(); selected && r.owned {
+			return frontend.RunFileContext(ctx)
+		}
 		return frontend.RunContext(ctx)
 	case InputWCNF:
 		frontend, err := NewWCNFFrontend(r.context, r.output, WCNFFrontendOptions{DisplayStatistics: r.command.DisplayStatistics, Diagnostics: r.diagnostics})

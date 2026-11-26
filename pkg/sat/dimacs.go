@@ -194,23 +194,31 @@ func ParseDIMACS(input io.Reader, solver *Solver) error {
 	buffer := newDIMACSStreamBuffer(input)
 	defer buffer.syncShared()
 	literals := make([]Literal, 0)
+	for buffer.nextClause() {
+		var err error
+		literals, err = buffer.readClause(solver, literals)
+		if err != nil {
+			return err
+		}
+		buffer.syncShared()
+		if err = solver.MkClause(literals); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// nextClause consumes separators and header/comment lines before a clause.
+func (b *dimacsStreamBuffer) nextClause() bool {
 	for {
-		buffer.skipWhitespace()
-		switch buffer.value {
+		b.skipWhitespace()
+		switch b.value {
 		case -1:
-			return nil
+			return false
 		case 'c', 'p':
-			buffer.skipLine()
+			b.skipLine()
 		default:
-			var err error
-			literals, err = buffer.readClause(solver, literals)
-			if err != nil {
-				return err
-			}
-			buffer.syncShared()
-			if err = solver.MkClause(literals); err != nil {
-				return err
-			}
+			return true
 		}
 	}
 }

@@ -14,7 +14,7 @@ import time
 from propagation_dimacs import dimacs
 
 
-def formulas(permutations=0):
+def formulas(permutations=0, mixed_polarity=False):
     for width in (2, 3, 6):
         variables = 12_000
         clauses = [
@@ -39,6 +39,9 @@ def formulas(permutations=0):
                 clause[rng.randrange(width)] *= -1
             clauses.append(clause)
         yield f"planted{width}", variables, clauses, "sat"
+        if mixed_polarity:
+            flipped = [[-lit if abs(lit) % 2 else lit for lit in clause] for clause in clauses]
+            yield f"planted{width}-mixed", variables, flipped, "sat"
 
     for holes in (7, 8):
         def literal(bird, hole):
@@ -85,6 +88,10 @@ def main():
                         help="additional deterministic variable, literal and clause orderings per pigeonhole input")
     parser.add_argument("--compare-heuristics", action="store_true",
                         help="allow different decision and conflict counts across solvers")
+    parser.add_argument("--mixed-polarity", action="store_true",
+                        help="also test planted assignments after flipping the odd-numbered variables")
+    parser.add_argument("--stdin", action="store_true",
+                        help="deliver CNF on standard input to measure ordinary ingestion and search")
     parser.add_argument("--case", action="append", choices=[f"propagate{i}" for i in (2, 3, 6)]
                         + [f"planted{i}" for i in (3, 5, 8)] + ["pigeon7", "pigeon8"])
     args = parser.parse_args()
@@ -96,11 +103,13 @@ def main():
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(["case", "round", "solver", "answer", "instructions", "cycles", "seconds", "decisions", "conflicts"])
     with tempfile.TemporaryDirectory() as directory:
-        for name, variables, clauses, expected in formulas(args.permutations):
-            if args.case and name.split("-s")[0] not in args.case:
+        for name, variables, clauses, expected in formulas(args.permutations, args.mixed_polarity):
+            if args.case and name.removesuffix("-mixed").split("-s")[0] not in args.case:
                 continue
             path = Path(directory) / f"{name}.cnf"
-            path.write_text(dimacs(variables, clauses))
+            source = dimacs(variables, clauses)
+            if not args.stdin:
+                path.write_text(source)
             counts = Path(directory) / "counts.csv"
             reference = None
             for i in range(args.rounds):
@@ -109,9 +118,10 @@ def main():
                     command = ["taskset", "-c", str(args.cpu)] if args.cpu is not None else []
                     if args.perf:
                         command.extend([args.perf, "stat", "-x,", "-o", counts, "-e", "instructions:u,cycles:u", "--"])
-                    command.extend([solver, "-st", "-dimacs", path])
+                    command.extend([solver, "-st", "-dimacs", "-in" if args.stdin else path])
                     start = time.monotonic()
-                    result = subprocess.run(command, capture_output=True, text=True, timeout=180,
+                    result = subprocess.run(command, input=source if args.stdin else None,
+                                            capture_output=True, text=True, timeout=180,
                                             env=dict(os.environ, GOMAXPROCS="1"))
                     wall = time.monotonic() - start
                     if result.returncode not in {0, 10 if expected == "sat" else 20}:

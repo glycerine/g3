@@ -222,6 +222,9 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 			return err
 		}
 		defer func() { result = errors.Join(result, frontend.Close()) }()
+		if selected {
+			return frontend.RunFileContext(ctx)
+		}
 		return frontend.RunContext(ctx)
 	}
 	return fmt.Errorf("selected input frontend %s is not ported yet", shell.InputKindName(kind))

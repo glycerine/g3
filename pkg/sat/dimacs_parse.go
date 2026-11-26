@@ -20,33 +20,26 @@ func ReadDIMACSCNF(input io.Reader) (DIMACSCNF, error) {
 	buffer := newDIMACSStreamBuffer(input)
 	defer buffer.syncShared()
 	var result DIMACSCNF
-	for {
-		buffer.skipWhitespace()
-		switch buffer.value {
-		case -1:
-			return result, nil
-		case 'c', 'p':
-			buffer.skipLine()
-		default:
-			var clause []DIMACSLiteral
-			for {
-				parsed, err := buffer.parseInt()
-				if err != nil {
-					return DIMACSCNF{}, errors.Join(ErrDIMACSParse, err)
-				}
-				if parsed == 0 {
-					break
-				}
-				magnitude := uint32(parsed)
-				if parsed < 0 {
-					magnitude = -magnitude
-				}
-				if magnitude > result.VariableCount {
-					result.VariableCount = magnitude
-				}
-				clause = append(clause, DIMACSLiteral(parsed))
+	for buffer.nextClause() {
+		var clause []DIMACSLiteral
+		for {
+			parsed, err := buffer.parseInt()
+			if err != nil {
+				return DIMACSCNF{}, errors.Join(ErrDIMACSParse, err)
 			}
-			result.Clauses = append(result.Clauses, clause)
+			if parsed == 0 {
+				break
+			}
+			magnitude := uint32(parsed)
+			if parsed < 0 {
+				magnitude = -magnitude
+			}
+			if magnitude > result.VariableCount {
+				result.VariableCount = magnitude
+			}
+			clause = append(clause, DIMACSLiteral(parsed))
 		}
+		result.Clauses = append(result.Clauses, clause)
 	}
+	return result, nil
 }

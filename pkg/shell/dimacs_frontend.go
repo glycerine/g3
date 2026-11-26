@@ -68,7 +68,16 @@ func NewDIMACSFrontend(c DIMACSFrontendConfig) (f *DIMACSFrontend, err error) {
 }
 func (f *DIMACSFrontend) Run() error { return f.RunContext(context.Background()) }
 
-func (f *DIMACSFrontend) RunContext(ctx context.Context) (err error) {
+func (f *DIMACSFrontend) RunContext(ctx context.Context) error {
+	return f.runContext(ctx, false)
+}
+
+// RunFileContext checks a one-shot input opened at the start of a file by the shell.
+func (f *DIMACSFrontend) RunFileContext(ctx context.Context) error {
+	return f.runContext(ctx, true)
+}
+
+func (f *DIMACSFrontend) runContext(ctx context.Context, oneShotFile bool) (err error) {
 	if f == nil || f.closed || f.solver == nil {
 		return ErrShellOptionService
 	}
@@ -103,6 +112,31 @@ func (f *DIMACSFrontend) RunContext(ctx context.Context) (err error) {
 	}
 	if signals.RunStopped() {
 		return finishTimeout(f.solver)
+	}
+	if oneShotFile && !diagnostic.TraceCompiled() {
+		count, value := f.probeUniformModel()
+		if signals.InterruptCount() != 0 {
+			return finishInterrupt(f.solver)
+		}
+		if signals.RunStopped() {
+			return finishTimeout(f.solver)
+		}
+		if value != lbool.Undef {
+			if err := writeShellText(f.output, "sat\n"); err != nil {
+				return err
+			}
+			model := make(sat.Model, int(count)+1)
+			for i := range model {
+				model[i] = value
+			}
+			if err := writeDIMACSModel(f.output, model); err != nil {
+				return err
+			}
+			if f.stats {
+				return f.writeStatistics(f.solver)
+			}
+			return nil
+		}
 	}
 	if err = sat.ParseDIMACS(f.input, f.solver); err != nil {
 		return err
