@@ -13,28 +13,39 @@ func (a *satLiteralOrder) Less(i, j int) bool { return a.values[i] < a.values[j]
 func (a *satLiteralOrder) Swap(i, j int)      { a.values[i], a.values[j] = a.values[j], a.values[i] }
 
 func (a *satLiteralOrder) sort(values []Literal) {
-	if len(values) >= 16 {
-		i := 1
-		for i < len(values) && values[i-1] <= values[i] {
+	// Short clauses use direct comparisons on the literal words.
+	if len(values) < 16 {
+		for i := 1; i < len(values); i++ {
+			lit := values[i]
+			j := i
+			for j > 0 && values[j-1] > lit {
+				values[j] = values[j-1]
+				j--
+			}
+			values[j] = lit
+		}
+		return
+	}
+	i := 1
+	for i < len(values) && values[i-1] <= values[i] {
+		i++
+	}
+	if i == len(values) {
+		return
+	}
+	if i == 1 && values[len(values)-1] <= values[1] {
+		for i < len(values) && values[i-1] >= values[i] {
 			i++
 		}
 		if i == len(values) {
+			for l, r := 0, len(values)-1; l < r; l, r = l+1, r-1 {
+				values[l], values[r] = values[r], values[l]
+			}
 			return
 		}
-		if i == 1 && values[len(values)-1] <= values[1] {
-			for i < len(values) && values[i-1] >= values[i] {
-				i++
-			}
-			if i == len(values) {
-				for l, r := 0, len(values)-1; l < r; l, r = l+1, r-1 {
-					values[l], values[r] = values[r], values[l]
-				}
-				return
-			}
-		}
-		if sortDenseLiterals(values) {
-			return
-		}
+	}
+	if sortDenseLiterals(values) {
+		return
 	}
 	a.values = values
 	sort.Sort(a)

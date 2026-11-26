@@ -57,11 +57,15 @@ func (s *satSolverClauseLifecycle) mkBinClause(a, b Literal, learned bool) error
 	return s.pushWatch(b.Negated(), w)
 }
 func (s *satSolverClauseLifecycle) pushWatch(l Literal, w satWatched) error {
-	list, e := s.propagation.variables.watches.Get(l.index())
-	if e != nil {
-		return e
+	lists := s.propagation.variables.watches
+	if err := lists.open(); err != nil {
+		return err
 	}
-	return list.Push(w)
+	index := l.index()
+	if err := satWatchLogicalBounds(index, len(lists.lists)); err != nil {
+		return err
+	}
+	return lists.appendWatch(index, w)
 }
 func (s *satSolverClauseLifecycle) pushReinitStack(c StoredClauseRef) error {
 	s.traceReinitClause(c)

@@ -48,7 +48,7 @@ func literalSortInput(n int, shape string, seed int64) []Literal {
 
 func TestLiteralSortPreservesEveryWord(t *testing.T) {
 	var order satLiteralOrder
-	for _, n := range []int{0, 1, 15, 16, 17, 31, 32, 64, 256, 1024, 4096} {
+	for _, n := range []int{0, 1, 3, 5, 8, 15, 16, 17, 31, 32, 64, 256, 1024, 4096} {
 		for _, shape := range literalSortShapes {
 			for seed := int64(0); seed < 4; seed++ {
 				got := literalSortInput(n, shape, seed)
@@ -66,7 +66,7 @@ func TestLiteralSortPreservesEveryWord(t *testing.T) {
 }
 
 func BenchmarkLiteralSort(b *testing.B) {
-	for _, n := range []int{16, 64, 256, 1024} {
+	for _, n := range []int{3, 5, 8, 16, 64, 256, 1024} {
 		for _, shape := range literalSortShapes {
 			b.Run(strconv.Itoa(n)+"/"+shape, func(b *testing.B) {
 				var inputs [16][]Literal

@@ -94,6 +94,11 @@ func (w *satSolverWatchLists) pushClause(i uint32, blocked Literal, offset satCl
 	if err != nil {
 		return err
 	}
+	return w.appendWatch(i, watch)
+}
+
+// appendWatch uses the current list after its owner and index were checked.
+func (w *satSolverWatchLists) appendWatch(i uint32, watch satWatched) error {
 	record, err := w.store.record(w.lists[i])
 	if err != nil {
 		return arena.ErrInvalidSlot
