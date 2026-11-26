@@ -440,6 +440,51 @@ func TestSMTInternalizerConsumesMaterializedQuantifierInstance(t *testing.T) {
 	}
 }
 
+func TestSMTInternalizerInstanceLiteralFollowsCurrentBinding(t *testing.T) {
+	m := astTestManager(t)
+	_, _, state := smtInternalizerFixture(t, m, nil)
+	a := smtRelevancyPinnedBool(t, m, "instance-literal-a")
+	negative, err := m.MkNot(a)
+	astTestMust(t, err)
+	astTestPin(t, m, negative)
+
+	assertBound := func(expression ast.ASTHandle, want SMTLiteral) {
+		t.Helper()
+		got, found := state.boundInstanceLiteral(expression)
+		if !found || got != want {
+			t.Fatalf("bound instance literal = %v, %t, want %v", got, found, want)
+		}
+	}
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.Internalize(a, true))
+	original, err := state.Literal(a)
+	astTestMust(t, err)
+	assertBound(a, original)
+	assertBound(negative, original.Negated())
+	astTestMust(t, state.PopScopes(1))
+	other := smtRelevancyBool(t, m, "instance-literal-other")
+	astTestMust(t, state.Internalize(other, true))
+	reused, err := state.Literal(other)
+	astTestMust(t, err)
+	if reused != original {
+		t.Fatalf("expected scope pop to free variable %v, got %v", original, reused)
+	}
+	if _, found := state.boundInstanceLiteral(negative); found {
+		t.Fatal("unbound operand reused a variable belonging to a different expression")
+	}
+	astTestMust(t, state.Internalize(a, true))
+	current, err := state.Literal(a)
+	astTestMust(t, err)
+	assertBound(negative, current.Negated())
+
+	astTestMust(t, state.Internalize(negative, false))
+	doubleNegative, err := m.MkNot(negative)
+	astTestMust(t, err)
+	if _, found := state.boundInstanceLiteral(doubleNegative); found {
+		t.Fatal("nested NOT must go through normal internalization")
+	}
+}
+
 func TestSMTInternalizerDeepAssertionUsesTopologicalPrepass(t *testing.T) {
 	m := astTestManager(t)
 	boolean, err := m.MkBoolSort()

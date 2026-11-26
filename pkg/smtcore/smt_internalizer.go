@@ -1395,6 +1395,12 @@ func (s *SMTInternalizerState) preInternalizeDeep(expression ast.ASTHandle) erro
 }
 
 func (s *SMTInternalizerState) Assert(expression, proof ast.ASTHandle, generation uint32) error {
+	return s.assertExpression(expression, proof, generation, nil)
+}
+
+// instanceArguments, when supplied, came from constructing this very lemma.
+// Keep the ordinary assertion order, including preprocessing and relevance.
+func (s *SMTInternalizerState) assertExpression(expression, proof ast.ASTHandle, generation uint32, instanceArguments []ast.ASTHandle) error {
 	previousGeneration := s.generation
 	if err := s.SetGeneration(generation); err != nil {
 		return err
@@ -1415,9 +1421,12 @@ func (s *SMTInternalizerState) Assert(expression, proof ast.ASTHandle, generatio
 		return err
 	}
 	if basic && smtInternalizerGateOperation(op) {
-		arguments, err := s.argumentHandles(expression)
-		if err != nil {
-			return err
+		arguments := instanceArguments
+		if arguments == nil {
+			arguments, err = s.argumentHandles(expression)
+			if err != nil {
+				return err
+			}
 		}
 		switch op {
 		case ast.ASTOpAnd:
@@ -1425,6 +1434,12 @@ func (s *SMTInternalizerState) Assert(expression, proof ast.ASTHandle, generatio
 		case ast.ASTOpOr:
 			literals := make([]SMTLiteral, len(arguments))
 			for index, argument := range arguments {
+				if instanceArguments != nil {
+					if literal, found := s.boundInstanceLiteral(argument); found {
+						literals[index] = literal
+						continue
+					}
+				}
 				if err = s.Internalize(argument, true); err != nil {
 					return err
 				}
@@ -1647,6 +1662,10 @@ func (s *SMTInternalizerState) argumentHandles(expression ast.ASTHandle) ([]ast.
 }
 
 func (s *SMTInternalizerState) InternalizeInstance(instance *SMTQIInstance) error {
+	return s.internalizeInstance(instance, nil)
+}
+
+func (s *SMTInternalizerState) internalizeInstance(instance *SMTQIInstance, arguments []ast.ASTHandle) error {
 	if instance == nil || instance.manager != s.manager {
 		return ast.ErrASTDomain
 	}
@@ -1661,7 +1680,26 @@ func (s *SMTInternalizerState) InternalizeInstance(instance *SMTQIInstance) erro
 	if err != nil {
 		return err
 	}
-	return s.Assert(lemma, proof, instance.Generation())
+	return s.assertExpression(lemma, proof, instance.Generation(), arguments)
+}
+
+// Bound gate operands already have their variable in this solver. An outer
+// NOT uses its immediate operand's variable, as Literal does. If that operand
+// is also a NOT, Internalize can still have work to do beneath it.
+func (s *SMTInternalizerState) boundInstanceLiteral(argument ast.ASTHandle) (SMTLiteral, bool) {
+	if s.closed || s.pendingPop != nil || s.closing || s.context.assignments.s != s {
+		return SMTNullLiteral, false
+	}
+	if v, found := s.boolVar.lookup(argument); found && s.notChild(v).IsNull() {
+		return NewSMTLiteral(v, false), true
+	}
+	_, child, err := s.manager.IsNot(argument)
+	if err == nil && !child.IsNull() {
+		if v, found := s.boolVar.lookup(child); found && s.notChild(v).IsNull() {
+			return NewSMTLiteral(v, true), true
+		}
+	}
+	return SMTNullLiteral, false
 }
 
 // binaryClauseBaseLevel is context::m_base_lvl as use_binary_clause_opt reads

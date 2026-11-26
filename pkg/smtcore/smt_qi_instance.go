@@ -10,6 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 type SMTQIPreparedInstance struct {
@@ -203,6 +204,8 @@ func (b *SMTQIInstanceBuilder) Materialize(prepared *SMTQIPreparedInstance, rw *
 // proof_ref pr: they die when instantiate returns, after [end-of-instance].
 type smtQIInstanceLocals struct {
 	simplified, rewriteProof ast.ASTRef
+	// The completed lemma owns these operands through assertion.
+	arguments []ast.ASTHandle
 }
 
 // release destroys the locals in reverse declaration order: pr, then
@@ -245,7 +248,12 @@ func (b *SMTQIInstanceBuilder) materialize(prepared *SMTQIPreparedInstance, rw *
 		if err != nil {
 			return nil, err
 		}
-		return b.Finish(prepared, rewritten, stat, scope)
+		var arguments *[]ast.ASTHandle
+		if !ast.ASTValidateHandles && !ast.ASTSourceDebug && !smtcoreSourceDebug &&
+			!diagnostic.TraceCompiled() && b.manager.TraceStream == nil && !b.manager.Budget().InjectionArmed() {
+			arguments = &locals.arguments
+		}
+		return b.finishWithoutProof(prepared, rewritten, stat, scope, arguments)
 	}
 	locals.rewriteProof, err = b.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
@@ -298,7 +306,7 @@ func (b *SMTQIInstanceBuilder) MaterializeAndInternalize(prepared *SMTQIPrepared
 		}
 		w(" ; " + strconv.FormatUint(uint64(result.generation), 10) + "\n")
 	}
-	if err = internalizer.InternalizeInstance(result); err != nil {
+	if err = internalizer.internalizeInstance(result, locals.arguments); err != nil {
 		return nil, errors.Join(fmt.Errorf("internalize instance lemma: %w", err), result.Close())
 	}
 	if out != nil {
@@ -308,6 +316,10 @@ func (b *SMTQIInstanceBuilder) MaterializeAndInternalize(prepared *SMTQIPrepared
 }
 
 func (b *SMTQIInstanceBuilder) Finish(prepared *SMTQIPreparedInstance, simplified ast.ASTHandle, stat *SMTQuantifierStat, scope uint32) (*SMTQIInstance, error) {
+	return b.finishWithoutProof(prepared, simplified, stat, scope, nil)
+}
+
+func (b *SMTQIInstanceBuilder) finishWithoutProof(prepared *SMTQIPreparedInstance, simplified ast.ASTHandle, stat *SMTQuantifierStat, scope uint32, arguments *[]ast.ASTHandle) (*SMTQIInstance, error) {
 	if b == nil || b.manager == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -318,10 +330,10 @@ func (b *SMTQIInstanceBuilder) Finish(prepared *SMTQIPreparedInstance, simplifie
 	if proofs {
 		return nil, ast.ErrASTDomain
 	}
-	return b.finishLemma(prepared, simplified, stat, scope)
+	return b.finishLemma(prepared, simplified, stat, scope, arguments)
 }
 
-func (b *SMTQIInstanceBuilder) finishLemma(prepared *SMTQIPreparedInstance, simplified ast.ASTHandle, stat *SMTQuantifierStat, scope uint32) (*SMTQIInstance, error) {
+func (b *SMTQIInstanceBuilder) finishLemma(prepared *SMTQIPreparedInstance, simplified ast.ASTHandle, stat *SMTQuantifierStat, scope uint32, arguments *[]ast.ASTHandle) (*SMTQIInstance, error) {
 	if b == nil || b.manager == nil || prepared == nil || prepared.manager != b.manager || prepared.closed || prepared.alreadySatisfied || stat == nil {
 		return nil, ast.ErrASTDomain
 	}
@@ -361,6 +373,9 @@ func (b *SMTQIInstanceBuilder) finishLemma(prepared *SMTQIPreparedInstance, simp
 				}
 			}
 			lemma, err = b.manager.MkOrArgs(args)
+			if arguments != nil && err == nil {
+				*arguments = args
+			}
 		} else {
 			lemma, err = b.manager.MkOr(negatedQuantifier, simplified)
 		}
@@ -391,9 +406,9 @@ func (b *SMTQIInstanceBuilder) FinishWithProof(prepared *SMTQIPreparedInstance, 
 		return nil, err
 	}
 	if !proofs {
-		return b.finishLemma(prepared, simplified, stat, scope)
+		return b.finishLemma(prepared, simplified, stat, scope, nil)
 	}
-	result, err := b.finishLemma(prepared, simplified, stat, scope)
+	result, err := b.finishLemma(prepared, simplified, stat, scope, nil)
 	if err != nil || result.reducedTrue {
 		return result, err
 	}
