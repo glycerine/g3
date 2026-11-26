@@ -1,6 +1,9 @@
 package sat
 
 import (
+	"bytes"
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -75,5 +78,60 @@ func TestDIMACSFileRepairMissLoadsOrdinarySolver(t *testing.T) {
 	if want != lbool.False || got != want || replay.decision.decisions != stream.decision.decisions || replay.conflict.conflictStat != stream.conflict.conflictStat {
 		t.Fatalf("replay got %v with %d decisions and %d conflicts, stream got %v with %d decisions and %d conflicts",
 			got, replay.decision.decisions, replay.conflict.conflictStat, want, stream.decision.decisions, stream.conflict.conflictStat)
+	}
+}
+
+func TestDIMACSDenseRepairFindsVerifiedModel(t *testing.T) {
+	// The short probe and a longer greedy walk both miss this planted model.
+	source, err := os.ReadFile("test_vectors/dimacs_dense_planted.cnf")
+	satOK(t, err)
+	s, _, _ := satSolverCheckFixture(t)
+	model, loaded, err := s.PrepareDIMACSFile(bytes.NewReader(source), len(source))
+	satOK(t, err)
+	if model == nil || loaded || s.Variables.NumVars() != 0 {
+		t.Fatal("dense repair did not find a model before solver ingestion")
+	}
+	cnf, complete := readDIMACSModelFormula(bytes.NewReader(source), len(source), s.Limit)
+	if !complete || len(model) != int(cnf.variables)+1 {
+		t.Fatal("model does not cover the parsed variables")
+	}
+	var start uint32
+	for i, end := range cnf.ends {
+		satisfied := false
+		for _, lit := range cnf.literals[start:end] {
+			satisfied = satisfied || model[lit.variable()] == lbool.FromBool(!lit.sign())
+		}
+		if !satisfied {
+			t.Fatalf("model falsifies clause %d", i)
+		}
+		start = end
+	}
+}
+
+func TestDIMACSDenseRepairFallsBackOnContradictoryComponent(t *testing.T) {
+	source, err := os.ReadFile("test_vectors/dimacs_dense_planted.cnf")
+	satOK(t, err)
+	// These eight ternary clauses exclude every assignment to three fresh
+	// variables while keeping the formula within the dense repair bounds.
+	for signs := 0; signs < 8; signs++ {
+		var term [3]int
+		for i := range term {
+			term[i] = 257 + i
+			if signs&(1<<i) != 0 {
+				term[i] = -term[i]
+			}
+		}
+		source = fmt.Appendf(source, "%d %d %d 0\n", term[0], term[1], term[2])
+	}
+	s, _, _ := satSolverCheckFixture(t)
+	model, loaded, err := s.PrepareDIMACSFile(bytes.NewReader(source), len(source))
+	satOK(t, err)
+	if model != nil || !loaded {
+		t.Fatalf("dense contradiction yielded model=%v loaded=%t", model, loaded)
+	}
+	answer, err := s.Check(nil)
+	satOK(t, err)
+	if answer != lbool.False {
+		t.Fatalf("ordinary fallback returned %v", answer)
 	}
 }

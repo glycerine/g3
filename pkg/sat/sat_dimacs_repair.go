@@ -152,6 +152,21 @@ func (r *dimacsModelRepair) validate() bool {
 	return true
 }
 
+// Dense three-literal formulas can sit near a satisfying assignment for
+// many flips. Give this small, uniform-width workload a longer trial.
+func (cnf dimacsModelFormula) denseTernary() bool {
+	n, clauses := int(cnf.variables), len(cnf.ends)
+	if n < 128 || n > 4096 || 2*clauses < 7*n || 2*clauses > 9*n || len(cnf.literals) != 3*clauses {
+		return false
+	}
+	for i, end := range cnf.ends {
+		if end != 3*uint32(i+1) {
+			return false
+		}
+	}
+	return true
+}
+
 func repairDIMACSModel(cnf dimacsModelFormula, limitState *control.Reslimit) []uint32 {
 	r := newDIMACSModelRepair(cnf)
 	// Bound both the number of flips and the number of occurrence entries
@@ -160,6 +175,12 @@ func repairDIMACSModel(cnf dimacsModelFormula, limitState *control.Reslimit) []u
 	maxFlips := 16 * len(r.value)
 	work := min(25*len(cnf.literals), 2_000_000)
 	patience := min(2048, max(256, len(r.value)))
+	dense := cnf.denseTernary()
+	if dense {
+		maxFlips = min(170*len(r.value), 120_000)
+		work = min(500*len(cnf.literals), 2_000_000)
+		patience = min(10_000, 35*len(r.value))
+	}
 	bestRemaining, lastImprovement := len(r.unsatisfied), 0
 	for flips := 0; len(r.unsatisfied) != 0 && flips < maxFlips && work > 0; flips++ {
 		if flips%64 == 0 && limitState.CancelFlag() {
@@ -173,7 +194,9 @@ func repairDIMACSModel(cnf dimacsModelFormula, limitState *control.Reslimit) []u
 		row := r.clause(r.unsatisfied[r.random(len(r.unsatisfied))])
 		// Prefer a flip that leaves more currently satisfied clauses intact.
 		best, score := uint32(0), int(^uint(0)>>1)
-		for _, lit := range row {
+		var weights [3]int
+		total := 0
+		for i, lit := range row {
 			live := r.value[lit>>1]
 			breaks := 0
 			occurrences := r.occurrence(live)
@@ -187,14 +210,29 @@ func repairDIMACSModel(cnf dimacsModelFormula, limitState *control.Reslimit) []u
 					breaks++
 				}
 			}
+			if dense {
+				// Keep every flip possible, with a stronger preference for
+				// small break counts than the ordinary uniform random step.
+				weights[i] = 4096/(breaks*breaks+1) + 1
+				total += weights[i]
+			}
 			if breaks < score {
 				best, score = live, breaks
-				if breaks == 0 {
+				if breaks == 0 && !dense {
 					break
 				}
 			}
 		}
-		if score > 0 && r.random(3) == 0 {
+		if dense {
+			choice := r.random(total)
+			for i, weight := range weights {
+				if choice < weight {
+					best = r.value[row[i]>>1]
+					break
+				}
+				choice -= weight
+			}
+		} else if score > 0 && r.random(3) == 0 {
 			best = r.value[row[r.random(len(row))]>>1]
 		}
 		cost := len(r.occurrence(best)) + len(r.occurrence(best^1)) + 1
