@@ -100,23 +100,30 @@ func (p *SMTRelevancyPropagator) assignment(expression ast.ASTHandle) lbool.LBoo
 	if s := p.internalizer; s != nil {
 		if variable, found := s.boolVar.lookup(expression); found {
 			if child := s.notChild(variable); !child.IsNull() {
-				return p.context.assignments.get(child).Negated()
+				return p.directAssignment(child).Negated()
 			}
 			return s.assignment[NewSMTLiteral(variable, false).Index()]
 		}
 	}
 	// Source find_assignment reads the atom beneath a NOT. A nongate NOT
 	// can also own a Boolean variable; assignment events use its direct value.
-	if p.context.manager.IsFalse(expression) {
-		return lbool.False
-	}
 	if child, err := p.negatedArgument(expression); err == nil && !child.IsNull() {
-		return p.context.assignments.get(child).Negated()
+		return p.directAssignment(child).Negated()
 	}
-	if value, found := p.context.assignments.lookup(expression); found {
-		return value
+	return p.directAssignment(expression)
+}
+
+// Neither reserved truth literal has an ordinary Boolean variable binding.
+// A NOT operand is read directly, even when that operand is another NOT.
+func (p *SMTRelevancyPropagator) directAssignment(expression ast.ASTHandle) lbool.LBool {
+	switch {
+	case p.context.manager.IsTrue(expression):
+		return lbool.True
+	case p.context.manager.IsFalse(expression):
+		return lbool.False
+	default:
+		return p.context.assignments.get(expression)
 	}
-	return lbool.Undef
 }
 
 func (p *SMTRelevancyPropagator) negatedArgument(expression ast.ASTHandle) (ast.ASTHandle, error) {
