@@ -6738,3 +6738,46 @@ The 24-allocator fixture reduced live ternary storage from **69.62 to 39.08 byte
 | ARM rules | 493 ms | 496 ms | 348 ms |
 
 Three qualifying rotations per verifier matched both output streams and exit status. The Go builds used GoIvy `07cdeec61` and the same ABC binary as the linked control. Default-GC median instruction counts increased 1.4% on Ticket, 0.2% on hybrid and 1.0% on ARM. With automatic GC disabled, all three instruction changes were within 0.05% across five rotations. The ordinary arena, SAT, SAT wrapper and tactic, shell, command, SMT core and API suites passed. The new boundary test exercised both SAT stores in ordinary and checked/debug/trace builds, and focused checked-handle and checkptr runs passed. [Verifier rows and test evidence](perf/ivy_apple/holdouts/nov26-physical-clause-release.tar.xz)
+
+## November 26 — Repeated quantifier work in Ticket, hybrid and ARM
+
+The two incremental Ticket replays still match Z3 on decisions, conflicts, instantiations and resource counts. In nine fresh g3 instruction profiles per query, with one sample per 800,003 user instructions and zero throttle or loss records, the check boundary contained 1,782 and 2,016 samples. Materializing and internalizing quantifier instances accounted for **46.6% and 48.9%** of those samples. The general theory rewriter accounted for **22.5% and 22.2%**, including **7.0% and 6.1%** in the reducer. These are inclusive groups. Materialization calls rewriting, so the shares overlap. Resolving and internalizing instance atoms also accounts for a substantial part of materialization. [Check-boundary stacks and attribution](perf/ivy_apple/holdouts/nov26-instance-rewrite.tar.xz)
+
+The reducer received 17,879 and 21,262 calls, matching the previous native observations. Of these, 14,458 and 17,734 repeated a previously failed request and failed again. The key included the rewriter configuration, declaration, arity and ordered handles for at most four arguments. A further **31 and 29** repeated failures subsequently reduced, almost all on conjunctions. Saving a failed reduction under that key can change the result. Small structural shortcuts for unary NOT, uninterpreted-sort equality and binary conjunctions/disjunctions saved **1.26% and 1.25%** of whole CLI instructions when combined. On the complete Ticket verifier they increased median instructions by 0.25%. A trial that skipped theory dispatch for unchanged uninterpreted applications saved at most 0.55% on Ticket and added 2.92% on the toy-consensus control. [Reducer census and matched overlays](perf/ivy_apple/holdouts/nov26-instance-rewrite.tar.xz)
+
+The complete Ticket run prepared 40,098 instances. Its checker found 25,451 already satisfied, leaving 14,647 rewrites. Of the 73,099 disjuncts in asserted instances, 13,151 had a reusable positive binding and 43,943 had a reusable negative binding. Resolving either sign without a second AST lookup saved **0.85% and 0.75%** instructions on the two matched CLI queries. Whole Ticket instructions fell 0.44%, while hybrid and ARM took 1.62% and 1.67% longer. These small structural and binding shortcuts remain experiments. [Whole-verifier rotations and binding census](perf/ivy_apple/holdouts/nov26-instance-rewrite.tar.xz)
+
+| Complete GoIvy verifier, default GC | g3 median | Linked Z3 median | Billion user instructions, g3 / Z3 |
+| --- | ---: | ---: | ---: |
+| Ticket protocol | 445 ms | 237 ms | 3.227 / 1.472 |
+| Hybrid reliable broadcast | 1,214 ms | 852 ms | 9.179 / 5.872 |
+| ARM rules | 481 ms | 341 ms | 3.494 / 2.210 |
+
+These are medians of seven rotations on a pinned core. Both backends used GoIvy `07cdeec61` and the same ABC executable. Every rotation reproduced the expected exit and both output streams. The Go control included the reserved-constant relevance fix at `62d38dfa8`. [Complete verifier counter rows](perf/ivy_apple/holdouts/nov26-instance-rewrite.tar.xz)
+
+Rewriting returned the original AST on 9,159 Ticket instances, accounting for 62,071 of the 106,853 rewriter frame steps. Just 23,959 steps were from previous no-op inputs that again returned the same AST. The solver-local identity memo trial independently checked 3,581 candidate hits over Ticket, 7,855 over hybrid and 2,259 over ARM. The output was unchanged on every audited hit, but the previous resource charge differed on **921, 2,047 and 423**. Skipping the traversal and replaying the previous charge raised the two incremental Ticket resource counts from 62,021 and 62,398 to 63,703 and 64,672, with identical decisions, conflicts and instantiations. It saved **0.54%, 1.53% and 1.37%** of instructions on the complete verifiers. The memo remains an experiment. The existing traversal cache and reference-sensitive rewriting affect the amount of work even for an unchanged result. [Identity audit, replay counters and timings](perf/ivy_apple/holdouts/nov26-instance-rewrite.tar.xz)
+
+| Complete verifier | Recorded quantifier lemmas | Exact tuples repeated within the same search | Same-search repeats whose binding enodes predate decisions | Exact tuples last seen in an earlier search |
+| --- | ---: | ---: | ---: | ---: |
+| Ticket | 14,647 | 5,298 | **4,558** | 5,021 |
+| Hybrid | 20,145 | 9,305 | **9,237** | 2,821 |
+| ARM | 5,274 | 3,613 | **3,610** | 849 |
+
+A tuple consists of the quantifier handle and ordered binding handles, including arena generations. Every recorded tuple fit the eight-binding observer. The census classifies repeats using the previous occurrence in the same solver and its search epoch. A binding counted as available at the search level when its enode had already been internalized at that level or earlier. The final lemma handle itself repeated just three times on Ticket, in all cases while the previous lemma was still on the schedule's trail. Hybrid and ARM had no repeated lemma handles. Comparing bodies by their allocated lemma handles would miss nearly all of the recurring work. Availability of the binding enodes alone gives an opportunity bound. The resulting clause can still use Boolean variables or theory terms created during search. [Exact tuple and scope census](perf/ivy_apple/holdouts/nov26-instance-rewrite.tar.xz)
+
+### Keeping ground clauses across backtracking
+
+Two overlays gave some ground instances the existing auxiliary-lemma lifetime across search backtracking. Both required proofs to be off, kept the negated quantifier guard, and used only literals whose Boolean variables were already internalized at the search level or earlier. The second overlay also required a previous occurrence of the exact ordered signed clause in that search. Each prototype was checked independently against its paired baseline over seven rounds. [Eligibility, exact signed-clause key, and run logs](perf/ivy_apple/holdouts/nov26-instance-rewrite.tar.xz)
+
+| Workload | Retain every eligible clause, instruction change | Require a previous occurrence, instruction change |
+| --- | ---: | ---: |
+| Complete Ticket | **−4.71%** | −0.25% |
+| Complete hybrid | +0.66% | +2.38% |
+| Complete ARM | −2.34% | +13.36% |
+| Incremental Ticket 127 | +3.45% | +1.06% |
+| Incremental Ticket 290 | **−12.70%** | −2.45% |
+| Incremental toy consensus 18 | **+114.63%** | **+44.72%** |
+
+All complete runs reproduced their reference outputs and exit status. All standalone replays still returned UNSAT. Search changed even on the cases where execution got faster. On toy consensus, the all-eligible variant went from 1,866 to 3,608 decisions and from 905 to 1,842 instantiations. The repeat filter still made 2,221 decisions and 1,356 instantiations. Its extra constraints change the subsequent Boolean and theory search. Neither clause-lifetime policy is a release candidate. [Per-query and complete-verifier rows](perf/ivy_apple/holdouts/nov26-instance-rewrite.tar.xz)
+
+The repeated tuples are still worth pursuing. A bounded solver-local plan could remember the construction of an instance and run only when the existing scheduler selects the tuple again. That preserves the time of clause attachment. Use the measured tuples to determine how much of the plan can share already-live subterms, then account for the original resource polls and re-read any reference-count-sensitive conditions. Audit theory relevancy, scoped variables and proof diagnostics before considering a release. The other high-volume target remains hybrid's first assertion reduction, where exact phase counters already give a separate measure of progress. [First-push measurements](#november-26--macro-expansion-and-value-propagation-on-complete-verifiers)
