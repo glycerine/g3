@@ -7960,3 +7960,45 @@ Nine alternating 500,000-iteration runs used one pinned CPU. Retired instruction
 A third observer counted every AST destroyed by those 3,455 final root releases. Both engines destroyed applications exclusively. Counts matched at every arity from two through ten. The only difference was 584 unary applications in g3 versus 578 in Z3. In particular, each engine destroyed 1,376 four-argument applications and 1,606 applications wider than g3's four inline argument slots. The six-node difference cannot explain the roughly sevenfold instruction ratio by itself. The raw arity histogram is in the archive.
 
 Across the earlier fifteen sampled rounds for the entire eight checks, the Go deletion worklist body accounted for 11.51M instructions, including 7.23M attributed directly to the loop, 1.20M beneath table removal and 1.07M beneath child access. Native deletion accounted for 1.87M. The sampled region includes other deletions and uses an earlier solver revision. Next, measure the final-release loop separately at widths four, five and ten. Try reading a wide application's operand payload once per retiring node. Keep the arena allocation, ascending child decrements, reverse worklist order and partial-error behavior.
+
+## November 27 — Wide AST deletion and the complete-verifier release decision
+
+The baseline was solver commit `738700434`. Five alternating observer runs priced four operations inside each of the 4,039 Go and 4,033 native AST destructions reached from Ticket's 3,455 matched final OR releases. Each observer verified the destruction count **for every check and arity** against the independent census and reproduced the complete verifier transcript. The table reports millions of retired userspace instructions, summed over the eight checks and then summarized by the median across rounds.
+
+| Interval | g3 | Z3 | g3 on arity > 4 | Z3 on arity > 4 |
+|---|---:|---:|---:|---:|
+| Remove node from the canonical table | 0.520 | 0.238 | 0.208 | 0.095 |
+| Recycle ID and process node metadata | 0.876 | 0.198 | 0.349 | 0.079 |
+| Visit the declaration and release child edges | 2.901 | 0.192 | 2.194 | 0.098 |
+| Return storage | 0.764 | 0.141 | 0.601 | 0.056 |
+
+Both engines destroyed exactly 1,606 applications wider than four operands. g3's indexed child reader rechecked the arena payload for each operand beyond the four inline slots. Each timed section subtracts an adjacent empty read on the same thread. The boundaries include some observer bookkeeping and exclude worklist entry, exit and manager-level setup. The section totals therefore differ from the separately timed complete release calls.
+
+### Local benefit and whole-proof cost
+
+Six prototypes retained the arena and tried different ways to consume the same operand references. The implementation committed for evaluation as `6a13b555a` read the inline prefix directly, resolved the arena payload once, then decoded the remaining references in place. A failed payload validation fell back to indexed reads so the first bad operand stopped deletion after all preceding decrements. The lifetime regression covers a repeated operand straddling the inline and wide portions and a worklist exceeding 16 entries. The full suite passed across 114 packages. Focused checked/debug/trace tests passed.
+
+| Operands | Baseline ns per final release | Candidate ns per final release | Median paired change in elapsed time |
+|---:|---:|---:|---:|
+| 4 | 99.78 | 96.22 | −1.74% |
+| 5 | 171.09 | 143.78 | −15.61% |
+| 10 | 253.53 | 163.81 | −35.08% |
+
+The benchmark builds 64 distinct disjunctions outside the timer, retaining the operands. Each timed batch releases all 64 roots. Counts and times come from nine alternating 500-iteration runs on CPU 16. Each timed batch allocated zero bytes. The matched Ticket release intervals fell from 6.515M to **5.204M instructions** across five pairs, a 20.1% saving. Nine full CLI replay pairs with collection off saved 0.24%, 0.15% and 0.18% of instructions on Ticket 127, Ticket 290 and Toy consensus 18, respectively; the answers and solver counters matched.
+
+| Complete verification | Candidate / baseline elapsed change, CPU 14 (9 pairs) | CPU 11 (13 pairs) | Baseline g3 / linked Z3 median elapsed, CPU 14 |
+|---|---:|---:|---:|
+| Ticket | +0.41% | +0.62% | 430.0 / 231.5 ms |
+| Hybrid | +1.23% | +0.84% | 1,176.0 / 844.0 ms |
+| ARM rules | +1.16% | +1.28% | 458.4 / 325.9 ms |
+| FBA | +2.76% | +1.45% | 106.0 / 135.3 ms |
+
+Complete runs used default GC and matched stdout, stderr and exit status. CPU 14 rotated baseline, candidate and linked Z3. CPU 11 rotated baseline and candidate. Candidate cycles also increased in all eight workload/CPU comparisons. The measurements establish a local improvement and an end-to-end regression in this panel. The cause of the regression remains open. The benchmark and lifetime test remain in git. The prior production loop was restored and the AST suite passed again. Two other implementations also had mixed whole-verifier results in nine normal-GC rotations. The tail-loop variant took 1.58% longer on FBA, and the wide-only variant took 1.49% longer on ARM. Neither replaced the baseline.
+
+### Does Ticket's largest single-goal difference reflect a different search?
+
+The retained ordinary, release-policy and linked native event observers all reached **319 signed decisions, 2,887 instance offers and 820 asserted lemmas** at batch 7, goal 1. The ordered term sequences matched under generated-name renaming. There were zero candidate-model events. These event observers are from the earlier Ticket-history study; five fresh untraced, stage-counted runs used the wide-deletion candidate for g3. The concrete check cost 91.66M instructions with the release proof policy and 91.54M with ordinary g3, versus 36.74M native. The unsuccessful early attempt added another 10.54M before the release-policy check.
+
+Fifteen paired profiles sampled exactly the three concrete check intervals at batches 6, 7 and 8, goal 1. In the largest one (batch 7), ordinary g3 spent **20.61M versus 5.62M** on theory rewriting inside queue instantiation and **17.66M versus 4.95M** on instance assertion. Their combined 27.70M excess accounts for about half the directly measured 54.80M concrete-check gap. E-matching outside instantiation was 6.29M in both solvers. This independently identifies instance processing on a goal outside the previously profiled eight. A higher-leverage experiment is to measure which quantifiers account for both excesses and whether their ground Boolean bodies can be simplified during substitution before building intermediate applications. Preserve rewrite order, proof mode and the existing assertion/relevance semantics in any trial.
+
+The [reproduction archive](perf/ivy_apple/holdouts/nov27-wide-release-and-late-ticket.tar.xz) includes raw timing and instruction samples, variant patches, matched per-arity section counts, and the three new per-goal event traces and stack profiles.
