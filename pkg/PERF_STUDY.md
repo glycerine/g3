@@ -8186,3 +8186,32 @@ All predictions on these four workloads agreed with the observed output. Four in
 An optimistic solver-local prototype skipped the rewrite on an earlier output match, including matches across epochs. Seven alternating default-GC pairs put the complete instruction savings at 0.81% on Ticket, 0.06% on hybrid, 1.67% on ARM and 1.58% on FBA. Three pairs on TLB saved 0.85% of instructions and **increased elapsed time by 2.55%**. These five transcripts matched. The direct formula comparison on test_liveness2 rules out this prototype for release.
 
 Two frame-loop experiments specialized the theory rewriter's per-step memory and resource checks. Storing the concrete configuration on the engine saved 0.14–0.44% of whole-verifier instructions over seven pairs per case, with mixed elapsed time. A local type assertion preserved the engine size but increased instructions on three workloads. A third experiment omitted empty binding slots during ordinary quantified theory rewrites. The retained benchmark rewrites a universal predicate that uses every declared variable. Seven paired 20,000-iteration runs took 813/792 ns at width one, 1,160/1,083 ns at eight and 3,916/3,542 ns at 64 (baseline/trial), all at zero allocations. Nine complete pairs per case increased instructions on ARM by 0.76% and FBA by 0.20%. None of these experiments changed the release. [Quantified-frame benchmark](ast/rewriter/theory_quantified_frame_benchmark_test.go) · [Build overlays, counterexample coordinates, drivers and raw paired measurements](perf/ivy_apple/holdouts/nov27-rewrite-history.tar.xz)
+
+### November 27 — Compiler profiles trained on complete independent verifiers
+
+The blended Go profile reduced instructions on all six complete verifier holdouts, four SAT inputs and both incremental SMT replays. It improved paired elapsed time on five of the six verifiers. Use it explicitly from `pkg/` to reproduce the measured CLI build.
+
+```sh
+go build -buildvcs=false -tags=xtrace_off \
+  -pgo="$PWD/perf/ivy_apple/compiler_profiles/nov27-raft-tlb-sat-smt.pprof" \
+  -o /tmp/g3-pgo ./cmd/g3
+```
+
+Use the same absolute profile path when building GoIvy's `./cmd/goivy_check` against the local g3 module. Go 1.27.3 collected CPU profiles from two complete Raft runs and two complete TLB runs on GoIvy `77f7733de`. All four matched exit status and both output streams, including TLB's expected verification failure. These runs supplied 18.34 CPU seconds of samples. We added the previously retained 7.22 CPU seconds from separate pigeonhole, random UNSAT and toy-consensus training inputs. SAT package leaves account for 4.6% of the verifier-only profile and 14.4% of the blend. The measured builds use g3 `be07d4b10`. [Blended compiler profile](perf/ivy_apple/compiler_profiles/nov27-raft-tlb-sat-smt.pprof)
+
+| Complete holdout | Rounds | Ordinary g3 ms | Blended g3 ms | Linked Z3 ms | Blended instructions vs ordinary | Blended elapsed vs ordinary, paired |
+|---|---:|---:|---:|---:|---:|---:|
+| Ticket | 8 | 451 | 427 | 242 | −4.32% | −2.82% |
+| Hybrid | 8 | 1,229 | 1,188 | 882 | −3.93% | −3.30% |
+| ARM | 8 | 470 | 463 | 340 | −5.23% | −2.32% |
+| FBA | 8 | 110 | 106 | 138 | −6.01% | −3.61% |
+| Apple rfn2 | 6 | 1,484 | 1,484 | 9,269 | −2.84% | +0.78% |
+| Apple dramc_nb2 | 3 | 15,287 | 15,360 | 19,312 | −2.48% | −0.88% |
+
+Absolute columns are independent process medians. Percentages are medians of within-round ratios. Four executables rotated on the same CPU for each workload, with default GC and one Go processor. Each process matched its reference exit status, stdout and stderr. Apple used the previously pinned proof-producing GoIvy `07cdeec61` for all four builds. The newer frontend rejected rfn2 during isolate construction, before entering the solver. Native uses the ordinary linked Z3 build. Comparing the verifier-only profile to ordinary g3 gave instruction reductions of 3.70–6.19% on the short cases and 2.43–2.72% on Apple.
+
+Across five rotating rounds on ordinary pigeon8-s0 and three hard random holdouts, the blend cut instructions by 4.68–7.23% and paired elapsed by 1.25–2.13%. All five search counters agreed with Z3 and all satisfying assignments passed clause validation. Native still finished the hard random cases in 266–788 ms versus 550–1,662 ms for blended g3. Nine rounds of each Ticket CLI replay saved 5.15–5.53% instructions. Decisions, conflicts, instantiations and resource counts matched.
+
+Five fresh processes per worker population gave median retained heap of 45,975 bytes per warmed solver for both baseline and blend with 1,024 workers. With 48 larger solvers both used 686,611 bytes per solver. Fixture-inclusive medians differed by one byte per solver. Sixty rotating launches each put baseline/blend process medians at 2.13/2.13 ms for the version, 2.21/2.23 ms for one DIMACS unit, and 19.54/19.69 ms for a one-assertion arithmetic query. These startup figures include OS process creation. Keep the profile available for explicit production builds. The table provides no consistent startup advantage.
+
+Three instruction-sampling profiles per engine on each hard 208-variable input gave a more specific target. Blended g3 versus Z3 spent an estimated 9.37B/3.27B instructions under propagation on UNSAT and 3.90B/1.34B on SAT. The remaining Go conflict-resolution stacks also cost several times more. Go source attribution repeatedly landed on the blocking-literal branch and appending a moved clause into its destination watch list. The experiment drivers, worker data, individual profiles, checker results and raw measurements are in the [reproduction archive](perf/ivy_apple/holdouts/nov27-verifier-pgo.tar.xz).
