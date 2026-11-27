@@ -61,6 +61,10 @@ func macroExpansionCases(t testing.TB) (*ast.ASTManager, *macros.Manager, []macr
 // macro. Measure misses, a real substitution and a built-in ITE reduction.
 func BenchmarkMacroExpansion(b *testing.B) {
 	m, manager, cases := macroExpansionCases(b)
+	benchmarkMacroExpansionCases(b, m, manager, cases)
+}
+
+func benchmarkMacroExpansionCases(b *testing.B, m *ast.ASTManager, manager *macros.Manager, cases []macroExpansionCase) {
 	for _, tc := range cases {
 		b.Run(tc.name, func(b *testing.B) {
 			out, err := m.NewRef(ast.ASTHandle{})

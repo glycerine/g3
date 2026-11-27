@@ -8117,3 +8117,42 @@ Entries give median within-pair changes in process instructions / elapsed time w
 The weak plan trial discarded scratch and kept metadata across a search reset only with at most 32 body entries, 8 KiB of plan backing arrays and an active preceding substitution cache. The strong tuple trial retained the existing directory into another search only after growth and with at most 128 entries and 768 handles. It served 1,444 cross-search hits on released Ticket, 2,192 on hybrid, 1,892 on ARM and zero on FBA. Those counts include the complete verifier, while the identity observer above covers ordinary check windows. Retaining a root can keep its whole subgraph alive. The elapsed results give no reason to pay that memory cost for each worker.
 
 Nine alternating sampling rounds per backend covered all 284 concrete check windows on CPU 14, with normal solver search and GC disabled. On the 273 other checks the sampled totals were 976.39M for ordinary g3 and 373.41M for Z3, within 0.7% of the direct 970.07M and 370.91M counts. The largest disjoint excesses were **104.87M in preprocessing** (excluding rewriter phase settings), **103.33M in instance substitution**, **91.52M in instance assertion** and **81.04M in instance rewriting**. Within preprocessing, the entire macro-finder invocation accounted for 41.86M excess and value propagation for 25.16M. These are sampled call paths. Counts by formula and pass are needed to separate extra passes from a higher cost per visit. Compare those two passes in the later physical scopes, including their inputs, outputs and the number of active definitions, before testing a shortcut for unchanged pending assertions. [All rankings, profiling drivers, sampled stacks, identity censuses and four trial builds](perf/ivy_apple/holdouts/nov27-all-ticket-checks.tar.xz)
+
+## November 27 — What changes during Ticket macro discovery and value propagation
+
+The two solvers made the **same 676 macro-finder calls** across 232 of the 273 ordinary Ticket checks outside the two earlier panels. The ordered sequences of input size, output size, unchanged positions and installed-definition counts matched on every check in all five repetitions. Both visited 1,993 input rows, produced 1,993 rows and preserved the expression and proof at 1,741 positions. Neither installed a new definition. Both still applied definitions from earlier scopes.
+
+| Solver-thread intervals, millions of retired instructions | g3 | Linked Z3 |
+| --- | ---: | ---: |
+| Discover or expand, 522 calls returning the same rows | 15.34 | 8.34 |
+| Publish and simplify those batches | 18.22 | 4.69 |
+| Discover or expand, 154 calls changing the batch | 32.31 | 15.68 |
+| Publish and simplify those batches | 9.05 | 2.23 |
+| Rewrite individual value-propagation rows | 16.47 | 5.31 |
+| Insert their temporary substitutions | 3.88 | 0.63 |
+
+Macro timings split at the return from the finder, before copying its output and reducing the pending assertions. The Go publication interval ends before the finder output batch's deferred close. The row-rewrite intervals include result replacement. Go visits 1,316 value rows against 1,490 native. Only batch 1 goal 41 and batch 2 goal 41 differ in their row/change sequence. Across the other checks the positions and outcomes match. These observers count operations at matching frontend check boundaries, including any auxiliary solving inside them.
+
+A second observer separated macro expansion from the theory normalization of its result. Both engines changed the same 252 rows in sequence and performed two expander traversals on each. Those rows used 15.34M versus 6.40M instructions in expansion and 15.29M versus 8.23M in normalization and cleanup. On the 1,741 unchanged rows the existing identity probe let Go do 368 full traversals versus 1,741 in native. This still cost 11.74M versus 8.36M instructions. The independent observations exclude the equality-counting loop from the reported operation intervals.
+
+**Unchanged finder output does not imply that the subsequent reduction is redundant.** The reduction changed one of two rows at goals 34 and 35 in each of batches 3, 4 and 5, even though the finder returned its entire input unchanged. Both backends agreed. On the other 516 unchanged finder calls, publication and reduction preserved every row and cost 18.15M versus 4.67M instructions. After a changed finder result, reduction preserved the entire batch 144 times and changed it ten times.
+
+The same cost appears on complete ordinary hybrid checks. Across three runs per backend, both made 1,951 finder calls. Discovery cost 119.8M versus 69.5M instructions, and publication and simplification cost 79.1M versus 23.3M. On ARM the corresponding costs across 324 calls were 59.9M versus 21.9M and 38.5M versus 9.8M. First pushes are a separate population. For example, the Go solver made 34 hybrid first-push finder calls versus 68 native.
+
+### Trials against complete verification
+
+The following values are median within-round changes in instructions / elapsed time with normal GC. Each process matched its reference stdout, stderr and exit. Trials used nine alternating pairs per workload, except for the final traversal probe which used eleven. Elapsed times include host load.
+
+| Trial | Ticket | Hybrid | ARM | FBA |
+| --- | ---: | ---: | ---: | ---: |
+| Reuse an unchanged finder batch within one reduction | −0.57% / −5.32% | +0.33% / −0.28% | −0.56% / +8.55% | −0.49% / +0.63% |
+| Omit the last temporary substitution in each sweep | −0.74% / −0.25% | 0.00% / −0.65% | +0.60% / +9.73% | +0.15% / +1.23% |
+| Borrow already-owned input rows for the first finder pass | −0.48% / +0.22% | −0.35% / +0.32% | −0.09% / +0.43% | −0.91% / −0.50% |
+| Probe for an unchanged final expansion traversal | −0.63% / +1.12% | −0.69% / −0.67% | +0.59% / +0.48% | −0.05% / −0.35% |
+| Construct the bit-vector reducer on demand in the macro normalizer | +0.73% / +7.31% | −0.37% / +0.34% | +0.14% / +0.06% | −0.34% / +1.24% |
+
+The batch-reuse trial checked the complete ordered expression and proof handles for up to 16 rows and the active definition count within a single reduction. It still ran the subsequent simplification. A separate observer counted 117 repeated batches eligible on released Ticket, 64 on hybrid, two on ARM and zero on FBA. This limits the benefit; the FBA difference cannot be attributed to avoided finder calls.
+
+The new benchmark uses the same shared parameter services as the incremental solver. The older bare-manager fixture constructs its own default parameter service on each changed expansion. On nine alternating rounds of 3,000 operations, the final traversal probe reduced a real substitution from 12.47 to 9.89 µs, 7,899 to 6,203 bytes and 69 to 53 allocations. On a folding conditional the median fell from 12.95 to 10.66 µs and from 72 to 56 allocations. In the actual Ticket checks, it removed only 68 of the 504 complete traversals on changed rows. Their combined expansion cost fell from 15.34M to 14.63M. [Shared-parameter benchmark](ast/macros/macro_expansion_params_benchmark_test.go)
+
+A same-executable switch provided an independent code-layout control. Across thirteen pairs on each short workload the probe changed Ticket instructions / elapsed by +0.04% / +0.24%, hybrid by −0.50% / −0.15%, ARM by −0.82% / −0.50% and FBA by −0.70% / −0.80%. Across three TLB pairs it changed instructions by +0.29% and elapsed by +5.70%. Both settings matched the linked-Z3 transcript, including both expected failures. Keep the benchmark and the original solver paths. A useful next target is the repeated theory normalization after macro publication on hybrid and ARM. Measure traversal cost separately from cache flush and row ownership, and identify the application operations consuming the excess on rows with identical output. [Observer builders, trial sources and raw measurements](perf/ivy_apple/holdouts/nov27-ticket-preprocessing.tar.xz)
