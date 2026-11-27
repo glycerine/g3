@@ -39,6 +39,8 @@ func BenchmarkSMTAuxiliaryClauseSimplification(b *testing.B) {
 						b.Fatal(err)
 					}
 				}
+				b.StopTimer()
+				b.ReportMetric(float64(cap(s.clauseKeptScratch)+cap(s.clauseRemovedScratch)), "scratch-literals/solver")
 				if s.numClauseRecords() != 0 || s.inconsistent || !slices.Equal(original, lits) {
 					b.Fatal("tautology changed solver or caller data")
 				}

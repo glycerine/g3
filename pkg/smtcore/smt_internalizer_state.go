@@ -129,9 +129,8 @@ type smtPendingEquality struct {
 type SMTInternalizerState struct {
 	savedAtoms smtClauseAtomPool
 
-	// clauseSortScratch and clauseKeptScratch are reused work buffers of
-	// addClauseKindWithJustificationAndDeleteHandler.
-	clauseSortScratch, clauseKeptScratch []SMTLiteral
+	// clauseKeptScratch holds the private literal copy during simplification.
+	clauseKeptScratch []SMTLiteral
 	// clauseRemovedScratch backs mk_clause's simp_lits (removed false literals).
 	clauseRemovedScratch []SMTLiteral
 	// registeredJustification is a wrapper already in ownedJustifications

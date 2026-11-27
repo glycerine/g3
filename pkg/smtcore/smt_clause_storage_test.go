@@ -3,6 +3,7 @@ package smtcore
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -36,6 +37,34 @@ func TestSMTClauseScratchAcrossNestedInsertion(t *testing.T) {
 	astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler(ls[:3], false, SMTClauseLearned, ast.ASTHandle{}, j, nil))
 	if len(s.lemmas) != 2 || !reflect.DeepEqual(s.lemmas[0].activeClause().Literals(), ls[3:]) || !reflect.DeepEqual(s.lemmas[1].activeClause().Literals(), ls[:3]) {
 		t.Fatal("nested clause insertion changed the outer or inner literals")
+	}
+}
+
+// An auxiliary lemma selects its watch positions in the filtered slice before
+// the justification can reenter clause construction.
+func TestSMTSortedClauseScratchAcrossNestedInsertion(t *testing.T) {
+	s, literals := sortedClauseInputs(t, 6)
+	inner := literals[3:]
+	outer := append(slices.Clone(literals[:3]), literals[0])
+	original := slices.Clone(outer)
+	// Warm enough storage for both calls to reuse the same backing array.
+	warm := append(slices.Clone(outer), outer[0].Negated())
+	astTestMust(t, s.addClause(warm, false, ast.ASTHandle{}))
+	j := &nestedClauseJustification{insert: func() {
+		astTestMust(t, s.addClause(inner, false, ast.ASTHandle{}))
+	}}
+	astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler(outer, false, SMTClauseAuxLemma, ast.ASTHandle{}, j, nil))
+	if !slices.Equal(outer, original) || len(s.auxClauses) != 1 || len(s.lemmas) != 1 {
+		t.Fatal("unexpected caller literals or clause counts after nested insertion")
+	}
+	for i, clause := range []*SMTClause{s.lemmas[0].activeClause(), s.auxClauses[0].activeClause()} {
+		got := slices.Clone(clause.Literals())
+		want := slices.Clone(literals[3*i : 3*i+3])
+		slices.Sort(got)
+		slices.Sort(want)
+		if !slices.Equal(got, want) {
+			t.Fatalf("clause %d contains %v, want %v", i, got, want)
+		}
 	}
 }
 

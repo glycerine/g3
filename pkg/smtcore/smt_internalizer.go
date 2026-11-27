@@ -133,14 +133,15 @@ func (s *SMTInternalizerState) addClauseKindWithDeleteHandler(literals []SMTLite
 const smtClauseSeenScanLimit = 16
 
 func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(literals []SMTLiteral, root bool, kind SMTClauseKind, proof ast.ASTHandle, justification SMTJustification, deleteHandler SMTClauseDeleteHandler) error {
+	kept := s.clauseKeptScratch[:0]
 	ordered := kind == SMTClauseAux || kind == SMTClauseAuxLemma
 	if ordered {
 		// simplify_aux_clause_literals and simplify_aux_lemma_literals both
 		// sort the literals (by index) first.
-		// The sorted copy is only read by the loop below, so it lives in a
-		// reused scratch buffer; nothing in the loop adds a clause.
-		s.clauseSortScratch = append(s.clauseSortScratch[:0], literals...)
-		literals = s.clauseSortScratch
+		// Filter the sorted copy in place. The write index never passes
+		// the current read index, including when dropping duplicates.
+		literals = append(kept, literals...)
+		kept = literals[:0]
 		slices.Sort(literals)
 	}
 	// Adjacent indices are the two polarities of a variable. Only
@@ -149,8 +150,6 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	if !ordered && len(literals) > smtClauseSeenScanLimit {
 		seen = make(map[SMTLiteral]struct{}, len(literals))
 	}
-	// Collect the simplified literals in solver-local storage.
-	kept := s.clauseKeptScratch[:0]
 	removedFalse := s.clauseRemovedScratch[:0]
 	// Return the grown buffers even when a true literal or a tautology ends
 	// simplification early. A nested clause from a proof or assignment
@@ -224,6 +223,10 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		kept = append(kept, literal)
 	}
+	return s.storeSimplifiedClause(kept, removedFalse, root, kind, proof, justification, deleteHandler)
+}
+
+func (s *SMTInternalizerState) storeSimplifiedClause(kept, removedFalse []SMTLiteral, root bool, kind SMTClauseKind, proof ast.ASTHandle, justification SMTJustification, deleteHandler SMTClauseDeleteHandler) error {
 	// mk_clause: j = unit_resolution_justification(j, simp_lits) whenever
 	// false literals were removed; the clause's proof is then built lazily
 	// from that justification (the proof wrapper of pr resolved with the
