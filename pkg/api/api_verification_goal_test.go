@@ -342,3 +342,40 @@ func BenchmarkAppleVerificationGoalPremises(b *testing.B) {
 		})
 	}
 }
+
+func TestVerificationSizedBatchSmallSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		padding, goals int
+		attempt        bool
+	}{
+		{"64 premises", 61, 8, true},
+		{"65 premises", 62, 8, false},
+		{"unsized batch", 62, 0, true},
+		{"wide selection eligible", maxWidePremises, 8, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fact := "(forall ((v U)) (gamma v))"
+			if tc.padding == maxWidePremises {
+				fact = "(gamma k)"
+			}
+			ctx, s := orderSolver(t, relevantPremiseExample(fact, tc.padding))
+			m, err := ctx.Manager()
+			astTestMust(t, err)
+			roots, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			batch := s.BeginOrderProofBatchForGoals(tc.goals)
+			t.Cleanup(func() { astTestMust(t, batch.Close()) })
+			proved, err := batch.state.proveRelevantPremises(m, roots)
+			astTestMust(t, err)
+			if want := tc.attempt || !batch.state.plans.reusable(m); proved != want {
+				t.Fatalf("private result %t, want %t", proved, want)
+			}
+			result, err := s.Check()
+			astTestMust(t, err)
+			if result != lbool.False {
+				t.Fatalf("concrete check returned %v", result)
+			}
+		})
+	}
+}

@@ -52,15 +52,22 @@ func (p *orderProofState) proveRelevantPremises(m *ast.ASTManager, assertions []
 	if err != nil || !ok {
 		return false, err
 	}
-	check := func(subset []ast.ASTHandle, steps uint32) (bool, error) {
-		if len(subset) == 0 {
+	// With a large base, very small definition and rare-symbol subsets
+	// commonly admit models. In a sized batch their failed checks precede
+	// the ordinary incremental search. Keep the wider selection eligible.
+	minSelected := 1
+	if p.expectedGoals > 0 && p.plans.reusable(m) && len(base.rows) > 2*maxNarrowPremises {
+		minSelected = (len(base.rows) + 7) / 8
+	}
+	check := func(subset []ast.ASTHandle, minimum int, steps uint32) (bool, error) {
+		if len(subset) < minimum {
 			return false, nil
 		}
 		input := append(subset, goal)
 		return p.checkProofPlan(m, &shortPremisePlan{source: assertions, selected: input}, steps)
 	}
 	narrow := defs.selectRows(m, symbols, false, maxNarrowPremises)
-	if yes, err := check(narrow, 6000); yes || err != nil || m.ResourceLimit().CancelFlag() {
+	if yes, err := check(narrow, minSelected, 6000); yes || err != nil || m.ResourceLimit().CancelFlag() {
 		return yes, err
 	}
 	wideLimit := maxWidePremises
@@ -74,7 +81,7 @@ func (p *orderProofState) proveRelevantPremises(m *ast.ASTManager, assertions []
 			wideLimit = min(wideLimit, maxNarrowPremises)
 		}
 	}
-	if yes, err := check(defs.selectRows(m, symbols, true, wideLimit), 100000); yes || err != nil || m.ResourceLimit().CancelFlag() {
+	if yes, err := check(defs.selectRows(m, symbols, true, wideLimit), 1, 100000); yes || err != nil || m.ResourceLimit().CancelFlag() {
 		return yes, err
 	}
 	var subset []ast.ASTHandle
@@ -96,5 +103,5 @@ func (p *orderProofState) proveRelevantPremises(m *ast.ASTManager, assertions []
 	if len(subset)*3 > len(base.rows) {
 		return false, nil
 	}
-	return check(subset, 5000)
+	return check(subset, minSelected, 5000)
 }
