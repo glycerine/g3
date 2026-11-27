@@ -9000,3 +9000,39 @@ Commit `2214ce42a` improves an ordinary lookup without changing when g3 register
 Each entry is the median of nine alternating runs pinned to one CPU. The first three used 500,000 lookups per sample, with zero allocations. The last used 60 fresh registries sharing a warm symbol manager and catalog. Each used 421 allocations per operation on both builds. A separate insertion prototype removed a repeated symbol check on the freshly interned path. First lookup went from 181.15 to 175.95 µs in that series. It is archived pending end-to-end and lifetime validation.
 
 The release passed the parameter, API and SMT suites, the checked/debug/trace parameter suite and the 228-input verifier transcript screen. Three complete rotations also matched Raft, Apple rfn2 and dramc_nb2. Their median paired instruction changes were −0.13%, +0.26% and +0.06%. In five rotated original/release/native triples, median paired whole-verifier instructions changed by −0.62% to +0.87% across six inputs. On hybrid the released g3 took 1,125 ms versus 828 ms for linked Z3. On Ticket it took 425 ms versus 234 ms. The lookup speedup is repeatable in the component benchmark. The complete verifier measurements still leave a substantial gap. [Parameter lookup benchmarks](util/params/util_param_descrs_benchmark_test.go) · [Observers, trials, release panels and raw samples](perf/ivy_apple/holdouts/nov27-private-budget-and-parameter-catalog.tar.xz)
+
+### November 27 — Models of selected premises and a missed Flash instance
+
+We captured the exact 123 private solver inputs from hybrid reliable broadcast, test/flash2, CAV examp5 and POPL18 Ticket. The capture reproduced every original private answer and the four complete verifier transcripts. A fresh native simple solver linked with GoIvy's Z3 archive, with macro finding enabled and MBQI disabled, gave **the same 123 answers as g3**. With model-based quantifier instantiation (MBQI) enabled, native classified 56 of the 57 unknowns as SAT and one as UNSAT. Thus most of this search was spent trying to refute satisfiable *selected premises*. The full verification problems also contain assertions the private solver omitted.
+
+| Input | Private unknowns | SAT with singleton user sorts | SAT with at most two elements per user sort | Final g3 filter recognizes (unknown / already SAT) |
+|---|---:|---:|---:|---:|
+| Hybrid broadcast | 30 | 28 | 30 | 18 / 2 |
+| test/flash2 | 11 | 6 | 9 | 2 / 7 |
+| CAV examp5 | 12 | 2 | 12 | 0 / 2 |
+| POPL18 Ticket | 4 | 1 | 4 | 1 / 4 |
+
+Flash private check 11 was the one missed refutation. Deletion reduced it to assertions 5, 7, 8 and 9. Adding one instance of assertion 5 at the existing constants `@X, @Y, @Z` to the original input allowed native E-matching alone to prove UNSAT. Adding only the instance of assertion 7 did not. The two instances plus the two ground assertions were UNSAT, and deleting either instance made the ground problem SAT. This supports investigating which existing terms or partial matches fail to trigger assertion 5. Turning on g3 MBQI across the private search increased complete instructions on five of six workloads by 1.15–6.69% in seven pairs. We retained the existing search configuration.
+
+**The retained change, `f9070483c`, checks up to 64 constant predicate interpretations before starting a private refutation.** Each bit tracks one common interpretation across all selected formulas. A quantified body is accepted only when its value holds uniformly. Equality may use a singleton user domain after checking that the expressions contain only basic and uninterpreted applications. This guard excludes distinguished model-value constants. Unknown expressions, excessive traversal, and a missing certificate fall through to the existing private check. Finding a witness declines that one refutation strategy. The full solver remains responsible for the original proof. Diagnostic and failure-injection paths retain their previous behavior. [Implementation](api/api_private_premise_model.go) · [Regressions and benchmark](api/api_private_premise_model_test.go)
+
+A shadow build left all solver calls enabled and recorded the independent filter result. All 36 selections it recognized had a singleton-domain SAT answer from native. The 21 previously unknown checks alone had cost 52.91M retired instructions inside their private checks, excluding setup. The benchmark of a reusable solver with a satisfiable universal subset dropped from a median of 593 µs, 331 KB and 1,350 allocations to 248 ns and zero allocations. This benchmark isolates the avoided private call. The caller still pays to select premises and check the full problem.
+
+Nine rotated baseline/release/native runs used pinned CPU 12, normal GC, the same frontend and the retained PGO profile. The instruction changes below are medians of within-round release/baseline differences. The elapsed columns are separate medians. The warm machine also ran other studies during portions of this panel.
+
+| Complete GoIvy input | g3 instruction change | Released g3 ms | Linked Z3 ms |
+|---|---:|---:|---:|
+| Hybrid broadcast | −1.73% | 1,088 | 826 |
+| test/flash2 | −1.50% | 885 | 875 |
+| CAV examp5 | +0.20% | 510 | 490 |
+| CAV examp1 | −0.23% | 77 | 100 |
+| POPL18 Ticket | −2.26% | 452 | 242 |
+| test/skolem1 | −20.41% | 23.5 | 30.4 |
+| examples/liveness/ticket | −5.11% | 243 | 208 |
+| Toy consensus | +5.31% | 70 | 77 |
+
+All 228 complete verifier transcripts and exit statuses matched their native references. Three paired rotations of ordinary Raft, Apple rfn2 and dramc_nb2 also matched. Median paired instruction changes were −0.35%, −0.53% and +0.04%. A further 15 pairs confirmed skolem1 at −20.57%. CAV examp5 moved to −0.27%. Toy consensus still used 4.64% more instructions across separately built binaries, even though the shadow verifier recorded zero eligible short plans on this input.
+
+A switch inside one executable confirmed skolem1 at −20.64% and hybrid at −1.32% over eleven pairs. Toy consensus initially varied by +3.24% with the same switch. Across 101 alternating same-binary pairs its median difference was −0.32%. Another 51 pairs with the switch disabled on both sides differed by +0.01%. Toy consensus provides no reproducible evidence of work saved by the filter. POPL18 Ticket remains the largest elapsed ratio in the eight-input panel. The earlier matched profile attributed 995M excess instructions to its checks and 56M to batch 4 goal 55 after Push. That concrete operation is a larger target than the remaining private unknowns. [Ticket phase and obligation profiles](#november-27--where-the-four-ticket-verifiers-spend-their-instructions)
+
+On dramc_nb2 the first panel showed +9.45% elapsed despite almost unchanged instruction counts. Three further pairs after concurrent builds finished gave -0.10% instructions and -2.43% elapsed. The two panels do not establish a wall-time improvement on this isolate. [Captured SMT-LIB inputs, native replay, prototype sources, benchmark drivers and raw results](perf/ivy_apple/holdouts/nov27-private-quantifier-models.tar.xz)
