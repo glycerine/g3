@@ -27,6 +27,9 @@ func BenchmarkTheoryReduction(b *testing.B) {
 	x := hold(m.MkConst(astTestSymbol(b, m, "x"), s))
 	y := hold(m.MkConst(astTestSymbol(b, m, "y"), s))
 	f := hold(m.MkFuncDecl(astTestSymbol(b, m, "f"), []ast.ASTHandle{s, s}, s, ast.ASTFuncDeclInfo{}))
+	u := hold(m.MkUninterpretedSort(astTestSymbol(b, m, "U"), nil))
+	left := hold(m.MkConst(astTestSymbol(b, m, "left"), u))
+	right := hold(m.MkConst(astTestSymbol(b, m, "right"), u))
 	neg := hold(m.MkNot(x))
 	out := astTestPin(b, m, ast.ASTHandle{})
 	for _, tc := range []struct {
@@ -40,6 +43,7 @@ func BenchmarkTheoryReduction(b *testing.B) {
 		{"DoubleNot", hold(m.MkNot(neg)), []ast.ASTHandle{neg}, x},
 		{"Or", hold(m.MkOr(x, y)), []ast.ASTHandle{x, y}, ast.ASTHandle{}},
 		{"OrDuplicate", hold(m.MkOr(x, x)), []ast.ASTHandle{x, x}, x},
+		{"UninterpretedEquality", hold(m.MkEq(left, right)), []ast.ASTHandle{left, right}, ast.ASTHandle{}},
 		{"Iff", hold(m.MkIff(x, y)), []ast.ASTHandle{x, y}, ast.ASTHandle{}},
 	} {
 		decl, err := m.GetDecl(tc.app)

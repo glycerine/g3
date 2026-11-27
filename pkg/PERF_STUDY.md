@@ -7262,3 +7262,65 @@ Nine rotating triples measured each width. Allocation counts and bytes per opera
 Seven rotating triples compared the exact release, baseline `474a4b0f8`, and linked Z3 on the same core and frontend. All exit statuses and output streams matched. Ticket elapsed increased 6.86% against baseline in this panel and decreased 0.14% in fifteen reverse-order confirmation pairs. The scoped improvement is measurable. Whole-verifier timing gives no repeatable Ticket gain. Six independent command holdouts matched verdicts and search counters in three pairs each.
 
 The next population to profile is Boolean enode registration. Of 19,471 new Ticket enodes, 13,618 were unsuppressed Boolean nodes with two arguments and 4,295 had one. On hybrid these two groups accounted for 29,223 of 33,146. Separate their cost in operand internalization, Boolean variable binding, registration and congruence insertion. Compare to the matching native calls before deciding which work to remove. [Censuses, measurement scripts, variant definitions and controls](perf/ivy_apple/holdouts/nov26-subtree-reuse-and-unary-enodes.tar.xz)
+
+## November 26 — Projection lifetime and finite-model function lookup
+
+Three changes survived testing against solver baseline `af7d977bc`. All retain the existing arena and solver-local ownership.
+
+### A completed projection kept its compiler alive
+
+The quantified projector returned a pointer to the Boolean problem embedded in its compiler. In Go, that interior pointer kept the enclosing allocation reachable, including the term interning map, argument storage, source identities and gate-building scratch. Commit `97394ed5a` copies the result header before returning. The SAT consumer owns the same clause slice and sees the same variable count and work charge.
+
+The regression benchmark holds sixteen completed projections of Apple `dramc_nb2` obligation 71 over one shared source AST. A collection before construction and another with all sixteen results live isolate what the results retain. Across nine rotating rounds the median fell from **873,477 to 73,777 live bytes per problem**, an **11.8× reduction**. This measures the handoff to SAT. The solver's other storage and the shared source AST are outside the delta. [Live-result benchmark](api/api_quantified_premises_test.go) · [Result ownership](api/internal/order/quantified_boolean.go)
+
+Commit `c7f374a98` sizes the initial term table of a one-shot grounding from the parsed DAG and the remaining work budget, up to 2,048 entries. Tables kept for sibling goals still grow on demand. The fresh Apple projection fell from 2.17 to 2.04 ms and from 263 to 219 allocations. With a reusable parsed base it fell from **1.19 to 1.08 ms**, **1,072,120 to 886,056 B/op**, and **207 to 163 allocations**. These are nine-round medians, 25 projections per timed sample. Five whole-verifier allocation pairs also showed a reduction on hybrid, from 384.9 MB for the result-copy build to 379.9 MB with the bounded reservation. A trial reserving the full input size also saved allocations but could reserve more at once or keep spare capacity in the sibling-goal index. [Grounding implementation](api/internal/order/quantified_goal.go)
+
+### How much time enode creation explains
+
+| Workload | Paired profiles | Samples in g3 creation | Samples in Z3 creation | Share of whole-process instruction gap |
+| --- | ---: | ---: | ---: | ---: |
+| Ticket 127 replay | 12 | 52 | 15 | 2.0% |
+| Ticket 290 replay | 12 | 66 | 6 | 2.9% |
+| Complete Ticket | 6 | 474 | 76 | 4.0% |
+| Complete hybrid | 6 | 798 | 253 | 3.0% |
+
+Each sample represents 1,000,003 retired user instructions. The percentage divides the excess creation samples by the excess samples across both whole processes. The call-tree anchors were g3's internal `mkEnode` and C++ `smt::context::mk_enode`. On complete Ticket, g3 had 270 construction samples, 69 in congruence insertion and 47 in registration. The respective construction and congruence counts in Z3 were 35 and 29. Some native registration is inline. These profiles include all newly created enodes and work below the creation routine. Operand internalization and variable binding before entry have separate call paths. Boolean nodes dominate the population, but even eliminating the measured excess inside creation would close only a small part of the gap. Sampling, inlining and stack unwinding limit the precision of these estimates.
+
+### Scanning function interpretations in the candidate-model checker
+
+In six complete hybrid profiles, calls through g3's quantifier manager to check a candidate model accounted for about **1.65 billion instructions per run**. The disjoint estimates included 629M in candidate-model generation, 479M elsewhere in auxiliary counterexample processing, 189M in finite-table compilation and 182M in the recursive table evaluator. These are g3 costs. The instruction saving available in each phase depends on the work native also does.
+
+The evaluator copied each function row, including eight key integers, and tested the full key at every position. Commit `7562d9212` reads the row in place and compares the first two positions before checking the remainder of a wider key. The compiler zero-pads both keys. The first matching row determines the result, and the evaluator charges for every row through that match. A miss still charges for the full scan before evaluating the default interpretation. [Evaluator](smtcore/smt_model_table_check.go) · [Shared-prefix regression](smtcore/smt_model_table_diagram_test.go)
+
+| 32-row function table | Before | Release |
+| --- | ---: | ---: |
+| Unary, first hit | 26.99 ns | 12.38 ns |
+| Unary, last hit | 347.7 ns | 42.54 ns |
+| Binary, last hit | 350.0 ns | 47.94 ns |
+| Eight arguments, last hit | 395.0 ns | 77.87 ns |
+| Eight arguments, default | 386.1 ns | 80.18 ns |
+
+Nine rotating triples used 250,000 calls per sample, with zero allocations per call. These benchmark keys differ in the first position. The shared-prefix regression also exercises keys that first differ in the third position. An independent evaluator compared the old and new implementations inside six complete verifications. All **277,403 root evaluations** agreed on value, remaining work and incomplete status, including 225,292 on hybrid and 17,506 on TLB. Both output streams and exit status matched on every workload. [Lookup benchmark](smtcore/smt_model_table_lookup_benchmark_test.go)
+
+### What the complete verifiers show
+
+| Complete verifier | g3 median | Linked Z3 median | Checks or frontend control |
+| --- | ---: | ---: | --- |
+| Ordinary Raft | 2.710 s | 33.783 s | 419 passes |
+| Apple rfn2 | 1.489 s | 9.425 s | 26 passes |
+| Apple dramc_nb2 | 15.571 s | 19.203 s | 2,479 passes |
+| Ticket | 436 ms | 237 ms | GoIvy 77f7733de |
+| Hybrid | 1,183 ms | 827 ms | GoIvy 77f7733de |
+| ARM rules3 | 473 ms | 334 ms | GoIvy 77f7733de |
+| FBA | 109 ms | 137 ms | GoIvy 77f7733de |
+
+The four short verifiers used nine same-core rotating triples of baseline, release and linked Z3. Against baseline, median paired release instructions changed by +0.24% on Ticket, −0.77% on hybrid, +0.08% on ARM and +0.70% on FBA. Corresponding elapsed changes were −0.13%, −1.10%, +0.59% and −0.64%. The stronger evidence for these changes is the reduction in retained memory and the evaluator benchmark. TLB took 6.29 s versus the prior g3 median of 7.08 s in a separate three-pair panel, with a paired instruction reduction of 0.94%. The two expected failing obligations and both streams matched. The Raft and Apple medians each use three alternating release/native pairs. Raft used frontend `77f7733de`. Both Apple binaries used `07cdeec61` to reach the solver under the previously documented isolate semantics. All seven release/native comparisons matched exit and both streams. Ordinary SMT core, API, order and rewriter suites passed, along with focused checked/debug/trace tests and vet for the changed production packages.
+
+### Trials and the next measurement
+
+- A row index preserved the original work charge but raised complete hybrid instructions by 0.26%. Memoizing finite terms that depend on at most two bindings raised hybrid instructions by 0.77%. An oracle checked value and budget preservation. The simpler row scan was cheaper.
+- Storing a single resolved literal inside its unit justification saved just 0.03% and 0.09% on the two Ticket replays with GC off. Normal-GC results moved in opposite directions. The current justification still records every removed literal needed by assumption cores.
+- Gating an ITE fold by arity, specializing theory traversal callbacks, and gating the one-bit equality rule by operand shape and sort each saved less than 0.45% of replay instructions with GC off. The sort trial improved the uninterpreted equality reducer from 154 to 123 ns, but the complete hybrid run took longer. Those variants remain experiments. [Reducer benchmark](ast/rewriter/th_rewriter_benchmark_test.go)
+- **Next measure repeated function interpretation compilation within one candidate model.** Across 162 hybrid model-check calls the finite checker compiled 26,798 function tables. On 21,512 of those compilations it had already compiled the same declaration within that call. All 21,512 repeats had identical fallback handles and identical ordered argument and result handles, including 27,904 repeated rows. The census also found 19,024 empty tables among all compilations. Start by pricing empty and repeated tables separately. If they account for material work, test sharing the source rows during a single model-check call while preserving each quantified body's local value IDs, exact work charges and handling of nested function interpretations. Candidate-model generation itself took over three times as many samples as table compilation and warrants a direct native comparison before expanding the cache.
+
+The evidence archive includes the release timings, allocation profiles, per-round instruction samples, per-tuple oracle counts, tested variants and reproduction drivers. [Measurements and scripts](perf/ivy_apple/holdouts/nov26-projection-lifetime-and-model-lookup.tar.xz)
