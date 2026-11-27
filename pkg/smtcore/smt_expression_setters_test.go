@@ -91,3 +91,23 @@ func TestRegisterBorrowedEnodePreservesLiveSlot(t *testing.T) {
 			err, ctx.enodes.get(live) == current, ctx.relevant.get(live), len(ctx.registeredEnodes))
 	}
 }
+
+func TestEnodeRegistrationUsesExistingOrSuppliedRelevance(t *testing.T) {
+	m := astTestManager(t)
+	_, _, solver := smtInternalizerFixture(t, m, nil)
+	ctx := solver.context
+	atom := smtRelevancyBool(t, m, "premarked")
+	astTestPin(t, m, atom)
+	astTestMust(t, solver.Internalize(atom, true))
+	astTestMust(t, ctx.SetRelevant(atom, true))
+	before := ctx.enodes.count()
+	astTestMust(t, solver.Internalize(atom, false))
+	node := ctx.enodes.get(atom)
+	if node == nil || !ctx.relevant.get(atom) || ctx.enodes.count() != before+1 {
+		t.Fatal("attaching a term-context enode lost the gate's relevance")
+	}
+	astTestMust(t, ctx.RegisterEnode(node, false))
+	if marked, present := ctx.relevant.lookup(atom); !present || marked || ctx.enodes.count() != before+1 {
+		t.Fatal("registering the same enode must apply the caller's mark exactly once without duplicating the node")
+	}
+}

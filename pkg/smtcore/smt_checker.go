@@ -160,10 +160,12 @@ func (c *SMTCheckerContext) matchingDeclarations() map[ast.ASTHandle][]*SMTEnode
 }
 
 func (c *SMTCheckerContext) RegisterEnode(node *SMTEnode, relevant bool) error {
-	return c.registerEnode(node, relevant, true)
+	return c.registerEnode(node, &relevant)
 }
 
-func (c *SMTCheckerContext) registerEnode(node *SMTEnode, relevant, borrowed bool) error {
+// Borrowed nodes supply their relevance. The internalizer owns its node and
+// preserves any mark recorded before the expression acquired an enode.
+func (c *SMTCheckerContext) registerEnode(node *SMTEnode, suppliedRelevance *bool) error {
 	if c == nil || c.manager == nil {
 		return ast.ErrASTHandle
 	}
@@ -175,23 +177,26 @@ func (c *SMTCheckerContext) registerEnode(node *SMTEnode, relevant, borrowed boo
 	}
 	// The internalizer owns a reference while publishing its node. A borrowed
 	// node can outlive its expression and the slot can hold a new generation.
-	if borrowed {
+	if suppliedRelevance != nil {
 		if err := c.manager.ValidateHandle(node.owner); err != nil {
 			return err
 		}
 	}
-	prior := c.enodes.get(node.owner)
+	page := c.exprs.writePage(node.owner)
+	offset := node.owner.Slot() % smtExprPageSize
+	prior := page.enodes[offset]
 	if prior != nil && prior != node {
 		return ast.ErrASTDomain
 	}
 	if prior == nil {
-		if borrowed && c.registeredEnodes == nil && c.assignments.s != nil {
+		if suppliedRelevance != nil && c.registeredEnodes == nil && c.assignments.s != nil {
 			c.registeredEnodes = append([]*SMTEnode(nil), c.assignments.s.enodeStack...)
 		}
-		if borrowed || c.registeredEnodes != nil {
+		if suppliedRelevance != nil || c.registeredEnodes != nil {
 			c.registeredEnodes = append(c.registeredEnodes, node)
 		}
-		c.enodes.set(node.owner, node)
+		page.enodes[offset] = node
+		c.exprs.enodeCount++
 		if c.byDeclaration != nil {
 			c.byDeclaration[node.declaration] = append(c.byDeclaration[node.declaration], node)
 		}
@@ -199,7 +204,12 @@ func (c *SMTCheckerContext) registerEnode(node *SMTEnode, relevant, borrowed boo
 			c.decl2enodes[node.declaration] = append(c.decl2enodes[node.declaration], node)
 		}
 	}
-	c.relevant.set(node.owner, relevant)
+	record := &page.records[offset]
+	relevant := record.flags&smtExprRelevant != 0
+	if suppliedRelevance != nil {
+		relevant = *suppliedRelevance
+	}
+	c.relevant.setRecord(record, relevant)
 	return nil
 }
 

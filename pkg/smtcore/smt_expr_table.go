@@ -273,7 +273,10 @@ func (r smtRelevantTable) get(h ast.ASTHandle) bool {
 
 // set returns whether the expression already had a live relevance mark.
 func (r smtRelevantTable) set(h ast.ASTHandle, value bool) bool {
-	record := r.t.write(h)
+	return r.setRecord(r.t.write(h), value)
+}
+
+func (r smtRelevantTable) setRecord(record *smtExprRecord, value bool) bool {
 	marked := record.flags&smtExprRelevant != 0
 	record.flags |= smtExprHasRelevant
 	if value {

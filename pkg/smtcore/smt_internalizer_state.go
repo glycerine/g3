@@ -1004,7 +1004,7 @@ func (s *SMTInternalizerState) mkEnode(expression ast.ASTHandle, suppressArgumen
 	// Source mk_enode does not reset an expression's existing relevance.
 	// Gate-context Boolean atoms can be marked before a term-context enode
 	// is needed, including during a later search scope.
-	if err = s.context.registerEnode(node, s.context.relevant.get(expression), false); err != nil {
+	if err = s.context.registerEnode(node, nil); err != nil {
 		if node.congruence == node && count != 0 && congruenceEnabled && !node.IsTrueEquality() {
 			_, _ = s.congruence.Erase(node)
 		}
