@@ -236,10 +236,19 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				}
 				if tracing {
 					s.traceProcessingClause(c)
+					// The trace writer may release or recycle this arena row.
+					clause, e = s.clauses.view(c)
+					if e != nil {
+						return false, e
+					}
 				}
 				c0, c1 := clause.watchedLiterals(not)
-				if tracing {
-					s.traceClauseMismatch(l, c, c1 != not)
+				if tracing && c1 != not {
+					s.traceClauseMismatch(l, c, true)
+					clause, e = s.clauses.view(c)
+					if e != nil {
+						return false, e
+					}
 				}
 				if clause.flag(satClauseFlagRemoved) || c1 != not {
 					break

@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
@@ -128,5 +129,46 @@ func TestSATWatchKeepsOffsetAcrossTraceWrite(t *testing.T) {
 	satOK(t, err)
 	if got != watch {
 		t.Fatalf("retained watch %+v, want %+v", got, watch)
+	}
+}
+
+func TestSATPropagationTraceReleasesWatchedClause(t *testing.T) {
+	for _, tc := range []struct {
+		name, tag, needle string
+		lits              []Literal
+	}{
+		{"processing", "propagate_clause_bug", "processing...", []Literal{1, 2, 4}},
+		{"mismatch", "propagate_bug", "l: ", []Literal{2, 4, 6}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, v, _ := satPropagationFixture(t, 4)
+			c, err := s.clauses.MkClause(tc.lits, false)
+			satOK(t, err)
+			off, err := s.clauses.Offset(c)
+			satOK(t, err)
+			w, err := newSATClauseWatch(4, off)
+			satOK(t, err)
+			list, err := v.watches.Get(0)
+			satOK(t, err)
+			satOK(t, list.Push(w))
+			released := false
+			tags := diagnostic.NewTraceTagsWithWriter(satWatchTraceWriter(func(b []byte) (int, error) {
+				if !released && bytes.Contains(b, []byte(tc.needle)) {
+					released = true
+					satOK(t, s.clauses.Delete(c))
+				}
+				return len(b), nil
+			}))
+			tags.Enable(tc.tag)
+			if !tags.ShouldTrace(tc.tag) {
+				t.Skip("requires trace build")
+			}
+			s.traceTags = tags
+			satOK(t, s.assign(0, satJustification{}))
+			_, err = s.propagateCore(false)
+			if !released || err != arena.ErrInvalidSlot {
+				t.Fatalf("released = %t, propagation returned %v", released, err)
+			}
+		})
 	}
 }
