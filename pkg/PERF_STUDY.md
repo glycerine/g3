@@ -8074,3 +8074,25 @@ All three overlays remain experimental. Every timed CLI pair preserved the verdi
 ### Larger opportunity across the complete Ticket run
 
 Reclassifying the previous five-rotation full-stage records by whether the *same* goal subsequently reached a concrete check identifies **nine early proof attempts that fell through**, one in each of nine batches. Their median combined cost was **109.75M instructions**. Another 32 early attempts proved the obligation for 35.77M combined. The nine failures represent 75.4% of the measured early-stage cost. Eliminating the entire early stage previously regressed the Apple holdouts. Measure the stages of these nine misses against successful early proofs in Ticket, Raft and Apple. In particular, distinguish eligibility checks, building the private problem, private search, and releasing an unsuccessful attempt. This can establish whether a general, solver-local rejection test has enough time to pay for itself. The 109.75M is an upper bound on the full Ticket opportunity from these misses, independent of the smaller cache and reducer costs on one check. [Measurement code, trials, per-instance counters and complete verifier controls](perf/ivy_apple/holdouts/nov27-ticket-cache-prices.tar.xz)
+
+## November 27 — When Ticket private proofs fail
+
+Ticket spent 109.78M solver-thread instructions on nine unsuccessful pre-push proofs and 35.73M on its 32 successful ones. No individual stage dominates the misses. Private SMT checks used 16.91M, ground-premise refutation 14.63M, asserting translated premises 14.46M, Boolean checks 9.94M and adding observed instances during projection 9.86M. These are exclusive costs from a nested observer with GC disabled. The separate phase observer measured 109.67M on the same misses. The control workloads had 59 successes and 12 misses on Raft, 26 successes on rfn2 and 2,479 successes on dramc_nb2.
+
+Four Ticket misses first found a model of the selected definitions, then exhausted the rare-premise search budget. A trial that proceeded directly to ordinary solving after the first model reduced the nine misses to 88.47M instructions. However, satisfiable definitions can have an inconsistent extension among the rare premises. Both a ground fact and a pair of complementary clauses produce a cheap private proof on the released solver. The trial missed both. Full solving still gave the right verdict. Raft also had a successful second search following an inconclusive first search. The regression exercises the private proof and independently checks the full solver. [Regression](api/api_verification_goal_test.go)
+
+A second trial looked for a constant-predicate model of the actual selected premises before starting their private search. It found witnesses on four of ten short Ticket plans and reduced the nine misses to 90.79M instructions. Both new regression cases passed. The complete-run measurements below are median paired percentage changes with normal GC, alternating order, a pinned CPU and exact verification transcript checks. Negative values indicate less work or time.
+
+| Workload | Pairs | Skip after satisfiable definitions, instructions / elapsed | Witness on selected premises, instructions / elapsed |
+| --- | ---: | ---: | ---: |
+| Ticket | 9 | −1.64% / −1.63% | −1.26% / −0.21% |
+| Hybrid | 9 | −0.53% / −0.23% | −0.34% / +0.05% |
+| ARM | 9 | −0.61% / −0.24% | +0.76% / +1.47% |
+| FBA | 9 | −0.03% / +0.22% | +0.77% / +1.05% |
+| Raft | 5 | +0.51% / −0.43% | +0.46% / −0.05% |
+| Apple dramc_nb2 | 3 | −0.12% / +1.68% | +0.03% / −0.34% |
+| Apple rfn2 | 3 | +0.90% / +0.54% | −0.59% / −1.54% |
+
+Keep the existing scheduling. The first trial loses private proof coverage. The second scarcely changes whole-Ticket elapsed time and costs CPU on ARM and FBA.
+
+Across five complete Ticket runs, the separate post-push observer found 132 unsuccessful private attempts costing 85.76M instructions and 111 successful attempts costing 11.77M. Observed-instance proving, Boolean input checks and quantified-premise projection accounted for 28.51M, 26.69M and 14.38M of the unsuccessful total. Even eliminating all the unsuccessful post-push work would recover only a fraction of the previously measured 1.08B check-stage gap. Prioritize the ordinary checks that contribute the most excess instructions. The archive includes both trial implementations, observer builders, raw counts, paired measurements and analysis scripts. [Study archive](perf/ivy_apple/holdouts/nov27-private-proof-attempts.tar.xz)

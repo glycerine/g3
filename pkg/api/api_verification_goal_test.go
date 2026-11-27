@@ -124,6 +124,33 @@ func TestVerificationWideSearchAfterDefinitions(t *testing.T) {
 	}
 }
 
+func TestVerificationRarePremisesAfterSatisfiableDefinitions(t *testing.T) {
+	for _, tc := range []struct{ name, premises string }{
+		{"ground fact", "(alpha k)"},
+		{"complementary clauses", "(or (alpha k) (gamma k)) (or (alpha k) (not (gamma k)))"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// The definitions admit alpha(k) = beta(k) = gamma(k) = false.
+			// Each additional premise set entails alpha(k), refuting the goal.
+			ctx, s := orderSolver(t, relevantPremiseExample(tc.premises, 20))
+			m, err := ctx.Manager()
+			astTestMust(t, err)
+			roots, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			batch := s.BeginOrderProofBatch()
+			t.Cleanup(func() { astTestMust(t, batch.Close()) })
+			proved, err := batch.state.proveRelevantPremises(m, roots)
+			if err != nil || !proved {
+				t.Fatalf("private premise search returned %t, %v", proved, err)
+			}
+			result, err := s.Check()
+			if err != nil || result != lbool.False {
+				t.Fatalf("complete check returned %v, %v", result, err)
+			}
+		})
+	}
+}
+
 func BenchmarkVerificationPremiseSearch(b *testing.B) {
 	for _, name := range []string{"ticket_wide_goal", "rfn2-5", "cf_live_overlapping_premises", "tlb_overlapping_premises"} {
 		b.Run(name, func(b *testing.B) {
