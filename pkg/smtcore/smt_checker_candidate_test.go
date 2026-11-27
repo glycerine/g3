@@ -214,3 +214,28 @@ func TestSMTQuantifierCandidateLargeBodyFallback(t *testing.T) {
 		t.Fatal("oversized quantifier body was prepared")
 	}
 }
+
+func TestSMTPreparedCandidateRejectsRetiredBody(t *testing.T) {
+	m := astTestManager(t)
+	ctx, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	checker, err := NewSMTChecker(ctx)
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	body, err := m.MkConst(symbol.Numerical(9101), boolean)
+	astTestMust(t, err)
+	astTestMust(t, m.IncRef(body))
+	p := prepareCandidateBody(m, body, 1)
+	if p == nil || p.memoSize != 0 {
+		t.Fatal("expected a prepared body with no memo slots")
+	}
+	astTestMust(t, m.DecRef(body))
+	want := m.ValidateHandle(body)
+	if want == nil {
+		t.Fatal("body is still live")
+	}
+	if _, err := checker.runCandidate(p, true); !errors.Is(err, want) {
+		t.Fatalf("retired body returned %v, want %v", err, want)
+	}
+}

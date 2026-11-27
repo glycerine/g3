@@ -41,19 +41,36 @@ func (c *SMTChecker) runCandidate(p *smtCandidateBody, want bool) (bool, error) 
 		clear(c.candidateMemo)
 		c.bindings = nil
 	}()
+	// A live body owns all expressions in its prepared syntax. Only nodes
+	// with memo slots need their individual reference counts below.
+	if err := c.context.manager.ValidateHandle(p.body); err != nil {
+		return false, err
+	}
 	return c.checkCandidate(p, 0, want)
+}
+
+func (c *SMTChecker) candidateMemoSlot(n *smtCandidateNode) (*smtCandidateMemo, error) {
+	refs, err := c.context.manager.GetRefCount(n.expression)
+	if err != nil || refs <= 1 {
+		return nil, err
+	}
+	return &c.candidateMemo[n.memo-1], nil
 }
 
 func (c *SMTChecker) candidateEnode(p *smtCandidateBody, id uint16) (*SMTEnode, error) {
 	n := &p.nodes[id]
-	refs, err := c.context.manager.GetRefCount(n.expression)
-	if err != nil {
-		return nil, err
+	var slot *smtCandidateMemo
+	if n.memo != 0 {
+		var err error
+		slot, err = c.candidateMemoSlot(n)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return c.candidateEnodeWithRefs(p, n, refs)
+	return c.candidateEnodeWithSlot(p, n, slot)
 }
 
-func (c *SMTChecker) candidateEnodeWithRefs(p *smtCandidateBody, n *smtCandidateNode, refs uint32) (*SMTEnode, error) {
+func (c *SMTChecker) candidateEnodeWithSlot(p *smtCandidateBody, n *smtCandidateNode, slot *smtCandidateMemo) (*SMTEnode, error) {
 	if n.op == candidateVariable {
 		if uint64(n.operand) >= uint64(len(c.bindings)) {
 			return nil, nil
@@ -68,10 +85,6 @@ func (c *SMTChecker) candidateEnodeWithRefs(p *smtCandidateBody, n *smtCandidate
 	}
 	if n.first == n.end || n.op == candidateOpaque {
 		return nil, nil
-	}
-	var slot *smtCandidateMemo
-	if refs > 1 && n.memo != 0 {
-		slot = &c.candidateMemo[n.memo-1]
 	}
 	if slot != nil && slot.hasEnode {
 		return slot.enode, nil
@@ -114,16 +127,16 @@ func (c *SMTChecker) candidateAppEnode(p *smtCandidateBody, n *smtCandidateNode)
 
 func (c *SMTChecker) checkCandidate(p *smtCandidateBody, id uint16, want bool) (bool, error) {
 	n := &p.nodes[id]
-	refs, err := c.context.manager.GetRefCount(n.expression)
-	if err != nil {
-		return false, err
-	}
 	var slot *smtCandidateMemo
-	if refs > 1 && n.memo != 0 {
-		slot = &c.candidateMemo[n.memo-1]
+	if n.memo != 0 {
+		var err error
+		slot, err = c.candidateMemoSlot(n)
+		if err != nil {
+			return false, err
+		}
 	}
 	if slot == nil {
-		return c.checkCandidateCore(p, n, refs, want)
+		return c.checkCandidateCore(p, n, slot, want)
 	}
 	polarity := 0
 	if want {
@@ -132,7 +145,7 @@ func (c *SMTChecker) checkCandidate(p *smtCandidateBody, id uint16, want bool) (
 	if v := slot.truth[polarity]; v != 0 {
 		return v == 2, nil
 	}
-	v, err := c.checkCandidateCore(p, n, refs, want)
+	v, err := c.checkCandidateCore(p, n, slot, want)
 	if err == nil {
 		slot.truth[polarity] = 1
 		if v {
@@ -142,7 +155,7 @@ func (c *SMTChecker) checkCandidate(p *smtCandidateBody, id uint16, want bool) (
 	return v, err
 }
 
-func (c *SMTChecker) checkCandidateCore(p *smtCandidateBody, n *smtCandidateNode, refs uint32, want bool) (bool, error) {
+func (c *SMTChecker) checkCandidateCore(p *smtCandidateBody, n *smtCandidateNode, slot *smtCandidateMemo, want bool) (bool, error) {
 	record := c.context.exprs.read(n.expression)
 	if value, ok := c.context.assignments.lookupRecord(n.expression.Slot(), record); ok && c.context.recordRelevant(record) {
 		if n.op == candidateNot || n.op == candidateFalse {
@@ -210,7 +223,7 @@ func (c *SMTChecker) checkCandidateCore(p *smtCandidateBody, n *smtCandidateNode
 		}
 		return c.context.matchesEquality(p.declarations[n.operand].handle, left, right, want)
 	default:
-		node, err := c.candidateEnodeWithRefs(p, n, refs)
+		node, err := c.candidateEnodeWithSlot(p, n, slot)
 		if err != nil || node == nil || !node.boolean || !c.context.isRelevant(node.owner) {
 			return false, err
 		}
