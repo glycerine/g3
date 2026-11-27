@@ -115,7 +115,7 @@ func TestSMTModelCheckerCaptureUsesInverseGenerationRatherThanEnodeGeneration(t 
 	t.Cleanup(func() { astTestMust(t, proto.Close()) })
 	astTestMust(t, set.MakeInverse(smtTestProtoEval(t, m, proto)))
 	checker := state.quantifierManager.modelChecker
-	added, err := checker.addFiniteCounterexample(q, []ast.ASTHandle{falsity})
+	added, err := checker.addFiniteCounterexample(q, []ast.ASTHandle{falsity}, false)
 	astTestMust(t, err)
 	if !added || len(checker.newInstances) != 1 || checker.newInstances[0].generation != 13 || state.context.enodes.get(falsity).Generation() == 13 {
 		t.Fatal("capture substituted enode generation for inverse generation", added, checker.newInstances)
@@ -290,4 +290,57 @@ func TestSMTModelCheckerRetriesRefusedPinRelease(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSMTBinaryTableWitnessWithRepeatedFirstBinding(t *testing.T) {
+	m, c, md, _, _ := smtAuxiliaryQueryFixture(t, false)
+	f := tableTest{t, m, md}
+	b := f.term(m.MkBoolSort())
+	x, y := f.term(m.MkVar(1, b)), f.term(m.MkVar(0, b))
+	q := f.forall(f.term(m.MkAndArgs([]ast.ASTHandle{x, y})), b, b)
+	other := f.forall(f.term(m.MkOrArgs([]ast.ASTHandle{x, y})), b, b)
+	for _, h := range []ast.ASTHandle{q, other} {
+		astTestMust(t, c.state.Internalize(h, true))
+	}
+	no, yes := f.term(m.MkFalse()), f.term(m.MkTrue())
+	for i := uint32(0); i < 2; i++ {
+		for _, value := range []ast.ASTHandle{no, yes} {
+			_, err := c.modelFinder.InsertInstantiationTerm(q, i, value, 0)
+			astTestMust(t, err)
+		}
+		set, err := c.modelFinder.instantiationSet(q, i, false)
+		astTestMust(t, err)
+		astTestMust(t, set.MakeInverse(smtTestProtoEval(t, m, md)))
+	}
+	add := func(quantifier ast.ASTHandle, a, b ast.ASTHandle) {
+		t.Helper()
+		ok, err := c.addCounterexample(quantifier, []ast.ASTHandle{a, b})
+		astTestMust(t, err)
+		if !ok {
+			t.Fatal("failed to enqueue prior instance")
+		}
+	}
+	check := func(a, b ast.ASTHandle, vary, want bool) {
+		t.Helper()
+		before := len(c.newInstances)
+		ok, err := c.addFiniteCounterexample(q, []ast.ASTHandle{a, b}, vary)
+		astTestMust(t, err)
+		expected := before
+		if want {
+			expected++
+		}
+		if ok != want || c.exhausted || len(c.newInstances) != expected {
+			t.Fatalf("added %v, want %v; pending %d -> %d, exhausted %v", ok, want, before, len(c.newInstances), c.exhausted)
+		}
+	}
+	add(other, no, yes)
+	check(no, no, true, true) // One pending instance still uses the table witness.
+	add(other, no, yes)
+	check(no, no, true, false)
+	check(no, no, false, true) // Ordinary finite enumeration keeps its tuple.
+	check(no, yes, true, true) // Two witnesses for the same quantifier.
+	add(other, no, no)
+	check(no, no, true, true) // Identical tuples across different quantifiers.
+	add(other, no, no)
+	check(yes, no, true, true) // Only the second component matches.
 }

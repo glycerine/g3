@@ -183,7 +183,7 @@ func (c *SMTModelChecker) addCounterexample(quantifier ast.ASTHandle, values []a
 	return c.enqueueCounterexample(quantifier, values, false, 0)
 }
 
-func (c *SMTModelChecker) addFiniteCounterexample(quantifier ast.ASTHandle, values []ast.ASTHandle) (bool, error) {
+func (c *SMTModelChecker) addFiniteCounterexample(quantifier ast.ASTHandle, values []ast.ASTHandle, varyBinding bool) (bool, error) {
 	count, err := c.manager.GetNumDeclarations(quantifier)
 	if err != nil {
 		return false, err
@@ -207,6 +207,16 @@ func (c *SMTModelChecker) addFiniteCounterexample(quantifier ast.ASTHandle, valu
 		bindings[i] = term
 		if generation > maxGeneration {
 			maxGeneration = generation
+		}
+	}
+	// Once several instances are queued, two binary quantifiers can keep
+	// extending the same first ground term. Let the restricted auxiliary
+	// search choose the next tuple when only the second binding changes.
+	if varyBinding && len(bindings) == 2 && len(c.newInstances) > 1 {
+		prev := c.newInstances[len(c.newInstances)-1]
+		if prev.quantifier != quantifier && len(prev.bindings) == 2 &&
+			prev.bindings[0] == bindings[0] && prev.bindings[1] != bindings[1] {
+			return false, nil
 		}
 	}
 	// A restricted counterexample must recover every binding from the
@@ -476,7 +486,7 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 			// prefix. addFiniteCounterexample recovers precisely that prefix
 			// from the instantiation sets, as auxiliaryBindings does.
 			previous, exhausted := len(c.newInstances), c.exhausted
-			added, err := c.addFiniteCounterexample(quantifier, bindings)
+			added, err := c.addFiniteCounterexample(quantifier, bindings, chooser != nil)
 			if err != nil {
 				return false, err
 			}
@@ -774,7 +784,7 @@ func (c *SMTModelChecker) checkQuantifier(model *protomodel.ProtoModel, quantifi
 		if complete == nil {
 			complete = append([]ast.ASTHandle{}, values...)
 		}
-		accepted, err := c.addFiniteCounterexample(quantifier, values)
+		accepted, err := c.addFiniteCounterexample(quantifier, values, false)
 		if err != nil {
 			return err
 		}
