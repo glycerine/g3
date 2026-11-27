@@ -256,11 +256,15 @@ func (t *SMTDatatypeTheory) initializeVariable(node *SMTEnode, data *smtDatatype
 	} else if own && operation == ast.ASTDatatypeUpdateField {
 		return t.publishUpdate(node)
 	}
-	constructors, err := state.manager.DatatypeConstructors(sort)
+	count, err := state.manager.DatatypeNumConstructors(sort)
 	if err != nil {
 		return err
 	}
-	if len(constructors) == 1 {
+	if count == 1 {
+		constructors, err := state.manager.DatatypeConstructors(sort)
+		if err != nil {
+			return err
+		}
 		// Source mk_var asserts reconstruction unconditionally for a
 		// one-constructor datatype. Waiting for a recognizer assignment can
 		// omit it when that auxiliary recognizer is not relevant.

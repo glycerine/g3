@@ -102,16 +102,16 @@ func (t *SMTDatatypeTheory) addRecognizer(variable SMTTheoryVar, recognizer *SMT
 	if recognizer == nil || len(recognizer.arguments) != 1 {
 		return ast.ErrASTDomain
 	}
-	sort, err := s.manager.GetSort(recognizer.arguments[0].owner)
-	if err != nil {
-		return err
-	}
-	constructors, err := s.manager.DatatypeConstructors(sort)
-	if err != nil {
-		return err
-	}
 	if len(data.recognizers) == 0 {
-		data.recognizers = make([]*SMTEnode, len(constructors))
+		sort, err := s.manager.GetSort(recognizer.arguments[0].owner)
+		if err != nil {
+			return err
+		}
+		count, err := s.manager.DatatypeNumConstructors(sort)
+		if err != nil {
+			return err
+		}
+		data.recognizers = make([]*SMTEnode, count)
 	}
 	index, matched, err := s.manager.DatatypeRecognizerConstructorIndex(recognizer.declaration)
 	if err != nil {
@@ -146,7 +146,14 @@ func (t *SMTDatatypeTheory) addRecognizer(variable SMTTheoryVar, recognizer *SMT
 		return nil
 	}
 	if value == lbool.False && data.constructor != nil {
-		if data.constructor.declaration == constructors[index] {
+		constructor, matched, err := s.manager.DatatypeRecognizerConstructor(recognizer.declaration)
+		if err != nil {
+			return err
+		}
+		if !matched {
+			return ast.ErrASTDomain
+		}
+		if data.constructor.declaration == constructor {
 			return t.signRecognizerConflict(data.constructor, recognizer)
 		}
 		return nil
