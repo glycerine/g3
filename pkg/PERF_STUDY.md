@@ -7719,3 +7719,22 @@ We bracketed the theory rewrite of each quantifier instance in g3 and the fork's
 The Toy consensus theory reducers accounted for 41.49M excess instructions inside this caller alone. Addition and the two comparisons explain 38.58M. Ticket equality and negation together explain 2.18M on check 127 and 2.61M on check 290.
 
 An uninstrumented trial replaced three AST queries in the arithmetic operation matcher with one checked application-identity lookup. Across seven alternating pairs, it saved 0.49% of whole-query instructions and 0.32% of cycles on Toy consensus. Ticket instructions changed by +0.01% and −0.02%. We kept the experiment in the archive. Before changing the solver, split the arithmetic cost by flattening, monomial normalization, rational arithmetic and result construction, and compare how often each engine returns its input unchanged. [Measurement scripts, inputs, raw counters and trial patch](perf/ivy_apple/holdouts/nov27-ticket-instance-operators.tar.xz)
+
+### November 27 — Which arithmetic rewrites change on Toy consensus?
+
+Across all 906 quantifier instances of Toy consensus check 18, g3 and Z3 agreed within every instance on the number of additions and inequalities that returned a result and the number that left their inputs unchanged. The following medians cover three CPU-pinned runs with GC off. The Go addition window covers polynomial normalization. The C++ addition window also includes its algebraic target check.
+
+| Rewrite outcome | Calls in each engine | g3 instructions | Z3 instructions |
+|---|---:|---:|---:|
+| Addition changed | 377 | 11.24M | 0.76M |
+| Addition unchanged | 513 | 2.40M | 0.32M |
+| Inequality changed | 328 | 14.46M | 2.37M |
+| Inequality unchanged | 1,038 | 13.31M | 1.63M |
+
+Go spent 10.59M instructions in the negative-polynomial comparison rule, 5.65M cancelling monomials, and 4.75M reconstructing coefficient products. A separate profile counted 12.32M instructions constructing numerals across arithmetic rewriter calls. These figures overlap. Constructing the numeral −1 alone took 10.69M instructions across 724 calls, compared with 0.76M across 434 native calls. Other negative numerals and nonnegative integers through 15 matched in aggregate count.
+
+Z3's addition normalizer copies a singleton monomial into its output when the coefficient can be kept. A Go trial reused that input after grouping. It eliminated exactly 290 constructions of −1 and saved 4.28M instructions in those calls. The remaining 434 constructions cost 6.41M. The isolated replay saved 0.73% of instructions and 1.77% of cycles. Across three independent numeric incremental workloads the change was under 0.03% in marginal instructions. Complete Toy under default GC appeared to save 7.69% of instructions in five pairs, but under GC-off control the difference was 0.01% over nine pairs. Complete Ticket used 1.75% more instructions and took 1.42% longer in five default-GC pairs. We kept the trial as a benchmark.
+
+A second trial passed the already assembled lexical declaration metadata directly to the numeral factory. It reduced marginal instructions by 1.11% on repeated Toy and 0.22–0.62% on the three numeric workloads. Complete Toy took 2.84% longer across seven default-GC pairs. Both trials matched the current solver's output on 7,408 arithmetic simplifications. The numeral trial passed the focused checked/debug/trace tests, but a new trace comparison found a concrete behavioral difference. The first construction of a pinned −1 produced one copied-rational allocation event versus two in the baseline. A second construction produced zero versus one. The release retains the original factory and its diagnostic behavior.
+
+For the remaining 434 negative-one requests, distinguish time spent preparing declaration metadata from hashing, lookup and application registration before adding any cache. The complete Ticket and hybrid gaps also warrant measuring traversal costs outside operator reduction. [Benchmark scripts, trace control, per-instance counts and paired replay and verifier results](perf/ivy_apple/holdouts/nov27-arithmetic-normalization.tar.xz)
