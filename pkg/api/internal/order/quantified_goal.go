@@ -159,6 +159,15 @@ func (g *groundProjection) problem(assertions []ast.ASTHandle, seedGoal bool, pr
 		g.constants = saved
 		inputs = inputs[:len(inputs)-1]
 	}
+	// The parsed DAG estimates the space needed for a one-shot grounding.
+	// Cap the initial reservation for small budgets and wide inputs. The
+	// index built for sibling goals grows on demand and outlives this call.
+	n := min(len(g.input), g.compiler.ceiling-g.compiler.work+1, 2048)
+	if !seedGoal && n >= 16 {
+		g.terms = make([]groundApplication, 1, n)
+		g.applications = make(map[uint64]uint32, n)
+		g.arguments = make([]uint32, 0, min(len(g.children), 2*n))
+	}
 	g.global = make([]uint32, len(g.input))
 	g.local = make([]uint32, len(g.input))
 	g.version = make([]uint32, len(g.input))
