@@ -8156,3 +8156,16 @@ The batch-reuse trial checked the complete ordered expression and proof handles 
 The new benchmark uses the same shared parameter services as the incremental solver. The older bare-manager fixture constructs its own default parameter service on each changed expansion. On nine alternating rounds of 3,000 operations, the final traversal probe reduced a real substitution from 12.47 to 9.89 µs, 7,899 to 6,203 bytes and 69 to 53 allocations. On a folding conditional the median fell from 12.95 to 10.66 µs and from 72 to 56 allocations. In the actual Ticket checks, it removed only 68 of the 504 complete traversals on changed rows. Their combined expansion cost fell from 15.34M to 14.63M. [Shared-parameter benchmark](ast/macros/macro_expansion_params_benchmark_test.go)
 
 A same-executable switch provided an independent code-layout control. Across thirteen pairs on each short workload the probe changed Ticket instructions / elapsed by +0.04% / +0.24%, hybrid by −0.50% / −0.15%, ARM by −0.82% / −0.50% and FBA by −0.70% / −0.80%. Across three TLB pairs it changed instructions by +0.29% and elapsed by +5.70%. Both settings matched the linked-Z3 transcript, including both expected failures. Keep the benchmark and the original solver paths. A useful next target is the repeated theory normalization after macro publication on hybrid and ARM. Measure traversal cost separately from cache flush and row ownership, and identify the application operations consuming the excess on rows with identical output. [Observer builders, trial sources and raw measurements](perf/ivy_apple/holdouts/nov27-ticket-preprocessing.tar.xz)
+
+### November 27 — Simplification immediately after macro publication
+
+Three pinned runs per engine counted retired instructions on the solver thread during complete verifier checks, with GC disabled. All four verifier transcripts and exit statuses matched their references. The table reports median millions of instructions and groups rows by whether the simplifier returned its input. Ticket includes all measured checks here. The total also includes batch management, loop work and observer overhead.
+
+| Workload | g3 total | Z3 total | g3 rewriting unchanged rows | Z3 rewriting unchanged rows | g3 cache flush | Z3 cache flush |
+|---|---:|---:|---:|---:|---:|---:|
+| Ticket | 31.88 | 8.58 | 23.53 | 6.21 | 1.77 | 0.82 |
+| Hybrid | 81.39 | 25.16 | 58.08 | 18.48 | 4.20 | 2.14 |
+| ARM | 38.83 | 10.09 | 35.69 | 9.16 | 0.82 | 0.38 |
+| FBA | 3.98 | 1.36 | 3.69 | 1.29 | 0.04 | 0.01 |
+
+Rewriting unchanged rows explains 70% of the measured phase gap on hybrid and 92% on ARM. Initial batch publication took 1.08M versus 0.28M instructions on hybrid and 0.15M versus 0.04M on ARM. The next experiment should identify which unchanged rows can be recognized before traversal under the active substitution and cache state. Output identity alone is retrospective. [Counter overlays, verifier driver and raw repetitions](perf/ivy_apple/holdouts/nov27-post-macro.tar.xz)
