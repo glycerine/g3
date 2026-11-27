@@ -6996,3 +6996,32 @@ The planted8 control had zero conflicts. Its first five pairs had two distinct i
 Complete Ticket, hybrid, ARM and FBA runs matched their reference output streams and exit status. Instructions changed by +0.26%, +0.16%, −0.13% and −0.53% respectively across three rotations. Ticket and hybrid initially took 6.53% and 3.15% longer. In seven fresh pairs they took 0.85% and 0.71% less time. The evidence supports a standalone SAT instruction saving, with no consistent verifier timing change. Ordinary SAT, arena, shell and CLI tests passed, as did checked/debug/trace SAT and arena, and SAT vet.
 
 The remaining ordinary SAT gap is concentrated in propagation. A larger next experiment is to count the native long-clause visits, blocking-literal hits and replacement positions directly alongside the existing Go census. Equal decisions and propagation counts permit different numbers of unsuccessful literal inspections. That comparison distinguishes extra scans from more expensive visits before changing the representation again. [Benchmark drivers, raw panels and profiles](perf/ivy_apple/holdouts/nov26-sat-reason-scans.tar.xz)
+
+## November 26 — Identical native watch visits and cheaper Go propagation
+
+Both an instrumented in-tree Z3 and an instrumented g3 counted each visit to a long-clause watch, each early exit, and each candidate inspected by the replacement scan. The counts matched exactly on all three full runs, both before and after the Go change. Every one of the 65 clause-width bins and 65 replacement-position bins matched. Each engine had zero obsolete visits.
+
+| Complete input | Long-watch visits | Satisfied blocking literal | Satisfied other watch | Watches moved | Replacement literals inspected |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| random-208-3 | 54,863,439 | 32,181,268 | 2,335,156 | 20,074,268 | 45,972,761 |
+| random-208-4 | 20,848,017 | 12,090,981 | 1,005,127 | 7,646,417 | 18,750,716 |
+| pigeon8-s0 | 123,290,378 | 58,968,339 | 12,743,782 | 51,382,214 | 308,332,456 |
+
+Commit `c11bbd0d1` retains a watch immediately when its blocking literal is true. It only copies the two encoded words and any exceptional offset when an earlier move left a gap. For callback-free lists the solver also validates the common clause allocator once. An unblocked compact watch can then borrow its physical row directly with its slot and full generation. Direct and exceptional handles continue through the checked allocator lookup. Capturing the full offset before callbacks and before any slow move preserves the source watch's identity. Tests cover compaction of a blocked full-width watch, a stale generation, a foreign owner and a self-move that relocates its list.
+
+Seven rotations used ordinary binaries on the same core and checked every SAT model, decisions, conflicts and all three propagation counts. The baseline includes `8f412aa7a`, which fixes a trace callback invalidating a borrowed clause. Two regression cases failed on its parent when a trace writer deleted a clause during processing or mismatch reporting. Both callbacks now revalidate the original handle before its next read. Ordinary SAT, arena, shell and CLI tests, checked/debug/trace SAT and arena, and SAT vet passed.
+
+| Complete input | g3 before | g3 after | Native Z3 | Instruction change | Cycle change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| random-208-3 | 1,897 ms | 1,793 ms | 822 ms | −7.37% | −5.06% |
+| random-208-4 | 685 ms | 657 ms | 315 ms | −7.64% | −4.41% |
+| pigeon8-s0 | 2,703 ms | 2,521 ms | 1,444 ms | −9.04% | −6.27% |
+| random-256-3 via stdin | 581 ms | 564 ms | 267 ms | −5.43% | −2.80% |
+
+An independent seven-pair repeat on pigeon8-s2, after the other benchmark jobs finished, measured −8.87% instructions, −6.37% cycles and −6.35% elapsed. In the first panel some elapsed samples nearly doubled while user cycles stayed close. Its −34.77% median elapsed change overstates the result.
+
+The zero-conflict planted8 control changed by −0.07% instructions and −0.41% elapsed over 31 pairs. With automatic GC disabled the changes were −0.29% and +0.12% over 15 pairs. Five rotations of complete Ticket, hybrid, ARM and FBA matched both reference output streams and exit status. Instructions fell by 0.14–1.07%. Elapsed changes in the same order were +2.86%, −0.71%, +1.59% and −0.69%.
+
+The separate prototypes explain the release choice. Moving just the blocked check earlier saved 4.11–4.48% of instructions on the three primary cases. Resolving the physical row directly on its own saved 2.40–4.90% in an ordinary-build trial. In the combined five-round panel, capturing the full offset immediately and delaying capture until a move or assignment differed by at most 0.12 percentage points on the three primary inputs. Capturing it immediately keeps the callback path simpler. Checking the owner on every unblocked watch saved fewer instructions.
+
+The post-release profiles put physical arena borrowing inside propagation at 14.5–27.7% of all g3 instruction samples. Native clause lookup accounted for 1.2–1.9% of native samples. The absolute denominators differ between engines. Together with the exact scan counts, this points to addressing the physical clause row as the next layout experiment. Test an address encoding that locates the row by page and byte offset, retain the generation check, and measure the number of offsets that spill from the eight-byte watch. Include actual solver-population memory, since a larger directory could offset the cost saved on lookups. [Builders, drivers, exact histograms, raw timings and sampled instruction locations](perf/ivy_apple/holdouts/nov26-native-watch-census.tar.xz)
