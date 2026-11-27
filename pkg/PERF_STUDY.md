@@ -8169,3 +8169,20 @@ Three pinned runs per engine counted retired instructions on the solver thread d
 | FBA | 3.98 | 1.36 | 3.69 | 1.29 | 0.04 | 0.01 |
 
 Rewriting unchanged rows explains 70% of the measured phase gap on hybrid and 92% on ARM. Initial batch publication took 1.08M versus 0.28M instructions on hybrid and 0.15M versus 0.04M on ARM. The next experiment should identify which unchanged rows can be recognized before traversal under the active substitution and cache state. Output identity alone is retrospective. [Counter overlays, verifier driver and raw repetitions](perf/ivy_apple/holdouts/nov27-post-macro.tar.xz)
+
+### November 27 — Can an earlier rewrite predict a fixed point?
+
+A diagnostic overlay recorded successful proof-free assertion rewrites by solver, complete generation-checked formula handle and eliminate-AND setting. One observer counted predictions whenever the current input had previously been returned as output. Another required the same substitution epoch as well. Insert, erase and reset each advanced the epoch before the operation. Both observers always ran the real simplifier and checked its output. The maps were diagnostic and held no AST references. Three GC-off repetitions per short workload measured user instructions on its pinned solver thread.
+
+| Check workload | Earlier output matched, rows | Cost of correctly predicted rows, M instructions | Same epoch, rows | Same epoch cost, M instructions |
+|---|---:|---:|---:|---:|
+| Ticket | 1,706 | 15.66 | 1,136 | 12.52 |
+| Hybrid | 4,423 | 40.83 | 2,589 | 21.68 |
+| ARM | 593 | 24.58 | 368 | 15.40 |
+| FBA | 106 | 3.69 | 106 | 3.69 |
+
+All predictions on these four workloads agreed with the observed output. Four independent controls added TLB, alternating bit protocol, GCD and test_liveness2. **Six predictions failed on test_liveness2 even with the substitution epoch included.** In each of batches 8 and 10, goals 22, 27 and 28 supplied one earlier output that changed on the subsequent pass. All observer runs preserved exit status and both output streams. The narrower predicate that the last rewrite *of this input* returned the same input had zero observed mismatches on the eight cases. On hybrid, the same-epoch version of that predicate covered only 15.34M check instructions. Skipping those calls would also change traversal resource accounting and could omit cache publications used by later rows.
+
+An optimistic solver-local prototype skipped the rewrite on an earlier output match, including matches across epochs. Seven alternating default-GC pairs put the complete instruction savings at 0.81% on Ticket, 0.06% on hybrid, 1.67% on ARM and 1.58% on FBA. Three pairs on TLB saved 0.85% of instructions and **increased elapsed time by 2.55%**. These five transcripts matched. The direct formula comparison on test_liveness2 rules out this prototype for release.
+
+Two frame-loop experiments specialized the theory rewriter's per-step memory and resource checks. Storing the concrete configuration on the engine saved 0.14–0.44% of whole-verifier instructions over seven pairs per case, with mixed elapsed time. A local type assertion preserved the engine size but increased instructions on three workloads. A third experiment omitted empty binding slots during ordinary quantified theory rewrites. The retained benchmark rewrites a universal predicate that uses every declared variable. Seven paired 20,000-iteration runs took 813/792 ns at width one, 1,160/1,083 ns at eight and 3,916/3,542 ns at 64 (baseline/trial), all at zero allocations. Nine complete pairs per case increased instructions on ARM by 0.76% and FBA by 0.20%. None of these experiments changed the release. [Quantified-frame benchmark](ast/rewriter/theory_quantified_frame_benchmark_test.go) · [Build overlays, counterexample coordinates, drivers and raw paired measurements](perf/ivy_apple/holdouts/nov27-rewrite-history.tar.xz)
