@@ -8570,3 +8570,34 @@ Twenty-five rotated triples on a pinned CPU gave the following complete process 
 An independent 15-round four-build run included the intermediate mixed-theory commit. The two timing panels both placed g3 ahead on card3 and indexset. The elapsed winner on card2 and toy_consensus2 changed between panels, while g3 retired fewer instructions than Z3 on both in each panel. On doc/examples/toy_consensus and test/toy_consensus_mc the final build used 2.330B and 2.331B instructions, within 0.1% of the mixed-theory build. All 456 final-candidate and intermediate-baseline runs across the 228-input corpus matched. Nine additional pairs each on the 11 largest unfavorable percentage changes put the largest confirmed increase at about 2% on ordered_set and proving9. Three rotating production pairs per long control matched the reference. Whole-process instructions changed by −1.03% on Raft, +0.32% on Apple rfn2 and +0.05% on Apple dramc_nb2 versus the pre-study release. These process measurements include startup and GC. [Drivers, controls, fixtures and all raw runs](perf/ivy_apple/holdouts/nov27-cardinality-model-checks.tar.xz)
 
 **ARM remains open.** In the final 15-round panel g3 took 503 ms versus 355 ms for Z3. Three paired stack profiles on each of ARM's matched 6/5 and 6/6 replays attribute about 161M and 110M g3 instructions to recursively internalizing expressions from generated instances. Marking relevance cost about 33M and 20M. Adding root clauses cost about 7M and 4M. In Z3 the largest direct child on both replays was equality internalization. Sample categories depend on inlining. The next comparison should count equality operands, newly installed enodes and hits on existing enodes before optimizing watch insertion or root clauses.
+
+## November 27 — Equality operands in ARM quantifier instances
+
+The two ARM replays exercise the same search in g3 and the C++ fork. An observer at the recursive equality-operand call recorded the enclosing instance number, operand position, Boolean sort, declaration family, arity, existing enode and existing SAT variable. **The ordered records agree on all 26,072 visits.** These are operand visits within asserted quantifier instances. A single expression can occur more than once.
+
+| ARM goal | Asserted instances | Existing enode | Missing non-Boolean enode | Missing Boolean enode, SAT variable exists | Missing both Boolean enode and SAT variable |
+|---|---:|---:|---:|---:|---:|
+| 6/5 | 4,967 | 7,441 | 462 | 62 | 6,637 |
+| 6/6 | 4,280 | 5,377 | 422 | 93 | 5,578 |
+
+Both answers were UNSAT. Decisions, conflicts, quantifier instantiations and resource counts matched the uninstrumented references on each goal. On 6/5 the missing Boolean enodes include 3,947 uninterpreted predicates and 2,752 basic applications. A shortcut for attaching an enode to an already bound Boolean variable would cover just 155 of the 12,370 missing Boolean enodes across the two goals. In the 6/6 stack profile, 480 samples under the core formula routine entered recursive child internalization and 28 entered Boolean enode attachment directly. Of 47 sampled sort-constraint calls in term internalization, 46 entered the datatype theory. Recursion makes these stack counts inclusive.
+
+The first release prototype bypassed recursive internalization for a live non-Boolean equality operand whose declaration family had no registered theory. On ARM there were 4,367 and 3,024 already installed, non-Boolean, uninterpreted operands on the respective replays. Nine alternating pairs on each complete verifier yielded the following process medians. All 54 outputs and exit codes matched their native references.
+
+| Complete verifier | Baseline ms | Shortcut ms | Baseline M instructions | Shortcut M instructions |
+|---|---:|---:|---:|---:|
+| ARM | 478.12 | 468.09 | 3,200.01 | 3,219.26 |
+| Hybrid reliable broadcast | 1,106.43 | 1,097.80 | 7,930.26 | 7,889.56 |
+| card3 | 74.13 | 73.38 | 357.95 | 360.09 |
+
+The shortcut cost 0.60% more instructions on its target and 0.60% more on card3. The single timing panel favored it by 0.8–2.1%. The release keeps the original path.
+
+The second prototype sent a surviving Boolean equality to the existing IFF gate when the ordinary equality rewriter declined to simplify it. This changes the search. On 6/5, instances fell from 4,967 to 4,787 and decisions rose from 481 to 503. On 6/6, instances fell from 4,280 to 4,017 and decisions rose from 456 to 514. Both remained UNSAT. In nine standalone pairs with GC disabled, the median instruction savings were 4.7% and 2.4%. The complete verifier reversed the result.
+
+| Complete verifier | Baseline ms | IFF ms | Baseline M instructions | IFF M instructions |
+|---|---:|---:|---:|---:|
+| ARM | 461.13 | 550.23 | 3,221.14 | 3,912.57 |
+| Hybrid reliable broadcast | 1,106.54 | 1,115.82 | 7,923.38 | 8,040.85 |
+| card3 | 73.48 | 73.11 | 355.77 | 357.37 |
+
+All 54 complete runs matched native stdout, stderr and exit status. General IFF lowering added 21.5% to ARM instructions and is excluded from the release. The two selected obligations predict the direction incorrectly for this transformation. Before another change to equality encoding, rank **all** ARM obligations under the two builds with their original incremental history, then compare search counters at the largest regressions. For a search-preserving optimization, measure the cost of installing the 12,215 fresh Boolean operands, splitting child traversal, SAT-variable creation and congruence registration on the matched search. [Fixtures, benchmark drivers, prototypes and raw measurements](perf/ivy_apple/holdouts/nov27-arm-equality-operands.tar.xz)
