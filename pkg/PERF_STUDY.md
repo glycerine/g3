@@ -7540,3 +7540,47 @@ Commit `5ec62616b` stores owned references in one model-checker buffer, followin
 | Eight bindings | 36,142 ns | 27,789 ns | 20,611 → 3,669 | 149 → 21 |
 
 Nine rotating pairs on CPU 14 used 2,000 batches per sample. Across seven complete-verifier pairs, median elapsed changes ranged from −1.54% (ARM) to +0.19% (Ticket). This release fixes the leak and reduces capture allocations. The complete hybrid elapsed change was +0.06%. [Benchmark](smtcore/smt_model_checker_pins_benchmark_test.go) · [Regression](smtcore/smt_model_checker_instances_test.go) · [Scripts and raw traces](perf/ivy_apple/holdouts/nov26-hybrid-witness-selection.tar.xz)
+
+### November 26 — Disjoint costs of all hybrid first pushes
+
+Two independent sets of solver-thread hardware counters bracketed the first physical push of each of 34 fresh solvers on all 839 hybrid obligations. The first set timed each invoked preprocessing pass. The second timed the enclosing kernel push, its call to internalize pending assertions, and the preprocessing inside that call. Each table entry is the median of seven summed runs, with GC disabled and the complete transcript checked. These Go counters include the quantifier field-read improvement in `0f3389d37`. Both engines used GoIvy 77f7733de.
+
+| Disjoint part of first push | g3, M instructions | Linked Z3, M | Excess, M |
+| --- | ---: | ---: | ---: |
+| Value propagation | 217.9 | 69.0 | 148.9 |
+| Macro finding and expansion | 322.1 | 186.3 | 135.8 |
+| Pattern inference | 156.2 | 41.1 | 115.1 |
+| Maximize bit-vector sharing, including ordinary reduction | 149.7 | 44.8 | 104.9 |
+| NNF conversion | 104.5 | 34.4 | 70.1 |
+| Explicit reductions | 91.3 | 51.1 | 40.2 |
+| Refine injectivity | 4.5 | 0.7 | 3.8 |
+| Whole push outside the named passes | 325.1 | 117.0 | 208.1 |
+
+The independent nested brackets split most of the 208M remainder. **Installing and committing assertions after reduction accounted for 105.9M** (132.5M versus 26.6M). The rest of the kernel push accounted for 43.8M and work outside the kernel push for 57.0M. The nested observer measured 1.371B versus 0.544B for the full window. The pass observer measured 1.371B versus 0.544B independently. Small differences between sums include counter and reporting overhead. Batches 31–33 together cost 253.4M versus 98.8M. Value propagation is the largest individual gap. The six rotating whole-process stack profiles also put about 348M g3 instructions under quantifier frame processing during external pushes, including its reducer callbacks. That is an overlapping call tree and cannot be added to the table above.
+
+#### Quantifier traversal and pattern-variable membership
+
+Commit `0f3389d37` reads the quantifier body and three immutable counts from a single arena lookup whenever the rewriter resumes a quantifier. Both proof modes use the accessor. Seven samples of five million reads measured **23.31 → 7.21 ns** with zero allocations. In seven alternating stage-only pairs the median sum across the 34 first pushes fell from **1,383.8M to 1,370.1M instructions**. [Field-read benchmark](ast/ast_quantifier_update_benchmark_test.go)
+
+Commit `8446c5998` stores membership for de Bruijn indices 0–63 in one word. A sparse map covers larger indices. Pattern inference uses the same completed set when recording a candidate and gives each growing multi-pattern independent membership storage. A regression exercises indices 63, 64 and 1,023 in a nested application and checks both the child and parent sets. In a fresh seven-pair measurement **pattern inference fell from 156.2M to 142.2M instructions**. The stage-only total for the first pushes fell from 1,370.3M to 1,356.4M. The other named passes were essentially flat. [Wide-index regression](ast/pattern/free_vars_test.go) · [Complete inference benchmark](ast/pattern/shared_applications_benchmark_test.go)
+
+| Shared application width | Before → after, µs | Bytes/op | Allocs/op |
+| ---: | ---: | ---: | ---: |
+| 4 | 9.40 → 6.85 | 3,101 → 1,949 | 50 → 30 |
+| 16 | 17.33 → 13.79 | 8,406 → 6,134 | 78 → 38 |
+| 128 | 91.41 → 69.58 | 62,197 → 47,381 | 417 → 153 |
+| 512 | 360.54 → 261.44 | 234,485 → 176,661 | 1,572 → 540 |
+
+Seven alternating pairs ran 300 complete inference operations per sample. The benchmark verifies the two selected triggers and their order. With ordinary GC, adding the packed set to the field-read release saved 0.71% of complete TLB instructions in five pairs and 0.42% on hybrid in seven pairs. Ticket rose 0.44% in the latter panel. With GC disabled the two changes together saved 0.48% of complete hybrid instructions across five rotating groups. The local improvements account for only a small fraction of complete verification.
+
+Two additional trial builds bypassed annotation deduplication when each list had at most one element, or returned an unchanged unannotated nonground quantifier when all binders had previously been proved used. The first saved 7.2M first-push instructions and had flat hybrid instructions in the normal-GC panel. The second saved 27.9M first-push instructions, but raised normal-GC FBA instructions by 1.75% and had mixed cycle results. Both remain experiments. The second also changes temporary reference acquisitions and would require independent resource-boundary coverage before release.
+
+While testing the same reducer, a real allocation refusal constructing a merged quantifier returned success with the original quantifier. The fallback update had overwritten the error. Commit `363cfd63c` propagates the failure. Its regression proves that the previous code reported success, that the output retains its prior value on failure, and that retry successfully merges all 129 declarations. The AST, rewriter, pattern, SMT core and API suites and focused checked/debug/trace cases passed. [Quantifier merge regression](ast/rewriter/th_quantifier_merge_failure_test.go)
+
+#### Can the fresh solvers reuse an identical base?
+
+An observation build recorded the actual ordered formula/proof handle pairs entering each pass on all 34 first pushes. It retained the AST owner, slot and generation. All pushes used one AST owner, so literal identity could be compared across these solver instances. **None of the 34 value-propagation input batches repeated an earlier complete batch.** Of 2,558 input rows, 859 had appeared in an earlier batch. Only 80 fell within the longest identical ordered prefix of any earlier batch. Pattern inference had 289 previously seen rows out of 2,297. These comparisons do not establish equality of substitutions or macro state.
+
+Seven additional complete runs timed each forward and reverse value-sweep row, including its substitution update. The rows in those 80 shared prefixes cost **1.79M instructions** across both sweeps. Previously seen rows outside the prefix cost 38.81M; rows new to batch history cost 108.69M. The ten most expensive rows accounted for only 0.86% of the measured row work. The reverse classification refers to the row's original slot in the forward input. Even perfect reuse of the identical prefixes would recover little of the roughly 149M value-propagation gap. Seven complete paired runs measured 134.65M g3 instructions for row rewrite and installation versus 45.68M in the native rewriter call. A separate seven-run g3 observer restricted to the rewriter dispatch counted 126.30M. This puts approximately 80.6M excess instructions inside traversal and 8.4M in the surrounding Go code. Substitution insertion used 15.82M versus 1.55M. The follow-up ordinary reduction used 59.85M versus 20.24M. These operation brackets exclude loop and scope cleanup costs. In six sampled runs the most frequent g3 leaf in the value-sweep rewriter was application processing (37 of 509 samples), followed by frame entry (20). Substitution lookup, cache operations and reference updates also recurred. The next comparison should count visits, reductions and cache hits on these same rows to distinguish extra work from a higher cost per visit.
+
+Seven rotating normal-GC triples measured complete hybrid at 8.428B release instructions versus 8.458B in the preceding release and 5.829B for Z3. The median paired instruction change was −0.49% on hybrid, −0.29% on Ticket, +0.19% on ARM and −0.73% on FBA. The final panel ran during heavy host contention (one-minute load above 80 on 48 logical CPUs); paired elapsed changed +14.1% on hybrid. The GC-off control gave −0.68% hybrid elapsed and −0.48% instructions for the two performance changes together. The timed evidence supports an instruction and allocation reduction. After load subsided, 13 new alternating pairs on CPU 21 confirmed the instruction saving (−0.54%) but **cycles rose 2.37% and elapsed rose 2.40%**. Median elapsed was 1,151 ms before and 1,179 ms after. On this workload the local gains have yet to translate into a full-verifier speedup. [Raw profiles, stage counters, input census, trial variants and verification records](perf/ivy_apple/holdouts/nov26-first-push-quantifier-traversal.tar.xz)
