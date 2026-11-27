@@ -152,6 +152,16 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	// Collect the simplified literals in solver-local storage.
 	kept := s.clauseKeptScratch[:0]
 	removedFalse := s.clauseRemovedScratch[:0]
+	// Return the grown buffers even when a true literal or a tautology ends
+	// simplification early. A nested clause from a proof or assignment
+	// callback must use separate storage until this call returns.
+	s.clauseKeptScratch = nil
+	s.clauseRemovedScratch = nil
+	defer func() {
+		s.clauseKeptScratch = kept[:0]
+		s.clauseRemovedScratch = removedFalse[:0]
+	}()
+
 	for _, literal := range literals {
 		if literal == SMTTrueLiteral {
 			return nil
@@ -214,15 +224,6 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		kept = append(kept, literal)
 	}
-	// A proof or assignment callback can add another clause. Keep both
-	// scratch arrays private until this insertion has finished.
-	s.clauseKeptScratch = nil
-	s.clauseRemovedScratch = nil
-	defer func() {
-		s.clauseKeptScratch = kept[:0]
-		s.clauseRemovedScratch = removedFalse[:0]
-	}()
-
 	// mk_clause: j = unit_resolution_justification(j, simp_lits) whenever
 	// false literals were removed; the clause's proof is then built lazily
 	// from that justification (the proof wrapper of pr resolved with the
