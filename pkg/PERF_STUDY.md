@@ -8601,3 +8601,44 @@ The second prototype sent a surviving Boolean equality to the existing IFF gate 
 | card3 | 73.48 | 73.11 | 355.77 | 357.37 |
 
 All 54 complete runs matched native stdout, stderr and exit status. General IFF lowering added 21.5% to ARM instructions and is excluded from the release. The two selected obligations predict the direction incorrectly for this transformation. Before another change to equality encoding, rank **all** ARM obligations under the two builds with their original incremental history, then compare search counters at the largest regressions. For a search-preserving optimization, measure the cost of installing the 12,215 fresh Boolean operands, splitting child traversal, SAT-variable creation and congruence registration on the matched search. [Fixtures, benchmark drivers, prototypes and raw measurements](perf/ivy_apple/holdouts/nov27-arm-equality-operands.tar.xz)
+
+### Which incremental ARM checks account for the IFF regression?
+
+Seven alternating pairs preserved the complete GoIvy run and profiled each stage on the solver thread, using the release PGO profile and normal GC. The median paired increase across measured stages was 698.87M instructions, close to the independently measured 691.43M whole-process increase. Ordinary checks added 734.60M, and early private-proof attempts saved 51.37M. Stage totals come from paired runs. Medians of individual rows need not sum to the median of their total.
+
+| Incremental check | Baseline M instructions | IFF M instructions | Decisions, baseline → IFF | Instantiations, baseline → IFF |
+|---|---:|---:|---:|---:|
+| Batch 6, goal 25 | 77.41 | 548.16 | 736 → 4,686 | 383 → 1,000 |
+| Batch 6, goal 5 | 231.84 | 495.81 | 2,199 → 3,103 | 720 → 1,249 |
+| Batch 6, goal 6 | 187.02 | 158.55 | 734 → 554 | 646 → 525 |
+
+The paired increases on 6/25 and 6/5 were 454.78M and 273.81M. In combination they exceed the whole-run increase because several other goals improved. IFF made 6/5 cheaper in isolation and more than twice as expensive after four earlier checks on its live solver. The incremental route changed in batch 5 as well. The baseline discharged goals 3 and 4 before the first push. IFF needed its first push at goal 3 and reached the ordinary solver for both goals. Per-mode stage sequences were stable in all seven runs, and all outputs and exit codes matched native. Separate counter builds read each solver's cumulative statistics immediately after each ordinary check. The table differences successive snapshots within a batch.
+
+A separate release trial changed the initial SAT decision on an equality with no saved phase to true after honoring queue and theory preferences. It used the ordinary equality encoding and excluded the always-true and random modes from the override. In seven alternating pairs per input, median complete-process instructions rose from 3.202B to 5.070B on ARM (+58.3%), 7.901B to 8.008B on hybrid (+1.4%) and 360.31M to 400.17M on card3 (+11.1%). All 42 runs matched native output and status. The production decision policy stays in place.
+
+### Installing fresh Boolean operands on the matched ARM search
+
+Three matched standalone replays per engine and goal used counters around the first encounter with an equality operand lacking both a Boolean variable and an enode during instance assertion. All baseline decisions, conflicts, instances, resource counts and answers remained identical. The engines made exactly the same number of calls in each measured category. Counts below are median millions of retired user-mode instructions, inclusive for each named operation. An empty counter interval cost about 60 instructions in Go and 38 in C++. Figures include instrumentation overhead.
+
+| Operation | 6/5 g3 | 6/5 Z3 | 6/6 g3 | 6/6 Z3 |
+|---|---:|---:|---:|---:|
+| Complete fresh operand | 143.60 | 37.84 | 122.06 | 31.47 |
+| Recursively internalize its children | 109.16 | 27.17 | 93.06 | 22.55 |
+| Create its Boolean variable | 4.30 | 2.15 | 3.69 | 1.78 |
+| Attach its Boolean enode | 13.44 | 3.19 | 11.47 | 2.69 |
+| Install its gate constraints when applicable | 10.59 | 2.77 | 8.84 | 2.30 |
+
+A second observer classified every immediate child by Boolean sort, declaration family, arity, existing enode and existing SAT variable. All category counts agree between engines. One category explains about four fifths of the recursive instruction difference. Fresh five-argument Boolean applications in the basic family cost 87.32M versus 21.39M instructions over 2,272 visits on 6/5 and 71.58M versus 16.89M over 1,856 visits on 6/6. Classification and logging sit outside the individual child counter interval. The outer totals from this second observer include the extra measurement work and are excluded from the table.
+
+A third probe identified all 4,128 nodes as OR gates. In g3, recursive work on their five children took approximately 52.5M and 43.2M instructions on the two goals. Installing the gates’ own constraints took another 30.4M and 24.9M. None of the ORs needed an enode of its own. The six depth-three expression shapes on each goal all correspond to versions of the ARM event-ordering predicate. One child tests membership in four of five operation constructors. Another disjoins address equality with two operation tests on a different event.
+
+A fourth trial registered OR relevance watches using the gate's existing signed literals, falling back to expression traversal on reserved literals. All 54 complete verifier runs matched native. The median paired instruction changes were +0.34% on ARM, −0.10% on hybrid and −0.01% on card3. The existing watch path stays in the release.
+
+The finite-enumeration prototype rewrote an OR of distinct constructor equalities on a shared enum term when exactly one constructor was absent. The public simplifier reduced four of five values to inequality with the fifth. Mixed-term and duplicate controls preserved their meaning, including a satisfiable mixed-term witness. In nine complete-verifier pairs, median paired instructions changed by −1.44% on ARM, +0.22% on hybrid and +1.10% on card3. Both standalone goals kept the original four search counters and cost about 0.25% more instructions. A complementary input-level trial applied all 27 four-of-five rewrites in each recorded input before any preprocessing. Seven pairs per engine yielded these medians.
+
+| Goal | g3 original → early M instructions | Z3 original → early M instructions | Instances in both engines, original → early |
+|---|---:|---:|---:|
+| 6/5 | 1,186.88 → 1,243.30 | 402.55 → 415.21 | 4,967 → 5,909 |
+| 6/6 | 1,093.38 → 1,213.59 | 377.84 → 409.64 | 4,280 → 5,321 |
+
+Both engines returned UNSAT in all 56 runs and agreed on all four counters for each input version. Early folding increased quantifier instantiations by 19% and 24%. The experiments favor keeping the current encoding. A candidate for the next search-preserving trial is the construction of the six gate clauses for each five-way OR. Measure simplification, retained clauses and relevance registration separately, then test bulk installation if repeated per-clause work is material. A separate algorithmic opportunity is to quantify how many instances come from expanding the event-ordering definition before changing its encoding again. [Stage and search counters, gate profiles, controls and prototype benchmark drivers](perf/ivy_apple/holdouts/nov27-arm-incremental-disjunctions.tar.xz)
