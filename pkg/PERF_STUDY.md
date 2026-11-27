@@ -7630,3 +7630,20 @@ Both solvers dispatched every pre-candidate offer in insertion order on 31/34 an
 The first two signed Boolean decisions agreed on both obligations. The third already differed. On 31/34, after 17 offers and ten lemmas, g3 assigned false to the disjunction of an equality and an acceptance predicate. Native assigned false to the acceptance predicate itself. On 11/5, after 16 offers and six lemmas, g3 chose a receive-initialization predicate and native chose a membership predicate. The first different offers came several decisions later on both inputs. The traces establish the sequence. They do not yet establish which choice caused a measurable cost difference. Compare candidate eligibility, assignment, activity and heap order immediately before the third decision, then measure a controlled decision substitution if both choices were available.
 
 Both complete instrumented proofs matched their reference outputs. The decision observer preserved the previously recorded queue event stream. Cross-engine shapes normalize generated names independently per tree. The archive includes the observations and comparison scripts and uses the setup from the preceding paired-counter archive. [Queue and decision traces](perf/ivy_apple/holdouts/nov27-hybrid-queue-arrivals.tar.xz)
+
+#### Cost of substituting the native third decision
+
+Both candidates were unassigned and present in the primary activity heap of both solvers. All shared Boolean IDs had the same assignment through the third decision on each check. The first three random-selection draws in each engine exceeded the random-branch threshold. The activity scores already differed before the first decision of the check, on 56 shared IDs at 31/34 and 20 at 11/5. At the third split on 31/34, g3 gave the disjunction 2.49048 and the acceptance predicate zero. Native gave them zero and five. At 11/5, g3 gave the receive predicate 1.16425 and the membership predicate zero. Native gave them one and two. Comparing scores by ID excludes the reserved true slot. The traces also identify both candidates by expression.
+
+A temporary g3 build substituted the native choice only at those two splits. It took the usual random-selection draw, removed the eligible target from its primary heap, and used the normal phase selection and search. The control ran the same binary with substitution disabled. Five alternating pairs on CPU 14 with GC off matched both reference output streams across all 839 frontend obligations. The stage observer measured 534 concrete checks per run.
+
+| Median solver-thread instructions | Ordinary selection | Native third choice | Change |
+| --- | ---: | ---: | ---: |
+| 31/34 | 269.375M | 272.085M | +1.01% |
+| 11/5 | 70.034M | 60.357M | −13.82% |
+| All checks in batch 31 | 537.129M | 547.660M | +1.96% |
+| All checks in batch 11 | 218.221M | 207.157M | −5.07% |
+| All 534 concrete checks | 3.890B | 3.900B | +0.24% |
+| All observed verifier stages | 5.849B | 5.858B | +0.15% |
+
+The first visible decision difference does explain some excess work at 11/5. Copying that choice increased cost on the larger 31/34 gap. The two substitutions ran in one incremental proof, so the aggregate includes later checks that inherit search state. The observer measures solver-thread instructions inside stages. The trial provides no elapsed-time result. The next priority is repeated work where the engines perform the same search or rewrite operations, particularly the 80.62M instruction gap on matched value-sweep traversal. [Heap snapshots, substitution driver and raw counters](perf/ivy_apple/holdouts/nov27-hybrid-decision-cost.tar.xz)
