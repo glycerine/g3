@@ -7700,3 +7700,22 @@ A second three-run pair classified nonconstant applications before entering the 
 | If-then-else | 551 | 1.38M | 0.15M | 1.24M |
 
 Equality and negation together account for 7.72M excess instructions in these windows. Compare their operand shapes and failing rule paths on the matched Ticket replays before proposing a general fast path. Earlier experiments already tested an operand-sort guard for the one-bit equality rule. Even recovering the full 14.56M application-reducer excess here would cover less than 1% of the complete hybrid instruction gap. For a larger gain, measure the same operations during solver checks, where the same implementation handles many more instances, and price the rest of the frame loop separately.
+
+### November 27 — Ticket and Toy consensus quantifier-instance operator costs
+
+We bracketed the theory rewrite of each quantifier instance in g3 and the fork's native Z3. Three rotating measurements on CPU 14 used one Go scheduler thread with GC disabled. Each engine agreed on the verdict, decisions, conflicts, quantifier instantiations and resource count. We also matched the operator call counts within each corresponding instance. The table reports median retired user instructions after deducting the local cost of reading the counter.
+
+| Replay | Instances | Operator | Calls | g3 | Z3 |
+|---|---:|---|---:|---:|---:|
+| Ticket 127 | 1,389 | Equality | 715 | 1.48M | 0.21M |
+| Ticket 127 | | Negation | 1,847 | 1.19M | 0.27M |
+| Ticket 290 | 1,241 | Equality | 645 | 1.47M | 0.21M |
+| Ticket 290 | | Negation | 2,751 | 1.76M | 0.41M |
+| Toy consensus 18 | 906 | Addition | 890 | 15.23M | 1.19M |
+| Toy consensus 18 | | Less than or equal | 551 | 12.72M | 1.79M |
+| Toy consensus 18 | | Greater than or equal | 815 | 15.96M | 2.35M |
+| Toy consensus 18 | | Multiplication | 549 | 3.26M | 0.36M |
+
+The Toy consensus theory reducers accounted for 41.49M excess instructions inside this caller alone. Addition and the two comparisons explain 38.58M. Ticket equality and negation together explain 2.18M on check 127 and 2.61M on check 290.
+
+An uninstrumented trial replaced three AST queries in the arithmetic operation matcher with one checked application-identity lookup. Across seven alternating pairs, it saved 0.49% of whole-query instructions and 0.32% of cycles on Toy consensus. Ticket instructions changed by +0.01% and −0.02%. We kept the experiment in the archive. Before changing the solver, split the arithmetic cost by flattening, monomial normalization, rational arithmetic and result construction, and compare how often each engine returns its input unchanged. [Measurement scripts, inputs, raw counters and trial patch](perf/ivy_apple/holdouts/nov27-ticket-instance-operators.tar.xz)
