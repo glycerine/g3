@@ -9036,3 +9036,76 @@ All 228 complete verifier transcripts and exit statuses matched their native ref
 A switch inside one executable confirmed skolem1 at −20.64% and hybrid at −1.32% over eleven pairs. Toy consensus initially varied by +3.24% with the same switch. Across 101 alternating same-binary pairs its median difference was −0.32%. Another 51 pairs with the switch disabled on both sides differed by +0.01%. Toy consensus provides no reproducible evidence of work saved by the filter. POPL18 Ticket remains the largest elapsed ratio in the eight-input panel. The earlier matched profile attributed 995M excess instructions to its checks and 56M to batch 4 goal 55 after Push. That concrete operation is a larger target than the remaining private unknowns. [Ticket phase and obligation profiles](#november-27--where-the-four-ticket-verifiers-spend-their-instructions)
 
 On dramc_nb2 the first panel showed +9.45% elapsed despite almost unchanged instruction counts. Three further pairs after concurrent builds finished gave -0.10% instructions and -2.43% elapsed. The two panels do not establish a wall-time improvement on this isolate. [Captured SMT-LIB inputs, native replay, prototype sources, benchmark drivers and raw results](perf/ivy_apple/holdouts/nov27-private-quantifier-models.tar.xz)
+
+### November 27 — Why the complete POPL18 Ticket solver costs more
+
+The previous 56M-instruction deficit for batch 4 goal 55 came from a historical release. We repeated the measurement from commit `009f2e291` in the complete GoIvy process, with the same frontend and linked Z3 archive. Nine alternating pairs counted user instructions on the solver thread strictly between entry to and return from the check, after Push and Assert. Eleven alternating sampling pairs attributed instructions only to the target thread and check interval. The PGO build inlines g3's instance dispatcher and some theory-rewriter calls, so the classification also recognizes the queue callback and underlying rewriter engine. Three separate event-counting pairs measured how each candidate finished. Every captured verifier exit code and both output streams matched the native reference.
+
+| Ticket batch/goal | Median check instructions, g3 / Z3 (M) | Candidates reaching the instance checker, g3 / Z3 | Lemmas asserted, g3 / Z3 | Sampled assertion instructions per asserted lemma, g3 / Z3 |
+|---|---:|---:|---:|---:|
+| 4/55 | 81.48 / 13.94 | 2,654 / 887 | 725 / 356 | 25,188 / 5,014 |
+| 4/56 | 34.37 / 13.34 | 964 / 918 | 325 / 329 | 17,757 / 5,003 |
+| 5/55 | 56.26 / 25.35 | 1,434 / 2,096 | 530 / 534 | 24,625 / 4,637 |
+| 5/56 | 49.37 / 20.48 | 1,557 / 1,660 | 497 / 488 | 18,513 / 5,072 |
+
+On 4/55, g3 discarded 1,929 candidates as already satisfied, compared with 531 for Z3. All remaining candidates were asserted. Neither engine rewrote any to true. G3 does more search *and* pays more for each lemma on this goal. In contrast, g3 considers fewer candidates on 5/55 and asserts four fewer lemmas. That sibling isolates the higher price of a roughly matched amount of solver work. The per-lemma column divides estimated inclusive assertion instructions by independently counted lemmas. Clause shapes, object counts per lemma and GC can differ. On 4/55, disjoint sampled excesses include 16.48M in assertion, 9.61M in rewriting, 9.61M in E-matching, and 5.21M in substitution.
+
+Five further pairs instrumented operations inside the fresh formula calls made by lemma assertion. GC was disabled for these per-operation measurements. The inner probes calibrate adjacent reads of a hardware counter. Their enclosing intervals include the cost of nested probes.
+
+| Operation inside fresh operands | 4/56 calls g3 / Z3 | 4/56 instructions/call g3 / Z3 | 5/55 calls g3 / Z3 | 5/55 instructions/call g3 / Z3 |
+|---|---:|---:|---:|---:|
+| Create enode | 355 / 362 | 2,526 / 712 | 621 / 653 | 2,529 / 747 |
+| Create Boolean variable | 391 / 395 | 692 / 245 | 684 / 728 | 703 / 279 |
+| Emit gate clause | 155 / 142 | 1,322 / 360 | 266 / 285 | 1,301 / 370 |
+
+The matched siblings make enode construction a better target than adjusting queue order across workloads. On 5/55 g3 creates fewer enodes and still spends about 3.5× the instructions per creation. Boolean-variable construction and gate-clause emission also show a persistent per-call gap. These intervals nest, so adding their excesses would overstate the recoverable cost.
+
+**Memory and GC.** On 4/55, seven paired heap observations measured about 1.38 MB and 15,953 Go allocations before the operand-storage change. A separate differential allocation profile, excluding the profiler's own encoding stacks, attributed about 186 KiB to enode creation, 181 KiB to fingerprints and 124 KiB to finishing quantifier lemmas. These are allocation samples. Exact counts use differences in runtime allocation counters. GC-off check medians were 69.62M / 13.94M instructions on 4/55 and 49.89M / 25.35M on 5/55. Turning off GC across complete Ticket took g3 from 2.87B to 2.38B instructions but raised peak RSS from 46 to 129 MiB. Median elapsed was 419 versus 421 ms. Z3 went from 1.46B to 1.33B instructions, including its Go frontend. Tuning process-wide GC would leave most of the instruction deficit and would affect every worker.
+
+**Seven queue and watch trials.** Nine rotated triples compared the original policy with a stable low-cost-first queue and reverse insertion order. Low-cost-first saved 2.48% of complete POPL18 instructions but cost 2.66% on liveness Ticket and 5.81% on Flash. Reverse order cost 36.56% on ARM. Five further rotations compared eager thresholds of zero and two and a threshold of two restricted to batches of at least 16 candidates. The batch restriction saved 3.46% on POPL18 and 5.05% on liveness Ticket but cost 24.46% on ARM. A zero threshold nearly doubled POPL18 instructions. Reusing a positive operand's sign during watch registration and coallocating children for disjunctions up to width eight each moved complete instructions by less than 1% on all five inputs. All seven alternatives reproduced the reference transcripts. Production retains its original scheduling and watch policies.
+
+**Reuse the operand slice during lemma construction.** `a656e6f29` lends one buffer per builder to the call assembling the guard and disjuncts. A borrowed slice becomes available again after the call finishes, including nested assertions. The builder retains up to 32 handles. On 4/55 this removed **718 allocations and about 60 KB**. Across all four checks, allocations fell by 4.36–4.56%, bytes by 4.38–5.69%, and GC-off check instructions by 0.12–0.20%. The four-disjunct benchmark fell from 161 to 81 B/op, two allocations to one, and 1,111 to 1,081 ns/op over eleven alternating pairs. Whole-verifier instructions changed by −1.63% on POPL18, +0.30% on liveness Ticket, effectively zero on hybrid, +0.95% on ARM and −0.28% on Flash. We retained this change for the reproducible allocation and local instruction reduction. [Benchmark and nested operand regression](smtcore/smt_qi_lemma_benchmark_test.go)
+
+**Read prepared-body reference counts only where they control memoization.** Sampling found repeated arena reference-count reads during checks of candidate bindings. The syntax compiler has already assigned memo slots to subexpressions that may be revisited. `e977d5f08` validates the root once, uses its ownership of the immutable body, and skips the count read for nodes with no slot. Nodes with a slot retain the existing sharing rule. The generation check caught a distinction between release-build reference-count lookup and handle validation. An explicit regression drops the prepared body's last reference and checks the reported lifetime error. A diagnostic that always memoized eligible nodes ran faster in isolation, but broadened caching to expressions with one reference. The production change preserves the previous conditions for congruence and disequality lookups. [Checker and lifetime regression](smtcore/smt_checker_candidate_test.go)
+
+Five rotating hardware-counter runs per method used 500,000 operations on the existing width-16 benchmark. For the last binding, the released checker used **10.72% fewer instructions** and the full queue path used **9.86% fewer**. The first binding, which succeeds with less work, saved only 0.20% and 0.12% respectively. Both methods still took zero allocations. In three instrumented full verifier runs, all four goals had exactly the baseline counts of satisfied candidates, true rewrites and asserted lemmas. Nine GC-off pairs put the combined production changes at −0.43% to −0.50% of instructions across the four complete check windows. [Prepared checker and queue benchmarks](smtcore/smt_quantifier_candidate_benchmark_test.go)
+
+| Complete verifier | Combined g3 instruction change | Released g3 median ms | Linked Z3 median ms |
+|---|---:|---:|---:|
+| POPL18 Ticket | −0.98% | 454 | 249 |
+| Liveness Ticket | +0.07% | 249 | 210 |
+| Hybrid broadcast | −0.13% | 1,150 | 858 |
+| ARM rules | −0.33% | 461 | 338 |
+| test/flash2 | −0.45% | 905 | 885 |
+
+These nine rotated release/baseline/native triples used normal GC. The instruction percentages are medians of within-round differences and the times are separate medians. The 228 native reference transcripts and exit statuses matched. Three paired release rotations also matched ordinary Raft, Apple rfn2 and Apple dramc_nb2, with median instruction changes of −0.58%, −0.50% and −0.04%. Broader machine activity affected elapsed time during parts of the study. The improvements to allocation and per-binding checks are better established than a whole-verifier elapsed gain.
+
+### How much of the Ticket gap could shared proofs recover?
+
+We extended the fresh-operand counters to every reached check on three complete Ticket inputs, three runs per engine. At g3's own creation counts, replacing just the average per-enode price inside quantified assertions with native's measured price would save **30.89M instructions on POPL18, 26.28M on nested Ticket and 23.62M on Ticket L2S**. This includes only enodes reached by those instrumented formula calls. For POPL18 this is roughly 2% of the normal-GC whole-verifier gap. The expensive individual operation is real, but even bringing it to parity would leave most of that gap.
+
+A separate experiment tested whether an earlier proof could discharge a later obligation with the same goal. We captured all native checks from the three complete verifier runs. For each input we expanded generated lets, split top-level conjunctions, and compared exact SMT terms and compatible declarations. We kept the 984 snapshots with a distinct base assertion and goal assertion. Ten L2S snapshots with additional top-level assertions were excluded. We kept user symbols and quantifier binder names intact. These bounds apply to this exact comparison, not to proofs under renaming or stronger logical implication.
+
+For each later goal we formed its shared premises with every compatible earlier occurrence. Proving UNSAT on those premises and the unchanged goal establishes that a common proof is possible. A SAT model rules out a proof using any subset of those shared premises. Testing only inclusion-maximal intersections is sufficient. All 1,329 distinct native intersection checks returned SAT or UNSAT. We also extracted one unsatisfiable core per original input by assuming a fresh Boolean selector for each premise, checked each extracted core in a fresh untracked native solver, and simulated the chronological history. A hit uses an earlier learned core. Only misses add new cores. Zero POPL18 or nested Ticket hits were available by exact containment of an entire earlier premise set.
+
+| Complete input | Checks analyzed / native checks | Later checks admitting a shared proof | Hits with one core learned per miss | g3 check instructions for hits (M) | All g3 check instructions (M) |
+|---|---:|---:|---:|---:|---:|
+| POPL18 Ticket | 284 / 284 | 71 | 63 | 286.56 | 1,584.18 |
+| Nested Ticket | 413 / 413 | 148 | 146 | 43.76 | 1,421.46 |
+| Ticket L2S | 287 / 297 | 79 | 74 | 36.80 | 1,392.31 |
+
+The check weights are medians from five fresh full-verifier runs per engine with GC off. They assign zero direct check cost to obligations already discharged before that stage. The POPL18 upper bound with the best possible earlier shared premise set is 309.14M instructions. Its 63 practical core hits cover 286.56M, about nine times the projected enode saving on that input. POPL18 4/55 and 4/56 are both misses for the extracted cores. The benefit lies elsewhere in the same verifier. On nested Ticket, many hits already cost little with g3's current proof policy.
+
+All 283 chronological hits also passed an independent check with the released g3 CLI on the target declarations, the earlier core and the target goal. All 63 POPL18 and 146 nested hits cross fresh solver batches. Of the 74 L2S hits, eight are within a batch. Any future implementation spanning batches needs verifier-job ownership and immutable evidence that remains valid across AST managers.
+
+We then measured the end-to-end ceiling with a diagnostic that skips only those independently proved obligations when reached. The subsequent solver history evolves normally. All 54 complete verifier transcripts matched across nine rotated pairs per input. Median paired instruction savings were **13.47% on POPL18, 2.23% on nested Ticket and 1.01% on L2S**. Elapsed savings were 13.10%, 2.14% and 0.95%, respectively. POPL18 separate elapsed medians were 420 and 366 ms. These figures assume that learning and selecting a proof costs nothing.
+
+Finally, a g3-only prototype learned cores chronologically. It replayed all 284 POPL18 obligations in batch order with a fresh incremental CLI process per batch. It used the same declaration set and premise order in each arm. The tracked arms guarded each premise with a Boolean selector and used check-sat-assuming. Only misses supplied new cores. Counts include CLI startup and parsing. Elapsed measurements also include preparing the batch in the driver. These replay timings have a different scope from the complete verifier timings above.
+
+| POPL18 incremental CLI replay, three rotated runs | Checks solved | Checks reused | Median billion user instructions | Median elapsed ms |
+|---|---:|---:|---:|---:|
+| Ordinary incremental checks | 284 | 0 | 3.115 | 643 |
+| Track every premise | 284 | 0 | 6.734 | 1,099 |
+| Track every miss and reuse earlier cores | 221 | 63 | 5.511 | 956 |
+
+The g3 learner recovered 63 hits on every run. It still spent 77% more instructions than ordinary replay. We discarded the always-tracked prototype. The measured ceiling makes cheap dependency extraction or selective learning worth a bounded experiment. Its acquisition and lookup costs must fit inside the avoided checks on ordinary verification. Per-enode construction remains a smaller opportunity at the measured call counts. [Benchmark drivers, SMT inputs, controls and raw measurements](perf/ivy_apple/holdouts/nov27-ticket-matched-siblings.tar.xz)
