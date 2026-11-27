@@ -7165,3 +7165,32 @@ Eight alternative overlays remain experimental. Resetting the initial ten-cell a
 The remaining Ticket gap spans several operations. Even erasing the entire sampled excess in queue application processing would recover about 10.5M instructions per replay on average (502 excess samples over 48 runs). The mean complete-process gap exceeds 160M. The existing phase profile places a further 16.5–23.6M excess instructions per check in queue clause assertion. Measure the two engines' literal internalizations, enode lookups, relevance registrations and clause insertions per asserted instance, including repeated inputs, before changing the rewriter again. [Phase estimates](#november-26--quantifier-queue-phases-on-matched-ticket-checks) · [Runners, trial sources and raw results](perf/ivy_apple/holdouts/nov26-theory-application-costs.tar.xz)
 
 The retained change is `05092af7a`. All six independent resource-limited SMT queries matched their original verdict and every collected integer search statistic in five pairs each. Complete ordinary Raft matched all 419 obligations and both output streams in three pairs, with median elapsed 2.634 s after and 2.644 s before. The ordinary rewriter, SMT core and API package tests passed, along with checked/debug/trace rewriter tests and rewriter vet.
+
+## November 26 — Ticket quantified clause assertion and enode flag lifetime
+
+Two instrumented CLIs counted work from entry to return of each quantifier instance assertion. Both returned unsat and reproduced decisions, conflicts, instantiations and resource counts. All fifteen logical counters matched after **every** assertion. Binding counts below examine operands of asserted root disjunctions after stripping at most one negation. Watch counts also cover gates created while processing those assertions.
+
+| Work inside assertions | Ticket 127 | Ticket 290 |
+| --- | ---: | ---: |
+| Assertions | 1,389 | 1,241 |
+| Already-bound root OR operands / total | 4,858 / 6,310 | 4,417 / 5,416 |
+| New Boolean variables | 1,929 | 3,076 |
+| New enodes | 1,571 | 1,657 |
+| Root clauses | 1,387 | 1,241 |
+| OR watch ignored / immediately invoked / installed | 3,445 / 501 / 3,081 | 3,694 / 852 / 3,845 |
+| Generic internalization calls, g3 / Z3 | 5,894 / 14,095 | 10,248 / 17,420 |
+
+Sixteen alternating pairs sampled the uninstrumented binaries on CPU 12 with a period of 1,000,003 user instructions. Stacks containing both quantifier instantiation and the assertion routine accounted for 453 / 181 samples (g3 / Z3) on Ticket 127 and 610 / 148 on Ticket 290. This gives **17.0M and 28.9M estimated excess instructions per replay** inside that stack boundary. Clause construction appeared on 74 / 50 and 142 / 43 samples. Enode creation appeared on 90 / 24 and 88 / 5. The two engines expose different physical frames for Boolean publication and watch registration, so those fine-grained buckets are unsuitable for direct subtraction. The matched counts locate the gap in the work performed per assertion. Generic entry counts alone do not explain it.
+
+Seven small trials tested an earlier enode lookup, conditional declaration flag reads, coallocated short enode argument storage, stack storage for short root ORs, short auxiliary clause sorting, hoisting assignment validation, and a cheaper negation accessor. None saved more than 0.22% of whole-process instructions on either input. We discarded all seven.
+
+Commit `148eb53f7` removes an undo entry when the Boolean variable acquiring an enode was created at the current scope. Popping already retires that variable. A variable from an outer scope still needs its old flag restored. The regression exercises both lifetimes and repeats the push after popping. Before the fix the trail held both variables. Counting the entire replay through the final assertion found 1,630 and 1,635 same-scope appends and zero outer-scope appends. Both replays eliminated a 512-entry backing array, **2 KiB per solver**.
+
+| 512-variable scoped benchmark | Baseline ns/op | Release ns/op | Trail capacity before / after | Paired instructions | Paired cycles |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| All scoped | 229,778 | 212,857 | 2,048 / 0 bytes | −0.74% | −7.94% |
+| Half survive | 189,193 | 178,096 | 2,048 / 1,024 bytes | −0.38% | −7.00% |
+
+Elapsed medians used seven pairs of 100 iterations. Hardware counters used seven pairs of 1,000. The complete Ticket CLI processes moved by less than 0.005M instructions each. Four complete GoIvy controls matched both output streams and exit status. Across the first seven pairs, elapsed changed −0.36% on ARM, +6.77% on FBA, +0.54% on hybrid and +1.39% on Ticket. In seventeen additional pairs with the initial order reversed, FBA changed −0.65% and Ticket −3.35%. The scoped benchmark and trail footprint justify the change. Complete-verifier timings do not establish a repeatable speedup. Ordinary smtcore and API tests, focused checked/debug/trace tests and smtcore vet passed.
+
+For the next experiment, measure clause insertion by arity and outcome, including binary auxiliary clauses emitted while building a formula gate. Ticket 290 shows the larger clause-construction difference. Count attempted clauses, literals simplified, units propagated and watch attachments before testing a direct binary insertion path against native ordering, proof creation and scope restoration. [Observers, profiles, trials and raw measurements](perf/ivy_apple/holdouts/nov26-ticket-clause-assertion.tar.xz) · [Scoped benchmark](smtcore/smt_enode_flag_benchmark_test.go)
