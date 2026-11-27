@@ -8871,3 +8871,43 @@ Two release prototypes measured bookkeeping outside these traversals. Seven alte
 On those same 17,696 unchanged quantified rows, 18,447 calls to the theory quantifier reducer included nested binders. Preparing the updated quantifier used 26.47M instructions, acquiring the updated reference and eliminating unused variables used 14.04M, and reading and publishing the result used 15.20M before deferred cleanup. Their combined 55.71M is about **11%** of the independently measured 504.11M whole-row cost. This bounds the measured portion of binder finishing. The remainder includes child traversal, application reduction, generic frame/scope management, wrappers and cleanup. Its distribution still needs a direct measurement. The next experiment should measure application visits and frame completion *within these rows*, and compare their counts and prices with native on the same batches.
 
 [Full measurement drivers, per-input pass counts, classified row intervals and release experiments](perf/ivy_apple/holdouts/nov27-first-push-pass-survey.tar.xz)
+
+## November 27 — Matched traversal inside unchanged quantified assertions
+
+Across the ten largest historical first-push gaps, **17,694 unchanged quantified assertions matched on batch, sweep position, assertion index, input root kind and change status**. The two engines matched on every row's four event counts. Both visited 218,642 expressions, ran 200,416 application-frame steps and attempted 109,055 nonconstant application reductions. All 109,055 returned failure to reduce. The preceding Go-only survey counted 17,696 unchanged quantified rows. This comparison excludes unmatched rows. Across all assertion kinds, 710 positions appeared in only one engine and 21 shared positions differed in classification.
+
+Three complete instruction-count runs per engine and input priced the same selected rows on the solver thread with GC disabled. Counts below measure application children. They exclude initial root visits and children visited directly by the quantifier frame. Frame completion begins after selecting the resulting expression and ends after updating the result stack, cache, frame stack and temporary result reference.
+
+| Operation | g3 calls | Native calls | g3, M instructions | Native, M instructions |
+|---|---:|---:|---:|---:|
+| Load child operand | 182,503 | 182,503 | 10.77 | 0.73 |
+| Visit child | 182,503 | 182,503 | 99.94 | 29.07 |
+| Prepare reducer argument view | 109,055 | 109,055 | 6.98 | 2.29 |
+| Rebuild after a child changed | 355 | 355 | 0.31 | 0.20 |
+| Complete frame after reduction failed | 109,055 | 109,055 | 71.98 | 18.38 |
+| Test for short-circuit folding | 61,807 | 182,503 | 5.17 | 7.46 |
+| Enter quantifier cache scope | 18,445 | 18,445 | 5.86 | 2.38 |
+| Leave quantifier cache scope | 18,445 | 18,445 | 18.19 | 7.46 |
+
+Each entry sums the per-input median of calibrated intervals. Quantifier scope measurements used independent builds. The 355 rebuilds on rows whose *root* stayed unchanged illustrate why a root-handle comparison cannot justify eliminating internal work. Go already restricts the short-circuit fold test to positions where it can fire.
+
+**Child visitation and failed-frame completion together explain 124.47M excess instructions** on these rows. Across these ten complete inputs, the operand load itself offers at most 10.04M excess instructions. Reusing a prepared accessor cannot recover the full visit cost. On hybrid alone, joining the earlier three-run reducer profiles by row and checking every application-reduction count yielded 15.69M versus 3.76M instructions on the same 21,414 unsuccessful reductions. Earlier Ticket measurements found that an identical failed reducer request could later succeed on the same ordered arguments. A global negative-result cache would require a stronger correctness condition.
+
+A release trial used the arena's existing subtree metadata to reject binary cheap-ITE pulling when neither operand could have an ITE root. Across seven alternating complete pairs per input, instruction changes were +0.11% on hybrid, −0.27% on Flash, −0.26% on alternating bit and −0.79% on ARM. Elapsed changes ranged from −1.09% to +3.33%. The shortcut remains experimental.
+
+### Reading ITE value trees
+
+In `src/ast/rewriter/th_rewriter.cpp`, `is_ite_value_tree` tests the operator, then retrieves only branches 1 and 2 when it decides to descend. In g3, the old helper loaded the condition and both branches even when its caller only wanted to know whether the term was an ITE. The revised traversal uses the arena's existing `AppIdentity` lookup, checks arity for a positive match and reads each needed branch during descent. Both solvers descend through nested ITEs only while they have a single reference. A test holds, shares and releases the same nested ITE to exercise that boundary.
+
+| Depth of value tree | Before, ns | After, ns | Speedup |
+|---:|---:|---:|---:|
+| 0 (ordinary Boolean value) | 16.20 | 6.83 | 2.37× |
+| 1 | 140.4 | 65.8 | 2.13× |
+| 16 | 1,549 | 688.5 | 2.25× |
+| 128 | 13,816 | 5,042 | 2.74× |
+
+Seven alternating pinned pairs at 3,000 iterations per depth. Both builds allocated zero bytes per operation. An earlier version fetched the entire AST node header. That trial improved long chains but increased the ordinary leaf check from 15.86 to 23.69 ns, which motivated testing the smaller identity read. [Depth benchmark and shared-branch test](ast/rewriter/theory_ite_value_tree_test.go)
+
+Commit `24ac46553` retains the identity-read version. Across seven paired runs per input, complete-verifier instruction changes were −0.01% on hybrid, −0.11% on Flash, −0.26% on alternating bit and −0.62% on ARM. The local benchmark is where the improvement is established. All 228 complete reference transcripts matched, including expected exits. The rewriter and smtcore packages, checked/debug/trace ITE tests and rewriter vet passed.
+
+Eleven alternating runs on CPU 16 compared the final production build directly to linked Z3. ARM took 489.6 versus 345.6 ms, hybrid 1,115.6 versus 831.4 ms, and card3 73.8 versus 81.2 ms (g3 first). The corresponding median process instructions were 3.187B versus 2.192B, 7.893B versus 5.823B, and 353M versus 437M. These are whole-verifier results, including startup. [Counters, matched rows, release pairs, benchmark drivers and corpus outcomes](perf/ivy_apple/holdouts/nov27-quantified-row-traversal.tar.xz)
