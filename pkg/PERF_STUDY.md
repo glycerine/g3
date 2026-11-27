@@ -8381,3 +8381,39 @@ A separate overlay tested dropping either direction of value propagation and ski
 One pinned pair on each of the historical 228 proof-producing inputs matched linked Z3 byte for byte, including exit status. g3 used fewer instructions on 203 and less elapsed time on 194. This screen ranks remaining opportunities. It cannot attribute improvements since the older inventory to this release alone. Hybrid led the remaining instruction deficits at 2.073 billion, followed by POPL18 Ticket at 1.398 billion, ARM at 0.971 billion, Ticket L2S at 0.892 billion and nested Ticket at 0.877 billion.
 
 The archive includes the overlay and measurement drivers, per-row counts, rotated comparisons, inventory, per-core results and full Go test log. Drivers record the original external scratch paths. The row observer used the pre-change source at `eae68af4a`. The sweep overlay used the release source at `9a27a7fc0`. [Benchmark evidence](perf/ivy_apple/holdouts/nov27-followup-reduction-and-verifier-survey.tar.xz)
+
+## November 27 — Where the four Ticket verifiers spend their instructions
+
+Three runs per engine counted user instructions on the solver thread with GC disabled. Both backends used the same GoIvy frontend. Every run matched the reference exit status and both output streams. The table shows g3 minus linked Z3, in millions. Translation includes the base and each final condition. The check window starts after the goal is asserted. Depending on the backend, it can include a post-push private proof or a general solver check.
+
+| Complete input | Goal translation and base translation | First pushes | Pre-push proofs | Check calls | g3 / Z3 check calls |
+|---|---:|---:|---:|---:|---:|
+| POPL18 Ticket | 2.8 | 165.9 | 142.2 | 995.1 | 252 / 284 |
+| Nested Ticket | 1.9 | 185.1 | 207.4 | 558.2 | 278 / 413 |
+| Ticket L2S auto | 3.4 | 163.7 | 126.5 | 804.3 | 255 / 297 |
+| Ordinary Ticket | 2.3 | 117.3 | 152.0 | 232.5 | 157 / 239 |
+
+The three largest Ticket deficits share a 2.36B-instruction excess in check calls. Moving the first push later can charge it to a different obligation on each engine. The isolated **check** gaps include 148M at nested Ticket batch 16 goal 1, 92M at L2S 12/8, and 56M at POPL18 4/55. Those values exclude their push costs.
+
+### Matched proof replays
+
+The native frontend saved the active assertions for ten high-cost obligations. Each was submitted to both CLIs with the default settings, either as one fresh query or with a push before the final assertion. This latter replay reconstructs the boundary but omits learned state from preceding siblings. On all twenty inputs both engines returned UNSAT with identical decisions, conflicts, quantifier instantiations and resource counts in each of three rounds. Summing the per-query median **whole-process instructions** gives 4.184B versus 1.726B on fresh queries and 2.297B versus 1.025B on incremental ones. The latter ratio is 2.24× even with the four search counters matched. These totals include parsing and startup.
+
+One distinction changes where to optimize. In the nested 16/1 standalone incremental replay, sampling assigned about 263M g3 and 70M Z3 instructions to checking individual quantifiers against candidate models. In the complete nested verifier, g3 already has its finite-model table checker. The same category costs much less there. POPL18 4/55 and L2S 12/8 showed no samples in this category on incremental CLI replay. Whole-verifier and standalone profiles are archived separately.
+
+### Policy and implementation trials
+
+* Using ordinary phase caching instead of conservative phase caching reduced complete POPL18 instructions by 10.33%, nested Ticket by 4.00%, and L2S by 4.52% in five pinned pairs. It increased hybrid by 6.71% and Flash by 4.46%. Three additional pairs on 37 inputs put toy consensus 2 at +23.52%, ARM at +6.89% and POPL18 at −12.45%. All 222 screen runs matched their references. Changing only single-condition batches saved 6.72% on nested Ticket but added 1.04% on L2S. Keep the current general policy.
+* In three incremental CLI runs of each fixture, phase caching cut nested 16/1 from 523M to 263M instructions, while raising L2S 12/8 from 264M to 329M. Disabling relevance tracking approximately doubled the ten-query total from 2.30B to 4.59B. The phase policy is sensitive to the surrounding proof history.
+* Restricting the ordinary rewriter's ITE constant-fold probe to arity three saved at most 0.71% of instructions across the six full verifiers in seven pairs. Extending the private solver's true-body MBQI shortcut to full verification changed instructions by less than 0.7% on all six in five pairs. Neither trial establishes a material elapsed gain.
+* Sending raw quantified instances directly to the internalizer diverged from the expected transcript on all four Ticket inputs and hybrid. On hybrid the internalizer stopped on an AST precondition. Flash completed but took 4.15% longer in three pairs. Any combined substitution and rewriting path must supply normalized lemmas to the internalizer.
+
+* A single-pass prototype used the existing theory rewriter with de Bruijn bindings to substitute and simplify together. All six complete inputs matched their reference transcripts in five pairs. POPL18 saved 7.86% of instructions, but nested Ticket cost 4.19% more and L2S cost 7.78% more. All ten fresh and ten incremental standalone cases still returned UNSAT. Each differed from the released solver on at least one of the four recorded search counters. The ten incremental cases rose from 2.297B to 2.471B instructions. Retain separate substitution and normalization.
+
+### Where the shared overhead remains
+
+Three whole-process instruction profiles per engine and input used normal GC. Across POPL18, nested and L2S, the sampled quantifier queue spent 833M g3 versus 261M Z3 instructions asserting instances, 685M versus 282M rewriting them, and 658M versus 294M substituting bindings. The three disjoint differences sum to **1.34B**. Within g3's assertion samples, 408M were below formula internalization, 138M below relevance marking, 125M below root clause creation, and 83M below asserted-OR watch registration. Across the three full verifiers, checking individual quantified formulas against candidate models cost about **43M versus 157M**. The expensive model check on the standalone nested replay would be a misleading reason to prioritize MBQI for the full verifier.
+
+Next, compare the numbers of instance operands, newly created Boolean variables and enodes, and clauses emitted on nested 14/44 and L2S 12/8. Charge the samples to those counts. A shared per-new-operand cost would justify optimizing construction and registration. A large count divergence would favor changing which lemmas the solver needs to internalize. Use POPL18 4/55 as a control with earlier matched-queue evidence. Profile classifications are approximate, depend on visible stack frames and cover the entire process. The separate pinned direct counts measure the check-stage gaps.
+
+[Benchmark drivers, all ten SMT-LIB fixtures, overlays, measurements and stack profiles](perf/ivy_apple/holdouts/nov27-ticket-family-stages-and-replays.tar.xz)
