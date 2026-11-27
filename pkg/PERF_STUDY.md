@@ -7767,3 +7767,45 @@ Across five complete runs per backend, the instrumented frontend reached 284 num
 **Two conjectures account for 305.90M excess instructions across eight checks**, or 24.63% of the 1.242B goal-level gap. We matched their exact check windows to the frontend's printed source lines 333 and 345 of `ticket_protocol.ivy`. Both concern the saved service ticket and split on program-counter cases. The four actions were `step12`, `step22`, `step23` and `step31`. On `step23`, line 333 cost 74.46M versus 13.94M. On `step12`, line 345 cost 84.89M versus 30.50M. The largest single excess was 66.40M at batch 7, goal 1. The 20 most expensive goal differences account for 51.95% of this gap.
 
 Compare solver decisions, instantiations and assertion costs at the eight recurring goals in their original push/pop histories. This tests whether the same search or implementation difference recurs across actions. Seven paired whole runs measured g3/native instruction ratios of 2.06 on Ticket, 1.43 on hybrid, 1.54 on ARM and 0.78 on FBA. The corresponding median paired wall-time ratios were 2.21, 1.41, 1.52 and 0.71 on the shared host. [All goal rankings, action and line mappings, and exact-transcript measurement drivers](perf/ivy_apple/holdouts/nov27-live-numeral.tar.xz)
+
+### November 27 — Ticket search history and the cost of executing the same proof
+
+The ordinary g3 solver and linked Z3 can follow the same search on all eight of Ticket’s most expensive recurring obligations. The release uses independent proofs before or after a physical push and therefore gives the concrete solver a different history. We measured the effect by replaying the **complete verifier** from startup and selectively bypassing those proofs. Every run matched the baseline exit code, stdout and stderr. No solver settings or proof rules changed between goals.
+
+| Eight Ticket checks, summed | Released g3 | Ordinary g3 | Linked Z3 |
+| --- | ---: | ---: | ---: |
+| Offered quantifier instances | 14,862 | 14,597 | 14,597 |
+| Asserted instance lemmas | 4,493 | 3,700 | 3,700 |
+| Boolean decisions | 989 | 1,177 | 1,177 |
+| Instructions inside the checks, millions | 475.42 | 421.45 | 169.30 |
+| Batch 4, goal 55 alone, millions | 74.46 | 36.79 | 13.94 |
+
+In the ordinary pair, every ordered offer (quantifier and binding trees) and asserted lemma tree matched within its check under a consistent renaming of generated suffixes in each event stream. Every signed decision tree also matched after allowing reversal of equality operands. These observers compare printed application names, ordered children, quantifier binder sorts and variable indices. No candidate-model check occurred in these windows. Rebuilding the native observer from this fork reproduced its complete selected event file byte for byte.
+
+On batch 4, goal 55, the release issued 193 decisions and asserted 725 lemmas. Ordinary g3 and Z3 issued 45 decisions and asserted 356 lemmas. Other goals respond differently. On batch 2, goal 55, ordinary g3 did **more** work than the release (68.72M vs 49.34M). Across all eight, matching the history removes 53.97M of the 306.12M instruction gap. **82.4% remains with matched decisions, offers and assertions.** The instruction sums are medians across five complete runs per backend with GC off and event tracing disabled. Omitting the optional frontend goal simplification changed the ordinary eight-check sum by just 0.04M.
+
+Instruction sampling in 15 additional alternating complete runs used the eight concrete-check intervals on their actual OS thread. Each interval was identified with CLOCK_MONOTONIC timestamps. The mean sampled totals of 420.40M and 168.59M are within 0.5% of the direct counts. The categories below partition samples inside the quantifier queue’s per-entry call. Each sample appears in one row.
+
+| Sampled instructions across the eight checks, millions | Ordinary g3 | Z3 | Excess |
+| --- | ---: | ---: | ---: |
+| Assert rewritten lemma | 73.18 | 16.99 | 56.19 |
+| Theory rewrite | 72.12 | 22.21 | 49.91 |
+| Binding substitution | 51.38 | 21.94 | 29.44 |
+| Candidate satisfaction test | 43.89 | 33.05 | 10.84 |
+| Lemma assembly and other per-entry work | 44.42 | 9.23 | 35.19 |
+| Outside the per-entry call | 135.41 | 65.17 | 70.24 |
+
+Assertion and theory rewriting together account for about 42% of the matched gap. Within assertion, recursive formula internalization sampled about 25M instructions on g3 and 6M in the native formula-core path. In g3’s queue rewriter, application-frame processing appeared on about 63M instructions of stacks, while the theory application reducer itself appeared on only about 15M. These nested costs overlap. A useful next experiment is a compiled fast path for repeated application-frame traversal around the unchanged reducer. First count identical frame shapes and callbacks under different bindings. Compare cache writes, reference ownership, resource charges and the ordered lemma stream in addition to elapsed time.
+
+**Scheduling controls.** Five rotating complete normal-GC runs on CPU 14 gave the following paired changes relative to released g3. Both variants run every goal in a physical scope. The post-push-only variant can still prove a goal through the independent proof batch after assertion.
+
+| Verification | Post-push proofs only, instructions / elapsed | Ordinary solver only, instructions / elapsed |
+| --- | ---: | ---: |
+| Ticket | −7.26% / −7.74% | −10.66% / −10.74% |
+| Hybrid | −5.75% / −6.25% | −1.99% / −0.98% |
+| ARM | −1.54% / −1.78% | +14.95% / +13.70% |
+| FBA | +3.30% / +1.61% | −0.79% / −0.34% |
+
+Post-push-only completed all 419 Raft checks in a median 2.23 s versus 2.38 s for released g3 across three pairs. On the pinned Apple frontend it raised instructions from 11.53B to 25.13B on rfn2 and from 123.44B to 144.20B on dramc_nb2 in one complete pair each. These controls rule out removing either proof stage globally. Complete Ticket with ordinary g3 still took 380 ms versus 229 ms for linked Z3.
+
+**Two general arena access experiments.** Returning an application's cached range sort directly and reusing already resolved operand slots in slice-application registration together saved 0.10–0.34% of instructions in three CLI replays across nine rotations. All decisions, conflicts, instantiations and resource counts matched. In seven complete normal-GC verifier rotations, their combined effect ranged from 0.67% fewer instructions on hybrid to 1.84% more on FBA. Both remain experiments. The retained archive includes build scripts, source patches, paired measurements, ordered event trees and sampled stacks. [Ticket history controls and profiles](perf/ivy_apple/holdouts/nov27-ticket-history.tar.xz)
