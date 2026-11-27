@@ -41,6 +41,9 @@ func TestNoFMAContraction(t *testing.T) {
 	if len(targets) == 0 {
 		targets = []string{"linux/arm64"}
 	}
+	// Keep the archives used by the cross-builds until the last binary is
+	// linked, even if go clean -cache runs against the shared build cache.
+	t.Setenv("GOCACHE", t.TempDir())
 	for _, target := range targets {
 		parts := strings.Split(target, "/")
 		if len(parts) < 2 {
