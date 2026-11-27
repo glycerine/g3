@@ -392,6 +392,40 @@ func (c *SMTModelChecker) auxiliaryBindings(cex *coremodel.ModelCore, quantifier
 	return raw, bindings, inverseOK, generation, nil
 }
 
+// assertNegatedModelBody releases the instantiated body, substitution and
+// negation before the auxiliary solver checks its new assertion.
+func (c *SMTModelChecker) assertNegatedModelBody(auxiliary *SMTSolver, body ast.ASTHandle, skolems []ast.ASTHandle) (result error) {
+	ground, err := c.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, c.manager.DelRef(&ground)) }()
+	substitution, err := rewriter.NewVarSubstitution(c.manager, true)
+	if substitution != nil {
+		defer func() { result = errors.Join(result, substitution.Close()) }()
+	}
+	if err != nil {
+		return err
+	}
+	if err = substitution.Substitute(body, skolems, ground); err != nil {
+		return err
+	}
+	groundBody, err := c.manager.RefGet(ground)
+	if err != nil {
+		return err
+	}
+	negated, err := c.manager.MkNot(groundBody)
+	if err != nil {
+		return err
+	}
+	ref, err := c.manager.NewRef(negated)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, c.manager.DelRef(&ref)) }()
+	return auxiliary.Assert(negated)
+}
+
 // errSMTModelCheckerUnevaluatedQuantifier reports a quantifier body that the
 // candidate model could not evaluate (proto_model::eval returned false).
 var errSMTModelCheckerUnevaluatedQuantifier = errors.New("model checker: the quantifier body could not be evaluated in the candidate model")
@@ -412,10 +446,7 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	if err != nil {
 		return false, err
 	}
-	values := make([]ast.ASTHandle, count)
-	skolems := make([]ast.ASTHandle, count)
-	skolemDecls := make([]ast.ASTHandle, len(skolems))
-	skolemRefs := make([]ast.ASTRef, 0, len(skolems))
+	var skolemRefs []ast.ASTRef
 	// check(q) pops the aux context before its sks vector dies, so this
 	// release is deferred before the pop.
 	defer func() {
@@ -470,24 +501,15 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	defer func() { result = errors.Join(result, auxiliary.PopCore(1)) }()
 	// assert_neg_q_m's locals tmp, sk_body, s (var_subst) and r die when it
 	// returns, in reverse declaration order (r, s, sk_body, tmp).
-	var temporaries []func() error
-	releaseTemporaries := func() error {
-		var e error
-		for i := len(temporaries) - 1; i >= 0; i-- {
-			e = errors.Join(e, temporaries[i]())
-		}
-		temporaries = nil
-		return e
-	}
-	holdTemporary := func(ref ast.ASTRef) {
-		temporaries = append(temporaries, func() error { return c.manager.DelRef(&ref) })
-	}
-	defer func() { result = errors.Join(result, releaseTemporaries()) }()
 	evaluated, err := c.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return false, err
 	}
-	holdTemporary(evaluated)
+	defer func() {
+		if evaluated != (ast.ASTRef{}) {
+			result = errors.Join(result, c.manager.DelRef(&evaluated))
+		}
+	}()
 	ok, err := model.Eval(body, evaluated, true)
 	if err != nil {
 		return false, err
@@ -514,6 +536,8 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	}
 	// The innermost variable's fresh constant comes first; each finite sort
 	// is restricted to its universe as soon as its constant exists.
+	skolems := make([]ast.ASTHandle, count)
+	skolemRefs = make([]ast.ASTRef, 0, count)
 	for i := len(skolems) - 1; i >= 0; i-- {
 		sort, e := c.manager.GetDeclarationSort(flat, uint32(i))
 		if e != nil {
@@ -528,10 +552,6 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 			return false, e
 		}
 		skolemRefs = append(skolemRefs, ref)
-		skolemDecls[i], e = c.manager.GetDecl(skolems[i])
-		if e != nil {
-			return false, e
-		}
 		finite, e := model.IsFinite(sort)
 		if e != nil {
 			return false, e
@@ -546,40 +566,10 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 			}
 		}
 	}
-	ground, err := c.manager.NewRef(ast.ASTHandle{})
-	if err != nil {
+	if err = c.assertNegatedModelBody(auxiliary, evaluatedBody, skolems); err != nil {
 		return false, err
 	}
-	holdTemporary(ground)
-	substitution, err := rewriter.NewVarSubstitution(c.manager, true)
-	// Member construction can return a charged partial owner. Retain its
-	// cleanup even when construction stops before the reducer is ready.
-	if substitution != nil {
-		temporaries = append(temporaries, substitution.Close)
-	}
-	if err != nil {
-		return false, err
-	}
-	if err = substitution.Substitute(evaluatedBody, skolems, ground); err != nil {
-		return false, err
-	}
-	groundBody, err := c.manager.RefGet(ground)
-	if err != nil {
-		return false, err
-	}
-	negated, err := c.manager.MkNot(groundBody)
-	if err != nil {
-		return false, err
-	}
-	negatedRef, err := c.manager.NewRef(negated)
-	if err != nil {
-		return false, err
-	}
-	holdTemporary(negatedRef)
-	if err = auxiliary.Assert(negated); err != nil {
-		return false, err
-	}
-	if err = releaseTemporaries(); err != nil {
+	if err = c.manager.DelRef(&evaluated); err != nil {
 		return false, err
 	}
 	status, err := auxiliary.CheckSat(nil)
@@ -607,6 +597,14 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	// Native attempts inverse recovery even when no instantiation-set clause
 	// was added, then falls back to the saved complete counterexample.
 	useInverse := c.modelFinder != nil
+	values := make([]ast.ASTHandle, count)
+	skolemDecls := make([]ast.ASTHandle, count)
+	for i, h := range skolems {
+		skolemDecls[i], err = c.manager.GetDecl(h)
+		if err != nil {
+			return false, err
+		}
+	}
 	first := complete
 	for *remaining != 0 {
 		cex := first

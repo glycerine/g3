@@ -191,3 +191,23 @@ func TestSMTModelCheckerAuxiliaryAllocationFrontiers(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkSMTAuxiliaryIdentityQuery(b *testing.B) {
+	for _, tc := range []struct {
+		name string
+		skip bool
+	}{{"Incremental", false}, {"Private", true}} {
+		b.Run(tc.name, func(b *testing.B) {
+			_, c, proto, q, _ := smtAuxiliaryQueryFixture(b, tc.skip)
+			astTestMust(b, c.initAuxiliaryContext())
+			b.ReportAllocs()
+			for b.Loop() {
+				remaining := uint32(1)
+				found, err := c.auxiliaryCounterexamples(proto, q, &remaining)
+				if err != nil || found || remaining != 1 {
+					b.Fatalf("found=%v remaining=%d err=%v", found, remaining, err)
+				}
+			}
+		})
+	}
+}
