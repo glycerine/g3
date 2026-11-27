@@ -11,10 +11,26 @@ import (
 // even when its arguments depend on the binders. An unknown operand can only
 // be discarded when the connective's result is already determined.
 func uniformModelBool(m *ast.ASTManager, model *protomodel.ProtoModel, expr, boolean ast.ASTHandle, remaining *int) lbool.LBool {
-	if *remaining == 0 {
+	probe := uniformModelProbe{manager: m, model: model, boolean: boolean, remaining: *remaining}
+	result := probe.value(expr)
+	*remaining = probe.remaining
+	return result
+}
+
+type uniformModelProbe struct {
+	manager   *ast.ASTManager
+	model     *protomodel.ProtoModel
+	boolean   ast.ASTHandle
+	remaining int
+}
+
+func (p *uniformModelProbe) value(expr ast.ASTHandle) lbool.LBool {
+	m := p.manager
+
+	if p.remaining == 0 {
 		return lbool.Undef
 	}
-	*remaining--
+	p.remaining--
 	if m.IsTrue(expr) {
 		return lbool.True
 	}
@@ -26,30 +42,7 @@ func uniformModelBool(m *ast.ASTManager, model *protomodel.ProtoModel, expr, boo
 		return lbool.Undef
 	}
 	if h.Family == ast.NullFamilyID {
-		sort, err := m.GetRange(h.Decl)
-		if err != nil || sort != boolean {
-			return lbool.Undef
-		}
-		var value ast.ASTHandle
-		if h.NumArgs == 0 {
-			value, err = model.Core().ConstantInterpretation(h.Decl)
-		} else {
-			fn, err := model.Core().FunctionInterpretation(h.Decl)
-			if err != nil || fn == nil || fn.Arity() != h.NumArgs || fn.NumEntries() != 0 {
-				return lbool.Undef
-			}
-			value, err = fn.Else()
-			if err != nil {
-				return lbool.Undef
-			}
-		}
-		if err == nil && m.IsTrue(value) {
-			return lbool.True
-		}
-		if err == nil && m.IsFalse(value) {
-			return lbool.False
-		}
-		return lbool.Undef
+		return p.predicate(h)
 	}
 	if h.Family != m.BasicFamilyID() || !tableOperator(h.DeclKind, h.NumArgs) {
 		return lbool.Undef
@@ -59,7 +52,7 @@ func uniformModelBool(m *ast.ASTManager, model *protomodel.ProtoModel, expr, boo
 		if err != nil {
 			return lbool.Undef
 		}
-		return uniformModelBool(m, model, arg, boolean, remaining)
+		return p.value(arg)
 	}
 	switch h.DeclKind {
 	case ast.ASTOpNot:
@@ -68,7 +61,7 @@ func uniformModelBool(m *ast.ASTManager, model *protomodel.ProtoModel, expr, boo
 		stop := lbool.FromBool(h.DeclKind == ast.ASTOpOr)
 		result := stop.Negated()
 		for i := uint32(0); i < h.NumArgs; i++ {
-			if *remaining == 0 {
+			if p.remaining == 0 {
 				return lbool.Undef
 			}
 			v := child(i)
@@ -108,4 +101,30 @@ func uniformModelBool(m *ast.ASTManager, model *protomodel.ProtoModel, expr, boo
 		}
 	}
 	return lbool.Undef
+}
+
+func (p *uniformModelProbe) predicate(h ast.ASTNodeHeader) lbool.LBool {
+	m := p.manager
+	var err error
+	var value ast.ASTHandle
+	if h.NumArgs == 0 {
+		value, err = p.model.Core().ConstantInterpretation(h.Decl)
+	} else {
+		fn, err := p.model.Core().FunctionInterpretation(h.Decl)
+		if err != nil || fn == nil || fn.Arity() != h.NumArgs || fn.NumEntries() != 0 {
+			return lbool.Undef
+		}
+		value, err = fn.Else()
+		if err != nil {
+			return lbool.Undef
+		}
+	}
+	if err != nil || (!m.IsTrue(value) && !m.IsFalse(value)) {
+		return lbool.Undef
+	}
+	sort, err := m.GetRange(h.Decl)
+	if err != nil || sort != p.boolean {
+		return lbool.Undef
+	}
+	return lbool.FromBool(m.IsTrue(value))
 }
