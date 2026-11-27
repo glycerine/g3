@@ -407,26 +407,36 @@ func (m *Manager) MarkForbidden(expressions []ast.ASTHandle) (result error) {
 			m.util.SetForbidden(m.forbidden[:start])
 		}
 	}()
-	seen := make(map[ast.ASTHandle]struct{})
+	// Most small DAGs fit in the slot-indexed array. Remember collisions by
+	// full handle so a shared subtree is traversed at most once.
+	var local [256]ast.ASTHandle
+	var spill map[ast.ASTHandle]struct{}
 	stack := append([]ast.ASTHandle(nil), expressions...)
 	for len(stack) != 0 {
 		i := len(stack) - 1
 		e := stack[i]
 		stack = stack[:i]
-		if _, yes := seen[e]; yes {
-			continue
+		slot := &local[e.Slot()%uint32(len(local))]
+		if !slot.IsNull() {
+			if *slot == e {
+				continue
+			}
+			if _, ok := spill[e]; ok {
+				continue
+			}
+			if spill == nil {
+				spill = make(map[ast.ASTHandle]struct{})
+			}
+			spill[e] = struct{}{}
+		} else {
+			*slot = e
 		}
-		seen[e] = struct{}{}
-		kind, err := m.manager.GetKind(e)
+		kind, _, n, err := m.manager.NodeShape(e)
 		if err != nil {
 			return err
 		}
 		switch kind {
 		case ast.ASTApp:
-			n, e2 := m.manager.GetNumArgs(e)
-			if e2 != nil {
-				return e2
-			}
 			if n > 0 {
 				d, e2 := m.manager.GetDecl(e)
 				if e2 != nil {
@@ -454,15 +464,11 @@ func (m *Manager) MarkForbidden(expressions []ast.ASTHandle) (result error) {
 				stack = append(stack, a)
 			}
 		case ast.ASTQuantifier:
-			body, e2 := m.manager.GetQuantifierBody(e)
+			body, _, patterns, noPatterns, e2 := m.manager.QuantifierChildren(e)
 			if e2 != nil {
 				return e2
 			}
 			stack = append(stack, body)
-			patterns, e2 := m.manager.GetNumPatterns(e)
-			if e2 != nil {
-				return e2
-			}
 			for j := patterns; j > 0; j-- {
 				pattern, e3 := m.manager.GetPattern(e, j-1)
 				if e3 != nil {
@@ -470,10 +476,7 @@ func (m *Manager) MarkForbidden(expressions []ast.ASTHandle) (result error) {
 				}
 				stack = append(stack, pattern)
 			}
-			noPatterns, e2 := m.manager.GetNumNoPatterns(e)
-			if e2 != nil {
-				return e2
-			}
+
 			for j := noPatterns; j > 0; j-- {
 				pattern, e3 := m.manager.GetNoPattern(e, j-1)
 				if e3 != nil {
