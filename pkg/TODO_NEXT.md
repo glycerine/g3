@@ -91,6 +91,8 @@ The five comparisons use three paired runs with GoIvy `07cdeec61` and the same A
 
 ## Commands and evidence to retain
 
+Run profiling scripts from `pkg` when they need the module as their working directory, but extract study archives and write generated Go overlays under a fresh directory in `/tmp`. The Boolean-scan study copied GoIvy's `isolate.go` into its output directory. When that directory lived under `pkg/build`, the repository package-comment test read the copy as g3 source. The original study outputs now live outside the checkout.
+
 From `pkg/`, the existing entry points are:
 
 ```sh
