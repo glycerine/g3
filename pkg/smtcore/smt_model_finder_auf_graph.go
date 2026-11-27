@@ -73,13 +73,7 @@ func newSMTModelFinderAUFGraph(finder *SMTModelFinder) *smtModelFinderAUFGraph {
 	}
 }
 
-func (g *smtModelFinderAUFGraph) node(index map[smtModelFinderAUFKey]*smtModelFinderAUFNode, key smtModelFinderAUFKey, sort ast.ASTHandle) (*smtModelFinderAUFNode, error) {
-	if node := index[key]; node != nil {
-		if node.sort != sort {
-			return nil, ast.ErrASTDomain
-		}
-		return node, nil
-	}
+func (g *smtModelFinderAUFGraph) addNode(index map[smtModelFinderAUFKey]*smtModelFinderAUFNode, key smtModelFinderAUFKey, sort ast.ASTHandle) (*smtModelFinderAUFNode, error) {
 	node, err := newSMTModelFinderAUFNode(uint32(len(g.nodes)), sort)
 	if err != nil {
 		return nil, err
@@ -91,7 +85,13 @@ func (g *smtModelFinderAUFGraph) node(index map[smtModelFinderAUFKey]*smtModelFi
 
 // Variable indexes are de Bruijn indexes; the manager stores binder sorts in
 // declaration order, as does the public model-finder instantiation-set API.
+// Each graph uses one registered flattening per quantifier. Once the key
+// has a node, its binder sort is fixed for the rest of the build.
 func (g *smtModelFinderAUFGraph) uvar(quantifier ast.ASTHandle, variable uint32) (*smtModelFinderAUFNode, error) {
+	key := smtModelFinderAUFKey{quantifier, variable}
+	if node := g.uvars[key]; node != nil {
+		return node, nil
+	}
 	flat := g.finder.flatQuantifier(quantifier)
 	count, err := g.finder.manager.GetNumDeclarations(flat)
 	if err != nil || variable >= count {
@@ -101,26 +101,27 @@ func (g *smtModelFinderAUFGraph) uvar(quantifier ast.ASTHandle, variable uint32)
 	if err != nil {
 		return nil, err
 	}
-	return g.node(g.uvars, smtModelFinderAUFKey{quantifier, variable}, sort)
+	return g.addNode(g.uvars, key, sort)
 }
 
 func (g *smtModelFinderAUFGraph) argument(function ast.ASTHandle, position uint32) (*smtModelFinderAUFNode, error) {
+	key := smtModelFinderAUFKey{function, position}
+	if node := g.arguments[key]; node != nil {
+		return node, nil
+	}
 	sort, err := g.finder.manager.GetDomain(function, position)
 	if err != nil {
 		return nil, err
 	}
-	key := smtModelFinderAUFKey{function, position}
-	if g.arguments[key] == nil {
-		if g.argumentLayout == nil {
-			g.argumentLayout = ast.NewObjMap(g.finder.manager)
-		}
-		h, err := g.finder.manager.GetHash(function)
-		if err != nil {
-			return nil, err
-		}
-		g.argumentLayout.InsertPairIfNotThere(function, uint64(position), uhash.Combine(h, position))
+	if g.argumentLayout == nil {
+		g.argumentLayout = ast.NewObjMap(g.finder.manager)
 	}
-	return g.node(g.arguments, key, sort)
+	h, err := g.finder.manager.GetHash(function)
+	if err != nil {
+		return nil, err
+	}
+	g.argumentLayout.InsertPairIfNotThere(function, uint64(position), uhash.Combine(h, position))
+	return g.addNode(g.arguments, key, sort)
 }
 
 func (g *smtModelFinderAUFGraph) collectFVars(quantifier ast.ASTHandle) error {
