@@ -22,10 +22,10 @@ func (c *patternCandidates) sortByWeight(candidates []ast.ASTHandle) error {
 	}
 	sort.SliceStable(candidates, func(i, j int) bool {
 		a, b := c.info[candidates[i]], c.info[candidates[j]]
-		if len(a.freeVars) > len(b.freeVars) {
+		if a.freeVars.count() > b.freeVars.count() {
 			return true
 		}
-		if len(a.freeVars) < len(b.freeVars) {
+		if a.freeVars.count() < b.freeVars.count() {
 			return false
 		}
 		if a.size < b.size {
@@ -50,7 +50,7 @@ func (c *patternCandidates) selectUnary(candidates []ast.ASTHandle) ([]ast.ASTRe
 		if !found {
 			return patterns, remaining, ast.ErrASTDomain
 		}
-		if uint32(len(info.freeVars)) != c.numBindings {
+		if uint32(info.freeVars.count()) != c.numBindings {
 			remaining = append(remaining, candidate)
 			continue
 		}

@@ -13,17 +13,8 @@ const maxPatternSplits = 32
 
 type prePattern struct {
 	exprs    []ast.ASTHandle
-	freeVars map[uint32]struct{}
+	freeVars patternVarSet
 	index    uint32
-}
-
-func subsetFreeVars(subset, superset map[uint32]struct{}) bool {
-	for v := range subset {
-		if _, found := superset[v]; !found {
-			return false
-		}
-	}
-	return true
 }
 
 // selectMulti follows candidates2multi_patterns' growing pre-pattern queue.
@@ -37,7 +28,7 @@ func (c *patternCandidates) selectMulti(candidates []ast.ASTHandle, maxPatterns 
 	if len(candidates) == 0 {
 		return result, ast.ErrASTDomain
 	}
-	states := []*prePattern{{freeVars: make(map[uint32]struct{})}}
+	states := []*prePattern{{}}
 	c.tracePrePatternAllocated(states[0], 439)
 	defer func() {
 		for _, state := range states {
@@ -53,7 +44,7 @@ func (c *patternCandidates) selectMulti(candidates []ast.ASTHandle, maxPatterns 
 	}
 	for j := 0; j < len(states); j++ {
 		current := states[j]
-		if uint32(len(current.freeVars)) == c.numBindings {
+		if uint32(current.freeVars.count()) == c.numBindings {
 			var err error
 			if c.preferConnected && len(result) == 0 && maxPatterns == 1 {
 				term, e := c.connectingTerm(current.exprs, candidates)
@@ -83,19 +74,14 @@ func (c *patternCandidates) selectMulti(candidates []ast.ASTHandle, maxPatterns 
 			if !found {
 				return result, ast.ErrASTDomain
 			}
-			if !subsetFreeVars(info.freeVars, current.freeVars) {
+			if !info.freeVars.subset(current.freeVars) {
 				next := &prePattern{
-					exprs:    append(append([]ast.ASTHandle(nil), current.exprs...), n),
-					freeVars: make(map[uint32]struct{}, len(current.freeVars)+len(info.freeVars)),
-					index:    current.index + 1,
+					exprs: append(append([]ast.ASTHandle(nil), current.exprs...), n),
+					index: current.index + 1,
 				}
 				c.tracePrePatternAllocated(next, 455)
-				for v := range current.freeVars {
-					next.freeVars[v] = struct{}{}
-				}
-				for v := range info.freeVars {
-					next.freeVars[v] = struct{}{}
-				}
+				next.freeVars.include(current.freeVars)
+				next.freeVars.include(info.freeVars)
 				states = append(states, next)
 				if splits < maxPatternSplits {
 					states[j] = nil

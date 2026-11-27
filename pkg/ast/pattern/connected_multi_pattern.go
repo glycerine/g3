@@ -11,17 +11,10 @@ func (c *patternCandidates) connectingTerm(selected, candidates []ast.ASTHandle)
 	if len(selected) < 2 || len(selected) > maxTerms || c.numBindings > 32 || c.numBindings < 3 || len(candidates) > 128 {
 		return ast.ASTHandle{}, nil
 	}
-	variables := func(term ast.ASTHandle) uint32 {
-		var mask uint32
-		for variable := range c.info[term].freeVars {
-			mask |= uint32(1) << variable
-		}
-		return mask
-	}
 	var groups [maxTerms]uint32
 	count := 0
 	for _, term := range selected {
-		mask := variables(term)
+		mask := uint32(c.info[term].freeVars.low)
 		for i := 0; i < count; {
 			if groups[i]&mask == 0 {
 				i++
@@ -45,7 +38,7 @@ func (c *patternCandidates) connectingTerm(selected, candidates []ast.ASTHandle)
 	minUses := len(candidates) + 1
 	var uses map[ast.ASTHandle]int
 	for _, term := range candidates {
-		mask := variables(term)
+		mask := uint32(c.info[term].freeVars.low)
 		joined := 0
 		for _, group := range groups[:count] {
 			if group&mask != 0 {

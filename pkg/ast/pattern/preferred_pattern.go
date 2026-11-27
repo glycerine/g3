@@ -50,7 +50,7 @@ func (c *patternCandidates) selectPreferred(candidates []ast.ASTHandle) ([]ast.A
 		if !found {
 			return result, len(result) != 0, ast.ErrASTDomain
 		}
-		if uint32(len(info.freeVars)) != c.numBindings {
+		if uint32(info.freeVars.count()) != c.numBindings {
 			continue
 		}
 		if err := c.tracePreferredPattern(candidate); err != nil {

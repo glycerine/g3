@@ -158,3 +158,11 @@ func TestPatternInferenceContainsSubpatternAndBiggerFilter(t *testing.T) {
 	}
 	patternMust(t, c.close())
 }
+
+func (c *patternCandidates) addCandidate(n ast.ASTHandle, indices []uint32, size uint32) error {
+	var vars patternVarSet
+	for _, v := range indices {
+		vars.insert(v)
+	}
+	return c.recordCandidate(n, vars, size)
+}

@@ -130,7 +130,7 @@ func TestPatternInferenceCollectorNestedDepthForbiddenAndOwnership(t *testing.T)
 	if normalized != app(f, v0) || c.candidates[1] != direct {
 		t.Fatal("source candidate order and nested binder normalization", c.candidates)
 	}
-	if c.info[normalized].size != 2 || len(c.info[normalized].freeVars) != 1 {
+	if c.info[normalized].size != 2 || c.info[normalized].freeVars.count() != 1 {
 		t.Fatal("normalized candidate metadata", c.info[normalized])
 	}
 	if _, found := c.info[skolem]; found {

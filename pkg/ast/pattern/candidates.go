@@ -8,7 +8,7 @@ import (
 )
 
 type candidateInfo struct {
-	freeVars map[uint32]struct{}
+	freeVars patternVarSet
 	size     uint32
 }
 
@@ -53,7 +53,7 @@ func newPatternCandidates(m *ast.ASTManager, numBindings uint32, noPatterns []as
 	}, nil
 }
 
-func (c *patternCandidates) addCandidate(n ast.ASTHandle, freeVars []uint32, size uint32) error {
+func (c *patternCandidates) recordCandidate(n ast.ASTHandle, vars patternVarSet, size uint32) error {
 	if c == nil || c.closed {
 		return ast.ErrASTHandle
 	}
@@ -75,25 +75,9 @@ func (c *patternCandidates) addCandidate(n ast.ASTHandle, freeVars []uint32, siz
 	if err := c.manager.IncRef(n); err != nil {
 		return err
 	}
-	vars := make(map[uint32]struct{}, len(freeVars))
-	for _, v := range freeVars {
-		vars[v] = struct{}{}
-	}
 	c.info[n] = candidateInfo{freeVars: vars, size: size}
 	c.candidates = append(c.candidates, n)
 	return nil
-}
-
-func sameFreeVars(a, b map[uint32]struct{}) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for v := range a {
-		if _, found := b[v]; !found {
-			return false
-		}
-	}
-	return true
 }
 
 // filterLooping preserves the source's outer insertion order. A candidate is

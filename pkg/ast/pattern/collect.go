@@ -20,7 +20,7 @@ type collectKey struct {
 
 type collectedInfo struct {
 	node ast.ASTHandle
-	vars map[uint32]struct{}
+	vars patternVarSet
 	size uint32
 }
 
@@ -119,9 +119,9 @@ func (c *patternCandidates) collectNode(cache map[collectKey]*collectedInfo, key
 			return c.saveCollectInfo(cache, key, nil, 0)
 		}
 		index -= key.delta
-		vars := make(map[uint32]struct{})
+		var vars patternVarSet
 		if index < c.numBindings {
-			vars[index] = struct{}{}
+			vars.insert(index)
 		}
 		mapped := n
 		if key.delta != 0 {
@@ -152,10 +152,10 @@ func (c *patternCandidates) collectNode(cache map[collectKey]*collectedInfo, key
 			return e
 		}
 		if count == 0 {
-			return c.saveCollectInfo(cache, key, &collectedInfo{node: n, vars: make(map[uint32]struct{}), size: 1}, 205)
+			return c.saveCollectInfo(cache, key, &collectedInfo{node: n, size: 1}, 205)
 		}
 		args := make([]ast.ASTHandle, count)
-		vars := make(map[uint32]struct{})
+		var vars patternVarSet
 		size := uint32(1)
 		changed := false
 		for i := uint32(0); i < count; i++ {
@@ -172,9 +172,7 @@ func (c *patternCandidates) collectNode(cache map[collectKey]*collectedInfo, key
 			}
 			args[i] = info.node
 			changed = changed || child != info.node
-			for v := range info.vars {
-				vars[v] = struct{}{}
-			}
+			vars.include(info.vars)
 			size += info.size
 		}
 		mapped := n
@@ -196,7 +194,7 @@ func (c *patternCandidates) collectNode(cache map[collectKey]*collectedInfo, key
 		if e != nil {
 			return e
 		}
-		if len(vars) == 0 {
+		if vars.count() == 0 {
 			return nil
 		}
 		if family == arith {
@@ -211,14 +209,10 @@ func (c *patternCandidates) collectNode(cache map[collectKey]*collectedInfo, key
 				return nil
 			}
 		}
-		free := make([]uint32, 0, len(vars))
-		for v := range vars {
-			free = append(free, v)
-		}
 		if e := c.tracePotentialCandidate(mapped); e != nil {
 			return e
 		}
-		return c.addCandidate(mapped, free, size)
+		return c.recordCandidate(mapped, vars, size)
 	default:
 		return c.saveCollectInfo(cache, key, nil, 0)
 	}
