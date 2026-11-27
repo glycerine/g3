@@ -1514,3 +1514,44 @@ func TestArithRewriterNumeralsFollowManagerLogic(t *testing.T) {
 		}
 	}
 }
+
+func TestArithCanonicalIntegerBound(t *testing.T) {
+	m, c, g, local := boolRewriterConfigFixture(t)
+	r, err := NewArithRewriter(m, c, g, local)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+	two := arithRewriterNumeral(t, m, "2", true)
+	st, err := m.GetSort(two)
+	astTestMust(t, err)
+	x, err := m.MkConst(astTestSymbol(t, m, "x"), st)
+	astTestMust(t, err)
+	astTestPin(t, m, x)
+	v, err := m.MkVar(0, st)
+	astTestMust(t, err)
+	astTestPin(t, m, v)
+	scaled, err := r.app(arithOpMul, two, x)
+	astTestMust(t, err)
+	astTestPin(t, m, scaled)
+	for _, tc := range []struct {
+		left, right ast.ASTHandle
+		normal      bool
+	}{
+		{x, two, true}, {v, arithRewriterNumeral(t, m, "-7", true), true},
+		{x, arithRewriterNumeral(t, m, "-2147483648", true), false},
+		{x, arithRewriterNumeral(t, m, "2147483648", true), false},
+		{x, arithRewriterNumeral(t, m, "1/2", false), false},
+		{scaled, two, false}, {two, x, false},
+	} {
+		normal, err := r.isNormalIntegerBound(tc.left, tc.right)
+		astTestMust(t, err)
+		if normal != tc.normal {
+			t.Fatalf("operands %v and %v: normal=%v, want %v", tc.left, tc.right, normal, tc.normal)
+		}
+	}
+	// A non-unit coefficient requires division even when the bound is small.
+	status, result := arithRewriterCore(t, r, arithOpLE, scaled, two)
+	if status != RewriteDone {
+		t.Fatalf("scaled bound status %v", status)
+	}
+	arithRewriterWantOperation(t, r, result, arithOpLE, x, arithRewriterNumeral(t, m, "1", true))
+}

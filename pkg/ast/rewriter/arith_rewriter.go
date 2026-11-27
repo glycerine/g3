@@ -5,6 +5,7 @@ package rewriter
 
 import (
 	"errors"
+	"math"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -370,6 +371,27 @@ func (r *ArithRewriter) rewriteNegativePolynomialComparison(kind int32, left, ri
 	return true, r.manager.SetRef(out, result)
 }
 
+// A variable or uninterpreted integer application has coefficient one. With
+// a small integer on the right, a non-strict bound is already in normal
+// form under power reduction, monomial cancellation and GCD rounding.
+func (r *ArithRewriter) isNormalIntegerBound(left, right ast.ASTHandle) (bool, error) {
+	head, err := r.manager.NodeHeader(left)
+	if err != nil || (head.Kind != ast.ASTVar && !(head.Kind == ast.ASTApp && head.Family == ast.NullFamilyID)) {
+		return false, err
+	}
+	app, family, kind, err := r.manager.AppIdentity(right)
+	if err != nil || !app || family != r.family || kind != arithOpNum {
+		return false, err
+	}
+	bound, small, err := r.manager.ArithmeticSmallInteger(right)
+	// The general cancellation path can negate the bound. Keep its numeral
+	// allocation behavior when the negated value would need a larger cell.
+	if err != nil || !small || bound == math.MinInt32 {
+		return false, err
+	}
+	return r.integerTerm(left)
+}
+
 func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle, out ast.ASTRef) (status RewriteStatus, err error) {
 	if kind == arithOpLT || kind == arithOpGT {
 		a, b := right, left
@@ -385,6 +407,9 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 			return RewriteFailed, err
 		}
 		return Rewrite2, r.manager.SetRef(out, negated)
+	}
+	if normal, err := r.isNormalIntegerBound(left, right); err != nil || normal {
+		return RewriteFailed, err
 	}
 	newLeft, newRight, powerChanged, err := r.reduceComparisonPowers(left, right, false)
 	if err != nil {
