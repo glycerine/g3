@@ -7417,3 +7417,24 @@ While profiling assertion, the existing auxiliary-clause benchmark exposed repea
 Nine rotations on CPU 16 measured 20,000 calls per sample, including the unchanged caller-data and empty solver-clause checks. Across complete Ticket, ARM and FBA, the preceding code recorded zero early returns with buffer growth. Hybrid recorded one. Seven rotating whole-verifier comparisons produced no consistent elapsed gain from this change. Hoisting the solver-open check also improved the synthetic case, but added branching with mixed complete-verifier timings. Only buffer restoration was retained. The ordinary SMT core suite, checked/debug/trace clause and justification tests, and SMT core vet passed. [Clause benchmark](smtcore/smt_clause_simplify_benchmark_test.go) · [Implementation](smtcore/smt_internalizer.go)
 
 The study archive contains all five rounds of per-obligation stage costs, the queue and model event chronology, the four accepted stack profiles per engine in aggregated form, the targeted prefix counts, policy alternatives, clause benchmarks, complete verifier results and reproduction drivers. [Hybrid obligation measurements and scripts](perf/ivy_apple/holdouts/nov26-hybrid-obligation-costs.tar.xz)
+
+### November 26 — Matched hybrid lemmas and the cost of internalizing their operands
+
+On hybrid batch 35, goal 1, the ordered inputs to all 203 queue rewrites and the ordered inputs to all 203 assertions before the first candidate model check agree between engines. The comparison traversed application names and ordered children, variable indices, and quantifier kind, bound sorts and body. A single bijection across both streams reconciled eight generated symbol suffixes. This comparison covers expression shape. It omits declaration signatures, quantifier annotations and triggers. Raw AST hashes alone agreed at only 60 of 203 positions in each stream.
+
+| Instructions over the matched prefix, median of five complete verifications | g3 | g3 with automatic GC disabled | Linked Z3 |
+| --- | ---: | ---: | ---: |
+| Rewrite instantiated input | 5,945,978 | 5,860,251 | 1,837,853 |
+| Assert resulting lemma | 8,991,303 | 6,850,087 | 1,970,529 |
+| Process OR operands and obtain literals | 4,834,876 | 4,631,215 | 1,438,652 |
+| Create root clause | 464,271 | 447,412 | 135,186 |
+| Register relevance watches | 443,004 | 409,651 | 123,127 |
+| Mark parent relevant | 1,213,411 | 1,203,624 | 258,967 |
+
+Each operation uses the solver thread’s user-mode retired-instruction counter on CPU 14, less the adjacent empty read interval. The last four rows come from separate instrumented binaries. Each cell is the median of five per-run sums. Independent stage medians need not add up to the median of the complete assertion. All 203 assertions took the OR branch. With ordinary GC, the g3 assertion total ranged from 7.08M to 12.75M. Disabling automatic GC narrowed that range to 6.85–6.90M and still left a 3.48× gap to Z3. The GC-off runs are diagnostic only.
+
+Of 639 disjuncts, g3 reused an existing signed binding 380 times. Those probes cost 88,108 instructions in total with GC off. The other 259 operands spent 4,431,592 instructions inside recursive internalization, 36,874 on the initial probe interval and 63,212 obtaining their literal afterward. At those same 259 positions, Z3 spent 1,364,324 instructions in internalization and 8,257 obtaining literals. The 3.25× difference in recursive internalization accounts for 3.07M instructions on these operands alone. At the 380 positions with reusable Go bindings, native internalization plus literal lookup cost 57,478 instructions. Enlarging the short-literal buffer or shaving a few instructions off successful binding probes has little leverage here.
+
+On batch 31, goal 34, g3 rewrote and asserted 1,995 lemmas across the entire check, versus 2,597 for linked Z3. Total rewrite instructions were 35.45M versus 13.79M and assertion instructions were 48.27M versus 13.99M. Even with 23% fewer calls, g3 spent 2.57× as many instructions rewriting and 3.45× asserting. The two searches differ here. Only the prefix on 35/1 received the ordered tree comparison.
+
+Three release-build trials carried binary operands from lemma construction, used an eight-literal local buffer, or reused the sign of an already resolved positive disjunct during relevance registration. Individually, all three raised complete hybrid instructions by 0.04–0.37% over five rotating pairs. ARM rose 0.70–1.78%. The combined implementation changed hybrid instructions by +0.04% and Ticket by +0.77% over seven pairs. All complete runs included in these panels matched the reference stdout, stderr and exit code. None of the three trials entered the release. [Raw measurements, expression trees and reproduction scripts](perf/ivy_apple/holdouts/nov26-hybrid-matched-lemmas.tar.xz)
