@@ -255,6 +255,12 @@ func (g *smtModelFinderAUFGraph) processFVar(info smtModelFinderFVar) error {
 func (g *smtModelFinderAUFGraph) populateFunctionArgument(info smtModelFinderFVar) error {
 	context := g.finder.state.context
 	node := g.arguments[smtModelFinderAUFKey{info.function, info.position}]
+	// All merges precede population. The search context is fixed during
+	// this build and population only adds terms. A plain f_var for the
+	// same (function, position) would insert the same terms again.
+	if info.offset.IsNull() && node.populated {
+		return nil
+	}
 	if !info.offset.IsNull() {
 		variable := g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root()
 		argument := node.root()
@@ -288,6 +294,9 @@ func (g *smtModelFinderAUFGraph) populateFunctionArgument(info smtModelFinderFVa
 		if _, err := node.insert(argument.owner, argument.Generation()); err != nil {
 			return err
 		}
+	}
+	if info.offset.IsNull() {
+		node.populated = true
 	}
 	return nil
 }

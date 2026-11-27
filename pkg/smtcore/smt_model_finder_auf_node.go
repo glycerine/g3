@@ -11,6 +11,7 @@ type smtModelFinderAUFNode struct {
 	sort       ast.ASTHandle
 	mono       bool
 	signed     bool
+	populated  bool // original ground arguments inserted for this function and position
 	avoid      []*smtModelFinderAUFNode
 	exceptions []ast.ASTHandle
 	set        *smtModelFinderInstantiationSet

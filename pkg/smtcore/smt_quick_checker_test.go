@@ -51,7 +51,7 @@ func smtQuickPredicate(t testing.TB, m *ast.ASTManager, name string, domain, boo
 	return declaration
 }
 
-func smtQuickApplicationNode(t *testing.T, m *ast.ASTManager, context *SMTCheckerContext, declaration ast.ASTHandle, child *SMTEnode, relevant bool) (ast.ASTHandle, *SMTEnode) {
+func smtQuickApplicationNode(t testing.TB, m *ast.ASTManager, context *SMTCheckerContext, declaration ast.ASTHandle, child *SMTEnode, relevant bool) (ast.ASTHandle, *SMTEnode) {
 	t.Helper()
 	expression, err := m.MkApp(declaration, []ast.ASTHandle{child.owner})
 	astTestMust(t, err)
