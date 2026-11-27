@@ -95,3 +95,25 @@ func BenchmarkModelTableCongruence(b *testing.B) {
 		})
 	}
 }
+
+func TestModelTableLookupSharedPrefix(t *testing.T) {
+	g := tableModel{
+		terms: []tableTerm{
+			{}, {op: tableConstant, index: 3}, {op: tableConstant, index: 4},
+			{op: tableVariable}, {op: tableApplication, args: []int{1, 2, 3}},
+			{op: tableConstant, index: 9},
+		},
+		sorts: make([]ast.ASTHandle, 9),
+		functions: []tableFunction{{fallback: 5, entries: []tableEntry{
+			{keys: [tableMaxArity]int{3, 4, 5}, value: 7},
+			{keys: [tableMaxArity]int{3, 4, 6}, value: 8},
+		}}},
+	}
+	for _, tc := range []struct{ key, value, cost int }{{5, 7, 5}, {6, 8, 6}, {7, 9, 7}} {
+		g.work = 20
+		got := g.evaluate(4, []int{tc.key}, 0)
+		if got != tc.value || g.incomplete || g.work != 20-tc.cost {
+			t.Fatalf("key %d: got %d, work left %d, incomplete %t", tc.key, got, g.work, g.incomplete)
+		}
+	}
+}

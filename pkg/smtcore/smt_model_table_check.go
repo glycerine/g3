@@ -74,12 +74,16 @@ func (g *tableModel) evaluate(id int, bindings []int, depth int) int {
 			args[i] = eval(i)
 		}
 		fn := &g.functions[term.index]
-		for _, entry := range fn.entries {
-			g.work--
-			if entry.keys == args {
-				return entry.value
+		// Both key arrays are zero-padded. The first two positions are the
+		// complete key for unary and binary functions.
+		for i := range fn.entries {
+			row := &fn.entries[i]
+			if row.keys[0] == args[0] && row.keys[1] == args[1] && (len(term.args) <= 2 || row.keys == args) {
+				g.work -= i + 1
+				return row.value
 			}
 		}
+		g.work -= len(fn.entries)
 		// Model function else arguments use direct order (variable 0 is
 		// the first argument), as in FunctionInterpretation.EvalElse.
 		return g.evaluate(fn.fallback, args[:len(term.args)], depth+1)
