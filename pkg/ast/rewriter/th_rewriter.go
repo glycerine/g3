@@ -207,7 +207,10 @@ func (c *theoryRewriterConfiguration) ReduceQuantifier(old, body ast.ASTHandle, 
 			}
 			updated, err = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: oldForall, Sorts: sorts, Names: names,
 				Body: innerBody, Weight: outerWeight, QID: qid, SkolemID: skid})
-			merged = err == nil
+			if err != nil {
+				return false, err
+			}
+			merged = true
 		}
 	}
 	if updated.IsNull() {
