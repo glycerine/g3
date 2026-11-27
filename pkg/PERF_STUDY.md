@@ -8837,3 +8837,37 @@ The final same-frontend comparison alternated g3 and linked Z3 on CPU 16 for ele
 Next, measure the original and rewritten lemma DAGs on matched ARM and Ticket checks. Distinguish mandatory visits from repeated visits to unchanged shared terms, and measure the cost of the repeat visits before introducing a cache. The earlier live measurements put the excess rewrite cost at about 86M instructions. The 4.156B excess first-push instructions across the separate 36-input survey remain a larger cross-workload opportunity.
 
 [Observer sources, experiments, benchmark drivers and paired measurements](perf/ivy_apple/holdouts/nov27-arm-lemma-installation-and-datatypes.tar.xz)
+
+## November 27 — First-push pass costs across the slower verifier inputs
+
+Value propagation is the largest named first-push cost across the 36 inputs previously selected for excess elapsed time or instructions. On the current g3 revision (`450b4dd06`), it used **1.637B instructions versus 555M in linked Z3**, a 2.95× ratio. It was more expensive on 33 inputs. Two of the 36 emitted no first-push observations in either engine. All 216 complete runs matched the reference exit code and both output streams, including the expected model-checking failure.
+
+| First-push pass | g3, M instructions | Z3, M instructions | Excess, M |
+|---|---:|---:|---:|
+| Value propagation | 1,637 | 555 | 1,082 |
+| Pattern inference | 692 | 301 | 391 |
+| NNF/CNF | 540 | 192 | 348 |
+| Macro finding | 1,271 | 982 | 289 |
+| Ordinary assertion reduction | 616 | 396 | 219 |
+| BV sharing | 391 | 338 | 52 |
+| Injectivity refinement | 36 | 6 | 30 |
+
+Each entry sums per-input medians of three complete runs on pinned CPUs, measuring user instructions on the solver thread with GC off. The named pass boundaries correspond in the two implementations. Totals include the passes each engine actually ran, including differences in the number of physical pushes. The historical 4.156B deficit measured the frontend's first-push window with Go PGO disabled. This Go observer uses the release profile and starts inside the eligible kernel push. Comparing the two outer totals would confound code changes, compiler settings and measurement boundaries.
+
+### Which assertions cost the time?
+
+A second observer covered the ten inputs with the largest historical first-push deficits. They include hybrid broadcast, both Flash specifications, both alternating-bit inputs, CAV examp5, three Ticket variants and ARM. Across both value-propagation sweeps, 27,644 of 30,166 row rewrites returned the same formula. These unchanged rows consumed **612.05M** instructions, changed rows **73.43M**, and the subsequent substitution updates **85.66M**. A separate run classified the input before starting each row counter.
+
+| Input to row rewrite | Unchanged rows | Unchanged cost, M | Changed rows | Changed cost, M |
+|---|---:|---:|---:|---:|
+| Quantifier at the root | 17,696 | 504.11 | 873 | 46.94 |
+| Ground application | 8,987 | 79.10 | 1,541 | 22.86 |
+| Other nonground application | 961 | 29.03 | 108 | 3.63 |
+
+The final ordinary reduction triggered by changes in either sweep cost another **268.54M** instructions over 139 calls. It lies outside the row intervals. A quantifier returning its original handle can still visit and cache its children or perform a successful substitution. The earlier forward/reverse dependency study observed changed descendants, resource costs and cache publications even when the root stayed unchanged.
+
+Two release prototypes measured bookkeeping outside these traversals. Seven alternating pairs per input used normal GC, CPU 12, identical release profiles and the same frontend. All 112 runs matched the references. Omitting the unused proof output reference duplicated an earlier negative result. Instruction changes were −0.05% on hybrid, −0.18% on Flash, −0.22% on alternating bit and −0.29% on ARM. Creating the output formula batch only after the first changed row preserved the rewrite and cancellation checks. Its instruction changes were +0.11%, +0.05%, −0.09% and +0.78%, respectively. Both remain research overlays.
+
+On those same 17,696 unchanged quantified rows, 18,447 calls to the theory quantifier reducer included nested binders. Preparing the updated quantifier used 26.47M instructions, acquiring the updated reference and eliminating unused variables used 14.04M, and reading and publishing the result used 15.20M before deferred cleanup. Their combined 55.71M is about **11%** of the independently measured 504.11M whole-row cost. This bounds the measured portion of binder finishing. The remainder includes child traversal, application reduction, generic frame/scope management, wrappers and cleanup. Its distribution still needs a direct measurement. The next experiment should measure application visits and frame completion *within these rows*, and compare their counts and prices with native on the same batches.
+
+[Full measurement drivers, per-input pass counts, classified row intervals and release experiments](perf/ivy_apple/holdouts/nov27-first-push-pass-survey.tar.xz)
