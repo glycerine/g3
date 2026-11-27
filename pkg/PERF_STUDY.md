@@ -8002,3 +8002,37 @@ The retained ordinary, release-policy and linked native event observers all reac
 Fifteen paired profiles sampled exactly the three concrete check intervals at batches 6, 7 and 8, goal 1. In the largest one (batch 7), ordinary g3 spent **20.61M versus 5.62M** on theory rewriting inside queue instantiation and **17.66M versus 4.95M** on instance assertion. Their combined 27.70M excess accounts for about half the directly measured 54.80M concrete-check gap. E-matching outside instantiation was 6.29M in both solvers. This independently identifies instance processing on a goal outside the previously profiled eight. A higher-leverage experiment is to measure which quantifiers account for both excesses and whether their ground Boolean bodies can be simplified during substitution before building intermediate applications. Preserve rewrite order, proof mode and the existing assertion/relevance semantics in any trial.
 
 The [reproduction archive](perf/ivy_apple/holdouts/nov27-wide-release-and-late-ticket.tar.xz) includes raw timing and instruction samples, variant patches, matched per-arity section counts, and the three new per-goal event traces and stack profiles.
+
+## November 27 — What changes during Ticket instance rewriting?
+
+Ticket batch 7, goal 1 spent **26.66M excess g3 instructions** inside instance rewriting and assertion, about 49% of the previously measured 54.80M whole-check gap. Both solvers rewrote 820 instances and asserted all 820. The same 519 raw bodies survived rewriting unchanged in both engines. Even those consumed 9.36M g3 rewrite instructions versus 2.55M native.
+
+| Matched bodies | Instances | g3 rewrite | Z3 rewrite | g3 assert | Z3 assert |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Unchanged | 519 | 9.36M | 2.55M | 11.31M | 3.15M |
+| Changed | 301 | 9.05M | 2.86M | 7.49M | 1.98M |
+| All | 820 | 18.40M | 5.41M | 18.80M | 5.13M |
+
+The figures are median solver-thread user instructions across five alternating pinned-core runs with GC disabled. Each observer read the same hardware counter twice before an operation and once after, subtracting the empty read interval. The Go rewrite interval includes fetching the rewritten handle. Separate tree-capture runs supplied the formulas. The exact output, error stream and exit code matched the complete Ticket reference on every run. The two engines agreed on the full sequence of quantifier IDs and per-instance change flags. IDs follow first appearance in the asserted lemmas and each lemma explicitly names its guarding quantifier. Two of 46 guard texts differed only in generated suffix numbers.
+
+The most expensive quantifier (ID 6) relates the saved and current ticket relation under nested conditionals. Its 62 instances account for **4.81M excess instructions**, split between 2.54M in rewriting and 2.28M in assertion. Forty-eight of its bodies changed. The most frequent quantifier (ID 35) guarded a six-literal disjunction with two thread bindings. All 104 bodies came through unchanged, yet their combined rewrite and assertion gap was 2.71M. These results favor improvements shared across multiple quantifiers.
+
+### Can Boolean simplification move into variable substitution?
+
+A bottom-up prototype replayed the actual raw AST of each instance. It applied local rules for constants, equality, negation, conditionals, duplicate literals and complements. We scored exact ordered result trees, including child order. Three runs progressively supplied the state already available to the solver.
+
+| Inputs to the offline prototype | Changed bodies reproduced exactly (of 301) | Unchanged bodies preserved (of 519) |
+| --- | ---: | ---: |
+| Raw tree and local Boolean rules | 2 | 519 |
+| Plus the current instance’s observed substitution hits | 165 | 519 |
+| Plus its observed changed rewrite-cache hits | 301 | 519 |
+
+The last row is an oracle for this trace. A production implementation must obtain each answer at the right traversal depth and cache scope, preserve cache writes, and charge the same resource steps. The replay assigns no cost to those operations. Direct observation found 373 substitution hits. Of these, 357 replaced a binding itself and 16 replaced an application built from variables in the quantifier. All **570 changed cache hits** replaced variable-dependent applications. That explains why collapsing constants and duplicates during construction reached so little of the measured work.
+
+We also tried replacing bindings before building their parents, then applying the same captured lookups and Boolean rules. This changed the initial tree of 169 instances and affected 1,235 distinct application trees counted per instance. For 140 instances it changed the input to a previously observed enclosing lookup. In two cases (instances 20 and 212, guard 12) the result diverged from the solver. Both had a cached rewrite of the negated ticket-order predicate over conditional service and next-ticket arguments. An implementation that eagerly normalizes bindings needs to preserve the original parent lookup.
+
+### Combined AST read under real verification
+
+A separate Go overlay used one validated node read to answer both the substitution-miss question and the rewriter’s subsequent node-shape question. It checked manager identity, handle lifetime and the cached substitution table generation. In nine same-build-flag CLI pairs it saved **0.62%, 0.63% and 0.44%** of instructions on Ticket 127, Ticket 290 and Toy consensus 18. All outcomes, decisions, conflicts, quantifier instances and resource counts matched.
+
+Nine rotating complete normal-GC pairs on each of CPUs 14 and 11 gave Ticket elapsed changes of **+2.01% and −0.09%**. Hybrid elapsed changed −1.34% and +0.12%, ARM −1.45% and −0.18%, and FBA −0.32% and −0.53%. The trial stays in the study archive. The next measurement is the price of constructing the raw variable-dependent applications that lead to changed cache hits, plus the cost of lookup and result propagation. Keep those intervals disjoint and compare against the same native instances before investing in a fused traversal. [Observers, prototypes, all 820 input/output trees, paired counters and verifier runs](perf/ivy_apple/holdouts/nov27-ticket-instance-cost.tar.xz)
