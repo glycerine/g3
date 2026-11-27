@@ -7738,3 +7738,32 @@ Z3's addition normalizer copies a singleton monomial into its output when the co
 A second trial passed the already assembled lexical declaration metadata directly to the numeral factory. It reduced marginal instructions by 1.11% on repeated Toy and 0.22–0.62% on the three numeric workloads. Complete Toy took 2.84% longer across seven default-GC pairs. Both trials matched the current solver's output on 7,408 arithmetic simplifications. The numeral trial passed the focused checked/debug/trace tests, but a new trace comparison found a concrete behavioral difference. The first construction of a pinned −1 produced one copied-rational allocation event versus two in the baseline. A second construction produced zero versus one. The release retains the original factory and its diagnostic behavior.
 
 For the remaining 434 negative-one requests, distinguish time spent preparing declaration metadata from hashing, lookup and application registration before adding any cache. The complete Ticket and hybrid gaps also warrant measuring traversal costs outside operator reduction. [Benchmark scripts, trace control, per-instance counts and paired replay and verifier results](perf/ivy_apple/holdouts/nov27-arithmetic-normalization.tar.xz)
+
+### November 27 — Two inline declaration parameters and the cost of constructing a live numeral
+
+Commit `ea70c4287` stores the first two owned parameter handles inside each AST information record. A handle needs only the slot and generation within its manager. Wider declarations allocate storage for the remaining handles at their known final width. Both old and new records occupy **88 bytes** on amd64. An arithmetic numeral uses two parameters, so repeat construction now makes **zero Go heap allocations**, including on negative numbers outside the plugin cache. The commit also reuses the rational manager's existing admission checks for releasing inline integers and removes a duplicate cleanup preflight from the service.
+
+On the previous Toy consensus experiment's **434 matched requests for −1**, constructing a declaration took 2.60M retired instructions inside g3's plugin factory versus 0.49M in the native factory. The application step cost 0.13M versus 0.14M. In separate Go windows, temporary declaration metadata construction cost 0.78M, disposal cost 0.52M, node hashing cost 0.51M, and table insertion cost 0.52M. The captured rational copy and its two cleanup calls accounted for another 0.96M and 1.05M. Each pair of runs agreed on all four search counters and request counts in every quantifier instance. These scoped costs come from the monomial-reuse diagnostic build described above. Production keeps the ordinary addition path.
+
+In the pinned live-numeral microbenchmark, rational cleanup alone reduced repeated −1 construction from 1,638 to 1,474 ns and cached +1 construction from 355 to 285 ns. The baseline allocation profile attributed 99.86% of sampled objects to growing the parameter slice. A second alternating panel held the cleanup change constant to measure storage. Medians of five runs, one Go scheduler thread:
+
+| Operation | Original storage, ns | Inline storage, ns | Heap bytes before → after | Allocations before → after |
+|---|---:|---:|---:|---:|
+| Reconstruct live −1 | 1,477 | 1,382 | 48 → 0 | 2 → 0 |
+| Copy and release one declaration parameter | 100.9 | 55.5 | 16 → 0 | 1 → 0 |
+| Two parameters | 198.0 | 78.9 | 48 → 0 | 2 → 0 |
+| Three parameters | 242.4 | 154.8 | 112 → 32 | 3 → 2 |
+| Eight parameters | 421.5 | 287.3 | 240 → 72 | 4 → 2 |
+| Sixty-four parameters | 2,249 | 1,777 | 2,032 → 536 | 7 → 2 |
+
+The release saved 0.33–0.94% of marginal instructions across three independent numeric workloads and 0.88% on repeated Toy consensus. All 7,408 simplifications matched, as did the first and repeated live-numeral trace (two copied-rational allocation events, then one). The full Go suite passed, as did the checked/debug/trace AST suite and focused numeric ownership controls.
+
+Complete-verifier elapsed effects were mixed. In the eleven-pair panel after the full suite, Ticket, hybrid and ARM were within 0.2% of baseline and FBA took 0.68% longer. An earlier eleven-pair overlay run on a different CPU was 10.24% slower on ARM and 8.14% slower on FBA. Three-pair controls matched the complete Raft, Toy, TLB, liveness and both Apple transcripts. The two Apple paired elapsed medians improved 3.48% and 6.11%, while their instructions moved by −0.04% and +0.29%. These measurements support a storage and arithmetic improvement. Whole-verifier latency remains workload- and run-dependent. [Go benchmarks](ast/ast_arith_live_numeral_benchmark_test.go) · [Profiles, matched counters, widths, proof controls and raw runs](perf/ivy_apple/holdouts/nov27-live-numeral.tar.xz)
+
+### Which Ticket obligations account for the current gap?
+
+Across five complete runs per backend, the instrumented frontend reached 284 numbered final-condition goals in nine physical first-push batches. On the release, g3 spent 1.697B instructions in 252 concrete checks plus 145.72M in 41 early-proof attempts. Linked Z3 used 599.77M in 284 concrete checks. Physical first pushes added 360.44M versus 143.37M instructions. The rank uses the sum of each goal's median early-proof and concrete-check cost measured together per run. It excludes push, assertion, pop and frontend work.
+
+**Two conjectures account for 305.90M excess instructions across eight checks**, or 24.63% of the 1.242B goal-level gap. We matched their exact check windows to the frontend's printed source lines 333 and 345 of `ticket_protocol.ivy`. Both concern the saved service ticket and split on program-counter cases. The four actions were `step12`, `step22`, `step23` and `step31`. On `step23`, line 333 cost 74.46M versus 13.94M. On `step12`, line 345 cost 84.89M versus 30.50M. The largest single excess was 66.40M at batch 7, goal 1. The 20 most expensive goal differences account for 51.95% of this gap.
+
+Compare solver decisions, instantiations and assertion costs at the eight recurring goals in their original push/pop histories. This tests whether the same search or implementation difference recurs across actions. Seven paired whole runs measured g3/native instruction ratios of 2.06 on Ticket, 1.43 on hybrid, 1.54 on ARM and 0.78 on FBA. The corresponding median paired wall-time ratios were 2.21, 1.41, 1.52 and 0.71 on the shared host. [All goal rankings, action and line mappings, and exact-transcript measurement drivers](perf/ivy_apple/holdouts/nov27-live-numeral.tar.xz)
