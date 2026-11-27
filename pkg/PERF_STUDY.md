@@ -7486,3 +7486,57 @@ The timed runs used nine rotating pairs at 20,000 iterations. Each width include
 | FBA | 109 ms | 137 ms |
 
 Every verifier run used GoIvy 77f7733de, normal GC, and the same expected stdout, stderr and exit status per case. The complete SMT core and API tests, checked/debug/trace clause, justification and scope restoration cases, and SMT core vet passed. The gate-clause instruction difference on the **matched prefix** is 1.11M. For scale, the previously measured excess on the **complete check** was 285M. Prioritize the later search divergence before spending more time on binary clause shortcuts. In particular, compare the first post-candidate witness, its generation and the resulting instantiation cascade at 35/1 against a control where delegating witnesses increased the cost. [Benchmark and capacity metric](smtcore/smt_clause_simplify_benchmark_test.go) · [Nested insertion test](smtcore/smt_clause_storage_test.go) · [Reproduction scripts, raw counters and verifier runs](perf/ivy_apple/holdouts/nov26-hybrid-gate-clauses.tar.xz)
+
+### November 26 — Which model witnesses change hybrid search?
+
+At hybrid batch 35, goal 1, both solvers assert the same first 203 lemmas. Their first candidate model then produces witnesses for the same nine quantified formulas in order. For the first formula, a universal binary predicate, g3 uses the same ground node for both variables. Z3 uses distinct nodes. Replacing only that witness reproduces Z3's first asserted instance and *increases* the total from 2,517 to 2,697. Each of the nine single-witness interventions either tied the baseline or increased the total.
+
+| Hybrid 35/1 | Lemmas before first candidate | Lemmas after each candidate | Post-candidate decisions | Post-candidate conflicts |
+| --- | ---: | --- | --- | --- |
+| Linked Z3 | 203 | 600 | 641 | 11 |
+| g3 baseline | 203 | 1,154 + 1,160 | 1,403 + 986 | 18 + 12 |
+| Use auxiliary choice for witness 1 | 203 | 1,110 + 1,384 | 1,506 + 1,091 | 15 + 14 |
+| Use auxiliary choices for all nine | 203 | 600 | 641 | 11 |
+| Use auxiliary choices for 3, 6 and 9 | 203 | 395 | 455 | 9 |
+
+The last two experiments used the ordinary g3 auxiliary solver after the finite checker had found a complete inverse binding. With all nine delegated, the counts match native, but only the first four post-candidate lemma trees and 38 signed decisions match in order under a consistent renaming of fresh symbols. In the triple, the earlier auxiliary call for witness 3 produced the original binding. The later calls changed the binding for 6 to a different quorum and the binding for 9 to a term built from the opposite quorum. In the default search, 3 and 6 repeat a binding, as do 4 and 9. Delegating 3 and 6 alone reduced the total to 940. These experiments identify an interaction between witness choices and auxiliary solver history.
+
+With GC disabled, three rotating complete hybrid runs per variant measured **310.9M → 95.7M instructions** inside the 35/1 check for the triple. Delegating all nine took 130.9M. The independent control, batch 19, goal 29, had already diverged before its first candidate (31 versus 14 lemmas). Delegating every table witness there preserved the first six binding tuples and the subsequent 160 lemmas and 257 decisions, but increased the full g3 check from 412 to 997 lemmas and **85.1M → 247.9M instructions**. Ordinals are diagnostic interventions. Every run checked the complete hybrid transcript and exit status. The measured check counters use identical Go instrumentation across variants.
+
+Staggering repeated-sort traversal, selecting the first or last available inverse value, delegating repeated-term tuples, trying several scalar witnesses, and delegating on nearby alternative witnesses each gave mixed or negative results in seven rotating runs across hybrid, Ticket, FBA and ARM. Taking multiple witnesses increased FBA instructions by 54.8%. Choosing the first or last inverse value increased FBA by 19.4% or 30.0%.
+
+#### A bounded rule for repeated unary bindings
+
+Commit `0aa2cee00` tries an alternative when a unary quantifier would reuse a positive-generation term from the last 32 pending instances. It considers the first eight inverse values in table order. Each alternative must belong to the same domain, falsify the body within the remaining evaluation budget, and recover a ground term absent from those recent unary bindings. The checker already has a valid fallback. Finite resource limits, flattened quantifiers with added declarations, and certification-only checks retain their original selection. All mutable state remains local to the solver.
+
+| Concrete hybrid check, GC off | Earlier g3 | Released g3 | Linked Z3 |
+| --- | ---: | ---: | ---: |
+| 35/1 | 309.5M | **93.4M** | 50.9M |
+| 19/29 | 84.9M | **75.0M** | 35.3M |
+| 31/36 | 33.3M | **12.8M** | 14.7M |
+| 11/5 | 39.0M | **70.1M** | 55.9M |
+| 10/1 | 49.3M | **74.4M** | 37.9M |
+| 31/34 | 266.0M | **269.3M** | 176.6M |
+
+Five rotating runs on CPU 14 covered all 839 obligations. The median sum of instructions in concrete checks fell from **4.071B to 3.898B**, against 2.692B in Z3. The largest remaining check gap was 92.7M on 31/34, followed by 65.9M on 31/33. First pushes totaled **1.384B versus 0.543B**. Profile the full first-push paths across the 34 fresh solvers and rank their disjoint costs. For search improvements, compare 31/34 with 11/5, where the new choice made search longer.
+
+| Complete verifier, normal GC | g3 median | Linked Z3 median | g3 instruction change vs pin-only release |
+| --- | ---: | ---: | ---: |
+| Hybrid | 1,295 ms | 914 ms | −2.30% |
+| Ticket | 438 ms | 240 ms | −0.60% |
+| ARM rules3 | 473 ms | 336 ms | −0.44% |
+| FBA | 109 ms | 139 ms | −2.76% |
+
+The panel used nine rotating triples on CPU 12. Hybrid's median paired elapsed change was −3.10%, with a 3 ms difference between independently computed medians. Three GC-off confirmation pairs on ten complete workloads put hybrid at −2.44% instructions and test_liveness2 at **+1.41%**. The other eight changed by at most 0.12% in either direction. The complete Apple rfn2 and dramc_nb2 baseline and release transcripts also matched in three pairs on the compatible frozen frontend. Their release medians were 1.49 s and 16.07 s respectively. The first attempted Apple run on frontend 77f7733de hit the previously documented visible-effect diagnostic before checking the proof. The timed Apple runs on both sides used 07cdeec61. The SMT core and API suites, focused checked/debug/trace cases and SMT core vet passed. [Witness selection and fallback tests](smtcore/smt_model_table_witness_test.go) · [Complete proof controls, traces and scripts](perf/ivy_apple/holdouts/nov26-hybrid-witness-selection.tar.xz)
+
+#### Instance capture and retryable reference release
+
+Commit `5ec62616b` stores owned references in one model-checker buffer, following the native checker. Each queued instance retains its private binding slice. A callback that prevented an AST release exposed a separate ownership bug. On the baseline, retrying reset left three references each on the quantifier and term, against one expected. Closing lost the manager needed to retry. Both cases now pass, including checked/debug/trace builds.
+
+| 16 validated captures and one reset | Median before | Median after | Bytes per batch | Allocations per batch |
+| --- | ---: | ---: | ---: | ---: |
+| Unary | 9,414 ns | 6,424 ns | 4,480 → 1,872 | 101 → 21 |
+| Binary | 13,674 ns | 9,484 ns | 6,785 → 2,130 | 117 → 21 |
+| Eight bindings | 36,142 ns | 27,789 ns | 20,611 → 3,669 | 149 → 21 |
+
+Nine rotating pairs on CPU 14 used 2,000 batches per sample. Across seven complete-verifier pairs, median elapsed changes ranged from −1.54% (ARM) to +0.19% (Ticket). This release fixes the leak and reduces capture allocations. The complete hybrid elapsed change was +0.06%. [Benchmark](smtcore/smt_model_checker_pins_benchmark_test.go) · [Regression](smtcore/smt_model_checker_instances_test.go) · [Scripts and raw traces](perf/ivy_apple/holdouts/nov26-hybrid-witness-selection.tar.xz)
