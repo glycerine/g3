@@ -9200,3 +9200,55 @@ Storing operand offsets instead of direct slices reduced the checker footprint f
 A second seven-round run after the Go suite finished put Hybrid at 1.112 s before, 1.119 s after and 0.858 s native. POPL18 Ticket took 392 ms before, 390 ms after and 238 ms native. The eight-case panel's median paired instruction changes ranged from a 1.30% saving on liveness Ticket to a 0.59% increase on ARM. All 228 reference exit codes and output streams matched. Three pairs each on ordinary Raft, Apple rfn2 and dramc_nb2 also matched, with median paired instruction changes of −0.44%, −0.14% and less than 0.01%, respectively. The full Go suite, focused checked/debug/trace tests and vet of the changed packages passed.
 
 The source overlays, allocation census, paired benchmark rows, per-check counters, raw sampled stacks and transcript results are in the [experiment archive](perf/ivy_apple/holdouts/nov27-hybrid-projection-and-model-tables.tar.xz). The checked-in worker benchmark runs with `go test ./api -run '^$' -bench '^BenchmarkQuantifiedPremiseWorkers$' -benchtime=2x`.
+
+## November 27 — Complete Hybrid assertion costs and failed private proofs
+
+On complete Hybrid, g3 installed 17,799 quantified instances and linked Z3 installed 28,065. We instrumented the same construction operations as in the six-check study across every physical check. The counts below cover work inside quantified assertions. Three complete GC-off runs per engine used a hardware counter on the solver thread, calibrated against adjacent empty reads. Each exit code and both output streams matched the native reference.
+
+| Hybrid operation | g3 calls | Native calls | g3 instructions | Native instructions | Saving at g3 volume and native unit cost |
+|---|---:|---:|---:|---:|---:|
+| Create enode | 25,000 | 39,371 | 68.1M | 30.0M | 49.1M |
+| Construct gate | 7,217 | 8,689 | 69.6M | 28.6M | 45.9M |
+| Install gate clause | 28,586 | 34,824 | 38.8M | 13.7M | 27.6M |
+| Register Boolean variable | 31,161 | 46,919 | 22.9M | 13.4M | 14.0M |
+
+Gate construction includes its gate clauses. Enode construction includes congruence insertion. These unit-cost estimates hold search volume fixed. Individually the two largest explain about 2.5% and 2.4% of the previously measured 1.94B normal-GC whole-process gap. The corresponding estimates for POPL18 Ticket are 30.9M and 16.8M instructions. A trial using fixed local operand buffers for short OR assertions and AND/OR gates increased Hybrid allocation by about 0.43 MB and its median paired instructions by 0.40%. The trial was discarded.
+
+### When a private proof attempt returns to the general solver
+
+A separate pair of hardware-counter reads around every private proof attempt includes cleanup. On Hybrid, 247 misses consumed **510.7M instructions** while 592 successful attempts took 253.8M. The ten most expensive misses alone cost 175.9M in the first round. POPL18's 125 misses consumed 164.9M, ARM's 61 consumed 84.9M, and liveness Ticket's 64 consumed 93.8M. These are three-run median totals with GC off. Among Hybrid misses, inclusive subpath measurements placed 165.6M under selection and checking of relevant premises, 146.5M under checking a Boolean projection, and 112.5M of the latter under SAT construction and search. Inclusive measurements overlap.
+
+A diagnostic replay used the recorded obligation ordinals to decline expensive misses before entering the private strategies. Five rotated **normal-GC** runs compared this replay with its own instrumented control. Skipping the ten most expensive known misses saved 2.80% of complete Hybrid instructions and 5.02% on POPL18. Skipping all known misses saved 7.34% and 8.21%, respectively. Complete reference transcripts matched, but skipping all misses changed six later private outcomes on Hybrid and two on POPL18. These numbers include the effect of changed search history. The replay is a diagnostic with foreknowledge.
+
+### A checked satisfying assignment avoids private SAT construction
+
+After the unit reducer, a satisfiable Boolean projection cannot refute the original check. The ordinary solver still owns that check. Commit `6827279ff` tries positive decisions in two variable orders, propagates forced literals using occurrence lists and verifies the assignment against every remaining clause. Conflicts or incomplete attempts fall through to the existing SAT path subject to its resource limit. The implementation charges the private resource budget, polls for cancellation and bounds scratch at 256 variables and 512 clauses per attempt.
+
+On 223 recorded residuals from eight verifiers, we compared constant assignments, monotone one-sign repair and implication propagation with deterministic decisions. On Hybrid, the all-false assignment satisfied eight residuals and forward monotone repair satisfied 38. Propagation in the two selected orders together satisfied 103. In the complete 228-input release census the implementation supplied **435 witnesses on 48 inputs**, out of 761 calls after reduction. Hybrid had 103 hits in 113 calls, POPL18 had 15 in 26, nested Ticket had 17 in 21 and automatic liveness-to-safety Ticket had 46 in 52. TLB had one hit in 106 calls. Across seven rotated pairs against the immediately preceding build, the witness check saved 2.06% of complete Hybrid instructions, 1.31% on POPL18 and 2.25% on automatic liveness-to-safety Ticket.
+
+After the release, the same GC-off observer measured **112.30M → 10.23M instructions inside private SAT construction and search on Hybrid misses**, an elevenfold reduction in this path. The inclusive Boolean projection check fell from 146.21M to 49.47M; all private misses together fell from 510.73M to 402.63M. The remaining relevant-premise path measured 165.68M. Private plan calls, many nested under that path, measured 137.18M across all misses. Three independent per-check runs supply each median. The released results are in the archive's `post` directory.
+
+In five extra transfer pairs, median instruction changes were −0.26% on low-hit TLB, −1.08% on POPL18 alternating bit, and −1.14%, +0.42%, −1.60% and −0.96% on CAV examp4, examp5, examp3 and examp2. Progress2, with one hit in nine calls, rose 0.29%. Small changes on individual holdouts vary in both directions.
+
+The benchmark keeps actual forward-success, reverse-success and refuted Hybrid residuals. Each took zero allocations. A truth-table regression exhausts 1,023 subsets of ten small clauses and independently verifies the satisfiability of every positive result. Separate regressions cover cancellation, work exhaustion and preservation of the original clauses. [Witness benchmark and tests](api/internal/order/boolean_witness_test.go)
+
+### Candidate-model and empty-map allocation
+
+G3 eagerly built the value-to-context-term index at the start of every candidate check. The C++ `model_checker::get_term_from_ctx` populates it on first use. Commit `d2b5e26f1` borrows the generator during the check and builds the index on the first unrestricted witness. On Hybrid, none of 164 candidates needed the index (9,491 total roots). ARM needed it for nine of eleven candidates, a positive control for term recovery. In the 64-root benchmark, a candidate finishing without lookup took 8.57 µs and 9,560 allocated bytes with eager indexing, and 13.2 ns with zero allocations on demand. This benchmark isolates the unused index cost. [Candidate benchmark](smtcore/smt_model_checker_candidate_benchmark_test.go)
+
+Commit `fa18b922b` defers the eight default AST object-map buckets until the first insertion. The logical capacity and iteration order match the eager map. The explicit-capacity constructor still provides the eager control. Constructing 1,024 empty maps went from 589,827 to 65,536 allocated bytes and from 2,048 to 1,024 allocations. An initial prototype panicked when erasing an absent pair from an empty copy. The regression covers this case, subsequent insertion and independent copy contents. [Map benchmark and regression](ast/ast_obj_map_capacity_test.go)
+
+The rewriter census also found that 30,882 of 39,873 Hybrid activity caches closed without a successful insertion. The existing lazy entry storage already avoids their table allocation. The 311,880 probes returned 69,478 hits, including 4,941 that changed the term. A cache returning its input can still save an entire traversal. These counts alone do not justify removing it.
+
+### Complete verifier results
+
+The following medians compare the starting g3 build (`9084dd1b2`), all three changes, and linked Z3. Nine rounds rotated the three PGO binaries on the same CPU, with normal GC. Elapsed time includes the frontend. Other verification jobs on the machine make small elapsed differences uncertain.
+
+| Verifier | Before, B instructions | After, B instructions | Z3, B instructions | Before / after / Z3 elapsed |
+|---|---:|---:|---:|---:|
+| Hybrid broadcast | 7.747 | 7.596 | 5.824 | 1,174 / 1,158 / 885 ms |
+| POPL18 Ticket | 2.639 | 2.617 | 1.480 | 413 / 405 / 253 ms |
+| ARM rules | 3.160 | 3.174 | 2.197 | 457 / 456 / 336 ms |
+| Liveness Ticket | 1.514 | 1.508 | 1.288 | 233 / 233 / 198 ms |
+
+Three allocation runs per build put complete Hybrid at **362,018,408 → 347,650,208 bytes** and **2,946,671 → 2,840,177 objects**. On POPL18 the corresponding figures were 100,102,120 → 97,923,616 bytes and 888,351 → 869,757 objects. Each of the three releases passed all 228 native transcript comparisons. Ordinary Raft and Apple rfn2 and dramc_nb2 also matched in three rotating pairs per release. The checked-in benchmark drivers, diagnostic prototypes, residuals, per-round counters and verification results are available in the [study archive](perf/ivy_apple/holdouts/nov27-hybrid-private-misses.tar.xz).
