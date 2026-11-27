@@ -602,12 +602,9 @@ func (s *SMTInternalizerState) attachBooleanEnode(expression ast.ASTHandle, vari
 	if err != nil {
 		return nil, err
 	}
-	// Source set_enode_flag trails an existing Boolean variable's newly
-	// attached enode. That enode may be deleted while the variable survives.
-	if !data.IsENode() {
-		s.enodeFlagTrail = append(s.enodeFlagTrail, variable)
-		data.SetENode()
-	}
+	// A variable created in this scope retires with the enode. Only a
+	// surviving variable needs its flag restored separately on pop.
+	s.setEnodeFlag(variable, data.InternalLevel() == s.scopeLevel)
 	return node, nil
 }
 

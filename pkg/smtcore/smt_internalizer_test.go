@@ -707,3 +707,32 @@ func TestSMTInternalizerAuxLemmaTrueFalseWatchesIsReinitialized(t *testing.T) {
 	}
 	astTestMust(t, state.PopScopes(3))
 }
+
+func TestSMTEnodeFlagTrailFollowsVariableLifetime(t *testing.T) {
+	m := astTestManager(t)
+	outer := smtRelevancyPinnedBool(t, m, "flag-outer")
+	inner := smtRelevancyPinnedBool(t, m, "flag-inner")
+	_, _, s := smtInternalizerFixture(t, m, nil)
+	astTestMust(t, s.Internalize(outer, true))
+	outerVar, ok := s.BoolVar(outer)
+	if !ok {
+		t.Fatal("missing outer Boolean variable")
+	}
+	for i := 0; i < 2; i++ {
+		astTestMust(t, s.PushScope())
+		astTestMust(t, s.Internalize(inner, false))
+		astTestMust(t, s.Internalize(outer, false))
+		if len(s.enodeFlagTrail) != 1 || s.enodeFlagTrail[0] != outerVar {
+			t.Fatalf("flag trail %v, want only outer variable %d", s.enodeFlagTrail, outerVar)
+		}
+		astTestMust(t, s.PopScopes(1))
+		if _, found := s.BoolVar(inner); found {
+			t.Fatal("inner variable survived pop")
+		}
+		data, err := s.BooleanData(outerVar)
+		astTestMust(t, err)
+		if data.IsENode() || len(s.enodeFlagTrail) != 0 {
+			t.Fatal("outer flag or undo entry survived pop")
+		}
+	}
+}
