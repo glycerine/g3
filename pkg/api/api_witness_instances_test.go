@@ -167,3 +167,35 @@ func TestWitnessInstancesBudgetScopeAndModel(t *testing.T) {
 		t.Fatalf("canceled proof: %v, %v", yes, err)
 	}
 }
+
+func TestWitnessArithmeticAdmission(t *testing.T) {
+	const declarations = "(declare-sort A 0)(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)(declare-fun r (A) Bool)(declare-fun s (A) Bool)"
+	const integers = "(forall ((x Int)) (p x)) (forall ((x Int)) (q x))"
+	const abstract = "(forall ((x A)) (r x)) (forall ((x A)) (s x))"
+	for _, tc := range []struct {
+		name, goal string
+		wantSorts  int
+	}{
+		{"positive integer universals", integers, 0},
+		{"abstract universals", abstract, 1},
+		{"mixed domains", integers + " " + abstract, 2},
+		{"integer counterexample witness", integers + " (not (forall ((x Int)) (p x))) (not (exists ((x Int)) (q x)))", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, s := orderSolver(t, declarations+"(assert (p 1))(assert (and "+tc.goal+"))")
+			m, err := c.Manager()
+			astTestMust(t, err)
+			forms, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			p, err := planWitnessInstances(m, forms)
+			astTestMust(t, err)
+			n := 0
+			if p != nil {
+				n = len(p.sorts)
+			}
+			if n != tc.wantSorts {
+				t.Fatalf("admitted %d witness domains, want %d", n, tc.wantSorts)
+			}
+		})
+	}
+}

@@ -145,5 +145,18 @@ func planWitnessInstances(m *ast.ASTManager, assertions []ast.ASTHandle) (*witne
 	if len(p.sorts) == 0 {
 		return nil, nil
 	}
+	// With only positive universals over one arithmetic domain, there is no
+	// counterexample witness in the query to guide this one-round search.
+	// Let the incremental arithmetic solver choose its own instances.
+	if len(p.sorts) == 1 && bySort[p.sorts[0]].universals == witnessPositive {
+		family, err := m.GetFamilyID(p.sorts[0])
+		if err != nil {
+			return nil, err
+		}
+		arith, err := m.ArithmeticFamilyID()
+		if err != nil || family == arith {
+			return nil, err
+		}
+	}
 	return &p, nil
 }

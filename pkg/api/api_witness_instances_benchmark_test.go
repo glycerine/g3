@@ -85,3 +85,14 @@ func benchmarkWitnessWidth(b *testing.B, input string, narrow, wantProof bool) {
 		b.Fatalf("refuted %d of %d obligations", proofs, b.N)
 	}
 }
+
+// Both bounded witness searches return SAT on these unsatisfiable queries.
+// The timed operation includes admission and any private proof work it starts.
+func BenchmarkArithmeticWitnessAdmission(b *testing.B) {
+	for _, name := range []string{"number-theory-2-25", "number-theory-2-30"} {
+		b.Run(name, func(b *testing.B) {
+			input := verificationBenchmarkInput(b, "ivy_arithmetic", name)
+			benchmarkWitnessWidth(b, input, false, false)
+		})
+	}
+}
