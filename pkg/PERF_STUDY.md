@@ -6974,3 +6974,25 @@ The table uses five rotations per input. Pigeon8-s0's median elapsed time was **
 For the independent compiler experiment the training programs ran a separate pigeonhole ordering, a 220-variable random UNSAT input and 30 toy-consensus SMT resets. The mixed profile saved **1.95–2.41% instructions** across complete Ticket, hybrid, ARM and FBA verifiers, and **3.64–3.68%** on the two incremental Ticket holdouts. Default-GC complete verifier cycles fell **0.16–1.96%**. Across the six SAT holdouts the instruction savings were **1.77–6.46%**. Combined with the source change, the compiler saved **10.33%** of pigeon8-s0 instructions in a three-pair panel. Elapsed gains were smaller and mixed on the hard pair in that combined panel. The profile remains a reproducible build experiment. All complete verifiers reproduced both streams and exit status. [Profile, independent training inputs and verifier rows](perf/ivy_apple/holdouts/nov26-sat-arena-hot.tar.xz)
 
 The seven-round confirmation on a second ordinary pigeonhole ordering, `pigeon8-s2`, measured **2.107 → 2.060 s** for g3 and **1.034 s** for Z3. Paired instructions fell **4.64%** and cycles fell **2.19%**. The same panel confirmed hard random instruction savings of **1.06% and 1.24%**, with cycles **0.23% and 0.86% higher**. The random UNSAT elapsed median was flat at 1.806 s and the SAT median moved from 674 to 678 ms. Every model and search counter matched. [Second ordering and repeated hard controls](perf/ivy_apple/holdouts/nov26-sat-arena-hot.tar.xz)
+
+## November 26 — Reuse validated clause storage in SAT reason scans
+
+Commit `0bbb4751a` resolves a clause's arena handle once during first-UIP conflict resolution, learned-clause minimization and both passes that count distinct decision levels. These walks repeatedly read the same clause. The native solver retains its clause reference through each walk. The previous Go solver validated the owner, physical slot and generation for each literal. The change keeps the initial generation check and checks each literal's bounds where it is read. An unsat-core trace writer can delete a clause while reporting an antecedent. In this mode g3 reacquires the handle before the next read. Two trace regressions delete the clause and check that exactly the first antecedent was processed.
+
+Three instruction profiles of each baseline executable per input put first-UIP reason processing and minimization together at 6.6% of g3 instructions on random-208-3, 9.1% on random-208-4 and 5.1% on pigeon8-s0. Counting distinct levels accounted for a further 1.1–2.7%. The native first-UIP literal loop appears directly in resolve_conflict_core. Its time cannot be isolated by looking for a process_consequent frame. Go's propagation bucket still accounted for 61–81% of total instructions with these more specific categories removed.
+
+| Complete DIMACS input | Change in instructions | Change in cycles | Change in elapsed time |
+| --- | ---: | ---: | ---: |
+| random-208-3, UNSAT | −1.99% | −1.78% | −1.23% |
+| random-208-4, SAT | −2.51% | +0.26% | +0.72% |
+| pigeon8-s0 | −3.32% | −0.77% | −0.71% |
+| random-256-3, SAT via stdin | −2.40% | −2.44% | −2.42% |
+| pigeon8-s2 | −3.39% | −0.43% | −0.52% |
+
+The table compares medians of five rotated executions against the committed four-literal watch scan. A separate seven-pair panel on another core confirmed the instruction reductions and measured elapsed changes of −1.46% for random-208-4 and −4.08% for pigeon8-s0. The first prototype, which optimized only conflict processing and minimization, saved 1.20–1.56% of instructions. Every SAT answer satisfied its input clauses and each run matched decisions, conflicts and all three propagation counters.
+
+The planted8 control had zero conflicts. Its first five pairs had two distinct instruction bands in both binaries and a median increase of 11.84%. Over 31 fresh pairs that fell to +0.18% instructions and +1.34% elapsed. With automatic GC disabled, 15 pairs gave −0.03% instructions and −0.19% elapsed. The short panel alone gave a misleading estimate for this control.
+
+Complete Ticket, hybrid, ARM and FBA runs matched their reference output streams and exit status. Instructions changed by +0.26%, +0.16%, −0.13% and −0.53% respectively across three rotations. Ticket and hybrid initially took 6.53% and 3.15% longer. In seven fresh pairs they took 0.85% and 0.71% less time. The evidence supports a standalone SAT instruction saving, with no consistent verifier timing change. Ordinary SAT, arena, shell and CLI tests passed, as did checked/debug/trace SAT and arena, and SAT vet.
+
+The remaining ordinary SAT gap is concentrated in propagation. A larger next experiment is to count the native long-clause visits, blocking-literal hits and replacement positions directly alongside the existing Go census. Equal decisions and propagation counts permit different numbers of unsuccessful literal inspections. That comparison distinguishes extra scans from more expensive visits before changing the representation again. [Benchmark drivers, raw panels and profiles](perf/ivy_apple/holdouts/nov26-sat-reason-scans.tar.xz)
