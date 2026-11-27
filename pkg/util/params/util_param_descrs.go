@@ -174,9 +174,9 @@ func newSourceParamDescrs(m *usymbol.Manager, c ParamDescrsConfig) (*ParamDescrs
 // Same placement member engine; embedded callers charge the actual containing header.
 func (d *ParamDescrs) constructSourceMembers(c ParamDescrsConfig) error {
 	d.entries = insdict.NewDictFuncSize[usymbol.Symbol, paramDescrInfo](func(k usymbol.Symbol) uint64 {
-		words := k.SymbolWords()
-		h := ((uint64(words[0]) | uint64(words[1])<<32) ^ uint64(k.Value)<<32) | uint64(k.Tag)
-		return h ^ uint64(k.Generation)*0x9e3779b97f4a7c15
+		// The dictionary belongs to one symbol manager. Mix the symbol ID
+		// into the low bits used to select the initial bucket.
+		return insdict.Mix64(uint64(k.Tag)<<32 | uint64(k.Value))
 	}, int(c.InitialCapacity))
 	d.constructorCompleted = 1 // actual info dictionary completed
 	d.Names = nil              // source null names vector default construction cannot fail

@@ -47,7 +47,7 @@ func paramsTestOwner(t testing.TB) (*ParamsContext, *usymbol.Manager, *unumeral.
 	})
 	return c, sy, q
 }
-func paramsMust(t *testing.T, e error) {
+func paramsMust(t testing.TB, e error) {
 	t.Helper()
 	if e != nil {
 		t.Fatal(e)
