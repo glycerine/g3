@@ -121,7 +121,7 @@ func TestModelTableReuseObservesChangedFunction(t *testing.T) {
 	body := f.term(m.MkEq(f.application, f.blue))
 	q := f.forall(body, f.element)
 	var scratch tableModel
-	status, witness, err := scratch.check(m, md, q, body, 1)
+	status, witness, err := scratch.check(m, md, q, body, 1, nil)
 	astTestMust(t, err)
 	if status != lbool.True || !slices.Equal(witness, []ast.ASTHandle{f.first}) {
 		t.Fatal("initial interpretation", status, witness)
@@ -129,7 +129,7 @@ func TestModelTableReuseObservesChangedFunction(t *testing.T) {
 	// Interrupt compilation after visiting an interpreted application.
 	unsupported := f.term(m.MkAndArgs([]ast.ASTHandle{body, q}))
 	partial := f.forall(unsupported, f.element)
-	status, _, err = scratch.check(m, md, partial, unsupported, 1)
+	status, _, err = scratch.check(m, md, partial, unsupported, 1, nil)
 	astTestMust(t, err)
 	if status != lbool.Undef {
 		t.Fatal("nested quantifier", status)
@@ -139,7 +139,7 @@ func TestModelTableReuseObservesChangedFunction(t *testing.T) {
 	fn, err := md.Core().FunctionInterpretation(decl)
 	astTestMust(t, err)
 	astTestMust(t, fn.SetElse(f.blue))
-	status, bindings, err := scratch.check(m, md, q, body, 1)
+	status, bindings, err := scratch.check(m, md, q, body, 1, nil)
 	astTestMust(t, err)
 	if status != lbool.False || bindings != nil || !slices.Equal(witness, []ast.ASTHandle{f.first}) {
 		t.Fatal("changed interpretation or overwritten witness", status, bindings, witness)
@@ -161,7 +161,7 @@ func BenchmarkModelTableWorkerScratch(b *testing.B) {
 		runtime.ReadMemStats(&before)
 		for j := range tables {
 			g := new(tableModel)
-			result, _, err := g.check(m, md, q, body, 1)
+			result, _, err := g.check(m, md, q, body, 1, nil)
 			if err != nil || result != lbool.True {
 				b.Fatal(result, err)
 			}

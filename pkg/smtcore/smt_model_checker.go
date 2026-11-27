@@ -419,7 +419,11 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 		if c.tableScratch == nil {
 			c.tableScratch = new(tableModel)
 		}
-		status, bindings, err := c.tableScratch.check(c.manager, model, flat, body, count)
+		var chooser *SMTModelChecker
+		if c.modelFinder != nil && flat == quantifier && !auxiliary.config.CertifyBoundedModelTables {
+			chooser = c
+		}
+		status, bindings, err := c.tableScratch.check(c.manager, model, flat, body, count, chooser)
 		if err != nil || status == lbool.False {
 			return false, err
 		}

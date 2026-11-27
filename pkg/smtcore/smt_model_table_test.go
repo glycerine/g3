@@ -42,7 +42,7 @@ func (f tableTest) check(q ast.ASTHandle, status lbool.LBool, want ...ast.ASTHan
 	n, err := f.m.GetNumDeclarations(q)
 	astTestMust(f.t, err)
 	var scratch tableModel
-	got, witness, err := scratch.check(f.m, f.md, q, body, n)
+	got, witness, err := scratch.check(f.m, f.md, q, body, n, nil)
 	astTestMust(f.t, err)
 	if got != status || !slices.Equal(witness, want) {
 		f.t.Fatalf("got status %v witness %v, want %v %v", got, witness, status, want)
@@ -306,7 +306,7 @@ func TestModelTablesPrivateBudgetAndScratchLifetime(t *testing.T) {
 			t.Fatal("budgeted certificate check unavailable")
 		}
 		start := limit.Count()
-		got, _, err := scratch.check(m, md, q, body, 1)
+		got, _, err := scratch.check(m, md, q, body, 1, nil)
 		used := limit.Count() - start
 		limit.Pop()
 		astTestMust(t, err)
@@ -322,7 +322,7 @@ func TestModelTablesPrivateBudgetAndScratchLifetime(t *testing.T) {
 	if c.canCheckModelTables() {
 		t.Fatal("canceled private query accepted")
 	}
-	got, _, err := scratch.check(m, md, q, body, 1)
+	got, _, err := scratch.check(m, md, q, body, 1, nil)
 	limit.DecCancel()
 	astTestMust(t, err)
 	if got != lbool.Undef {

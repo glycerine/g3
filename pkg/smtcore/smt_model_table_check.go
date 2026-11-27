@@ -1,6 +1,8 @@
 package smtcore
 
 import (
+	"slices"
+
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -132,7 +134,7 @@ func (g *tableModel) domain(sort ast.ASTHandle, boolean ast.ASTHandle, binders i
 // check reports whether the negated body has a concrete witness.
 // Undef delegates to ordinary MBQI, including false tuples for which only
 // abstract representatives are available.
-func (g *tableModel) check(m *ast.ASTManager, model *protomodel.ProtoModel, flat, body ast.ASTHandle, count uint32) (lbool.LBool, []ast.ASTHandle, error) {
+func (g *tableModel) check(m *ast.ASTManager, model *protomodel.ProtoModel, flat, body ast.ASTHandle, count uint32, checker *SMTModelChecker) (lbool.LBool, []ast.ASTHandle, error) {
 	if model.Core().Manager() != m || count == 0 || count > 6 || m.ResourceLimit().CancelFlag() {
 		return lbool.Undef, nil, nil
 	}
@@ -229,6 +231,18 @@ func (g *tableModel) check(m *ast.ASTManager, model *protomodel.ProtoModel, flat
 		case tableTrue:
 		case tableFalse:
 			if witness := g.witness(bindings); witness != nil {
+				if !bounded && checker != nil && count == 1 && len(checker.newInstances) != 0 {
+					set, err := checker.modelFinder.instantiationSet(flat, 0, false)
+					if err != nil {
+						return lbool.Undef, nil, err
+					}
+					if set != nil {
+						witness[0], err = g.unaryWitness(root, domains[0], set, checker.newInstances, witness[0])
+						if err != nil {
+							return lbool.Undef, nil, err
+						}
+					}
+				}
 				return lbool.True, witness, nil
 			}
 			hasAbstractWitness = true
@@ -278,4 +292,48 @@ func (c *SMTModelChecker) canCheckModelTables() bool {
 		}
 	}
 	return true
+}
+
+// When two unary instances would bind the same derived term, try to cover a
+// second term in this batch. An alternative must falsify the compiled body
+// within its remaining evaluation budget and have an unused inverse binding.
+func (g *tableModel) unaryWitness(root int, domain []int, set *smtModelFinderInstantiationSet, pending []smtModelCheckerInstance, original ast.ASTHandle) (ast.ASTHandle, error) {
+	// Bound the scan even when a model check has queued many quantifiers.
+	const lookback = 32
+	if len(pending) > lookback {
+		pending = pending[len(pending)-lookback:]
+	}
+	used := func(term ast.ASTHandle) bool {
+		for _, instance := range pending {
+			if len(instance.bindings) == 1 && instance.bindings[0] == term {
+				return true
+			}
+		}
+		return false
+	}
+	term, generation, found, err := set.Inverse(original)
+	if err != nil || !found || generation == 0 || !used(term) {
+		return original, err
+	}
+	for _, value := range set.inverse.FirstKeys(min(8, set.inverse.Len())) {
+		id := g.valueIDs[value]
+		if value == original || id == 0 || !slices.Contains(domain, id) {
+			continue
+		}
+		truth := g.evaluate(root, []int{id}, 0)
+		if g.incomplete || g.work <= 0 {
+			break
+		}
+		if truth != tableFalse {
+			continue
+		}
+		term, _, found, err := set.Inverse(value)
+		if err != nil {
+			return original, err
+		}
+		if found && !used(term) {
+			return value, nil
+		}
+	}
+	return original, nil
 }
