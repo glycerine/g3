@@ -55,3 +55,80 @@ func BenchmarkSMTQuantifierLemma(b *testing.B) {
 		})
 	}
 }
+
+// Distinct simplified disjunctions let the nested call overwrite an outer
+// operand if construction accidentally lends out a buffer that is still live.
+func smtLemmaOperandFixture(t testing.TB) (*SMTQIInstanceBuilder, *SMTQIPreparedInstance, *SMTQuantifierStat, [2]ast.ASTHandle) {
+	f := newQuantifierCandidateFixture(t, 4)
+	q := f.manager
+	m := q.state.manager
+	astTestMust(t, q.state.Internalize(f.quantifier, true))
+	stat, err := q.registry.Stat(f.quantifier)
+	astTestMust(t, err)
+	prepared, err := q.builder.Prepare(SMTQIQueueEntry{Fingerprint: &SMTFingerprint{data: f.quantifier, args: f.bindings[4:]}, Cost: 1})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, prepared.Close()) })
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	var bodies [2]ast.ASTHandle
+	for i := range bodies {
+		var args [4]ast.ASTHandle
+		for j := range args {
+			args[j], err = m.MkConst(symbol.Numerical(uint32(6000+4*i+j)), boolean)
+			astTestMust(t, err)
+		}
+		bodies[i], err = m.MkOrArgs(args[:])
+		astTestMust(t, err)
+		astTestMust(t, m.IncRef(bodies[i]))
+		t.Cleanup(func() { astTestMust(t, m.DecRef(bodies[i])) })
+	}
+	return q.builder, prepared, stat, bodies
+}
+
+func TestSMTNestedQuantifierLemmaOperands(t *testing.T) {
+	b, prepared, stat, bodies := smtLemmaOperandFixture(t)
+	var outer, inner smtQIInstanceLocals
+	// Prime the reusable storage before exercising overlapping borrows.
+	warm, err := b.finishWithoutProof(prepared, bodies[1], stat, 0, &inner.arguments)
+	astTestMust(t, err)
+	astTestMust(t, warm.Close())
+	astTestMust(t, inner.release(b))
+	x, err := b.finishWithoutProof(prepared, bodies[0], stat, 0, &outer.arguments)
+	astTestMust(t, err)
+	y, err := b.finishWithoutProof(prepared, bodies[1], stat, 0, &inner.arguments)
+	astTestMust(t, err)
+	windows := [2]*smtQIInstanceLocals{&outer, &inner}
+	for i, body := range bodies {
+		window := windows[i]
+		for j := 0; j < 4; j++ {
+			want, err := b.manager.GetArg(body, uint32(j))
+			astTestMust(t, err)
+			if window.arguments[j+1] != want {
+				t.Fatalf("operand %d of lemma %d changed during construction", j, i)
+			}
+		}
+	}
+	astTestMust(t, y.Close())
+	astTestMust(t, inner.release(b))
+	astTestMust(t, x.Close())
+	astTestMust(t, outer.release(b))
+}
+
+func BenchmarkSMTQuantifierLemmaOperands(b *testing.B) {
+	builder, prepared, stat, bodies := smtLemmaOperandFixture(b)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var locals smtQIInstanceLocals
+		x, err := builder.finishWithoutProof(prepared, bodies[i%2], stat, 0, &locals.arguments)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err = x.Close(); err != nil {
+			b.Fatal(err)
+		}
+		if err = locals.release(builder); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

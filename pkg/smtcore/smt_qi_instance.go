@@ -127,6 +127,8 @@ type SMTQIInstanceBuilder struct {
 	// registry receives the qi.profile_freq report after each counted
 	// instance; nil in stand-alone builders.
 	registry *SMTQuantifierRegistry
+	// Borrowed only until the current lemma has been asserted.
+	operandScratch []ast.ASTHandle
 }
 
 func NewSMTQIInstanceBuilder(manager *ast.ASTManager, checker *SMTChecker, substitution *SMTCachedVarSubstitution, costs *SMTQICostModel) (*SMTQIInstanceBuilder, error) {
@@ -196,7 +198,7 @@ func (b *SMTQIInstanceBuilder) prepare(entry SMTQIQueueEntry, prepared *SMTQIPre
 // substituted body.
 func (b *SMTQIInstanceBuilder) Materialize(prepared *SMTQIPreparedInstance, rw *rewriter.TheoryRewriter, stat *SMTQuantifierStat, scope uint32) (result *SMTQIInstance, err error) {
 	var locals smtQIInstanceLocals
-	defer func() { err = errors.Join(err, locals.release(b.manager)) }()
+	defer func() { err = errors.Join(err, locals.release(b)) }()
 	return b.materialize(prepared, rw, stat, scope, &locals)
 }
 
@@ -210,7 +212,12 @@ type smtQIInstanceLocals struct {
 
 // release destroys the locals in reverse declaration order: pr, then
 // s_instance.
-func (l *smtQIInstanceLocals) release(m *ast.ASTManager) (err error) {
+func (l *smtQIInstanceLocals) release(b *SMTQIInstanceBuilder) (err error) {
+	m := b.manager
+	// Keep storage for common clause widths. Handles contain only integers.
+	if len(l.arguments) > 0 && cap(l.arguments) <= 32 {
+		b.operandScratch = l.arguments[:0]
+	}
 	if l.rewriteProof != (ast.ASTRef{}) {
 		err = m.DelRef(&l.rewriteProof)
 	}
@@ -282,7 +289,7 @@ func (b *SMTQIInstanceBuilder) MaterializeAndInternalize(prepared *SMTQIPrepared
 		return nil, ast.ErrASTDomain
 	}
 	var locals smtQIInstanceLocals
-	defer func() { resultErr = errors.Join(resultErr, locals.release(b.manager)) }()
+	defer func() { resultErr = errors.Join(resultErr, locals.release(b)) }()
 	result, err := b.materialize(prepared, rw, stat, scope, &locals)
 	if err != nil {
 		return result, fmt.Errorf("rewrite and finish instance: %w", err)
@@ -364,7 +371,15 @@ func (b *SMTQIInstanceBuilder) finishLemma(prepared *SMTQIPreparedInstance, simp
 			return nil, err
 		}
 		if head.Kind == ast.ASTApp && head.Family == b.manager.BasicFamilyID() && head.DeclKind == ast.ASTOpOr {
-			args := make([]ast.ASTHandle, 1+int(head.NumArgs))
+			count := 1 + int(head.NumArgs)
+			var args []ast.ASTHandle
+			if arguments != nil && cap(b.operandScratch) >= count {
+				// Recursive assertions must have independent operand storage.
+				args = b.operandScratch[:count]
+				b.operandScratch = nil
+			} else {
+				args = make([]ast.ASTHandle, count)
+			}
 			args[0] = negatedQuantifier
 			for index := uint32(0); index < head.NumArgs; index++ {
 				args[1+int(index)], err = b.manager.GetArg(simplified, index)
