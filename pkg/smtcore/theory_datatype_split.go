@@ -79,13 +79,16 @@ func (t *SMTDatatypeTheory) split(value, sort ast.ASTHandle) error {
 		if err != nil || stop {
 			return err
 		}
-		constructors, err := s.manager.DatatypeConstructors(sort)
-		if err != nil {
-			return err
-		}
 		constructor = ast.ASTHandle{}
 		for i, recognizer := range data.recognizers {
 			if recognizer == nil {
+				constructors, err := t.utility.Constructors(sort)
+				if err != nil {
+					return err
+				}
+				if i >= len(constructors) {
+					return ast.ErrASTDomain
+				}
 				constructor = constructors[i]
 				break
 			}
