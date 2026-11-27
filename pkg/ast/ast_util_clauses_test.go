@@ -4,6 +4,7 @@ package ast
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -71,6 +72,27 @@ func TestASTUtilAtomsLiteralsAndClauses(t *testing.T) {
 			t.Fatalf("%v: clause=%v, want %v", tc.h, got, tc.want)
 		}
 	}
+	for _, tc := range []struct {
+		root ASTHandle
+		want []ASTHandle
+	}{
+		{b, []ASTHandle{b}}, {notB, []ASTHandle{notB}}, {clause, []ASTHandle{b, notB, eq}}, {badClause, nil},
+	} {
+		view, ok, err := m.ClauseLiteralView(tc.root)
+		astTestMust(t, err)
+		if ok != (tc.want != nil) || int(view.Count()) != len(tc.want) {
+			t.Fatal("clause view", ok, view.Count(), tc.want)
+		}
+		for i, want := range tc.want {
+			got, err := view.At(uint32(i))
+			if err != nil || got != want {
+				t.Fatal("clause view order", i, got, err)
+			}
+		}
+		if _, err := view.At(view.Count()); !errors.Is(err, ErrASTDomain) {
+			t.Fatal("clause view bounds", err)
+		}
+	}
 	n, e := m.ClauseNumLiterals(clause)
 	astTestMust(t, e)
 	if n != 3 {
@@ -91,5 +113,55 @@ func TestASTUtilAtomsLiteralsAndClauses(t *testing.T) {
 	}
 	if _, e = m.ClauseNumLiterals(badClause); !errors.Is(e, ErrASTDomain) {
 		t.Fatal("nonclause accepted", e)
+	}
+}
+
+func BenchmarkASTClauseLiteralScan(b *testing.B) {
+	m := astTestManager(b)
+	sort, err := m.MkBoolSort()
+	astTestMust(b, err)
+	for _, n := range []int{1, 8, 64, 512} {
+		args := make([]ASTHandle, n)
+		for i := range args {
+			args[i], err = m.MkVar(uint32(i), sort)
+			astTestMust(b, err)
+		}
+		cls, err := m.MkOrArgs(args)
+		astTestMust(b, err)
+		astTestPin(b, m, cls)
+		for _, view := range []bool{false, true} {
+			name := "Repeated"
+			if view {
+				name = "View"
+			}
+			b.Run(fmt.Sprintf("%d/%s", n, name), func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					if view {
+						lits, ok, err := m.ClauseLiteralView(cls)
+						if err != nil || !ok || int(lits.Count()) != n {
+							b.Fatal(lits.Count(), ok, err)
+						}
+						for i, want := range args {
+							v, err := lits.At(uint32(i))
+							if err != nil || v != want {
+								b.Fatal(i, v, err)
+							}
+						}
+					} else {
+						count, err := m.ClauseNumLiterals(cls)
+						if err != nil || int(count) != n {
+							b.Fatal(count, err)
+						}
+						for i, want := range args {
+							v, err := m.ClauseLiteral(cls, uint32(i))
+							if err != nil || v != want {
+								b.Fatal(i, v, err)
+							}
+						}
+					}
+				}
+			})
+		}
 	}
 }

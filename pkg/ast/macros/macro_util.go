@@ -166,7 +166,7 @@ type Util struct {
 	manager          *ast.ASTManager
 	forbidden        map[ast.ASTHandle]struct{}
 	sharesManagerSet bool
-	clause           ast.ASTHandle
+	clause           ast.ClauseLiterals
 	// paramsContext and globals feed bool_rewriter(m_manager), which reads
 	// the global rewriter module; nil means the bool_rewriter defaults.
 	paramsContext *uparams.ParamsContext

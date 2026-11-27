@@ -224,15 +224,12 @@ func (u *Util) hintToMacroHead(old ast.ASTHandle, declarations uint32, out ast.A
 }
 
 func (u *Util) restContains(declaration, except ast.ASTHandle) (bool, error) {
-	if u.clause.IsNull() {
+	if u.clause.Count() == 0 {
 		return false, nil
 	}
-	n, err := u.manager.ClauseNumLiterals(u.clause)
-	if err != nil {
-		return false, err
-	}
+	n := u.clause.Count()
 	for i := uint32(0); i < n; i++ {
-		literal, e := u.manager.ClauseLiteral(u.clause, i)
+		literal, e := u.clause.At(i)
 		if e != nil {
 			return false, e
 		}
@@ -250,13 +247,10 @@ func (u *Util) restContains(declaration, except ast.ASTHandle) (bool, error) {
 // the current clause, built with bool_rewriter mk_not and mk_and into out.
 // out stays null when there is no clause or no other literal.
 func (u *Util) restCondition(except ast.ASTHandle, out ast.ASTRef) (result error) {
-	if u.clause.IsNull() {
+	if u.clause.Count() == 0 {
 		return nil
 	}
-	n, err := u.manager.ClauseNumLiterals(u.clause)
-	if err != nil {
-		return err
-	}
+	n := u.clause.Count()
 	negated := make([]ast.ASTRef, 0, n)
 	defer func() {
 		for i := range negated {
@@ -264,7 +258,7 @@ func (u *Util) restCondition(except ast.ASTHandle, out ast.ASTRef) (result error
 		}
 	}()
 	for i := uint32(0); i < n; i++ {
-		literal, e := u.manager.ClauseLiteral(u.clause, i)
+		literal, e := u.clause.At(i)
 		if e != nil {
 			return e
 		}
@@ -284,9 +278,11 @@ func (u *Util) restCondition(except ast.ASTHandle, out ast.ASTRef) (result error
 	}
 	args := make([]ast.ASTHandle, len(negated))
 	for i := range negated {
-		if args[i], err = u.manager.RefGet(negated[i]); err != nil {
+		value, err := u.manager.RefGet(negated[i])
+		if err != nil {
 			return err
 		}
+		args[i] = value
 	}
 	return u.boolRewrite(ast.ASTOpAnd, args, out)
 }
@@ -453,7 +449,7 @@ func (u *Util) CollectMacroCandidates(atom ast.ASTHandle, declarations uint32, c
 	if err := candidates.Reset(); err != nil {
 		return err
 	}
-	u.clause = ast.ASTHandle{}
+	u.clause = ast.ClauseLiterals{}
 	return u.collectCandidateCore(atom, declarations, candidates)
 }
 
@@ -476,22 +472,19 @@ func (u *Util) CollectQuantifierCandidates(q ast.ASTHandle, candidates *Candidat
 	if err != nil {
 		return err
 	}
-	clause, err := u.manager.IsClause(body)
+	literals, clause, err := u.manager.ClauseLiteralView(body)
 	if err != nil {
 		return err
 	}
 	if !clause {
-		u.clause = ast.ASTHandle{}
+		u.clause = ast.ClauseLiterals{}
 		return u.collectCandidateCore(body, declarations, candidates)
 	}
-	u.clause = body
-	defer func() { u.clause = ast.ASTHandle{} }()
-	n, err := u.manager.ClauseNumLiterals(body)
-	if err != nil {
-		return err
-	}
+	u.clause = literals
+	defer func() { u.clause = ast.ClauseLiterals{} }()
+	n := literals.Count()
 	for i := uint32(0); i < n; i++ {
-		literal, e := u.manager.ClauseLiteral(body, i)
+		literal, e := literals.At(i)
 		if e != nil {
 			return e
 		}

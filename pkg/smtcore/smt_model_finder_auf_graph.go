@@ -137,12 +137,12 @@ func (g *smtModelFinderAUFGraph) collectFVars(quantifier ast.ASTHandle) error {
 		}
 	}
 	g.ftodo, g.ttodo = g.ftodo[:0], g.ttodo[:0]
-	clause, err := g.finder.manager.IsClause(body)
+	literals, clause, err := g.finder.manager.ClauseLiteralView(body)
 	if err != nil {
 		return err
 	}
 	if clause {
-		err = g.processClause(quantifier, body)
+		err = g.processClause(quantifier, literals)
 	} else {
 		err = g.visitFormula(quantifier, body, false)
 	}

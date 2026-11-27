@@ -420,14 +420,11 @@ func (g *smtModelFinderAUFGraph) processTermsOnStack(quantifier ast.ASTHandle) e
 }
 
 // processClause is quantifier_analyzer::process_clause.
-func (g *smtModelFinderAUFGraph) processClause(quantifier, cls ast.ASTHandle) error {
+func (g *smtModelFinderAUFGraph) processClause(quantifier ast.ASTHandle, literals ast.ClauseLiterals) error {
 	m := g.finder.manager
-	n, err := m.ClauseNumLiterals(cls)
-	if err != nil {
-		return err
-	}
+	n := literals.Count()
 	for i := uint32(0); i < n; i++ {
-		literal, err := m.ClauseLiteral(cls, i)
+		literal, err := literals.At(i)
 		if err != nil {
 			return err
 		}

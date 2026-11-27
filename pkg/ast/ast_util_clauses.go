@@ -91,29 +91,6 @@ func (m *ASTManager) astUtilLiteralAtomSign(r astNodeRef) (astNodeRef, bool, err
 	return child, true, e
 }
 
-func (m *ASTManager) astUtilIsClause(r astNodeRef) (bool, error) {
-	literal, e := m.astUtilIsLiteral(r)
-	if e != nil || literal {
-		return literal, e
-	}
-	disjunction, e := m.astUtilOperator(r, ASTOpOr)
-	if e != nil || !disjunction {
-		return false, e
-	}
-	a := m.appAt(r.slot)
-	for i := uint32(0); i < a.count; i++ {
-		child, e := m.appArg(a, i)
-		if e != nil {
-			return false, e
-		}
-		literal, e = m.astUtilIsLiteral(child)
-		if e != nil || !literal {
-			return false, e
-		}
-	}
-	return true, nil
-}
-
 func (m *ASTManager) IsAtom(h ASTHandle) (bool, error) {
 	if e := m.lock(); e != nil {
 		return false, e
@@ -154,70 +131,85 @@ func (m *ASTManager) LiteralAtomSign(h ASTHandle) (ASTHandle, bool, error) {
 }
 
 func (m *ASTManager) IsClause(h ASTHandle) (bool, error) {
-	if e := m.lock(); e != nil {
-		return false, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.requireExpr(h)
-	if e != nil {
-		return false, e
-	}
-	return m.astUtilIsClause(r)
+	_, ok, err := m.ClauseLiteralView(h)
+	return ok, err
 }
 
 func (m *ASTManager) ClauseNumLiterals(h ASTHandle) (uint32, error) {
-	if e := m.lock(); e != nil {
-		return 0, e
+	literals, ok, err := m.ClauseLiteralView(h)
+	if err != nil {
+		return 0, err
 	}
-	defer m.mu.Unlock()
-	r, e := m.requireExpr(h)
-	if e != nil {
-		return 0, e
-	}
-	clause, e := m.astUtilIsClause(r)
-	if e != nil {
-		return 0, e
-	}
-	if !clause {
+	if !ok {
 		return 0, ErrASTDomain
 	}
-	literal, e := m.astUtilIsLiteral(r)
-	if e != nil || literal {
-		return 1, e
-	}
-	return m.appAt(r.slot).count, nil
+	return literals.Count(), nil
 }
 
 func (m *ASTManager) ClauseLiteral(h ASTHandle, index uint32) (ASTHandle, error) {
-	if e := m.lock(); e != nil {
-		return ASTHandle{}, e
+	literals, ok, err := m.ClauseLiteralView(h)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	if !ok {
+		return ASTHandle{}, ErrASTDomain
+	}
+	return literals.At(index)
+}
+
+// ClauseLiterals borrows a validated clause. The caller keeps the expression
+// alive while reading its literals.
+type ClauseLiterals struct {
+	manager *ASTManager
+	root    ASTHandle
+	count   uint32
+	unit    bool
+}
+
+func (c ClauseLiterals) Count() uint32 { return c.count }
+
+func (c ClauseLiterals) At(index uint32) (ASTHandle, error) {
+	if index >= c.count {
+		return ASTHandle{}, ErrASTDomain
+	}
+	if c.unit {
+		return c.root, nil
+	}
+	return c.manager.GetArg(c.root, index)
+}
+
+// ClauseLiteralView classifies the expression and checks each disjunct once.
+func (m *ASTManager) ClauseLiteralView(h ASTHandle) (ClauseLiterals, bool, error) {
+	if err := m.lock(); err != nil {
+		return ClauseLiterals{}, false, err
 	}
 	defer m.mu.Unlock()
-	r, e := m.requireExpr(h)
-	if e != nil {
-		return ASTHandle{}, e
+	r, err := m.requireExpr(h)
+	if err != nil {
+		return ClauseLiterals{}, false, err
 	}
-	clause, e := m.astUtilIsClause(r)
-	if e != nil {
-		return ASTHandle{}, e
-	}
-	if !clause {
-		return ASTHandle{}, ErrASTDomain
-	}
-	literal, e := m.astUtilIsLiteral(r)
-	if e != nil {
-		return ASTHandle{}, e
+
+	literal, err := m.astUtilIsLiteral(r)
+	if err != nil {
+		return ClauseLiterals{}, false, err
 	}
 	if literal {
-		if index != 0 {
-			return ASTHandle{}, ErrASTDomain
-		}
-		return h, nil
+		return ClauseLiterals{manager: m, root: h, count: 1, unit: true}, true, nil
+	}
+	disjunction, err := m.astUtilOperator(r, ASTOpOr)
+	if err != nil || !disjunction {
+		return ClauseLiterals{}, false, err
 	}
 	a := m.appAt(r.slot)
-	if index >= a.count {
-		return ASTHandle{}, ErrASTDomain
+	for i := uint32(0); i < a.count; i++ {
+		child, err := m.appArg(a, i)
+		if err != nil {
+			return ClauseLiterals{}, false, err
+		}
+		literal, err := m.astUtilIsLiteral(child)
+		if err != nil || !literal {
+			return ClauseLiterals{}, false, err
+		}
 	}
-	child, e := m.appArg(a, index)
-	return m.external(child), e
+	return ClauseLiterals{manager: m, root: h, count: a.count}, true, nil
 }
