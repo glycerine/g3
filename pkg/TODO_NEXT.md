@@ -2,6 +2,8 @@
 
 Updated November 27, 2026. The current solver code is at **`432a0ee8b`** on `optmore`. The arena stays. Each solver owns its mutable state and runs on one goroutine. The goal is to match or beat Z3 on every known workload, including complete GoIvy verification and workloads with many independent solvers. The gaps below remain open.
 
+Keep generated Go sources for benchmark overlays in a scratch directory outside the checkout. Some historical commands use `pkg/build` for scratch space. On this machine that path is a symlink to external storage. On a fresh checkout, pass an external scratch path before running those commands. The package documentation test walks ignored directories too.
+
 ## Done and measured
 
 - [x] **DONE — Eliminate the two heap allocations per uncached live arithmetic numeral.** `ea70c4287` keeps the 88-byte information record, stores two parameters inline, and reduces wide parameter storage as well. The release saved 0.33–0.94% of instructions on four warm replays. The complete Go suite and the retained memory trace passed. [Profiles and controls](PERF_STUDY.md#november-27--two-inline-declaration-parameters-and-the-cost-of-constructing-a-live-numeral)
