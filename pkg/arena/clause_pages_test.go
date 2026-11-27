@@ -163,3 +163,35 @@ func TestClauseBytesRetiresExhaustedSlot(t *testing.T) {
 	}
 	checkClauseBytesBudget(t, a, budget)
 }
+
+func TestClauseBytesBorrowEmptyInvalidAndClosed(t *testing.T) {
+	for _, config := range []SmallBytesConfig{{}, {Alignment: 4}} {
+		a, err := NewClauseBytes(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ref, err := a.Allocate(40)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, tc := range []struct {
+			ref  SmallBytesRef
+			want error
+		}{
+			{SmallBytesRef{}, nil},
+			{SmallBytesRef{Slot: 0, Generation: 1}, ErrInvalidSlot},
+			{SmallBytesRef{Slot: ref.Slot, Generation: 0}, ErrInvalidSlot},
+			{SmallBytesRef{Slot: ^Slot(0), Generation: ref.Generation}, ErrInvalidSlot},
+		} {
+			if b, err := a.Borrow(tc.ref); b != nil || err != tc.want {
+				t.Fatalf("config %+v, reference %+v: got %v, %v; want nil, %v", config, tc.ref, b, err, tc.want)
+			}
+		}
+		a.Close()
+		for _, r := range []SmallBytesRef{{}, ref} {
+			if b, err := a.Borrow(r); b != nil || err != ErrClosed {
+				t.Fatalf("closed arena, reference %+v: %v, %v", r, b, err)
+			}
+		}
+	}
+}

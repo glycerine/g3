@@ -181,23 +181,25 @@ func (a *ClauseBytes) Allocate(size uint32) (SmallBytesRef, error) {
 // Borrow returns the exact payload for a live row. Page directory growth keeps
 // that payload in place. Its lifetime ends when the row is deallocated.
 func (a *ClauseBytes) Borrow(r SmallBytesRef) ([]byte, error) {
-	if a.compat != nil {
-		return a.compat.Borrow(r)
-	}
-	if a.closed {
-		return nil, ErrClosed
-	}
-	if r == (SmallBytesRef{}) {
-		return nil, nil
-	}
 	n := uint32(r.Slot) - 1
 	page := n >> clausePageShift
-	if uint64(page) >= uint64(len(a.pages)) || r.Generation == 0 {
+	if uint64(page) >= uint64(len(a.pages)) {
+		// Compatibility allocators and closed arenas have no physical pages.
+		// Slot zero also decodes beyond the last possible page.
+		if a.compat != nil {
+			return a.compat.Borrow(r)
+		}
+		if a.closed {
+			return nil, ErrClosed
+		}
+		if r == (SmallBytesRef{}) {
+			return nil, nil
+		}
 		return nil, ErrInvalidSlot
 	}
 	p := &a.pages[page]
 	index := n & (clausePageSlots - 1)
-	if index >= p.taken {
+	if index >= p.taken || r.Generation == 0 {
 		return nil, ErrInvalidSlot
 	}
 	start := index * p.stride
