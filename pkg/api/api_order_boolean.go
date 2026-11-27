@@ -167,6 +167,9 @@ func (p *orderProofState) checkBooleanInput(m *ast.ASTManager, k *order.BooleanP
 	if len(k.Clauses) == 0 {
 		return false, nil
 	}
+	if k.HasSatisfyingAssignment(limit) || !limit.IncOffset(0) {
+		return false, nil
+	}
 	return b.search(p.source, m, k)
 }
 
