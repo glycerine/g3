@@ -115,6 +115,9 @@ func (c *macroExpanderConfig) GetSubst(term ast.ASTHandle) (ast.ASTHandle, ast.A
 	// cache dies when the expansion returns, after the dependency join.
 	substitution, err := rewriter.NewVarSubstitution(m, true)
 	if err != nil {
+		if substitution != nil {
+			err = errors.Join(err, substitution.Close())
+		}
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 	}
 	result, proof, ok, err := c.expand(substitution, term, declaration, c.owner.entries[i])
@@ -377,7 +380,11 @@ func (m *Manager) ExpandMacros(term, proof ast.ASTHandle, dependency ast.ASTDepe
 			traversal, err = rewriter.NewTraversal(m.manager, cfg)
 		}
 		if err != nil {
-			return resultDependency, errors.Join(err, cfg.close())
+			err = errors.Join(err, cfg.close())
+			if traversal != nil {
+				err = errors.Join(err, traversal.Close())
+			}
+			return resultDependency, err
 		}
 		done, e := m.expandMacrosStep(cfg, traversal, proofs, oldTerm, oldProof, out, outProof, &resultDependency)
 		if e = errors.Join(e, cfg.close(), traversal.Close()); e != nil {
