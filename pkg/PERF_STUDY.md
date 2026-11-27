@@ -9109,3 +9109,54 @@ Finally, a g3-only prototype learned cores chronologically. It replayed all 284 
 | Track every miss and reuse earlier cores | 221 | 63 | 5.511 | 956 |
 
 The g3 learner recovered 63 hits on every run. It still spent 77% more instructions than ordinary replay. We discarded the always-tracked prototype. The measured ceiling makes cheap dependency extraction or selective learning worth a bounded experiment. Its acquisition and lookup costs must fit inside the avoided checks on ordinary verification. Per-enode construction remains a smaller opportunity at the measured call counts. [Benchmark drivers, SMT inputs, controls and raw measurements](perf/ivy_apple/holdouts/nov27-ticket-matched-siblings.tar.xz)
+
+### November 27 — Selective core learning and joint proofs of sibling equalities
+
+GoIvy commit `4b548dc4b` reduces **complete POPL18 Ticket from 419 to 386 ms** on the pinned verifier CPU. Linked Z3 took **238 ms**. Across seven rotated triples the median paired reduction was **6.13% of user instructions** and **8.46% of elapsed time**. The separate median instruction totals were 2.837B, 2.650B and 1.479B. The complete checker still takes about 1.62× as long as Z3. The change is in the GoIvy bridge that submits goals to g3. Each proof runs on the current solver and goroutine.
+
+#### What selective core learning cost
+
+We repeated the chronological POPL18 experiment with a plain incremental solver for ordinary misses and a separate incremental solver for the training subset of each batch. A compatible prior occurrence of the same goal had to exceed the threshold. The policy uses only earlier batches' median ordinary check costs. It has no access to future occurrences. Training checks answer the current obligation and supply a core for later batches. Each cache hit was verified by running g3 on the target signature, target goal and the earlier core alone. All 284 outcomes matched in each arm and rotation.
+
+| Earlier cost threshold | Ordinary checks | Trained misses | Later hits | Ordinary check work covered by hits | Total replay instructions |
+|---|---:|---:|---:|---:|---:|
+| No learning | 284 | 0 | 0 | 0 | 3.087B |
+| Any previous occurrence | 57 | 164 | 63 | 286.56M | 5.380B |
+| ≥1M instructions | 167 | 79 | 38 | 245.61M | 4.657B |
+| ≥5M instructions | 210 | 53 | 21 | 212.64M | 4.276B |
+| ≥20M instructions | 264 | 18 | 2 | 56.20M | 3.871B |
+
+Three rotations measured the complete CLI work including startup and parsing for each nonempty partition. Python matching costs and independent proof rechecks were outside those counters. The terminal identifier payload was only 1,632–6,064 bytes at four bytes per cached premise ID, excluding indexes, declarations and term storage. Even the most selective arm cost 25% more instructions than ordinary replay. We dropped this acquisition policy.
+
+#### Which obligations benefit from a joint proof
+
+Sibling checks share the same base. If the base plus the disjunction of several counterexample conditions is UNSAT, every sibling is proved. A SAT or unknown group requires ordinary individual checks to recover the first failing obligation and its model. This approach requires no core extraction or history across solvers.
+
+On complete POPL18 an unrestricted group of up to 16 cut instructions by about 17%. The same policy raised Hybrid broadcast by 14%, examples/ivy/flash2 by 45%, and test/flash2 by 31%. Direct call windows with GC off explain the difference. Eighteen POPL18 groups saved 435M instructions against the corresponding individual windows. All 43 Hybrid groups also proved UNSAT, but their searches cost **996M additional instructions**. In examples/ivy/flash2, 36 of 140 grouped calls returned SAT and incurred individual retries. Triggering after a 0.3 or 1 ms individual check and running the private proof on later siblings first both retained substantial regressions.
+
+Looking for a shared antecedent helped identify a better boundary. Allowing any identical antecedent still grouped 580 TLB spans. Together those grouped calls cost **25.10B** against **1.45B** in the corresponding individual check windows. On ARM just two groups cost 670M against 84M. Requiring a compound antecedent avoided those groups on both inputs. On POPL18 five groups of four with a shared compound guard cost **122M** against **342M** individually. They prove several guarded equalities at once. This measurement uses the factored-antecedent diagnostic with GC off.
+
+The retained implementation recognizes runs of 3–16 concrete conjunction checkers whose equality or Boolean equivalence has the same compound antecedent. That shape determines when to try grouping. The actual proof disjoins the **complete translated conditions**, including constraints introduced by translation. It stops at assumptions, other checker types and different guards. After a SAT or unknown answer the temporary group scope is popped, and ordinary checks report failures in source order. The regression exercises satisfiable and unsatisfiable groups, the returned counterexample, scope restoration and a change of guard. Traced verification, explicit VC display and linked Z3 keep their individual checks. An experimental native build that did group these equalities changed POPL18 instructions by just −0.22%.
+
+| Complete verifier | Paired g3 instruction change | Baseline g3 ms | Released g3 ms | Linked Z3 ms |
+|---|---:|---:|---:|---:|
+| POPL18 Ticket | −6.13% | 419 | 386 | 238 |
+| Nested Ticket | −1.37% | 439 | 438 | 327 |
+| Liveness Ticket | −1.72% | 240 | 235 | 197 |
+| Ticket L2S | +0.13% | 452 | 429 | 305 |
+| Hybrid broadcast | −0.24% | 1,251 | 1,298 | 877 |
+| ARM rules | +1.41% | 451 | 451 | 334 |
+| test/flash2 | −0.38% | 911 | 908 | 885 |
+| examples/ivy/flash2 | +0.38% | 679 | 677 | 629 |
+
+Each row uses seven rotated triples with normal GC. Times are separate medians. Machine load varied, particularly for Hybrid. A second five-pair ARM measurement gave −0.05% instructions. Five complete inputs used the new path in an instrumented sweep of 228 verifiers. It proved 31 groups comprising 131 individual obligations across the three Ticket inputs using the path, POPL18 alternating bit, and test_liveness2. Nine repeated pairs on the last two gave −0.42% and **+1.09%** instructions, respectively. Every native reference transcript and exit status matched, including expected failures. Three additional pairs each on ordinary Raft, Apple rfn2 and dramc_nb2 also matched. Their instruction changes were +0.29%, +0.40% and −0.04%.
+
+#### Where to look next on Hybrid broadcast
+
+Across five full Hybrid runs per engine with GC off, native reached 839 individual checks and g3 reached 534. A check already discharged by the early proof path contributes zero to the individual check window. Summing per-goal median windows gave **3.665B g3 instructions versus 2.690B native**. Batch 31 accounts for 160.70M of the difference, followed by batches 33 and 34 at 103.85M and 96.54M. The two largest individual gaps are batch 31 goals 34 and 33 at 76.82M and 57.25M. Together these two account for about 14% of the net direct-check gap.
+
+A second five-pair run measured other phases on the same target. G3 spent **1.124B against 543M on first pushes**, but only **242M against 1.143B** translating and asserting the base. Taken together those two phases favor g3 by 320M. Early private proofs cost 413M and eliminate many ordinary calls. Comparing first push or proof cost in isolation would misidentify the opportunity. Measure matched search events and normal-GC allocation on batches 31, 33 and 34 before changing preprocessing policy.
+
+The normal-GC median instruction gap on Hybrid was **1.942B**. In seven complete paired runs with collection disabled for both frontends, the medians were **6.281B g3 and 5.324B native**, a gap of **0.956B**. About half of the normal-GC gap disappears under this diagnostic. Disabling GC changes allocation and memory behavior as well as collector work. It is unsuitable as a policy for thousands of independent solvers.
+
+Across three normal-GC runs the g3 frontend and solver allocated a median **366.8 MB in 2.994M objects**, versus **98.8 MB in 1.320M Go objects** for the linked-native frontend. Native C++ heap allocations are outside the Go measurements. The median GC counts were 65 and 37. Sampled g3 allocation profiles charge 32.79 MiB cumulatively to ground projection problem construction, including 13.21 MiB directly in the projection reader. The bit compiler's interning method accounts for a further 9.58 MiB flat. Table-model compilation and the rewriter's cache-stack push each appear at about 131,000 sampled allocation objects. Sampled object estimates for small sites are noisy. Reuse per-solver projection scratch only after measuring how many sibling attempts repeat the same work and what memory survives batch close. Compare against eliminating model construction during failed private attempts, using proofs and models as controls. [Benchmark drivers, regressions, raw counter windows and whole-verifier results](perf/ivy_apple/holdouts/nov27-selective-and-grouped-proofs.tar.xz)
