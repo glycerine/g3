@@ -294,18 +294,19 @@ func (s *satSolverConflictResolution) processConsequent(consequent Literal, j sa
 		}
 		return s.antecedentMode(b.Negated(), mode, marks)
 	case 3:
-		c, e := p.clauses.GetClause(j.ClauseOffset())
+		c := StoredClauseRef(j.ClauseOffset())
+		view, e := p.clauses.view(c)
 		if e != nil {
 			return e
 		}
 		i := uint32(0)
 		if consequent != DefaultLiteral() {
-			first, e := p.clauses.Literal(c, 0)
+			first, e := view.reasonLiteral(0)
 			if e != nil {
 				return e
 			}
 			if satStorageSourceDebug && first != consequent {
-				second, e := p.clauses.Literal(c, 1)
+				second, e := view.reasonLiteral(1)
 				if e != nil {
 					return e
 				}
@@ -319,20 +320,33 @@ func (s *satSolverConflictResolution) processConsequent(consequent Literal, j sa
 				if e = s.antecedentMode(first.Negated(), mode, marks); e != nil {
 					return e
 				}
+				// The unsat-core trace writer can change clause storage.
+				if mode == 2 {
+					view, e = p.clauses.view(c)
+					if e != nil {
+						return e
+					}
+				}
 				i = 2
 			}
 		}
-		n, e := p.clauses.Size(c)
+		n, e := view.checkedSize()
 		if e != nil {
 			return e
 		}
 		for ; i < n; i++ {
-			lit, e := p.clauses.Literal(c, i)
+			lit, e := view.reasonLiteral(i)
 			if e != nil {
 				return e
 			}
 			if e = s.antecedentMode(lit.Negated(), mode, marks); e != nil {
 				return e
+			}
+			if mode == 2 && i+1 < n {
+				view, e = p.clauses.view(c)
+				if e != nil {
+					return e
+				}
 			}
 		}
 		return nil

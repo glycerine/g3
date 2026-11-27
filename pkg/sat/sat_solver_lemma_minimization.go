@@ -131,11 +131,11 @@ func (s *satSolverConflictAnalysis) impliedByMarked(l Literal) (bool, error) {
 			}
 		case 3:
 			a := s.propagation.clauses
-			c, e := a.GetClause(j.ClauseOffset())
+			view, e := a.view(StoredClauseRef(j.ClauseOffset()))
 			if e != nil {
 				return false, e
 			}
-			first, e := a.Literal(c, 0)
+			first, e := view.reasonLiteral(0)
 			if e != nil {
 				return false, e
 			}
@@ -144,7 +144,7 @@ func (s *satSolverConflictAnalysis) impliedByMarked(l Literal) (bool, error) {
 				i = 1
 			} else {
 				if satStorageSourceDebug {
-					second, e := a.Literal(c, 1)
+					second, e := view.reasonLiteral(1)
 					if e != nil {
 						return false, e
 					}
@@ -164,12 +164,9 @@ func (s *satSolverConflictAnalysis) impliedByMarked(l Literal) (bool, error) {
 				}
 				i = 2
 			}
-			n, e := a.Size(c)
-			if e != nil {
-				return false, e
-			}
+			n := view.size()
 			for ; i < n; i++ {
-				l, e := a.Literal(c, i)
+				l, e := view.reasonLiteral(i)
 				if e != nil {
 					return false, e
 				}

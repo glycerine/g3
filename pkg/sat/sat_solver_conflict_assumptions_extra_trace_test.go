@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
@@ -94,5 +95,50 @@ func TestSATConflictInitFullSolverLemmaAndAssignmentTrace(t *testing.T) {
 	}
 	if got := output.String(); got != want {
 		t.Fatalf("source conflict-init trace = %q, want %q", got, want)
+	}
+}
+
+func TestSATCoreClauseReleasedDuringAntecedentTrace(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		consequent Literal
+	}{
+		{"conflict", DefaultLiteral()},
+		{"second-watch", 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := satConflictFixture(t, 4)
+			a := s.analysis.propagation.clauses
+			var c StoredClauseRef
+			released := false
+			writer := satWatchTraceWriter(func(b []byte) (int, error) {
+				if !released && bytes.Contains(b, []byte("process_antecedent_for_unsat_core")) {
+					released = true
+					satOK(t, a.Delete(c))
+				}
+				return len(b), nil
+			})
+			tags := diagnostic.NewTraceTagsWithWriter(writer)
+			tags.Enable("sat")
+			if !tags.ShouldTrace("sat") {
+				t.Skip("requires trace build")
+			}
+			s.traceTags = tags
+			var err error
+			c, err = a.MkClause([]Literal{0, 2, 4, 6}, false)
+			satOK(t, err)
+			off, err := a.Offset(c)
+			satOK(t, err)
+			err = s.processConsequent(tc.consequent, newSATClauseJustification(off), 2, nil)
+			if !released || err != arena.ErrInvalidSlot {
+				t.Fatalf("released = %t, next read = %v", released, err)
+			}
+			n, err := s.analysis.unmark.Size()
+			satOK(t, err)
+			if n != 1 {
+				t.Fatalf("processed %d antecedents, want 1", n)
+			}
+			satOK(t, s.analysis.resetUnmark(0))
+		})
 	}
 }

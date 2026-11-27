@@ -213,6 +213,31 @@ func (v satClauseView) setLiteral(i uint32, l Literal) { v.setWord(5+uint64(i), 
 func (v satClauseView) flag(mask uint32) bool          { return v.word(4)&mask != 0 }
 func (v satClauseView) setFlag(mask uint32)            { v.setWord(4, v.word(4)|mask) }
 
+func (v satClauseView) checkedSize() (uint32, error) {
+	if len(v) < 8 {
+		return 0, arena.ErrBounds
+	}
+	return v.size(), nil
+}
+
+// reasonLiteral has the same per-read bounds as ClauseAllocator.Literal.
+// Its validated view must remain live for the entire reason walk.
+func (v satClauseView) reasonLiteral(i uint32) (Literal, error) {
+	if satStorageSourceDebug {
+		if len(v) < 8 {
+			return 0, arena.ErrBounds
+		}
+		if i >= v.size() {
+			return 0, ErrSATAssertion
+		}
+	}
+	offset := satClauseLiteralsOffset + 4*uint64(i)
+	if offset+4 > uint64(len(v)) {
+		return 0, arena.ErrBounds
+	}
+	return Literal(binary.LittleEndian.Uint32(v[offset:])), nil
+}
+
 // watchedLiterals places the falsified watch second, as expected by propagation.
 func (v satClauseView) watchedLiterals(falsified Literal) (Literal, Literal) {
 	pair := v[satClauseLiteralsOffset : satClauseLiteralsOffset+8]

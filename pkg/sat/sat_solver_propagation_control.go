@@ -152,11 +152,15 @@ func (s *satSolverPropagationState) numDiffLevels(c StoredClauseRef) (uint32, er
 	if e := s.open(); e != nil {
 		return 0, e
 	}
-	n, e := s.clauses.Size(c)
+	view, e := s.clauses.view(c)
 	if e != nil {
 		return 0, e
 	}
-	return s.numDiffLevelsCore(n, nil, c, true)
+	n, e := view.checkedSize()
+	if e != nil {
+		return 0, e
+	}
+	return s.numDiffLevelsSpanCore(n, satSolverLiteralSpan{}, view)
 }
 
 // Source num_diff_levels accepts a pointer and an independent unsigned count.
@@ -166,30 +170,16 @@ func (s *satSolverPropagationState) numDiffLevelsLiterals(n uint32, lits []Liter
 	if e := s.open(); e != nil {
 		return 0, e
 	}
-	return s.numDiffLevelsCore(n, lits, StoredClauseRef{}, false)
+	return s.numDiffLevelsSpanCore(n, satSolverLiteralSpan{literals: lits}, nil)
 }
 
-func (s *satSolverPropagationState) diffLevelLiteral(i uint32, lits []Literal, c StoredClauseRef, clause bool) (Literal, error) {
-	if clause {
-		return s.clauses.Literal(c, i)
-	}
-	if uint64(i) >= uint64(cap(lits)) {
-		return 0, arena.ErrBounds
-	}
-	return lits[:cap(lits)][i], nil
-}
-
-// Both concrete storage routes execute the same source reserve/mark/reset body.
-func (s *satSolverPropagationState) numDiffLevelsCore(n uint32, lits []Literal, c StoredClauseRef, clause bool) (uint32, error) {
-	return s.numDiffLevelsSpanCore(n, satSolverLiteralSpan{literals: lits}, c, clause)
-}
 func (s *satSolverPropagationState) numDiffLevelsSpan(n uint32, span satSolverLiteralSpan) (uint32, error) {
 	if e := s.open(); e != nil {
 		return 0, e
 	}
-	return s.numDiffLevelsSpanCore(n, span, StoredClauseRef{}, false)
+	return s.numDiffLevelsSpanCore(n, span, nil)
 }
-func (s *satSolverPropagationState) numDiffLevelsSpanCore(n uint32, span satSolverLiteralSpan, c StoredClauseRef, clause bool) (uint32, error) {
+func (s *satSolverPropagationState) numDiffLevelsSpanCore(n uint32, span satSolverLiteralSpan, clause satClauseView) (uint32, error) {
 	need := s.variables.scopeLevel + 1
 	// The reached byte marks use native slice growth; newly exposed slots are zero.
 	s.diffLevels.extend(need)
@@ -197,8 +187,8 @@ func (s *satSolverPropagationState) numDiffLevelsSpanCore(n uint32, span satSolv
 	for i := uint32(0); i < n; i++ {
 		var l Literal
 		var e error
-		if clause {
-			l, e = s.clauses.Literal(c, i)
+		if clause != nil {
+			l, e = clause.reasonLiteral(i)
 		} else {
 			l, e = span.literal(i)
 		}
@@ -232,8 +222,8 @@ func (s *satSolverPropagationState) numDiffLevelsSpanCore(n uint32, span satSolv
 	for i := uint32(0); i < n; i++ {
 		var l Literal
 		var e error
-		if clause {
-			l, e = s.clauses.Literal(c, i)
+		if clause != nil {
+			l, e = clause.reasonLiteral(i)
 		} else {
 			l, e = span.literal(i)
 		}
