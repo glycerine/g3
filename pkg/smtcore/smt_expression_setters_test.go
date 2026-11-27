@@ -61,3 +61,33 @@ func TestExpressionSettersPreserveLiveSlot(t *testing.T) {
 		t.Fatal("invalid write disturbed the standalone relevance context")
 	}
 }
+
+func TestRegisterBorrowedEnodePreservesLiveSlot(t *testing.T) {
+	m := astTestManager(t)
+	ctx, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	p := smtRelevancyBool(t, m, "borrowed-enode")
+	astTestPin(t, m, p)
+	newNode := func() (ast.ASTHandle, *SMTEnode) {
+		owner, err := m.MkNot(p)
+		astTestMust(t, err)
+		node, err := NewSMTEnode(m, owner, nil, SMTEnodeOptions{SuppressArguments: true})
+		astTestMust(t, err)
+		return owner, node
+	}
+	old, stale := newNode()
+	hold, err := m.NewRef(old)
+	astTestMust(t, err)
+	astTestMust(t, m.DelRef(&hold))
+	live, current := newNode()
+	astTestPin(t, m, live)
+	if old.Slot() != live.Slot() || old.Generation() == live.Generation() {
+		t.Fatal("expected a new generation in the retired slot")
+	}
+	astTestMust(t, ctx.RegisterEnode(current, true))
+	err = ctx.RegisterEnode(stale, false)
+	if !errors.Is(err, ast.ErrASTHandle) || ctx.enodes.get(live) != current || !ctx.relevant.get(live) || len(ctx.registeredEnodes) != 1 {
+		t.Fatalf("stale registration returned %v, live node preserved %t, relevant %t, registered %d",
+			err, ctx.enodes.get(live) == current, ctx.relevant.get(live), len(ctx.registeredEnodes))
+	}
+}

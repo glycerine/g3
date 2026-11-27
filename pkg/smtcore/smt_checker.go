@@ -173,6 +173,13 @@ func (c *SMTCheckerContext) registerEnode(node *SMTEnode, relevant, borrowed boo
 	if err := node.valid(); err != nil {
 		return err
 	}
+	// The internalizer owns a reference while publishing its node. A borrowed
+	// node can outlive its expression and the slot can hold a new generation.
+	if borrowed {
+		if err := c.manager.ValidateHandle(node.owner); err != nil {
+			return err
+		}
+	}
 	prior := c.enodes.get(node.owner)
 	if prior != nil && prior != node {
 		return ast.ErrASTDomain
