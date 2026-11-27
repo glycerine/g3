@@ -69,6 +69,38 @@ func TestVerificationDefinitionSelection(t *testing.T) {
 	}
 }
 
+func TestVerificationWrappedGoalWidth(t *testing.T) {
+	for _, width := range []int{5, 6} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			var decls, conjuncts strings.Builder
+			for i := 0; i < width; i++ {
+				fmt.Fprintf(&decls, "(declare-const k%d U)", i)
+				fmt.Fprintf(&conjuncts, " (alpha k%d)", i)
+			}
+			input := relevantPremiseExample("(forall ((v U)) (gamma v))", 20)
+			input = strings.TrimSuffix(input, "(assert (not (alpha k)))") + decls.String() +
+				"(assert (or (not (and" + conjuncts.String() + "))))"
+			ctx, s := orderSolver(t, input)
+			m, err := ctx.Manager()
+			astTestMust(t, err)
+			roots, err := solver.Assertions(s.solver)
+			astTestMust(t, err)
+			state := orderProofState{source: s}
+			defer func() { astTestMust(t, state.release()) }()
+			proved, err := state.proveRelevantPremises(m, roots)
+			astTestMust(t, err)
+			if proved != (width == 5) {
+				t.Fatalf("width %d private proof returned %t", width, proved)
+			}
+			result, err := s.Check()
+			astTestMust(t, err)
+			if result != lbool.False {
+				t.Fatalf("width %d concrete check returned %v", width, result)
+			}
+		})
+	}
+}
+
 func TestVerificationWidePremiseSavings(t *testing.T) {
 	for _, omitted := range []int{20, maxWidePremises - 1, maxWidePremises} {
 		t.Run(fmt.Sprint(omitted), func(t *testing.T) {

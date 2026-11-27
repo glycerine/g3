@@ -3,8 +3,9 @@ package api
 import "github.com/glycerine/g3/pkg/ast"
 
 const (
-	maxNarrowPremises = 32
-	maxWidePremises   = 220
+	maxPrivateGoalWidth = 5
+	maxNarrowPremises   = 32
+	maxWidePremises     = 220
 )
 
 // A first push preprocesses the entire base. After proving a sibling goal,
@@ -16,8 +17,18 @@ func (p *orderProofState) proveRelevantPremises(m *ast.ASTManager, assertions []
 	}
 	goal := assertions[len(assertions)-1]
 	hd, err := m.NodeHeader(goal)
-	if err != nil || hd.Kind != ast.ASTApp || hd.NumArgs == 0 || hd.NumArgs > 5 {
+	if err != nil || hd.Kind != ast.ASTApp || hd.NumArgs == 0 || hd.NumArgs > maxPrivateGoalWidth {
 		return false, err
+	}
+	// A unary Boolean wrapper can hide a wide goal. Use the wrapped
+	// connective's width before building indices for a private solver.
+	if hd.Family == m.BasicFamilyID() && hd.NumArgs == 1 {
+		remaining := 32
+		_, inner, ok := (signedRefutationGoal{term: goal}).unwrap(m, &remaining)
+		if ok && inner.Kind == ast.ASTApp && inner.Family == m.BasicFamilyID() &&
+			(inner.DeclKind == ast.ASTOpAnd || inner.DeclKind == ast.ASTOpOr) && inner.NumArgs > maxPrivateGoalWidth {
+			return false, nil
+		}
 	}
 	ground, err := m.IsGround(goal)
 	if err != nil || !ground {
