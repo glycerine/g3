@@ -7825,3 +7825,60 @@ The eight ordinary Ticket checks from the preceding study offer a matched search
 **Can the solver reuse the earlier assertion?** Of 3,700 lemma trees, 1,527 repeated an earlier tree in the same check. A separate observer recorded scope ancestry and physical membership of the earlier root clause in the live clause directory. Every repeat followed a backtrack out of the earlier assertion scope. Zero had a surviving earlier clause or the same earlier AST handle. Of those repeats, 1,117 stored a fresh root clause. A direct lookup for a live duplicate therefore misses every opportunity suggested by the syntactic count.
 
 The CLI trials used nine rotating runs with GC off for the traversal variants and five for AST retention. The complete verifier trials used normal GC. Extending the existing literal shortcut to two-child disjunctions also had mixed results across seven complete pairs, including 0.83% more instructions on Ticket. No production variant was retained. The next measurement is the cost of new and previously internalized atoms in recursive formula internalization, which sampled about 25M instructions in g3 versus 6M in Z3 across these checks. [Benchmark](ast/rewriter/theory_frame_benchmark_test.go) · [Trial sources, raw measurements and compressed callback traces](perf/ivy_apple/holdouts/nov27-frame-paths.tar.xz)
+
+## November 27 — Fresh Boolean atoms in the matched Ticket search
+
+Both solvers reached **2,404 fresh positive formulas and 1,546 negations of fresh operands** at the outermost formula call while asserting 3,700 quantified lemmas. The two engines took very different numbers of calls for already-bound operands. g3's assertion loop can directly reuse a signed literal. Its saving there leaves the cost of creating the fresh atoms clearly visible.
+
+| Outermost formula entry | g3 calls | Z3 calls | g3 instructions | Z3 instructions |
+| --- | ---: | ---: | ---: | ---: |
+| Fresh positive | 2,404 | 2,404 | 12.67M | 3.30M |
+| Negation of fresh operand | 1,546 | 1,546 | 12.25M | 3.13M |
+| Already bound positive | 14 | 3,487 | 0.003M | 0.100M |
+| Negation of bound operand | 28 | 11,350 | 0.021M | 1.376M |
+
+Each cell is the median of five complete Ticket runs, summing the eight original incremental checks in each run. The timed intervals include recursive work. Nested intervals were disabled, and the adjacent empty counter read was subtracted. Entry classification was outside the bracket. An independent observer counting all depths found exactly 4,773 fresh formulas excluding stripped NOT gates in both engines, including 1,688 equalities. The frontend transcript and exit status matched for both observers.
+
+The 15-round uninstrumented stack sample puts 9.23M instructions in Boolean enode attachment under g3’s outermost formula-core frame, 6.42M in recursive internalization, 4.68M in gate constraints and 2.41M in Boolean variable creation. The formula-core frame itself accounted for 0.80M. Native enode creation under the corresponding outer frame accounted for 2.41M. Differences in native inlining affect attribution between frames. These stack estimates overlap the hardware intervals above.
+
+A second set of five complete runs timed the work *inside* those fresh formula calls after the registration change below. Go and native created exactly the same Boolean variables, enodes and gate clauses. Enode creation accounts for the largest measured excess within these calls. Both cost columns are calibrated instruction totals in millions.
+
+| Operation inside fresh positive or negated formula | Calls g3 / Z3 | g3 | Z3 |
+| --- | ---: | ---: | ---: |
+| Create Boolean variable | 4,773 / 4,773 | 3.42 | 1.27 |
+| Create enode | 4,336 / 4,336 | 11.63 | 3.17 |
+| Congruence insertion, within enode creation | 4,332 / 4,332 | 2.20 | 0.62 |
+| Generate gate constraints and relevance watches | 589 / 589 | 4.68 | 1.49 |
+| Emit gate clause, within gate constraints | 1,828 / 1,828 | 2.42 | 0.66 |
+| Recursive term internalization | 6,452 / 6,604 | 2.38 | 0.31 |
+
+The enode interval includes congruence insertion and can occur inside a term call. Instrumentation inside a parent affects its measured total, so these rows should not be added. Only about 1.58M of the 8.45M enode gap came from congruence insertion. The earlier matched stacks put 5.35M g3 instructions in the node constructor under enode creation and 2.41M in registration, versus 1.74M inside the native constructor. Comparing child resolution, parent attachment and allocation inside those constructors is the next experiment.
+
+Two experiments targeted enode construction. Passing already-resolved non-Boolean child pointers into unary and binary predicates saved 0.38%, 0.24% and 0.10% of standalone Ticket 127, Ticket 290 and toy consensus instructions. Across seven complete-verifier pairs it saved at most 0.12% and raised FBA instructions by 0.33%. That prototype remains in the archive.
+
+**Commit `b98d8b1a3` resolves one expression page for enode registration.** Finding the prior enode, publishing the new one and recording relevance all use the same generation-checked slot. Public borrowed registrations still validate the AST handle before any page write. An owned registration preserves the atom’s prior relevance. A repeated public registration takes the caller’s explicit relevance value. The regression exercises both through their public entry points.
+
+| Scoped construction and rollback | Width 32 | Width 2,048 |
+| --- | ---: | ---: |
+| Unary, paired instructions | −3.09% | −2.83% |
+| Binary, paired instructions | −2.71% | −2.10% |
+
+Seven alternating pairs used 1,000 iterations at width 32 and 50 at width 2,048. Allocation counts were identical. Nine complete normal-GC verifier pairs changed instructions by −0.54% on Ticket, −0.27% on hybrid, −0.47% on ARM and +0.03% on FBA. Paired elapsed changed by −0.18%, −1.19%, +0.70% and +4.07%, respectively. The repeatable gain is in scoped node construction. [Scoped benchmark](smtcore/smt_enode_scope_batch_benchmark_test.go) · [Registration regression](smtcore/smt_expression_setters_test.go) · [Sources, snapshots and measurements](perf/ivy_apple/holdouts/nov27-internalization-and-premises.tar.xz)
+
+**Complete verification.** A seven-round confirmation after the native Go suite compared the new release, its parent and linked Z3. Median release / Z3 times were 425 / 236 ms on Ticket, 1,131 / 825 ms on hybrid, 462 / 331 ms on ARM and 106 / 137 ms on FBA. Relative to the parent, release instructions changed by −0.75%, +0.48%, +0.30% and −0.17%, respectively. The earlier FBA elapsed increase did not repeat. In five separate 419-check Raft pairs the release and its parent took 2.71 and 2.61 seconds; that panel overlapped the native suite. On the pinned Apple frontend, three pairs gave **1.47 vs 9.17 seconds on rfn2** and **15.39 vs 18.74 seconds on dramc_nb2**, release vs linked Z3. Every complete-verifier comparison matched stdout, stderr and exit status.
+
+### Can a smaller premise set remove the expensive search?
+
+A diagnostic native run named the positive conjuncts of the base and obtained an unsatisfiable core. Plain g3 and Z3 then solved each reduced input from scratch, keeping the complete original goal. The selected costs exclude the cost of learning the core. A refutation of a subset proves the original. A SAT or unknown result requires solving the original.
+
+| g3 CLI, median millions of instructions | Premises selected / available | Original | All conjuncts regrouped | Selected | Selected, original let nesting |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Ticket 127 | 36 / 120 | 268.60 | 268.38 | 138.22 | 142.86 |
+| Ticket 290 | 36 / 92 | 287.41 | 287.13 | 216.59 | 219.42 |
+| Toy consensus 18 | 51 / 78 | 651.26 | 1,185.55 | 1,905.42 | 2,389.24 |
+
+The eight-rotation panel includes parsing, push, check and statistics. Z3 on the original inputs used 119.05M, 120.18M and 223.76M instructions. In particular, the 1.94× saving on Ticket 127 required an offline proof and still left g3 above native. On toy consensus, even regrouping every original conjunct changed the search. The smaller selected inputs gave more costly proofs in both engines.
+
+**Prospective selection.** Exported snapshots of goals 55 and 56 from four successive Ticket actions have identical premises within each action. Fresh standalone replays exercise those logical inputs without the verifier's earlier learned clauses. In all four actions, the core learned on 55 gave **SAT** with goal 56 in both solvers. In a second trial, each action used the immediately preceding action's core for the *same* goal, plus every premise new to the destination action. Four of six subsequent goals still refuted, but only one ran faster. The six original g3 snapshots used 1.452B instructions. The selected attempts used 1.894B, and the two required retries cost another 0.415B. Total cost was **1.59× baseline before charging for core discovery**.
+
+All five multi-obligation Ticket bases were satisfiable by themselves. The four unsatisfiable bases belonged to the terminal single-goal batches. Checking each base up front would add a satisfiability search to every multi-goal batch here. A separate symbol-frequency selector refuted Ticket 127 at two of twelve tolerance/depth settings and could select nothing from the constant goals on Ticket 290 and toy consensus. These measurements favor looking for cheaper construction of the fresh atoms shared across proofs and for work removable across complete workloads. They give no basis for adding a general premise-selection prepass. [Inputs and trial drivers](perf/ivy_apple/holdouts/nov27-internalization-and-premises.tar.xz)
