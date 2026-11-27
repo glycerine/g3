@@ -10,7 +10,9 @@ import (
 )
 
 func TestVerificationPlansStartWithFreshAssertions(t *testing.T) {
-	ctx, source := orderSolver(t, "(declare-const a Bool)(assert a)(assert (not a))")
+	// Both plans must reach the private solver to exercise its rotation.
+	// The satisfiable subset requires two distinct domain elements.
+	ctx, source := orderSolver(t, "(declare-sort U 0)(declare-const a U)(declare-const b U)(assert (= a b))(assert (not (= a b)))")
 	m, err := ctx.Manager()
 	astTestMust(t, err)
 	forms, err := solver.Assertions(source.solver)

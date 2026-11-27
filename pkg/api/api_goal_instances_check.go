@@ -61,6 +61,9 @@ type privateProofPlan interface {
 
 func (p *orderProofState) checkProofPlan(parent *ast.ASTManager, plan privateProofPlan, maxSteps uint32) (proved bool, err error) {
 	reuse := p.plans.reusable(parent)
+	if short, ok := plan.(*shortPremisePlan); ok && reuse && hasPrivatePremiseModel(parent, short.selected) {
+		return false, nil
+	}
 	aux, err := p.plans.acquire(parent, p.source, reuse)
 	if err != nil {
 		return false, err
