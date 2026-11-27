@@ -7208,3 +7208,28 @@ A second pair of instrumented CLIs counted attempted clauses by input width, fin
 | Final pairs in ordinary clause storage | 943 | 2,548 |
 
 Both solvers pay for ordinary clause storage on most final pairs because the native compact representation has scope and level restrictions. A Go trial directly simplified distinct unassigned pairs into sorted order, then used the existing insertion path. Across nine pairs, total instructions fell just 0.046% and 0.113% on the two replays. Decisions, conflicts, instantiations, resource counts and verdicts matched throughout. We discarded the specialization. Compare allocation and watch attachment for ordinary scoped clauses before changing their representation. In these two replays native chooses the same representation class at the same frequency. [Matched arity distributions, observer source and trial measurements](perf/ivy_apple/holdouts/nov26-ticket-clause-arity.tar.xz)
+
+## November 26 — Ordinary clause construction and Boolean negation costs
+
+The matched clause census above showed both engines storing 2,548 simplified binary clauses as ordinary clauses on Ticket 290. Twelve earlier paired instruction profiles per input let us isolate construction within quantified assertion. Ticket 127 yielded 68 g3 samples and 33 native samples inside the clause routine. Ticket 290 yielded 131 and 28. Of the 199 Go samples, 28 included the clause object constructor. None exposed a separate watch insertion frame. Watch insertion can inline, so the profile alone gives no timing for attachment. In nine paired complete replay runs, allocating fresh short clauses in groups of sixteen reduced instructions by 0.087% and 0.180%. Reading the two already-selected literals directly for watch attachment saved 0.029% and 0.060%. Moving clause storage into a separate method allowed Go to open-code deferred scratch restoration and saved 0.121% and 0.236%. The split gave mixed complete-verifier results. We kept the existing storage and clause implementation.
+
+The same profiles showed runtime defer handling in Boolean negation. The ordinary atom case previously checked NOT, fetched both canonical truth values, then queried the application identity separately for equality and equivalence. Release `474a4b0f8` dispatches on operand identity once. Only the equality case allocates and releases a temporary reference. The equality rewriter also now calls the theory value recognizer only when the other operand is an ITE, following the two short-circuit predicates in this fork's C++ bool_rewriter.cpp.
+
+| Negation operand | Baseline ns/op | Release negation ns/op |
+| --- | ---: | ---: |
+| Ordinary atom, no reduction | 42.87 | 6.75 |
+| Nested negation | 32.27 | 24.88 |
+| True | 48.21 | 24.46 |
+
+Seven rotating pairs used 500,000 iterations on CPU 14, with zero allocations in the measured loops. The negation-only variant saved 0.586% and 0.683% of whole-process replay instructions. The final source saved **0.688% and 0.864%** in eleven pairs against the release baseline. Verdict, decisions, conflicts, instantiations and resource usage matched throughout. Six independent resource-limited queries also matched verdict and all collected integer search counters in five pairs each.
+
+| Complete verifier | Release change in instructions | Release change in elapsed | g3 median | Linked Z3 median |
+| --- | ---: | ---: | ---: | ---: |
+| Ticket | −0.99% | −1.05% | 452 ms | 245 ms |
+| Hybrid | −0.51% | −0.66% | 1,247 ms | 866 ms |
+| ARM rules3 | +0.26% | −0.19% | 489 ms | 354 ms |
+| FBA | −0.88% | −1.04% | 115 ms | 147 ms |
+
+The changes are median paired percentages from nine complete before/after runs. The absolute medians are from a separate seven-pair comparison to linked Z3. Each panel used the same pinned core, frontend revision and normal GC. All runs matched the reference exit and both streams. Short verifier elapsed is variable. The negation-only Ticket trial initially measured +8.68% elapsed and then −0.58% in fifteen reverse-order pairs. The repeatable evidence for this release is the cheaper reducer and the two matched command replays. Ordinary rewriter, SMT core and API tests, full checked/debug/trace rewriter tests and rewriter vet passed.
+
+A syntax scan identified 72 locations to inspect for unnecessary eager evaluation. Three macro-finder guards appeared capable of avoiding whole expression walks. Instrumentation found zero such opportunities on complete Ticket, hybrid and ARM and three on FBA. Those guards have low priority for this panel. For a larger Ticket improvement, profile repeated work by quantifier body and binding tuple across a complete search. Measure which unchanged subtrees depend on only a subset of the binding and what fraction of actual instructions they consume. The earlier tuple census showed enough repeats to warrant measurement. Any reuse must preserve search order, reference-count-sensitive behavior, resource checkpoints and live solver ownership. [Benchmark](ast/rewriter/bool_not_benchmark_test.go) · [Historical tuple census](#november-26--repeated-quantifier-work-in-ticket-hybrid-and-arm) · [Scripts, profiles, timings and verifier controls](perf/ivy_apple/holdouts/nov26-clause-cost-and-negation.tar.xz)
