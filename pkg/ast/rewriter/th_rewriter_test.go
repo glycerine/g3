@@ -589,3 +589,41 @@ func TestTheoryRewriterCloseGuards(t *testing.T) {
 		t.Fatal("closed theory rewriter accepted traversal", err)
 	}
 }
+
+func TestTheoryConstantReleasesPriorProofAndOwnsResult(t *testing.T) {
+	m, rw := theoryRewriterFixture(t)
+	engine := &rw.traversal.engine
+	atom := goalTestAtom(t, m, "theory-constant")
+	prior := goalTestAtom(t, m, "prior-register-value")
+	before, err := m.GetRefCount(atom)
+	astTestMust(t, err)
+	priorCount, err := m.GetRefCount(prior)
+	astTestMust(t, err)
+	astTestMust(t, m.SetRef(engine.pr, prior))
+	// Exercise both the first visit with an occupied register and the next
+	// visit with an empty register. Each result has its own stack reference.
+	for i := uint32(1); i <= 2; i++ {
+		astTestMust(t, engine.processConst(atom))
+		proof, err := m.RefGet(engine.pr)
+		astTestMust(t, err)
+		got, err := engine.core.resultBack()
+		astTestMust(t, err)
+		count, err := m.GetRefCount(atom)
+		astTestMust(t, err)
+		if !proof.IsNull() || got != atom || count != before+i {
+			t.Fatalf("visit %d: proof %v result %v refcount %d, want empty proof, %v and %d", i, proof, got, count, atom, before+i)
+		}
+	}
+	count, err := m.GetRefCount(prior)
+	astTestMust(t, err)
+	if count != priorCount {
+		t.Fatalf("previous register refcount %d, want %d", count, priorCount)
+	}
+	astTestMust(t, engine.core.popResult())
+	astTestMust(t, engine.core.popResult())
+	count, err = m.GetRefCount(atom)
+	astTestMust(t, err)
+	if count != before {
+		t.Fatalf("final result refcount %d, want %d", count, before)
+	}
+}

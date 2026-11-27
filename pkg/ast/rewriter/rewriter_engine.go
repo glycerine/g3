@@ -486,6 +486,16 @@ func (r *rewriterEngine) processBoundVariable(t ast.ASTHandle, index uint32) err
 func (r *rewriterEngine) processConst(t ast.ASTHandle) error {
 	c := &r.core
 	m := c.manager
+	// The theory reducer clears its proof register and returns brFailed for
+	// a nullary uninterpreted declaration. Its push/pull ITE rules also
+	// require arguments. A nonempty proof must still be released in order.
+	if _, theory := r.cfg.(*theoryRewriterConfiguration); theory && !c.proofGen && !ast.ASTValidateHandles && !ast.ASTSourceDebug {
+		proof, err := m.RefGetHeld(r.pr)
+		if err == nil && proof.IsNull() && m.TryIncRefHeldUninterpretedConstant(t) {
+			c.results = append(c.results, t)
+			return nil
+		}
+	}
 	d, e := m.GetDecl(t)
 	if e != nil {
 		return e
