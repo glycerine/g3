@@ -81,6 +81,9 @@ func (b *smtCongruenceBucket) store(node *SMTEnode) {
 		b.small.set(key[0], key[1], node)
 		return
 	}
+	if b.wide == nil {
+		b.wide = make(map[uint64][]*SMTEnode)
+	}
 	key := smtCongruenceSignature(node)
 	b.wide[key] = append(b.wide[key], node)
 }
@@ -189,7 +192,6 @@ func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, 
 	}
 	bucket := &smtCongruenceBucket{
 		id: node.functionDeclID, declaration: node.declaration,
-		wide:            make(map[uint64][]*SMTEnode),
 		flatAssociative: flags.FlatAssociative,
 	}
 	t.buckets = append(t.buckets, bucket)

@@ -100,3 +100,30 @@ func BenchmarkSMTCongruenceProbes(b *testing.B) {
 		})
 	}
 }
+
+// Each fresh table registers declarations even when its first lookup misses.
+// Keep the ASTs live across iterations to measure the solver table itself.
+func BenchmarkSMTCongruenceDeclarationRegistration(b *testing.B) {
+	m := astTestManager(b)
+	sort, err := m.MkSort(symbol.Numerical(90800), ast.ASTSortInfo{})
+	astTestMust(b, err)
+	_, root := smtEnodeConstant(b, m, 90801, sort, 0)
+	var declarations [64]ast.ASTHandle
+	for i := range declarations {
+		declarations[i] = smtCGTestDeclaration(b, m, uint32(90802+i), sort, ast.ASTFuncFlags{})
+		astTestPin(b, m, declarations[i])
+	}
+	args := []*SMTEnode{root, root}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		table, err := NewSMTCongruenceTable(m)
+		astTestMust(b, err)
+		for _, decl := range declarations {
+			if found, err := table.FindApp(decl, args, false); found != nil || err != nil {
+				b.Fatal(found, err)
+			}
+		}
+		astTestMust(b, table.Close())
+	}
+}
