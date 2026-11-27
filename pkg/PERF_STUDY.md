@@ -8497,3 +8497,37 @@ Across the three Ticket inputs, 801 of 75,255 substitution probes hit (1.06%). T
 Inside enode creation on L2S, separate calibrated intervals averaged 218 instructions for validation and reference acquisition, 1,150 for the constructor, 766 for interpretation or congruence handling, 265 for registration, 31 for trailing and equality propagation, and 26 for trace attachment per new enode (medians over five full runs). This places the largest Go interval in the constructor. Eliminating its entire cost on this goal would save only about 2.7M instructions. The forward and reverse rewriter together therefore warrant higher priority.
 
 [Registration benchmark](smtcore/smt_cg_lookup_benchmark_test.go) · [Observer sources, benchmark drivers, controls and per-run evidence](perf/ivy_apple/holdouts/nov27-ticket-operand-cost-and-sibling-history.tar.xz)
+
+## November 27 — Wide unsigned order proofs on complete ring verifiers
+
+Both leader-election verifiers now finish faster with g3 than with linked Z3. Their expensive obligations include trichotomy, transitivity and asymmetry of unsigned 64-bit values. In the extracted 186-byte trichotomy goal, both ordinary solvers used 440 decisions, 101 conflicts and 22,585 resource units. A word-level proof can settle it before any of those decisions.
+
+Commit `afb546562` recognizes small conjunctions of comparisons in reusable verification batches. For example, assuming neither unsigned value is smaller gives both weak inequalities. Together they imply equality, contradicting the third trichotomy assumption. The implementation computes transitive closure on up to eight terms using one byte per row. It follows at most 32 Boolean nodes, respects polarity, and checks the width of the conflicting component. Arbitrary expressions can serve as endpoints. The rule has no dependency on a spec, symbol name, solver identity or check number. It preserves the existing resource and cancellation gates. Ordinary SMT-LIB checks still take the general path.
+
+Eleven rotated triples on one pinned CPU used the same GoIvy frontend for previous g3, new g3 and linked Z3. The figures are medians for the complete process. All 99 exit codes and output streams matched, including each ring spec's expected counterexample.
+
+| Complete input | Previous g3 ms | New g3 ms | Linked Z3 ms | Previous g3 M instructions | New g3 M instructions | Z3 M instructions |
+|---|---:|---:|---:|---:|---:|---:|
+| leader_election_ring | 91.56 | 38.20 | 78.19 | 504.65 | 92.00 | 409.82 |
+| leader_election_ring_btw | 107.11 | 59.79 | 85.58 | 610.03 | 212.58 | 457.16 |
+| arm_rules3 | 527.07 | 503.89 | 390.10 | 3,227.56 | 3,212.97 | 2,193.49 |
+
+**Why the cutoff is 32 bits.** The initial all-width prototype settled six opening ARM obligations and increased complete ARM instructions by 37%. Moving those proofs changed downstream cost. The exact downstream solver state responsible remains unidentified. Varying only the bit width in the plain ring produced the following whole-run medians over five rotated triples. At 32 bits the shortcut first removed over half the work. With the production cutoff, instrumentation recorded exactly three early proofs on each ring and zero on ARM in each of three runs.
+
+| Width | Previous g3 M instructions | All-width prototype M instructions |
+|---:|---:|---:|
+| 2 | 91.7 | 90.2 |
+| 4 | 96.0 | 92.4 |
+| 8 | 105.8 | 89.5 |
+| 16 | 123.3 | 90.2 |
+| 32 | 219.5 | 90.4 |
+| 64 | 511.0 | 90.4 |
+| 128 | 1,300.3 | 90.2 |
+
+All 222 runs in the separate 37-input screen matched. The three largest unfavorable instruction changes received 15 additional pairs each. Those medians were +0.98% for PLDI16 learning switch, −0.51% for indexset and −0.89% for toma8. Three paired complete runs each on Raft, Apple rfn2 and Apple dramc_nb2 matched the reference, with median instruction changes of −0.36%, less than 0.01% and +0.07%, respectively. The two-bit regression checks 208 predicate triples against all 64 valuations. Separate tests cover compound endpoints, signedness, the 31/32 boundary and the verification API. The saved closure benchmark allocated zero bytes at widths 4, 64 and 256. [Measurements, drivers, fixtures and overlays](perf/ivy_apple/holdouts/nov27-frame-cost-frontier-and-wide-order.tar.xz)
+
+### What the remaining verifier gaps cost
+
+* **Rewriter frames.** In Ticket 290 the engines visited the same 15,307 child operands. Operand fetch consumed 1.061M instructions in g3 and 0.061M in Z3. Child visits cost 8.866M and 2.379M, and the 8,227 unsuccessful reductions' frame completions cost 5.333M and 1.406M. The 188 actual rebuilds cost only 0.270M and 0.102M. Avoiding a redundant fold check cut the binary microbenchmark from 6.59 to 6.34 µs. Whole-verifier effects were mixed, including for direct operand reads and specialized visitors. Keep the benchmark and the existing implementation.
+* **Private proofs and first pushes.** For the 36 historical inputs in the 228-input survey with excess time or instructions, three paired GC-off instrumented runs per input matched all 216 reference outcomes. Summing per-input medians gave 8.876B excess instructions inside checks, 4.391B in early private proof attempts, and 4.156B on first concrete pushes. Further instrumentation measured 2.941B on unsuccessful early attempts and 1.324B on unsuccessful attempts inside checks. The latter are already included in check cost. An experimental scheduler supplied with the actual unsuccessful positions from an earlier run saved 4.23–14.64% of total normal-GC release instructions on 12 inputs, across 240 exact runs. An online predictor using formula shape missed valuable proofs and increased instructions on Apple rfn2 by about 62% and dramc_nb2 by 13%. Keep the current scheduler. A promising next experiment is a cheap witness that a relaxed formula is satisfiable, validated against entire solver lifetimes.
+* **Next matched-search cases.** ARM goals 6/5 and 6/6 matched Z3 on decisions, conflicts, instantiations and resource count, yet each cost g3 roughly three times as many instructions in fresh SMT-LIB replay. ARM 6/5 alone produced 4,967 instantiations. In sampled stacks on both fixtures, asserting generated instances was a larger source of excess instructions than rewriting them. On card3 goal 3/9 all four counters also matched, while the sampled excess concentrated in model-based quantifier checking. Split the cost of evaluating the quantified body, checking the auxiliary context and extracting witnesses before choosing an implementation change. Fresh replay and complete-verifier samples are recorded separately in the archive.
