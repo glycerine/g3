@@ -186,3 +186,33 @@ func TestSMTOldIntervalMultiplicationClosedOracle(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkIntervalEndpointProducts(b *testing.B) {
+	var manager smtArithmeticBoundDependencyManager
+	for _, tc := range []struct {
+		name         string
+		lower, upper int64
+	}{{"Positive", 2, 3}, {"Mixed", -2, 3}} {
+		b.Run(tc.name, func(b *testing.B) {
+			base, err := newSMTOldIntervalBounds(&manager, testQ(), oiR(tc.lower), false, nil, oiR(tc.upper), false, nil)
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer base.del()
+			result, err := base.clone()
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer result.del()
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := result.set(base); err != nil {
+					b.Fatal(err)
+				}
+				if err := result.mul(base); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}

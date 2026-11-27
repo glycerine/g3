@@ -280,16 +280,20 @@ func (i *smtOldInterval) mul(other *smtOldInterval) (err error) {
 	a, b, c, d := &i.lower, &i.upper, &other.lower, &other.upper
 	ao, bo, co, do := i.lowerOpen, i.upperOpen, other.lowerOpen, other.upperOpen
 	ad, bd, cd, dd := i.lowerDep, i.upperDep, other.lowerDep, other.upperDep
-	var temps []*smtExtendedRational
+	// Multiplying two mixed intervals needs all four endpoint products.
+	var temps [4]smtExtendedRational
+	used := 0
 	defer func() {
-		for _, t := range temps {
-			err = errors.Join(err, t.del(q))
+		for j := 0; j < used; j++ {
+			err = errors.Join(err, temps[j].del(q))
 		}
 	}()
 	product := func(x, y *smtExtendedRational) (*smtExtendedRational, error) {
-		r, e := smtExtendedProduct(q, x, y)
-		temps = append(temps, &r)
-		return &r, e
+		r := &temps[used]
+		used++
+		var e error
+		*r, e = smtExtendedProduct(q, x, y)
+		return r, e
 	}
 	set := func(lower *smtExtendedRational, lo bool, ld func() *smtArithmeticBoundDependency, upper *smtExtendedRational, uo bool, ud func() *smtArithmeticBoundDependency) error {
 		i.lowerOpen, i.upperOpen = lo, uo
