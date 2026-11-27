@@ -50,3 +50,49 @@ func TestObjMapCapacityOneGrowthAndErase(t *testing.T) {
 		t.Fatal("non power-of-two capacity must fall back to the default")
 	}
 }
+
+func TestObjMapEmptyCopyAndPairErase(t *testing.T) {
+	m := astTestManager(t)
+	h := markTestNodes(t, m, 2)
+	o := NewObjMap(m)
+	clone := o.Copy()
+	for _, table := range []*ObjMap{o, clone} {
+		table.Reset()
+		table.Finalize()
+		table.ErasePairKeys(h[0], h[1], 13)
+		if table.Len() != 0 || table.Capacity() != objMapInitialCapacity || len(table.Entries()) != 0 {
+			t.Fatal("empty table lost its initial capacity or acquired entries")
+		}
+	}
+	clone.InsertPairKeys(h[0], h[1], 13)
+	if o.Len() != 0 || clone.Len() != 1 {
+		t.Fatal("inserting into empty copy changed original")
+	}
+	clone.ErasePairKeys(h[0], h[1], 13)
+	if clone.Len() != 0 {
+		t.Fatal("pair survived erase")
+	}
+}
+
+// Keep the default-capacity layout as the control for initially empty tables.
+func BenchmarkObjMapEmptyWorkers(b *testing.B) {
+	m := astTestManager(b)
+	for _, mode := range []string{"Explicit", "Default"} {
+		b.Run(mode, func(b *testing.B) {
+			var maps [1024]*ObjMap
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				for j := range maps {
+					if mode == "Default" {
+						maps[j] = NewObjMap(m)
+					} else {
+						maps[j] = NewObjMapCapacity(m, objMapInitialCapacity)
+					}
+				}
+				if maps[1023].Capacity() != objMapInitialCapacity {
+					b.Fatal("wrong capacity")
+				}
+			}
+		})
+	}
+}

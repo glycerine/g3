@@ -42,7 +42,8 @@ type ObjMap struct {
 }
 
 func NewObjMap(m *ASTManager) *ObjMap {
-	return &ObjMap{manager: m, table: make([]ObjMapEntry, objMapInitialCapacity)}
+	// Default maps acquire their eight buckets on the first insertion.
+	return &ObjMap{manager: m}
 }
 
 // NewObjMapCapacity is obj_map / obj_hashtable constructed with an explicit
@@ -120,7 +121,12 @@ func (o *ObjMap) Copy() *ObjMap {
 func (o *ObjMap) Len() int { return o.size }
 
 // Capacity is m_capacity, the table's size.
-func (o *ObjMap) Capacity() int { return len(o.table) }
+func (o *ObjMap) Capacity() int {
+	if len(o.table) == 0 {
+		return objMapInitialCapacity
+	}
+	return len(o.table)
+}
 
 // Insert is obj_map::insert(k, v): it adds k, or replaces its value.
 func (o *ObjMap) Insert(key ASTHandle, value [2]ASTHandle) error {
@@ -132,11 +138,17 @@ func (o *ObjMap) InsertNum(key ASTHandle, n uint64) error {
 	return o.insert(ObjMapEntry{Key: key, Num: n})
 }
 
-func (o *ObjMap) insert(entry ObjMapEntry) error {
-	key := entry.Key
-	if (o.size+o.numDeleted)<<2 > len(o.table)*3 {
+func (o *ObjMap) prepareInsert() {
+	if len(o.table) == 0 {
+		o.table = make([]ObjMapEntry, objMapInitialCapacity)
+	} else if (o.size+o.numDeleted)<<2 > len(o.table)*3 {
 		o.expandTable()
 	}
+}
+
+func (o *ObjMap) insert(entry ObjMapEntry) error {
+	key := entry.Key
+	o.prepareInsert()
 	hash, err := o.keyHash(key)
 	if err != nil {
 		return err
@@ -213,9 +225,7 @@ func (o *ObjMap) InsertIfNotThereHashed(key ASTHandle, hash uint32, equal func(A
 }
 
 func (o *ObjMap) insertIfNotThereCore(key ASTHandle, num uint64, hash uint32, equal func(*ObjMapEntry) bool) *ObjMapEntry {
-	if (o.size+o.numDeleted)<<2 > len(o.table)*3 {
-		o.expandTable()
-	}
+	o.prepareInsert()
 	mask := uint32(len(o.table) - 1)
 	begin := int(hash & mask)
 	deleted := -1
@@ -262,6 +272,9 @@ func (o *ObjMap) index(key ASTHandle) (int, error) {
 }
 
 func (o *ObjMap) indexHash(key ASTHandle, hash uint32) int {
+	if len(o.table) == 0 {
+		return -1
+	}
 	mask := uint32(len(o.table) - 1)
 	begin := int(hash & mask)
 	for _, r := range [2][2]int{{begin, len(o.table)}, {0, begin}} {

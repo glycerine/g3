@@ -41,6 +41,9 @@ func (o *ObjMap) InsertPairKeys(k1, k2 ASTHandle, hash uint32) {
 
 // ErasePairKeys is obj_pair_map::erase(k1, k2).
 func (o *ObjMap) ErasePairKeys(k1, k2 ASTHandle, hash uint32) {
+	if len(o.table) == 0 {
+		return
+	}
 	mask := uint32(len(o.table) - 1)
 	begin := int(hash & mask)
 	for _, r := range [2][2]int{{begin, len(o.table)}, {0, begin}} {
