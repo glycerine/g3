@@ -94,6 +94,7 @@ func projectGoalShape(m *ast.ASTManager, goal ast.ASTHandle) (bool, error) {
 }
 
 type groundProjection struct {
+	parsedPremises     *QuantifiedPremises
 	sharedPremises     bool
 	termLiterals       []int32
 	manager            *ast.ASTManager
@@ -215,6 +216,11 @@ func (g *groundProjection) chooseConstants(inputs []uint32) error {
 }
 
 func (g *groundProjection) read(h ast.ASTHandle, depth int) (uint32, error) {
+	if p := g.parsedPremises; p != nil {
+		if id := p.sourceIDs[h]; id != 0 {
+			return id, nil
+		}
+	}
 	if id := g.sourceIDs[h]; id != 0 {
 		return id, nil
 	}
@@ -317,16 +323,29 @@ func (g *groundProjection) read(h ast.ASTHandle, depth int) (uint32, error) {
 		return 0, err
 	}
 	if !symbol.IsNull() {
-		n.symbol = g.symbols[symbol]
-		if n.symbol == 0 {
-			n.symbol = uint32(len(g.symbols) + 1)
-			g.symbols[symbol] = n.symbol
-		}
+		n.symbol = g.symbolID(symbol)
 	}
 	id := uint32(len(g.input))
 	g.input = append(g.input, n)
 	g.sourceIDs[h] = id
 	return id, nil
+}
+
+// Goal-local symbols follow the IDs already assigned to the parsed premises.
+func (g *groundProjection) symbolID(symbol ast.ASTHandle) uint32 {
+	prefix := 0
+	if p := g.parsedPremises; p != nil {
+		if id := p.symbols[symbol]; id != 0 {
+			return id
+		}
+		prefix = len(p.symbols)
+	}
+	if id := g.symbols[symbol]; id != 0 {
+		return id
+	}
+	id := uint32(prefix + len(g.symbols) + 1)
+	g.symbols[symbol] = id
+	return id
 }
 
 // Validate the shapes that will become Boolean gates. Applications from

@@ -123,3 +123,51 @@ func BenchmarkAppleQuantifiedProblemLiveHeap(b *testing.B) {
 	}
 	b.ReportMetric(float64(total)/float64(b.N)/batch, "live-B/problem")
 }
+
+// Measure the premise indexes retained by independently owned solvers after
+// loading the source ASTs. Run with -benchtime=2x to exercise a cache hit.
+func BenchmarkQuantifiedPremiseWorkers(b *testing.B) {
+	for _, tc := range []struct {
+		name    string
+		workers int
+		input   string
+	}{
+		{"Small", 1024, quantifiedGoalDeclarations + "(assert (p a))(assert (not (r a b)))(assert (forall ((x A)) (p x)))"},
+		{"Apple", 16, appleBenchmarkInput(b, "dramc_nb2-71")},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			type worker struct {
+				manager  *ast.ASTManager
+				rows     []ast.ASTHandle
+				premises order.QuantifiedPremises
+			}
+			workers := make([]worker, tc.workers)
+			for i := range workers {
+				ctx, s := orderSolver(b, tc.input)
+				manager, err := ctx.Manager()
+				astTestMust(b, err)
+				rows, err := solver.Assertions(s.solver)
+				astTestMust(b, err)
+				workers[i] = worker{manager: manager, rows: rows}
+			}
+			var before, after runtime.MemStats
+			runtime.GC()
+			runtime.ReadMemStats(&before)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				for j := range workers {
+					w := &workers[j]
+					q, err := w.premises.Project(w.manager, w.rows, orderProofSteps)
+					if q == nil || err != nil {
+						b.Fatalf("worker %d projection failed: %v", j, err)
+					}
+				}
+			}
+			b.StopTimer()
+			runtime.GC()
+			runtime.ReadMemStats(&after)
+			runtime.KeepAlive(workers)
+			b.ReportMetric(float64(int64(after.HeapAlloc)-int64(before.HeapAlloc))/float64(tc.workers), "live-B/worker")
+		})
+	}
+}

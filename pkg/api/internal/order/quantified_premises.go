@@ -1,7 +1,6 @@
 package order
 
 import (
-	"maps"
 	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -56,10 +55,12 @@ func (p *QuantifiedPremises) readBase(g *groundProjection, base []ast.ASTHandle,
 		p.manager, p.base, p.roots = g.manager, slices.Clone(base), slices.Clone(ids)
 		p.input, p.children = g.input, g.children
 		p.sourceIDs, p.symbols = g.sourceIDs, g.symbols
+		g.sourceIDs = make(map[ast.ASTHandle]uint32)
+		g.symbols = make(map[ast.ASTHandle]uint32)
 		p.work, p.nextPoll = g.compiler.work, g.compiler.nextPoll
 	}
 	// The goal appends nodes and edges after the cached slices and introduces
 	// its own source and declaration IDs. Only the premise IDs survive a call.
-	g.sourceIDs, g.symbols = maps.Clone(p.sourceIDs), maps.Clone(p.symbols)
+	g.parsedPremises = p
 	return nil
 }
