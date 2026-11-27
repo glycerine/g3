@@ -500,21 +500,20 @@ func (c *theoryRewriterConfiguration) reduceAppCore(decl ast.ASTHandle, args ast
 	}
 }
 
+func (c *theoryRewriterConfiguration) isITE(term ast.ASTHandle) (bool, error) {
+	m := c.owner.manager
+	app, family, kind, err := m.AppIdentity(term)
+	if err != nil || !app || family != m.BasicFamilyID() || kind != ast.ASTOpIte {
+		return false, err
+	}
+	arity, err := m.GetNumArgs(term)
+	return arity == 3 && err == nil, err
+}
+
 func (c *theoryRewriterConfiguration) iteView(term ast.ASTHandle) (condition, thenValue, elseValue ast.ASTHandle, matched bool, err error) {
-	kind, err := c.owner.manager.GetKind(term)
-	if err != nil || kind != ast.ASTApp {
+	matched, err = c.isITE(term)
+	if err != nil || !matched {
 		return condition, thenValue, elseValue, false, err
-	}
-	family, err := c.owner.manager.GetFamilyID(term)
-	if err != nil || family != c.owner.manager.BasicFamilyID() {
-		return condition, thenValue, elseValue, false, err
-	}
-	op, err := c.owner.manager.GetDeclKind(term)
-	if err != nil || op != ast.ASTOpIte {
-		return condition, thenValue, elseValue, false, err
-	}
-	if count, e := c.owner.manager.GetNumArgs(term); e != nil || count != 3 {
-		return condition, thenValue, elseValue, false, e
 	}
 	condition, err = c.owner.manager.GetArg(term, 0)
 	if err == nil {
@@ -589,23 +588,23 @@ func (c *theoryRewriterConfiguration) pullITECore(decl, ite, value ast.ASTHandle
 }
 
 func (c *theoryRewriterConfiguration) iteValueTree(term ast.ASTHandle) (bool, error) {
-	if _, _, _, matched, err := c.iteView(term); err != nil || !matched {
+	if ite, err := c.isITE(term); err != nil || !ite {
 		return false, err
 	}
 	stack := []ast.ASTHandle{term}
 	for len(stack) != 0 {
 		current := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		_, high, low, _, err := c.iteView(current)
-		if err != nil {
-			return false, err
-		}
-		for _, branch := range []ast.ASTHandle{high, low} {
-			_, _, _, nested, err := c.iteView(branch)
+		for i := uint32(1); i <= 2; i++ {
+			branch, err := c.owner.manager.GetArg(current, i)
 			if err != nil {
 				return false, err
 			}
-			if nested {
+			ite, err := c.isITE(branch)
+			if err != nil {
+				return false, err
+			}
+			if ite {
 				refs, err := c.owner.manager.GetRefCount(branch)
 				if err != nil {
 					return false, err
@@ -682,7 +681,7 @@ func (c *theoryRewriterConfiguration) pullITE(decl ast.ASTHandle, args ast.AppAr
 				return Rewrite2, c.owner.manager.SetRef(out, result)
 			}
 		}
-		if _, _, _, rightITE, err := c.iteView(right); err != nil {
+		if rightITE, err := c.isITE(right); err != nil {
 			return RewriteFailed, err
 		} else if rightITE {
 			leftValue, err := c.owner.manager.IsValue(left)
@@ -943,7 +942,7 @@ func (c *theoryRewriterConfiguration) pushITEResult(out ast.ASTRef) (RewriteStat
 	if err != nil {
 		return RewriteFailed, err
 	}
-	_, _, _, matched, err := c.iteView(term)
+	matched, err := c.isITE(term)
 	if err != nil || !matched {
 		return RewriteDone, err
 	}
