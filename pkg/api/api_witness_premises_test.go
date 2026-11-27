@@ -118,3 +118,25 @@ func TestWitnessPremisesBatchReplacesPoppedBase(t *testing.T) {
 		t.Fatal("closed batch retained the premise index")
 	}
 }
+
+func TestSplitQueueWitnessBatchFallsBack(t *testing.T) {
+	c, s := orderSolver(t, verificationBenchmarkInput(t, "ivy_apple", "split-queue-11-6"))
+	m, err := c.Manager()
+	astTestMust(t, err)
+	forms, err := solver.Assertions(s.solver)
+	astTestMust(t, err)
+	for _, n := range []int{1, 35} {
+		p := orderProofState{source: s, expectedGoals: n}
+		proved, err := p.proveGoalInstances(m, forms, orderProofSteps, false)
+		astTestMust(t, err)
+		astTestMust(t, p.release())
+		if proved != (n == 1) {
+			t.Fatalf("batch of %d goals: private proof = %v", n, proved)
+		}
+	}
+	result, err := s.Check()
+	astTestMust(t, err)
+	if result != lbool.False {
+		t.Fatalf("concrete result = %v, want unsat", result)
+	}
+}

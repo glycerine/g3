@@ -96,3 +96,30 @@ func BenchmarkArithmeticWitnessAdmission(b *testing.B) {
 		})
 	}
 }
+
+// The wide private proof succeeds on batch 11 goal 6. A sibling batch can
+// leave the same obligation to its incremental solver. Time the private attempt.
+func BenchmarkSplitQueueWitnessSelection(b *testing.B) {
+	input := verificationBenchmarkInput(b, "ivy_apple", "split-queue-11-6")
+	for _, tc := range []struct {
+		name  string
+		goals int
+	}{{"Unsized", 0}, {"SiblingBatch", 35}} {
+		b.Run(tc.name, func(b *testing.B) {
+			ctx, s := orderSolver(b, input)
+			m, err := ctx.Manager()
+			astTestMust(b, err)
+			forms, err := solver.Assertions(s.solver)
+			astTestMust(b, err)
+			p := orderProofState{source: s, expectedGoals: tc.goals}
+			b.Cleanup(func() { astTestMust(b, p.release()) })
+			b.ReportAllocs()
+			for b.Loop() {
+				proved, err := p.proveGoalInstances(m, forms, orderProofSteps, false)
+				if err != nil || proved != (tc.goals == 0) {
+					b.Fatalf("private refutation = %v, error = %v", proved, err)
+				}
+			}
+		})
+	}
+}

@@ -38,13 +38,23 @@ func (p *orderProofState) proveGoalInstances(parent *ast.ASTManager, assertions 
 			return false, err
 		}
 		if small != nil {
+			wideSingleRound := witness.rounds == 1 && witness.width > 3
+			if wideSingleRound && p.expectedGoals > 1 {
+				// A sibling batch can reuse concrete search. Building a separate
+				// solver pays poorly when it would translate most of the base.
+				base := len(p.witnessPremises.rows)
+				selected := len(small.assertions) - 1 // exclude the temporary goal
+				if 4*(base-selected) < base {
+					return false, nil
+				}
+			}
 			yes, err := p.checkProofPlan(parent, small, min(maxSteps, 500_000))
 			if yes || err != nil || witness.selectedOnly {
 				return yes, err
 			}
 			// A wider, one-round plan would repeat the same tuple search
 			// on the full base. Leave an inconclusive goal to Check.
-			if witness.rounds == 1 && witness.width > 3 {
+			if wideSingleRound {
 				return false, nil
 			}
 		}
