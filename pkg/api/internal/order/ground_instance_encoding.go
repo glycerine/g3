@@ -163,7 +163,7 @@ func (p *GroundInstancePool) compileTerms() error {
 		}
 		list := p.group[t.symbol]
 		// Omitting later congruence pairs only weakens this private problem.
-		if len(list) >= 16 {
+		if len(list) >= 128 || !p.guardedCases && len(list) >= 16 {
 			continue
 		}
 		for _, o := range list {
@@ -174,6 +174,19 @@ func (p *GroundInstancePool) compileTerms() error {
 			other := g.arguments[ot.start : ot.start+ot.count]
 			if e := g.compiler.charge(1 + len(a)); e != nil {
 				return e
+			}
+			// For larger case projections, compare applications that differ in
+			// at most one argument. Dropping a pair weakens the relaxation.
+			if p.guardedCases {
+				differences := 0
+				for j, x := range a {
+					if x != other[j] {
+						differences++
+					}
+				}
+				if differences > 1 {
+					continue
+				}
 			}
 			same := int32(1)
 			for j, x := range a {

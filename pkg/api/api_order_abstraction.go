@@ -56,6 +56,7 @@ type orderProofState struct {
 	definitions        *premiseDefinitions
 	enumeration        *enumerationRefutation
 	instances          *groundInstanceSolver
+	guardedCases       *groundInstanceSolver
 	expectedGoals      int
 	previousGoalProved bool
 	// Count the opening proof attempts up to the point where a case split is allowed.
@@ -177,6 +178,13 @@ func (b *OrderProofBatch) Close() error {
 			b.state.instances = nil
 		}
 	}
+	if b.state.guardedCases != nil {
+		e := b.state.guardedCases.close()
+		err = errors.Join(err, e)
+		if e == nil {
+			b.state.guardedCases = nil
+		}
+	}
 	b.state.transitionPremises = order.TransitionPremises{}
 	b.state.quantifiedPremises = order.QuantifiedPremises{}
 	b.state.groundPremises = order.GroundPremises{}
@@ -283,7 +291,7 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 	if !proved && err == nil && goal.IsNull() && reuse && p.expectedGoals >= 24 &&
 		len(assertions) > 1 && !limit.CancelFlag() && !ast.ASTValidateHandles &&
 		p.plans.reusable(parent) && hasOriginalAssertions(s.solver) {
-		return provePredicateAgreement(s, parent, assertions, maxSteps)
+		return p.proveGuardedGoal(parent, assertions, maxSteps)
 	}
 	return proved, err
 }

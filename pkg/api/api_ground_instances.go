@@ -43,6 +43,7 @@ type groundInstanceMode uint8
 const (
 	groundInstanceSearch groundInstanceMode = iota
 	predicateAgreementSearch
+	guardedCaseSearch
 	observedUnits
 	observedSplits
 )
@@ -112,6 +113,8 @@ func (s *groundInstanceSolver) proveInstances(src *APISimpleSolver, m *ast.ASTMa
 	var q *order.GroundInstanceQuery
 	if observed {
 		q, err = s.pool.ProjectObserved(goal, steps, limit)
+	} else if mode == guardedCaseSearch {
+		q, err = s.pool.ProjectGuardedCases(goal, steps, limit)
 	} else {
 		q, err = s.pool.Project(goal, steps, minRules, limit)
 	}

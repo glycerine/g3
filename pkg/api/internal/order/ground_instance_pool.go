@@ -19,6 +19,7 @@ type GroundInstancePool struct {
 	rules                     []flatUniversalRule
 	facts                     []ast.ASTHandle
 	indexed, loaded, disabled bool
+	guardedCases              bool
 	installed                 map[[8]ast.ASTHandle]bool
 	instances                 map[groundRuleInstance]bool
 	groundBoolEncoding
@@ -267,7 +268,7 @@ func (p *GroundInstancePool) root(h ast.ASTHandle) (uint32, error) {
 	return p.g.ground(id, 0)
 }
 
-// Use up to three observed constants of each sort and 32 tuples per rule.
+// The ordinary projection uses up to three constants per sort and 32 tuples per rule.
 // Each installed tuple is a source consequence independently of how many
 // other tuples or domain elements the source model contains.
 func (p *GroundInstancePool) join(k [8]ast.ASTHandle, n int) error {
@@ -286,9 +287,13 @@ func (p *GroundInstancePool) join(k [8]ast.ASTHandle, n int) error {
 			if st.IsNull() {
 				return inapplicable
 			}
-			if len(by[st]) < 3 {
+			if p.guardedCases || len(by[st]) < 3 {
 				by[st] = append(by[st], id)
 			}
+		}
+		tupleLimit := 32
+		if p.guardedCases {
+			tupleLimit = 256
 		}
 		for id, r := range p.rules {
 			var sets [4][]uint32
@@ -304,7 +309,7 @@ func (p *GroundInstancePool) join(k [8]ast.ASTHandle, n int) error {
 				return e
 			}
 			var root uint32
-			for j := 0; j < min(comb, 32); j++ {
+			for j := 0; j < min(comb, tupleLimit); j++ {
 				key := groundRuleInstance{id: id}
 				off := j
 				for x := r.n - 1; x >= 0; x-- {
@@ -359,6 +364,13 @@ func (p *GroundInstancePool) loadFacts() error {
 // minimum number of eligible universal rules that justifies starting a pool.
 func (p *GroundInstancePool) Project(goal ast.ASTHandle, steps uint32, minRules int, limit *control.Reslimit) (*GroundInstanceQuery, error) {
 	return p.project(goal, steps, minRules, false, limit)
+}
+
+// ProjectGuardedCases adds witnesses from binary relation facts to a dedicated
+// batch pool. Any subset of the resulting universal instances is sound.
+func (p *GroundInstancePool) ProjectGuardedCases(goal ast.ASTHandle, steps uint32, limit *control.Reslimit) (*GroundInstanceQuery, error) {
+	p.guardedCases = true
+	return p.project(goal, steps, 1, false, limit)
 }
 
 // ProjectObserved uses matches on uninterpreted applications when the
@@ -426,6 +438,12 @@ func (p *GroundInstancePool) project(goal ast.ASTHandle, steps uint32, minRules 
 		return nil, err
 	}
 	if !observed {
+		if p.guardedCases {
+			key, n, err = p.relationWitnesses(key, n, limit)
+			if err != nil {
+				return nil, err
+			}
+		}
 		if err := p.join(key, n); err != nil {
 			return nil, err
 		}
