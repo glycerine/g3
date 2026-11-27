@@ -8036,3 +8036,41 @@ We also tried replacing bindings before building their parents, then applying th
 A separate Go overlay used one validated node read to answer both the substitution-miss question and the rewriter’s subsequent node-shape question. It checked manager identity, handle lifetime and the cached substitution table generation. In nine same-build-flag CLI pairs it saved **0.62%, 0.63% and 0.44%** of instructions on Ticket 127, Ticket 290 and Toy consensus 18. All outcomes, decisions, conflicts, quantifier instances and resource counts matched.
 
 Nine rotating complete normal-GC pairs on each of CPUs 14 and 11 gave Ticket elapsed changes of **+2.01% and −0.09%**. Hybrid elapsed changed −1.34% and +0.12%, ARM −1.45% and −0.18%, and FBA −0.32% and −0.53%. The trial stays in the study archive. The next measurement is the price of constructing the raw variable-dependent applications that lead to changed cache hits, plus the cost of lookup and result propagation. Keep those intervals disjoint and compare against the same native instances before investing in a fused traversal. [Observers, prototypes, all 820 input/output trees, paired counters and verifier runs](perf/ivy_apple/holdouts/nov27-ticket-instance-cost.tar.xz)
+
+## November 27 — Pricing Ticket cache hits and Boolean reductions
+
+Constructing, looking up and publishing the 570 changed cache hits explains **0.212M of the 54.80M excess instructions** on Ticket batch 7, goal 1. All 820 per-instance sequences matched the in-tree C++ control on constructor count, matched key constructions, cache probes and hits. Of the 262 instances that consumed a changed cache hit, only 94 constructed any applications during variable substitution. The others already had their raw bodies. Hash-consing calls count as construction even when they return an existing AST.
+
+| Operation | Calls per engine | g3 instructions | Native instructions | Excess |
+| --- | ---: | ---: | ---: | ---: |
+| All application constructors during substitution | 2,667 | 2,988,211 | 1,434,538 | 1,553,673 |
+| Constructors whose returned handle later supplied a changed cache hit in the same instance | 191 | 149,368 | 95,403 | 53,965 |
+| Read a cached result that differs from its key | 570 | 118,852 | 15,099 | 103,753 |
+| Push that result and mark the parent frame | 570 | 80,940 | 26,220 | 54,720 |
+| All first-visit cache probes | 5,490 | 1,113,730 | 149,961 | 963,769 |
+
+The last row comes from a separate observer and includes the changed-hit reads. Both engines hit 3,505 times. The constructor subset is included in the first row. The observer joined constructor returns to subsequent cache keys by live handle or pointer within each instance and charged each matching construction once. Publication ends when the visit installs the cached result on its stack. Later work in the parent frame has its own cost. Each figure is a median of five complete, alternating, CPU-pinned, GC-off runs with a calibrated user-instruction counter. All reference exit codes and both output streams matched. Call counts and costs cover this one goal.
+
+Across 3,796 nonconstant application reductions on the same goal, five further pairs measured 4.52M g3 instructions and 0.90M native. The expensive operators differ from the most frequent ones.
+
+| Operator | Calls per engine | g3 | Native | Excess |
+| --- | ---: | ---: | ---: | ---: |
+| Equality and Boolean equivalence | 519 | 1.293M | 0.148M | 1.145M |
+| If-then-else | 448 | 1.139M | 0.115M | 1.024M |
+| Disjunction | 955 | 1.265M | 0.470M | 0.796M |
+| Negation | 801 | 0.515M | 0.111M | 0.404M |
+| Uninterpreted application | 1,073 | 0.311M | 0.060M | 0.250M |
+
+On the 3,751 ordinary failed-reduction frame completions, releasing the child results took 0.499M / 0.168M instructions (g3 / native), acquiring the result 0.266M / 0.154M, conditionally caching the frame result 1.134M / 0.351M, and clearing the temporary result register 0.296M / 0.056M. These windows measure individual operations inside application frames. They exclude child traversal and frame scheduling. The two engines agreed within each instance on all five operator counts and on the number of these completions.
+
+### Three uninstrumented trials
+
+- A direct activity-cache read saved 0.31–0.41% of instructions on three incremental CLI replays. Complete normal-GC Ticket elapsed improved 0.80%, while hybrid and FBA elapsed rose 0.25% and 0.38%. The upper bound from all first-visit reads is small on the matched goal.
+- Reading equality operands once, checking one-bit equality shapes with one AST identity query, and deferring optional nested ITE checks saved 0.216M of the 18.40M instructions inside the goal’s instance rewrites. In nine paired normal-GC runs complete Ticket elapsed rose 2.36%. Hybrid and ARM also took longer.
+- Recognizing distinct uninterpreted application handles in the Boolean equality and ITE rules lowered the existing equivalence benchmark from **196.7 to 72.55 ns** and uninterpreted equality from **157.3 to 92.29 ns**, with zero allocations. Different handles alone never establish disequality. The trial returns the rewriter’s unchanged status. On the matched goal, instance rewriting fell from 18.406M to 17.940M instructions. Across nine complete normal-GC verifier pairs on each of CPUs 11 and 14, Ticket elapsed changed −0.21% and +0.88%, hybrid +1.16% and +0.14%, ARM +0.07% and −0.61%, and FBA −0.41% and −0.23%. Both reducer trials passed the rewriter suite.
+
+All three overlays remain experimental. Every timed CLI pair preserved the verdict, decisions, conflicts, instantiations and resource counts. The isolated reducer gains supplied little of the whole-verifier time.
+
+### Larger opportunity across the complete Ticket run
+
+Reclassifying the previous five-rotation full-stage records by whether the *same* goal subsequently reached a concrete check identifies **nine early proof attempts that fell through**, one in each of nine batches. Their median combined cost was **109.75M instructions**. Another 32 early attempts proved the obligation for 35.77M combined. The nine failures represent 75.4% of the measured early-stage cost. Eliminating the entire early stage previously regressed the Apple holdouts. Measure the stages of these nine misses against successful early proofs in Ticket, Raft and Apple. In particular, distinguish eligibility checks, building the private problem, private search, and releasing an unsuccessful attempt. This can establish whether a general, solver-local rejection test has enough time to pay for itself. The 109.75M is an upper bound on the full Ticket opportunity from these misses, independent of the smaller cache and reducer costs on one check. [Measurement code, trials, per-instance counters and complete verifier controls](perf/ivy_apple/holdouts/nov27-ticket-cache-prices.tar.xz)
