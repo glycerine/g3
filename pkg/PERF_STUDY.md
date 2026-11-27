@@ -8966,3 +8966,37 @@ The earlier 36-input survey ranked hybrid, test/flash2 and CAV 2024 examp5 highe
 The columns come from successively finer probes. Construction and parameter handling sit inside other calls, so adding all columns would double count. Across the three inputs, searching the private solver cost 283.1M instructions. Translating the selected roots cost 29.3M. The solver factory cost 114.0M during cold initialization. Once cold setup was charged separately, asserting the translated roots cost just 6.7–8.0M per input. The private batch reuses an AST manager across plans but resets the child solver after each plan. Its first assertion calls the solver factory and validates and applies the handle's explicit parameters.
 
 We also recorded each plan’s ordered source roots, with origin, slot and generation, across complete private-manager lifetimes. Of 58 adjacent short-plan pairs in the same manager, only two had any common prefix. They shared three roots in total. Hybrid had zero across 28 adjacent pairs. All three transcripts matched. A reusable ordered premise prefix offers little here. The next experiment is to break the 114M factory instructions down by constructor and measure how much of each constructed solver is used before reset. The 283M spent in private search is the larger target. Attribute it by plan and by SAT, UNSAT or budget exhaustion before changing search scheduling. [Private context lifecycle](api/api_proof_plan_context.go) · [Per-attempt counters and exact sources](perf/ivy_apple/holdouts/nov27-live-instance-frame-cost.tar.xz)
+
+## November 27 — Private proof budgets and the first global parameter lookup
+
+The 123 private SMT checks reached during early proofs on four complete verifiers returned 50 SAT, 16 UNSAT and 57 unknown. Every unknown reported incomplete quantifiers. **Zero checks exhausted their allowance.** The observer recorded resource steps immediately before and after the child check, the effective limit, the actual return value and unknown reason. Three GC-off runs reproduced each input's per-plan sequence and reference transcript. The table includes checks inside successful and unsuccessful early attempts. Other private strategies can finish without calling this solver.
+
+| Input | SAT / unknown / UNSAT | SAT instructions (M) | Unknown instructions (M) | UNSAT instructions (M) |
+|---|---:|---:|---:|---:|
+| Hybrid reliable broadcast | 10 / 30 / 8 | 15.57 | 85.24 | 27.46 |
+| test/flash2 | 21 / 11 / 2 | 34.10 | 60.80 | 7.51 |
+| CAV examp5 | 15 / 12 / 4 | 34.02 | 61.25 | 33.01 |
+| POPL18 Ticket | 4 / 4 / 2 | 4.45 | 11.78 | 5.83 |
+
+We tested reducing the 6,000-step definition-plan allowance to 256 or 512. All three releases matched all 228 reference transcripts. Across seven normal-GC pairs on each of six inputs, 256 saved 0.60–1.77% of whole-verifier instructions. Nine follow-up triples on outliers exposed a genuine lost proof. On CAV examp1 the original solver had used 220 steps by the time search started and finished UNSAT at step 526. The 256-step variant stopped at step 257, then spent a further 1.46M instructions on a satisfiable secondary plan and sent the goal to the concrete solver. The 256 and 512 variants increased complete examp1 instructions by 3.47% and 3.57%. Both reproduced the Raft and Apple proof transcripts in three rotations. Keep the original allowance. A blanket reduction penalizes this cheap successful proof.
+
+### Why private solver construction reads the whole parameter catalog
+
+During failed early attempts, the cold solver factory spent 21.48M instructions constructing SMT parameters on hybrid, 27.95M on test/flash2 and 22.64M on examp5. A finer probe measured **20.01M, 26.61M and 21.63M** in the global `auto_config` read inside parameter updates during construction. These numbers come from separate instrumented builds. The first default lookup invokes the catalog dispatcher, which populates descriptors for the global options and 19 modules. A private manager can pay this cost even when it only needs the default of one option. The C++ source uses process-wide global parameters. g3 gives the private context its own registry.
+
+A diagnostic build returned the built-in default on that first lookup in the private prover when the option was absent and its catalog was still unregistered. Seven paired release runs per input saved 0.13–1.87% of instructions on six verifiers. The experiment changes when descriptor registration, symbol interning and potential allocation failures occur. It remains an estimate of the opportunity. A production design would need to preserve user-configured defaults and observable initialization behavior. The existing complete-catalog metadata and fault-injection tests provide controls.
+
+### Parameter descriptor dictionary
+
+Commit `2214ce42a` improves an ordinary lookup without changing when g3 registers descriptors. For names in the same manager, the old hash put the varying symbol ID in the high 32 bits. The dictionary selects its initial bucket with a low-bit mask, so every ordinary name started in the same bucket at the measured sizes. Its probing sequence eventually used the high bits and found the correct name. Mixing the symbol ID and tag before indexing distributes the starting positions. Keys still use full symbol equality, incoming keys still undergo owner validation, and the insertion-ordered dictionary preserves iteration order.
+
+| Benchmark | Original | New hash |
+|---|---:|---:|
+| Lookup among 32 names | 51.54 ns | 40.50 ns |
+| Lookup among 512 names | 53.50 ns | 41.44 ns |
+| Lookup among 4,096 names | 59.04 ns | 42.85 ns |
+| First global default lookup, including registry creation and close | 198.03 µs | 186.88 µs |
+
+Each entry is the median of nine alternating runs pinned to one CPU. The first three used 500,000 lookups per sample, with zero allocations. The last used 60 fresh registries sharing a warm symbol manager and catalog. Each used 421 allocations per operation on both builds. A separate insertion prototype removed a repeated symbol check on the freshly interned path. First lookup went from 181.15 to 175.95 µs in that series. It is archived pending end-to-end and lifetime validation.
+
+The release passed the parameter, API and SMT suites, the checked/debug/trace parameter suite and the 228-input verifier transcript screen. Three complete rotations also matched Raft, Apple rfn2 and dramc_nb2. Their median paired instruction changes were −0.13%, +0.26% and +0.06%. In five rotated original/release/native triples, median paired whole-verifier instructions changed by −0.62% to +0.87% across six inputs. On hybrid the released g3 took 1,125 ms versus 828 ms for linked Z3. On Ticket it took 425 ms versus 234 ms. The lookup speedup is repeatable in the component benchmark. The complete verifier measurements still leave a substantial gap. [Parameter lookup benchmarks](util/params/util_param_descrs_benchmark_test.go) · [Observers, trials, release panels and raw samples](perf/ivy_apple/holdouts/nov27-private-budget-and-parameter-catalog.tar.xz)
