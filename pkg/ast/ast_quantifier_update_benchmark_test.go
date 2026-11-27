@@ -71,3 +71,33 @@ func benchmarkASTQuantifier(b *testing.B, update bool) {
 		})
 	}
 }
+
+func BenchmarkASTQuantifierChildren(b *testing.B) {
+	m := astTestManager(b)
+	boolean, err := m.MkBoolSort()
+	astTestMust(b, err)
+	body, err := m.MkVar(0, boolean)
+	astTestMust(b, err)
+	q, err := m.MkQuantifier(ASTQuantifierSpec{Forall: true, Sorts: []ASTHandle{boolean}, Names: []usymbol.Symbol{astTestSymbol(b, m, "x")}, Body: body})
+	astTestMust(b, err)
+	astTestPin(b, m, q)
+	b.Run("Separate", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			d, e1 := m.GetNumDeclarations(q)
+			p, e2 := m.GetNumPatterns(q)
+			n, e3 := m.GetNumNoPatterns(q)
+			h, e4 := m.GetQuantifierBody(q)
+			if d != 1 || p != 0 || n != 0 || h != body || e1 != nil || e2 != nil || e3 != nil || e4 != nil {
+				b.Fatal("invalid quantifier children")
+			}
+		}
+	})
+	b.Run("Together", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			h, d, p, n, err := m.QuantifierChildren(q)
+			if d != 1 || p != 0 || n != 0 || h != body || err != nil {
+				b.Fatal("invalid quantifier children", err)
+			}
+		}
+	})
+}

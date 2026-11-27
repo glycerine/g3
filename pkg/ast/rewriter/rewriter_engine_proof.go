@@ -253,19 +253,7 @@ func (r *rewriterEngine) processQuantifierProof() (err error) {
 	fi := len(c.frames) - 1
 	fr := c.frames[fi]
 	q := fr.curr
-	nd, e := m.GetNumDeclarations(q)
-	if e != nil {
-		return e
-	}
-	np, e := m.GetNumPatterns(q)
-	if e != nil {
-		return e
-	}
-	nn, e := m.GetNumNoPatterns(q)
-	if e != nil {
-		return e
-	}
-	body, e := m.GetQuantifierBody(q)
+	body, nd, np, nn, e := m.QuantifierChildren(q)
 	if e != nil {
 		return e
 	}

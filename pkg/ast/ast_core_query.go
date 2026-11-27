@@ -133,6 +133,16 @@ func (m *ASTManager) GetQuantifierBody(h ASTHandle) (ASTHandle, error) {
 	}
 	return m.external(m.quantifierAt(r.slot).body), nil
 }
+
+// QuantifierChildren reads the immutable body and child counts for one traversal frame.
+func (m *ASTManager) QuantifierChildren(h ASTHandle) (body ASTHandle, declarations, patterns, noPatterns uint32, err error) {
+	r, err := m.readKind(h, ASTQuantifier)
+	if err != nil {
+		return ASTHandle{}, 0, 0, 0, err
+	}
+	q := m.quantifierAt(r.slot)
+	return m.external(q.body), q.count, q.patternCount, q.noPatternCount, nil
+}
 func (m *ASTManager) GetNumDeclarations(h ASTHandle) (uint32, error) {
 	r, e := m.readKind(h, ASTQuantifier)
 	if e != nil {
