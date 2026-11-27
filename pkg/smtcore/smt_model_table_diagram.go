@@ -182,9 +182,9 @@ func (d *tableDiagram) evaluate(id int, bindings []int, memo map[int]int, depth 
 	var result int
 	switch term.op {
 	case tableConstant:
-		result = -term.index
+		result = -int(term.index)
 	case tableVariable:
-		if term.index >= len(bindings) || d.resultSort(bindings[term.index]) != term.sort {
+		if uint64(term.index) >= uint64(len(bindings)) || d.resultSort(bindings[term.index]) != term.sort {
 			d.stopped = true
 			return 0
 		}

@@ -20,6 +20,7 @@ type tableModel struct {
 	valueIDs    map[ast.ASTHandle]int
 	enumDecls   map[ast.ASTHandle][]ast.ASTHandle
 	bySort      map[ast.ASTHandle][]int
+	arguments   []int
 	terms       []tableTerm
 	termIDs     map[ast.ASTHandle]int
 	functions   []tableFunction
@@ -30,7 +31,7 @@ type tableModel struct {
 
 type tableTerm struct {
 	op    int32
-	index int
+	index uint32
 	sort  ast.ASTHandle
 	args  []int
 }
@@ -191,7 +192,7 @@ func (g *tableModel) compile(term ast.ASTHandle, depth int) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		n.op, n.index = tableVariable, int(index)
+		n.op, n.index = tableVariable, index
 	case ast.ASTApp:
 		if header.NumArgs > 80 {
 			g.incomplete = true
@@ -218,7 +219,7 @@ func (g *tableModel) compile(term ast.ASTHandle, depth int) (int, error) {
 					g.incomplete = true
 					return 0, nil
 				}
-				n.op, n.index = tableConstant, id
+				n.op, n.index = tableConstant, uint32(id)
 				break
 			}
 		}
@@ -234,11 +235,11 @@ func (g *tableModel) compile(term ast.ASTHandle, depth int) (int, error) {
 				g.incomplete = true
 				return 0, nil
 			}
-			n.index, err = g.function(header.Decl, header.NumArgs, depth+1)
+			index, err := g.function(header.Decl, header.NumArgs, depth+1)
 			if err != nil || g.incomplete {
 				return 0, err
 			}
-			n.op = tableApplication
+			n.op, n.index = tableApplication, uint32(index)
 		default:
 			if !tableIntegerOperator(header.DeclKind, header.NumArgs) {
 				g.incomplete = true
@@ -249,19 +250,25 @@ func (g *tableModel) compile(term ast.ASTHandle, depth int) (int, error) {
 				g.incomplete = true
 				return 0, err
 			}
-			n.op, n.index = tableArithmetic, int(header.DeclKind)
+			n.op, n.index = tableArithmetic, uint32(header.DeclKind)
 		}
-		n.args = make([]int, header.NumArgs)
-		for i := range n.args {
+		// Child compilation may grow the operand buffer. Resolve the slice
+		// after recursion so every slot comes from the completed buffer.
+		start := len(g.arguments)
+		end := start + int(header.NumArgs)
+		g.arguments = append(g.arguments, make([]int, header.NumArgs)...)
+		for i := 0; i < int(header.NumArgs); i++ {
 			arg, err := g.manager.GetArg(term, uint32(i))
 			if err != nil {
 				return 0, err
 			}
-			n.args[i], err = g.compile(arg, depth+1)
+			child, err := g.compile(arg, depth+1)
 			if err != nil || g.incomplete {
 				return 0, err
 			}
+			g.arguments[start+i] = child
 		}
+		n.args = g.arguments[start:end:end]
 	default:
 		g.incomplete = true
 		return 0, nil
@@ -388,6 +395,11 @@ func (g *tableModel) clearModel() {
 	if cap(g.terms) > 128 || cap(g.values) > 128 || cap(g.functions) > 16 {
 		*g = tableModel{}
 		return
+	}
+	if cap(g.arguments) > 512 {
+		g.arguments = nil
+	} else {
+		g.arguments = g.arguments[:0]
 	}
 	g.manager = nil
 	g.model = nil

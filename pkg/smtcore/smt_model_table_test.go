@@ -358,3 +358,33 @@ func TestModelTablesWithUnrelatedArithmetic(t *testing.T) {
 		}
 	}
 }
+
+func TestTableCompilationPreservesOperandsAcrossGrowth(t *testing.T) {
+	m, _, md, _, _ := smtAuxiliaryQueryFixture(t, false)
+	f := tableTest{t, m, md}
+	boolean := f.term(m.MkBoolSort())
+	var vars, negated []ast.ASTHandle
+	for i := uint32(0); i < 32; i++ {
+		v := f.term(m.MkVar(i, boolean))
+		vars = append(vars, v)
+		negated = append(negated, f.term(m.MkNot(v)))
+	}
+	root := f.term(m.MkAndArgs(negated))
+	g := tableModel{manager: m, model: md, work: 6000, terms: []tableTerm{{}}, termIDs: make(map[ast.ASTHandle]int)}
+	id, err := g.compile(root, 0)
+	astTestMust(t, err)
+	if g.incomplete || len(g.terms[id].args) != len(vars) {
+		t.Fatalf("compiled root has %d operands, incomplete %v", len(g.terms[id].args), g.incomplete)
+	}
+	for i, arg := range g.terms[id].args {
+		if arg != g.termIDs[negated[i]] || !slices.Equal(g.terms[arg].args, []int{g.termIDs[vars[i]]}) {
+			t.Fatalf("operand %d lost its compiled subtree", i)
+		}
+	}
+	v := f.term(m.MkVar(^uint32(0), boolean))
+	id, err = g.compile(v, 0)
+	astTestMust(t, err)
+	if g.incomplete || g.evaluate(id, []int{tableTrue}, 0) != 0 || !g.incomplete {
+		t.Fatal("expected an unbound variable to stop evaluation")
+	}
+}

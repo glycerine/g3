@@ -25,7 +25,7 @@ func (g *tableModel) evaluate(id int, bindings []int, depth int) int {
 	eval := func(i int) int { return g.evaluate(term.args[i], bindings, depth+1) }
 	switch term.op {
 	case tableVariable:
-		if term.index >= len(bindings) {
+		if uint64(term.index) >= uint64(len(bindings)) {
 			g.incomplete = true
 			return 0
 		}
@@ -36,7 +36,7 @@ func (g *tableModel) evaluate(id int, bindings []int, depth int) int {
 		}
 		return value
 	case tableConstant:
-		return term.index
+		return int(term.index)
 	case ast.ASTOpNot:
 		return tableBool(eval(0) == tableFalse)
 	case ast.ASTOpAnd, ast.ASTOpOr:
