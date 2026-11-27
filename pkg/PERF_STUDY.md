@@ -9343,3 +9343,41 @@ Five GC-off runs measured the actual incremental check windows. The ordinary-g3 
 | 2/30 | 33.70M | 10.67M | 2.95M |
 
 Four saved inputs also ran independently in both CLIs, fresh and with a push before asserting the goal. All 48 runs returned UNSAT. On incremental 2/25 and 2/30 the solvers matched decisions, conflicts, quantifier instances and resource steps exactly. Each took zero decisions and one conflict, with four and ten instances respectively. The direct CLI results include process startup and do not measure the live private-proof overhead. The next investigation can now use 2/25 and 2/30 to price unproductive private attempts, and ordinary g3 to identify the extra cost of preparing and rewriting the same arithmetic terms across the other checks. [Trace comparisons, experiment sources, solver inputs and per-round counters](perf/ivy_apple/holdouts/nov27-ticket-decisions-and-arithmetic.tar.xz)
+
+### Arithmetic witness searches on number theory and gcd2
+
+Commit `aa0392774` lets the incremental solver handle a quantified goal when the private witness planner finds only positive universals in one eligible arithmetic domain. In that case the query supplies no counterexample witness to guide the one-round tuple search. This is a performance heuristic. An ordinary check still proves or refutes the original goal. Mixed eligible domains and quantifiers supplying a counterexample witness retain the existing search.
+
+Across the 228 historical verifiers, 120 private witness plans actually ran. All ten single-domain arithmetic attempts missed. The two related specifications share the measured inputs, so these are five distinct attempts repeated twice. All 61 successful witness refutations used other sorts. On number theory, check 2/3 ran one full attempt. Checks 2/25 and 2/30 each ran a selected and a full attempt. Both approximations returned SAT even though the original query was UNSAT. Their combined costs were about 18.75M and 22.60M solver-thread instructions. Benchmarking the admission call on saved 2/25 and 2/30 dropped allocation from 3.01 and 3.16 MB to 632 and 728 bytes per call. The Apple and Raft witness benchmarks preserved their expected proof counts. [Captured-query benchmark](api/api_witness_instances_benchmark_test.go)
+
+| Complete verifier, nine rotated runs | Old g3 | Skip repeated one-round attempt only | Retained g3 | Linked Z3 |
+|---|---:|---:|---:|---:|
+| Number theory, median instructions | 836.39M | 810.31M | 764.88M | 509.97M |
+| Number theory, median elapsed | 148.31 ms | 143.24 ms | 130.72 ms | 95.97 ms |
+| gcd2, median instructions | 819.39M | 788.37M | 740.53M | 504.10M |
+| gcd2, median elapsed | 139.90 ms | 138.03 ms | 127.17 ms | 94.35 ms |
+
+Five pinned GC-off runs put number theory's 2/3, 2/25 and 2/30 checks at 5.86M, 6.16M and 10.74M instructions, versus 1.64M, 1.70M and 2.95M native. Neighboring 2/22 stayed at 26.71M versus 7.91M. All check windows together fell from 354.03M to 299.26M on number theory and from 337.23M to 282.55M on gcd2. A broader domain filter gave similar complete results in seven pairs. We kept the narrower rule because the measurements only implicate the unopposed universals.
+
+All 228 release transcripts matched linked Z3, including stdout, stderr and exit status. Ordinary Raft, Apple rfn2 and Apple dramc_nb2 also matched in three release pairs each. The 114-package Go suite passed, as did checked/debug/trace witness tests and API vet. The benchmark driver uses the historical compatible Apple frontend for its long holdouts. [Measurements and experiments](perf/ivy_apple/holdouts/nov27-arithmetic-witness-and-bounds.tar.xz)
+
+### Recognizing integer bounds that are already in normal form
+
+For `x <= n` or `f(x) >= n`, an uninterpreted integer term has coefficient one, and a small integer bound on the right has no variable to cancel. The old reducer tested powers, built the two monomial lists, looked for shared products and tried several further rules before returning the original expression. Commit `f9bb2d021` identifies this case before polynomial reduction. Strict inequalities still go through negation. The signed 32-bit minimum goes through ordinary cancellation because negating it can allocate a larger numeral. This optimization applies inside quantified bodies as well as to ground terms.
+
+Five benchmark samples put a bound on an integer variable at **1,151 → 86 ns** and one on an uninterpreted constant at **1,219 → 103 ns**. Both went from two allocations to zero. The strict comparison control used zero allocations throughout. Three weaker experiments also reduced instruction counts on the target checks. Combining AST identity reads saved about 6–7M instructions over all the checks in each verifier, using stack storage for singleton monomials saved another 1M, and exiting only the cancellation routine for atomic operands saved about 4M on its own. Recognizing the normal form at comparison entry saved **26–27M**. Only the comparison-entry change was retained. [Reducer and monomial benchmarks](ast/rewriter/arith_polynomial_benchmark_test.go)
+
+| Complete verifier, eleven rotated runs | Starting g3 | Witness change | Both changes | Linked Z3 |
+|---|---:|---:|---:|---:|
+| Number theory, median instructions | 838.05M | 767.94M | **737.28M** | 512.60M |
+| Number theory, median elapsed | 171.36 ms | 136.39 ms | **130.09 ms** | 101.29 ms |
+| gcd2, median instructions | 814.14M | 739.03M | **711.15M** | 504.88M |
+| gcd2, median elapsed | 140.91 ms | 127.52 ms | **123.97 ms** | 96.48 ms |
+
+The combined changes saved **12.0% and 12.7% of complete instructions**. In a second seven-pair run on another CPU, the comparison shortcut alone saved 3.95% and 4.25%. Results outside arithmetic were mixed. In nine pairs the shortcut moved instructions by −0.40% on Hybrid, +0.25% on POPL18 Ticket, +0.46% on ARM and −0.06% on liveness Ticket. Hybrid took 7.3% longer in that concurrent timing panel and 0.08% longer in the repeat, which measured +0.17% instructions. These controls establish no elapsed improvement on Hybrid.
+
+All 228 final release transcripts and three complete pairs each on Raft and the two Apple isolates matched the native reference. The rewriter, SMT core and API suites passed against the combined changes. The checked/debug/trace arithmetic tests and rewriter vet passed. The original and new CLIs produced identical simplifications for 474 comparisons in four option settings, including reversed operands, powers of two at the integer representation boundary, Real rationals, coercions, modulus and strict inequalities. Four captured queries retained identical decisions, conflicts, quantifier instances and resource counts in fresh and incremental g3 replay.
+
+**Where time remains.** Five GC-off runs put all number-theory check windows at **272.67M versus 80.37M** native. On 2/25 the original 25.34M is now 5.25M versus 1.70M. On 2/30 the original 33.70M is now 9.78M versus 2.95M. Three whole-process profiles put inclusive comparison rewriting at roughly 34M and 28M instructions for the two specifications, down from 71M and 63M. On number theory, pending assertion internalization still accounted for about 176M, including 142M in reduction and 52M in macro discovery. Native pending assertion internalization sampled about 48M. These are overlapping stack estimates.
+
+The largest remaining number-theory check gaps are 2/39 (24.77M versus 6.28M) and 2/22 (26.23M versus 7.91M). Across 96 fresh and incremental CLI runs on eight captures, both engines returned UNSAT throughout. On incremental number-theory 2/39 they matched seven decisions, six conflicts and one quantifier instance, but g3 charged **9,863** resource steps versus **7,169** native. On 2/22 the counts were 3/2/0 in both engines and 2,950 versus 2,617 steps. The next comparison should count assertion rewrites, macro expansion and nonlinear arithmetic theory calls in those windows. The same goal index in gcd2 can be a different obligation. Its 2/39 takes zero decisions, one conflict and 1,222 steps in both engines. [Per-goal counts, captures, profiles, validation and prototype sources](perf/ivy_apple/holdouts/nov27-arithmetic-witness-and-bounds.tar.xz)
