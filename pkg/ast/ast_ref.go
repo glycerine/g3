@@ -22,14 +22,11 @@ func (m *ASTManager) allocateReference() (ASTRef, error) {
 	for m.freeReference != 0 {
 		slot := m.freeReference
 		r := m.referenceAt(slot)
-		m.freeReference = r.nextFree
 		if r.generation == math.MaxUint32 {
+			m.freeReference = r.nextFree
 			continue
 		}
-		gen := r.generation + 1
-		*r = astRefRecord{generation: gen, live: true}
-		m.liveReferences++
-		return ASTRef{m.origin, slot, gen}, nil
+		return m.reuseReference(slot, r, astNodeRef{}), nil
 	}
 	if m.nextReference == math.MaxUint32 {
 		return ASTRef{}, arena.ErrBounds
@@ -43,6 +40,14 @@ func (m *ASTManager) allocateReference() (ASTRef, error) {
 	m.liveReferences++
 	return ASTRef{m.origin, slot, 1}, nil
 }
+
+// reuseReference publishes the first free slot with its next generation.
+func (m *ASTManager) reuseReference(slot uint32, r *astRefRecord, node astNodeRef) ASTRef {
+	m.freeReference = r.nextFree
+	*r = astRefRecord{generation: r.generation + 1, live: true, node: node, owned: node.slot != 0}
+	m.liveReferences++
+	return ASTRef{m.origin, slot, r.generation}
+}
 func (m *ASTManager) releaseReferenceRecord(ref ASTRef) {
 	r := m.referenceAt(ref.slot)
 	r.live = false
@@ -54,6 +59,24 @@ func (m *ASTManager) releaseReferenceRecord(ref ASTRef) {
 	m.liveReferences--
 }
 func (m *ASTManager) NewRef(h ASTHandle) (ASTRef, error) {
+	// Recycling a slot requires no allocation and cannot invoke a manager callback.
+	if !astValidateHandles && !ASTSourceDebug && m != nil && m.freeReference != 0 && m.lockFree() {
+		slot := m.freeReference
+		r := m.referenceAt(slot)
+		if r.generation != math.MaxUint32 {
+			var node astNodeRef
+			if !h.IsNull() {
+				var err error
+				node, err = m.internal(h)
+				if err != nil {
+					return ASTRef{}, err
+				}
+				m.nodeAt(node.slot).rc++
+			}
+			return m.reuseReference(slot, r, node), nil
+		}
+	}
+
 	if e := m.lock(); e != nil {
 		return ASTRef{}, e
 	}
@@ -259,11 +282,40 @@ func (m *ASTManager) drainRefPending(r *astRefRecord) error {
 	return failure
 }
 func (m *ASTManager) DelRef(ref *ASTRef) error {
+	if !astValidateHandles && !ASTSourceDebug && m != nil && ref != nil && m.lockFree() {
+		r, err := m.reference(*ref)
+		if err != nil {
+			return err
+		}
+		if len(r.pending) == 0 && m.releaseSurvivingReference(r) {
+			m.releaseReferenceRecord(*ref)
+			*ref = ASTRef{}
+			return nil
+		}
+	}
+
 	if e := m.lock(); e != nil {
 		return e
 	}
 	defer m.mu.Unlock()
 	return m.delRef(ref)
+}
+
+// releaseSurvivingReference consumes the ordinary empty or shared case.
+// The owning deletion path handles last references and interrupted releases.
+func (m *ASTManager) releaseSurvivingReference(r *astRefRecord) bool {
+	if r.node.slot == 0 {
+		return true
+	}
+	if !r.owned {
+		return false
+	}
+	n := m.nodeAt(r.node.slot)
+	if n.generation != r.node.generation || !n.live || n.rc <= 1 {
+		return false
+	}
+	n.rc--
+	return true
 }
 
 // delRef is used by concrete lexical owners while the manager lock is held.
