@@ -8358,3 +8358,26 @@ Whole-run paired instruction changes were −1.01% on TLB, −0.49% on Flash, �
 **The next two first-push costs are now directly measured.** Flash value propagation costs 144.66M instructions versus 48.37M native. Its BV-sharing pass costs 117.08M versus 40.01M. On hybrid the corresponding figures are 196.85M versus 68.98M and 137.43M versus 44.77M. On TLB they are 2.221B versus 0.774B and 1.823B versus 0.594B. In a second observer, BV traversal itself cost 42.41M, 53.16M and 710.90M on the three Go runs respectively. Its following ordinary theory reduction cost 71.94M, 81.48M and 1,081.73M. Traversal changed zero of 2,207 Flash rows, 2,297 hybrid rows and 25,881 TLB rows before that reduction.
 
 An experimental shortcut in the initially unconfigured BV rewriter reduced Flash and hybrid instructions by a further 1.24% and 1.19%. A two-scope witness explains why it stays experimental. The original traversal caches a shared four-argument addition as unchanged. After the first push enables associative rewriting, a second formula reuses that cached addition. Skipping the first visit makes the later traversal rebalance it into binary additions. Both are algebraically valid, but the solver now receives a different AST and reference history. Price changed rows and substitution/cache effects in the follow-up reduction before attempting whole-pass elimination. [Trial builders, scope witness, raw pass counts, whole-run panels and reproduction notes](perf/ivy_apple/holdouts/nov27-action-scope-and-pattern-traversal.tar.xz)
+
+## November 27 — First-push BV sharing and the 228-input verifier survey
+
+The ordinary theory reduction immediately following BV sharing returned its input on all 48,567 assertion rows observed across 34 of the 37 verifier inputs screened. On TLB alone the rewriter visited 364,035 nodes. Across TLB, Flash, hybrid and POPL18 Ticket there were zero successful direct substitutions, changed cache hits or changed cache publications in this pass.
+
+Commit `9a27a7fc0` keeps the BV sharing traversal, including its persistent cache. On the eligible initial verifier push, it skips the follow-up simplifier when the entire sharing batch preserves the input formulas and proofs in order. Any changed row triggers ordinary reduction on the entire batch. A regression with double negation in an earlier row and a simplifiable ITE in a later row failed when reduction was unconditionally omitted. The observation about unchanged roots applies to the measured workloads.
+
+Five rotated runs per binary on a pinned core compared the preceding release, the new release and linked Z3. Percentages are median paired changes from the preceding g3 release. Times in the last three columns are independent process medians.
+
+| Input | Instructions | Elapsed | Prior g3 ms | New g3 ms | Z3 ms |
+|---|---:|---:|---:|---:|---:|
+| TLB | −2.15% | −1.21% | 6,133.7 | 6,219.0 | 8,820.6 |
+| Flash | −1.35% | +1.06% | 724.4 | 722.7 | 668.8 |
+| Hybrid | −1.10% | +2.20% | 1,129.8 | 1,154.6 | 837.3 |
+| POPL18 Ticket | −1.89% | −1.34% | 422.4 | 414.6 | 233.9 |
+
+Two rounds on all 37 inputs matched the reference exit status and both output streams in all 148 runs. On the long controls the instruction changes were +0.09% on dramc_nb2, +0.18% on rfn2 and −0.36% on Raft. Elapsed results were mixed. The retained benefit is a measured reduction in work on the first-push workloads.
+
+A separate overlay tested dropping either direction of value propagation and skipping the reverse sweep whenever the forward sweep changed nothing. On eight Flash batches the reverse sweep changed a row after an unchanged forward sweep. Against the release, forward-only saved 3.93% of instructions on POPL18 Ticket but cost 16.68% on independent Flash. The conditional reverse sweep cost 9.83% on independent Flash. Both sweeps remain in production.
+
+One pinned pair on each of the historical 228 proof-producing inputs matched linked Z3 byte for byte, including exit status. g3 used fewer instructions on 203 and less elapsed time on 194. This screen ranks remaining opportunities. It cannot attribute improvements since the older inventory to this release alone. Hybrid led the remaining instruction deficits at 2.073 billion, followed by POPL18 Ticket at 1.398 billion, ARM at 0.971 billion, Ticket L2S at 0.892 billion and nested Ticket at 0.877 billion.
+
+The archive includes the overlay and measurement drivers, per-row counts, rotated comparisons, inventory, per-core results and full Go test log. Drivers record the original external scratch paths. The row observer used the pre-change source at `eae68af4a`. The sweep overlay used the release source at `9a27a7fc0`. [Benchmark evidence](perf/ivy_apple/holdouts/nov27-followup-reduction-and-verifier-survey.tar.xz)
