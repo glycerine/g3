@@ -8215,3 +8215,26 @@ Across five rotating rounds on ordinary pigeon8-s0 and three hard random holdout
 Five fresh processes per worker population gave median retained heap of 45,975 bytes per warmed solver for both baseline and blend with 1,024 workers. With 48 larger solvers both used 686,611 bytes per solver. Fixture-inclusive medians differed by one byte per solver. Sixty rotating launches each put baseline/blend process medians at 2.13/2.13 ms for the version, 2.21/2.23 ms for one DIMACS unit, and 19.54/19.69 ms for a one-assertion arithmetic query. These startup figures include OS process creation. Keep the profile available for explicit production builds. The table provides no consistent startup advantage.
 
 Three instruction-sampling profiles per engine on each hard 208-variable input gave a more specific target. Blended g3 versus Z3 spent an estimated 9.37B/3.27B instructions under propagation on UNSAT and 3.90B/1.34B on SAT. The remaining Go conflict-resolution stacks also cost several times more. Go source attribution repeatedly landed on the blocking-literal branch and appending a moved clause into its destination watch list. The experiment drivers, worker data, individual profiles, checker results and raw measurements are in the [reproduction archive](perf/ivy_apple/holdouts/nov27-verifier-pgo.tar.xz).
+
+### November 27 — SAT watch grouping and conflict trail scans
+
+Grouping contiguous satisfied blocking watches improved the blended build on pigeon8-s0 by 2.75% of instructions and 4.00% of paired elapsed time in five rounds. On two hard random inputs it saved 0.36–0.38% instructions. Seven ordinary-build confirmation pairs on three random holdouts then **increased instructions by 2.32–2.98%**. Ordinary pigeon8-s2 took 1.63% less elapsed with 1.41% more instructions. Grouping runs introduces another test for the first watch after each group.
+
+Two versions of the conflict trail scan reused the first validated trail read while moving to smaller indices to find the next marked variable. They saved 0.73–1.24% of ordinary-build instructions on the three random cases. The out-of-line version increased paired elapsed on all three, and the inline version was mixed. Clearing saved SAT phases in one pass over a validated trail saved 1.36–2.12% instructions on the same random cases but increased ordinary elapsed by 0.15–0.58%. Across the three cases it improved blended elapsed by 0.25–0.56%. All measurements checked search counts and satisfying assignments. The ordinary SAT package passed on the inline trail and grouped-watch overlays. The release retains the original loops. [Source overlays and paired measurements](perf/ivy_apple/holdouts/nov27-sat-conflict-scans.tar.xz)
+
+### November 27 — Where the 37 earlier verifier gaps stand today
+
+Three alternating pairs reran every proof-producing specification where the earlier 710-input screen counted more g3 instructions. Current blended g3 and linked Z3 used the same ordinary GoIvy frontend and matched stdout, stderr and exit status in **all 111 pairs**. All jobs finished. On this historical subset g3 still used more instructions on 28 specifications and had a slower median within-pair elapsed ratio on 32. TLB, which contributed 22.27B excess instructions in the earlier screen, now used 48.38B versus 59.88B and took 6.46 versus 8.38 seconds. TLB was one of the two compiler training inputs. Source revisions and the GoIvy frontend also changed between the two surveys.
+
+| Largest remaining paired instruction gaps | g3 billions | Z3 billions | Paired gap, billions | Median paired g3 / Z3 elapsed |
+|---|---:|---:|---:|---:|
+| Hybrid reliable broadcast, CISA | 8.04 | 5.82 | 2.21 | 1.32× |
+| Flash, examples/ivy/flash2.ivy | 5.80 | 4.33 | 1.47 | 1.31× |
+| POPL18 Ticket | 2.91 | 1.47 | 1.43 | 1.80× |
+| ARM | 3.26 | 2.19 | 1.07 | 1.40× |
+| Ticket l2s auto | 2.92 | 1.96 | 0.96 | 1.48× |
+| Ticket nested | 3.12 | 2.18 | 0.93 | 1.36× |
+
+The Flash example runs 2,212 obligations, including 65 expected failures. It differs from test/flash2.ivy, which has 1,073 obligations and a 0.15B paired instruction gap. Three additional GC-off solver-thread profiles per engine located **1.19B of the Flash example’s 1.56B measured stage gap at the second obligation of its batches**. The same goal ordinal across batches accounted for 570.5M excess check instructions, 408.0M first-push instructions and 196.0M early proof instructions. Across *all* Flash obligations and all 28 first pushes, the corresponding gaps were 778M, 445M and 285M. Native made 2,212 concrete checks and g3 made 2,198. This accounts for the effect of moving work across obligations after a successful private proof.
+
+On hybrid the 34 first physical pushes took 1.232B versus 0.543B instructions. Across all obligations, concrete checks took 3.676B versus 2.692B, and early proofs cost g3 another 0.501B. The two engines make different numbers of concrete checks (534 and 839). The matched stage evidence supports examining why many Flash batches miss the early proof at the same second obligation and what proof or model the general solver then computes. [Raw survey, rankings and physical call profiles](perf/ivy_apple/holdouts/nov27-verifier-gap-ranking.tar.xz)
