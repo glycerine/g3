@@ -1274,12 +1274,12 @@ func (s *SMTInternalizerState) existingTermChildren(expression ast.ASTHandle, co
 	if count == 0 {
 		return nil, true, nil
 	}
-	if count != 2 {
+	if count > 2 {
 		return nil, false, nil
 	}
 	var pair [2]*SMTEnode
-	for i := range pair {
-		h, err := s.manager.GetArg(expression, uint32(i))
+	for i := uint32(0); i < count; i++ {
+		h, err := s.manager.GetArg(expression, i)
 		if err != nil {
 			return nil, false, err
 		}
@@ -1288,6 +1288,9 @@ func (s *SMTInternalizerState) existingTermChildren(expression ast.ASTHandle, co
 			return nil, false, nil
 		}
 		pair[i] = child
+	}
+	if count == 1 {
+		return []*SMTEnode{pair[0]}, true, nil
 	}
 	return []*SMTEnode{pair[0], pair[1]}, true, nil
 }

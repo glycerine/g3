@@ -10,13 +10,30 @@ import (
 // Each push internalizes fresh nodes for an already owned input DAG.
 // One in sixteen applications lives below the scope and must survive.
 func BenchmarkSMTEnodeScopeBatch(b *testing.B) {
-	const roots = 64
+	benchmarkSMTEnodeScopeBatch(b, false)
+}
+
+func BenchmarkSMTUnaryEnodeScopeBatch(b *testing.B) {
+	benchmarkSMTEnodeScopeBatch(b, true)
+}
+
+func benchmarkSMTEnodeScopeBatch(b *testing.B, unary bool) {
 	for _, width := range []int{32, 256, 2048} {
 		b.Run(strconv.Itoa(width), func(b *testing.B) {
+			roots := 64
+			if unary {
+				roots = width
+			}
 			f := newSMTEqualityUndoFixture(b, "scoped-enodes", roots)
 			terms := make([]ast.ASTHandle, width)
 			for i := range terms {
-				t, err := f.m.MkApp(f.binary, []ast.ASTHandle{f.base[i%roots], f.base[i/roots]})
+				decl := f.binary
+				args := []ast.ASTHandle{f.base[i%roots], f.base[i/roots]}
+				if unary {
+					decl = f.unary
+					args = args[:1]
+				}
+				t, err := f.m.MkApp(decl, args)
 				astTestMust(b, err)
 				astTestPin(b, f.m, t)
 				terms[i] = t
