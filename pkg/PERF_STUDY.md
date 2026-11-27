@@ -9160,3 +9160,43 @@ A second five-pair run measured other phases on the same target. G3 spent **1.12
 The normal-GC median instruction gap on Hybrid was **1.942B**. In seven complete paired runs with collection disabled for both frontends, the medians were **6.281B g3 and 5.324B native**, a gap of **0.956B**. About half of the normal-GC gap disappears under this diagnostic. Disabling GC changes allocation and memory behavior as well as collector work. It is unsuitable as a policy for thousands of independent solvers.
 
 Across three normal-GC runs the g3 frontend and solver allocated a median **366.8 MB in 2.994M objects**, versus **98.8 MB in 1.320M Go objects** for the linked-native frontend. Native C++ heap allocations are outside the Go measurements. The median GC counts were 65 and 37. Sampled g3 allocation profiles charge 32.79 MiB cumulatively to ground projection problem construction, including 13.21 MiB directly in the projection reader. The bit compiler's interning method accounts for a further 9.58 MiB flat. Table-model compilation and the rewriter's cache-stack push each appear at about 131,000 sampled allocation objects. Sampled object estimates for small sites are noisy. Reuse per-solver projection scratch only after measuring how many sibling attempts repeat the same work and what memory survives batch close. Compare against eliminating model construction during failed private attempts, using proofs and models as controls. [Benchmark drivers, regressions, raw counter windows and whole-verifier results](perf/ivy_apple/holdouts/nov27-selective-and-grouped-proofs.tar.xz)
+
+## November 27 — Hybrid search volume, premise indexes and candidate-model operands
+
+**G3 did less Boolean search and still paid more to assert quantifier instances.** On Hybrid broadcast, three complete runs per engine captured solver statistics immediately around goals 33 and 34 of batches 31, 33 and 34. The six check deltas totaled 4,489 quantifier instantiations in g3 versus 5,722 in linked Z3, 9,475 versus 10,527 decisions, 7,654 versus 9,781 Boolean variables created, and 61 versus 64 conflicts. Batch 31 goal 34 alone used 2,093 versus 2,597 instances and 4,249 versus 4,526 decisions, with a previously measured 77M excess g3 instructions. These are matched obligations with the same proof outcome. The engines can create different terms.
+
+Seven instruction-sampled runs per engine placed 203M instructions under g3's `MaterializeAndInternalize` and 119M under Z3's per-entry `qi_queue::instantiate` across the six checks. Their assertion callees accounted for **106M versus 37M**. Inside the g3 assertion path, 55M went into Boolean formula internalization, 17M into marking relevance, 14M into adding the root clause and 8M into asserted-OR watches. Native split 15M into its formula-core entry, 3M into its separate equality entry and 6M into OR watches. These are sampled call stacks, with different inlining and entry boundaries.
+
+A separate pair of instrumented builds then counted and priced operations **only while installing those instances**. Three GC-off replays per goal reproduced the counts and reference transcripts. The instruction figure is the sum of the six per-goal median costs divided by total calls. Hardware-counter reads were calibrated against empty reads. Some operations nest, so their totals cannot be added.
+
+| Operation inside assertions | g3 calls | Z3 calls | g3 instructions/call | Z3 instructions/call |
+|---|---:|---:|---:|---:|
+| Boolean variable creation | 7,607 | 9,723 | 734 | 271 |
+| Enode creation | 6,003 | 7,911 | 2,737 | 739 |
+| Congruence insertion inside enode creation | 6,003 | 7,911 | 506 | 148 |
+| Gate construction | 1,690 | 1,943 | 9,456 | 3,171 |
+| Gate clause insertion | 6,430 | 7,504 | 1,372 | 389 |
+
+The g3 assertions also visited fewer root-OR operands (17,319 versus 22,499). At g3's measured volume, reaching Z3's per-call cost on enode creation would recover about 12.0M instructions on these goals. Reaching its cost for gate construction would recover about 10.6M. Gate clause insertion accounts for about 6.3M of that opportunity. These estimates hold the g3 search fixed. Gate and enode setup both merit comparison across workloads before changing layout.
+
+**Parsed premise indexes.** Across 195 one-shot Hybrid projections, 163 used the cached parse. Those hits cloned indexes covering 63,058 premise nodes. Commit `4debdb162` reads the two immutable premise maps directly. Each goal owns the entries for its new terms and symbols. The original node and symbol order, work budget and cancellation checks remain observable in the sibling-goal regression. Seven rotating Apple obligation-71 benchmark runs put repeated projection at 886,130 → 722,418 B/op, 163 → 148 allocations/op and 1.002 → 0.980 ms/op. Fresh projection took 219 allocations in both builds.
+
+Keeping the grounded applications as well saved more local work (163 → 133 allocations, 1.490 → 1.296 ms in its own paired experiment), but retained 1,672 versus 1,088 B per independent small solver. With 16 independent Apple contexts, retained heap rose from 434,268 to 592,632 B per solver. The shipped premise indexes measured 1,088 B and 437,684 B respectively, above the already loaded sources. Temporarily inserting and rolling back goal entries also reduced allocations, but showed no median projection-time advantage over its control. It would let a large transient goal grow the retained map.
+
+**Candidate-model terms.** The Go model compiler allocated a separate operand slice for each application. Commit `1cb8c6aa2` appends operand IDs into private model-checker storage and stores a direct slice on each compiled term. The parent resolves its slice after recursive child compilation. Clearing the model drops buffers above 512 operand slots. Placing the unsigned variable/function/value index beside the operation reduces the amd64 term from 56 to 48 bytes. Full-width de Bruijn indices remain representable.
+
+| Focused benchmark, median of nine | Before | After |
+|---|---:|---:|
+| Ground enumeration | 3,537 ns | 3,479 ns |
+| Allocated per enumeration | 288 B, 13 allocations | 232 B, 9 allocations |
+| Retained per checker, 1,024 independent checkers | 2,624 B | 2,608 B |
+| Binary function lookup, first row | 16.84 ns | 17.27 ns |
+| Binary function lookup, last row | 37.72 ns | 36.07 ns |
+
+Storing operand offsets instead of direct slices reduced the checker footprint further but increased the cost of accessing terms during evaluation. A separate prototype memoized single-binding subexpressions across tuples and debited their original work on cache hits. Complete Hybrid rose from 7.769B to 7.805B median instructions. Neither prototype shipped.
+
+**Whole-process result.** With normal GC, the two shipped changes together took Hybrid from 366,825,832 to 361,983,800 allocated bytes and from 2,993,799 to 2,946,546 allocations (three runs per build). POPL18 Ticket saved 526,976 bytes and 482 allocations. On Hybrid, seven rotated complete runs retired 7.759B instructions before, 7.738B after and 5.823B with linked Z3. The allocation improvement is reproducible. These results do not establish a wall-time win. Timing and instruction counts are separate measurements, and validation jobs ran concurrently on this machine.
+
+A second seven-round run after the Go suite finished put Hybrid at 1.112 s before, 1.119 s after and 0.858 s native. POPL18 Ticket took 392 ms before, 390 ms after and 238 ms native. The eight-case panel's median paired instruction changes ranged from a 1.30% saving on liveness Ticket to a 0.59% increase on ARM. All 228 reference exit codes and output streams matched. Three pairs each on ordinary Raft, Apple rfn2 and dramc_nb2 also matched, with median paired instruction changes of −0.44%, −0.14% and less than 0.01%, respectively. The full Go suite, focused checked/debug/trace tests and vet of the changed packages passed.
+
+The source overlays, allocation census, paired benchmark rows, per-check counters, raw sampled stacks and transcript results are in the [experiment archive](perf/ivy_apple/holdouts/nov27-hybrid-projection-and-model-tables.tar.xz). The checked-in worker benchmark runs with `go test ./api -run '^$' -bench '^BenchmarkQuantifiedPremiseWorkers$' -benchtime=2x`.
