@@ -28,7 +28,7 @@ func BenchmarkSMTCongruenceProbes(b *testing.B) {
 		_, err = table.Insert(apps[i])
 		astTestMust(b, err)
 	}
-	for _, c := range []string{"Ordered", "Commuted", "Miss", "PositionalMiss", "Find", "EraseInsert", "Singleton"} {
+	for _, c := range []string{"Ordered", "Commuted", "Miss", "PositionalMiss", "Find", "EraseInsert", "EraseCommuted", "EraseMiss", "Singleton"} {
 		b.Run(c, func(b *testing.B) {
 			var args [2]*SMTEnode
 			b.ReportAllocs()
@@ -39,6 +39,16 @@ func BenchmarkSMTCongruenceProbes(b *testing.B) {
 				_, err = small.Insert(apps[0])
 				astTestMust(b, err)
 				defer func() { astTestMust(b, small.Close()) }()
+			}
+			var queries [size]*SMTEnode
+			if c == "EraseCommuted" || c == "EraseMiss" {
+				for i := range roots {
+					j := (i + 1) % size
+					if c == "EraseMiss" {
+						j = (i + 3) % size
+					}
+					queries[i] = smtCGTestApplication(b, m, decl, []ast.ASTHandle{handles[j], handles[i]}, []*SMTEnode{roots[j], roots[i]})
+				}
 			}
 			b.ResetTimer()
 			for k := 0; k < b.N; k++ {
@@ -51,8 +61,17 @@ func BenchmarkSMTCongruenceProbes(b *testing.B) {
 						b.Fatal(err)
 					}
 					continue
-				case "EraseInsert":
-					ok, err := table.Erase(a)
+				case "EraseMiss":
+					if ok, err := table.Erase(queries[i]); ok || err != nil {
+						b.Fatal(ok, err)
+					}
+					continue
+				case "EraseInsert", "EraseCommuted":
+					query := a
+					if c == "EraseCommuted" {
+						query = queries[i]
+					}
+					ok, err := table.Erase(query)
 					if !ok || err != nil {
 						b.Fatal(err)
 					}
