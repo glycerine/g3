@@ -8911,3 +8911,58 @@ Seven alternating pinned pairs at 3,000 iterations per depth. Both builds alloca
 Commit `24ac46553` retains the identity-read version. Across seven paired runs per input, complete-verifier instruction changes were −0.01% on hybrid, −0.11% on Flash, −0.26% on alternating bit and −0.62% on ARM. The local benchmark is where the improvement is established. All 228 complete reference transcripts matched, including expected exits. The rewriter and smtcore packages, checked/debug/trace ITE tests and rewriter vet passed.
 
 Eleven alternating runs on CPU 16 compared the final production build directly to linked Z3. ARM took 489.6 versus 345.6 ms, hybrid 1,115.6 versus 831.4 ms, and card3 73.8 versus 81.2 ms (g3 first). The corresponding median process instructions were 3.187B versus 2.192B, 7.893B versus 5.823B, and 353M versus 437M. These are whole-verifier results, including startup. [Counters, matched rows, release pairs, benchmark drivers and corpus outcomes](perf/ivy_apple/holdouts/nov27-quantified-row-traversal.tar.xz)
+
+## November 27 — Application frames during live quantifier instantiation
+
+A complete verifier can spend three times as many instructions on the same rewriter operation and still gain little from optimizing that operation alone. We measured the proofless theory rewrite of each generated instance in three complete GoIvy verifiers. Each measurement ran three times per engine with GC off, a pinned solver thread and a thread-local userspace instruction counter. We subtracted the cost of an empty measurement inside each instance. A second set of builds split child visits and unsuccessful non-macro application completion into smaller operations. Both sets reproduced the reference exit status, stdout and stderr in all 36 runs. The argument-view experiments below used ordinary release builds with GC on.
+
+| Complete input | Rewritten instances, g3 / Z3 | Child visits, g3 / Z3 (M instructions) | Failed frame completion, g3 / Z3 (M) | Combined excess (M) | Whole-process release gap (M) |
+|---|---:|---:|---:|---:|---:|
+| ARM rules3 | 5,274 / 5,851 | 33.95 / 12.39 | 21.45 / 6.67 | 36.34 | 958.94 |
+| POPL18 Ticket | 14,647 / 13,113 | 71.23 / 18.66 | 40.04 / 10.38 | 82.23 | 1,424.27 |
+| Hybrid reliable broadcast | 18,586 / 28,798 | 85.00 / 40.73 | 53.24 / 22.77 | 74.73 | 2,096.47 |
+
+The combined differences amount to roughly 3.8%, 5.8% and 3.6% of the respective release gaps. These are comparisons of scale across different builds and GC settings. The release denominator is the difference of whole-process medians from five alternating g3/Z3 pairs. Different instance counts contribute to the aggregate differences. The matched stages below isolate the cost of performing comparable work.
+
+| Check | Instances in each engine | Child visits, g3 / Z3 (M) | Failed frame completion, g3 / Z3 (M) |
+|---|---:|---:|---:|
+| ARM 6/5 | 720 | 4.81 / 1.58 | 3.00 / 0.87 |
+| ARM 6/6 | 646 | 6.00 / 1.93 | 3.74 / 1.06 |
+| Ticket 7/1 | 820 | 4.66 / 1.34 | 2.53 / 0.70 |
+
+On each of these stages the engines matched instance by instance on operand fetch, visit, frame preparation, changed-application rebuild and failed completion counts. On ARM 6/6, querying the configured substitution took 2.38M instructions in Go and 0.78M in C++. Testing whether a term needed caching took 0.71M / 0.18M, and probing the result cache took 0.89M / 0.10M. At completion, replacing the stack arguments with the result cost 1.04M / 0.41M, the conditional cache publication cost 1.74M / 0.59M, and frame removal with result-reference cleanup cost 0.67M / 0.11M. The same three completion measurements on Ticket were 0.76M / 0.30M, 1.05M / 0.35M and 0.50M / 0.08M. These inner measurements come from separate binaries and omit surrounding control flow.
+
+### Borrowed argument views
+
+The normal Go view carries a slice, an application handle and owner, and the information needed to validate a borrowed literal-vector span. We measured three alternatives at the public accessor and through complete proofs. The 64-byte layout moved the span descriptor behind a pointer. The 40-byte layout also moved the application owner and handle into a separately allocated record. The direct-read trial kept the 72-byte representation and read a slice directly in the exported accessor. All three preserved the checked fallback for application and literal-vector operands.
+
+| Implementation | Bytes/view | Read slice (ns) | Read borrowed application (ns) | Construct and read application view (ns) | Allocations per construction |
+|---|---:|---:|---:|---:|---:|
+| Current | 72 | 8.63 | 12.88 | 40.95 | 0 |
+| Span behind pointer | 64 | 5.62 | 12.90 | 29.21 | 0 |
+| Application or span behind pointer | 40 | 11.98 | 17.63 | 62.80 | 1 (64 bytes) |
+| Direct slice read | 72 | 8.51 | 14.08 | 43.82 | 0 |
+
+Seven samples of one million operations each, with a non-inlined consumer passing the view by value, on Go 1.27.3 linux/amd64. The benchmark verifies the returned child on every iteration. The direct-read microbenchmark ran in a separate series on the same pinned CPU.
+
+| Whole-verifier instructions, median paired change over seven pairs | ARM | Ticket | Hybrid | card3 |
+|---|---:|---:|---:|---:|
+| 64-byte view | −0.78% | −0.43% | −0.13% | +1.70% |
+| 40-byte view | +0.90% | +0.15% | +0.25% | +0.95% |
+| Direct slice read | +0.14% | −0.79% | −0.31% | −0.24% |
+
+The direct-read candidate finished 0.5–3.0% sooner across the independent 13-input panel, but that result did not reproduce with the release-quality source. A fresh build of the baseline was byte-identical to the earlier binary. We built the gofmt-formatted candidate and compared it to the baseline and a byte-for-byte copy of the baseline, on one CPU with all six execution orders represented twice. On ARM the candidate used 0.76% more instructions, 0.54% more cycles and 0.48% more elapsed time. On Ticket the changes were +0.16%, −0.10% and −0.01%. Hybrid elapsed improved 0.98%, while the identical copy improved 0.59%. The largest absolute elapsed shift for the identical copy across six verifiers was 0.82%. All 228 reference transcripts and exits matched the formatted candidate. These results do not establish a repeatable benefit large enough to change the accessor. All three trials remain experimental. [Argument-view benchmark](ast/ast_argument_view_benchmark_test.go) · [Measurement drivers, release controls and raw data](perf/ivy_apple/holdouts/nov27-live-instance-frame-cost.tar.xz)
+
+### Where the most expensive early proof misses spend their instructions
+
+The earlier 36-input survey ranked hybrid, test/flash2 and CAV 2024 examp5 highest by the total cost of unsuccessful early private attempts. Together they accounted for 934.55M of 2.941B instructions on that revision. We profiled the three on the current revision, including the successful attempts, then selected misses for the table. Each of four nested-instrumentation builds ran every verifier three times and reproduced its exit status and both output streams. Counts are solver-thread instructions with GC disabled, summed across the misses on each input and rounded to millions.
+
+| Input | Misses / attempts | Total miss cost | Private SMT Check | Translate premise roots | Assert translated roots, including first-use construction | Cold solver factory | Parameter validation / application |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Hybrid | 34 / 339 | 333.7 | 97.9 | 9.0 | 56.3 | 38.4 | 6.8 / 4.3 |
+| test/flash2 | 29 / 124 | 295.2 | 91.7 | 10.1 | 57.6 | 41.3 | 5.5 / 3.4 |
+| CAV examp5 | 28 / 132 | 280.8 | 93.6 | 10.1 | 50.1 | 34.4 | 4.7 / 3.0 |
+
+The columns come from successively finer probes. Construction and parameter handling sit inside other calls, so adding all columns would double count. Across the three inputs, searching the private solver cost 283.1M instructions. Translating the selected roots cost 29.3M. The solver factory cost 114.0M during cold initialization. Once cold setup was charged separately, asserting the translated roots cost just 6.7–8.0M per input. The private batch reuses an AST manager across plans but resets the child solver after each plan. Its first assertion calls the solver factory and validates and applies the handle's explicit parameters.
+
+We also recorded each plan’s ordered source roots, with origin, slot and generation, across complete private-manager lifetimes. Of 58 adjacent short-plan pairs in the same manager, only two had any common prefix. They shared three roots in total. Hybrid had zero across 28 adjacent pairs. All three transcripts matched. A reusable ordered premise prefix offers little here. The next experiment is to break the 114M factory instructions down by constructor and measure how much of each constructed solver is used before reset. The 283M spent in private search is the larger target. Attribute it by plan and by SAT, UNSAT or budget exhaustion before changing search scheduling. [Private context lifecycle](api/api_proof_plan_context.go) · [Per-attempt counters and exact sources](perf/ivy_apple/holdouts/nov27-live-instance-frame-cost.tar.xz)
