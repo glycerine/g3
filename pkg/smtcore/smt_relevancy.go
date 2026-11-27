@@ -1141,7 +1141,7 @@ func (p *SMTRelevancyPropagator) undoTrail(limit int) error {
 			parent := p.ehs[handler-1].target
 			p.trail = append(p.trail, smtRelevancyTrail{kind: smtRelevancyRefTrail, expression: parent})
 		}
-		consumed, err := p.context.manager.DecRefConsumed(entry.expression)
+		consumed, err := p.context.manager.DecRefHeldConsumed(entry.expression)
 		if !consumed {
 			entry.kind = smtRelevancyRefTrail
 			p.trail = append(p.trail, entry)

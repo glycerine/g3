@@ -322,3 +322,23 @@ func benchmarkSMTScopeRestoration(b *testing.B, withQueue bool) {
 		})
 	}
 }
+
+// BenchmarkSMTRelevancyWatchPop isolates retirement of watches whose source
+// expressions survive the scope. Watch registration is outside the timer.
+func BenchmarkSMTRelevancyWatchPop(b *testing.B) {
+	m := astTestManager(b)
+	_, p, s := smtInternalizerFixture(b, m, nil)
+	sources, _ := benchmarkSMTBooleans(b, m, s, "scope-watch", smtHotPathWidth)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		benchmarkMust(b, p.PushScope())
+		for j, source := range sources {
+			benchmarkMust(b, p.AddWatchTarget(source, j%2 == 0, sources[(j+1)%len(sources)]))
+		}
+		b.StartTimer()
+		benchmarkMust(b, p.PopScopes(1))
+	}
+	b.ReportMetric(float64(len(sources)), "watches/op")
+}
