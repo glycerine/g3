@@ -278,7 +278,12 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 		proved, err = p.proveRelevantPremises(parent, assertions)
 	}
 	if !proved && err == nil && reuse && p.enumeration != nil && !limit.CancelFlag() {
-		return p.enumeration.check(parent, assertions, goal.IsNull())
+		proved, err = p.enumeration.check(parent, assertions, goal.IsNull())
+	}
+	if !proved && err == nil && goal.IsNull() && reuse && p.expectedGoals >= 24 &&
+		len(assertions) > 1 && !limit.CancelFlag() && !ast.ASTValidateHandles &&
+		p.plans.reusable(parent) && hasOriginalAssertions(s.solver) {
+		return provePredicateAgreement(s, parent, assertions, maxSteps)
 	}
 	return proved, err
 }
