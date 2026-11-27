@@ -9678,3 +9678,36 @@ All 228 complete release transcripts matched reference status, stdout and stderr
 An independent eleven-rotation repeat on a second core confirmed split_queue_2_new at **200.94 ms previous g3, 144.69 ms released g3, and 150.72 ms native**. Median instructions were 1.314B, 0.868B and 0.958B respectively. The single-sort wide one-round plan appeared on only two inputs in the 228-verifier inventory. The quarter threshold separated those inputs in this corpus. Future workloads can fall on either side of that threshold, so retain both positive and negative controls.
 
 Ordinary Raft, rfn2 and dramc_nb2 each matched the reference transcript across three previous/release rotations. Their median instruction counts changed by less than 0.4%. On dramc_nb2 the first elapsed comparison was 15.89 s previous versus 17.27 s released. Five additional alternating pairs on two other cores measured 15.47 s versus 15.67 s, 63.16B versus 63.41B cycles, and 119.97B versus 119.93B instructions. An observer saw zero eligible admission calls on both Apple isolates. The smaller elapsed difference in the repeat remains unexplained. [Validation data](perf/ivy_apple/holdouts/nov27-first-push-queue-comparison.tar.xz)
+
+## November 27 — Repeated Ticket substitutions and the size of a sufficient ground proof
+
+**What survives backtracking.** Three solver-thread observations per workload tracked generation-checked arena handles, the quantifier instance registry and the identity of the previous regular auxiliary clause. The table counts one execution of each check. The other two gave the same counts. “Same charge” compares the actual resource-counter delta of the two rewrites. Both POPL18 and Hybrid were included as transcript controls but their selected windows yielded no repeat events for this comparison.
+
+| Workload and check | Repeated substitutions | Prior rewritten AST still live | Live and same charge | Prior finished lemma live | Prior auxiliary clause still installed / observed | Already bound arguments |
+|---|---:|---:|---:|---:|---:|---:|
+| Automatic Ticket 12/8 | 1,526 | 1,155 | 995 | 0 | 0 / 1,017 | 5,301 / 7,045 |
+| Automatic Ticket 14/8 | 755 | 608 | 495 | 0 | 0 / 516 | 2,571 / 3,441 |
+| Automatic Ticket 16/1 | 712 | 653 | 516 | 0 | 0 / 472 | 2,665 / 3,212 |
+| Nested Ticket 16/1 | 284 | 101 | 78 | 0 | 0 / 207 | 873 / 1,154 |
+
+On 12/8 the actual charge changed on 225 repeats, including 160 whose previous rewritten AST survived. A 4,096-entry solver-local prototype reused the previous charge on a live-result hit. On eight complete workloads, three rotated runs per mode matched all 72 golden transcripts. On automatic Ticket the identity-only prototype saved 2.3% of median process instructions and the unrestricted prototype saved 1.2%. Across the seven controls, unrestricted changes ranged from a 1.4% saving to a 0.02% increase. The changed resource charges rule out shipping this shortcut. Reusing the completed lemma after backtracking would also require rebuilding its solver state.
+
+On 12/8 repeated OR assertions, setup and lookups for bound operands cost 2.40M instructions, internalization and literal lookup for missing operands cost **13.82M**, root-clause insertion cost 3.48M and relevance setup cost 4.29M. Missing operands also cost 7.47M on 14/8 and 10.75M on 16/1. These disjoint windows exclude diagnostic printing. The earlier 31.22M inclusive assertion figure covers all repeated instances. This gives a narrower internalizer target if the proof-search experiment below falls short.
+
+**Can a smaller search settle the expensive checks?** We captured 35 original automatic Ticket obligations whose g3 verification calls exceeded 5M instructions. Among 40 pairs with identical let-expanded goals in different captured batches, 37 common-premise intersections were SAT in native. Three intersections proved UNSAT in both engines, covering only 14/20 and 15/20. For 12/8, selecting an offline native core cut the fresh flat input from 118 to 33 premises and from 878 to 209 instantiations in both shells. On 14/8, 12 of 119 premises sufficed and the count dropped from 584 to 62. These fresh flat counts differ from the pushed replay and the original verifier.
+
+In a separate experiment we Skolemized the inputs, checked that every remaining universal occurred positively, and replaced each universal with a conjunction of selected ground instances. An UNSAT result on this weakening suffices for the original. Constants alone yielded SAT on all five full inputs, even when every declared non-Boolean constant was available. Grounding once more with applications of fresh witness functions, seeded by fresh constants and constants from atomic facts, proved **all five**. Both shells verified every successful ground proof. The initial expansions occupied 4.0–8.0 MB. Greedy deletion in two orders followed by native core extraction identified much smaller sufficient inputs.
+
+| Automatic Ticket check | Initial terms | Retained terms | Ground assertions in extracted core | Original pushed g3, M instructions | Ground core g3, M instructions |
+|---|---:|---:|---:|---:|---:|
+| 12/8 | 42 | 6 | 36 | 264.1 | 91.7 |
+| 13/8 | 36 | 7 | 32 | 190.1 | 88.3 |
+| 14/8 | 36 | 6 | 22 | 229.2 | 87.2 |
+| 15/8 | 42 | 5 | 31 | 175.3 | 88.3 |
+| 16/1 | 34 | 13 | 67 | 283.4 | 121.9 |
+
+These are single whole-shell instruction measurements, including startup and parsing. The ground column prices checking an already discovered proof. It excludes normalization, term selection, core extraction and original incremental solver setup. The reducer needed 45–110 probes per input and order. These figures establish proof size and a replay target. They do not establish a verifier speedup.
+
+**Which cheap selectors worked?** Exposing the goal's top-level conjuncts in order changed aggregate g3 instructions by less than 0.1% across 34 eligible pushed replays. Adding just the ground conjuncts increased them by 0.2%, and reversing the order increased them by 1.2%. Feeding both normalized assertions back to ordinary quantified search increased aggregate g3 instructions 29.9% across all 35 inputs, even excluding normalization time. Using only constants from the normalized goal plus one witness-function expansion proved zero of five. Adding atomic facts proved one. Including all fresh constants with the goal seeds proved three, and including both sources proved all five. Restricting each universal binder group to one distinct term per sort proved 15/8 and 16/1. Allowing two also proved 12/8 and 13/8. The 14/8 input still required a wider group in this experiment.
+
+**Next experiment.** Start with the narrow substitutions on 15/8 and 16/1. Use ground assignments and predicate occurrences to select the next violated quantified rule and its bindings. Measure candidates visited, terms built and discovery instructions against the original incremental check. Keep 14/8 as the control that needs more than two distinct terms in a binder group. Bound a speculative attempt and measure its misses on complete workloads before considering a solver change. [Captures, five standalone ground proofs, verifier overlays, trials and raw counters](perf/ivy_apple/holdouts/nov27-repeated-lemmas.tar.xz)
