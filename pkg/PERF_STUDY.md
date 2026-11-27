@@ -9711,3 +9711,42 @@ These are single whole-shell instruction measurements, including startup and par
 **Which cheap selectors worked?** Exposing the goal's top-level conjuncts in order changed aggregate g3 instructions by less than 0.1% across 34 eligible pushed replays. Adding just the ground conjuncts increased them by 0.2%, and reversing the order increased them by 1.2%. Feeding both normalized assertions back to ordinary quantified search increased aggregate g3 instructions 29.9% across all 35 inputs, even excluding normalization time. Using only constants from the normalized goal plus one witness-function expansion proved zero of five. Adding atomic facts proved one. Including all fresh constants with the goal seeds proved three, and including both sources proved all five. Restricting each universal binder group to one distinct term per sort proved 15/8 and 16/1. Allowing two also proved 12/8 and 13/8. The 14/8 input still required a wider group in this experiment.
 
 **Next experiment.** Start with the narrow substitutions on 15/8 and 16/1. Use ground assignments and predicate occurrences to select the next violated quantified rule and its bindings. Measure candidates visited, terms built and discovery instructions against the original incremental check. Keep 14/8 as the control that needs more than two distinct terms in a binder group. Bound a speculative attempt and measure its misses on complete workloads before considering a solver change. [Captures, five standalone ground proofs, verifier overlays, trials and raw counters](perf/ivy_apple/holdouts/nov27-repeated-lemmas.tar.xz)
+
+## November 27 — Finding the finite Ticket proofs and paying for misses
+
+**A model can find the terms without a proof oracle.** The prototype starts with ground facts and weakenings of the normalized rules. After each SAT result it groups candidate terms by their value in the current model. It visits representative bindings, adds consequences falsified by that model, and checks again. A positive universal can contribute any instances, a false conjunction can contribute a false conjunct, and a false disjunction must retain a consequence from every branch. Only an UNSAT result discharges the original. The existing nested-scope solver supplies the fallback. With up to eight violated bindings per binder visit, the prototype found all five proofs. All successful ground inputs also proved UNSAT independently in g3 and native.
+
+| Automatic Ticket check | Maximum distinct bindings per sort in one binder group | Refinements | Candidate bindings visited | Ground rows added |
+|---|---:|---:|---:|---:|
+| 12/8 | 2 | 13 | 32,020 | 164 |
+| 13/8 | 2 | 16 | 52,273 | 200 |
+| 14/8 | unrestricted | 12 | 29,852 | 144 |
+| 15/8 | 1 | 16 | 33,507 | 147 |
+| 16/1 | 1 | 20 | 24,245 | 179 |
+
+The Python/native-model reference took 1.4–3.2 seconds for these successes. At width two, 14/8 exhausted the candidates. Using g3's ordinary model-based search with E-matching disabled proved all 35 original pushed obligations but cost 8.68× default instructions, versus 6.24× for native. Disabling model-based search left three UNKNOWN in each engine. A separate purely syntactic restriction of same-sort binders proved 18 of 35 at width one and 32 at width two. Successful width-two replays together took 2% more instructions than their renamed controls. These transformations alone offer poor admission criteria.
+
+**Which reasoning actually closes the ground checks?** Propositional abstraction made all five extracted ground cores SAT, even after substituting direct constant equalities. Adding congruence clauses for observed applications differing in one argument made four UNSAT. The 22-row core for 14/8 also needed explicit equality transitivity under this encoding. For the larger sets of rows found by the model-guided procedure, single-argument congruence sufficed for all five. Unit propagation alone closed none of the five extracted cores. That motivated a standalone Go prototype which compiles the positive universals directly to CNF, includes selected congruence implications, propagates units, eliminates pure literals and invokes g3's existing SAT solver in the same process.
+
+| Check | Cheapest successful Go configuration tested | Ground, reduce and solve, M instructions | Original live g3 check, M | Original linked Z3 check, M |
+|---|---|---:|---:|---:|
+| 12/8 | Width 2, all source seeds, functions applied to fresh constants | 288.8 | 175.2 | 87.0 |
+| 13/8 | Same as 12/8 | 262.1 | 87.5 | 37.6 |
+| 14/8 | Width 3, full pool | 416.2 | 100.7 | 36.4 |
+| 15/8 | Width 1, fresh constants and their applications, unary congruence | **33.8** | **51.8** | **21.4** |
+| 16/1 | Width 1, full pool, unary congruence | 110.2 | 98.1 | 44.1 |
+
+The table uses the polarity-aware encoder and three solver-thread counter readings per configuration. The minimum is selected retrospectively for each input. The Go interval starts from a decoded, normalized DAG, ends after closing the SAT solver, and includes the SAT solver's setup and cleanup. It excludes Skolemization and parsing. A second Go encoder that propagated universally asserted units before generating other rules reduced 13/8 to 226.9M but raised 15/8 to 36.5M. The 35 original queries shared seven distinct base formulas. Even making all CNF construction free across siblings would leave substantial speculative SAT work.
+
+**What happens inside the complete verifier?** The inexpensive 15/8 policy proved eight of 35 captured expensive obligations and returned inconclusive on 27. All ten independently SAT common-premise inputs remained SAT in the abstraction. Both SAT shells reproduced all 45 abstract results. Attempting the 35 inputs cost 1,225M instructions before normalization, including 505M inside SAT construction, search and cleanup. Their eight successes replaced only 277M original check instructions. A benchmark-only GoIvy overlay loaded the saved normalized DAG at each selected original verification point and ran the actual Go proof procedure. It continued ordinary incremental search on every miss. Seven rotated runs per policy matched the reference exit status and both output streams.
+
+| Complete automatic Ticket | Median instructions | Median elapsed |
+|---|---:|---:|
+| Same binary, ordinary verification | 2.766B | 403.83 ms |
+| Try all 35 eligible captures | 4.389B | 569.98 ms |
+| Try only the eight known successes | 2.865B | 406.09 ms |
+| Try only 15/8 | 2.693B | 393.06 ms |
+
+The verifier measurements include reading the prepared inputs, constructing clauses, solving, cleanup and effects on later siblings. The source-to-DAG conversion was performed offline. The eight-success and 15/8-only schedules use information unavailable to an online solver. A production optimization needs an inexpensive predictor of *net savings*, since selecting every eventual success still increased complete instructions by 3.6%.
+
+**Two solver-cost controls.** Deferring model-finder analysis until the first candidate model saved 2.05% of complete automatic Ticket instructions in three rotated pairs but changes cancellation and resource accounting. Reusing existing term children while constructing predicates and looking up previously bound positive literals directly produced mixed results across ten complete workloads. Individually they changed median instructions between a 1.05% saving and a 1.23% increase. All 180 complete control runs matched the references. None of the scheduling or operand experiments entered the release. [Go benchmarks, proof-search prototypes, 45 replayable DAGs and measurements](perf/ivy_apple/holdouts/nov27-ticket-ground-discovery.tar.xz)
