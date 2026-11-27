@@ -7882,3 +7882,48 @@ The eight-rotation panel includes parsing, push, check and statistics. Z3 on the
 **Prospective selection.** Exported snapshots of goals 55 and 56 from four successive Ticket actions have identical premises within each action. Fresh standalone replays exercise those logical inputs without the verifier's earlier learned clauses. In all four actions, the core learned on 55 gave **SAT** with goal 56 in both solvers. In a second trial, each action used the immediately preceding action's core for the *same* goal, plus every premise new to the destination action. Four of six subsequent goals still refuted, but only one ran faster. The six original g3 snapshots used 1.452B instructions. The selected attempts used 1.894B, and the two required retries cost another 0.415B. Total cost was **1.59× baseline before charging for core discovery**.
 
 All five multi-obligation Ticket bases were satisfiable by themselves. The four unsatisfiable bases belonged to the terminal single-goal batches. Checking each base up front would add a satisfiability search to every multi-goal batch here. A separate symbol-frequency selector refuted Ticket 127 at two of twelve tolerance/depth settings and could select nothing from the constant goals on Ticket 290 and toy consensus. These measurements favor looking for cheaper construction of the fresh atoms shared across proofs and for work removable across complete workloads. They give no basis for adding a general premise-selection prepass. [Inputs and trial drivers](perf/ivy_apple/holdouts/nov27-internalization-and-premises.tar.xz)
+
+## November 27 — Enode construction, retired pointers and scope removal
+
+Across the same eight Ticket checks, both solvers constructed 4,336 fresh enodes while asserting quantifier lemmas. Five alternating instrumented runs reproduced the reference transcripts. The table gives median retired instructions summed over all eight checks, in millions. The boundaries differ because Z3 attaches each child to its parent in the same loop that resolves it.
+
+| Constructor work | g3 | Z3 |
+|---|---:|---:|
+| Setup | 1.892 | 0.135 |
+| Allocate and initialize fields | 2.181 | 0.332 |
+| Resolve children and attach parent links | 3.499 | 0.446 |
+
+Go spent 2.391M instructions resolving children and 1.108M appending parent links. The Z3 setup interval includes region reservation. The Go setup interval includes declaration inspection. Sampling without the interval probes attributed about 1.34M instructions each to slice allocation and node allocation beneath the Go constructor. Even eliminating the entire measured child-loop difference would recover only about 1.2% of the 252M-instruction gap across those checks.
+
+### What happened when we reduced allocations
+
+The allocation experiments used solver-local storage, preserved enode addresses, and left the AST arena in place. Each scope benchmark pushes, internalizes unary or binary applications, and pops. The retained-reference benchmark holds every 32nd node from a popped 2,048-node scope and measures live heap before and after releasing those 64 pointers.
+
+| Storage | Bytes kept alive by the 64 pointers | Result |
+|---|---:|---|
+| Existing individual nodes | 13,312 | Exactly 64 × 208 bytes in this fixture |
+| Blocks of eight nodes | 114,091 | Scope instructions rose in all four arity/width combinations |
+| Blocks of 32 nodes | 431,915 | Scope instructions fell at width 32 and rose at width 2,048 |
+| Two inline child pointers, with overflow storage | 13,312 | Roughly half the allocations, but complete Ticket, hybrid, ARM and FBA used 1.11%, 0.89%, 1.99% and 5.95% more instructions |
+
+The inline variant with cached arity reduced peak live heap at width 2,048 from 583,691 to 552,971 bytes. A second design placed one or two trailing child pointers beside the node, retaining slice-based reads. It saved at most 0.06% of instructions on each of the three CLI replays. Neither layout justified changing production storage. Direct child lookup and cheaper declaration flag reads also failed to deliver a consistent improvement. The retired-pointer and congruence benchmarks are retained in commit `0839cb04e`.
+
+### Duplicate probes during scope pop
+
+The general Erase first finds a congruent node, then probes again to remove the representative by its current signature. A prototype that tried deleting the exact pointer first cut scope instructions by 2.3–4.2% across unary and binary applications at widths 32 and 2,048. Its extra lookup increased work on misses. Returning a slot from every short-table lookup also penalized ordered read probes. These tradeoffs motivated testing exact-pointer deletion only at scope teardown, where the caller already knows it is retiring a congruence root.
+
+Raw rotations and external overlay generators are in the [enode study archive](perf/ivy_apple/holdouts/nov27-enode-construction-and-erasure.tar.xz).
+
+Restricting the exact-pointer shortcut to the scope-pop caller reduced paired instruction medians by 4.59% and 2.29% on unary scopes of widths 32 and 2,048, and by 4.19% and 3.89% on binary scopes. Nine alternating complete proofs per engine reproduced their reference outputs and exit status. Ticket used 1.08% more instructions, ARM 0.65% more, FBA 0.66% more and hybrid 0.61% fewer. The shared slot-returning variant saved instructions on the four complete runs but increased ordered read-probe instructions from 84.36M to 90.36M per 200,000 iterations including process setup. All three erasure variants remain experiments.
+
+### Where Ticket spends time outside queue instantiation
+
+A disjoint classification of the existing fifteen instruction-sampling rounds across eight matched checks assigns 24.36M excess instructions to conflict resolution, 16.19M to assertion internalization, 11.10M to E-matching, 13.11M to remaining propagation and 5.49M to all other work outside queue entries. Labels use the outer operation when one invokes another. These are sample estimates.
+
+Within conflict resolution, the immediate scope-pop call accounted for 31.31M instructions in g3 and 9.90M in Z3. Relevancy rollback underneath those calls alone accounted for 10.31M versus 1.07M. The Go watch trail holds a reference to every registered source. Measure the existing held-reference decrement there, including the last-reference and retry paths. The underlying stack samples are in the [Ticket history archive](perf/ivy_apple/holdouts/nov27-ticket-history.tar.xz).
+
+The conflict stacks attribute 8.03M instructions to undoing the Go relevancy trail. Its immediate reference-release call accounts for 5.35M and the table unlink for 1.87M. Each handler or watch registration retains its source before appending the trail entry. Commit `ea1b41486` uses that ownership to call the existing held-reference decrement. Final references, manager callbacks, and checked builds still use the validated release path. The unconsumed-reference retry tests passed.
+
+Across eleven alternating rounds of 1,000 scope pops, releasing 128 watches with surviving sources fell from 2,775 to 1,911 ns per scope (31%), with zero timed allocations. On nine paired fresh-process CLI replays with GC off, Ticket 127, Ticket 290 and Toy consensus 18 used 0.14%, 0.17% and 0.07% fewer instructions. Search counters agreed. Complete verifiers with normal GC had mixed paired instruction counts (Ticket +0.30%, hybrid +0.13%, ARM −0.62%, FBA +1.68%). All transcripts matched. These results establish the improvement in watch retirement; complete proof speedup remains unproven.
+
+In a further seven paired complete runs per workload with collection disabled, instructions fell by 0.20% on Ticket, 0.06% on hybrid, 0.10% on ARM and 0.09% on FBA. Elapsed paired medians rose by 0.1–1.3%. The holdouts support keeping the small watch-specific improvement while directing further work toward larger costs.
