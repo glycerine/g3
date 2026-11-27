@@ -35,6 +35,8 @@ type SMTModelChecker struct {
 	auxiliary        smtAuxiliarySolverFactory
 	auxiliaryContext *SMTSolver
 	newInstances     []smtModelCheckerInstance
+	pins             []ast.ASTRef
+	pinsBusy         bool
 	closed           bool
 }
 
@@ -909,7 +911,11 @@ func (c *SMTModelChecker) Close() error {
 	if c.closed {
 		return nil
 	}
-	result := c.ResetNewInstances()
+	if err := c.ResetNewInstances(); err != nil {
+		return err
+	}
+	c.pins = nil
+	var result error
 	if c.auxiliaryContext != nil {
 		result = errors.Join(result, c.auxiliaryContext.Close())
 		c.auxiliaryContext = nil

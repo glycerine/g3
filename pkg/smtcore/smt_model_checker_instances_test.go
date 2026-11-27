@@ -251,3 +251,43 @@ func TestSMTMBQICounterexamplesPublishAfterForcedBaseRestart(t *testing.T) {
 		t.Fatal("completed search retained temporary model-check owners")
 	}
 }
+
+func TestSMTModelCheckerRetriesRefusedPinRelease(t *testing.T) {
+	for _, method := range []string{"reset", "close"} {
+		t.Run(method, func(t *testing.T) {
+			var release func() error
+			var refused error
+			m, _, qm, trigger := smtQuantifierRefusalFixture(t, func() { refused = release() })
+			checker, err := NewSMTModelChecker(qm.state, 1)
+			astTestMust(t, err)
+			t.Cleanup(func() {
+				if !checker.closed {
+					astTestMust(t, checker.Close())
+				}
+			})
+			q, _, sort := smtManagedQuantifier(t, m, "pin-retry")
+			term, err := m.MkConst(astTestSymbol(t, m, "owned-term"), sort)
+			astTestMust(t, err)
+			astTestPin(t, m, q)
+			astTestPin(t, m, term)
+			count := func(h ast.ASTHandle) uint32 { n, err := m.GetRefCount(h); astTestMust(t, err); return n }
+			baseQ, baseTerm := count(q), count(term)
+			for i := 0; i < 2; i++ {
+				_, err := checker.pinInstance(q, []ast.ASTHandle{term}, 0)
+				astTestMust(t, err)
+			}
+			release = checker.ResetNewInstances
+			if method == "close" {
+				release = checker.Close
+			}
+			trigger()
+			if !errors.Is(refused, ast.ErrASTPending) {
+				t.Fatalf("refused release returned %v", refused)
+			}
+			astTestMust(t, release())
+			if gotQ, gotTerm := count(q), count(term); gotQ != baseQ || gotTerm != baseTerm {
+				t.Fatalf("retry left references: quantifier %d, term %d, want %d and %d", gotQ, gotTerm, baseQ, baseTerm)
+			}
+		})
+	}
+}

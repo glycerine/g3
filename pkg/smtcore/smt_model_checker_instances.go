@@ -5,6 +5,7 @@ package smtcore
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -13,7 +14,6 @@ type smtModelCheckerInstance struct {
 	quantifier ast.ASTHandle
 	bindings   []ast.ASTHandle
 	generation uint32
-	pins       []ast.ASTRef
 }
 
 func (c *SMTModelChecker) enqueueCounterexample(quantifier ast.ASTHandle, values []ast.ASTHandle, fromInverse bool, generation uint32) (bool, error) {
@@ -59,44 +59,64 @@ func (c *SMTModelChecker) enqueueCounterexample(quantifier ast.ASTHandle, values
 	return c.pinInstance(quantifier, bindings, generation)
 }
 
-// The recursive-definition consumer supplies ground call arguments directly;
-// the auxiliary-model consumer has already recovered and validated its terms.
+// Both callers transfer a private slice of bindings. Keep their references
+// together in capture order, as model_checker::m_pinned_exprs does.
 func (c *SMTModelChecker) pinInstance(quantifier ast.ASTHandle, bindings []ast.ASTHandle, generation uint32) (bool, error) {
-	instance := smtModelCheckerInstance{quantifier: quantifier, bindings: append([]ast.ASTHandle(nil), bindings...), generation: generation}
-	// Pin all bindings before the quantifier, as the source owner does. Publish
-	// only a complete instance; failed reference construction releases its prefix.
-	for _, expression := range append(append([]ast.ASTHandle(nil), bindings...), quantifier) {
+	if c.pinsBusy {
+		return false, ast.ErrASTPending
+	}
+	c.pinsBusy = true
+	defer func() { c.pinsBusy = false }()
+	start := len(c.pins)
+	c.pins = slices.Grow(c.pins, len(bindings)+1)
+	for _, expression := range bindings {
 		ref, err := c.manager.NewRef(expression)
 		if err != nil {
-			return false, errors.Join(err, c.releaseInstancePins(&instance))
+			return false, errors.Join(err, c.releasePinsFrom(start))
 		}
-		instance.pins = append(instance.pins, ref)
+		c.pins = append(c.pins, ref)
 	}
-	c.newInstances = append(c.newInstances, instance)
+	ref, err := c.manager.NewRef(quantifier)
+	if err != nil {
+		return false, errors.Join(err, c.releasePinsFrom(start))
+	}
+	c.pins = append(c.pins, ref)
+	c.newInstances = append(c.newInstances, smtModelCheckerInstance{quantifier: quantifier, bindings: bindings, generation: generation})
 	return true, nil
 }
 
-func (c *SMTModelChecker) releaseInstancePins(instance *smtModelCheckerInstance) (result error) {
-	for i := range instance.pins {
-		result = errors.Join(result, c.manager.DelRef(&instance.pins[i]))
+// A refusal can leave the current reference live. A destructor can also
+// consume it and report an error. Keep the remaining owners available to retry.
+func (c *SMTModelChecker) releasePinsFrom(start int) error {
+	for i := start; i < len(c.pins); i++ {
+		if err := c.manager.DelRef(&c.pins[i]); err != nil {
+			if c.pins[i] == (ast.ASTRef{}) {
+				i++
+			}
+			remaining := copy(c.pins[start:], c.pins[i:])
+			c.pins = c.pins[:start+remaining]
+			return err
+		}
 	}
-	instance.pins = nil
-	return result
+	c.pins = c.pins[:start]
+	return nil
 }
 
 func (c *SMTModelChecker) HasNewInstances() bool {
 	return c != nil && !c.closed && len(c.newInstances) != 0
 }
 
-func (c *SMTModelChecker) ResetNewInstances() (result error) {
+func (c *SMTModelChecker) ResetNewInstances() error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	for i := range c.newInstances {
-		result = errors.Join(result, c.releaseInstancePins(&c.newInstances[i]))
+	if c.pinsBusy {
+		return ast.ErrASTPending
 	}
+	c.pinsBusy = true
+	defer func() { c.pinsBusy = false }()
 	c.newInstances = nil
-	return result
+	return c.releasePinsFrom(0)
 }
 
 // Restart publishes pinned instances after the context has returned to its
