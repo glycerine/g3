@@ -12,7 +12,15 @@ import (
 
 type inferenceConfiguration struct {
 	rewriter.DefaultConfiguration
-	owner *InferenceRewriter
+	owner                 *InferenceRewriter
+	skipUnchangedSubtrees bool
+}
+
+func (c *inferenceConfiguration) PreVisit(t ast.ASTHandle) (bool, error) {
+	if !c.skipUnchangedSubtrees {
+		return true, nil
+	}
+	return c.owner.manager.HasQuantifiersOrITE(t)
 }
 
 func (c *inferenceConfiguration) ReduceQuantifier(q, body ast.ASTHandle, _ ast.AppArguments, noPatterns ast.AppArguments, out, proof ast.ASTRef) (bool, error) {
@@ -123,6 +131,18 @@ func (r *InferenceRewriter) Rewrite(body ast.ASTHandle, out ast.ASTRef) error {
 	if r == nil || r.self != r || r.closed || r.traversal == nil {
 		return ast.ErrASTHandle
 	}
+	return r.traversal.Rewrite(body, out)
+}
+
+// RewriteQuantifierSubtrees visits binders and preserves the generic
+// rewriter's constant-condition ITE folding. Callers use it for unbounded,
+// proof-free verification where the intermediate visits are unobserved.
+func (r *InferenceRewriter) RewriteQuantifierSubtrees(body ast.ASTHandle, out ast.ASTRef) error {
+	if r == nil || r.self != r || r.closed || r.traversal == nil {
+		return ast.ErrASTHandle
+	}
+	r.config.skipUnchangedSubtrees = true
+	defer func() { r.config.skipUnchangedSubtrees = false }()
 	return r.traversal.Rewrite(body, out)
 }
 

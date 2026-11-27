@@ -202,7 +202,9 @@ func (m *ASTManager) publishSliceApp(r astNodeRef, decl *astFuncDeclRecord, oper
 		a.declFamily, a.declKind = decl.identityFamily, decl.identityKind
 	}
 	a.declCached = true
-	a.labels = len(operands) > 0 && a.declFamily == 1 && a.declKind == 0
+	if len(operands) > 0 {
+		a.subtree = appDeclSubtreeFlags(a.declFamily, a.declKind)
+	}
 	a.ground = true
 	m.nodeAt(a.decl.slot).rc++
 	for _, child := range operands {

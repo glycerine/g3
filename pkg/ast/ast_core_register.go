@@ -119,24 +119,33 @@ func (m *ASTManager) depth(r astNodeRef) uint32 {
 func (m *ASTManager) hasLabels(r astNodeRef) bool {
 	switch m.nodeAt(r.slot).kind {
 	case ASTApp:
-		return m.appAt(r.slot).labels
+		return m.appAt(r.slot).subtree&appHasLabels != 0
 	case ASTQuantifier:
 		return m.quantifierAt(r.slot).labels
 	}
 	return false
 }
+func appDeclSubtreeFlags(family FamilyID, kind int32) appSubtreeFlags {
+	if family == 1 && kind == 0 {
+		return appHasLabels
+	}
+	if family == 0 && kind == ASTOpIte {
+		return appHasITE
+	}
+	return 0
+}
+
 func (m *ASTManager) updateAppFlags(a *astAppRecord, child *astNodeSlot) {
 	depth := uint32(1)
 	switch child.node.kind {
 	case ASTApp:
 		depth = child.app.depth
-		a.quantifiers = a.quantifiers || child.app.quantifiers
-		a.labels = a.labels || child.app.labels
+		a.subtree |= child.app.subtree
 		a.ground = a.ground && child.app.ground
 	case ASTQuantifier:
 		i := child.node.kindIndex - 1
 		depth = m.quantifiers[i/astPageSize][i%astPageSize].depth
-		a.quantifiers = true
+		a.subtree |= appHasQuantifiers
 		a.ground = false
 	case ASTVar:
 		a.ground = false
@@ -268,7 +277,7 @@ func (m *ASTManager) publishRegisteredNode(r astNodeRef) (astNodeRef, error) {
 			if x != nil {
 				return fail(x)
 			}
-			a.labels = fid == 1 && k == 0
+			a.subtree = appDeclSubtreeFlags(fid, k)
 			a.declFamily, a.declKind, a.declCached = fid, k, true
 		} else if fid, k, x := m.declIdentity(a.decl); x == nil {
 			a.declFamily, a.declKind, a.declCached = fid, k, true

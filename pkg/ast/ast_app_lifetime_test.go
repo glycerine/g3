@@ -25,7 +25,7 @@ func TestASTInlineApplicationDiamondLifetime(t *testing.T) {
 	if got := m.nodeAt(first.slot).rc; got != 3 {
 		t.Fatalf("shared leaf has %d references, want 3", got)
 	}
-	if a := m.appAt(root.slot); a.ground || a.quantifiers || a.labels || a.depth != 3 {
+	if a := m.appAt(root.slot); a.ground || a.subtree != 0 || a.depth != 3 {
 		t.Fatalf("unexpected root flags or depth: %+v", a)
 	}
 	astTestMust(t, m.DecRef(root))

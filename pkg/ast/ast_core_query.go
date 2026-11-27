@@ -81,8 +81,20 @@ func (m *ASTManager) HasQuantifiers(h ASTHandle) (bool, error) {
 	if kind == ASTQuantifier {
 		return true, nil
 	}
-	return kind == ASTApp && m.appAt(r.slot).quantifiers, nil
+	return kind == ASTApp && m.appAt(r.slot).subtree&appHasQuantifiers != 0, nil
 }
+
+// HasQuantifiersOrITE reports whether an expression contains a binder or a
+// basic if-then-else application. Pattern inference can rewrite both.
+func (m *ASTManager) HasQuantifiersOrITE(h ASTHandle) (bool, error) {
+	r, err := m.readExpr(h)
+	if err != nil {
+		return false, err
+	}
+	slot := m.nodeSlotAt(r.slot)
+	return slot.node.kind == ASTQuantifier || slot.node.kind == ASTApp && slot.app.subtree&(appHasQuantifiers|appHasITE) != 0, nil
+}
+
 func (m *ASTManager) SortIsInfinite(h ASTHandle) (bool, error) {
 	r, e := m.readKind(h, ASTSort)
 	if e != nil {

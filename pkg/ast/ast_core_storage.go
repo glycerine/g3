@@ -171,11 +171,20 @@ type astFuncDeclRecord struct {
 	arithDomain       uint8
 	arithDomainFamily FamilyID
 }
+type appSubtreeFlags uint8
+
+const (
+	appHasQuantifiers appSubtreeFlags = 1 << iota
+	appHasLabels
+	appHasITE
+)
+
 type astAppRecord struct {
 	// count, the flags and the cached declaration identity come first: in
 	// an astNodeSlot they share the node record's cache line.
-	count                       uint32
-	ground, quantifiers, labels bool
+	count   uint32
+	ground  bool
+	subtree appSubtreeFlags
 	// declCached says declFamily and declKind copy declIdentity(decl),
 	// taken when the app was registered. A live app holds its declaration,
 	// whose identity is unchanged until that declaration is deleted.

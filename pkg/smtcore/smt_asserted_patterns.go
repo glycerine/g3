@@ -38,6 +38,7 @@ func (k *SMTKernel) inferPendingPatterns() (result error) {
 	if err != nil {
 		return err
 	}
+	skipUnchangedSubtrees := false
 	if k.connectedMultiPatterns {
 		q := k.internalizer.quantifierManager
 		// The first inferred multi-pattern goes to the eager matcher and its
@@ -48,6 +49,7 @@ func (k *SMTKernel) inferPendingPatterns() (result error) {
 			!k.manager.NumeralService().RuntimeOwner().AllocationLimited() &&
 			k.manager.ResourceLimit().Limit == 0 && !k.manager.ResourceLimit().CancelFlag() &&
 			k.smtState.MaxConflicts == ^uint32(0)
+		skipUnchangedSubtrees = connected && !ast.ASTValidateHandles
 		if err = k.patternInference.SetConnectedMultiPatterns(connected); err != nil {
 			return err
 		}
@@ -55,6 +57,8 @@ func (k *SMTKernel) inferPendingPatterns() (result error) {
 	for _, row := range k.assertions[k.assertedHead:] {
 		if proofs {
 			err = k.patternInference.RewriteWithProof(row.Formula, out, proof)
+		} else if skipUnchangedSubtrees {
+			err = k.patternInference.RewriteQuantifierSubtrees(row.Formula, out)
 		} else {
 			err = k.patternInference.Rewrite(row.Formula, out)
 		}

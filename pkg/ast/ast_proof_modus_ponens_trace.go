@@ -72,5 +72,5 @@ func (m *ASTManager) proofModusPonensNonground(h ASTHandle) (bool, error) {
 		return false, nil
 	}
 	a := m.appAt(r.slot)
-	return !a.ground && !a.quantifiers, nil
+	return !a.ground && a.subtree&appHasQuantifiers == 0, nil
 }
