@@ -1,6 +1,7 @@
 package api
 
 import (
+	"runtime"
 	"slices"
 	"testing"
 
@@ -46,18 +47,19 @@ func TestQuantifiedPremisesAcrossSiblingGoals(t *testing.T) {
 	}
 }
 
-func BenchmarkAppleQuantifiedPremises(b *testing.B) {
+func appleQuantifiedPremisesFixture(b *testing.B) (*ast.ASTManager, []ast.ASTHandle) {
+	b.Helper()
 	input := appleBenchmarkInput(b, "dramc_nb2-71")
 	c, err := NewSMTContext()
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer c.Close()
+	b.Cleanup(func() { astTestMust(b, c.Close()) })
 	s, err := c.NewSolver()
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer s.Close()
+	b.Cleanup(func() { astTestMust(b, s.Close()) })
 	if err = s.LoadSMT2String(input); err != nil {
 		b.Fatal(err)
 	}
@@ -69,6 +71,11 @@ func BenchmarkAppleQuantifiedPremises(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	return m, roots
+}
+
+func BenchmarkAppleQuantifiedPremises(b *testing.B) {
+	m, roots := appleQuantifiedPremisesFixture(b)
 	for _, mode := range []string{"Fresh", "Reuse"} {
 		b.Run(mode, func(b *testing.B) {
 			var premises *order.QuantifiedPremises
@@ -89,4 +96,30 @@ func BenchmarkAppleQuantifiedPremises(b *testing.B) {
 			}
 		})
 	}
+}
+
+// Measure what remains reachable while consumers hold the emitted problems.
+// All projections share the source AST so its storage is outside the delta.
+func BenchmarkAppleQuantifiedProblemLiveHeap(b *testing.B) {
+	m, roots := appleQuantifiedPremisesFixture(b)
+	const batch = 16
+	var total int64
+	for i := 0; i < b.N; i++ {
+		var before, after runtime.MemStats
+		var problems [batch]*order.BooleanProblem
+		runtime.GC()
+		runtime.ReadMemStats(&before)
+		for j := range problems {
+			problem, err := order.ProjectQuantifiedGoal(m, roots, orderProofSteps)
+			if err != nil || problem == nil || len(problem.Clauses) == 0 {
+				b.Fatalf("empty quantified problem: %v", err)
+			}
+			problems[j] = problem
+		}
+		runtime.GC()
+		runtime.ReadMemStats(&after)
+		runtime.KeepAlive(problems)
+		total += int64(after.HeapAlloc) - int64(before.HeapAlloc)
+	}
+	b.ReportMetric(float64(total)/float64(b.N)/batch, "live-B/problem")
 }

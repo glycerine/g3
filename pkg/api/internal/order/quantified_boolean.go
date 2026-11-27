@@ -88,5 +88,8 @@ func (g *groundProjection) booleanProblem() (*BooleanProblem, error) {
 	}
 	g.termLiterals = values
 	k.Work = uint32(k.work)
-	return &k.BooleanProblem, nil
+	// A pointer into the compiler would keep its entire projection alive
+	// while the SAT solver consumes the clauses.
+	problem := k.BooleanProblem
+	return &problem, nil
 }
