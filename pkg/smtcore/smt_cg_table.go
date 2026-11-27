@@ -88,28 +88,27 @@ func (b *smtCongruenceBucket) store(node *SMTEnode) {
 	b.wide[key] = append(b.wide[key], node)
 }
 
-// remove deletes the stored node itself, under its own current signature.
-func (b *smtCongruenceBucket) remove(node *SMTEnode) {
-	if len(node.arguments) <= 2 {
-		key := smtCongruenceSmallKey(node)
-		b.small.del(key[0], key[1])
-		return
-	}
+func (b *smtCongruenceBucket) eraseWide(node *SMTEnode) (bool, error) {
 	key := smtCongruenceSignature(node)
 	chain := b.wide[key]
 	for i, entry := range chain {
-		if entry != node {
+		congruent, _, err := SMTEnodesCongruent(entry, node)
+		if err != nil {
+			return false, err
+		}
+		if !congruent {
 			continue
 		}
 		if len(chain) == 1 {
 			delete(b.wide, key)
-			return
+		} else {
+			copy(chain[i:], chain[i+1:])
+			chain[len(chain)-1] = nil
+			b.wide[key] = chain[:len(chain)-1]
 		}
-		copy(chain[i:], chain[i+1:])
-		chain[len(chain)-1] = nil
-		b.wide[key] = chain[:len(chain)-1]
-		return
+		return true, nil
 	}
+	return false, nil
 }
 
 type SMTCongruenceInsertResult struct {
@@ -240,12 +239,22 @@ func (t *SMTCongruenceTable) ContainsPointer(node *SMTEnode) (bool, error) {
 }
 
 func (t *SMTCongruenceTable) Erase(node *SMTEnode) (bool, error) {
-	candidate, _, err := t.Find(node)
-	if err != nil || candidate == nil {
+	if err := t.validateNode(node); err != nil {
 		return false, err
 	}
-	t.bucketFor(node).remove(candidate)
-	return true, nil
+	bucket, err := t.ensureTable(node)
+	if err != nil {
+		return false, err
+	}
+	if len(node.arguments) > 2 {
+		return bucket.eraseWide(node)
+	}
+	key := smtCongruenceSmallKey(node)
+	erased, err := bucket.small.eraseCongruent(key, node)
+	if err == nil && !erased && node.commutative && !bucket.flatAssociative && len(node.arguments) == 2 && key[0] != key[1] {
+		return bucket.small.eraseCongruent([2]*SMTEnode{key[1], key[0]}, node)
+	}
+	return erased, err
 }
 
 // forEachEntry visits stored enodes, reporting whether each sits under its

@@ -63,23 +63,54 @@ func (t *smtCgSmallTable) set(k0, k1, node *SMTEnode) {
 	}
 }
 
-// del is delete(m, key), with backward-shift deletion (no tombstones).
-func (t *smtCgSmallTable) del(k0, k1 *SMTEnode) {
+// slot finds an entry for deletion. Read-only probes return the node directly.
+func (t *smtCgSmallTable) slot(k0, k1 *SMTEnode) int {
 	if t.count == 0 {
-		return
+		return -1
 	}
 	mask := len(t.entries) - 1
-	i := smtCgSmallSlot(k0, k1, t.shift)
-	for {
+	for i := smtCgSmallSlot(k0, k1, t.shift); ; i = (i + 1) & mask {
 		e := &t.entries[i]
 		if e.node == nil {
-			return
+			return -1
 		}
 		if e.k0 == k0 && e.k1 == k1 {
-			break
+			return i
 		}
-		i = (i + 1) & mask
 	}
+}
+
+func (t *smtCgSmallTable) del(k0, k1 *SMTEnode) {
+	if i := t.slot(k0, k1); i >= 0 {
+		t.deleteSlot(i)
+	}
+}
+
+func (t *smtCgSmallTable) eraseCongruent(key [2]*SMTEnode, query *SMTEnode) (bool, error) {
+	i := t.slot(key[0], key[1])
+	if i < 0 {
+		return false, nil
+	}
+	node := t.entries[i].node
+	equal, _, err := SMTEnodesCongruent(node, query)
+	if err != nil || !equal {
+		return false, err
+	}
+	// A merge may have changed the representative's roots. Erase uses its
+	// current signature, even if the successful probe found an older one.
+	if current := smtCongruenceSmallKey(node); current != key {
+		i = t.slot(current[0], current[1])
+		if i < 0 {
+			return true, nil
+		}
+	}
+	t.deleteSlot(i)
+	return true, nil
+}
+
+// deleteSlot closes the hole by moving displaced entries back toward home.
+func (t *smtCgSmallTable) deleteSlot(i int) {
+	mask := len(t.entries) - 1
 	t.count--
 	for j := (i + 1) & mask; ; j = (j + 1) & mask {
 		e := &t.entries[j]
