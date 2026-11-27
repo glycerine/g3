@@ -11,6 +11,29 @@ func (s *Solver) subset(a, b *Monomial) (bool, []ast.ASTHandle, error) {
 	if len(a.vars) > len(b.vars) {
 		return false, nil, nil
 	}
+	// Sorted products of equal degree divide one another only if identical.
+	if len(a.vars) == len(b.vars) {
+		return sameBody(a, b), nil, nil
+	}
+	// Removing one occurrence of a linear factor preserves the order of the
+	// remaining variables. mulAppend reads the remainder without modifying it.
+	if len(a.vars) == 1 {
+		for i, v := range b.vars {
+			if v != a.vars[0] {
+				continue
+			}
+			if i == 0 {
+				return true, b.vars[1:], nil
+			}
+			if i == len(b.vars)-1 {
+				return true, b.vars[:i], nil
+			}
+			rest := make([]ast.ASTHandle, 0, len(b.vars)-1)
+			rest = append(rest, b.vars[:i]...)
+			return true, append(rest, b.vars[i+1:]...), nil
+		}
+		return false, nil, nil
+	}
 	i, j := 0, 0
 	var rest []ast.ASTHandle
 	for {
@@ -93,15 +116,17 @@ func (s *Solver) reduce(source, target *Equation) (*Equation, bool, error) {
 	for {
 		simplified := false
 		lead := source.monomials[0]
-		kept := make([]*Monomial, 0, len(target.monomials))
-		var added []*Monomial
-		for i, current := range target.monomials {
+		var kept, added []*Monomial
+		for i := range target.monomials {
+			current := target.monomials[i]
 			matched, rest, err := s.subset(lead, current)
 			if err != nil {
 				return target, result, err
 			}
 			if !matched {
-				kept = append(kept, current)
+				if simplified {
+					kept = append(kept, current)
+				}
 				continue
 			}
 			if i == 0 {
@@ -112,11 +137,11 @@ func (s *Solver) reduce(source, target *Equation) (*Equation, bool, error) {
 				if err != nil {
 					return target, result, err
 				}
-				// Restart against the copy so references in kept still belong to it.
-				kept = kept[:0]
-				added = added[:0]
-				simplified = false
-				break
+				// The copied equation owns its monomials, including the prefix.
+				current = target.monomials[i]
+			}
+			if !simplified {
+				kept = append(kept, target.monomials[:i]...)
 			}
 			if !result {
 				if err := s.replaceDependency(target, source.dependency); err != nil {
@@ -142,25 +167,23 @@ func (s *Solver) reduce(source, target *Equation) (*Equation, bool, error) {
 				return target, result, err
 			}
 		}
-		if source.scope > target.scope {
-			continue
+		if !simplified {
+			return target, result, nil
 		}
-		if simplified {
-			target.monomials = append(kept, added...)
-			var err error
-			target.monomials, err = s.simplifyMonomials(target.monomials)
-			if err != nil {
-				return target, result, err
-			}
-			if inconsistent(target) && s.unsat == nil {
-				s.unsat = target
-			}
+		target.monomials = append(kept, added...)
+		var err error
+		target.monomials, err = s.simplifyMonomials(target.monomials)
+		if err != nil {
+			return target, result, err
+		}
+		if inconsistent(target) && s.unsat == nil {
+			s.unsat = target
 		}
 		canceled, err := s.manager.Canceled()
 		if err != nil {
 			return target, result, err
 		}
-		if !simplified || canceled {
+		if canceled {
 			return target, result, nil
 		}
 	}

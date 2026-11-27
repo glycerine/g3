@@ -2,6 +2,7 @@ package grobner
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -10,7 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func must(t *testing.T, err error) {
+func must(t testing.TB, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
@@ -23,7 +24,7 @@ type fixture struct {
 	sort ast.ASTHandle
 }
 
-func newFixture(t *testing.T) *fixture {
+func newFixture(t testing.TB) *fixture {
 	t.Helper()
 	b := arena.NewBudget(1 << 27)
 	sy, err := symbol.NewManager(symbol.Config{Budget: b})
@@ -53,7 +54,7 @@ func newFixture(t *testing.T) *fixture {
 	return &fixture{m: m, s: s, sort: realSort}
 }
 
-func (f *fixture) variable(t *testing.T, name string) ast.ASTHandle {
+func (f *fixture) variable(t testing.TB, name string) ast.ASTHandle {
 	t.Helper()
 	n, err := f.m.Symbols.Intern(name)
 	must(t, err)
@@ -65,7 +66,7 @@ func (f *fixture) variable(t *testing.T, name string) ast.ASTHandle {
 	return h
 }
 
-func monomial(t *testing.T, s *Solver, n int64, vars ...ast.ASTHandle) *Monomial {
+func monomial(t testing.TB, s *Solver, n int64, vars ...ast.ASTHandle) *Monomial {
 	t.Helper()
 	c := numeral.Rational{Num: numeral.NewInt(int32(n)), Den: numeral.NewInt(1)}
 	m, err := s.NewMonomial(&c, vars)
@@ -312,5 +313,113 @@ func TestEquationSetsIterateInHashSlotOrder(t *testing.T) {
 	}
 	if got := order(&g); !same(got, []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
 		t.Fatalf("grown slot order = %v", got)
+	}
+}
+
+func TestUnmatchedRuleResourceCount(t *testing.T) {
+	f := newFixture(t)
+	x, y := f.variable(t, "x"), f.variable(t, "y")
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x)}, nil))
+	must(t, f.s.Push())
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, y)}, nil))
+	before := f.m.ResourceLimit().Count()
+	e, changed, err := f.s.reduce(f.s.equations[1], f.s.equations[0])
+	must(t, err)
+	if e != f.s.equations[0] || changed || f.m.ResourceLimit().Count() != before {
+		t.Fatalf("unmatched rule changed=%v, charged %d steps", changed, f.m.ResourceLimit().Count()-before)
+	}
+}
+
+func TestScopedRuleReducesOlderEquation(t *testing.T) {
+	f := newFixture(t)
+	x, y := f.variable(t, "x"), f.variable(t, "y")
+	baseDep := DependencyLeaf(0)
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, y), monomial(t, f.s, -1)}, baseDep))
+	done, err := f.s.ComputeBasis(100)
+	must(t, err)
+	if !done {
+		t.Fatal("incomplete base")
+	}
+	base := f.s.Equations()[0]
+	must(t, f.s.Push())
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x), monomial(t, f.s, -1)}, DependencyLeaf(1)))
+	done, err = f.s.ComputeBasis(100)
+	must(t, err)
+	if !done {
+		t.Fatal("incomplete scoped basis")
+	}
+	found := false
+	for _, eq := range f.s.Equations() {
+		if eq.NumMonomials() == 2 && eq.Monomial(0).Degree() == 1 && eq.Monomial(0).Variable(0) == y && eq.Monomial(1).Degree() == 0 && eq.Monomial(1).Coefficient().IsMinusOne() {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("scoped x=1 did not reduce x*y=1 to y=1")
+	}
+	must(t, f.s.Pop(1))
+	eqs := f.s.Equations()
+	if len(eqs) != 1 || eqs[0] != base || base.Monomial(0).Degree() != 2 || base.Dependency() != baseDep {
+		t.Fatal("pop failed to restore original nonlinear equation")
+	}
+}
+
+func TestScopedReductionCopiesPrefix(t *testing.T) {
+	f := newFixture(t)
+	x, y := f.variable(t, "x"), f.variable(t, "y")
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, y, y), monomial(t, f.s, 1, x)}, nil))
+	base := f.s.equations[0]
+	must(t, f.s.Push())
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x)}, nil))
+	reduced, changed, err := f.s.reduce(f.s.equations[1], base)
+	must(t, err)
+	if !changed || reduced == base || reduced.NumMonomials() != 1 || reduced.Monomial(0).Degree() != 2 || reduced.Monomial(0) == base.Monomial(0) || base.NumMonomials() != 2 {
+		t.Fatalf("scoped x=0 substitution changed=%v, original size=%d, reduced size=%d", changed, base.NumMonomials(), reduced.NumMonomials())
+	}
+}
+
+// A processed rule is tried against each target polynomial. Most pairs
+// cannot reduce each other, even when their leading degrees agree.
+func BenchmarkUnmatchedGrobnerRule(b *testing.B) {
+	f := newFixture(b)
+	x, y, z := f.variable(b, "x"), f.variable(b, "y"), f.variable(b, "z")
+	for _, vars := range [][]ast.ASTHandle{{x}, {x, y}, {z}, {y, z}} {
+		must(b, f.s.AssertMonomialsZero([]*Monomial{monomial(b, f.s, 1, vars...), monomial(b, f.s, -1)}, nil))
+	}
+	for _, tc := range []struct {
+		name           string
+		source, target int
+	}{
+		{"Linear", 0, 2}, {"Quadratic", 1, 3}, {"LinearAgainstQuadratic", 0, 3},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			source, target := f.s.equations[tc.source], f.s.equations[tc.target]
+			b.ReportAllocs()
+			for b.Loop() {
+				e, changed, err := f.s.reduce(source, target)
+				if err != nil || changed || e != target {
+					b.Fatalf("unexpected reduction: changed=%v, error=%v", changed, err)
+				}
+			}
+		})
+	}
+}
+
+func TestLinearFactorRemainder(t *testing.T) {
+	f := newFixture(t)
+	x, y, z := f.variable(t, "x"), f.variable(t, "y"), f.variable(t, "z")
+	product := monomial(t, f.s, 1, x, y, y, z)
+	defer func() { must(t, f.s.DelMonomial(product)) }()
+	vars := product.vars
+	for _, idx := range []int{0, 1, 3} {
+		factor := monomial(t, f.s, 1, vars[idx])
+		matched, rest, err := f.s.subset(factor, product)
+		must(t, err)
+		must(t, f.s.DelMonomial(factor))
+		want := append([]ast.ASTHandle(nil), vars[:idx]...)
+		want = append(want, vars[idx+1:]...)
+		if !matched || !reflect.DeepEqual(rest, want) {
+			t.Fatalf("factor %d: got %v, %v; want %v", idx, rest, matched, want)
+		}
 	}
 }

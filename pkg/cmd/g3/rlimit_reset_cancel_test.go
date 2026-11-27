@@ -74,3 +74,18 @@ func TestRlimitCancelAcrossReset(t *testing.T) {
 		}
 	}
 }
+
+// The release C++ solver proves the incremental arithmetic query at 7169
+// steps. Charging unsuccessful monomial reductions exhausted that budget.
+func TestRlimitGrobnerReduction(t *testing.T) {
+	if ast.ASTSourceDebug {
+		t.Skip("resource budgets are for the release solver")
+	}
+	for _, tc := range []struct{ limit, answer string }{{"3584", "unknown\n"}, {"7169", "unsat\n"}} {
+		var out bytes.Buffer
+		err := runArguments([]string{"rlimit=" + tc.limit, filepath.Join("test_vectors", "grobner_bounded_reduction.smt2")}, strings.NewReader(""), &out)
+		if err != nil || out.String() != tc.answer {
+			t.Fatalf("limit %s: got %q, %v; want %q", tc.limit, out.String(), err, tc.answer)
+		}
+	}
+}
