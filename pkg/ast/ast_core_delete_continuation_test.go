@@ -123,7 +123,11 @@ func TestASTDeletionContinuationParameterPrefixAndRemainingLIFO(t *testing.T) {
 			declID := m.nodeAt(declNode.slot).id
 			ownedInfo, err := m.funcInfo(m.declAt(declNode.slot).info)
 			astTestMust(t, err)
-			ownedParameters := append([]ASTParameter(nil), ownedInfo.parameters...)
+			ownedParameters := make([]ASTParameter, ownedInfo.count)
+			for i := range ownedParameters {
+				ownedParameters[i], err = m.infoParameter(ownedInfo, uint32(i))
+				astTestMust(t, err)
+			}
 			astTestMust(t, m.DelFuncDeclInfo(&info))
 			for i := range parameters {
 				astTestMust(t, m.DelParameter(&parameters[i]))

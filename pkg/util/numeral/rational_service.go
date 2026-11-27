@@ -155,9 +155,6 @@ func (s *RationalService) Del(v *OwnedRational) error {
 	if v == nil || v.ownerID == 0 || v.ownerID != s.ownerID {
 		return ErrRationalServiceOwner
 	}
-	if e := s.Manager.checkCleanup(&v.Raw); e != nil {
-		return e
-	}
 	if e := s.Manager.Del(&v.Raw); e != nil {
 		return e
 	}

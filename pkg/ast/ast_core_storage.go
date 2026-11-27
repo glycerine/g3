@@ -223,6 +223,13 @@ type astParameterRecord struct {
 	double               float64
 	external             uint32
 }
+
+// An info record owns copies in this manager's parameter arena. Each copy
+// keeps its slot and generation. The manager supplies the public handle origin.
+type astParameterRef struct{ slot, generation uint32 }
+
+// An arithmetic numeral needs two parameters. Only wider declarations and
+// sorts need backing storage beyond the record.
 type astInfoRecord struct {
 	generation, nextFree            uint32
 	live, isSort, private, attached bool
@@ -231,7 +238,8 @@ type astInfoRecord struct {
 	memoryTraceAllocated            bool
 	family                          FamilyID
 	kind                            int32
-	parameters                      []ASTParameter
+	inlineParameters                [2]astParameterRef
+	extraParameters                 *[]astParameterRef
 	count                           uint32
 	droppedParameters               uint32
 	size                            SortSize

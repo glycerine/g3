@@ -180,6 +180,10 @@ func isIntegerRational(a *Rational) bool { return a.Den.IsSmall() && a.Den.Val =
 func isOneInteger(a *Int) bool           { return a.IsSmall() && a.Val == 1 }
 
 func (m *RationalManager) Del(a *Rational) error {
+	// Inline integers have no arena cells to release. Del preserves their values.
+	if smallOut(a) && m.smallFastReady() {
+		return nil
+	}
 	if e := m.checkCleanup(a); e != nil {
 		return e
 	}

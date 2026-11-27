@@ -94,15 +94,32 @@ func (m *ASTManager) infoParameter(r *astInfoRecord, i uint32) (ASTParameter, er
 		}
 		return ASTParameter{m.origin, math.MaxUint32 - 1, m.formatLexical.epoch*2 + index}, nil
 	}
-	return r.parameters[i], nil
+	var p astParameterRef
+	if i < uint32(len(r.inlineParameters)) {
+		p = r.inlineParameters[i]
+	} else {
+		p = (*r.extraParameters)[i-uint32(len(r.inlineParameters))]
+	}
+	return ASTParameter{m.origin, p.slot, p.generation}, nil
 }
-func (m *ASTManager) pushInfoParameter(slot uint32, p ASTParameter) error {
+// total is the final width. count advances only after a successful copy so
+// cleanup can release a partially constructed info in order.
+func (m *ASTManager) pushInfoParameter(slot uint32, p ASTParameter, total uint32) error {
 	copy, e := m.copyParameter(p)
 	if e != nil {
 		return e
 	}
 	r := m.infoAt(slot)
-	r.parameters = append(r.parameters, copy)
+	ref := astParameterRef{copy.slot, copy.generation}
+	if r.count < uint32(len(r.inlineParameters)) {
+		r.inlineParameters[r.count] = ref
+	} else {
+		if r.extraParameters == nil {
+			extra := make([]astParameterRef, total-uint32(len(r.inlineParameters)))
+			r.extraParameters = &extra
+		}
+		(*r.extraParameters)[r.count-uint32(len(r.inlineParameters))] = ref
+	}
 	r.count++
 	return nil
 }
@@ -125,7 +142,7 @@ func (m *ASTManager) dropInfoStorage(slot, generation uint32) error {
 		r.droppedParameters++
 	}
 	m.traceInfoDeallocated(r)
-	r.parameters = nil
+	r.extraParameters = nil
 	r.live = false
 	r.nextFree = m.freeInfo
 	m.freeInfo = slot
@@ -148,7 +165,7 @@ func (m *ASTManager) newInfo(isSort bool, fid FamilyID, kind int32, ps []ASTPara
 	r.flags = flags
 	r.private = private
 	for _, p := range ps {
-		if e = m.pushInfoParameter(s, p); e != nil {
+		if e = m.pushInfoParameter(s, p, uint32(len(ps))); e != nil {
 			m.dropInfoStorage(s, g)
 			return 0, 0, e
 		}
@@ -200,7 +217,7 @@ func (m *ASTManager) copyInfo(slot, generation uint32) (uint32, uint32, error) {
 		p, x := m.infoParameter(&saved, i)
 		e = x
 		if e == nil {
-			e = m.pushInfoParameter(s, p)
+			e = m.pushInfoParameter(s, p, saved.count)
 		}
 		if e != nil {
 			m.dropInfoStorage(s, g)
