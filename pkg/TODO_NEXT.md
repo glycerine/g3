@@ -2,19 +2,6 @@
 
 Updated November 26, 2026. The current solver commit is **`be10d443a`** on `optmore`. The arena stays. Each solver owns its mutable state and runs on one goroutine. The goal is to match or beat Z3 on every known workload, including complete GoIvy verification and workloads with many independent solvers. The gaps below remain open.
 
-## SMT relevance registration fixed in `fc3978c3c`
-
-A real allocation-failure callback reentered the solver while the AST manager was busy. On `59b856104`, a dependency or either sign of watch returned `ErrASTPending` but replaced the outer list head. The pool held two handlers and the trail held only one entry, so popping the scope could leave the refused handler reachable. A refused mark set the relevance bit and incremented the addition count with zero owned marks and zero queued notifications. A retry then saw an already-relevant expression and skipped delivery. [Reproduction and retry tests](smtcore/smt_relevancy_registration_test.go) · [Allocation-failure fixture](smtcore/smt_quantifier_scope_failure_test.go)
-
-Registration now acquires the source reference and records it on the trail before publishing a handler or watch. Marking acquires the reference before changing the relevance bit or notification queue. When both sources of a pair need handlers, the manager acquires both references before either link is installed. The old code left one reference and one handler behind when the second source belonged to another manager. Watch registration also validates the supplied AST before reading its assignment or children. In the ordinary build, a stale `NOT` had marked the target using its replacement’s assignment, and a stale `OR` had installed two watches on its replacement’s children. [SMT fix](smtcore/smt_relevancy.go) · [Paired reference acquisition](ast/ast_core_accessors.go) · [Reference-count tests](ast/ast_inc_ref_pair_test.go)
-
-All eight regression cases failed against the pre-fix ordinary build and pass with the fix. The tests check retry delivery order, restoration of the outer handler, reference counts after pop and release, and correct behavior for live replacement ASTs. The ordinary `ast`, `smtcore`, and `api` package suites passed, as did the focused checked/debug/trace tests and vet for `ast` and `smtcore`. Run the focused checks from `pkg/`.
-
-```sh
-go test -count=1 -run 'Test(ASTIncRefPair|SMTRelevancy)' ./ast ./smtcore
-go test -count=1 -tags=g3checked,g3debug,g3trace -run 'Test(ASTIncRefPair|SMTRelevancy)' ./ast ./smtcore
-```
-
 ## Done and measured
 
 - [x] **DONE — Remove quadratic clause validation from quantifier analysis.** `be10d443a` brought a 512-literal scan from 4.84 ms to 18.3 µs. Seven hybrid proof runs put assertion installation at 91.25M instructions versus 109.46M before and 24.35M native. `f1cb71e8a` cut forbidden-declaration marking from 16.88M to 11.06M. Whole hybrid elapsed improved 0.93% across paired runs. [Traversal and verifier measurements](PERF_STUDY.md#november-26--matched-value-sweep-visits-and-linear-clause-traversal)
