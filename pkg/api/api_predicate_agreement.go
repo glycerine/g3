@@ -18,7 +18,7 @@ func provePredicateAgreement(src *APISimpleSolver, m *ast.ASTManager, assertions
 		return false, err
 	}
 	var private groundInstanceSolver
-	proved, err := private.prove(src, m, assertions, min(steps, 2_000_000), 1)
+	proved, err := private.proveInstances(src, m, assertions, min(steps, 2_000_000), 1, predicateAgreementSearch)
 	err = errors.Join(err, private.close())
 	return proved && err == nil && !m.ResourceLimit().CancelFlag(), err
 }

@@ -42,6 +42,7 @@ type groundInstanceMode uint8
 
 const (
 	groundInstanceSearch groundInstanceMode = iota
+	predicateAgreementSearch
 	observedUnits
 	observedSplits
 )
@@ -107,8 +108,9 @@ func (s *groundInstanceSolver) proveInstances(src *APISimpleSolver, m *ast.ASTMa
 	if parent.CancelFlag() {
 		return false, nil
 	}
+	observed := mode == observedUnits || mode == observedSplits
 	var q *order.GroundInstanceQuery
-	if mode != groundInstanceSearch {
+	if observed {
 		q, err = s.pool.ProjectObserved(goal, steps, limit)
 	} else {
 		q, err = s.pool.Project(goal, steps, minRules, limit)
@@ -127,14 +129,14 @@ func (s *groundInstanceSolver) proveInstances(src *APISimpleSolver, m *ast.ASTMa
 	if !limit.IncOffset(q.Work) {
 		return false, nil
 	}
-	conflict, complete := q.Reduce(limit, mode == observedSplits)
+	conflict, complete := q.Reduce(limit, mode == observedSplits || mode == predicateAgreementSearch)
 	if !complete {
 		return false, s.resetSAT()
 	}
 	if conflict {
 		return true, nil
 	}
-	if mode != groundInstanceSearch {
+	if observed {
 		return false, nil
 	}
 	return s.search(src, m, q)
