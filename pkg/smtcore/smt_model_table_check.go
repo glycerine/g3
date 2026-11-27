@@ -286,11 +286,8 @@ func (c *SMTModelChecker) canCheckModelTables() bool {
 		m.Budget().InjectionArmed() || (m.ResourceLimit().Limit != 0 && !aux.config.CertifyBoundedModelTables) || m.ResourceLimit().CancelFlag() {
 		return false
 	}
-	for _, theory := range c.state.theories {
-		if arith, ok := theory.(*SMTTheoryArith); ok && (len(arith.atoms) > 0 || len(arith.varPos) > 0) {
-			return false
-		}
-	}
+	// The compiler checks the sorts, operators and function interpretations
+	// reachable from this quantifier. Other assertions can use arithmetic.
 	return true
 }
 

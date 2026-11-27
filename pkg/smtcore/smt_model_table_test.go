@@ -329,3 +329,32 @@ func TestModelTablesPrivateBudgetAndScratchLifetime(t *testing.T) {
 		t.Fatal("canceled certificate", got)
 	}
 }
+
+func TestModelTablesWithUnrelatedArithmetic(t *testing.T) {
+	m, checker, candidate, integerIdentity, zero := smtAuxiliaryQueryFixture(t, false)
+	f := tableTest{t, m, candidate}
+	integer := f.term(m.GetSort(zero))
+	free := f.term(m.MkConst(astTestSymbol(t, m, "mixed-free"), integer))
+	bound := f.term(m.MkArithmeticLE(free, zero))
+	astTestMust(t, checker.state.Internalize(bound, true))
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	theory, ok := checker.state.Theory(family).(*SMTTheoryArith)
+	if !ok || len(theory.atoms) == 0 && len(theory.varPos) == 0 {
+		t.Fatal("fixture did not activate arithmetic", checker.state.Theory(family))
+	}
+	astTestMust(t, checker.initAuxiliaryContext())
+	aux := checker.auxiliaryContext
+	aux.config.CheckUninterpretedModelTables = true
+	boolean := f.term(m.MkBoolSort())
+	x := f.term(m.MkVar(0, boolean))
+	booleanIdentity := f.forall(f.term(m.MkEq(x, x)), boolean)
+	remaining := uint32(1)
+	for i, goal := range []ast.ASTHandle{booleanIdentity, integerIdentity} {
+		found, err := checker.auxiliaryCounterexamples(candidate, goal, &remaining)
+		astTestMust(t, err)
+		if found || checker.Exhausted() || aux.kernel.Statistics().NumChecks != uint32(i) {
+			t.Fatalf("goal %d found %t, exhausted %t, auxiliary checks %d", i, found, checker.Exhausted(), aux.kernel.Statistics().NumChecks)
+		}
+	}
+}
