@@ -313,6 +313,36 @@ func TestSMTCongruenceTableEraseAndReinsert(t *testing.T) {
 	astTestMust(t, table.CheckInvariant())
 }
 
+func TestSMTCongruenceEraseChecksDistinctNodeAtStaleKey(t *testing.T) {
+	m := astTestManager(t)
+	sort, err := m.MkSort(symbol.Numerical(2820), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	a, an := smtEnodeConstant(t, m, 2821, sort, 0)
+	b, bn := smtEnodeConstant(t, m, 2822, sort, 0)
+	c, cn := smtEnodeConstant(t, m, 2823, sort, 0)
+	f := smtCGTestDeclaration(t, m, 2824, sort, ast.ASTFuncFlags{})
+	query := smtCGTestApplication(t, m, f, []ast.ASTHandle{a, b}, []*SMTEnode{an, bn})
+	stored := smtCGTestApplication(t, m, f, []ast.ASTHandle{c, b}, []*SMTEnode{cn, bn})
+	table, err := NewSMTCongruenceTable(m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, table.Close()) }()
+	cn.root = an
+	_, err = table.Insert(stored)
+	astTestMust(t, err)
+
+	// After splitting c from a, the captured key is still (a,b),
+	// but the stored application now represents (c,b).
+	cn.root = cn
+	erased, err := table.Erase(query)
+	cn.root = an
+	if err != nil || erased {
+		t.Fatal("erased noncongruent representative at a stale key", erased, err)
+	}
+	if erased, err := table.Erase(stored); err != nil || !erased {
+		t.Fatal("lost original representative", erased, err)
+	}
+}
+
 // Merging must not allocate per-lookup signature keys for arity two terms.
 func TestSMTCongruenceTableBinaryOperationsDoNotAllocate(t *testing.T) {
 	m := astTestManager(t)

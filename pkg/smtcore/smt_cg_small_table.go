@@ -92,9 +92,13 @@ func (t *smtCgSmallTable) eraseCongruent(key [2]*SMTEnode, query *SMTEnode) (boo
 		return false, nil
 	}
 	node := t.entries[i].node
-	equal, _, err := SMTEnodesCongruent(node, query)
-	if err != nil || !equal {
-		return false, err
+	// A representative is congruent to itself in either probe order.
+	// Malformed commutative applications still go through the arity check.
+	if node != query || (node.commutative && len(node.arguments) != 2) {
+		equal, _, err := SMTEnodesCongruent(node, query)
+		if err != nil || !equal {
+			return false, err
+		}
 	}
 	// A merge may have changed the representative's roots. Erase uses its
 	// current signature, even if the successful probe found an older one.
