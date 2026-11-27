@@ -8701,3 +8701,82 @@ Erase previously looked up a congruent representative, then searched the declara
 | Complete ARM / hybrid / card3 | 7 each | +0.35% / +0.14% / −0.40% |
 
 Nine paired latency runs showed ordered and commuted erase/reinsert taking 3.68% and 3.19% less time. Miss-only elapsed times were noisy, including a 13.35% increase in the unchanged read-only miss benchmark. All 42 complete runs matched linked Z3's exit status and both streams. Keeping the single-pass deletion improves successful removal and the higher-level merge/undo workload. It has no demonstrated whole-verifier speedup on these three controls. The earlier prototype's 5.82% instruction saving on erase misses did not carry through to the final build. [Benchmark drivers, raw counters, stacks and transcript comparisons](perf/ivy_apple/holdouts/nov27-arm-live-search-and-congruence.tar.xz)
+
+## November 27 — Search volume and cost per merge in live ARM
+
+Both engines ran the complete GoIvy ARM verifier with its macro finder enabled. Each observational build counted the same nine source operations at each frontend stage in three runs. Every count repeated exactly and the native exit status and both output streams matched. Counters cover the recorded frontend stages, including early private proofs. A separate pair of binaries without these event probes measured solver-thread instructions across the same stages in five alternating pairs. The phase totals below sum per-check medians.
+
+| Measured event | g3 | Linked Z3 |
+|---|---:|---:|
+| Atom queue entries processed | 33,034 | 45,792 |
+| Pending equalities dequeued | 14,452 | 17,867 |
+| Calls to add equality | 37,578 | 45,759 |
+| Class merges reaching parent removal | 31,779 | 38,846 |
+| Parents visited during removal | 115,542 | 132,726 |
+| Congruence erases attempted in that loop | 102,452 | 118,096 |
+| Calls to resolve a search conflict | 1,303 | 2,320 |
+| Removed Boolean assignments | 121,388 | 141,246 |
+| Equality undo calls | 31,641 | 38,708 |
+
+The frontend made 76 ordinary checks in g3 and 116 in Z3. **On 34 common checks all nine counts matched, yet g3 used 605.53M instructions versus 210.97M in Z3 (2.87×).** These counters constrain the search comparison without establishing equality of every solver action. The 42 common checks where at least one count differed cost 1,069.48M versus 687.71M. The 40 native-only ordinary checks consumed another 10.44M in Z3. Work on g3's early proofs is accounted to its separate early stage.
+
+| Batch 6 goal | g3 check M instructions | Z3 check M instructions | Observed search |
+|---|---:|---:|---|
+| 3 | 106.49 | 38.87 | All nine counters matched |
+| 4 | 107.83 | 38.55 | g3 visited and erased 24 more parents |
+| 5 | 258.43 | 75.14 | g3 visited and erased 24 more parents. Both made 5,637 merges and 161 conflict-resolution calls |
+| 6 | 186.01 | 65.47 | All nine counts matched, including 5,617 merges and 148 conflict-resolution calls |
+| 26 | 84.49 | 15.51 | g3 made 1,597 merges versus 703 and 47 conflict-resolution calls versus 23 |
+
+### What equality maintenance costs at matched volume
+
+Separate observers measured instructions inside the three corresponding source functions, with a neighboring empty read for each call. They lock the Go thread, exclude kernel instructions and reject multiplexed counters. Values are medians of three runs after subtracting the measured empty-read cost per call. They include callees and some instrumentation overhead. The independent uninstrumented stage panel supplies the end-to-end numbers above.
+
+| Goal 6/6 | Calls in each engine | g3 instructions/call | Z3 instructions/call | g3 excess M instructions |
+|---|---:|---:|---:|---:|
+| Remove parents before a merge | 5,617 | 1,405 | 439 | 5.42 |
+| Reinsert parents after changing roots | 5,617 | 1,300 | 484 | 4.58 |
+| Undo an equality merge | 5,537 | 2,517 | 810 | 9.46 |
+
+Together the three intervals explain about 19.5M of the 120.5M instruction gap on 6/6. Across all recorded stages the corresponding estimates were 162.2M in g3 versus 56.3M in Z3. The baseline short-arity table walked 64,027 occupied slots following 175,733 deletions and moved only 9,117 entries. Read probes visited 513,547 slots over 385,976 calls. These counts bound what changing the deletion policy alone could recover.
+
+### Quantifier propagation dominates the measured propagation difference
+
+On 6/5 both engines entered core propagation 2,360 times and conflict resolution 161 times. The corresponding 6/6 counts were 882 and 148. Three separate observer builds timed search, propagation components and the quantifier manager. The intervals below include callees. Compare like rows across engines. Adding the quantifier row to its queue and matching rows would double-count work. Go's collector also produces variability between independent observer binaries.
+
+| Phase, millions of user instructions | 6/5 g3 | 6/5 Z3 | 6/6 g3 | 6/6 Z3 |
+|---|---:|---:|---:|---:|
+| Boolean clause propagation | 12.01 | 4.26 | 8.77 | 3.39 |
+| Atom and pending equality propagation | 37.18 | 11.66 | 33.90 | 11.88 |
+| Quantifier propagation | 75.83 | 26.35 | 62.95 | 23.66 |
+| E-matching within quantifier propagation | 14.60 | 7.44 | 9.61 | 5.86 |
+| Instantiation queue within quantifier propagation | 60.03 | 18.79 | 53.34 | 17.75 |
+| Conflict resolution | 35.46 | 12.40 | 42.65 | 11.43 |
+
+Across all measured verifier stages, queue processing took 475.8M versus 170.6M instructions, an excess of about **305M**. E-matching took 110.5M versus 66.7M. On 6/6 alone, the two solvers entered the queue exactly 1,298 times and the queue cost g3 35.59M more instructions. This puts the next investigation inside the queue with the actual macro settings.
+
+We then instrumented the three instance operations themselves. On 6/5 both engines substituted, rewrote and asserted exactly 720 instances. On 6/6 both performed all three operations exactly 646 times. These live counts resolve the volume question even within the queue.
+
+| Millions of user instructions | 6/5 g3 | 6/5 Z3 | 6/6 g3 | 6/6 Z3 | All stages g3 | All stages Z3 |
+|---|---:|---:|---:|---:|---:|---:|
+| Substitute bindings | 4.64 | 1.91 | 2.77 | 1.27 | 49.31 | 22.76 |
+| Rewrite instance body | 18.04 | 5.76 | 23.02 | 6.79 | 132.68 | 46.29 |
+| Internalize instance lemma | 17.50 | 4.14 | 16.74 | 3.81 | 167.74 | 39.67 |
+
+Across all stages g3 actually asserted fewer instances (5,274 versus 5,851). Internalization alone cost about 128M extra instructions. On 6/6, internalization cost **25,908 versus 5,895 instructions per lemma**, or 4.40×, and rewriting cost 35,639 versus 10,513, or 3.39×. These measurements motivate comparing how both engines classify literals and traverse already-internalized expressions when installing the *live* lemmas, then testing a path that can reuse the prior rewrite or Boolean result for a whole subtree. Compare the ordered output, resource accounting and retained clauses before attempting to share or remove a traversal.
+
+### Congruence changes tested on complete verifiers
+
+The baseline was `4808f7da6`. Release builds used the same frontend and Go PGO profile. The table reports median paired differences in complete process instructions. Every measured transcript and exit status agreed with the stored native result.
+
+| Prototype | Pairs per input | ARM | Hybrid | card3 |
+|---|---:|---:|---:|---:|
+| Identity shortcut in the general congruence predicate | 11 | +0.09% | −0.17% | +0.41% |
+| Directly delete a matching representative in the ordered probe | 11 | −1.38% | −0.14% | −0.02% |
+| Single-pass insertion of short positional applications | 11 | −1.58% | −0.05% | +0.03% |
+| Deleted markers in place of backward-shift deletion | 11 | +1.00% | −0.18% | −0.34% |
+| Skip the representative comparison within erase, preserving removal by its current key | 13 | −0.77% | −0.09% | −0.02% |
+
+Commit `4ce843eed` retains the last variant. Parent removal fell from 41.28M to 36.49M instructions across the recorded live stages in three independently instrumented runs. Reinsertion, where the change does no work, was 41.39M versus 41.22M. Equality undo measured 79.56M versus 75.93M and varied more between runs. The new test exercises a distinct node at an obsolete key after a class split. All **228** complete-verifier corpus outputs and exit codes matched native with the release change. The single-pass insertion prototype duplicated table insertion logic for a narrow gain and saved only 0.07% in the merge-and-undo benchmark. The direct ordered erase variant saved 1.26% there, at the cost of an additional fast path and repeated root-order checks. The narrower retained change shares the existing deletion path.
+
+[Instrumented sources, verifier and benchmark drivers, exact event counts and raw paired results](perf/ivy_apple/holdouts/nov27-arm-search-volume-and-cost.tar.xz)
