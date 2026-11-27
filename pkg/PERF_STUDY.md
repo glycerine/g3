@@ -8780,3 +8780,60 @@ The baseline was `4808f7da6`. Release builds used the same frontend and Go PGO p
 Commit `4ce843eed` retains the last variant. Parent removal fell from 41.28M to 36.49M instructions across the recorded live stages in three independently instrumented runs. Reinsertion, where the change does no work, was 41.39M versus 41.22M. Equality undo measured 79.56M versus 75.93M and varied more between runs. The new test exercises a distinct node at an obsolete key after a class split. All **228** complete-verifier corpus outputs and exit codes matched native with the release change. The single-pass insertion prototype duplicated table insertion logic for a narrow gain and saved only 0.07% in the merge-and-undo benchmark. The direct ordered erase variant saved 1.26% there, at the cost of an additional fast path and repeated root-order checks. The narrower retained change shares the existing deletion path.
 
 [Instrumented sources, verifier and benchmark drivers, exact event counts and raw paired results](perf/ivy_apple/holdouts/nov27-arm-search-volume-and-cost.tar.xz)
+
+## November 27 — Installing live ARM lemmas and splitting datatype variables
+
+Two places in the Go datatype theory were materializing every constructor of a sort. One needed only the number of constructors. The other often already had the recognizer it needed. The cost grew with the width of the datatype in both cases. Both changes preserve the order of recognizer selection and leave the arena and solver-local ownership model intact.
+
+### Where the live assertion time went
+
+These measurements use the GoIvy verifier with its macro finder enabled. On ARM goal 6/6, g3 and linked Z3 asserted the same 646 lemmas and visited the same 2,131 root OR operands. Both found 1,454 already bound, internalized 677 fresh operands and created 1,093 Boolean variables. On 6/5, both found 1,665 bound operands out of 2,326. The first operand was already bound in every observed root OR. A shortcut for finding bound literals would miss most of the cost.
+
+| Live interval | g3, million instructions | Z3, million instructions |
+|---|---:|---:|
+| Process root OR operands, goal 6/6 | 9.69 | 2.15 |
+| Simplify and store root clause, goal 6/6 | 1.40 | 0.37 |
+| Attach root clause watches, goal 6/6 | 1.32 | 0.39 |
+| Process root OR operands, all ARM checks | 115.06 | 25.40 |
+| Install children of fresh Boolean equivalences, all checks | 69.72 | 13.20 |
+| Install fresh equality operands within the child disjunctions, all checks | 41.33 | 6.22 |
+
+The last two rows measure nested intervals in separate instrumented builds. Summing them would double-count work. Three independent runs per observer used solver-thread user instructions with adjacent empty reads. Nested probes can also charge instrumentation to their parent. Search diverges on some other checks, so the complete-input totals combine operation price and frequency.
+
+The large recursive cost led to 417 fresh equalities between the result of an event-operation function and an enum constructor. In g3, registering the datatype variable and its recognizer called `DatatypeConstructors` to obtain a length. Native uses constructor-count metadata. With `db3d9261b`, the same 417 equalities cost **13.65M instructions, down from 31.35M**. Single-constructor reconstruction still obtains the declaration it needs, and conflicting recognizers resolve their own constructor directly.
+
+The second change follows native's `theory_datatype::mk_split`. Once the preferred recognizer is false, examine the existing slots first. An already relevant, unassigned recognizer ends the scan. Only an empty slot requires looking up its constructor. The solver's existing datatype utility owns the cached declarations.
+
+### Scaling with the number of constructors
+
+Seven alternating baseline/candidate pairs per width, pinned to CPU 18 of a Ryzen Threadripper 3960X, Go 1.27.3, one Go execution thread. Each column reports median ns/op. The fresh-term benchmark uses 2,000 iterations per invocation and includes push, internalize and pop. The split benchmark uses 5,000 iterations, rules out the preferred constructor during setup, then revisits the still-unassigned second choice. Each baseline is the revision immediately preceding that change.
+
+| Constructors | Fresh term before | Fresh term after | Split revisit before | Split revisit after |
+|---:|---:|---:|---:|---:|
+| 4 | 9,153 | 5,642 | 2,246 | 370 |
+| 16 | 18,756 | 5,698 | 7,040 | 349 |
+| 64 | 60,997 | 6,667 | 26,612 | 378 |
+
+At width 64, process-wide user instructions including test startup fell from 1.232B to 96.93M in the fresh-term benchmark and from 1.428B to 42.71M in the split benchmark. Fresh terms went from 12 to 10 allocations/op. Split revisits went from one to zero. Reproduce both through the [checked-in Go benchmarks](smtcore/smt_datatype_enum_benchmark_test.go).
+
+Eleven paired release runs used identical frontend, PGO and input. Constructor counting reduced complete ARM instructions by 2.27%. ARM elapsed changed by +0.40%. Hybrid broadcast and card3 instructions changed by +0.18% and +1.41%. The subsequent split change moved instructions by −0.03%, −0.05% and −0.57% on those three inputs respectively. The large split speedup is observable when the operation repeats. Its contribution to these complete inputs is small.
+
+Both production revisions independently matched the exit code, stdout and stderr of the linked native verifier on all 228 complete inputs. The full Go suite passed after the count change, including the FMA cross-build test. The split change (`450b4dd06`) passed the affected smtcore and API packages, the checked/debug/trace datatype checks and smtcore vet.
+
+The final same-frontend comparison alternated g3 and linked Z3 on CPU 16 for eleven rounds. Times include process launch. Concurrent work on the host makes small elapsed differences uncertain.
+
+| Complete verifier input | g3 median ms | Z3 median ms | g3 median user instructions | Z3 median user instructions |
+|---|---:|---:|---:|---:|
+| ARM rules | 469 | 345 | 3.15B | 2.19B |
+| Hybrid reliable broadcast | 1,135 | 846 | 7.91B | 5.82B |
+| card3 | 72 | 81 | 361M | 439M |
+
+### Other approaches tested
+
+- A ground-clause encoding can avoid two intermediate OR gates for an equivalence between small disjunctions. The broad version triggered 956 times on ARM, generated 4,761 clauses and reduced new Boolean variables from 15,392 to 11,161. A same-binary comparison preserving the original fallback saved 2.69% of ARM instructions. The narrow binary-lemma version saved 3.26% against the initial baseline. The corpus eligibility census found **only ARM** triggered the broad rule among 228 inputs. Leave it experimental until a second real workload demonstrates value. Splitting only the outer equivalence increased ARM instructions by 10.31%.
+- Deferring enum splits to the final theory check increased ARM instructions by 5.48% across nine same-binary pairs. Deferring all datatype splits increased them by 3.73%. Keep the current split timing.
+- Registering watches directly from available signed literals changed complete ARM instructions by +0.46%, reusing gate arguments by +0.14% and specializing short sorts by −0.22%. None justified a production change.
+
+Next, measure the original and rewritten lemma DAGs on matched ARM and Ticket checks. Distinguish mandatory visits from repeated visits to unchanged shared terms, and measure the cost of the repeat visits before introducing a cache. The earlier live measurements put the excess rewrite cost at about 86M instructions. The 4.156B excess first-push instructions across the separate 36-input survey remain a larger cross-workload opportunity.
+
+[Observer sources, experiments, benchmark drivers and paired measurements](perf/ivy_apple/holdouts/nov27-arm-lemma-installation-and-datatypes.tar.xz)
