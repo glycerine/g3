@@ -423,3 +423,23 @@ func TestLinearFactorRemainder(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkMultiplyMonomialTail(b *testing.B) {
+	f := newFixture(b)
+	x, y := f.variable(b, "x"), f.variable(b, "y")
+	m := monomial(b, f.s, 3, x)
+	defer func() { must(b, f.s.DelMonomial(m)) }()
+	e := Equation{monomials: []*Monomial{m}}
+	extra := []ast.ASTHandle{y}
+	var products [1]*Monomial
+	b.ReportAllocs()
+	for b.Loop() {
+		out := products[:0]
+		if err := f.s.mulAppend(0, &e, &m.coeff, extra, &out); err != nil {
+			b.Fatal(err)
+		}
+		if err := f.s.delMonomial(out[0]); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
