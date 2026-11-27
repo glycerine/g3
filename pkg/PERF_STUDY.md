@@ -7647,3 +7647,56 @@ A temporary g3 build substituted the native choice only at those two splits. It 
 | All observed verifier stages | 5.849B | 5.858B | +0.15% |
 
 The first visible decision difference does explain some excess work at 11/5. Copying that choice increased cost on the larger 31/34 gap. The two substitutions ran in one incremental proof, so the aggregate includes later checks that inherit search state. The observer measures solver-thread instructions inside stages. The trial provides no elapsed-time result. The next priority is repeated work where the engines perform the same search or rewrite operations, particularly the 80.62M instruction gap on matched value-sweep traversal. [Heap snapshots, substitution driver and raw counters](perf/ivy_apple/holdouts/nov27-hybrid-decision-cost.tar.xz)
+
+### November 27 — Recycle AST references during unchanged rewrites
+
+On 4,271 of the 5,116 matched first-push rows, neither engine hit a substitution or rewrite cache entry, or successfully reduced a nonconstant application. Their per-row medians sum to 110.54M instructions for g3 and 40.80M for Z3. These rows account for 69.73M of the measured excess. The counts describe the observed traversal. A shortcut that skips a row would also have to account for quantifier reductions, cache writes and resource checks.
+
+Two proof-free application-frame prototypes consumed fewer instructions inside the sweep. Collapsing one or two shared child references directly into an unchanged result brought the seven-round median from 126.31M to 123.85M. Recognizing an unchanged uninterpreted application before theory dispatch brought it to 123.22M. The latter allowed the normal path for binary applications when cheap ITE pulling was enabled. Across the four complete default-GC verifiers, the first trial's instruction changes ranged from −0.75% to +0.81% and the second's from −1.93% to +0.47%. Both remain in the experiment archive.
+
+Commit `571778234` improves a more widely used operation. A new owning AST reference can take a free slot and pin its validated node in one pass. Deleting a reference to a surviving node can validate the reference and decrement its node directly. Last owners, pending deletions, callbacks and exhausted generations still use the existing lifecycle. A stale-node regression failed on the initial prototype because it consumed a reference whose pointed-to generation disagreed. The release checks this generation. Recycling a slot also invalidates its previous owning handle. [Implementation](ast/ast_ref.go) · [Ownership regressions and benchmark](ast/ast_ref_reuse_test.go)
+
+Across nine alternating one-million-operation benchmark pairs, the median cost per acquire/release pair fell from **46.86 to 22.02 ns** for a shared node and from **28.06 to 19.83 ns** for an empty reference. All four paths allocated zero bytes per pair. Seven paired hybrid stage measurements put the released value-sweep calls at **124.05M versus 126.31M** instructions. The enclosing instrumented first pushes fell from 1,371.41M to 1,346.45M. A shorter implementation that recycled only after entering the ordinary manager path used 124.82M and 1,357.19M respectively.
+
+| Complete proof with normal GC | Alternating pairs | Paired instruction change | Paired elapsed change |
+| --- | ---: | ---: | ---: |
+| Hybrid | 9 | −0.90% | −1.01% |
+| Ticket | 9 | −1.39% | +2.34% |
+| ARM | 9 | −0.44% | +0.20% |
+| FBA | 9 | −0.64% | +0.14% |
+| Ordinary Raft | 3 | −1.34% | −0.90% |
+| TLB | 3 | −0.83% | −0.50% |
+| test_liveness2 | 3 | +0.87% | −2.97% |
+| Apple rfn2 | 3 | +0.16% | −1.03% |
+| Apple dramc_nb2 | 3 | −0.12% | +1.31% |
+
+The four short cases also retired 0.32–1.04% fewer instructions over nine GC-off comparisons. Whole-proof elapsed time varied on the shared machine. All proof exit codes and both output streams matched the pinned references, including the two expected failures. Ordinary AST, rewriter, SMT core, API, shell and portcheck tests passed. Checked/debug/trace AST tests and AST vet passed. [Drivers, benchmarks and raw counters](perf/ivy_apple/holdouts/nov27-rewriter-reference-cost.tar.xz)
+
+Seven same-core pairs against linked Z3 gave the following absolute medians with the same GoIvy frontend and normal GC. Hybrid took **1,125 ms versus 813 ms** (1.38×) and Ticket **424 ms versus 230 ms** (1.84×). ARM took 465 ms versus 329 ms (1.42×). FBA took 106 ms versus 135 ms (0.79×). Matching the Z3 instruction count would require removing another 2.51B instructions on hybrid and 1.57B on Ticket in this panel.
+
+#### Which matched operations account for the instruction gap?
+
+Separate Go and in-tree C++ builds bracketed each operation on the pinned solver thread. All five call counts matched independently on **every row** in three complete proofs per engine. Each cell below is the median of the three sums after subtracting the row's mean empty-bracket cost. Nested brackets yielded to their outer operation. Go and C++ compile the observer differently, so very small differences carry less weight.
+
+| Operation | Calls | g3 | Z3 | Excess |
+| --- | ---: | ---: | ---: | ---: |
+| Nonconstant application reducer | 26,001 | 19.33M | 4.77M | **14.56M** |
+| Substitution lookup | 50,498 | 9.74M | 3.00M | **6.74M** |
+| Variable processing | 14,508 | 4.05M | 0.38M | **3.67M** |
+| Quantifier reducer | 4,872 | 15.78M | 14.46M | **1.32M** |
+| Constant processing | 4,036 | 0.66M | 0.27M | **0.39M** |
+
+The quantifier reducer was the second most expensive measured operation in g3, yet the two engines performed it at similar cost. The application reducer used about **743 versus 183 instructions per call**. The 4,271 rows without hits or successful nonconstant reductions spent 15.72M g3 instructions there. Go's disjoint brackets also attributed 7.41M to cache insertion, 5.05M to shrinking owned root slices and 4.74M to scope exit outside the five operations above. These three measurements currently lack paired native brackets. [Per-row events and paired counters](perf/ivy_apple/holdouts/nov27-rewriter-reference-cost.tar.xz)
+
+A second three-run pair classified nonconstant applications before entering the reducer. Counts matched on all 5,116 rows in every operator class.
+
+| Application kind | Calls | g3 | Z3 | Excess |
+| --- | ---: | ---: | ---: | ---: |
+| Equality or iff | 1,873 | 5.11M | 0.64M | **4.48M** |
+| Negation | 6,627 | 4.21M | 0.97M | **3.24M** |
+| Uninterpreted function | 10,856 | 3.12M | 0.72M | 2.40M |
+| Disjunction | 3,615 | 3.29M | 1.37M | 1.92M |
+| Conjunction | 2,479 | 2.25M | 0.94M | 1.31M |
+| If-then-else | 551 | 1.38M | 0.15M | 1.24M |
+
+Equality and negation together account for 7.72M excess instructions in these windows. Compare their operand shapes and failing rule paths on the matched Ticket replays before proposing a general fast path. Earlier experiments already tested an operand-sort guard for the one-bit equality rule. Even recovering the full 14.56M application-reducer excess here would cover less than 1% of the complete hybrid instruction gap. For a larger gain, measure the same operations during solver checks, where the same implementation handles many more instances, and price the rest of the frame loop separately.
