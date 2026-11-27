@@ -67,3 +67,61 @@ func TestASTDecRefEachOrderAndFailure(t *testing.T) {
 		t.Fatal("empty batch", n, e)
 	}
 }
+
+// Both paths retain the same four references to an already-live sort.
+func BenchmarkASTSharedReferenceBatch(b *testing.B) {
+	m := astTestManager(b)
+	sort, err := m.MkBoolSort()
+	astTestMust(b, err)
+	astTestPin(b, m, sort)
+	refs := []ASTHandle{sort, sort, sort, sort}
+	b.Run("Individual", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			for _, h := range refs {
+				if err := m.IncRef(h); err != nil {
+					b.Fatal(err)
+				}
+			}
+			for _, h := range refs {
+				if consumed, err := m.DecRefConsumed(h); !consumed || err != nil {
+					b.Fatal(consumed, err)
+				}
+			}
+		}
+	})
+	b.Run("Combined", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			if inc, dec, err := m.IncRefThenDecRef(refs, refs); inc != len(refs) || dec != len(refs) || err != nil {
+				b.Fatal(inc, dec, err)
+			}
+		}
+	})
+}
+
+func TestASTDecRefConsumedRejectsMalformedHandles(t *testing.T) {
+	m := astTestManager(t)
+	h, err := m.MkBoolSort()
+	astTestMust(t, err)
+	astTestPin(t, m, h)
+	n, err := m.GetRefCount(h)
+	astTestMust(t, err)
+	for _, bad := range []ASTHandle{
+		{origin: m.origin},
+		{generation: 1},
+		{origin: h.origin + 1, slot: h.slot, generation: h.generation},
+		{origin: h.origin, slot: h.slot, generation: h.generation + 1},
+		{origin: h.origin, slot: m.nextNode, generation: h.generation},
+	} {
+		if consumed, err := m.DecRefConsumed(bad); consumed || err != ErrASTHandle {
+			t.Fatalf("release of %v returned %v, %v", bad, consumed, err)
+		}
+	}
+	if consumed, err := m.DecRefConsumed(ASTHandle{}); !consumed || err != nil {
+		t.Fatalf("null release returned %v, %v", consumed, err)
+	}
+	if after, err := m.GetRefCount(h); after != n || err != nil {
+		t.Fatalf("live count after refused releases = %d, want %d, error %v", after, n, err)
+	}
+}

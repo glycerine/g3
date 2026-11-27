@@ -489,14 +489,7 @@ func (m *ASTManager) DecRefConsumed(h ASTHandle) (bool, error) {
 		return false, e
 	}
 	defer m.mu.Unlock()
-	if h.IsNull() {
-		return true, nil
-	}
-	r, e := m.internal(h)
-	if e != nil {
-		return false, e
-	}
-	return m.decNode(r)
+	return m.decRefLocked(h)
 }
 func (m *ASTManager) BasicFamilyID() FamilyID { return 0 }
 func (m *ASTManager) IsFormatManager() bool   { return m != nil && m.Format == nil }

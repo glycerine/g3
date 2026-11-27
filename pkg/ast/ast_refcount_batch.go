@@ -6,16 +6,18 @@ package ast
 // so node deletion, id recycling and trace output happen at the same points.
 
 // decRefLocked is DecRefConsumed's body with the manager already locked.
-func (m *ASTManager) decRefLocked(h ASTHandle) error {
-	if h.IsNull() {
-		return nil
+func (m *ASTManager) decRefLocked(h ASTHandle) (bool, error) {
+	if h.slot == 0 {
+		if h.IsNull() {
+			return true, nil
+		}
+		return false, ErrASTHandle
 	}
-	r, e := m.internal(h)
-	if e != nil {
-		return e
+	if h.origin != m.origin {
+		return false, ErrASTHandle
 	}
-	_, e = m.decNode(r)
-	return e
+	// decNode validates the slot and generation before reading the count.
+	return m.decNode(astNodeRef{h.slot, h.generation})
 }
 
 // relockBetween reproduces the per-call lock() checks that may change while
@@ -44,7 +46,7 @@ func (m *ASTManager) DecRefEach(hs []ASTHandle) (int, error) {
 				return i, e
 			}
 		}
-		if e := m.decRefLocked(h); e != nil {
+		if _, e := m.decRefLocked(h); e != nil {
 			return i, e
 		}
 	}
@@ -70,7 +72,7 @@ func (m *ASTManager) DecRefEachReverse(hs []ASTHandle) (int, error) {
 				return done, e
 			}
 		}
-		if e := m.decRefLocked(hs[i]); e != nil {
+		if _, e := m.decRefLocked(hs[i]); e != nil {
 			return done, e
 		}
 	}
@@ -104,7 +106,7 @@ func (m *ASTManager) IncRefThenDecRef(inc, dec []ASTHandle) (incDone, decDone in
 		if e := m.relockBetween(); e != nil {
 			return len(inc), i, e
 		}
-		if e := m.decRefLocked(h); e != nil {
+		if _, e := m.decRefLocked(h); e != nil {
 			return len(inc), i, e
 		}
 	}
