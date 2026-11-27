@@ -9283,3 +9283,63 @@ Three complete Hybrid allocation runs gave a median of **336,637,432 bytes and 2
 A scratch evaluator tested independent random two-element function tables. It evaluates each supported quantified formula under every binding and intersects satisfying assignments across assertions. Linked Z3 independently checked the bounded inputs. On the twelve known cases requiring two elements, 4,096 trial interpretations found ten witnesses (four of six Hybrid, three of three POPL18, three of three liveness Ticket). A 64-interpretation sample found one. Widths use separately drawn deterministic tables, so they need not recognize nested sets of cases. Python timings exclude parsing and do not predict Go verifier speed.
 
 Even eliminating all twelve private calls would recover at most their directly observed 48.07M, 22.43M and 28.41M instructions respectively, before paying for detection and allowing for later search changes. On Hybrid that is about 0.64% of the complete run. The larger remaining question is why Ticket generates extra instances on 4/55 and why both Ticket and Hybrid pay more per enode. [Captured subsets, oracle replay, prototype sources and per-run measurements](perf/ivy_apple/holdouts/nov27-relevant-premise-models.tar.xz)
+
+## November 27 — The first different Ticket offer and the price of changing order search
+
+The comparison starts at g3 commit `2281f7a2e` with the guarded-sibling GoIvy frontend. Earlier reports counted 725 asserted lemmas on POPL18 Ticket 4/55. The current release asserts **531**, versus **356** for linked Z3. With ordinary checks on the preceding siblings, current g3 reproduces the native sequence of 45 signed decisions, 887 offers and 356 asserted lemmas. The comparison normalizes generated symbols consistently within each event kind and accounts for symmetric equality operands. It includes event interleaving.
+
+With the released proof policy, the first 156 events match the native trace. Offer 109 is the first different event. G3 offers the totality axiom on a pair of ticket terms while native offers an instance involving saved service state. Through the second decision, the two solvers go on to make the **same multiset of 206 offers and 101 assertions** between decisions two and three. The first order difference at this point still leaves them the same work to do. At decision three, native chooses the negative literal for `le(next_ticket,next_ticket)`, which contradicts the reflexivity axiom. G3 chooses a negative equality between conditional service terms. Following decision three, native offers 58 more candidates and asserts 26 lemmas before its next decision. G3 offers none in that interval.
+
+To measure the effect of that choice, the scratch queue selected the native atom once from g3's activity heap after verifying membership and an undefined assignment. G3 continued to choose its own phases and all later decisions. Seven rotating, GC-off runs counted instructions on the solver thread with tree logging disabled. Separate logged runs supplied event counts and every complete verification matched the reference.
+
+| History or intervention | Decisions | Offers | Asserted lemmas | 4/55 check, M instructions |
+|---|---:|---:|---:|---:|
+| Current release | 159 | 1,913 | 531 | 53.95 |
+| Choose the native reflexive atom on decision 3 | 106 | 1,553 | 441 | 45.63 |
+| Choose it on decision 5 | 69 | 1,105 | 388 | 38.20 |
+| Run sibling 4/17 through ordinary g3 | 118 | 2,321 | 689 | 66.80 |
+| Run all siblings through ordinary g3 | 45 | 887 | 356 | 34.19 |
+
+The decision-5 intervention uses the fourth ordinary heap extraction because a random choice bypasses that extraction. An attempted reverse substitution on the other history failed the eligibility check and contributed no measurement. The old 4/17 intervention had saved work on an earlier release; it increases current check cost by 23.75%. Even the best one-decision substitution saves only 15.75M instructions on a complete roughly 2.6B-instruction verifier.
+
+### Which search changes transfer?
+
+Across four rotated whole-verifier rounds, increasing the initial activity of all syntactically diagonal binary predicates saved 2.91% of Hybrid instructions and **increased ARM by 33.96%**. Restricting it to variables created during search gave ARM +34.63%. Restricting it to variables created outside search gave POPL18 −1.75% and liveness Ticket +2.99%. A separate experiment recognized a positive universal reflexivity axiom and asserted its consequences for the existing constants of that sort. It gave POPL18 **−7.02%** and nested Ticket **+7.18%**. The production solver keeps its existing decision and assertion order.
+
+Across the whole 4/55 search the transitivity axiom alone accounted for 234 offers versus 114 native. Two uniqueness axioms for the live and saved ticket relations contributed another 154 excess offers. We tested replacing a relation known to be single-valued with a unary function plus a definedness predicate, or with a function plus the original binary predicate as a guard. The complete defining axiom must be a positive premise. A partial relation may have no value at an input, so the definedness condition matters. Nine independent Ticket snapshots ran fresh and with a push before the goal in both CLIs. Incremental L2S 12/8 fell from 277M to 226M g3 instructions with the unary definedness predicate. L2S 14/8 rose from 205M to 1,815M and POPL18 4/55 rose from 231M to 460M. All 324 checks concluded UNSAT.
+
+### Can arithmetic replace quantified order axioms?
+
+The scratch rank encoding recognizes positive reflexivity, totality and transitivity premises for the same binary predicate. For the tested pure first-order UF inputs, a countable satisfying model suffices. Quotienting a total preorder by mutual comparability in both directions gives a countable linear order, which embeds in the rationals. Assigning each value its class's real-valued rank represents the original relation as `rank(x) <= rank(y)`. Antisymmetry, if asserted, stays in the formula. In the reverse direction any rank interpretation induces a total preorder. This reasoning depends on the source fragment. The live diagnostic used known pure inputs and lacks a production eligibility check.
+
+A second encoding used a unary membership predicate for the image of a linear order in the reals. It restricted quantified variables to that image and constrained function results of the represented sort. Finite enumeration checked every binary relation on domains of sizes one through four. Exactly 1, 3, 13 and 75 total preorders, respectively, admitted a rank assignment. Both CLIs passed the three-element chain, contradictory cycle and tied-rank controls for their supported encodings. On a satisfiable order with no greatest element, the 0.8-second checks timed out; they provide no empirical answer on infinite models.
+
+| Independent g3 replay, M instructions | Original | Rank | Restricted image |
+|---|---:|---:|---:|
+| Nested 16/1, fresh | 1,292 | 373 | 473 |
+| Nested 16/1, incremental push | 520 | 384 | 443 |
+| POPL18 4/55, fresh | 222 | 235 | 383 |
+| POPL18 4/55, incremental push | 231 | 201 | 369 |
+
+Five pinned normal-GC pairs tested a live AST transformation in eligible single-condition batches. Complete nested Ticket saved 3.69% of instructions (436 → 423 ms) while POPL18 used **26.45% more** (397 → 504 ms). In separate GC-off batch measurements, nested 16 went from 345.89M to 249.34M instructions. POPL18 batches 6, 7 and 8 rose from 84.80M, 146.41M and 91.74M to 223.19M, 378.05M and 317.17M. The three regressions outweigh the nested win. All six complete verifier inputs matched the references. The rank and membership encodings remain experiments.
+
+### Retained queue change and corpus ranking
+
+Commit `24e06cb87` finishes a registered candidate immediately when the checker has already satisfied its body. At that point the prepared instance owns no temporary AST reference. The queue previously entered materialization, looked up the rewriter and released empty locals. Preparation also queried the quantifier kind separately just before reading its body through an accessor that already checks the kind. The public preparation and materialization interfaces retain their separate lifetimes and error checks.
+
+Nine rotating pairs of 120,000 calls used the registered candidate benchmark, with matching zero allocations. At clause width four, first- and last-binding cases saved **12.21% and 7.61% of instructions**. At width sixteen they saved **12.20% and 3.02%**. The absolute difference was about 302 instructions per candidate throughout. Normal-GC complete verification showed smaller, mixed effects. POPL18 used 1.34% more instructions in the first seven-pair panel and 0.31% fewer in the nine-pair repeat on another CPU. In the latter panel nested Ticket used 0.62% fewer, Hybrid 0.27% fewer, and ARM 0.26% more. With GC off all four improved by 0.15–0.38%. All 228 verifier transcripts matched linked Z3, as did three pairs each on ordinary Raft and Apple rfn2 and dramc_nb2. The full SMT core package, the focused checked/debug/trace tests, and vet passed. [Benchmark](smtcore/smt_quantifier_candidate_benchmark_test.go)
+
+A fresh instruction screen ran each engine once on each of the 228 historical inputs. G3 retired fewer instructions on 210. Hybrid still leads the absolute instruction deficits at 1.663B, followed by POPL18 Ticket at 1.109B, ARM at 0.927B, L2S Ticket at 0.798B, and nested Ticket at 0.713B. Elapsed rankings from this concurrently loaded screen are unsuitable for claiming workload wins. Rotated pairs above give the separate elapsed controls.
+
+### Two arithmetic checks costing more than ten times native
+
+Number theory and gcd2 showed 335M and 306M excess instructions per complete verifier run. They are related specifications. The original SMT-LIB for four selected obligations is byte-identical across the pair. Three full-process sample profiles per engine found 238M and 231M g3 instructions under pending assertion internalization, against approximately 48M and 44M native. Arithmetic comparison rewriting accounted for about 71M and 63M g3 instructions inclusively. These stack categories overlap.
+
+Five GC-off runs measured the actual incremental check windows. The ordinary-g3 control used the same pre-push policy, then used the direct solver check after each push. On number theory, all check windows together cost **354.03M release / 293.30M ordinary g3 / 80.37M native**. The corresponding gcd2 figures were 337.23M / 280.05M / 77.08M. Two particularly short native checks expose both costs.
+
+| Number theory | Release g3 | Ordinary g3 | Linked Z3 |
+|---|---:|---:|---:|
+| 2/25 | 25.34M | 6.09M | 1.70M |
+| 2/30 | 33.70M | 10.67M | 2.95M |
+
+Four saved inputs also ran independently in both CLIs, fresh and with a push before asserting the goal. All 48 runs returned UNSAT. On incremental 2/25 and 2/30 the solvers matched decisions, conflicts, quantifier instances and resource steps exactly. Each took zero decisions and one conflict, with four and ten instances respectively. The direct CLI results include process startup and do not measure the live private-proof overhead. The next investigation can now use 2/25 and 2/30 to price unproductive private attempts, and ordinary g3 to identify the extra cost of preparing and rewriting the same arithmetic terms across the other checks. [Trace comparisons, experiment sources, solver inputs and per-round counters](perf/ivy_apple/holdouts/nov27-ticket-decisions-and-arithmetic.tar.xz)
