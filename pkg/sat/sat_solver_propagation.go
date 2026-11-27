@@ -156,6 +156,11 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 		if destinations != nil && !store.hasFreed && len(records) == len(destinations) {
 			denseDestinations = records
 		}
+		var common *arena.ClauseBytes
+		a := s.clauses
+		if destinations != nil && iter.backing != nil && a != nil && !a.closed && a.self == a && iter.backing.owner == a.origin {
+			common = a.storage
+		}
 		for pos := uint32(0); pos < iter.end; pos++ {
 			if tracing {
 				// A user-supplied trace writer can also relocate a list.
@@ -166,6 +171,19 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				data = current.data
 			}
 			bits := data[pos]
+
+			// A satisfied blocking literal retains the original encoded watch.
+			// Only copy it if an earlier move opened a gap in this list.
+			if !tracing && bits.val2&3 == 2 && assignment[bits.val2>>2] == lbool.True {
+				if out != pos {
+					data[out] = bits
+					if extra := iter.backing.wide; extra != nil {
+						extra.values[out] = extra.values[pos]
+					}
+				}
+				out++
+				continue
+			}
 			// A trace or extension can overwrite a list entry in place. Retain
 			// the full offset captured with these words across such callbacks.
 			var savedOffset satClauseOffset
@@ -218,19 +236,26 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 					return false, nil
 				}
 			case 2:
-				blocked, e := w.BlockedLiteral()
-				if e != nil {
-					return false, e
-				}
-				if assignment[blocked.index()] == lbool.True {
-					if tracing {
-						s.traceBlockedClause(blocked, iter.backing.read(pos))
+				if tracing {
+					blocked, e := w.BlockedLiteral()
+					if e != nil {
+						return false, e
 					}
-					break
+					if assignment[blocked.index()] == lbool.True {
+						s.traceBlockedClause(blocked, iter.backing.read(pos))
+						break
+					}
 				}
+				// A compact pooled watch inherits this list's verified owner.
+				// Direct and full-width watches resolve their original offset.
 				off := iter.backing.offset(bits, pos)
 				c := StoredClauseRef(off)
-				clause, e := s.clauses.view(c)
+				var clause satClauseView
+				if common != nil && bits.val1>>satWatchSlotBits != satWatchWide && off.storageKind == 0 && off.slot != 0 {
+					clause, e = common.Borrow(arena.SmallBytesRef{Slot: arena.Slot(off.slot), Generation: arena.Generation(off.generation)})
+				} else {
+					clause, e = s.clauses.view(c)
+				}
 				if e != nil {
 					return false, e
 				}
@@ -272,6 +297,11 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 					}
 					if e = v.watches.pushClause(i, c0, off); e != nil {
 						return false, e
+					}
+					// A raw-state self-move can grow the current list. Further
+					// offsets belong to the captured backing only while it is live.
+					if !iter.backing.alive {
+						return false, arena.ErrInvalidSlot
 					}
 					keep = false
 					break

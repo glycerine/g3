@@ -172,3 +172,76 @@ func TestSATPropagationTraceReleasesWatchedClause(t *testing.T) {
 		})
 	}
 }
+
+func TestSATBlockedWideWatchAfterMove(t *testing.T) {
+	s, v, _ := satPropagationFixture(t, 4)
+	c, err := s.clauses.MkClause([]Literal{1, 2, 4}, false)
+	satOK(t, err)
+	off, err := s.clauses.Offset(c)
+	satOK(t, err)
+	moving, err := newSATClauseWatch(2, off)
+	satOK(t, err)
+	satPropagationPush(t, s, 0, moving)
+
+	// The true blocking literal allows propagation to retain this watch
+	// without resolving its exceptional offset.
+	off.generation = math.MaxUint32
+	blocked, err := newSATClauseWatch(6, off)
+	satOK(t, err)
+	satPropagationPush(t, s, 0, blocked)
+	satOK(t, s.assign(6, satJustification{}))
+	satOK(t, s.assign(0, satJustification{}))
+	ok, err := s.propagateCore(false)
+	satOK(t, err)
+	if !ok {
+		t.Fatal("unexpected conflict")
+	}
+	list, err := v.watches.Get(0)
+	satOK(t, err)
+	n, err := list.Size()
+	satOK(t, err)
+	if n != 1 {
+		t.Fatalf("retained %d watches, want 1", n)
+	}
+	got, err := list.Read(0)
+	satOK(t, err)
+	if got != blocked {
+		t.Fatalf("retained %+v, want %+v", got, blocked)
+	}
+}
+
+func TestSATPropagationValidatesUnblockedWatchOffset(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		want error
+	}{
+		{"stale", arena.ErrInvalidSlot},
+		{"foreign", ErrSATOwner},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, _, _ := satPropagationFixture(t, 4)
+			c, err := s.clauses.MkClause([]Literal{1, 2, 4}, false)
+			satOK(t, err)
+			off, err := s.clauses.Offset(c)
+			satOK(t, err)
+			// Give the list a local owner before inserting the invalid watch.
+			keep, err := newSATClauseWatch(6, off)
+			satOK(t, err)
+			satPropagationPush(t, s, 0, keep)
+			if tc.name == "foreign" {
+				off.owner++
+			} else {
+				off.generation++
+			}
+			bad, err := newSATClauseWatch(2, off)
+			satOK(t, err)
+			satPropagationPush(t, s, 0, bad)
+			satOK(t, s.assign(6, satJustification{}))
+			satOK(t, s.assign(0, satJustification{}))
+			_, err = s.propagateCore(false)
+			if err != tc.want {
+				t.Fatalf("propagation returned %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
