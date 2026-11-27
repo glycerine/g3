@@ -7927,3 +7927,36 @@ The conflict stacks attribute 8.03M instructions to undoing the Go relevancy tra
 Across eleven alternating rounds of 1,000 scope pops, releasing 128 watches with surviving sources fell from 2,775 to 1,911 ns per scope (31%), with zero timed allocations. On nine paired fresh-process CLI replays with GC off, Ticket 127, Ticket 290 and Toy consensus 18 used 0.14%, 0.17% and 0.07% fewer instructions. Search counters agreed. Complete verifiers with normal GC had mixed paired instruction counts (Ticket +0.30%, hybrid +0.13%, ARM −0.62%, FBA +1.68%). All transcripts matched. These results establish the improvement in watch retirement; complete proof speedup remains unproven.
 
 In a further seven paired complete runs per workload with collection disabled, instructions fell by 0.20% on Ticket, 0.06% on hybrid, 0.10% on ARM and 0.09% on FBA. Elapsed paired medians rose by 0.1–1.3%. The holdouts support keeping the small watch-specific improvement while directing further work toward larger costs.
+
+## November 27 — Why Ticket spends more on relevance rollback
+
+The ordinary Go solver and native Z3 ran the same eight Ticket verification conditions in the same incremental history. The observers counted the references immediately before each decrement, splitting by the owning structure. Both complete runs reproduced the reference stdout, stderr and exit status. Counts below cover the entire selected check, including any pops during it.
+
+| Owner | g3 surviving | g3 final | Z3 surviving | Z3 final |
+|---|---:|---:|---:|---:|
+| Positive watch source | 3,095 | 0 | 3,095 | 0 |
+| Negative watch source | 4,494 | 0 | 4,494 | 0 |
+| Asserted OR parent held by a watch | 0 | 2,601 | 0 | 0 |
+| OR in the relevance-mark vector | 2,773 | 854 | 172 | 3,455 |
+| Other expression in the relevance-mark vector | 5,211 | 26 | 5,205 | 32 |
+
+Both engines retire 7,589 watch sources and perform **3,455 final OR releases**. The Go watch that first registers an asserted disjunction owns its parent so the handler can still run if the caller drops the last external reference. Z3's mark vector performs the final release in all 3,455 cases. Counting only the watch trail would incorrectly attribute 2,601 extra disjunction destructions to g3.
+
+A second observer timed the final OR decrement, including child destruction, and checked the count at both owner sites in every check. Five alternating runs with GC disabled used per-thread userspace instruction counters, subtracting the cost of back-to-back reads. g3 used **6.515M instructions** (1.208M from marks and 5.307M from watches). Native used **0.915M**. This is approximately 1,886 versus 265 instructions per final root. The native mark observer sets each element to null in the original forward release order and then shrinks the cleared vector. The Go observer releases in that same order. The interval measures these instrumented release calls.
+
+### Two changes tested against the same proofs
+
+A temporary variant let later watches borrow sources from the first watch's retained parent. The first watch still owned its own source and released the parent last. The ordinary smtcore suite passed. On nine paired CLI runs the trial saved only 0.08%, 0.06% and 0.01% of instructions on Ticket 127, Ticket 290 and Toy consensus 18. Complete Ticket, hybrid, ARM and FBA saved at most 0.13% with GC disabled. The additional ownership mode remains a prototype.
+
+Commit `738700434` removes duplicate handle validation from the common AST decrement. Individual and batched releases now share the same origin check and a single slot/generation check. Malformed zero-slot handles, foreign handles, retired generations and out-of-range slots still fail before changing counts. The canonical null handle still succeeds. Existing deletion code retains responsibility for reporting whether a failed destructor consumed its input.
+
+| Four retains and four releases of a shared sort | Baseline ns/op | Patched ns/op | Paired change in instructions |
+|---|---:|---:|---:|
+| Individual manager calls | 74.92 | 71.41 | −8.66% |
+| Combined batch | 57.18 | 51.22 | −14.33% |
+
+Nine alternating 500,000-iteration runs used one pinned CPU. Retired instructions include process setup. Both paths allocated zero bytes in the timed loop. All three replay instruction medians improved by 0.06–0.10%. In seven pairs of complete verifications without GC, instructions improved by 0.08% on Ticket, 0.11% on hybrid, 0.04% on ARM and 0.03% on FBA. Default-GC results were mixed across nine pairs (−0.04%, −0.48%, +0.69%, +0.83% respectively). The complete verifier timing data do not establish a general speedup. All proof transcripts matched. The [reproduction archive](perf/ivy_apple/holdouts/nov27-relevance-rollback.tar.xz) includes per-round samples and both observer implementations.
+
+A third observer counted every AST destroyed by those 3,455 final root releases. Both engines destroyed applications exclusively. Counts matched at every arity from two through ten. The only difference was 584 unary applications in g3 versus 578 in Z3. In particular, each engine destroyed 1,376 four-argument applications and 1,606 applications wider than g3's four inline argument slots. The six-node difference cannot explain the roughly sevenfold instruction ratio by itself. The raw arity histogram is in the archive.
+
+Across the earlier fifteen sampled rounds for the entire eight checks, the Go deletion worklist body accounted for 11.51M instructions, including 7.23M attributed directly to the loop, 1.20M beneath table removal and 1.07M beneath child access. Native deletion accounted for 1.87M. The sampled region includes other deletions and uses an earlier solver revision. Next, measure the final-release loop separately at widths four, five and ten. Try reading a wide application's operand payload once per retiring node. Keep the arena allocation, ascending child decrements, reverse worklist order and partial-error behavior.
