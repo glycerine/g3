@@ -83,16 +83,20 @@ func newSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 	if options.MergeTruthValue && !boolean {
 		return nil, ast.ErrASTDomain
 	}
-	flags, err := m.GetFuncDeclFlags(header.Decl)
-	if err != nil {
-		return nil, err
+	commutative := false
+	if !options.SuppressArguments && header.NumArgs == 2 {
+		flags, err := m.GetFuncDeclFlags(header.Decl)
+		if err != nil {
+			return nil, err
+		}
+		commutative = flags.Commutative
 	}
 	n := &SMTEnode{
 		manager: m, owner: owner, declaration: header.Decl,
 		classSize: 1, generation: options.Generation, functionDeclID: math.MaxUint32,
 		internalScopeLevel: options.InternalScopeLevel, suppressArguments: options.SuppressArguments,
-		equality: header.Family == m.BasicFamilyID() && header.DeclKind == ast.ASTOpEq,
-		boolean:  boolean, mergeTruthValue: options.MergeTruthValue,
+		equality:    header.Family == m.BasicFamilyID() && header.DeclKind == ast.ASTOpEq,
+		commutative: commutative, boolean: boolean, mergeTruthValue: options.MergeTruthValue,
 		congruenceEnabled: options.CongruenceEnabled, labelHash: -1,
 		theoryVariables: *NewDefaultSMTTheoryVarList(),
 		family:          header.Family, declKind: header.DeclKind,
@@ -132,7 +136,6 @@ func newSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 			}
 		}
 	}
-	n.commutative = len(n.arguments) == 2 && flags.Commutative
 	return n, nil
 }
 
