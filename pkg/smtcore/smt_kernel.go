@@ -131,6 +131,7 @@ type SMTKernel struct {
 	preprocess                bool
 	skipRepeatedPreprocessing bool
 	simplifyInitialPushOnce   bool
+	reduceIfSharingChanged    bool
 	connectedMultiPatterns    bool
 	reduceScopedClauses       bool
 	timerClock                func() (uint64, error)
@@ -1185,7 +1186,12 @@ func (k *SMTKernel) internalizePushBase() error {
 	// Its next push must still use the ordinary schedule.
 	k.simplifyInitialPushOnce = false
 	k.skipRepeatedPreprocessing = true
-	defer func() { k.skipRepeatedPreprocessing = false }()
+	k.reduceIfSharingChanged = !ast.ASTValidateHandles && !diagnostic.TraceCompiled() &&
+		!k.manager.NumeralService().RuntimeOwner().AllocationLimited()
+	defer func() {
+		k.skipRepeatedPreprocessing = false
+		k.reduceIfSharingChanged = false
+	}()
 	return k.internalizePending()
 }
 

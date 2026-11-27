@@ -123,3 +123,32 @@ func TestSMTAssertedBVSharingScopesAndProofs(t *testing.T) {
 		}
 	}
 }
+
+// An unchanged early row can still need theory reduction when sharing
+// changes a later row. The generic sharing traversal folds constant ITEs
+// even before its first scope registers the associative operators.
+func TestSMTInitialBVSharingReducesWholeChangedBatch(t *testing.T) {
+	m, solver := smtAssertedNNFFixture(t, false)
+	k := solver.kernel
+	k.reduceIfSharingChanged = true
+	b, err := m.MkBoolSort()
+	astTestMust(t, err)
+	p, err := m.MkFreshConst("p", b)
+	astTestMust(t, err)
+	q, err := m.MkFreshConst("q", b)
+	astTestMust(t, err)
+	truth, err := m.MkTrue()
+	astTestMust(t, err)
+	neg, err := m.MkNot(p)
+	astTestMust(t, err)
+	twice, err := m.MkNot(neg)
+	astTestMust(t, err)
+	astTestMust(t, k.appendAssertion(twice, ast.ASTHandle{}))
+	choice, err := m.MkIte(truth, q, p)
+	astTestMust(t, err)
+	astTestMust(t, k.appendAssertion(choice, ast.ASTHandle{}))
+	astTestMust(t, k.maximizePendingBVSharing())
+	if len(k.assertions) != 2 || k.assertions[0].Formula != p || k.assertions[1].Formula != q {
+		t.Fatal("changed sharing batch did not reduce both assertions", k.assertions)
+	}
+}

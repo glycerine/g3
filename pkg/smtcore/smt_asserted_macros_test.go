@@ -77,7 +77,7 @@ func checkAssertedMacroScopes(t *testing.T, cfg SMTSolverConfig) {
 		// Commit the definition in a fresh base, then test the ordinary
 		// nested-scope and model paths using that same solver.
 		astTestMust(t, solver.Push())
-		if solver.kernel.skipRepeatedPreprocessing || solver.kernel.assertedMacros.NumMacros() != 1 {
+		if solver.kernel.skipRepeatedPreprocessing || solver.kernel.reduceIfSharingChanged || solver.kernel.assertedMacros.NumMacros() != 1 {
 			t.Fatal("initial push lost the macro or leaked the shortened schedule")
 		}
 		if !ast.ASTSourceDebug && solver.kernel.simplifyInitialPushOnce {

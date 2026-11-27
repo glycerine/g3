@@ -68,12 +68,18 @@ func (k *SMTKernel) maximizePendingBVSharing() (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, batch.Close()) }()
-	for _, row := range k.assertions[k.assertedHead:] {
+	// The shortened initial-push schedule already ran the ordinary theory
+	// simplifier. Repeat it if sharing publishes a different assertion.
+	needsReduction := !k.reduceIfSharingChanged
+	for i, row := range k.assertions[k.assertedHead:] {
 		if err = k.bvSharing.Rewrite(row.Formula, out, proof); err != nil {
 			return err
 		}
 		if err = k.appendSimplifiedAssertion(batch, row, out, proof); err != nil {
 			return err
+		}
+		if !needsReduction && (batch.Len() != i+1 || !batch.MatchesJustification(i, row.Formula, row.Proof)) {
+			needsReduction = true
 		}
 		if canceled, err := k.manager.Canceled(); canceled || err != nil {
 			return err
@@ -86,5 +92,8 @@ func (k *SMTKernel) maximizePendingBVSharing() (result error) {
 	if err := k.traceAssertedState("asserted_formulas", "operator()", 416, false); err != nil {
 		return err
 	}
-	return k.reducePendingAssertions()
+	if needsReduction {
+		return k.reducePendingAssertions()
+	}
+	return nil
 }
