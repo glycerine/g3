@@ -9461,3 +9461,44 @@ A separate offline control replaced only positive universally quantified conjunc
 Three additional complete runs per engine measured solver-thread instructions with GC off. Summing each phase within each run before taking medians gave 852.6M excess instructions in Hybrid checks and 581.1M in the first physical push of each batch. Later pushes together added only 0.4M. POPL18 showed 634.7M excess in checks and 164.6M on first pushes. ARM showed 610.0M and 165.7M. The early g3 proof attempts cost 331.2M, 115.2M and 144.5M respectively and can avoid subsequent checks. The normal-GC process times above cover all work, including assertion, simplification, frontend and callbacks outside those windows.
 
 ARM has a particularly concentrated opportunity: batch 6 accounts for about 515M excess check instructions plus 117M on its first push. Checks 6/5 and 6/6 account for 116M and 111M of this and already have matched search-event studies. A separate check, 8/1, used 186.88M versus 94.93M. Capture its live decisions, conflicts, quantifier instances and model-building rounds with the frontend's effective macro setting. If search counts differ, replay the first divergent choice before changing shared hot paths. Compare any successful intervention with neighboring batches and complete ARM; previous changes to earlier proofs affected later search.
+
+## November 27 — ARM macro expansion and finite-model checks
+
+On ARM batch 6, finding and expanding macros accounted for 72.0M of the 117M excess instructions on the first push. Filtering out expensive definitions made the complete proof slower. On Hybrid, value propagation exceeded even the macro gap. The paired substitution-read counts below identify repeated work in its reverse sweep.
+
+| First-push pass | ARM batch 6 g3 / Z3, M instructions | Hybrid, all first pushes g3 / Z3, M instructions |
+|---|---:|---:|
+| Find macros | 107.84 / 35.80 | 298.14 / 186.34 |
+| Propagate values | 27.50 / 8.16 | 196.92 / 68.98 |
+| Pattern inference | 4.58 / 1.78 | 107.79 / 41.09 |
+| NNF/CNF | 4.33 / 1.37 | 94.27 / 34.38 |
+
+The hardware counts are medians of three rotated GC-off runs, summed over invocations inside each first push. The earlier external push counters include entry and setup outside the g3 pass observer. Three ARM batch-6 definitions had depth 14 and 66–71 nodes each. They expanded at 62, 54 and 36 use sites. Keeping definitions deeper than 3, 5, 8 or 12 asserted as quantified formulas increased complete ARM instructions to 6.34×, 4.56×, 2.45× and 1.84× the default, respectively. Rechecking for unchanged expansions before the final traversal and compiling substitution plans for binder-free bodies both gave mixed changes around 1% or less. Enabling quasi-macros or pulling nested quantifiers also failed to yield a transferable win.
+
+**ARM search and replay.** During live batch 8 goal 1, g3 and linked Z3 made 886 / 947 decisions, found 50 / 54 conflicts, produced 358 / 331 quantifier instances and performed 6 / 5 final checks. Sampling only that check attributed 1,262 of 3,111 g3 samples and 769 of 1,527 native samples to model checking. These are inclusive samples across six runs. The external solver-call counters measured 187M / 95M instructions. The incremental command-line replay, with macro finding enabled and the first assertion preceding push, instead produced exactly 783 decisions, 53 conflicts, 199 instances and 52,067 resource steps in both engines. Its whole-process counters measured 253M / 109M instructions. Replay isolates the cost of matching logical work, but its profile overweights universe restrictions compared with the live check.
+
+**Finite tables.** During live ARM 8/1 all 259 table queries returned a definite result. Scalar checks certified 210 bodies and found 19 witnesses, consuming 23.45M instructions including setup. Decision diagrams certified 27 more and found three witnesses in 2.68M. Across complete Hybrid, 4,912 scalar certificates consumed 362.45M and 641 scalar witnesses consumed 39.46M. Seven diagram certificates and two diagram witnesses cost 2.38M combined. Another 338 queries fell back during compilation after 12.63M instructions. A trial that stopped after the first failing quantifier saved 3.62% on ARM but changed Hybrid's transcript in all three runs and raised its cost from 7.45B to 11.70B instructions. Limiting failures to four increased Hybrid and nested-ticket costs by 1.5% and 3.8%.
+
+Separate counter runs metered one internal phase per invocation. Median totals across three runs are shown below. Evaluation includes witness recovery and deferred cleanup on that path. Counter instrumentation and early-return cleanup differ between this observer and the per-result observer above.
+
+| Finite-table phase | Complete Hybrid, M instructions | ARM 8/1, M instructions |
+|---|---:|---:|
+| Setup before term compilation | 12.58 | 1.00 |
+| Compile terms and model functions | 169.15 | 6.98 |
+| Construct binder domains | 47.73 | 3.42 |
+| Evaluate tuples or diagram and recover result | 190.87 | 14.87 |
+
+Two scratch evaluators tested whether the scalar loop could recover much of this cost. Updating only the bindings modified by the tuple counter changed complete-verifier instructions by +0.03% Hybrid, +1.47% ARM, −0.92% POPL18 and −0.24% nested Ticket. Evaluating variable and constant children directly in their parent gave +0.19%, +0.10%, −1.08% and −0.08% respectively. Seven rotated runs of each version matched all four reference transcripts. Both prototypes remain in the archive.
+
+**What the reverse value-propagation sweep reads.** A diagnostic build recorded the result of each term lookup in the assertion substitution, separately for each assertion and direction. Across all Hybrid propagation passes, 2,973 of 3,554 reverse rows started with the same formula as their forward row, left it unchanged in both directions, and queried exactly the same set of keys. Every one of the 30,127 reverse lookups on those rows missed. These rows accounted for 86.6% of all 34,792 reverse lookups. ARM had 681 such rows out of 1,042 and 10,321 out of 16,270 lookups. The reverse sweep did change 87 Hybrid and 133 ARM rows. The measured opportunity is to avoid revisiting individual unaffected rows. The observer records only actual substitution calls. A shortcut would have to account for dependencies hidden by an internal rewrite-cache hit, substitutions from the outer scope, proof production, resource charging and cancellation. A scratch binary then skipped exactly these reverse row positions using the recorded per-input schedule. Across seven pinned pairs, complete instructions changed by −0.73% Hybrid, +0.23% ARM, −1.15% POPL18 and +0.54% nested Ticket. All reference transcripts matched. Even with eligibility supplied for free, this saved little on Hybrid. A production dependency index has low priority. The measured row counts span every propagation pass, whereas the first-push pass counters above cover a narrower interval.
+
+**Retained auxiliary-query change.** Ordinary auxiliary checks previously built a slice of cleanup closures and allocated arrays for witness recovery before knowing whether a witness existed. Commit `bc0c7dabd` scopes temporary references to the negated assertion and delays witness allocations. Seven alternating, pinned benchmark pairs measured the following medians.
+
+| Query | Before → after ns/op | B/op | Allocations/op |
+|---|---:|---:|---:|
+| Incremental | 8,690 → 8,317 | 1,298 → 1,106 | 25 → 15 |
+| Private | 3,610 → 3,471 | 104 → 56 | 6 → 3 |
+
+Across five complete runs, Hybrid allocated 4,003 fewer objects and 162 KB fewer bytes at the median. ARM saved 1,855 objects and 110 KB. Across nine rotations the complete-verifier instruction changes were +0.82% ARM, +0.28% Hybrid, −0.04% POPL18 and −0.15% nested ticket. The evidence supports keeping this as an allocation improvement. All 228 archived cases matched native stdout, stderr and exit status. The full 114-package Go suite passed. A separate macro-expander fault-injection regression exposed 1,032–1,448 bytes of charged, unreleased owners at nine failure positions. Commit `def6619cd` closes partially constructed traversal and substitution owners on those paths.
+
+The archive contains the Go source overlays, captured obligations, pass counts, per-goal samples, whole-process trials and query benchmark output. Overlay paths reflect the measurement checkout. [Raw evidence and experiment drivers](perf/ivy_apple/holdouts/nov27-arm-macro-and-model-checks.tar.xz) · [Retained benchmark](smtcore/smt_model_checker_auxiliary_test.go)
