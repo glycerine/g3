@@ -7438,3 +7438,51 @@ Of 639 disjuncts, g3 reused an existing signed binding 380 times. Those probes c
 On batch 31, goal 34, g3 rewrote and asserted 1,995 lemmas across the entire check, versus 2,597 for linked Z3. Total rewrite instructions were 35.45M versus 13.79M and assertion instructions were 48.27M versus 13.99M. Even with 23% fewer calls, g3 spent 2.57× as many instructions rewriting and 3.45× asserting. The two searches differ here. Only the prefix on 35/1 received the ordered tree comparison.
 
 Three release-build trials carried binary operands from lemma construction, used an eight-literal local buffer, or reused the sign of an already resolved positive disjunct during relevance registration. Individually, all three raised complete hybrid instructions by 0.04–0.37% over five rotating pairs. ARM rose 0.70–1.78%. The combined implementation changed hybrid instructions by +0.04% and Ticket by +0.77% over seven pairs. All complete runs included in these panels matched the reference stdout, stderr and exit code. None of the three trials entered the release. [Raw measurements, expression trees and reproduction scripts](perf/ivy_apple/holdouts/nov26-hybrid-matched-lemmas.tar.xz)
+
+### November 26 — Where matched Boolean operand internalization spends its instructions
+
+On hybrid batch 35, goal 1, the two engines created the same 602 Boolean variables, 410 enodes and 286 sets of gate constraints while internalizing the 259 matched operands. Both emitted 1,149 gate clauses and inserted 328 nodes into the congruence table. Gate construction explains the largest measured difference, followed by enode creation.
+
+| Operation on the 259 operands | Calls per engine | g3 instructions | Linked Z3 instructions |
+| --- | ---: | ---: | ---: |
+| Create Boolean variable | 602 | 367,186 | 241,970 |
+| Create and register enode | 410 | 1,225,745 | 418,407 |
+| Construct enode and attach parents, within creation | 410 | 475,243 | 124,143 |
+| Congruence insertion, within creation | 328 | 163,473 | 59,980 |
+| Emit gate constraints and install relevance watches | 286 | 2,285,052 | 627,786 |
+| Emit gate clause, within gate construction | 1,149 | 1,591,249 | 482,452 |
+| Register gate relevance watches | 286 | 321,371 | 102,787 |
+
+Five complete verifications per observer used thread-local hardware instruction counts on CPU 14 with automatic Go GC disabled. Rows are medians of per-verification sums after adjacent empty-read subtraction. Some rows contain other measured operations and their probes. Use the independent whole-call totals from the preceding study for overall costs. Both transcript streams and the exit code matched. Each run also checked all 639 operand positions and 203 gates at the assertion root.
+
+Of the 1,149 gate clauses, 646 ended during simplification. Both engines constructed 384 ordinary clauses and attached 768 clause watches. Go spent about 640K instructions entering and filtering gate clauses through the simplifier, including 363K on the early exits. The native auxiliary simplifier took 153K over all calls. Go's clause object constructor took 175K versus 61K in Z3, and attaching their watches took 176K versus 113K. Reading proof mode and computing a gate proof took only 69K in g3. Even a free clause constructor alone would recover only a fraction of this gap.
+
+#### Declaration lookup during enode construction
+
+Z3 short-circuits its commutativity query when an enode has any arity other than two. g3 was fetching the declaration flags first, even when it suppressed the arguments. Commit `52ea5fd9d` tests effective arity before reading the flags, with the same checked lookup for binary nodes. Across seven rotating pairs of 10,000 and 100,000 creation/deletion iterations, zero-argument nodes fell from 904 to 734 instructions per iteration, unary from 1,179 to 1,010 and ternary from 1,556 to 1,388. The binary control moved from 1,383 to 1,390. Median elapsed fell from 188 to 166 ns for zero arguments and from 222 to 202 ns for one. Allocations were unchanged.
+
+Seven full-verifier pairs with normal GC changed instructions by −0.10% on hybrid, −0.17% on Ticket, −1.05% on FBA and +0.70% on ARM. ARM elapsed increased 0.93%. On the 203 matched hybrid assertions, the subsequent GC-off median was 6.81M instructions against the preceding 6.85M. The constructor and scoped population benchmarks are the appropriate tests for the local benefit. [Constructor benchmark](smtcore/smt_enode_creation_benchmark_test.go) · [Scoped population](smtcore/smt_enode_scope_batch_benchmark_test.go)
+
+#### In-place auxiliary clause simplification
+
+Commit `bac000a7f` uses a single solver-local backing array to sort a private copy and retain surviving literals. The write index can never overtake the read index. The solver detaches that array until clause publication and any nested insertion finish. A negative control that left the buffer available to a nested insertion changed the outer lemma from literals [8, 10, 12] to [2, 4, 6]. The regression verifies both installed clauses and the caller's unchanged input.
+
+Compaction alone reduced scratch space but raised the 203-assertion total from 6.810M to 6.961M instructions. Separating the filtering loop from clause publication let Go open-code the deferred buffer restoration. Inspection of the compiled filter showed the call to runtime.deferprocStack disappear. The combined release took **6.769M** instructions for the same assertions with GC off. Recognizing satisfied binary gates ahead of sorting saved only 4K on the matched prefix and increased complete Ticket instructions by 0.87%. Ordering binary pairs separately also failed to improve the verifier panel consistently. Both trials remain in the study archive.
+
+| Tautological ordinary auxiliary clause | Before | Combined release | Retained scratch capacity in literals |
+| --- | ---: | ---: | ---: |
+| 3 variables | 72.1 ns | 44.1 ns | 8 → 4 |
+| 8 variables | 133.8 ns | 91.3 ns | 20 → 12 |
+| 32 variables | 386.4 ns | 369.5 ns | 68 → 36 |
+| 64 variables | 579.0 ns | 596.6 ns | 136 → 72 |
+
+The timed runs used nine rotating pairs at 20,000 iterations. Each width includes one additional complementary literal. All ran with zero steady-state heap allocations. Capacity counts the backing arrays used for sorting, filtering and removed false literals. At width 64 the saving is 256 bytes per solver in backing storage, in addition to removing one slice header from the solver. Whole-process CPU results were smaller and mixed. In nine complete-verifier rotations against the enode-only baseline, instructions changed −0.32% on hybrid, +0.85% on Ticket, −0.45% on ARM and −1.06% on FBA. Median paired elapsed changed +1.17%, −0.81%, −0.59% and −1.81% respectively.
+
+| Complete verification on CPU 14, median of seven rotating pairs | g3 at bac000a7f | Linked Z3 |
+| --- | ---: | ---: |
+| Hybrid | 1,207 ms | 849 ms |
+| Ticket | 434 ms | 236 ms |
+| ARM rules3 | 472 ms | 335 ms |
+| FBA | 109 ms | 137 ms |
+
+Every verifier run used GoIvy 77f7733de, normal GC, and the same expected stdout, stderr and exit status per case. The complete SMT core and API tests, checked/debug/trace clause, justification and scope restoration cases, and SMT core vet passed. The gate-clause instruction difference on the **matched prefix** is 1.11M. For scale, the previously measured excess on the **complete check** was 285M. Prioritize the later search divergence before spending more time on binary clause shortcuts. In particular, compare the first post-candidate witness, its generation and the resulting instantiation cascade at 35/1 against a control where delegating witnesses increased the cost. [Benchmark and capacity metric](smtcore/smt_clause_simplify_benchmark_test.go) · [Nested insertion test](smtcore/smt_clause_storage_test.go) · [Reproduction scripts, raw counters and verifier runs](perf/ivy_apple/holdouts/nov26-hybrid-gate-clauses.tar.xz)
