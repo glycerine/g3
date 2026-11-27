@@ -7367,3 +7367,53 @@ The earlier 189M estimate covers the entire finite-table term compiler. In the b
 A profiling-only build marked the first successful function build for each declaration within a single model check. On later local-cache misses it ran the same compiler under a separate stack frame. Six complete runs put **107M instructions** per verification under repeated builds. A second six-run observer split those calls by the previously completed table's row count. It measured **77M for repeated nonempty tables and 34M for repeated empty tables**. Nested calls are attributed to the innermost building function. All 12 transcripts matched, and the profiles had zero lost or throttled records. The markers add a lookup to the observer. These numbers include work such as compiling a fallback or assigning local IDs that reuse would still need to perform. Even removing the entire measured repeat cost would recover under 4% of the approximately 3B instruction gap. [Observer source, raw counts and replay scripts](perf/ivy_apple/model_finder/nov26-function-compilation-study.tar.xz)
 
 A larger next experiment is to partition the entire remaining hybrid gap by verification obligation and compare the number of candidate builds, auxiliary checks and fallback queries in each engine on the highest-cost obligations. Agreement on the final verdict alone leaves room for substantially different search work. If model cleanup is pursued, native reuses its argument buffer through the traversal of one function fallback. Go currently allocates the argument slice inside the visit loop and reads the AST kind more than once. Price those two changes independently on model cleanup and on complete hybrid.
+
+### November 26 — Where hybrid's quantifier searches diverge
+
+Batch 35, goal 1 accounts for the largest concrete-check gap on hybrid reliable broadcast. The check took **336M instructions in g3 versus 51M in linked Z3**. The two engines queued 380 entries, rewrote 203 instances and asserted 203 lemmas before entering the first candidate-model check. The counts then diverged. In the first candidate both engines checked 64 quantifiers. g3 found nine falsifying tuples in the finite tables. Z3 made nine restricted auxiliary queries. g3 went on to check a second candidate, while native finished during the search following its first.
+
+| Batch 35, goal 1 | g3 release | g3 with auxiliary witness selection | Linked Z3 |
+|---|---:|---:|---:|
+| Candidate checks | 2 | 1 | 1 |
+| Quantifiers examined | 129 | 64 | 64 |
+| Complete auxiliary queries | 2 | 10 | 64 |
+| Restricted auxiliary queries | 0 | 9 | 9 |
+| Queue entries before first candidate | 380 | 380 | 380 |
+| Queue entries following first candidate, before any second | 2,591 | 2,121 | 1,307 |
+| Queue entries following second candidate | 2,352 | 0 | 0 |
+| Nontrivial lemmas across the check | 2,517 | 1,140 | 803 |
+
+In a separate five-run counter measurement, entry to the first model check came after **35.7M g3 instructions versus 13.5M native**, a 2.65× difference with matching queue counts. This interval includes initial search, propagation and model construction. The queue accounted for approximately **199M g3 instructions and 19M native** on the release comparison. Descendants of lemma assertion accounted for about 82M versus 4M and theory rewriting for 64M versus 7M. Both the amount of work and its cost matter. Dividing inclusive queue cost by nontrivial lemmas gives about 79,000 instructions in g3 and 24,000 in native. These rates include work on entries that produce no lemma, and the two searches process different mixes of expressions. Gated profiles used four accepted runs per engine, with 1,000,003 instructions per Go sample and 500,009 per native sample. Runs with a lost or throttled record were discarded.
+
+Batch 31, goal 34 shows why reducing the number of lemmas alone will not close the gap. g3 asserted **1,995 lemmas versus 2,597 in Z3**, and checked three candidate models in both engines. The concrete check still took **289M versus 177M instructions**. This pair and the matched initial counts on batch 35 provide two controls for investigating the cost of rewriting and asserting individual instances.
+
+Five counterbalanced pairs covered all 839 obligations on GoIvy `77f7733de` and g3 `6e13043d9`. g3 discharged 305 before the concrete solver. Across a complete run, the median sum inside the remaining 534 concrete checks was 4.69B instructions, compared with 2.69B in Z3's 839 checks. The first physical pushes cost 1.64B versus 0.54B, and g3 spent another 0.66B on early proof attempts. First push can fall on a different sibling in the two engines. The largest first-push gaps were 72–77M per batch in batches 31–33. These are solver-thread measurements with the adjacent empty interval subtracted. Whole-process results include additional work and have a different denominator.
+
+#### Witness selection experiments
+
+Using finite tables only to certify satisfied quantifiers saved about **155M instructions on the concrete check at 35/1** across three rounds, but increased complete hybrid instructions by **18.3%** and elapsed by **21.9%** across five rotations. At 19/29 the same change cost 176M extra instructions on the concrete check. Across hybrid it raised complete auxiliary queries from 360 to 921, restricted queries from 62 to 976, and all candidate-model builds, including auxiliary models, from 301 to 1,624. Linked Z3 made 5,896 complete queries and 1,046 restricted ones. Disabling the table checker entirely increased complete hybrid instructions by 36.2%.
+
+| Alternative | Complete hybrid instructions vs release | Independent result |
+|---|---:|---|
+| Delegate all table witnesses to the auxiliary solver | +18.30% | +67.57% on FBA |
+| Delegate only when inverse generation exceeds zero | +10.17% | +31.42% on FBA |
+| Delegate only when inverse generation exceeds two | +12.30% | +1.61% on FBA |
+| Vary the outer binder fastest in scalar enumeration | +0.37% | −0.67% on ARM |
+| Reverse the unbounded domain value order | +3.36% | −3.30% on ARM, +32.80% on FBA |
+| Use ordinary inferred multi-patterns | +0.35% | +98.71% on FBA |
+
+All alternatives reproduced the expected proof transcripts and exit codes. Restricting the generation of table witnesses was motivated by the 35/1 census, where eight of the fifteen recovered witnesses had positive maximum generation. Those thresholds predicted poorly across the full verification. The release keeps direct table witnesses, the current enumeration order and connected triggers.
+
+#### Clause simplification buffer lifetime
+
+While profiling assertion, the existing auxiliary-clause benchmark exposed repeated allocation after a tautology. The simplifier restored its solver-owned scratch slices only after the filtering loop. A true literal, a complementary literal or a satisfied auxiliary clause could return earlier, discarding any growth during that visit. Commit `9caff730a` restores the buffers on every exit. The active insertion keeps private ownership through callbacks, including nested insertions. Each solver can retain the peak capacity reached by an early-returning clause for reuse.
+
+| Tautological auxiliary clause | Before | Release | Heap per operation |
+|---|---:|---:|---:|
+| 8 variables | 229 ns | 138 ns | 56 B and 3 allocations → 0 |
+| 32 variables | 675 ns | 374 ns | 248 B and 5 allocations → 0 |
+| 32 variables, auxiliary lemma | 719 ns | 393 ns | 248 B and 5 allocations → 0 |
+
+Nine rotations on CPU 16 measured 20,000 calls per sample, including the unchanged caller-data and empty solver-clause checks. Across complete Ticket, ARM and FBA, the preceding code recorded zero early returns with buffer growth. Hybrid recorded one. Seven rotating whole-verifier comparisons produced no consistent elapsed gain from this change. Hoisting the solver-open check also improved the synthetic case, but added branching with mixed complete-verifier timings. Only buffer restoration was retained. The ordinary SMT core suite, checked/debug/trace clause and justification tests, and SMT core vet passed. [Clause benchmark](smtcore/smt_clause_simplify_benchmark_test.go) · [Implementation](smtcore/smt_internalizer.go)
+
+The study archive contains all five rounds of per-obligation stage costs, the queue and model event chronology, the four accepted stack profiles per engine in aggregated form, the targeted prefix counts, policy alternatives, clause benchmarks, complete verifier results and reproduction drivers. [Hybrid obligation measurements and scripts](perf/ivy_apple/holdouts/nov26-hybrid-obligation-costs.tar.xz)
