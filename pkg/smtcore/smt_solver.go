@@ -50,6 +50,9 @@ type SMTSolverConfig struct {
 	// PreferConnectedMultiPatterns enables selective and fallback E-matching
 	// triggers for incremental verification.
 	PreferConnectedMultiPatterns bool
+	// ReduceScopedClauses removes literals refuted by committed universal
+	// instances when internalizing a scoped ground disjunction.
+	ReduceScopedClauses bool
 }
 
 type smtTrackedAssertion struct {
@@ -186,6 +189,7 @@ func newSMTSolver(m *ast.ASTManager, p *uparams.ParamsRef, logic string, config 
 	}
 	kernel.skipRepeatedPreprocessing = config.SkipRepeatedPreprocessing
 	kernel.connectedMultiPatterns = config.PreferConnectedMultiPatterns
+	kernel.reduceScopedClauses = config.ReduceScopedClauses
 	kernel.simplifyInitialPushOnce = config.SimplifyInitialPushOnce
 	if err = kernel.configurePreprocessing(config.Params, globals, &value, sourceParams); err != nil {
 		return nil, cleanupServices(errors.Join(err, kernel.Close(), config.Params.Del(&value)))

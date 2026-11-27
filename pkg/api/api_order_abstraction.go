@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/api/internal/order"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -49,7 +50,7 @@ type orderProofState struct {
 	plans              proofPlanContext
 	quantifiedPremises order.QuantifiedPremises
 	groundPremises     order.GroundPremises
-	universalPremises  order.UniversalPremises
+	universalPremises  smtcore.UniversalPremises
 	transitionPremises order.TransitionPremises
 	witnessPremises    *witnessPremises
 	definitions        *premiseDefinitions
@@ -179,7 +180,7 @@ func (b *OrderProofBatch) Close() error {
 	b.state.transitionPremises = order.TransitionPremises{}
 	b.state.quantifiedPremises = order.QuantifiedPremises{}
 	b.state.groundPremises = order.GroundPremises{}
-	b.state.universalPremises = order.UniversalPremises{}
+	b.state.universalPremises = smtcore.UniversalPremises{}
 	b.state.witnessPremises = nil
 	b.state.definitions = nil
 	b.state.recent = nil

@@ -37,7 +37,9 @@ def main():
             return result.returncode, result.stdout, result.stderr
 
         expected = run([args.native.resolve(), *ivy_args])
-        if expected[0] not in (0, 1) or b"PASS" not in expected[1]:
+        reported_check = b"PASS" in expected[1] or b"FAIL" in expected[1].splitlines()
+        if (expected[0] not in (0, 1) or not reported_check or
+                b"failed to run model checker" in expected[2]):
             raise RuntimeError("linked Z3 failed to produce a verification transcript")
         writer = csv.writer(out)
         writer.writerow(["case", "round", "engine", "instructions", "cycles", "milliseconds"])

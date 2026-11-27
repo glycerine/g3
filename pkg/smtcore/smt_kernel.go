@@ -132,6 +132,7 @@ type SMTKernel struct {
 	skipRepeatedPreprocessing bool
 	simplifyInitialPushOnce   bool
 	connectedMultiPatterns    bool
+	reduceScopedClauses       bool
 	timerClock                func() (uint64, error)
 	closing                   bool
 	closed                    bool
@@ -1132,11 +1133,10 @@ func (k *SMTKernel) internalizePending() (resultErr error) {
 		if canceled, err := k.manager.Canceled(); canceled || err != nil {
 			return errors.Join(err, k.commitAssertedTo(head))
 		}
-		assertion := k.assertions[head]
-		if err := k.internalizer.Assert(assertion.Formula, assertion.Proof, 0); err != nil {
+		head, err = k.internalizePendingRow(head)
+		if err != nil {
 			return errors.Join(err, k.commitAssertedTo(head))
 		}
-		head++
 	}
 	return k.commitAssertedTo(head)
 }

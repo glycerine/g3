@@ -3954,7 +3954,7 @@ The shell benchmark covers a different workload because its input contains the p
 
 ## Matching a ground goal against a universal premise
 
-Commit `f0b4ebb1d` adds a solver-local index for universally quantified premises. For example, `∀x. R(f(x),x)` rules out `¬R(f(a),a)` even when the usual ground projection chose a different representative for that sort. The matcher follows the actual declarations, checks binder sorts, and requires each occurrence of a variable to match the same ground term. It indexes consequences of a positive conjunction or a negative disjunction. It can also establish a goal by one sufficient disjunct. A miss continues through the normal proof path. [Implementation](api/internal/order/universal_premises.go) · [Regression tests and benchmark](api/api_universal_premises_test.go)
+Commit `f0b4ebb1d` adds a solver-local index for universally quantified premises. For example, `∀x. R(f(x),x)` rules out `¬R(f(a),a)` even when the usual ground projection chose a different representative for that sort. The matcher follows the actual declarations, checks binder sorts, and requires each occurrence of a variable to match the same ground term. It indexes consequences of a positive conjunction or a negative disjunction. It can also establish a goal by one sufficient disjunct. A miss continues through the normal proof path. [Implementation](smtcore/smt_universal_premises.go) · [Regression tests and benchmark](api/api_universal_premises_test.go)
 
 | Complete verification | Previous g3 | g3 with matching | Linked Z3 |
 |---|---:|---:|---:|
@@ -8258,3 +8258,57 @@ Three GC-off solver-thread profiles locate the saving. Across the second obligat
 **Contextual reduction experiment.** In six of the 14 private misses the existing universal-premise matcher could establish 22 of 23 conjuncts individually. A scratch bridge passed the concrete solver the negation of just the remaining conjunction under the same base. Seven complete pairs against the original g3 saved 9.32% of instructions and 9.02% elapsed on Flash. The private-only variant saved 5.34% and 5.01%. These comparisons use the same original baseline as the width change. They do not measure an additive saving. On the other Flash input, hybrid and Ticket the concrete variant changed median paired instructions by −0.24%, −0.19% and +0.52%.
 
 A separate incremental replay used direct syntactic instances of whole asserted universal clauses. It removed 424 of 644 ground conjunct occurrences across the 28 captured bases. Before timing each residual query, **both** g3 and the repository Z3 proved the base implied all the removed conjuncts. Both returned UNSAT for every original and residual query. Across three rotations of 28 fresh CLI processes per variant, median summed instructions fell from 3.368B to 2.655B for g3 (21.2%) and from 1.529B to 1.251B for Z3 (18.2%). These totals include CLI startup, parsing and an explicit first push. The whole-verifier experiment measures the effect with shared frontend state. A production reduction must live within the exact active assertion scope and preserve proof, core, model and resource-limit semantics. The scratch bridge cannot establish those contracts. [Portable whole-verifier benchmark](perf/ivy_apple/holdouts/compare_goal_width.py) · [Captures, replay benchmark, overlays, stage profiles and raw panels](perf/ivy_apple/holdouts/nov27-flash-goal-width.tar.xz)
+
+### November 27 — Remove refuted literals when a scoped clause enters search
+
+An incremental solver can assert a shorter ground disjunction if the committed premises already imply that some of its literals are false. The implementation uses the existing sort-checked universal-instance matcher on the kernel's committed prefix. It builds a temporary clause just before internalization, keeps the original formula in the assertion vector, and releases the temporary reference after search takes ownership. No index survives the call. The removed literals stay false for the lifetime of the scoped clause because every premise used was committed before the clause. Pending siblings cannot participate in the proof.
+
+On Flash, an observer saw 24 affected disjunctions across the 28 second obligations. Preprocessing had already eliminated or changed some source conjuncts. At the search boundary the affected clauses contained 527 literals, of which **404 were refuted by committed premises**. Seven resulting clauses were empty. The production rule examines ground disjunctions of width 16–128, independent of predicate names and input paths. It is enabled in the incremental default backend when constructed without proof or core production. Explicit proof objects, tracing, resource limits and allocation injection retain their ordinary internalization behavior.
+
+| Complete Flash, nine rotated runs per binary | Median instructions | Median elapsed |
+|---|---:|---:|
+| g3 at `b2c87f098` | 5.563B | 792 ms |
+| g3 with scoped clause reduction | 4.816B | 683 ms |
+| Linked Z3 | 4.332B | 622 ms |
+
+Across paired runs g3 used **13.46% fewer instructions and 13.72% less elapsed time** than the committed width baseline. Its remaining ratios are 1.112× native instructions and 1.095× native elapsed. Both output streams and exit status matched on all runs, including the 65 expected failures.
+
+| Solver-thread instructions, median of three default-strategy runs with GC off | Prior g3 | Current g3 | Linked Z3 |
+|---|---:|---:|---:|
+| Concrete checks on second obligations | 945.5M | 367.0M | 374.9M |
+| All concrete checks | 2,863.0M | 2,224.7M | 2,084.8M |
+| All 28 first pushes | 794.5M | 795.3M | 350.0M |
+| All measured solver stages | 3,957.2M | 3,314.9M | 2,568.6M |
+
+Moving the reduction into the public frontend simplifier was unnecessary. Against the committed width baseline, the first-push-only bridge prototype saved 8.45% of whole Flash instructions. Applying it before all concrete goals saved 13.64%; narrowing goals only within the private solver saved 3.33%. The kernel search boundary recovered the full concrete gain while retaining the original assertions. The regression covers an uncommitted premise, one surviving literal, original-assertion inspection, a model of the original query, an assumption core, allocation injection, cancellation, proof mode and popping the premise.
+
+The width sweep compared 4, 8 and 16. At width 4 the independent examples/liveness/ticket.ivy spent 3.21% more instructions in a 12-pair confirmation. It removed only one literal from each of eight five-literal clauses. On TLB, 81 matches each removed just one literal. Starting at 16 kept the Flash gain. Among the 37 historical gap inputs, Flash alone exposed eligible clauses this wide to the observer. The other workloads establish compatibility and bound overhead. The seven-pair release controls changed instructions by +0.16% on test/flash2, −0.06% on the independent Ticket, +0.26% on hybrid and −0.33% on POPL18 Ticket. Raft changed by +0.18% across four pairs. Apple rfn2 and dramc_nb2 changed by +0.05% and −0.11% across three pairs each.
+
+Every historical input matched its reference transcript in two release pairs. One historical reference for IBM cache recorded a missing ABC executable. A separate run with a working ABC beside all three binaries recovered the 314-line counterexample transcript, with identical output and expected exit 1. Seven pairs on that complete check changed instructions by −0.07%. The portable comparison driver now accepts a completed FAIL-only witness and rejects a missing model checker. [Release code](smtcore/smt_scoped_clause.go) · [Regression](smtcore/smt_scoped_clause_test.go) · [Portable benchmark](perf/ivy_apple/holdouts/compare_goal_width.py) · [Trials, workload census and release panels](perf/ivy_apple/holdouts/nov27-scoped-clause-internalization.tar.xz)
+
+#### What remains inside the 28 first pushes
+
+A second observer marked each first physical push with monotonic timestamps and the calling OS thread. Seven complete runs per engine yielded 2,225 g3 and 973 native instruction samples inside those windows, with zero kernel-reported sample loss or throttling. We converted sample proportions to approximate instruction totals using the independently measured first-push counts. The frames are inclusive, so the individual rows overlap the preprocessing total.
+
+| Sampled first-push operation | g3 estimated millions | Z3 estimated millions |
+|---|---:|---:|
+| All preprocessing of pending assertions | 552 | 262 |
+| Value propagation | 144 | 43 |
+| Quantifier pattern inference | 101 | 30 |
+| Macro discovery | 72 | 79 |
+| Negation normal form | 60 | 19 |
+| Internalization of assertion rows | 80 | 23 |
+| Installing the base in the incremental backend | 59 | 23 |
+
+Value propagation is the largest individually identified excess in this stack comparison. The BV-sharing pass and its follow-up reduction account for about 118M g3 instructions together. Native inlines part of that pass into a generic simplification frame, so its equivalent inclusive cost needs direct bracketing. The existing port follows the fork's associative-declaration test, which can select Boolean operations too. A bit-vector-free input alone does not justify skipping the pass. [Matched first-push sample driver and raw stacks](perf/ivy_apple/holdouts/nov27-scoped-clause-internalization.tar.xz)
+
+A separate CLI experiment tested whether *reusing* preprocessing work across consecutive actions has a larger ceiling. The capture contains 2,327 distinct-within-batch premise occurrences. No conjunct occurs in all 28 bases. Grouping adjacent actions recursively by their exact intersections reduced the number of submitted premise occurrences to 1,547 and preserved query order. Five rotations of both CLIs returned all 28 expected UNSAT results in every mode.
+
+| 28-query CLI replay | Submitted premises | g3 instructions | Z3 instructions |
+|---|---:|---:|---:|
+| Fresh context and declarations per batch | 2,327 | 3.358B | 1.412B |
+| Reuse one solver, one action scope per batch | 2,327 | 2.252B | 0.747B |
+| Same solver, same literal order as the grouped trial, independent action scopes | 2,327 | 2.204B | 0.735B |
+| Same solver, nested scopes for conjuncts shared by adjacent action groups | 1,547 | 1.915B | 0.669B |
+
+Sharing common conjuncts saved about 13% of g3 replay instructions relative to the reordered independent scopes. Moving the first push earlier in a fresh context alone changed 3.382B to 3.386B in a separate panel. These standalone replays use the previously built baseline CLI, expanded SMT-LIB lets, one query per batch, and syntactically deduplicated conjunctions. GoIvy can already create multiple solvers from one translator context. The fresh-context advantage is therefore an upper bound with different setup costs. Testing reuse across whole action batches requires all original sibling checks, SAT models and callbacks. Each worker can still own its solver and arena independently.

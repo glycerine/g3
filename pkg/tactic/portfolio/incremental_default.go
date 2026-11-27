@@ -110,6 +110,7 @@ func newIncrementalDefaultSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs
 	if err != nil {
 		return nil, err
 	}
+	config.ReduceScopedClauses = !proofs && !cores
 	second, err := smtcore.NewSMTSolver(m, p, "ALL", config)
 	if err != nil {
 		return nil, errors.Join(err, factory.Close())

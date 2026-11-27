@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/glycerine/g3/pkg/api/internal/order"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
@@ -47,7 +47,7 @@ func TestUniversalPremiseInstances(t *testing.T) {
 		astTestMust(t, err)
 		roots, err := solver.Assertions(s.solver)
 		astTestMust(t, err)
-		var proof order.UniversalPremises
+		var proof smtcore.UniversalPremises
 		got, err := proof.Refutes(m, roots, orderProofSteps, true)
 		astTestMust(t, err)
 		concrete, err := s.Check()
@@ -62,7 +62,7 @@ func TestUniversalPremiseScopeAndLimits(t *testing.T) {
 	const input = universalDecls + `
 (assert (forall ((x U)) (p x)))(assert (forall ((x U)) (q x)))
 (assert (not (p (f a))))`
-	var proof order.UniversalPremises
+	var proof smtcore.UniversalPremises
 	for range 2 {
 		c, s := orderSolver(t, input)
 		m, err := c.Manager()
@@ -117,7 +117,7 @@ func TestUniversalPremiseRequiresWellSortedBindings(t *testing.T) {
 			Forall: true, Sorts: []ast.ASTHandle{tc.sort},
 			Names: []symbol.Symbol{symbol.Numerical(0)}, Body: tc.body,
 		}))
-		var proof order.UniversalPremises
+		var proof smtcore.UniversalPremises
 		input := []ast.ASTHandle{q, roots[2]}
 		ok, err := proof.Refutes(m, input, orderProofSteps, true)
 		if err != nil || ok {
@@ -135,7 +135,7 @@ func TestUniversalPremiseDepthLimit(t *testing.T) {
 	astTestMust(t, err)
 	roots, err := solver.Assertions(s.solver)
 	astTestMust(t, err)
-	var proof order.UniversalPremises
+	var proof smtcore.UniversalPremises
 	got, err := proof.Refutes(m, roots, orderProofSteps, true)
 	if err != nil || got {
 		t.Fatalf("exhausted structural proof returned %v, %v", got, err)
@@ -188,7 +188,7 @@ func BenchmarkUniversalPremiseSiblings(b *testing.B) {
 (assert (not (r (f a) a)))(assert (not (r (f a) b)))`
 	m, roots := benchmarkOrderAssertions(b, input, (*SMTContext).NewSolver)
 	assertions := slices.Clone(roots[:2])
-	var proof order.UniversalPremises
+	var proof smtcore.UniversalPremises
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
