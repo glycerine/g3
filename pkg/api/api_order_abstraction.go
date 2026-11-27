@@ -266,6 +266,13 @@ func (p *orderProofState) proveWithGoal(maxSteps uint32, reuse bool, goal ast.AS
 		}
 		candidate = p.recent
 	}
+	// Standalone order obligations often have a placeholder true premise.
+	// Wide comparisons are expensive to bit-blast. Keep narrow obligations
+	// on the ordinary path so later incremental search sees the same history.
+	if reuse && (len(assertions) == 1 || len(assertions) == 2 && parent.IsTrue(assertions[0])) &&
+		order.RefutesComparisonCycle(parent, assertions[len(assertions)-1], 32) {
+		return !limit.CancelFlag(), nil
+	}
 	proved, err = p.proveAssertions(parent, assertions, maxSteps, reuse)
 	if !proved && err == nil && !goal.IsNull() && p.previousGoalProved && !limit.CancelFlag() {
 		proved, err = p.proveRelevantPremises(parent, assertions)
