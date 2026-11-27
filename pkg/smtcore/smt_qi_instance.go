@@ -159,13 +159,6 @@ func (b *SMTQIInstanceBuilder) prepare(entry SMTQIQueueEntry, prepared *SMTQIPre
 		return ast.ErrASTDomain
 	}
 	quantifier := entry.Fingerprint.data
-	kind, err := b.manager.GetKind(quantifier)
-	if err != nil || kind != ast.ASTQuantifier {
-		if err != nil {
-			return err
-		}
-		return ast.ErrASTDomain
-	}
 	body, err := b.manager.GetQuantifierBody(quantifier)
 	if err != nil {
 		return err

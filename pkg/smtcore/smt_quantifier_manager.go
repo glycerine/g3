@@ -408,7 +408,12 @@ func (q *SMTQuantifierManager) instantiate(entries []SMTQIQueueEntry) (resultErr
 		if err := q.builder.prepare(entry, &prepared); err != nil {
 			return fmt.Errorf("prepare quantified instance: %w", err)
 		}
-		instance, err := q.builder.MaterializeAndInternalize(&prepared, q.rewriter, q.registry.statistics[entry.Fingerprint.data], q.state.scopeLevel, q.state)
+		stat := q.registry.statistics[entry.Fingerprint.data]
+		// A satisfied candidate owns no temporary instance reference.
+		if prepared.alreadySatisfied && stat != nil {
+			continue
+		}
+		instance, err := q.builder.MaterializeAndInternalize(&prepared, q.rewriter, stat, q.state.scopeLevel, q.state)
 		err = errors.Join(err, prepared.Close())
 		if err != nil {
 			return fmt.Errorf("materialize quantified instance: %w", err)
