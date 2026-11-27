@@ -48,3 +48,39 @@ func TestASTInlineApplicationDiamondLifetime(t *testing.T) {
 		t.Fatalf("reused placement %v, want new generation of %v", reused, first)
 	}
 }
+
+// The repeated first operand reaches zero in the arena-backed tail. This
+// also forces the deletion worklist to grow beyond its inline capacity.
+func TestASTWideApplicationDeletionOrder(t *testing.T) {
+	m := astTestManager(t)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	const distinct = 20
+	domain := make([]ASTHandle, distinct+1)
+	args := make([]ASTHandle, len(domain))
+	for i := range domain {
+		domain[i] = boolean
+	}
+	decl, err := m.MkFuncDecl(astTestSymbol(t, m, "wide-release"), domain, boolean, ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestPin(t, m, decl)
+	for i := 0; i < distinct; i++ {
+		args[i], err = m.MkVar(uint32(i), boolean)
+		astTestMust(t, err)
+	}
+	args[distinct] = args[0]
+	root, err := m.MkApp(decl, args)
+	astTestMust(t, err)
+	astTestMust(t, m.IncRef(root))
+	astTestMust(t, m.DecRef(root))
+
+	// Slot recycling reverses the deletion stack's pop order.
+	want := append(args[1:distinct:distinct], args[0], root)
+	slot := m.freeNode
+	for _, h := range want {
+		if slot != h.slot || m.nodeAt(slot).live {
+			t.Fatalf("free slot %d, want dead placement %d", slot, h.slot)
+		}
+		slot = m.nodeAt(slot).kindIndex
+	}
+}

@@ -113,3 +113,40 @@ func BenchmarkASTApplicationReuse(b *testing.B) {
 		}
 	}
 }
+
+// Measure the last release of a disjunction while its operands stay live.
+// Construct a batch outside the timer to amortize the timing transitions.
+func BenchmarkASTDisjunctionRelease(b *testing.B) {
+	const batch = 64
+	for _, arity := range []int{4, 5, 10} {
+		b.Run(strconv.Itoa(arity), func(b *testing.B) {
+			m := astTestManager(b)
+			sort, err := m.MkBoolSort()
+			astTestMust(b, err)
+			var roots [batch]ASTHandle
+			args := make([]ASTHandle, batch+arity-1)
+			for i := range args {
+				args[i], err = m.MkVar(uint32(i), sort)
+				astTestMust(b, err)
+				astTestPin(b, m, args[i])
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				for j := range roots {
+					roots[j], err = m.MkOrArray(args[j : j+arity])
+					astTestMust(b, err)
+					astTestMust(b, m.IncRef(roots[j]))
+				}
+				b.StartTimer()
+				for _, h := range roots {
+					if err = m.DecRef(h); err != nil {
+						b.Fatal(err)
+					}
+				}
+			}
+			b.ReportMetric(batch, "roots/op")
+		})
+	}
+}

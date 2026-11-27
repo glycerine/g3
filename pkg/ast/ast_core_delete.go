@@ -1,5 +1,7 @@
 package ast
 
+import "encoding/binary"
+
 // Source: src/ast/ast.cpp:1781-1844.
 // Source delete_node ascending pushes/LIFO pops, using a native Go worklist.
 
@@ -87,9 +89,26 @@ func (m *ASTManager) deleteNodeWorklistBody(stack []astNodeRef, resumed, parent 
 			firstErr = e
 		}
 	}
-	push := func(r astNodeRef) {
-		stack = append(stack, r)
-		m.deletionHead = r
+	release := func(child astNodeRef) error {
+		if child.slot == 0 {
+			return nil
+		}
+		if child.slot >= m.nextNode {
+			return ErrASTHandle
+		}
+		cn := m.nodeAt(child.slot)
+		if !cn.live || cn.generation != child.generation {
+			return ErrASTHandle
+		}
+		if cn.rc == 0 {
+			return ErrASTDomain
+		}
+		cn.rc--
+		if cn.rc == 0 {
+			stack = append(stack, child)
+			m.deletionHead = child
+		}
+		return nil
 	}
 	for resumed.slot != 0 || len(stack) != 0 {
 		current := resumed
@@ -199,56 +218,58 @@ func (m *ASTManager) deleteNodeWorklistBody(stack []astNodeRef, resumed, parent 
 		n = m.nodeAt(current.slot)
 		// Native deletion visits the declaration, then the operands in ascending
 		// order. The worklist processes newly dead children in reverse order.
-		var inline *astAppRecord
-		var count uint32
+		var app *astAppRecord
+		var tail []byte
 		if n.kind == ASTApp {
-			app := m.appAt(current.slot)
-			if app.count <= astInlineArgs && app.args.Slot == 0 {
-				inline = app
+			app = m.appAt(current.slot)
+			if ASTSourceDebug && (app.count > astInlineArgs || app.args.Slot != 0) {
+				app = nil // retain the checked payload reads
+			} else if app.count > astInlineArgs {
+				// Children that reach zero are queued. The arena payload stays
+				// live throughout this loop, until freeNodeStorage below.
+				end := uint64(app.count) * uint64(astRefBytes)
+				data, err := m.allocator.View(app.args)
+				if err == nil && end <= uint64(len(data)) {
+					tail = data[astInlineArgs*astRefBytes : end]
+				} else {
+					// The indexed path below preserves prefix decrements on failure.
+					app = nil
+				}
 			}
 		}
-		if inline != nil {
-			count = inline.count + 1
-		} else {
-			count = m.nodeChildCount(current)
-		}
-		for i := uint32(0); i < count; i++ {
-			var child astNodeRef
-			if inline != nil {
-				if i == 0 {
-					child = inline.decl
-				} else {
-					child = inline.inlineArgs[i-1]
-				}
-			} else {
-				var err error
-				child, err = m.nodeChild(current, i)
-				if err != nil {
+
+		if app != nil {
+			if err := release(app.decl); err != nil {
+				return err
+			}
+			for _, child := range app.inlineArgs[:min(app.count, astInlineArgs)] {
+				if err := release(child); err != nil {
 					return err
 				}
 			}
-			if child.slot == 0 {
-				continue
+			for len(tail) != 0 {
+				child := astNodeRef{binary.LittleEndian.Uint32(tail), binary.LittleEndian.Uint32(tail[4:])}
+				if err := release(child); err != nil {
+					return err
+				}
+				tail = tail[astRefBytes:]
 			}
-			if child.slot >= m.nextNode {
-				return ErrASTHandle
-			}
-			cn := m.nodeAt(child.slot)
-			if !cn.live || cn.generation != child.generation {
-				return ErrASTHandle
-			}
-			if cn.rc == 0 {
-				return ErrASTDomain
-			}
-			cn.rc--
-			if cn.rc == 0 {
-				push(child)
+		} else {
+			count := m.nodeChildCount(current)
+			for i := uint32(0); i < count; i++ {
+				child, err := m.nodeChild(current, i)
+				if err != nil {
+					return err
+				}
+				if err := release(child); err != nil {
+					return err
+				}
 			}
 		}
 		if m.DebugRefCount {
 			m.DebugFreeIndices[n.id] = struct{}{}
 		}
-		if inline != nil && !astValidateHandles && !m.DebugRefCount && m.TraceStream == nil {
+		if app != nil && app.args.Slot == 0 && !astValidateHandles && !m.DebugRefCount && m.TraceStream == nil {
 			m.returnNodeSlot(current.slot)
 		} else if e := m.freeNodeStorage(current); e != nil {
 			return e
