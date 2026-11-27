@@ -7324,3 +7324,46 @@ The four short verifiers used nine same-core rotating triples of baseline, relea
 - **Next measure repeated function interpretation compilation within one candidate model.** Across 162 hybrid model-check calls the finite checker compiled 26,798 function tables. On 21,512 of those compilations it had already compiled the same declaration within that call. All 21,512 repeats had identical fallback handles and identical ordered argument and result handles, including 27,904 repeated rows. The census also found 19,024 empty tables among all compilations. Start by pricing empty and repeated tables separately. If they account for material work, test sharing the source rows during a single model-check call while preserving each quantified body's local value IDs, exact work charges and handling of nested function interpretations. Candidate-model generation itself took over three times as many samples as table compilation and warrants a direct native comparison before expanding the cache.
 
 The evidence archive includes the release timings, allocation profiles, per-round instruction samples, per-tuple oracle counts, tested variants and reproduction drivers. [Measurements and scripts](perf/ivy_apple/holdouts/nov26-projection-lifetime-and-model-lookup.tar.xz)
+
+### November 26 — Quantifier model adjustment on hybrid
+
+Across six matched profiles of complete hybrid verification, candidate-model construction averaged **680 million retired user instructions in g3 and 420 million in linked Z3**. Quantifier model adjustment alone accounted for about **243 million excess instructions**, roughly 8% of the whole-process gap. Both implementations visit the ground applications of a function to build the instantiation set for each quantified variable in an argument position. On the Go side, ordinary map probes and the AES memory hash accounted for 407 of 1,895 samples inside adjustment. Native's most frequent individual leaf was the relevance test for an expression. [Phase counts by run](perf/ivy_apple/model_finder/nov26-candidate-phases.csv) · [Profile reader](perf/ivy_apple/model_finder/candidate_phases.py)
+
+| Per complete hybrid run, estimated million instructions | g3 | Linked Z3 |
+|---|---:|---:|
+| Quantifier model adjustment | 315.8 | 72.5 |
+| Value generation | 178.8 | 322.0 |
+| Partial function completion | 4.0 | 0.5 |
+| Model cleanup | 100.2 | 18.3 |
+| Other constructor work | 80.8 | 7.0 |
+
+Each sample represents 1,000,003 instructions. The anchors are the Go kernel's candidate builder and native context's proto-model builder, across all callers. The earlier 629M g3 estimate covered the calls from model checking. Phase boundaries differ slightly. Native includes initialization and macro registration in its value generator. The Go profile attributes about 64M instructions for these two operations to other constructor work. The profiles were collected on g3 baseline `af7d977bc`. They measure aggregate work across a verification, including differences in the number of calls.
+
+Commit `22b2eb3b3` scans each plain function argument position once per graph build. Merges precede population. The first scan inserts original ground arguments in context order, with their original generations. Later ordinary scans would only encounter existing entries. The mark belongs to the specific function and position, since two functions sharing the same root can supply different ground terms. Offset calculations and each resource-limit checkpoint still execute in their original order. Commit `6e13043d9` uses the node's already validated sort on a graph-index hit. Both indexes and the population marks expire at graph reset. [Implementation](smtcore/smt_model_finder_auf_graph.go) · [Shared-set and relevance tests](smtcore/smt_model_finder_auf_graph_test.go)
+
+| Graph rebuild, median µs | Before | Scan once | Scan once and reuse sorts |
+|---|---:|---:|---:|
+| 8 quantifiers, 32 ground arguments | 57.9 | 28.5 | 26.7 |
+| 32 quantifiers, 32 ground arguments | 221.3 | 76.3 | 59.1 |
+| 128 quantifiers, 32 ground arguments | 875.9 | 290.6 | 222.0 |
+| 512 quantifiers, 32 ground arguments | 3,397.9 | 1,057.3 | 779.6 |
+| 512 quantifiers, empty ground context | 1,077.6 | 1,059.4 | 786.0 |
+
+Each quantifier mentions seven shared predicates and one private predicate. The populated fixture registers the same 32 distinct arguments for each shared predicate and checks the resulting set size. Nine rotating rounds measured 16 reset/build iterations per fixture on CPU 16. Run both benchmarks with `go test ./smtcore -run '^$' -bench '^BenchmarkSMTModelFinder(SharedGroundArguments|AUFGraph)$' -cpu=1 -benchtime=16x -count=9`. [Benchmark source](smtcore/smt_model_finder_auf_benchmark_test.go) · [All benchmark samples](perf/ivy_apple/model_finder/nov26-graph-ground-arguments.csv)
+
+The exact release ran seven rotating triples on CPU 12 with GoIvy `77f7733de`, ordinary GC, one Go processor and PGO off. Percentages are medians of the within-round change against `7562d9212`. Independent process-time medians appear in the next two columns. Every exit status and both output streams matched the reference, including three additional pairs on each of the expected-failure workloads TLB and test_liveness2.
+
+| Complete verification | Release instructions | Release elapsed | g3 median, ms | Linked Z3 median, ms |
+|---|---:|---:|---:|---:|
+| Hybrid | −1.30% | −2.29% | 1,153 | 820 |
+| Ticket | −0.42% | −2.26% | 423 | 234 |
+| ARM rules3 | −0.35% | −1.11% | 462 | 329 |
+| FBA | −0.76% | −2.46% | 106 | 137 |
+
+Hybrid also saved 1.09% of instructions in the preceding nine-round trial. The other three workloads varied in sign between the trial and the release comparison. The shared-ground graph result and the hybrid instruction saving repeated. The ordinary SMT core and proto-model suites, model-finder tests under checked/debug/trace, and SMT core vet passed. [Complete release triples](perf/ivy_apple/model_finder/nov26-graph-release.csv) · [Development triples](perf/ivy_apple/model_finder/nov26-graph-trial.csv) · [Negative proof controls](perf/ivy_apple/model_finder/nov26-graph-holdouts.csv)
+
+The earlier 189M estimate covers the entire finite-table term compiler. In the baseline stacks, 63M occurred outside function compilation, 94M in function compilation outside its recursive fallback-term compilation, and 32M below the latter. A cache of interpreted functions has to rebuild or translate quantifier-local term and value IDs and account for the original work budget. The total time spent translating all terms is too broad an estimate of its potential payoff. [Reclassification](perf/ivy_apple/model_finder/table_compile_phases.py) · [Counts by round](perf/ivy_apple/model_finder/nov26-table-compile.csv)
+
+A profiling-only build marked the first successful function build for each declaration within a single model check. On later local-cache misses it ran the same compiler under a separate stack frame. Six complete runs put **107M instructions** per verification under repeated builds. A second six-run observer split those calls by the previously completed table's row count. It measured **77M for repeated nonempty tables and 34M for repeated empty tables**. Nested calls are attributed to the innermost building function. All 12 transcripts matched, and the profiles had zero lost or throttled records. The markers add a lookup to the observer. These numbers include work such as compiling a fallback or assigning local IDs that reuse would still need to perform. Even removing the entire measured repeat cost would recover under 4% of the approximately 3B instruction gap. [Observer source, raw counts and replay scripts](perf/ivy_apple/model_finder/nov26-function-compilation-study.tar.xz)
+
+A larger next experiment is to partition the entire remaining hybrid gap by verification obligation and compare the number of candidate builds, auxiliary checks and fallback queries in each engine on the highest-cost obligations. Agreement on the final verdict alone leaves room for substantially different search work. If model cleanup is pursued, native reuses its argument buffer through the traversal of one function fallback. Go currently allocates the argument slice inside the visit loop and reads the AST kind more than once. Price those two changes independently on model cleanup and on complete hybrid.

@@ -1,0 +1,13 @@
+case,round,engine,process_samples,adjust,generate,complete,clean,compress,other
+hybrid,1,g3,8852,308,167,4,104,0,93
+hybrid,1,z3,5824,75,344,0,17,0,5
+hybrid,2,g3,8895,310,180,6,101,0,94
+hybrid,2,z3,5823,75,313,0,27,0,8
+hybrid,3,g3,8950,324,177,4,104,0,60
+hybrid,3,z3,5822,77,313,0,18,0,9
+hybrid,4,g3,8825,319,190,3,94,0,74
+hybrid,4,z3,5818,65,319,0,12,0,13
+hybrid,5,g3,8898,321,173,3,100,0,79
+hybrid,5,z3,5825,71,312,2,14,0,6
+hybrid,6,g3,8891,313,186,4,98,0,85
+hybrid,6,z3,5823,72,331,1,22,0,1
