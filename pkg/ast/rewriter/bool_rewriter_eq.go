@@ -207,6 +207,14 @@ func (rw *boolRewriter) tryITEValue(ite, val ast.ASTHandle, out ast.ASTRef) (brS
 	return brFailed, nil
 }
 
+func (rw *boolRewriter) isITEWithValue(term, value ast.ASTHandle) (bool, error) {
+	ite, err := rw.isOperator(term, ast.ASTOpIte)
+	if err != nil || !ite {
+		return false, err
+	}
+	return rw.manager.IsValue(value)
+}
+
 func (rw *boolRewriter) mkEqCore(lhs, rhs ast.ASTHandle, out ast.ASTRef) (brStatus, error) {
 	m := rw.manager
 	equal, e := m.AreEqual(lhs, rhs)
@@ -231,30 +239,22 @@ func (rw *boolRewriter) mkEqCore(lhs, rhs ast.ASTHandle, out ast.ASTRef) (brStat
 		}
 		return brDone, m.SetRef(out, h)
 	}
-	leftITE, e := rw.isOperator(lhs, ast.ASTOpIte)
-	if e != nil {
-		return brFailed, e
-	}
-	rightValue, e := m.IsValue(rhs)
+	leftITEValue, e := rw.isITEWithValue(lhs, rhs)
 	if e != nil {
 		return brFailed, e
 	}
 	status := brFailed
-	if leftITE && rightValue {
+	if leftITEValue {
 		status, e = rw.tryITEValue(lhs, rhs, out)
 		if e == nil {
 			e = rw.traceITEValueResult(lhs, rhs, out, status, 665)
 		}
 	} else {
-		rightITE, e2 := rw.isOperator(rhs, ast.ASTOpIte)
+		rightITEValue, e2 := rw.isITEWithValue(rhs, lhs)
 		if e2 != nil {
 			return brFailed, e2
 		}
-		leftValue, e2 := m.IsValue(lhs)
-		if e2 != nil {
-			return brFailed, e2
-		}
-		if rightITE && leftValue {
+		if rightITEValue {
 			status, e = rw.tryITEValue(rhs, lhs, out)
 			if e == nil {
 				e = rw.traceITEValueResult(lhs, rhs, out, status, 670)
@@ -348,70 +348,69 @@ func (rw *boolRewriter) mkEqCore(lhs, rhs ast.ASTHandle, out ast.ASTRef) (brStat
 	return brFailed, nil
 }
 
-func (rw *boolRewriter) mkNotCore(arg ast.ASTHandle, out ast.ASTRef) (status brStatus, err error) {
+func (rw *boolRewriter) mkNotCore(arg ast.ASTHandle, out ast.ASTRef) (brStatus, error) {
 	m := rw.manager
-	negative, inner, e := m.IsNot(arg)
-	if e != nil {
-		return brFailed, e
+	app, family, op, err := m.AppIdentity(arg)
+	if err != nil || !app || family != 0 {
+		return brFailed, err
 	}
-	if negative {
+	switch op {
+	case ast.ASTOpNot:
+		inner, err := m.GetArg(arg, 0)
+		if err != nil {
+			return brFailed, err
+		}
 		return brDone, m.SetRef(out, inner)
-	}
-	truth, e := m.MkTrue()
-	if e != nil {
-		return brFailed, e
-	}
-	falsity, e := m.MkFalse()
-	if e != nil {
-		return brFailed, e
-	}
-	if arg == truth {
-		return brDone, m.SetRef(out, falsity)
-	}
-	if arg == falsity {
-		return brDone, m.SetRef(out, truth)
-	}
-	eq, e := rw.isOperator(arg, ast.ASTOpEq)
-	if e != nil {
-		return brFailed, e
-	}
-	if !eq {
-		eq, e = rw.isOperator(arg, ast.ASTOpIff)
-		if e != nil {
-			return brFailed, e
-		}
-	}
-	if eq {
-		a, e := m.GetArg(arg, 0)
-		if e != nil {
-			return brFailed, e
-		}
-		boolean, e := rw.isBool(a)
-		if e != nil {
-			return brFailed, e
-		}
-		if !boolean {
+	case ast.ASTOpTrue, ast.ASTOpFalse:
+		var opposite ast.ASTHandle
+		switch {
+		case m.IsTrue(arg):
+			opposite, err = m.MkFalse()
+		case m.IsFalse(arg):
+			opposite, err = m.MkTrue()
+		default:
 			return brFailed, nil
 		}
-		b, e := m.GetArg(arg, 1)
-		if e != nil {
-			return brFailed, e
+		if err != nil {
+			return brFailed, err
 		}
-		tmp, e := m.NewRef(ast.ASTHandle{})
-		if e != nil {
-			return brFailed, e
-		}
-		defer func() { err = errors.Join(err, m.DelRef(&tmp)) }()
-		if e = rw.mkNot(a, tmp); e != nil {
-			return brFailed, e
-		}
-		neg, e := m.RefGet(tmp)
-		if e != nil {
-			return brFailed, e
-		}
-		return brDone, rw.mkEq(neg, b, out)
+		return brDone, m.SetRef(out, opposite)
+	case ast.ASTOpEq, ast.ASTOpIff:
+		return rw.negateEquality(arg, out)
 	}
 	return brFailed, nil
+}
+
+func (rw *boolRewriter) negateEquality(arg ast.ASTHandle, out ast.ASTRef) (status brStatus, err error) {
+	m := rw.manager
+	a, e := m.GetArg(arg, 0)
+	if e != nil {
+		return brFailed, e
+	}
+	boolean, e := rw.isBool(a)
+	if e != nil {
+		return brFailed, e
+	}
+	if !boolean {
+		return brFailed, nil
+	}
+	b, e := m.GetArg(arg, 1)
+	if e != nil {
+		return brFailed, e
+	}
+	tmp, e := m.NewRef(ast.ASTHandle{})
+	if e != nil {
+		return brFailed, e
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&tmp)) }()
+	if e = rw.mkNot(a, tmp); e != nil {
+		return brFailed, e
+	}
+	neg, e := m.RefGet(tmp)
+	if e != nil {
+		return brFailed, e
+	}
+	return brDone, rw.mkEq(neg, b, out)
 }
 
 func (rw *boolRewriter) mkEq(a, b ast.ASTHandle, out ast.ASTRef) error {
