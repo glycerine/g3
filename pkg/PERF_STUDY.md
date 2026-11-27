@@ -7072,3 +7072,46 @@ Even eliminating all 677 qualifying hybrid reverse rewrites for free would recov
 A separate overlay moved the ordinary validated fast return into `GetHash`, following `GetKind`. Across five paired runs at default GC it changed median paired instructions by −0.25% on hybrid, +0.46% on Ticket, −0.03% on ARM and +0.22% on FBA. Seven pairs with GC off saved 0.05–0.19% instructions on all four. Median paired cycles fell 0.40–1.01% across the two panels. The trial is archived for reference. Its instruction saving on Ticket is small relative to the measured gap.
 
 To locate a larger target, a second analysis partitioned the earlier 24 Ticket g3 instruction profiles inside the quantifier queue’s theory rewrite. Application reduction accounts for **119 of 386** samples on check 127 and **128 of 476** on check 290. Expression-cache paths account for 51 and 66, and result ownership outside those two groups for 29 and 35. Categories use the archived script’s precedence when frames overlap. The Boolean AND/OR reducer `mkNFlatBody` was the most frequent reduction leaf across the two checks (26 samples), followed by declaration identity (19) and family lookup (15). The next experiment should count Boolean operand scans, repeated declaration lookups and actual simplifications per reduction on both engines. These samples are from the earlier matched replays and guide the choice of experiment; a current baseline is needed to quantify any saving.
+
+## November 26 — Single-pass recognition of flat Boolean operands
+
+The Go and in-tree C++ observers agree on every counted event inside the quantifier queue’s theory rewrite. Most AND/OR reductions in both engines return their input unchanged. On the two Ticket checks, every operand reaching the polarity test also created a new mark. g3 paid for a second argument traversal, a second declaration classification, and maintaining the temporary result buffer even when all signed atoms were distinct.
+
+| Matched events in both engines | Ticket 127 | Ticket 290 | Toy consensus 18 |
+| --- | ---: | ---: | ---: |
+| Non-flat AND/OR reductions | 1,925 | 2,662 | 1,479 |
+| Two-operand reductions | 806 | 1,625 | 403 |
+| Nested connective tests in flattening | 6,387 | 7,630 | 5,592 |
+| Operands inspected in the subsequent reduction | 6,367 | 7,608 | 5,586 |
+| NOT tests / new marks | 6,051 / 6,051 | 7,490 / 7,490 | 5,579 / 5,578 |
+| Unchanged non-flat reductions | 1,633 | 2,544 | 1,471 |
+
+Commit `1a65666db` recognizes distinct operands in one pass at widths two through eight. It reads each arena handle, looks through a single NOT and checks the atom against earlier atoms in a stack-local array. Repeated atoms of either sign, constants and nested connectives go through the general reducer. Local-context OR simplification, pending manager work and checked builds take their original paths. A differential test covers all 686 signed triples of three atoms, two negations and two constants across AND and OR using nonzero-offset argument ranges. Existing tests cover nested connectives, output ownership, local-context cost and truth tables. [Implementation](ast/ast_core_boolean_factories.go) · [Range regression](ast/rewriter/bool_flat_range_test.go)
+
+| Distinct signed operands | Previous median ns/op | Single-pass median ns/op |
+| ---: | ---: | ---: |
+| 2 | 103.4 | 31.25 |
+| 4 | 156.8 | 45.45 |
+| 8 | 278.2 | 81.21 |
+| 9 | 312.8 | 308.6 |
+| 32 | 1,512 | 1,550 |
+
+Three 500,000-iteration measurements per width reported zero allocations. A 32-operand trial reduced the isolated width-32 median to 553 ns. In nine paired complete replays it improved toy consensus instructions by an additional 0.07 percentage points and gave slightly smaller savings on both Ticket checks. The release keeps eight entries. Three smaller trials removed redundant mark searches, shortened Boolean constant lookup, or specialized the binary reduction. With GC disabled they saved at most 0.26% of replay instructions individually. [Go benchmark](ast/rewriter/bool_flat_benchmark_test.go)
+
+In eleven default-GC rotations, release instructions fell **1.20% on Ticket 127 and 1.41% on Ticket 290**, with cycle reductions of 2.09% and 2.51%. Toy consensus used 0.10% fewer instructions in that panel and 0.67% fewer in two GC-off comparisons. All runs matched native verdict, decisions, conflicts, quantifier instantiations and resource counts.
+
+GoIvy advanced to `77f7733de` during the study. All three primary complete-verifier binaries were built with that frontend and the same local g3 module replacement. A fresh linked-native reference accounts for its changes to printed action names. The optimized build and stock Go reproduced both native streams and exit status. In seven release pairs, instruction counts changed by **−1.43% Ticket, −0.58% hybrid, −0.93% ARM and +0.37% FBA**. Median elapsed changed by −0.80%, −0.13%, −1.23% and +0.56% respectively. In the earlier seven-pair overlay panel FBA used 0.27% fewer instructions. Ordinary AST, rewriter, SMT core and API suites, focused checked/debug/trace tests and vet for AST and rewriter passed. The per-call speedup covers a small fraction of a complete proof. [Counters, reference transcripts, prototype builders and outcomes](perf/ivy_apple/holdouts/nov26-flat-boolean-operands.tar.xz)
+
+The earlier six general-rewriter holdouts give an independent comparison with the [November 24 small-argument prototype](#can-repeated-quantifier-rewrites-reuse-their-old-resource-charge). In three rotations, the released solver saved **0.81–1.77% of instructions** on all six. Every reported integer search statistic matched after excluding allocation, memory and time fields. One full query (`miss3`) took 3.87% longer in that panel. Seven fresh pairs on another pinned core saved 0.94% instructions and 1.91% elapsed on the same query. In eleven GC-off rotations of the four short complete verifiers, instructions fell 0.23–1.01% across all four. [Six-query replays and confirmation panel](perf/ivy_apple/holdouts/nov26-flat-boolean-operands.tar.xz)
+
+### Frontend revision determines whether the Apple benchmark reaches g3
+
+| Complete verification | GoIvy revision | Passed obligations | Released g3 median | Linked Z3 median |
+| --- | --- | ---: | ---: | ---: |
+| Ordinary Raft (`raft_no_assume_test`) | 77f7733de | 419 | 2.663 s | 32.633 s |
+| Apple `rfn2` | 07cdeec61 | 26 | 1.477 s | 9.276 s |
+| Apple `dramc_nb2` | 07cdeec61 | 2,479 | 15.353 s | 18.347 s |
+
+Each row used three alternating pairs on one pinned CPU with the same frontend, default GC and byte-identical transcripts. The older frontend was built from a source export with its local replacement pointing to the released solver. On GoIvy `77f7733de`, the current g3 and linked Z3 both reject `rfn2` during isolate construction. Stock g3 has the same diagnostic. The current Python Ivy checker also rejects it. The diagnostic identifies the call out to `rfn.abs.send[implement238]` from the hook at line 1958 of `ord_live.ivy` and its potential write to `rfn.abs.lastq`. No solver timing is available for this input on that frontend.
+
+With g3 fixed at `1a65666db`, historical GoIvy `087c43b73` passed all 26 obligations. Its immediate successor `3dc52e26b` introduced the rejection. On the current frontend, a diagnostic overlay omitted assumed-invariant symbols only from the second symbol collection, which feeds the interference check. Both Apple isolates then reached all 26 and 2,479 successful obligations. Omitting them only from the first collection still produced the rejection, as did restoring only the old mixin membership predicate. The observer identified `rfn.abs.invar240` and `rfn.abs.invar241`, the assumptions at lines 1868–1869 which read `lastq`. Determining which assumed invariants should count as visible across this call requires an isolate-semantics decision. All performance comparisons above use stock frontend semantics. [Frontend reproduction and paired proof evidence](perf/ivy_apple/holdouts/nov26-flat-boolean-operands.tar.xz)
