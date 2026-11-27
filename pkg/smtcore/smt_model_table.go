@@ -15,6 +15,8 @@ type tableModel struct {
 	model       *protomodel.ProtoModel
 	values      []ast.ASTHandle
 	sorts       []ast.ASTHandle
+	integerIDs  map[int32]int
+	integers    map[int]int32
 	valueIDs    map[ast.ASTHandle]int
 	enumDecls   map[ast.ASTHandle][]ast.ASTHandle
 	bySort      map[ast.ASTHandle][]int
@@ -47,6 +49,7 @@ const (
 	tableVariable int32 = -1 - iota
 	tableConstant
 	tableApplication
+	tableArithmetic
 )
 
 const (
@@ -70,8 +73,29 @@ func (g *tableModel) valueID(value ast.ASTHandle) (int, error) {
 	var decl ast.ASTHandle
 	if !modelValue {
 		h, err := g.manager.NodeHeader(value)
-		if err != nil || h.Kind != ast.ASTApp || h.NumArgs != 0 || h.DeclKind != ast.ASTDatatypeConstructor {
+		if err != nil || h.Kind != ast.ASTApp || h.NumArgs != 0 {
 			return 0, err
+		}
+		if h.DeclKind == smtArithOpNum {
+			number, ok, err := g.manager.ArithmeticSmallInteger(value)
+			if err != nil {
+				return 0, err
+			}
+			if ok {
+				sort, err := g.manager.GetSort(value)
+				if err != nil {
+					return 0, err
+				}
+				id := g.integerID(number, sort)
+				if id != 0 {
+					g.values[id] = value
+					g.valueIDs[value] = id
+				}
+				return id, nil
+			}
+		}
+		if h.DeclKind != ast.ASTDatatypeConstructor {
+			return 0, nil
 		}
 		decl = h.Decl
 	}
@@ -216,8 +240,16 @@ func (g *tableModel) compile(term ast.ASTHandle, depth int) (int, error) {
 			}
 			n.op = tableApplication
 		default:
-			g.incomplete = true
-			return 0, nil
+			if !tableIntegerOperator(header.DeclKind, header.NumArgs) {
+				g.incomplete = true
+				return 0, nil
+			}
+			family, err := g.manager.ArithmeticFamilyID()
+			if err != nil || header.Family != family {
+				g.incomplete = true
+				return 0, err
+			}
+			n.op, n.index = tableArithmetic, int(header.DeclKind)
 		}
 		n.args = make([]int, header.NumArgs)
 		for i := range n.args {
@@ -361,6 +393,8 @@ func (g *tableModel) clearModel() {
 	g.model = nil
 	g.incomplete = false
 	g.work = 0
+	clear(g.integerIDs)
+	clear(g.integers)
 	clear(g.valueIDs)
 	clear(g.enumDecls)
 	clear(g.bySort)

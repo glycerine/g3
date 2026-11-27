@@ -70,6 +70,8 @@ func (g *tableModel) evaluate(id int, bindings []int, depth int) int {
 			previous[i] = value
 		}
 		return tableTrue
+	case tableArithmetic:
+		return g.evaluateInteger(term, bindings, depth)
 	case tableApplication:
 		var args [tableMaxArity]int
 		for i := range term.args {
@@ -206,6 +208,11 @@ func (g *tableModel) check(m *ast.ASTManager, model *protomodel.ProtoModel, flat
 		if tuples <= tableMaxTuples {
 			tuples *= len(domain)
 		}
+	}
+	// On small integer-valued tables the ordinary search is cheap and its
+	// choice of witnesses benefits later checks on the same solver.
+	if len(g.integers) != 0 && tuples < 64 {
+		return lbool.Undef, nil, nil
 	}
 	if tuples > tableMaxTuples {
 		status, witness := g.checkDiagram(root, domains)
