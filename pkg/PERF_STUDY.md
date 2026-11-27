@@ -7133,3 +7133,35 @@ The check explains 62% and 66% of the respective instruction gaps. First push ex
 Two overlays screened smaller opportunities. Borrowing the existing annotation views on quantifiers with at most one annotation of each kind saved 0.34M and 0.30M complete-process instructions. Using a native shift to form small BV sort bounds saved 0.72–0.76M first-sort instructions at GOGC=100 and changed power-cache population. Both trials stayed experimental. In a separate full-rate allocation profile, growing formula batches allocated 183,600 bytes on recorded Ticket 127 first-push stacks. Enode and fingerprint creation accounted for 383,184 and 342,432 allocated bytes on recorded check stacks. These figures measure allocation traffic and exclude caller stacks truncated before the phase marker.
 
 A third overlay preallocated formula batches using the input count in the assertion passes and macro finder. In nine alternating pairs it saved just 69,000 and 71,000 first-push instructions (about 0.1% of push), with identical verdicts and all four search counters. The counts also overestimate required capacity when simplification discards rows. We kept the existing growth policy. The next experiment should target repeated work in the general rewriter reached by both push and check. [Fixtures, runners, profiles and raw measurements](perf/ivy_apple/holdouts/nov26-ticket-command-boundaries.tar.xz)
+
+## November 26 — Theory rewriter application costs on Ticket
+
+Across 24 matched runs of each Ticket replay, g3's theory rewriter during quantifier instantiation received 1,651 instruction samples and Z3's received 433. The innermost physical engine operation was application processing in 667 and 165 samples respectively. Application processing explains about **41% of the sampled rewriter gap** there. During first push the corresponding counts were 511 of 1,727 in Go and 212 of 536 in C++, about **25% of the gap**. These are physical-stack estimates with one sample per 1,000,003 user instructions. Inlining affects the method boundary. Every run matched the verdict and four search counters. All accepted profiles had zero lost or throttled records.
+
+A second 12-round panel recorded the immediate physical callee of the application frame. During instantiation, 185 of 289 such Go samples entered the configured application reducer. In C++, 30 of 83 entered a visible reduce_app callee. During first push the counts were 158 of 267 and 62 of 117. Together with the earlier exact frame census, this points to cheaper dispatch and term access within each reduction. Changing how Go appends the 32-byte traversal frame alone moved complete replay instructions by at most 0.01%.
+
+One case requires no reduction. When the ordinary theory rewriter visits a nullary uninterpreted application, the declaration has no theory operator and the ITE rules have no operands. If the proof register is empty, g3 now acquires the constant directly for the result stack. Substitutions still run first. A prior proof takes the regular path so its reference is released before the result is acquired. The new test exercises both register states and checks the exact reference counts through two visits and pops. [Rewriter](ast/rewriter/rewriter_engine.go) · [Ownership test](ast/rewriter/th_rewriter_test.go) · [Benchmark](ast/rewriter/theory_constant_benchmark_test.go)
+
+| Measurement | Baseline | Constant shortcut |
+| --- | ---: | ---: |
+| Uninterpreted constant through TheoryRewriter.Rewrite, median ns/op | 106.0 | 71.21 |
+| Built-in true through the same entry point, median ns/op | 128.0 | 127.8 |
+| Ticket 127 complete process, median M instructions | 277.87 | 276.79 |
+| Ticket 290 complete process, median M instructions | 298.64 | 297.45 |
+
+The independent benchmark used eleven alternating pairs of 400,000 rewrites on a pinned CPU. Both cases had zero allocations. The command measurements used nine pairs at the ordinary CLI GC target of 400. On the complete runs below, the release-change column uses the median paired elapsed percentage across nine Go-vs-Go rotations. The engine comparison uses a separate five-pair panel with the same GoIvy revision (77f7733de), CPU 10, GOGC=100 and byte-identical verifier output.
+
+| Complete verification | Release change, elapsed | g3 median | Linked Z3 median |
+| --- | ---: | ---: | ---: |
+| Ticket | −2.55% | 441 ms | 242 ms |
+| Hybrid | −0.66% | 1,231 ms | 852 ms |
+| ARM rules3 | −0.66% | 474 ms | 338 ms |
+| FBA | −1.60% | 106 ms | 136 ms |
+
+Complete-verifier instruction changes were −0.02% for Ticket, −0.15% for hybrid, −0.69% for ARM, and +0.24% for FBA. The 33% microbenchmark reduction applies only to an eligible constant. The whole-process effect depends on how much time that workload spends rewriting such leaves.
+
+Eight alternative overlays remain experimental. Resetting the initial ten-cell activity table in place saved at most 0.03M whole-process instructions. Combining its first cells, queue and header in one allocation saved 0.17M. Only 165 of 1,491 and 149 of 1,710 constructed caches ever received an insertion. A single lookup for a quantifier's body and three counts saved 0.72–0.76M replay instructions, but default-GC Ticket over seven complete pairs used 1.12% more instructions, and FBA elapsed rose 10.16%. At GOGC=off their instruction changes were −0.11% and −0.04%. Reusing equality operands, combining declaration reads, dispatching on the original application's cached identity, and bypassing dispatch on unchanged nonconstant uninterpreted applications each saved 0.21–0.96M replay instructions. The nonconstant shortcut needs additional guards because binary applications can pull ITEs through their arguments.
+
+The remaining Ticket gap spans several operations. Even erasing the entire sampled excess in queue application processing would recover about 10.5M instructions per replay on average (502 excess samples over 48 runs). The mean complete-process gap exceeds 160M. The existing phase profile places a further 16.5–23.6M excess instructions per check in queue clause assertion. Measure the two engines' literal internalizations, enode lookups, relevance registrations and clause insertions per asserted instance, including repeated inputs, before changing the rewriter again. [Phase estimates](#november-26--quantifier-queue-phases-on-matched-ticket-checks) · [Runners, trial sources and raw results](perf/ivy_apple/holdouts/nov26-theory-application-costs.tar.xz)
+
+The retained change is `05092af7a`. All six independent resource-limited SMT queries matched their original verdict and every collected integer search statistic in five pairs each. Complete ordinary Raft matched all 419 obligations and both output streams in three pairs, with median elapsed 2.634 s after and 2.644 s before. The ordinary rewriter, SMT core and API package tests passed, along with checked/debug/trace rewriter tests and rewriter vet.
