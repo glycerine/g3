@@ -1,6 +1,9 @@
 package api
 
 import (
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -97,6 +100,72 @@ func BenchmarkPrivateSatisfiablePremisePlan(b *testing.B) {
 	p.plans.enabled = true
 	b.Cleanup(func() { astTestMust(b, p.plans.close()) })
 	plan := shortPremisePlan{source: roots, selected: roots[:1]}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		proved, err := p.checkProofPlan(m, &plan, 6000)
+		if proved || err != nil {
+			b.Fatalf("private check = %v, %v", proved, err)
+		}
+	}
+}
+
+func hybridMemberPremises(t testing.TB) (*ast.ASTManager, *APISimpleSolver, []ast.ASTHandle) {
+	t.Helper()
+	input, err := os.ReadFile("test_vectors/hybrid_member_premises.smt2")
+	astTestMust(t, err)
+	ctx, s := orderSolver(t, string(input))
+	m, err := ctx.Manager()
+	astTestMust(t, err)
+	roots, err := solver.Assertions(s.solver)
+	astTestMust(t, err)
+	return m, s, roots
+}
+
+func TestPrivatePremiseModelAcrossBlocks(t *testing.T) {
+	m, _, roots := hybridMemberPremises(t)
+	if !hasPrivatePremiseModel(m, roots) {
+		t.Fatal("missed a satisfying interpretation of seven predicates")
+	}
+	opposite, err := m.MkNot(roots[0])
+	astTestMust(t, err)
+	astTestMust(t, m.IncRef(opposite))
+	defer func() { astTestMust(t, m.DecRef(opposite)) }()
+	if hasPrivatePremiseModel(m, append(roots, opposite)) {
+		t.Fatal("accepted a premise and its negation")
+	}
+}
+
+// The eighth predicate is true only in a later block. A single assignment
+// must also satisfy every root, including the opposite literal in the control.
+func TestPrivatePremiseModelLaterBlock(t *testing.T) {
+	var input strings.Builder
+	for i := 0; i < 8; i++ {
+		fmt.Fprintf(&input, "(declare-const p%d Bool)(assert p%d)", i, i)
+	}
+	ctx, s := orderSolver(t, input.String())
+	m, err := ctx.Manager()
+	astTestMust(t, err)
+	roots, err := solver.Assertions(s.solver)
+	astTestMust(t, err)
+	if !hasPrivatePremiseModel(m, roots) {
+		t.Fatal("missed the all-true assignment")
+	}
+	neg, err := m.MkNot(roots[0])
+	astTestMust(t, err)
+	astTestMust(t, m.IncRef(neg))
+	defer func() { astTestMust(t, m.DecRef(neg)) }()
+	if hasPrivatePremiseModel(m, append(roots, neg)) {
+		t.Fatal("accepted conflicting assignments to the same predicate")
+	}
+}
+
+func BenchmarkPrivateHybridMemberPlan(b *testing.B) {
+	m, s, roots := hybridMemberPremises(b)
+	p := orderProofState{source: s}
+	p.plans.enabled = true
+	b.Cleanup(func() { astTestMust(b, p.plans.close()) })
+	plan := shortPremisePlan{source: roots, selected: roots}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

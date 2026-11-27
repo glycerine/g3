@@ -9252,3 +9252,34 @@ The following medians compare the starting g3 build (`9084dd1b2`), all three cha
 | Liveness Ticket | 1.514 | 1.508 | 1.288 | 233 / 233 / 198 ms |
 
 Three allocation runs per build put complete Hybrid at **362,018,408 → 347,650,208 bytes** and **2,946,671 → 2,840,177 objects**. On POPL18 the corresponding figures were 100,102,120 → 97,923,616 bytes and 888,351 → 869,757 objects. Each of the three releases passed all 228 native transcript comparisons. Ordinary Raft and Apple rfn2 and dramc_nb2 also matched in three rotating pairs per release. The checked-in benchmark drivers, diagnostic prototypes, residuals, per-round counters and verification results are available in the [study archive](perf/ivy_apple/holdouts/nov27-hybrid-private-misses.tar.xz).
+
+## November 27 — Models of the remaining relevant-premise subsets
+
+Hybrid broadcast made 48 nonempty private attempts under relevant-premise selection. The existing filter declined 20. The narrow definition selector sent 14 subsets to a private solver, yielding eight SAT and six UNKNOWN. The rare-symbol selector sent another 14, yielding eight UNSAT proofs and six UNKNOWN. The wider definition selector produced no nonempty subset. No attempted check exhausted its step limit. Of the 20 calls where both selectors produced a subset, seven narrow subsets were contained in their rare-symbol sibling and 13 were incomparable. Replaying the exact solver inputs with linked Z3 and MBQI established that all 20 failed refutations were satisfiable. Fourteen admit a singleton interpretation of every user sort. Six require at least one domain of size two.
+
+Across Hybrid, POPL18 Ticket, ARM rules and liveness Ticket, the observer captured 50 private solver invocations and 38 distinct SMT-LIB texts. No exact input repeated within its own proof batch. Caching these texts within a batch therefore offered zero hits. Narrow definition selection still produced private UNSAT proofs on the three controls.
+
+### Search more constant-predicate interpretations before constructing a solver
+
+The original evaluator searched all assignments to six predicates in one 64-bit word. The revised evaluator gives up to six further predicates a stable index and varies their truth values between words. A single bit must satisfy every selected assertion under the same interpretation. All words together share the original 512-node visit allowance. The existing check for interpreted terms still guards singleton-domain equality. This witness lets a speculative refutation decline. The original verification obligation still needs a proof.
+
+Three prototypes ran in seven rotated normal-GC pairs on the same CPU. Seeding assignments from root literals found no additional Hybrid witnesses. Reusing combinations of the first six truth columns recognized six additional cases and saved 0.39% of complete Hybrid instructions. Enumerating independent truth values recognized 13 and saved 1.58%. The bounded release recognized the same 13 (four formerly SAT and nine formerly UNKNOWN) and one additional liveness Ticket subset. It retained all eight Hybrid private refutations.
+
+Five 500-iteration samples put a captured Hybrid member subset at **663.48 µs → 2.34 µs**, **366,480 → 1,800 bytes**, and **1,700 → 5 allocations** per private plan. The small existing fixture measured 166.4 → 164.5 ns with zero allocations. The new positive regression failed on the previous implementation. Separate controls force a later block, contradict two roots, and distinguish interpreted model values. [Regression and benchmarks](api/api_private_premise_model_test.go)
+
+The complete verifier comparison used seven rounds rotating the previous release, this change, and linked Z3 on one pinned CPU with normal GC. The instruction column is the median within-round change. Elapsed columns are separate medians. Concurrent machine load makes small elapsed changes uncertain.
+
+| Complete workload | Paired g3 instruction change | Previous g3 | Revised g3 | Linked Z3 |
+|---|---:|---:|---:|---:|
+| Hybrid broadcast | −1.79% | 1,086 ms | 1,058 ms | 839 ms |
+| POPL18 Ticket | +0.92% | 389 ms | 390 ms | 240 ms |
+| ARM rules | +0.95% | 460 ms | 463 ms | 338 ms |
+| Liveness Ticket | −0.32% | 236 ms | 239 ms | 205 ms |
+
+Three complete Hybrid allocation runs gave a median of **336,637,432 bytes and 2,801,148 objects**, down 11,012,776 bytes and 39,029 objects from the previous release. The CAV examp1_l2s holdout saved 4.81% of instructions. Ordinary examp1 and skolem1 changed by −0.21% and −0.03%. All 228 corpus inputs matched linked Z3 on exit status, stdout and stderr. Ordinary Raft and Apple rfn2 and dramc_nb2 also matched in each of three rotating pairs. Their paired instruction changes were −0.05%, −0.73% and +0.04%.
+
+### How much more can two-element models recover?
+
+A scratch evaluator tested independent random two-element function tables. It evaluates each supported quantified formula under every binding and intersects satisfying assignments across assertions. Linked Z3 independently checked the bounded inputs. On the twelve known cases requiring two elements, 4,096 trial interpretations found ten witnesses (four of six Hybrid, three of three POPL18, three of three liveness Ticket). A 64-interpretation sample found one. Widths use separately drawn deterministic tables, so they need not recognize nested sets of cases. Python timings exclude parsing and do not predict Go verifier speed.
+
+Even eliminating all twelve private calls would recover at most their directly observed 48.07M, 22.43M and 28.41M instructions respectively, before paying for detection and allowing for later search changes. On Hybrid that is about 0.64% of the complete run. The larger remaining question is why Ticket generates extra instances on 4/55 and why both Ticket and Hybrid pay more per enode. [Captured subsets, oracle replay, prototype sources and per-run measurements](perf/ivy_apple/holdouts/nov27-relevant-premise-models.tar.xz)

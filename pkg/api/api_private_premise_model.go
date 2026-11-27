@@ -20,7 +20,8 @@ func (a premiseTruth) or(b premiseTruth) premiseTruth {
 type premiseModel struct {
 	manager       *ast.ASTManager
 	values        map[ast.ASTHandle]premiseTruth
-	predicates    map[ast.ASTHandle]uint64
+	predicates    map[ast.ASTHandle]uint8
+	block         int
 	visits        int
 	collapsedSort bool
 }
@@ -31,15 +32,28 @@ func hasPrivatePremiseModel(m *ast.ASTManager, roots []ast.ASTHandle) bool {
 	if len(roots) == 0 || len(roots) > maxNarrowPremises {
 		return false
 	}
-	v := premiseModel{manager: m, values: make(map[ast.ASTHandle]premiseTruth), predicates: make(map[ast.ASTHandle]uint64)}
-	possible := ^uint64(0)
-	for i := len(roots) - 1; i >= 0; i-- {
-		possible &= v.eval(roots[i], 0).yes
-		if possible == 0 || m.ResourceLimit().CancelFlag() {
+	v := premiseModel{manager: m, values: make(map[ast.ASTHandle]premiseTruth), predicates: make(map[ast.ASTHandle]uint8)}
+	// Six predicates vary across the bits of a word. Each subsequent block
+	// varies the assignment to the next six, keeping declarations consistent
+	// across every root. Charge AST visits across blocks to bound failed plans.
+	for ; ; v.block++ {
+		possible := ^uint64(0)
+		for i := len(roots) - 1; i >= 0 && possible != 0; i-- {
+			if m.ResourceLimit().CancelFlag() {
+				return false
+			}
+			possible &= v.eval(roots[i], 0).yes
+		}
+		if possible != 0 && (!v.collapsedSort || purePremiseTerms(m, roots)) {
+			return true
+		}
+		n := len(v.predicates)
+		if n <= 6 || v.block+1 >= 1<<(n-6) || v.visits >= 512 {
 			return false
 		}
+		clear(v.values)
+		v.collapsedSort = false
 	}
-	return !v.collapsedSort || purePremiseTerms(m, roots)
 }
 
 // Interpreted functions such as model-value constants can distinguish
@@ -108,13 +122,19 @@ func (v *premiseModel) predicate(decl ast.ASTHandle) premiseTruth {
 	// Column i contains bit i of the interpretation index. Additional
 	// predicates can remain unknown if the other operands decide a formula.
 	columns := [...]uint64{0xaaaaaaaaaaaaaaaa, 0xcccccccccccccccc, 0xf0f0f0f0f0f0f0f0, 0xff00ff00ff00ff00, 0xffff0000ffff0000, 0xffffffff00000000}
-	mask, ok := v.predicates[decl]
+	index, ok := v.predicates[decl]
 	if !ok {
-		if len(v.predicates) == len(columns) {
+		if len(v.predicates) == 12 {
 			return premiseTruth{}
 		}
-		mask = columns[len(v.predicates)]
-		v.predicates[decl] = mask
+		index = uint8(len(v.predicates))
+		v.predicates[decl] = index
+	}
+	var mask uint64
+	if index < uint8(len(columns)) {
+		mask = columns[index]
+	} else if v.block&(1<<(index-uint8(len(columns)))) != 0 {
+		mask = ^uint64(0)
 	}
 	return premiseTruth{mask, ^mask}
 }
