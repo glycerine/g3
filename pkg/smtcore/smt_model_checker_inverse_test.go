@@ -95,13 +95,23 @@ func TestSMTModelCheckerInversePreservesGenerationBeforeFingerprintCanonicalizat
 			checker, err := NewSMTModelChecker(state, 1)
 			astTestMust(t, err)
 			t.Cleanup(func() { astTestMust(t, checker.Close()) })
-			checker.valueTerms = map[ast.ASTHandle]ast.ASTHandle{seven: three}
+			checker.candidateTerms = &SMTModelGenerator{rootValues: map[*SMTEnode]ast.ASTHandle{representative: seven}}
 			generation := uint32(0)
 			if fromInverse {
 				generation = 8
 			}
 			inserted, err := checker.enqueueCounterexample(q, []ast.ASTHandle{seven}, fromInverse, generation)
 			astTestMust(t, err)
+			if fromInverse != (checker.valueTerms == nil) {
+				t.Fatal("context-term index should be built only for unrestricted bindings")
+			}
+			wantTerm := three
+			if fromInverse {
+				wantTerm = seven
+			}
+			if len(checker.newInstances) != 1 || checker.newInstances[0].bindings[0] != wantTerm {
+				t.Fatal("unexpected pending counterexample binding")
+			}
 			astTestMust(t, checker.Restart())
 			if !inserted || len(registry.schedule.newEntries) != 1 {
 				t.Fatal("counterexample was not queued")
@@ -252,6 +262,20 @@ func TestSMTModelCheckerMixedUniverseRecoversFiniteInverse(t *testing.T) {
 		astTestMust(t, err)
 		if private {
 			t.Fatal("mixed-domain model value escaped into the context")
+		}
+	}
+}
+
+func TestSMTModelCheckerCandidateTermsClearedAfterCheck(t *testing.T) {
+	_, c, md, q, value := smtAuxiliaryQueryFixture(t, false)
+	for _, candidate := range []*protomodel.ProtoModel{md, nil} {
+		c.valueTerms = map[ast.ASTHandle]ast.ASTHandle{value: q}
+		_, err := c.checkCandidate(&SMTModelGenerator{model: candidate}, []ast.ASTHandle{q})
+		if (err != nil) != (candidate == nil) {
+			t.Fatalf("check candidate returned %v", err)
+		}
+		if c.valueTerms != nil || c.candidateTerms != nil {
+			t.Fatal("model checker retained candidate terms after check")
 		}
 	}
 }

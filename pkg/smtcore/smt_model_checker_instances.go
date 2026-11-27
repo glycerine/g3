@@ -28,9 +28,16 @@ func (c *SMTModelChecker) enqueueCounterexample(quantifier ast.ASTHandle, values
 		return false, ast.ErrASTDomain
 	}
 	bindings := append([]ast.ASTHandle(nil), values[:count]...)
+	if g := c.candidateTerms; !fromInverse && len(bindings) > 0 && g != nil && c.valueTerms == nil {
+		if err := c.SetCandidateTerms(g.rootValues, g.rootValuesInTableOrder()); err != nil {
+			return false, err
+		}
+	}
 	for i, value := range bindings {
-		if term := c.valueTerms[value]; !fromInverse && !term.IsNull() {
-			value = term
+		if !fromInverse {
+			if term := c.valueTerms[value]; !term.IsNull() {
+				value = term
+			}
 		}
 		private, err := containsPrivateModelTerm(c.manager, value, true)
 		if err != nil {

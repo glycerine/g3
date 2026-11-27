@@ -614,14 +614,11 @@ func (q *SMTQuantifierManager) CheckModel() (SMTQuantifierModelCheckResult, erro
 		if err = progressVerbose(10, "(smt.mbqi)\n"); err != nil {
 			return SMTQuantifierModelUnknown, errors.Join(err, generator.Close())
 		}
-		if err = q.modelChecker.SetCandidateTerms(generator.rootValues, generator.rootValuesInTableOrder()); err != nil {
-			return SMTQuantifierModelUnknown, errors.Join(err, generator.Close())
-		}
 		active, activeErr := q.activeQuantifiers()
 		if activeErr != nil {
 			return SMTQuantifierModelUnknown, errors.Join(activeErr, generator.Close())
 		}
-		modelSatisfied, checkErr := q.modelChecker.Check(generator.model, active)
+		modelSatisfied, checkErr := q.modelChecker.checkCandidate(generator, active)
 		if checkErr != nil {
 			return SMTQuantifierModelUnknown, errors.Join(checkErr, generator.Close())
 		}

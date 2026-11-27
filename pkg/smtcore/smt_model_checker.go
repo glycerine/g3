@@ -31,6 +31,7 @@ type SMTModelChecker struct {
 	iteration        uint32
 	exhausted        bool
 	trace            bool
+	candidateTerms   *SMTModelGenerator // borrowed for the duration of checkCandidate
 	valueTerms       map[ast.ASTHandle]ast.ASTHandle
 	auxiliary        smtAuxiliarySolverFactory
 	auxiliaryContext *SMTSolver
@@ -75,6 +76,18 @@ func (c *SMTModelChecker) initAuxiliaryContext() error {
 	}
 	c.auxiliaryContext = next
 	return nil
+}
+
+// Borrow the candidate's root table until an unrestricted counterexample
+// needs a context term. A queued instance pins its recovered terms.
+func (c *SMTModelChecker) checkCandidate(g *SMTModelGenerator, active []ast.ASTHandle) (bool, error) {
+	c.valueTerms = nil
+	c.candidateTerms = g
+	defer func() {
+		c.candidateTerms = nil
+		c.valueTerms = nil
+	}()
+	return c.Check(g.model, active)
 }
 
 // SetCandidateTerms is the m_value2expr population of get_term_from_ctx:
