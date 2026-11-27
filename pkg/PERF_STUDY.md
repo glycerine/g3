@@ -8642,3 +8642,62 @@ The finite-enumeration prototype rewrote an OR of distinct constructor equalitie
 | 6/6 | 1,093.38 → 1,213.59 | 377.84 → 409.64 | 4,280 → 5,321 |
 
 Both engines returned UNSAT in all 56 runs and agreed on all four counters for each input version. Early folding increased quantifier instantiations by 19% and 24%. The experiments favor keeping the current encoding. A candidate for the next search-preserving trial is the construction of the six gate clauses for each five-way OR. Measure simplification, retained clauses and relevance registration separately, then test bulk installation if repeated per-clause work is material. A separate algorithmic opportunity is to quantify how many instances come from expanding the event-ordering definition before changing its encoding again. [Stage and search counters, gate profiles, controls and prototype benchmark drivers](perf/ivy_apple/holdouts/nov27-arm-incremental-disjunctions.tar.xz)
+
+## November 27 — The live ARM verifier and the missing macro option
+
+**Correction to the ARM priority.** The exported SMT-LIB assertions omit GoIvy’s solver parameter `smt.macro_finder=true`. The earlier standalone measurements correctly describe the two exported formulas with default options. They do not establish that their five-input disjunctions are expensive in the complete ARM verifier. Instrumenting that verifier with the same eligibility test counted **zero qualifying fresh Boolean equality operands and zero qualifying five-way ORs** across 5,274 asserted quantifier instances (5,239 during ordinary checks, 19 during private proofs and 16 during first pushes). Its native transcript and exit status matched. Checks 6/5 and 6/6 asserted 720 and 646 instances in their live incremental history.
+
+On the original default-option replays, g3 and Z3 each emitted 13,632 and 11,136 clauses from the selected disjunctions on the respective goals. Both entered post-simplification storage 7,785 and 6,525 times. On 6/5 the sampled region around storage and its callees took about 9.15M counted instructions in Go and 2.93M in C++. OR relevance registration took 7.98M and 2.61M. These inclusive counts include probe overhead. The gates are a reproducible microbenchmark. Checking for an already satisfied binary gate clause before calling the generic emitter moved median whole-verifier instructions by +0.63% on ARM, −0.52% on hybrid and +0.61% on card3 in nine pairs. All 54 verdicts and transcripts matched. The release keeps the existing emitter.
+
+### Why definition-head triggers looked promising in exported goals
+
+The input-level experiment added a single explicit match pattern for an uninterpreted Boolean predicate applied to a permutation of all bound variables on one side of a universally quantified equality. Forty-four quantifiers qualified per input. A narrower diagnostic selected the 26 event-ordering definitions. Neither transformation changed the formulas’ logical meaning. Five pairs per engine gave these median instruction counts for the general rule.
+
+| Replay and options | g3 original → explicit, M instructions | Z3 original → explicit, M instructions | Instances, original → explicit |
+|---|---:|---:|---:|
+| 6/5, CLI defaults | 1,186.92 → 606.97 | 402.55 → 237.62 | 4,967 → 812 |
+| 6/6, CLI defaults | 1,093.48 → 584.72 | 377.84 → 231.68 | 4,280 → 702 |
+| 6/5, macro finder enabled | 605.71 → 608.82 | 246.17 → 248.53 | 660 → 660 |
+| 6/6, macro finder enabled | 578.93 → 582.04 | 241.47 → 243.73 | 445 → 445 |
+
+Restoring the solver option eliminates the apparent trigger advantage even on a fresh solver. With the complete frontend and its normal macro setting, constructing explicit head patterns increased median ARM instructions from 3.243B to 4.398B in nine pairs. Seven paired stage profiles put 723M extra instructions in batch 6 goal 25 and 401M in goal 26. The 6/5 and 6/6 CLI fixtures remain useful for experiments about default-option search. For ARM release decisions, verify the effective options and event counts in the live verifier before ranking a replay hotspot.
+
+### What the live verifier spends on quantified instances
+
+Three live runs timed each call to materialize and internalize an offered instance, grouping by the source quantifier body's declaration tree to depth four. The timer includes offers that finish as true. All per-shape call counts repeated exactly and all three verification transcripts matched native. Four prominent shapes were the load, acquire-load, store and release-store conjectures relating a conjunction of two event predicates to a conjunction of three event properties. The largest acquire-load shape cost 56.30M instructions over 335 calls. The corresponding release-store, store and load shapes added 27.11M, 24.95M and 22.05M. Other separately counted versions use different declarations for the event state. For comparison, the most frequent transitivity shape had 3,600 offers but only cost 7.78M.
+
+Three full-verifier relevance-policy comparisons on each of ARM, hybrid, card3 and Ticket showed large variation by workload. On card3, level 1 reduced median instructions from 353.6M to 291.4M. On ARM it raised them from 3.178B to 4.007B. Level 0 raised ARM to 4.535B and Ticket from 1.610B to 3.046B. All 36 runs matched native. Keep the current policy.
+
+Splitting a quantified equivalence between conjunctions into two directional implications reduced complete ARM instructions by a median paired 2.14% and elapsed time by 2.05% over 13 pairs toggled inside the same executable. A second CPU gave about 1.9% fewer instructions. Splitting each conjunct separately increased instructions. Both frontend variants matched the native transcripts and exit codes on 228 inputs each, after rerunning seven cases that required the companion ABC executable. In two longer pairs the directional split moved Raft instructions by −0.45%, Apple rfn2 by +1.27% and Apple dramc_nb2 by +0.16%. Placing the split in g3's first push gave −1.09% on ARM, −0.24% on hybrid and +1.85% on card3 across seven pairs each. Neither placement earned a release change. Combining explicit triggers with disabling the macro finder raised complete ARM instructions by about 133%.
+
+### Where to look for a larger ARM improvement
+
+Three pinned complete-verifier profiles per engine assigned each instruction sample to one category. Values below are millions of user instructions. The groups are approximate because native and Go inline different functions and use different stack unwinders.
+
+| Phase | g3 | Linked Z3 | Difference |
+|---|---:|---:|---:|
+| Installing formulas | 551 | 167 | +384 |
+| Search outside installation and the quantifier groups | 907 | 316 | +591 |
+| Quantifier queue, instance assertion | 167 | 43 | +124 |
+| Quantifier queue, rewriting | 130 | 50 | +80 |
+| Quantifier queue, substitution, checking and other work | 174 | 72 | +102 |
+| Model-based quantifier work | 162 | 297 | −135 |
+| Remaining work | 1,142 | 1,257 | −115 |
+
+Within inclusive stacks, g3's theory assignment propagation accounted for about 219M instructions versus 56M for native atom propagation. Conflict resolution accounted for 237M versus 81M. These stacks overlap other categories. g3 also spent about 177M in scope pop. Reusing the equality enode's two child pointers in the assignment path increased complete ARM instructions by about 0.6%. The next measurement should count propagated equalities, parent visits, conflicts and undone assignments per live check alongside these costs. A different number of events calls for a different change than a high cost at equal event counts.
+
+### Reuse the congruence-table slot on deletion
+
+Erase previously looked up a congruent representative, then searched the declaration table again to delete it. The updated short-arity path retains the slot from the first successful probe and applies the existing backward-shift deletion there. It still validates equality, tries reversed roots only where allowed, and falls back to the representative's current key if a merge changed its roots. The wide path hashes once and removes the matching member of the collision chain. The arena and per-solver ownership are unchanged.
+
+| Exact release change against its parent | Pairs | Median paired change in process instructions |
+|---|---:|---:|
+| Ordered erase and reinsert, 200,000 iterations | 5 | −1.98% |
+| Commuted erase and reinsert, 200,000 iterations | 5 | −3.17% |
+| Erase miss | 5 | +0.39% |
+| Read-only ordered hit / miss | 5 each | −0.10% / −0.07% |
+| Merge and undo, both unrelated-class sizes | 7 | −1.57% |
+| Scope-memory benchmark, all three widths | 7 | +0.12% |
+| Complete ARM / hybrid / card3 | 7 each | +0.35% / +0.14% / −0.40% |
+
+Nine paired latency runs showed ordered and commuted erase/reinsert taking 3.68% and 3.19% less time. Miss-only elapsed times were noisy, including a 13.35% increase in the unchanged read-only miss benchmark. All 42 complete runs matched linked Z3's exit status and both streams. Keeping the single-pass deletion improves successful removal and the higher-level merge/undo workload. It has no demonstrated whole-verifier speedup on these three controls. The earlier prototype's 5.82% instruction saving on erase misses did not carry through to the final build. [Benchmark drivers, raw counters, stacks and transcript comparisons](perf/ivy_apple/holdouts/nov27-arm-live-search-and-congruence.tar.xz)
