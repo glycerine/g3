@@ -76,3 +76,48 @@ func (m *ASTManager) isNot(r astNodeRef) (bool, ASTHandle, error) {
 	child, e := m.appArg(app, 0)
 	return true, m.external(child), e
 }
+
+// DistinctFlatBooleanOperands recognizes an AND or OR that needs neither
+// flattening nor constant, duplicate, or complement simplification. The caller
+// supplies ASTOpAnd or ASTOpOr. Returning false leaves the general reducer
+// responsible for checking and simplifying the operands.
+func (m *ASTManager) DistinctFlatBooleanOperands(args AppArguments, op int32) bool {
+	var atoms [8]astNodeRef
+	n := args.count
+	if astValidateHandles || n < 2 || n > uint32(len(atoms)) || args.appOwner != nil || args.raw ||
+		uint64(args.argumentOffset)+uint64(n) > uint64(len(args.slice)) || m == nil || !m.lockFree() {
+		return false
+	}
+	for i, h := range args.slice[args.argumentOffset : args.argumentOffset+n] {
+		r, e := m.internal(h)
+		if e != nil || r == m.trueApp || r == m.falseApp {
+			return false
+		}
+		if m.nodeAt(r.slot).kind == ASTApp {
+			a := m.appAt(r.slot)
+			family, kind, e := m.appIdentity(a)
+			if e != nil {
+				return false
+			}
+			if family == 0 {
+				if kind == op {
+					return false
+				}
+				if kind == ASTOpNot {
+					r, e = m.appArg(a, 0)
+					if e != nil {
+						return false
+					}
+				}
+			}
+		}
+		// Either polarity of a repeated atom requires the general reducer.
+		for _, seen := range atoms[:i] {
+			if seen == r {
+				return false
+			}
+		}
+		atoms[i] = r
+	}
+	return true
+}

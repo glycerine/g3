@@ -208,6 +208,10 @@ func (rw *boolRewriter) mkFlatCore(args ast.AppArguments, out ast.ASTRef, disjun
 	if disjunction {
 		op = ast.ASTOpOr
 	}
+	local := disjunction && rw.localContext && rw.localContextCost <= rw.localContextLimit
+	if !local && rw.manager.DistinctFlatBooleanOperands(args, op) {
+		return brFailed, nil
+	}
 	i := uint32(0)
 	for ; i < args.Count(); i++ {
 		arg, e := args.At(i)
