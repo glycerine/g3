@@ -9769,3 +9769,42 @@ The verifier measurements include reading the prepared inputs, constructing clau
 | test_liveness2 | 1,731.1 | 1,718.3 | −0.74% | 284.39 / 278.58 |
 
 These are seven rotated pairs from the release binaries, with normal GC. Automatic Ticket and POPL18 Ticket changed by +0.01% and +0.10% of median instructions. Cardinality initially rose 2.41% on seven pairs. A separate 15-pair confirmation measured 183.45M before and 182.42M after, with median elapsed 50.42 and 50.77 ms. The 228-input event inventory saw zero nonempty selections on this cardinality example. Every reference exit status and both output streams matched for both binaries in the 228-input release comparison. In three additional rotated pairs, median instructions in billions were 15.850 / 15.796 on ordinary Raft, 11.207 / 11.182 on Apple rfn2 and 119.952 / 119.223 on Apple dramc_nb2. These small differences are holdout checks. [Profiles, admission prototypes, complete corpus comparisons and holdout measurements](perf/ivy_apple/holdouts/nov27-private-premise-pricing.tar.xz)
+
+## November 27 — Pricing first-push NNF conversion and the following theory rewrite
+
+On Hybrid, both solvers normalized **2,144 formulas across 34 fresh solvers**, introduced zero definitions, and changed the same 52 formulas in the ensuing theory rewrite. The Go theory rewriter took 28,827 steps and linked Z3 took 28,821. The extra six iterations, spread across five rows, leave the difference in cost per step as the principal target. The theory rewrite, cancellation check and transfer of the result into the output vector together consumed **57.56M Go instructions versus 22.19M native**. NNF conversion itself accounted for a further 17.19M excess instructions.
+
+| Complete verifier, first pushes | Matched rows | NNF conversion, g3 / Z3 (M instructions) | Theory rewrite and output, g3 / Z3 (M) | Rewriter steps, g3 / Z3 |
+|---|---:|---:|---:|---:|
+| Hybrid reliable broadcast | 2,144 | 28.39 / 11.20 | 57.56 / 22.19 | 28,827 / 28,821 |
+| Nested Ticket | 913 | 2.51 / 0.89 | 17.13 / 6.42 | 7,968 / 7,968 |
+| POPL18 alternating bit | 1,507 | 3.81 / 1.33 | 27.60 / 9.66 | 12,444 / 12,444 |
+| Examples alternating bit | 1,906 | 3.52 / 1.31 | 27.01 / 9.49 | 11,440 / 11,440 |
+
+Each cell is the median sum of three complete pinned runs with GC disabled. Each backend read the solver-thread hardware counter around its own conversion and main-row rewrite. The conversion observer also counted Go visits. It adds some instructions to the Go totals. All transcripts matched. Rows were paired by solver batch and position. Every pair agreed on both transformation identities and the number of definitions. Nested Ticket had one additional native first push with 24 formulas, excluded from the table. On Hybrid, the 1,675 rows that survived both operations unchanged still cost about 36M instructions in Go's rewrite and output alone.
+
+**Reuse across fresh solvers has a low ceiling here.** The input handle, including manager origin and generation, had appeared in a previous Hybrid batch for 601 rows. Their entire conversions consumed 3.34M instructions, or 0.05% of the 6.73B-instruction verifier. Their entire subsequent rewrites cost another 7.68M. Only 222 of the 601 repeated inputs passed NNF unchanged with zero resource charge. A cache keyed by input alone would have to account for Skolem freshness, substitutions, cache effects and cancellation. Even a free hit on every repeated conversion would recover little of the whole-verifier gap.
+
+**Four production-path prototypes.** Five pinned frame-pointer profiles with normal GC yielded 887 samples whose stacks included the NNF rewrite-and-output call. Of these, 513 included application processing, 193 included quantifier processing, and 47 included output assertion insertion. These inclusive counts overlap. The profiles cover all invocations of this call during complete Hybrid verification. The following trials used uninstrumented binaries with the release PGO profile, normal GC, alternating execution order and exact transcript comparison.
+
+| Experiment | Cases × pairs | Median change across case instruction medians | Smallest to largest change |
+|---|---:|---:|---:|
+| Preserve the existing quantifier pattern array when no Skolem pattern is removed | 4 × 5 | +0.23% | −0.04% to +1.17% |
+| Test root/atom cache ineligibility before configuration dispatch | 12 × 5 | −0.10% | −0.73% to +1.11% |
+| Read the possible-substitution-key bit with the AST shape on theory traversal | 12 × 3 | −0.51% | −1.65% to +1.09% |
+| Bypass failed theory reduction on eligible unchanged uninterpreted applications | 12 × 3 | −0.48% | −0.98% to +1.27% |
+
+Eleven more rotated pairs for the combined substitution and shape read measured **−0.66% on Hybrid, −0.77% on POPL18 Ticket, +0.33% on nested Ticket and −0.14% on liveness Ticket**. The prototype could also bypass substitution-owner validation on a negative key. A production version would need to preserve validation when a previously attached substitution has been released. The small mixed effects do not justify adding these paths to the release. Driving just these two first-push windows to native instruction cost would save about 52.6M instructions, or **0.78% of complete Hybrid**. The more promising target is shared work across complete solver checks. [Benchmark drivers, observed rows, stack samples, reference transcripts and trial results](perf/ivy_apple/holdouts/nov27-nnf-row-comparison.tar.xz)
+
+### Where a larger saving could change whole-verifier performance
+
+A fresh set of three complete, alternating g3/native runs per input used the same frontend workload, CPU and solver-thread counter with GC disabled. The four inputs had the largest excess instructions in a comparison of the latest 228-case release screen with the archived native processes. That older process comparison serves only to select inputs. The stage measurements below come from the fresh binaries. Push includes all physical pushes on each backend. Check includes calls that reached the ordinary solver. An early private proof can avoid such a call in g3, so these totals include the benefit of checks it skipped.
+
+| Complete workload | Push, g3 / Z3 (M instructions) | Ordinary checks, g3 / Z3 (M) | Excess in ordinary checks (M) |
+|---|---:|---:|---:|
+| Hybrid | 1,125.62 / 545.56 | 3,006.44 / 2,691.59 | 314.85 |
+| ARM rules3 | 279.65 / 113.99 | 1,484.22 / 909.43 | 574.79 |
+| Automatic Ticket | 326.95 / 164.26 | 1,345.28 / 594.35 | 750.93 |
+| POPL18 Ticket | 310.96 / 144.40 | 929.08 / 599.77 | 329.31 |
+
+The largest measured group is ordinary checking on automatic Ticket. Its three largest paired check gaps are 88.27M at batch 12 goal 8, 64.27M at 14/8, and 53.87M at 16/1. Together these explain 27.5% of the net check gap. ARM 6/5 and 6/6 are a second concentrated target with 227.63M instructions between them. For the next experiment, measure the first solver decision or quantifier instantiation that contributes to the eventual conflict on these checks, and how much search each engine performs before that event. Earlier measurements already price the small finite proofs and show the cost of discovering them online. A cheaper way to reach an existing conflict through the ordinary search could benefit both workloads without paying for a second solver.
