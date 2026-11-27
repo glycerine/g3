@@ -7194,3 +7194,17 @@ Commit `148eb53f7` removes an undo entry when the Boolean variable acquiring an 
 Elapsed medians used seven pairs of 100 iterations. Hardware counters used seven pairs of 1,000. The complete Ticket CLI processes moved by less than 0.005M instructions each. Four complete GoIvy controls matched both output streams and exit status. Across the first seven pairs, elapsed changed −0.36% on ARM, +6.77% on FBA, +0.54% on hybrid and +1.39% on Ticket. In seventeen additional pairs with the initial order reversed, FBA changed −0.65% and Ticket −3.35%. The scoped benchmark and trail footprint justify the change. Complete-verifier timings do not establish a repeatable speedup. Ordinary smtcore and API tests, focused checked/debug/trace tests and smtcore vet passed.
 
 For the next experiment, measure clause insertion by arity and outcome, including binary auxiliary clauses emitted while building a formula gate. Ticket 290 shows the larger clause-construction difference. Count attempted clauses, literals simplified, units propagated and watch attachments before testing a direct binary insertion path against native ordering, proof creation and scope restoration. [Observers, profiles, trials and raw measurements](perf/ivy_apple/holdouts/nov26-ticket-clause-assertion.tar.xz) · [Scoped benchmark](smtcore/smt_enode_flag_benchmark_test.go)
+
+### Which quantified clauses reach storage?
+
+A second pair of instrumented CLIs counted attempted clauses by input width, final width and storage choice inside the same assertion boundary. All 87 nonempty rows matched exactly across engines. All attempts were auxiliary clauses. Each engine attempted 2,593 clauses on Ticket 127 and 6,829 on Ticket 290.
+
+| Within quantified assertions | Ticket 127 | Ticket 290 |
+| --- | ---: | ---: |
+| Input pairs attempted | 726 | 3,319 |
+| Input pairs retained as pairs | 517 | 1,711 |
+| Final pairs from all input widths | 953 | 2,783 |
+| Final pairs in compact binary watches | 10 | 235 |
+| Final pairs in ordinary clause storage | 943 | 2,548 |
+
+Both solvers pay for ordinary clause storage on most final pairs because the native compact representation has scope and level restrictions. A Go trial directly simplified distinct unassigned pairs into sorted order, then used the existing insertion path. Across nine pairs, total instructions fell just 0.046% and 0.113% on the two replays. Decisions, conflicts, instantiations, resource counts and verdicts matched throughout. We discarded the specialization. Compare allocation and watch attachment for ordinary scoped clauses before changing their representation. In these two replays native chooses the same representation class at the same frequency. [Matched arity distributions, observer source and trial measurements](perf/ivy_apple/holdouts/nov26-ticket-clause-arity.tar.xz)
