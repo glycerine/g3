@@ -8417,3 +8417,83 @@ Three whole-process instruction profiles per engine and input used normal GC. Ac
 Next, compare the numbers of instance operands, newly created Boolean variables and enodes, and clauses emitted on nested 14/44 and L2S 12/8. Charge the samples to those counts. A shared per-new-operand cost would justify optimizing construction and registration. A large count divergence would favor changing which lemmas the solver needs to internalize. Use POPL18 4/55 as a control with earlier matched-queue evidence. Profile classifications are approximate, depend on visible stack frames and cover the entire process. The separate pinned direct counts measure the check-stage gaps.
 
 [Benchmark drivers, all ten SMT-LIB fixtures, overlays, measurements and stack profiles](perf/ivy_apple/holdouts/nov27-ticket-family-stages-and-replays.tar.xz)
+
+## November 27 — Instance assertion counts, per-operation cost and sibling history
+
+An observer around quantified-lemma assertion counted work inside three actual GoIvy checks. Each engine ran the complete spec five times on the same pinned CPU with GC disabled and matched the reference exit and both output streams. The frontend used its released proof policy. Counts below are g3 / linked Z3. The enode and gate probes time operations within operand internalization. A root clause is an attempted root-clause addition.
+
+| Check | Asserted instances | Root OR operands | Root clauses | New Boolean variables | New enodes | Gate clauses |
+|---|---:|---:|---:|---:|---:|---:|
+| POPL18 4/55 | 725 / 356 | 3,780 / 1,871 | 725 / 356 | 877 / 426 | 819 / 390 | 260 / 152 |
+| Nested 14/44 | 718 / 588 | 3,364 / 2,724 | 718 / 588 | 895 / 741 | 751 / 634 | 481 / 355 |
+| L2S 12/8 | 1,983 / 2,490 | 9,147 / 11,756 | 1,980 / 2,488 | 2,791 / 3,415 | 2,347 / 2,901 | 1,563 / 1,864 |
+
+At L2S 12/8, g3 did less construction in every column. Creating an enode still cost 2,570 instructions versus 723, constructing a Boolean variable cost 728 versus 270, and emitting a gate clause cost 1,487 versus 406. Enode creation took 6.03M versus 2.10M in total on this check. The other two checks also had about 3.6× the per-enode cost. The counter builds use matching entry points with adjacent empty-read subtraction, and nested probes affect the parent intervals. These counts support investigating both cost per new node and what drives the number of instances.
+
+### Which earlier proof changes the expensive check?
+
+| Private-proof policy | POPL18 4/55 instances | Nested 14/44 instances | L2S 12/8 instances |
+|---|---:|---:|---:|
+| Released | 725 | 718 | 1,983 |
+| Disable pre-push attempts | 725 | 718 | 1,983 |
+| Disable post-push attempts | 422 | 572 | 1,316 |
+| Disable both | 356 | 588 | 2,490 |
+| Linked Z3 | 356 | 588 | 2,490 |
+
+Individually changing initial push preprocessing, connected trigger selection, or finite-table model checking left all three measured instance counts at their release values. The experiment with both proof paths disabled also ran with those three options disabled and gave the same counts. These are counts on the selected goals. Each setting was measured twice with complete reference transcript checks.
+
+A separate experiment chose **one previously privately proved, post-push sibling per run** and sent it to the ordinary solver. There were 21 eligible predecessors in POPL18, 20 in nested Ticket and one in L2S. Each intervention ran twice. On POPL18, forcing 4/17 reduced 4/55 from 725 instances to 442 and saved 53.5M summed check-window instructions across the spec. On nested Ticket, forcing 14/31 reduced 14/44 to 424 instances and saved 31.5M. On L2S, forcing 12/6 reduced 12/8 to 1,316 instances and saved 45.8M. These windows include observer overhead and do not measure whole-process elapsed time. The selected predecessor is known in hindsight.
+
+Three general scheduling trials show why these results need held-out controls. Publishing the negation of each post-push privately refuted goal after popping it raised whole-process instructions by 6.6% on POPL18, 16.6% on nested, 14.7% on L2S and 15.5% on hybrid in three pairs. Sending all post-push goals to the ordinary solver saved 3.1% on POPL18 but cost 13.3% on nested. Sending only the next eight checks to it after the first concrete push saved 5.85% on POPL18 and 1.77% on L2S while adding 1.43% on nested, 1.70% on hybrid and 3.21% on Flash in five pairs. Keep the existing general schedule.
+
+### Congruence table allocation
+
+Commit `82a3d422c` creates the wide-signature map only on insertion of a term with more than two arguments. Declaration registration, reference ownership, table IDs and the small-signature table still follow the first lookup. Across five complete inputs, the solvers registered 2,383 declaration buckets and none received a wide insertion. Hybrid accounted for 1,348 of them. The existing ternary collision regression exercised actual wide insertion.
+
+Across nine alternating runs of the 64-declaration benchmark, allocations fell from 162 to 98 per operation, bytes from 36,128 to 33,056 and median time from 23.07 to 20.78 μs. That saves one 48-byte allocation per narrow bucket on this runtime. Eleven same-binary pairs at normal GC changed complete verifier instructions between −0.16% and +0.16%. Median paired elapsed ranged from +0.02% to +2.58%. Seven separate-binary pairs also gave mixed instruction results and slower elapsed measurements. The demonstrated benefit is less allocation and faster declaration registration. Other scratch trials shared binary lemma operands, placed short root literals in a stack buffer, and reused the declaration cache on enode insertion. All gave small or mixed results across complete workloads.
+
+### What carries over between private and ordinary proofs?
+
+On two complete verifier runs per intervention, restoring the two cached Boolean phase bits for surviving variables after one ordinary proof left all five later instance counts unchanged. Restoring the generator's starting state often undid most of the benefit. A complementary experiment kept the original private proof and advanced just its solver's generator by the number of draws the ordinary proof had consumed. Four of five later checks then matched the ordinary predecessor's instance **and** OR-operand counts exactly.
+
+| Earlier sibling → later check | Ordinary draws | Released instances | Ordinary predecessor | Ordinary, restore RNG | Private, advance RNG | Private, shift initial activities only | Private, shift other decisions only |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| POPL18 4/4 → 4/55 | 6 | 725 | 423 | 725 | 423 | 437 | 753 |
+| POPL18 4/17 → 4/55 | 1 | 725 | 442 | 562 | 452 | 811 | 433 |
+| Nested 14/31 → 14/44 | 8 | 718 | 424 | 718 | 424 | 424 | 683 |
+| Nested 14/43 → 14/44 | 130 | 718 | 414 | 697 | 414 | 414 | 689 |
+| L2S 12/6 → 12/8 | 16 | 1,983 | 1,316 | 1,983 | 1,316 | 1,219 | 1,138 |
+
+The last two columns used parallel copies of the generator, advanced in lockstep on each call. Only the selected consumer saw the shifted stream. New Boolean variable priorities alone reproduced both nested results. On POPL18 4/17 either consumer alone gave a different result, and even shifting both left a difference from the ordinary predecessor. This experiment does not identify the remaining state on that sibling.
+
+Advancing by one draw after **every** successful post-push private proof reduced whole-process instructions on 20 of 37 inputs and increased them on 17. Three paired rotations matched all 222 reference transcripts and exit statuses. The extremes were −4.95% on Ticket L2S and +5.49% on card2. With the verified solver's public `random_seed` set explicitly, three pairs per seed gave the following median instruction changes. Stock and trial used the same executable and CPU within each pair. Different seeds ran on different pinned CPUs. All 150 runs matched their reference outcomes.
+
+| One extra draw after private proof | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Seed 4 |
+|---|---:|---:|---:|---:|---:|
+| POPL18 | −2.50% | −2.13% | +1.70% | +5.08% | −2.26% |
+| Nested | −0.53% | +2.79% | +4.10% | −0.05% | −1.71% |
+| L2S | −4.14% | −3.60% | +6.78% | −5.49% | +1.68% |
+| Hybrid | +1.75% | −0.91% | −3.38% | +1.29% | +0.60% |
+| Flash | −0.92% | +0.41% | +1.30% | −2.22% | −2.60% |
+
+Initial activity policies that preserved RNG consumption also gave mixed results in four pairs. Zero activity saved 5.35% on POPL18 and 7.08% on L2S while adding 1.53% on nested. AST hash added 4.41% on nested and 4.08% on L2S. Slot hash added work on all five. No search-policy change was retained.
+
+### Where to recover instructions independently of the search seed
+
+In the earlier sampled complete-verifier stacks, installing pending assertions accounted for about 1,353M g3 instructions versus 594M Z3 across POPL18, nested and L2S. Most of the g3 window was assertion preprocessing (1,182M). The two largest named g3 passes were macro finding (362M versus 218M) and value propagation (302M versus 65M). These are sample estimates averaged over three runs per input and then summed. The install category excludes samples already assigned to instance creation or model checking. The archive includes a script that groups the original stacks by caller and callee. Parent and child rows overlap.
+
+A second Go observer measured the two value sweeps in five complete verifiers. Three runs per input used normal solver logic, pinned execution and disabled GC. A separate complete run enabled visit counters. Elapsed and whole-verifier trials below used normal GC. In the table, rewrite costs are the median sum of row calls in millions of user instructions. Forward and reverse substitution updates are combined. The last column times the ordinary simplifier invoked once the sweep has changed a row.
+
+| Input | Rows per direction | Changed forward / reverse | Forward rewrite | Reverse rewrite | Substitution updates | Post-change simplifier |
+|---|---:|---:|---:|---:|---:|---:|
+| POPL18 | 1,376 | 233 / 139 | 29.77M | 28.73M | 8.20M | 25.43M |
+| Nested | 1,614 | 42 / 75 | 30.41M | 30.70M | 9.47M | 24.92M |
+| L2S | 1,344 | 63 / 98 | 33.55M | 33.45M | 7.81M | 22.82M |
+| Hybrid | 3,741 | 107 / 105 | 90.64M | 90.24M | 21.64M | 67.34M |
+| Flash | 3,062 | 28 / 134 | 73.92M | 74.08M | 18.11M | 24.73M |
+
+Across the three Ticket inputs, 801 of 75,255 substitution probes hit (1.06%). The rewriter returned a cached result different from its key on 39 of 22,609 cache lookups. Both directions changed formulas on every input. The final ordinary simplifier changed zero formulas and zero proofs on all 7,032 rows across the five inputs. Omitting it as an upper-bound experiment gave complete-verifier instruction changes of −0.53%, −0.69%, +0.41%, −0.39% and −0.27% respectively in three same-binary pairs. Eliding the unused proof output slot during proof-free preprocessing gave changes between −0.25% and +0.35% in five pairs. Neither trial was retained. The sweep measurements cover every invocation in these processes, including those outside the sampled installation stack.
+
+Inside enode creation on L2S, separate calibrated intervals averaged 218 instructions for validation and reference acquisition, 1,150 for the constructor, 766 for interpretation or congruence handling, 265 for registration, 31 for trailing and equality propagation, and 26 for trace attachment per new enode (medians over five full runs). This places the largest Go interval in the constructor. Eliminating its entire cost on this goal would save only about 2.7M instructions. The forward and reverse rewriter together therefore warrant higher priority.
+
+[Registration benchmark](smtcore/smt_cg_lookup_benchmark_test.go) · [Observer sources, benchmark drivers, controls and per-run evidence](perf/ivy_apple/holdouts/nov27-ticket-operand-cost-and-sibling-history.tar.xz)
