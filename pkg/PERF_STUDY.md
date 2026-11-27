@@ -9427,3 +9427,37 @@ In five GC-off live-verifier pairs, 2/22 fell from 23.85M to 22.94M instructions
 A strategy control turned off nonlinear Gröbner reasoning for four incremental CLI replays. Three pinned runs per configuration showed 2/22 still proved UNSAT and g3 saved 1.8% of whole-process instructions. On 2/36, 2/37 and 2/39 both engines changed from UNSAT to unknown. On 2/39 g3 rose from 60.10M to 22.84B instructions. Disabling nonlinear branching kept the four proofs but increased g3 instructions on all four. Keep the existing strategies. [Source observers, controls, benchmarks and raw results](perf/ivy_apple/holdouts/nov27-interval-products.tar.xz)
 
 **Direct construction of monomial products.** Native Gröbner superposition multiplies directly into the destination coefficient, appends the known factors to the destination and takes one reference per factor. The g3 prototype did the same in the internal product constructor. In five samples of the one-factor-times-one-factor benchmark, median time fell from 832 to 537 ns, allocated bytes from 248 to 184, and allocations from eight to five. On nine alternating complete verifier pairs after the interval and retention fixes, number theory used 717.58M → 715.29M instructions and gcd2 used 698.42M → 698.82M. Median times rose from 128.23 to 132.11 ms and from 126.53 to 130.61 ms. These wall times are sensitive to host load. The mixed complete-run result leaves the prototype in the experiment archive. Pending assertion internalization on 2/39 has a substantially larger measured instruction gap. [Prototype, benchmark output and complete runs](perf/ivy_apple/holdouts/nov27-direct-monomial-product.tar.xz)
+
+### November 27 — Matched assertion work on nonlinear arithmetic
+
+In the two captured incremental number-theory queries, count only calls inside pending assertion internalization. Count ordinary proof-free theory-rewriter calls inside its assertion-reduction phase. Go source observers and breakpoints on the corresponding compiled methods in this repository's Z3 give identical counts in each column.
+
+| Check | Formulas passed to internalization | Boolean variable constructors | Enode constructors | Theory term visits | Application-frame calls |
+|---|---:|---:|---:|---:|---:|
+| 2/22, either engine | 10 | 27 | 36 | 411 | 332 |
+| 2/39, either engine | 16 | 28 | 37 | 786 | 573 |
+
+The 80-replay instruction profiles put 2/39 assertion reduction at 2.98M g3 versus 0.65M native and subsequent formula internalization at 0.59M versus 0.22M. Reduction thus accounts for about 85% of the 2.75M pending-assertion gap. Within g3 the value-propagation pass cost approximately 1.22M, explicit reduction 0.63M, BV sharing including its reduction 0.48M and NNF 0.31M. These are sampled estimates on the earlier profiled arithmetic release. Exact call counts come from separate runs. About 1.38M of the g3 reduction instructions fell under arena AST-manager or activity-cache calls. The largest individual entry was cancellation polling at 0.10M, followed by reading a rational numeral at 0.094M and inserting a scoped substitution at 0.084M. Even eliminating an entire one of those calls could recover only a small part of this gap.
+
+**Two rewriter prototypes.** Reading application kind and family together in three arithmetic recognizers saved 0.04–0.75% of total instructions on four isolated inputs (seven rounds, 24 incremental queries and resets per process). In nine rotating complete runs it saved 1.38% on number theory, added 0.04% on gcd2, saved 0.06% on Hybrid and added 0.98% on POPL18 Ticket. Testing parent-declaration equality before associativity and reference count in the traversal had mixed signs across the four captures and six complete inputs. All complete runs checked stdout, stderr and exit status. Neither change was retained.
+
+**Algorithmic controls.** Three runs per engine and configuration kept all four original incremental proofs. On 2/39 adding equation elimination to an explicit simplify/SMT tactic reduced g3 instructions from 71.64M to 66.71M, still above 59.69M through ordinary incremental SMT. The other three were all more expensive through the equation-elimination tactic. Enabling polynomial sum-of-monomials normalization, sum sorting, or multiplication hoisting did little relative to explicitly setting the same option false. Moving arithmetic to the left increased 2/36 from 61.24M to 70.67M. The explicit false controls matter because just processing a global rewriter option costs several million instructions in these short-lived CLI processes.
+
+A separate offline control replaced only positive universally quantified conjuncts with true, resolving let aliases at conjunction roots. UNSAT of this weakening proves UNSAT of the original. Both engines still proved all four goals. G3's three-run whole-process medians fell from 48.05M to 47.30M on 2/22, 55.20M to 51.33M on 2/36, 53.68M to 52.23M on 2/37 and 59.66M to 59.20M on 2/39. Explicit QF_NIA on the weakened queries was more expensive on every query in a single-run screen. The captures show some opportunity on 2/36 but little prospect of recovering the 2/39 gap merely by choosing another tactic or omitting these quantified premises. [Inputs, modes, counters, profiles and prototype sources](perf/ivy_apple/holdouts/nov27-assertion-operation-costs.tar.xz)
+
+**Which workloads still matter most?** Five rotating pairs on the same core, with ordinary GC, used fresh matching frontend builds of g3 and linked Z3 and verified both streams and exit status. Among these eight historically slow cases, Hybrid has an instruction deficit more than eight times as large as number theory. This is a targeted panel, not a fresh ranking of all 228 inputs.
+
+| Complete verifier | g3 median, ms | Linked Z3 median, ms | Excess g3 instructions, M |
+|---|---:|---:|---:|
+| Hybrid broadcast | 1,057 | 828 | 1,727 |
+| POPL18 Ticket | 383 | 239 | 1,121 |
+| ARM rules3 | 451 | 331 | 981 |
+| Nested Ticket | 419 | 329 | 776 |
+| POPL18 alternating bit | 368 | 291 | 577 |
+| Flash2 (examples/ivy) | 666 | 626 | 346 |
+| Number theory | 125 | 93 | 210 |
+| gcd2 | 121 | 93 | 195 |
+
+Three additional complete runs per engine measured solver-thread instructions with GC off. Summing each phase within each run before taking medians gave 852.6M excess instructions in Hybrid checks and 581.1M in the first physical push of each batch. Later pushes together added only 0.4M. POPL18 showed 634.7M excess in checks and 164.6M on first pushes. ARM showed 610.0M and 165.7M. The early g3 proof attempts cost 331.2M, 115.2M and 144.5M respectively and can avoid subsequent checks. The normal-GC process times above cover all work, including assertion, simplification, frontend and callbacks outside those windows.
+
+ARM has a particularly concentrated opportunity: batch 6 accounts for about 515M excess check instructions plus 117M on its first push. Checks 6/5 and 6/6 account for 116M and 111M of this and already have matched search-event studies. A separate check, 8/1, used 186.88M versus 94.93M. Capture its live decisions, conflicts, quantifier instances and model-building rounds with the frontend's effective macro setting. If search counts differ, replay the first divergent choice before changing shared hot paths. Compare any successful intervention with neighboring batches and complete ARM; previous changes to earlier proofs affected later search.
