@@ -26,6 +26,7 @@ type smtArithmeticBoundDependencyManager struct {
 }
 
 func (m *smtArithmeticBoundDependencyManager) Reset() {
+	clear(m.nodes)
 	m.nodes = m.nodes[:0]
 	m.scopes = m.scopes[:0]
 }

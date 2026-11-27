@@ -35,6 +35,11 @@ func TestSMTArithmeticBoundDependencyScopesAndReset(t *testing.T) {
 		t.Fatal("invalid dependency scope rollback accepted")
 	}
 	manager.Reset()
+	for _, node := range manager.nodes[:cap(manager.nodes)] {
+		if node != nil {
+			t.Fatal("reset retained a dependency in the backing array")
+		}
+	}
 	if len(manager.nodes) != 0 || len(manager.scopes) != 0 {
 		t.Fatal("dependency reset")
 	}
