@@ -173,6 +173,12 @@ func (g *tableModel) check(m *ast.ASTManager, model *protomodel.ProtoModel, flat
 	if bounded && !limit.IncOffset(32) {
 		return lbool.Undef, nil, nil
 	}
+	if !bounded {
+		remaining := 96
+		if uniformModelBool(m, model, body, boolean, &remaining) == lbool.True {
+			return lbool.False, nil, nil
+		}
+	}
 	g.manager, g.model, g.work = m, model, 6000
 	defer g.clearModel()
 	if g.valueIDs == nil {
