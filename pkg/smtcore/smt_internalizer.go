@@ -242,7 +242,12 @@ func (s *SMTInternalizerState) storeSimplifiedClause(kept, removedFalse []SMTLit
 	// auxiliary clause. Those true literals still explain the removed false
 	// disjuncts; dropping them loses assumption cores for new QI lemmas.
 	// A concrete proof already carries this resolution in the branch above.
-	if len(removedFalse) != 0 && (justification != nil || proof.IsNull()) {
+	var prepared *SMTClause
+	if s.scopeLevel > 0 && kind == SMTClauseAux && len(kept) == 2 && len(removedFalse) == 1 &&
+		justification == nil && proof.IsNull() && deleteHandler == nil {
+		// Above scope zero auxiliary clauses cannot use the binary-watch optimization.
+		prepared, justification = newSMTResolvedBinaryClause(s.manager, kept, removedFalse[0])
+	} else if len(removedFalse) != 0 && (justification != nil || proof.IsNull()) {
 		region := true
 		if justification != nil {
 			region = justification.InRegion()
@@ -365,7 +370,7 @@ func (s *SMTInternalizerState) storeSimplifiedClause(kept, removedFalse []SMTLit
 		kept[1], kept[second] = kept[second], kept[1]
 		firstWatch, secondWatch = first, second
 	}
-	clause, owner, err := s.makeClauseWithJustificationAndDeleteHandler(kept, kind, proof, justification, deleteHandler)
+	clause, owner, err := s.makeClauseWithJustificationAndDeleteHandler(kept, kind, proof, justification, deleteHandler, prepared)
 	if err != nil {
 		return err
 	}

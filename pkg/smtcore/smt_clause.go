@@ -87,6 +87,27 @@ type smtClauseStorage64 struct {
 	lits   [smtMaxInlineClauseLiterals]SMTLiteral
 }
 
+// A scoped ternary auxiliary clause shortened by one false literal needs a
+// binary clause and a unit-resolution reason. Both have the same scope.
+// Their slices are disjoint and each keeps its storage alive independently.
+func newSMTResolvedBinaryClause(m *ast.ASTManager, kept []SMTLiteral, resolved SMTLiteral) (*SMTClause, *SMTUnitResolutionJustification) {
+	entry := new(struct {
+		clause     SMTClause
+		literals   [3]SMTLiteral
+		attachment smtClauseAttachments
+		reason     SMTUnitResolutionJustification
+	})
+	copy(entry.literals[:2], kept)
+	entry.literals[2] = resolved
+	entry.reason.Literals = entry.literals[2:]
+	entry.attachment.proof = &entry.reason
+	c := &entry.clause
+	c.self, c.manager, c.kind = c, m, SMTClauseAux
+	c.literals = entry.literals[:2:2]
+	c.attachments = &entry.attachment
+	return c, &entry.reason
+}
+
 // smtNewClauseStorage copies the literals and allocates any requested lemma
 // state. The literal slice has length and capacity len(literals).
 func smtNewClauseStorage(literals []SMTLiteral, needsLemmaData, needsDirectory bool) *SMTClause {

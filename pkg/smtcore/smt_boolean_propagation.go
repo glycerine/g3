@@ -134,10 +134,10 @@ func (s *SMTInternalizerState) makeClause(literals []SMTLiteral, kind SMTClauseK
 }
 
 func (s *SMTInternalizerState) makeClauseWithDeleteHandler(literals []SMTLiteral, kind SMTClauseKind, proof ast.ASTHandle, deleteHandler SMTClauseDeleteHandler) (*SMTClause, SMTJustification, error) {
-	return s.makeClauseWithJustificationAndDeleteHandler(literals, kind, proof, nil, deleteHandler)
+	return s.makeClauseWithJustificationAndDeleteHandler(literals, kind, proof, nil, deleteHandler, nil)
 }
 
-func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(literals []SMTLiteral, kind SMTClauseKind, proof ast.ASTHandle, justification SMTJustification, deleteHandler SMTClauseDeleteHandler) (*SMTClause, SMTJustification, error) {
+func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(literals []SMTLiteral, kind SMTClauseKind, proof ast.ASTHandle, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, clause *SMTClause) (*SMTClause, SMTJustification, error) {
 	proofs, err := s.manager.ProofsEnabled()
 	if err != nil {
 		return nil, nil, err
@@ -167,13 +167,15 @@ func (s *SMTInternalizerState) makeClauseWithJustificationAndDeleteHandler(liter
 	// Auxiliary justifications belong to the scope. A concrete directory
 	// entry needs extra storage only for a published proof, a lemma owner,
 	// or a literal array allocated separately from the clause.
-	needsDirectory := !proof.IsNull() || len(literals) > smtMaxInlineClauseLiterals || kind != SMTClauseAux && owner != nil
-	clause, err := newSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.savedAtoms, needsDirectory)
-	if err != nil {
-		if owner != nil {
-			err = errors.Join(err, owner.Release(s.manager))
+	if clause == nil {
+		needsDirectory := !proof.IsNull() || len(literals) > smtMaxInlineClauseLiterals || kind != SMTClauseAux && owner != nil
+		clause, err = newSMTClause(s.manager, literals, kind, owner, deleteHandler, saveAtoms, s.boolExpr, &s.savedAtoms, needsDirectory)
+		if err != nil {
+			if owner != nil {
+				err = errors.Join(err, owner.Release(s.manager))
+			}
+			return nil, nil, err
 		}
-		return nil, nil, err
 	}
 	if saveAtoms {
 		// mark_for_reinit(cls, get_max_iscope_lvl(lits), true)
