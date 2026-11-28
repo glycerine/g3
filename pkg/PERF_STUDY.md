@@ -9894,3 +9894,53 @@ The early-hint column uses the target's own later proof to select instances. At 
 **Can assignment, scope or conflict count predict when to use this rule?** Requiring an active quantifier cut the 12/8 candidates from 46 to 22 and the check to 47.3M. Applied everywhere this still added 15.1% to nested Ticket. Requiring a constant introduced above the user base selected zero at 12/8. Waiting for one conflict saved 5.7% across automatic Ticket and cost 12.8% across nested Ticket. Waiting for four narrowed those figures to a 2.1% saving and a 0.5% increase, but cost Hybrid 2.3%. Waiting for sixteen increased automatic Ticket by 1.1%. The positive unary fact is a substantial opportunity on an individual check. None of the measured admission rules earned a production change. [Saved drivers and per-workload results](perf/ivy_apple/holdouts/nov27-terminal-conflict-replay.tar.xz)
 
 Across transfer, subset removal, unary-policy and admission experiments, all 144 complete runs matched the reference exit codes and transcripts, including cases with expected failed checks. The packaged observer was rebuilt in fresh private storage and reproduced both full event logs byte for byte after decompression. Publication-suppression runs are reported separately in the archive because they intentionally change the search and can return inconclusive.
+
+## November 27 — Why a unary Ticket witness helps and why its cost changes a later solver
+
+**Automatic Ticket 12/8.** At the start of bounded search the solver had 22 eligible bindings of two active unary universals. None of the 22 predicate applications had a Boolean variable. The proposed binary-watch and near-unit-clause test therefore selected zero. The successful binding's thread constant already existed at level zero, had two enode parents, and was outside the relevance set.
+
+In ordinary search the solver first assigned the predicate on that constant **false** after 356 decisions and 14 conflicts, at scope 49. Unit resolution on `P(x) ⇒ Q(x)` and a false `Q(t)` supplied the reason. That negative assignment propagated through another implication and conflicted with `∀x. P(x)` before another decision. Supplying the singleton made `P(t)` true at scope 1 before the first decision. The same implication then propagated `Q(t)` in the forward direction. Here `P` is `__l2s_g_1`, `Q` is `__m_l2s_g_1`, and `t` is `T:ticket_protocol.thread!42`.
+
+| Intervention at entry to 12/8 | Target instructions | Solver-stage sum, complete automatic Ticket |
+|---|---:|---:|
+| Ordinary | 175.0M | 1.782B |
+| Construct and release the ground AST | 175.2M | 1.782B |
+| Internalize the ground atom | 159.5M | 1.771B |
+| Instantiate the universal at that same term | 51.9M | 1.645B |
+| Internalize an unrelated fresh Boolean | 159.4M | 1.802B |
+
+Testing all 22 bindings individually gave 50.0M–226.6M instructions with guarded instantiation. Internalizing the atom alone gave 159.3M–159.8M. The truth of the chosen instance explains most of the target saving, while introducing one Boolean also changes search order. Forcing both a fact and a matching unary implication saved 7.3% across automatic Ticket's measured stages but added 6.5% on nested Ticket. Resolving unary facts and implications into guarded universal consequences before grounding also had mixed results. No admission rule from this group entered the solver.
+
+**Nested Ticket 16/1.** Enabling the unary hints throughout verification added 191M solver-stage instructions. Of that, 137M appeared on 16/1. With hints enabled only on 16/1 the check used 78.9M instructions versus 78.3M ordinary. With hints only in the preceding batches it rose to **291.8M**. The frontend creates a new solver for the batch using the same AST manager. At the start of bounded search, the two histories had identical Boolean assignments, activity scores, phases, heap, compact watches and 330 auxiliary clauses. All 335 Boolean expression shapes and 59 registered quantifiers matched after consistently renaming fresh suffixes. AST IDs differed on 300 Boolean expressions. Both runs contained the same 203 normalized enode shapes; 164 positions differed when traversing their storage by slot.
+
+**Isolating fresh names and hashes.** Earlier hints had consumed three fewer fresh suffixes. The diagnostic advanced the shared counter by three at the start of batch 16. All 861 decision, instance and conflict events then matched the baseline, despite the earlier hints. A separate control changed only the spelling used to compute the stored hash of newly interned symbols ending in a numeric suffix. Actual names, uniqueness and equality were preserved in that arm. The following single-run counts include the entry snapshot. An independent build from the saved archive reproduced all eight native transcripts and both the slow and fast paths.
+
+| Earlier hints | Advance suffix counter | Offset applied only to stored symbol hash | 16/1 instructions |
+|---|---:|---:|---:|
+| None | 0 | 0 | 89.1M |
+| None | 3 | 0 | 284.5M |
+| None | 3 | −3 | 87.9M |
+| Earlier batches | 0 | 0 | 302.1M |
+| Earlier batches | 0 | +3 | 87.1M |
+| Earlier batches | 3 | 0 | 88.7M |
+
+The stored hash changes model-finder iteration and subsequent witness selection. In the slower history only the first inverse-map input matched before terms appeared in a different order. The two auxiliary universe restrictions matched. The ordered instantiation-set restrictions and the negated candidate-model body differed. The first 654 normalized search events still agreed. The fast run eventually emitted 515 instances and made 323 decisions, the slow run emitted 2,241 and made 1,251. Sorting allowed values alone left the slow check at 302M. Sorting inverse inputs by printed term reduced it to 243M. Sorting all three measured traversals put both histories near 276M. A consistent order by itself can consistently choose a costly proof.
+
+**Which counterexample caused the loss?** The first different binding changed from `ticket_protocol.sk1` to `__l2s_s_9`, two representatives of the same model value. Replacing this binding alone reduced the instrumented slow check from 302.5M to 240.9M. Replacing only the **third** binding tuple reduced it to **94.9M**. The same intervention in reverse raised the fast check from 88.8M to 240.4M. This third quantifier was binary. The faster history supplied the same ticket for both binders. The slower history supplied two distinct tickets. The experiment looked up live, unambiguous, sort-checked terms and pinned the resulting actual quantifier instances. All 14 complete counterfactual runs matched native. [Drivers, traces, counterfactual tuples and measurements](perf/ivy_apple/holdouts/nov27-unary-demand-and-fresh-symbols.tar.xz)
+
+**Retained change.** When the finite-table path finds a binary counterexample it cannot enqueue, the auxiliary solver can still return a pair of distinct values. On the last available instance, g3 tries the second value in both positions if the binders have the same sort and both inverse maps identify the same ground term. It evaluates the original quantified body on that pair and accepts it only when the result is false. The instance carries the maximum generation of the two retained representatives. The opportunity is restricted to unbounded checks with at least two earlier instances, the most recent of them binary. These scheduling conditions reflect the measured workload; the validity of the witness comes from the model evaluation. [Implementation](smtcore/smt_model_checker_repeated_binding.go) · [Regression](smtcore/smt_model_checker_repeated_binding_test.go)
+
+The robustness benchmark independently advanced the fresh-name counter by offsets 0 through 23 before nested Ticket batch 16. Each arm ran the complete verifier. The input, solver configuration and starting assertion order were identical within each pair. All 48 runs matched the reference transcript.
+
+| Solver-thread instructions across 24 histories | Previous median | New median |
+| --- | ---: | ---: |
+| Check 16/1 | 273.55M | 83.31M |
+| Sum of measured stages in nested Ticket | 1,442.50M | 1,252.06M |
+
+Sixteen histories benefited. The other eight already selected a cheap proof. The widest observed check cost fell from 292.67M to 83.42M instructions. The default naming history was already near 78M, so its end-to-end benchmark measures the overhead on an already fast run.
+
+Three order-rotated pairs per workload used ordinary GC, optimized binaries and whole-process instruction counters. All 90 timed runs matched native output and exit status. Default nested Ticket used 2.367B → 2.375B instructions (+0.32%). Among the 12 regular workloads, the median changes ranged from −1.18% to +0.32%. Raft used 15.820B → 15.794B, Apple rfn2 used 11.241B → 11.198B, and Apple dramc_nb2 used 119.173B → 119.079B. The reason to keep this change is its reduction in expensive proof searches across fresh-name histories. The ordinary holdouts show little movement.
+
+Three fresh runs with the same frontend linked to Z3 gave a median of 121.18M solver-thread instructions on nested Ticket 16/1. Every one of the 24 g3 histories tested finished this check in fewer instructions. Across all measured stages the linked Z3 median was 1,049.46M, so g3's new 1,252.06M median still leaves a 19.3% aggregate gap. These comparisons measure retired instructions with GC disabled. [Control driver and raw measurements](perf/ivy_apple/holdouts/nov27-unary-demand-and-fresh-symbols.tar.xz)
+
+The release candidate also matched exit status, stdout and stderr on all 228 compatibility inputs, including the seven that invoke ABC. The ordinary smtcore and api suites, the focused model-checker regression in the checked/debug/trace build, and go vet on smtcore passed.

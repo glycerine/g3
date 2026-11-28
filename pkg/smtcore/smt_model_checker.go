@@ -469,6 +469,7 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 		return false, err
 	}
 	auxiliary := c.auxiliaryContext
+	tryRepeatedBinding := false
 	if (auxiliary.config.CheckUninterpretedModelTables || auxiliary.config.CertifyBoundedModelTables) && *remaining != 0 && c.canCheckModelTables() {
 		if c.tableScratch == nil {
 			c.tableScratch = new(tableModel)
@@ -495,6 +496,8 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 				return true, nil
 			}
 			c.exhausted = exhausted
+			tryRepeatedBinding = chooser != nil && count == 2 && previous > 1 &&
+				len(c.newInstances[previous-1].bindings) == 2 && c.manager.ResourceLimit().Limit == 0
 		}
 	}
 	if err = auxiliary.PushCore(); err != nil {
@@ -654,6 +657,15 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 				}
 			}
 			break
+		}
+		if tryRepeatedBinding && useInverse && *remaining == 1 {
+			generation, err = c.tryRepeatedAuxiliaryBinding(model, quantifier, raw, bindings, generation)
+			if err != nil {
+				if cex != complete {
+					err = errors.Join(err, cex.DecRef())
+				}
+				return false, err
+			}
 		}
 		inserted, err := c.enqueueCounterexample(quantifier, bindings, useInverse, generation)
 		if err != nil {
