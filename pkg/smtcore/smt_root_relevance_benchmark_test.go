@@ -94,3 +94,41 @@ func BenchmarkSMTAssertedOrWorkerMemory(b *testing.B) {
 		})
 	}
 }
+
+// Register the watches for a quantified clause on already-bound literals.
+// Pop each scope so every iteration includes ordinary trail ownership costs.
+func BenchmarkSMTAssertedOrWatchRegistration(b *testing.B) {
+	for _, mixed := range []bool{false, true} {
+		b.Run(fmt.Sprintf("MixedAssignments%t", mixed), func(b *testing.B) {
+			m := astTestManager(b)
+			_, p, s := smtInternalizerFixture(b, m, nil)
+			children, literals := benchmarkSMTBooleans(b, m, s, "watch-registration", 4)
+			for i := 1; i < len(children); i += 2 {
+				child, err := m.MkNot(children[i])
+				benchmarkMust(b, err)
+				children[i], literals[i] = child, literals[i].Negated()
+			}
+			root, err := m.MkOrArray(children)
+			benchmarkMust(b, err)
+			benchmarkMust(b, m.IncRef(root))
+			b.Cleanup(func() { benchmarkMust(b, m.DecRef(root)) })
+			if mixed {
+				benchmarkMust(b, s.SetAssignment(literals[0].Var(), lbool.False))
+				benchmarkMust(b, s.SetAssignment(literals[1].Var(), lbool.False))
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if err := p.PushScope(); err != nil {
+					b.Fatal(err)
+				}
+				if _, err := p.addAssertedOrWatches(root, children, literals); err != nil {
+					b.Fatal(err)
+				}
+				if err := p.PopScopes(1); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}

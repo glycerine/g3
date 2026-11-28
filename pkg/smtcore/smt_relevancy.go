@@ -399,6 +399,10 @@ func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, 
 	if !value {
 		assignment = assignment.Negated()
 	}
+	return p.addWatchForAssignment(expression, value, handler, assignment)
+}
+
+func (p *SMTRelevancyPropagator) addWatchForAssignment(expression ast.ASTHandle, value bool, handler *smtRelevancyHandler, assignment lbool.LBool) error {
 	switch assignment {
 	case lbool.False:
 		return nil

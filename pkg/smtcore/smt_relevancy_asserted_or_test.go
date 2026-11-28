@@ -286,3 +286,51 @@ func TestSMTAssertedOrQueuedBeforeMarkCleared(t *testing.T) {
 		t.Fatal("clearing the parent mark must preserve the queued visit to its true child")
 	}
 }
+
+func TestSMTAssertedOrWatchCallbackChangesAssignmentSource(t *testing.T) {
+	m := astTestManager(t)
+	ctx, p, s := smtInternalizerFixture(t, m, nil)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	info, err := m.NewFuncDeclInfo(family, 9003, nil, ast.ASTFuncFlags{}, false)
+	astTestMust(t, err)
+	decl, err := m.MkFuncDeclWithInfo(astTestSymbol(t, m, "first-true"), nil, boolean, info)
+	astTestMust(t, err)
+	astTestMust(t, m.DelFuncDeclInfo(&info))
+	first, err := m.MkApp(decl, nil)
+	astTestMust(t, err)
+	second := smtRelevancyBool(t, m, "callback-watch")
+	base, err := NewSMTTheoryBase(family)
+	astTestMust(t, err)
+	callbacks := 0
+	observer := &smtRelevancyBatchObserver{smtInternalizerTestTheory: &smtInternalizerTestTheory{SMTTheoryBase: base}, onRelevant: func(expression ast.ASTHandle) error {
+		if expression != first {
+			return nil
+		}
+		callbacks++
+		return s.SetRelevancy(nil)
+	}}
+	astTestMust(t, s.RegisterTheory(observer))
+	astTestMust(t, s.Internalize(first, true))
+	astTestMust(t, s.Internalize(second, true))
+	a, err := s.Literal(first)
+	astTestMust(t, err)
+	b, err := s.Literal(second)
+	astTestMust(t, err)
+	parent, err := m.MkOr(first, second)
+	astTestMust(t, err)
+	astTestPin(t, m, parent)
+	astTestMust(t, ctx.SetRelevant(parent, true))
+	astTestMust(t, s.SetAssignment(a.Var(), lbool.True))
+	// The attached propagator reads the SAT assignment (undefined).
+	// Once detached by the first watch, it reads this explicit false.
+	astTestMust(t, ctx.SetAssignment(second, lbool.False))
+	t.Cleanup(func() { astTestMust(t, s.SetRelevancy(p)) })
+	_, err = p.addAssertedOrWatches(parent, []ast.ASTHandle{first, second}, []SMTLiteral{a, b})
+	astTestMust(t, err)
+	if callbacks != 1 || p.internalizer != nil || p.positiveWatch.head(second) != 0 {
+		t.Fatal("the second registration did not observe the callback's change of assignment source")
+	}
+}

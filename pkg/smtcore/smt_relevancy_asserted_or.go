@@ -23,6 +23,9 @@ func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args
 	if !p.enabled || len(args) == 0 {
 		return nil, nil
 	}
+	if p.internalizer == nil {
+		return nil, p.addOrWatches(parent, smtRelevancyAssertedOr)
+	}
 	for _, literal := range literals {
 		if literal.Var() < SMTFirstBoolVar {
 			return nil, p.addOrWatches(parent, smtRelevancyAssertedOr)
@@ -51,8 +54,24 @@ func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args
 		}
 	}
 	handler := smtRelevancyHandler{kind: smtRelevancyAssertedOr, target: parent, assertedOr: gate}
-	for _, child := range args {
-		if err := p.addLiteralWatch(child, true, &handler); err != nil {
+	// When the parent is already relevant, an immediate watch can invoke
+	// a theory callback and change bindings before the next registration.
+	resolved := p.context.assignments.s == p.internalizer && p.context.registeredEnodes == nil && !p.IsRelevant(parent)
+	for i, literal := range literals {
+		if p.interruptedPop != 0 {
+			return nil, ast.ErrASTPending
+		}
+		v := literal.Var()
+		// A watch on a nested NOT reads its operand's assignment. The
+		// ordinary watch path resolves that extra level of negation.
+		if !resolved || !p.internalizer.notChild(v).IsNull() {
+			if err := p.addLiteralWatch(args[i], true, &handler); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		source := p.internalizer.boolExpr[v]
+		if err := p.addWatchForAssignment(source, !literal.Sign(), &handler, p.internalizer.assignment[literal.Index()]); err != nil {
 			return nil, err
 		}
 	}
