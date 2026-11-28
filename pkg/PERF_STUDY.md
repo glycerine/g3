@@ -10342,3 +10342,25 @@ Six gated stack profiles per goal and engine pointed to application traversal an
 The differences in per-call cost explain 13.71M of the 14.10M excess inside core reduction under this grouping. Although failed equality is expensive (about 1,908 / 211 instructions per call), its entire excess is 4.23M. The independently measured excess for the whole queue rewrite on these inputs is 60.02M. Most of that difference falls outside core reduction. A single lookup for both declaration family and kind saved 1.41M on the four Ticket checks and 0.86M on the three ARM checks with GC off. Complete automatic Ticket changed by −0.05% and ARM by +0.65% in the five-pair panel. Keep this as a measured prototype.
 
 A larger next experiment is to match application frames by operator, arity and child-change status, counting frame entries, child visits and cache hits within each queued instance. Split time outside core reduction between visiting operands and finishing unchanged frames, including result references and cache insertion. Compare with native on the same groups. This tests whether g3 traverses more terms or spends more per visit before investing in another individual Boolean rule. [Experiment sources, calibrated counters, profiles and verifier controls](perf/ivy_apple/holdouts/nov27-backjump-relevance-and-reductions.tar.xz)
+
+### Child visits and unchanged application frames on automatic Ticket
+
+On revision `42170d520`, three alternating pairs of pinned g3 and linked Z3 runs reproduced the saved Ticket transcript and exit status. The probe ran only while rewriting a queued quantifier instance on checks 12/8, 13/8, 14/8 and 16/1. Each row sums median retired instructions within each check, parent operator, arity and outcome. Child entry starts after fetching the operand. Work deferred to a newly pushed frame is outside that entry interval.
+
+| Operation | g3 calls | Z3 calls | g3 instructions | Z3 instructions |
+|---|---:|---:|---:|---:|
+| Child entry that pushes a frame | 18,217 | 19,376 | 10.84M | 3.14M |
+| Child entry served from cache | 16,258 | 17,420 | 10.97M | 3.24M |
+| Other synchronous child entry | 11,341 | 12,238 | 6.36M | 2.56M |
+| Failed reduction, unchanged children, no macro | 21,900 | 23,258 | 19.82M | 4.53M |
+| Failed reduction, changed children, no macro | 741 | 893 | 1.46M | 0.65M |
+
+g3 handled fewer calls in every row. Multiplying the within-group cost difference by the smaller call count in each group explains 18.73M of the 19.23M excess child-entry instructions and 15.62M of the 16.10M excess frame-completion instructions. These measurements locate about 35.3M of the previously measured 60.02M rewrite gap. The probes used separate builds, so this is an approximate attribution.
+
+A second instrumented build split unchanged completion into five operations. Cache publication, including its eligibility check, showed the largest excess at 4.62M instructions (7.29M vs 2.67M). Reading the temporary result and releasing child roots cost an extra 3.74M, popping the frame and clearing the temporary cost 3.32M, assigning the temporary cost 3.12M and retaining the result on the parent stack cost 1.67M. The extra probes change code generation and interval boundaries. Use these numbers to rank experiments, not to reconstruct the first build's total.
+
+A release-build prototype reused a validated AST shape after ruling out a substitution match. Across six alternating pairs, the median sum of the four Ticket checks fell from 443.41M to 438.99M instructions (1.00%). Three ARM checks fell from 454.22M to 452.13M (0.46%). These are selected-check measurements. The prototype stays in the study archive pending broader evidence.
+
+Four further rounds tested validating an identity cache mapping once, simplifying the cache table's accounting and clearing, and combining the two. The best difference on either group was under 0.07%. None justified a production change.
+
+[Drivers, counters and trial results](perf/ivy_apple/holdouts/nov27-ticket-application-frames.tar.xz)
