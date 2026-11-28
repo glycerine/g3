@@ -10364,3 +10364,30 @@ A release-build prototype reused a validated AST shape after ruling out a substi
 Four further rounds tested validating an identity cache mapping once, simplifying the cache table's accounting and clearing, and combining the two. The best difference on either group was under 0.07%. None justified a production change.
 
 [Drivers, counters and trial results](perf/ivy_apple/holdouts/nov27-ticket-application-frames.tar.xz)
+
+### Installing quantified disjunctions on automatic Ticket
+
+Three alternating pairs on revision `d35c382dc` ran the complete automatic Ticket history with pinned solver threads. The probes ran only inside installation of queued instances during 12/8, 13/8, 14/8 and 16/1. All transcripts and exit statuses matched the native reference. For each asserted OR the probes captured width, missing Boolean bindings and solver scope before collecting any literals. Each operation has a back-to-back counter-read correction. The totals sum median instructions per engine and stratum. Z3 installed 5,192 ORs and g3 installed 4,881.
+
+| Operation | g3 instructions | Z3 instructions | Excess |
+|---|---:|---:|---:|
+| Collect literals, including recursive internalization | 52.35M | 16.25M | 36.10M |
+| Add root clause | 10.93M | 3.63M | 7.30M |
+| Register relevance watches | 9.35M | 4.31M | 5.04M |
+| Mark and propagate relevance | 12.76M | 4.47M | 8.28M |
+
+These four regions account for roughly 56.72M of the 62.51M excess instructions measured previously across entire installations. They exclude assertion setup, non-OR lemmas and cleanup. The two studies used different instrumented builds.
+
+Literal collection was the largest excess on each check. On the partly unbound ORs, g3 used 51.15M instructions over 3,778 calls versus 15.46M over 4,018. On the fully bound ORs the excess was only 0.41M. Comparing within identical goal, width, missing count and scope, the smaller call count times the mean cost difference explains 19.79M of the partly unbound gap. The remaining 15.89M depends on the differing distribution of calls. Matching those four properties does not establish that two clauses contain identical expressions.
+
+An independent pair of instrumented binaries timed each operand that lacked a Boolean binding immediately before it was visited. The timer covers internalization and literal retrieval, including recursive work. Negated ORs explain the largest excess while their counts are almost identical. Positive equality was the largest contributor on the earlier TLB workload, so the priority differs between workloads.
+
+| Previously unbound operand | g3 count | Z3 count | g3 instructions | Z3 instructions | Excess |
+|---|---:|---:|---:|---:|---:|
+| Negated OR | 741 | 739 | 19.66M | 5.79M | 13.86M |
+| Positive equality | 1,744 | 1,951 | 11.51M | 3.61M | 7.91M |
+| Negated uninterpreted application | 1,465 | 1,448 | 6.57M | 1.75M | 4.82M |
+| Quantifier | 180 | 174 | 5.68M | 0.96M | 4.72M |
+| Positive uninterpreted application | 1,025 | 1,074 | 4.10M | 1.20M | 2.90M |
+
+Four rotated release-build rounds tested a local eight-literal array, direct access to the cached unary NOT operand, and their combination. Combined, the four Ticket checks went from 443.31M to 442.16M instructions (0.26%) and the ARM controls improved by about 0.09%. Separately, using signed child literals to register ordinary AND/OR watches saved 0.24% on Ticket and about 0.07% on ARM. All comparison runs matched reference transcripts. These small effects leave recursive child internalization as the higher priority. The prototypes remain in the [study archive](perf/ivy_apple/holdouts/nov27-ticket-lemma-installation.tar.xz).
