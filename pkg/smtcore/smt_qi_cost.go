@@ -122,18 +122,7 @@ func (m *SMTQICostModel) setValues(quantifier, pattern ast.ASTHandle, stat *SMTQ
 	if stat == nil {
 		return ast.ErrASTDomain
 	}
-	kind, err := m.manager.GetKind(quantifier)
-	if err != nil || kind != ast.ASTQuantifier {
-		if err != nil {
-			return err
-		}
-		return ast.ErrASTDomain
-	}
 	weight, err := m.manager.GetQuantifierWeight(quantifier)
-	if err != nil {
-		return err
-	}
-	variables, err := m.manager.GetNumDeclarations(quantifier)
 	if err != nil {
 		return err
 	}
@@ -143,6 +132,16 @@ func (m *SMTQICostModel) setValues(quantifier, pattern ast.ASTHandle, stat *SMTQ
 		if err != nil {
 			return err
 		}
+	}
+	// The default expressions read only the weight, generation and supplied cost.
+	if m.addWeight && m.useCost {
+		m.values[smtQICostValueWeight] = float32(weight)
+		m.values[smtQICostValueGeneration] = float32(generation)
+		return nil
+	}
+	variables, err := m.manager.GetNumDeclarations(quantifier)
+	if err != nil {
+		return err
 	}
 	m.values[smtQICostValueCost] = cost
 	m.values[smtQICostValueMinTopGeneration] = float32(minTopGeneration)
