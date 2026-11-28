@@ -10040,3 +10040,40 @@ On automatic Ticket the corresponding stage sums were 1.782B, 1.791B and 1.539B.
 | test_liveness2 | 919.89 | 920.25 | 923.34 | +0.38% |
 
 The dense version made 226 attempts on automatic Ticket and cut check 12/8 from 174.98M to 43.49M instructions. On TLB it made 820 attempts. About 199M of its 218M instruction penalty arose after enabling instantiation. Checks 43/70 and 54/80 each made two attempts and cost an extra 23.9M and 23.8M. Check 60/1 saved 189.9M with zero attempts in that check. An intervention restricted to the target check and a complementary one restricted to earlier checks would distinguish the local proof effect from inherited search history. These are solver-stage instruction measurements with GC disabled. The benchmarks preserve the indexed implementation for that experiment. [Drivers, overlays, transcripts comparison results and per-stage counts](perf/ivy_apple/holdouts/nov27-unary-witness-eligibility.tar.xz)
+
+## November 27 — Which earlier checks change TLB and Ticket witness search?
+
+The three-rotation replay enabled the dense unary-witness rule only at specified checks of the complete input. Each batch creates a fresh solver, and sibling checks within that batch use push and pop. A separate linked-Z3 binary ran the same inputs three times on a pinned core. The table gives median solver-thread instructions in millions with GC disabled. Each column draws its local and earlier-only rows from interventions targeted at that particular check.
+
+| Where g3 installs witnesses | TLB 43/70 | TLB 54/80 | TLB 60/1 | Automatic Ticket 12/8 |
+| --- | ---: | ---: | ---: | ---: |
+| Ordinary search | 79.17 | 43.29 | 1,092.55 | 174.98 |
+| Every eligible check | 103.16 | 67.09 | 902.69 | 43.49 |
+| This check alone | 80.24 | 44.56 | 1,093.16 | 54.08 |
+| All checks before this one | 102.74 | 66.07 | 902.16 | 149.76 |
+| Earlier siblings in this batch alone | 104.86 | 63.81 | — | 149.76 |
+| All earlier batches alone | 76.95 | 43.31 | 902.16 | 174.96 |
+| Linked Z3 | 40.01 | 11.96 | 387.68 | 87.01 |
+
+The local interventions made two attempts on each of the two losing TLB checks and four on Ticket 12/8. TLB's large penalties come primarily from changed search on the same incremental solver. On Ticket, the local intervention alone saved 120.90M instructions in the target check, but just 28.20M across all measured stages in the complete verifier. Later checks absorb much of the local saving. Ordinary g3 still beats linked Z3 across the full set of **TLB solver stages** (27.46B versus 42.48B), while automatic Ticket still costs 1.782B versus 0.759B. These figures exclude frontend work outside the measured stages.
+
+**Why a fresh TLB solver changes.** Enabling witnesses only over batches 40 through goal 69 of batch 43 reduced TLB 60/1 from 1,092.56M to 796.43M. Earlier siblings confined to batch 43 left 60/1 at 1,092.61M. In a separate executable the first fresh-function declaration in batch 60 saw counter 407 after ordinary search and 408 after enabling witnesses through batch 42. Advancing only the ordinary run's counter to 408 reproduced the roughly 296M saving. The all-witness history also arrived at 408 but cost 903M. The counter suffices to reproduce the fast prefix result and does not explain the entire difference between histories.
+
+The ordinary and all-witness traces make the same first 684 semantic decisions, including polarity, and learn the same first 12 recorded conflicts. They emit the same first 1,416 normalized quantified lemmas. The first differing burst follows 594 decisions and 12 conflicts. Each run emits ten lemmas there and six coincide as a multiset. The next burst after decision 595 contains 1,086 emissions in each run, of which 971 coincide. Over the whole check the ordinary run emits 19,943 quantified lemmas and the all-witness run emits 15,038. Their numbers of distinct raw printed lemma expressions are much closer at 5,477 and 5,428. Printed expression identity is a diagnostic count and does not establish that a previous clause remains installed after backtracking.
+
+An independent queue observer identified the first changed binding. Ordinal 1,415 came from pattern matching in both histories. The next eight came from model-based instantiation. At 1,417 the slow history bound the binary quantifier to a fresh processor and the constant `tlb.sk0`. The other history used its corresponding fresh processor and a conditional term that can select `tlb.sk0` or `__l2s_s_28`. The following two unary instances changed their processor binding in the same way. This puts model-value representative selection upstream of the first large E-matching expansion. It leaves open which individual replacement changes the final cost.
+
+For eight adjacent starting counters, 407 through 414, ordinary 60/1 took **1,093, 797, 1,007, 797, 1,007, 797, 1,093 and 797M** instructions respectively. Setting the counter to 10,000 at the first declaration of the batch put all three histories within 1M of 1,093M. Setting it to 10,001 put them within 1.4M of 1,007M. A performance change on this check needs a distribution of fresh-name histories and a same-binary control.
+
+**Can stable ordering recover the saving?** Two repetitions at each of four starting counters compared five solver-local policies, each restricted to 60/1 and paired with ordinary search in its own executable. The first two changed which root wins an equal-size congruence-class merge. The next two changed the inverse term selected for a model value among terms of equal generation. The last changed how the unrestricted context maps a model value back to a ground term. The table rounds within-counter medians to millions of instructions.
+
+| Policy | 407 | 408 | 409 | 410 |
+| --- | ---: | ---: | ---: | ---: |
+| Ordinary | 1,093 | 797 | 1,007 | 797 |
+| Merge into lower-slot root | 858 | 896 | 972 | 896 |
+| Merge into root with more parents | 892 | 863 | 947 | 863 |
+| Lower-slot inverse representative | 917 | 917 | 917 | 917 |
+| Prefer conditional inverse representative, then lower slot | 917 | 917 | 917 | 917 |
+| Prefer conditional unrestricted context representative, then lower slot | 1,093 | 797 | 1,007 | 797 |
+
+The inverse tie-break removed almost all sensitivity across these four counters and sacrificed about 120M instructions on the two faster histories. Changing the unrestricted context representative had negligible effect. The class-merge policies also slowed both faster histories. These trials remain in the benchmark. The direct follow-up is to replace individual bindings in the first differing model round, then observe the amplified burst and final proof. [Replay drivers, raw event streams, linked control and measurements](perf/ivy_apple/holdouts/nov27-tlb-witness-history.tar.xz)
