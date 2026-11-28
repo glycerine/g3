@@ -10457,3 +10457,24 @@ Twenty-five additional normal-GC pairs sampled runtime counters immediately afte
 | Quantifier binding fingerprint | 21,204 | 36,960 |
 
 On automatic Ticket, all 36,960 fingerprint allocations occurred in the width 1–2 and 3–4 paths, which already allocate their binding storage with the record. A retained fingerprint may outlive its set. One larger opportunity is work avoided entirely: the Boolean ground projection's `problem` function accounts for 8.62 MB including callees on Ticket, of which 2.26 MB was allocated directly there. Price those attempts by outcome before optimizing the allocation mechanism. [Drivers, raw profiles, counters and reference comparisons](perf/ivy_apple/holdouts/nov27-arm-congruence-parent-slots.tar.xz)
+
+## Ground projection outcomes on ARM and Ticket
+
+The whole-process controls used release commit `90058f6f1`, the same frontend, PGO and reference transcripts, normal Go GC, pinned CPUs and four rotated rounds per variant. Disabling only the quantified projection increased automatic Ticket's median instructions by **36.62%**. Disabling the separate ground-premise unit check saved **3.18%** on that workload but increased nested Ticket by 0.52%. These controls include changes in later incremental search.
+
+Two diagnostic runs per counter and workload measured solver-thread user instructions and Go allocated bytes separately, with GC off. The table shows the first run. SAT here means that the propositional relaxation had a model. Only a refutation of the relaxation settles the original goal. None of the built quantified projections returned unknown.
+
+| Complete verifier | Built quantified projections | Refuted / SAT | Build + Boolean check on SAT goals, M instructions | Subsequent API checks on those goals, M instructions | Ground unit refutations, cold / ready |
+|---|---:|---:|---:|---:|---:|
+| ARM | 0 | 0 / 0 | 0 | — | 0 / 0 |
+| Automatic Ticket | 66 | 15 / 51 | 70.05 | 968.21 | 6 / 10 |
+| POPL18 Ticket | 20 | 6 / 14 | 26.93 | 77.80 | 0 / 3 |
+| Nested Ticket | 42 | 24 / 18 | 25.89 | 80.67 | 4 / 7 |
+
+On automatic Ticket, building and checking the 51 SAT projections allocated 6.76 MB. The subsequent 51 API checks allocated 19.72 MB. Building and checking the 15 refutations took 8.71M instructions and 0.93 MB. On ARM the quantified eligibility check declined all 72 calls. Five ground unit indexes were built, consuming 10.54M instructions in construction alone. They proved zero goals. The 68 measured API checks took 1.44B instructions.
+
+**Can an earlier eligibility check close the gap?** A diagnostic oracle skipped the projection only on batch/goal pairs previously observed to return SAT. This preserved all transcripts in five complete baseline/trial rounds per workload. Automatic Ticket saved 2.79% of median whole-process instructions, POPL18 saved 1.76% and nested Ticket saved 0.68%. ARM had no eligible skips and still measured a 1.15% difference between builds, indicating the scale of unrelated variation. The shallow input shape also failed to distinguish the expensive misses. The same unary conjunction over negation accounted for 50 SAT outcomes and 10 refutations on automatic Ticket, as well as every outcome on POPL18 and nested Ticket. Skipping all those goals would lose working proofs.
+
+Two further release prototypes matched the reference outputs on TLB, ARM, the three Ticket workloads and Raft. Passing already-inconsistent incremental assertions directly back to the solver changed median instructions by −0.59% to +0.86%. Coallocating one or two enode argument pointers only when the constructor would otherwise allocate the slice changed ARM by −0.06% and automatic Ticket by −0.07%. Both prototypes remain benchmark controls. The 51 fallback checks offer a materially larger opportunity than projection admission or short argument storage. [Drivers and raw per-goal measurements](perf/ivy_apple/holdouts/nov27-ground-projection-outcomes.tar.xz)
+
+**Aligned native check cost.** A second pair of instrumented release binaries measured the same `decideZ3With` boundary in the frontend, once with g3 and once with linked Z3. The checked conditions that produced a SAT relaxation on automatic Ticket consumed **1,030.36M vs 426.48M** instructions across 51 goals. A second execution measured 1,030.50M vs 426.49M. This boundary can include an attempted proof inside the check and differs from the API-only figure above. The largest positive differences were 12/8 (+80.97M), 14/8 (+60.24M), 13/8 (+46.66M) and 12/16 (+41.14M). The corresponding fallback groups on POPL18 and nested Ticket cost 105.91M vs 47.39M and 106.02M vs 64.70M. On ARM, summing all frontend decide calls gave 1,410.14M vs 909.26M. The engines can settle different goals before reaching that boundary. The archive includes per-goal push and early-proof counters separately.
