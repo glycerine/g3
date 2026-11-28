@@ -13,13 +13,13 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func protoMust(t *testing.T, err error) {
+func protoMust(t testing.TB, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}
 }
-func protoSymbol(t *testing.T, m *ast.ASTManager, text string) usymbol.Symbol {
+func protoSymbol(t testing.TB, m *ast.ASTManager, text string) usymbol.Symbol {
 	t.Helper()
 	s, err := m.Symbols.Intern(text)
 	protoMust(t, err)
@@ -32,19 +32,19 @@ func protoPin(t *testing.T, m *ast.ASTManager, h ast.ASTHandle) ast.ASTRef {
 	t.Cleanup(func() { protoMust(t, m.DelRef(&r)) })
 	return r
 }
-func protoFixture(t *testing.T) (*ast.ASTManager, *ProtoModel) {
+func protoFixture(t testing.TB) (*ast.ASTManager, *ProtoModel) {
 	t.Helper()
 	m, p, _ := protoFixtureWithConfig(t)
 	return m, p
 }
-func protoFixtureWithConfig(t *testing.T) (*ast.ASTManager, *ProtoModel, model.ModelEvaluatorConfig) {
+func protoFixtureWithConfig(t testing.TB) (*ast.ASTManager, *ProtoModel, model.ModelEvaluatorConfig) {
 	t.Helper()
 	return protoFixtureWithParams(t, nil)
 }
 
 // protoFixtureWithParams is protoFixtureWithConfig with a hook that updates
 // the evaluator parameters before NewProtoModel.
-func protoFixtureWithParams(t *testing.T, setup func(*uparams.ParamsContext, *uparams.ParamsRef)) (*ast.ASTManager, *ProtoModel, model.ModelEvaluatorConfig) {
+func protoFixtureWithParams(t testing.TB, setup func(*uparams.ParamsContext, *uparams.ParamsRef)) (*ast.ASTManager, *ProtoModel, model.ModelEvaluatorConfig) {
 	t.Helper()
 	budget := arena.NewBudget(^uint64(0))
 	symbols, err := usymbol.NewManager(usymbol.Config{Budget: budget, PageSize: 64, DescriptorPageSize: 2})

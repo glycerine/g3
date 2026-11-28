@@ -84,3 +84,47 @@ func TestProtoModelCleanupDropsUnusedAuxiliaryDeclarations(t *testing.T) {
 		t.Fatal("declarations after cleanup", n)
 	}
 }
+
+// Each visit cleans the same live interpretation. The compound fallback uses
+// a binary parent with the same unary child in both positions.
+func BenchmarkProtoModelCleanup(b *testing.B) {
+	for _, shape := range []string{"False", "SharedApplication"} {
+		b.Run(shape, func(b *testing.B) {
+			m, p := protoFixture(b)
+			sort, err := m.MkBoolSort()
+			protoMust(b, err)
+			root, err := m.MkFalse()
+			protoMust(b, err)
+			if shape == "SharedApplication" {
+				x, err := m.MkVar(0, sort)
+				protoMust(b, err)
+				f, err := m.MkFuncDecl(protoSymbol(b, m, "cleanup-unary"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+				protoMust(b, err)
+				g, err := m.MkFuncDecl(protoSymbol(b, m, "cleanup-binary"), []ast.ASTHandle{sort, sort}, sort, ast.ASTFuncDeclInfo{})
+				protoMust(b, err)
+				child, err := m.MkApp(f, []ast.ASTHandle{x})
+				protoMust(b, err)
+				root, err = m.MkApp(g, []ast.ASTHandle{child, child})
+				protoMust(b, err)
+			}
+			d, err := m.MkFuncDecl(protoSymbol(b, m, "cleanup-target"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+			protoMust(b, err)
+			fi, err := model.NewFunctionInterpretation(m, 1)
+			protoMust(b, err)
+			protoMust(b, fi.SetElse(root))
+			protoMust(b, p.Core().RegisterFunction(d, fi))
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if err := p.Cleanup(); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.StopTimer()
+			got, err := fi.Else()
+			if err != nil || got != root {
+				b.Fatalf("cleanup changed the fallback to %v (%v)", got, err)
+			}
+		})
+	}
+}

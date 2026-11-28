@@ -7,21 +7,6 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 )
 
-func (p *ProtoModel) uninterpretedConstant(h ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	if kind, err := p.manager.GetKind(h); err != nil || kind != ast.ASTApp {
-		return ast.ASTHandle{}, false, err
-	}
-	if n, err := p.manager.GetNumArgs(h); err != nil || n != 0 {
-		return ast.ASTHandle{}, false, err
-	}
-	d, err := p.manager.GetDecl(h)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	fid, err := p.manager.GetFamilyID(d)
-	return d, fid == ast.NullFamilyID, err
-}
-
 func (p *ProtoModel) cleanFunctionElse(fi *model.FunctionInterpretation, found *ast.ObjMap) (err error) {
 	root, err := fi.Else()
 	if err != nil {
@@ -40,14 +25,16 @@ func (p *ProtoModel) cleanFunctionElse(fi *model.FunctionInterpretation, found *
 			err = errors.Join(err, p.manager.DelRef(&owned[i]))
 		}
 	}()
+	var args []ast.ASTHandle
 	todo := []ast.ASTHandle{root}
 	for len(todo) != 0 {
 		a := todo[len(todo)-1]
-		d, constant, e := p.uninterpretedConstant(a)
+		header, e := p.manager.NodeHeader(a)
 		if e != nil {
 			return e
 		}
-		if constant {
+		d := header.Decl
+		if header.Kind == ast.ASTApp && header.NumArgs == 0 && header.Family == ast.NullFamilyID {
 			todo = todo[:len(todo)-1]
 			v, e := p.core.Core().ConstantInterpretation(d)
 			if e != nil {
@@ -69,21 +56,17 @@ func (p *ProtoModel) cleanFunctionElse(fi *model.FunctionInterpretation, found *
 			cache[a] = v
 			continue
 		}
-		kind, e := p.manager.GetKind(a)
-		if e != nil {
-			return e
-		}
-		if kind != ast.ASTApp {
+		if header.Kind != ast.ASTApp {
 			cache[a] = a
 			todo = todo[:len(todo)-1]
 			continue
 		}
-		n, e := p.manager.GetNumArgs(a)
-		if e != nil {
-			return e
-		}
+		n := header.NumArgs
 		visited := true
-		args := make([]ast.ASTHandle, 0, n)
+		args = args[:0]
+		if uint32(cap(args)) < n {
+			args = make([]ast.ASTHandle, 0, n)
+		}
 		for i := uint32(0); i < n; i++ {
 			arg, e := p.manager.GetArg(a, i)
 			if e != nil {
@@ -98,10 +81,6 @@ func (p *ProtoModel) cleanFunctionElse(fi *model.FunctionInterpretation, found *
 		}
 		if !visited {
 			continue
-		}
-		d, e = p.manager.GetDecl(a)
-		if e != nil {
-			return e
 		}
 		if auxiliary, e := p.aux.Contains(d); e != nil {
 			return e
