@@ -965,41 +965,29 @@ func (s *SMTInternalizerState) mkEnode(expression ast.ASTHandle, suppressArgumen
 	node, err := newSMTEnode(s.manager, expression, s.context.enodes.get, SMTEnodeOptions{
 		Generation: generation, InternalScopeLevel: s.scopeLevel, SuppressArguments: suppressArguments,
 		MergeTruthValue: mergeTruthValue, CongruenceEnabled: congruenceEnabled, UpdateChildrenParent: true,
-	}, term)
+	}, term, true)
 	if err != nil {
 		_ = s.manager.DecRef(expression)
 		return nil, err
 	}
 	count := node.NumArgs()
-	if count == 0 {
-		unique, err := s.manager.IsUniqueValue(expression)
-		if err != nil {
-			_ = node.Delete(true)
-			_ = s.manager.DecRef(expression)
-			return nil, err
-		}
-		if unique {
-			if err = node.MarkAsInterpreted(); err != nil {
+	if count != 0 {
+		if node.IsTrueEquality() {
+			node.congruence = node
+		} else if congruenceEnabled {
+			inserted, err := s.congruence.Insert(node)
+			if err != nil {
 				_ = node.Delete(true)
 				_ = s.manager.DecRef(expression)
 				return nil, err
 			}
+			node.congruence = inserted.Node
+			if inserted.Node != node {
+				s.pending = append(s.pending, smtPendingEquality{node, inserted.Node, NewSMTEqualityCongruence(inserted.Commuted)})
+			}
+		} else {
+			node.congruence = node
 		}
-	} else if node.IsTrueEquality() {
-		node.congruence = node
-	} else if congruenceEnabled {
-		inserted, err := s.congruence.Insert(node)
-		if err != nil {
-			_ = node.Delete(true)
-			_ = s.manager.DecRef(expression)
-			return nil, err
-		}
-		node.congruence = inserted.Node
-		if inserted.Node != node {
-			s.pending = append(s.pending, smtPendingEquality{node, inserted.Node, NewSMTEqualityCongruence(inserted.Commuted)})
-		}
-	} else {
-		node.congruence = node
 	}
 	// Source mk_enode does not reset an expression's existing relevance.
 	// Gate-context Boolean atoms can be marked before a term-context enode

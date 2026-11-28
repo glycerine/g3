@@ -59,10 +59,10 @@ type smtTermInputs struct {
 }
 
 func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions) (*SMTEnode, error) {
-	return newSMTEnode(m, owner, byApp, options, nil)
+	return newSMTEnode(m, owner, byApp, options, nil, false)
 }
 
-func newSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions, term *smtTermInputs) (*SMTEnode, error) {
+func newSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions, term *smtTermInputs, interpretConstants bool) (*SMTEnode, error) {
 	if m == nil {
 		return nil, ast.ErrASTDomain
 	}
@@ -102,6 +102,15 @@ func newSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 		family:          header.Family, declKind: header.DeclKind,
 	}
 	n.root, n.next = n, n
+	// context::mk_enode checks the application's arity before suppressing
+	// arguments for congruence closure. A compound datatype can be a unique value.
+	if interpretConstants && header.NumArgs == 0 {
+		unique, err := m.IsUniqueValue(owner)
+		if err != nil {
+			return nil, err
+		}
+		n.interpreted = unique
+	}
 	if !options.SuppressArguments {
 		if term != nil {
 			n.arguments = term.children
