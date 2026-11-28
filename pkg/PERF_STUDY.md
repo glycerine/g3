@@ -10391,3 +10391,20 @@ An independent pair of instrumented binaries timed each operand that lacked a Bo
 | Positive uninterpreted application | 1,025 | 1,074 | 4.10M | 1.20M | 2.90M |
 
 Four rotated release-build rounds tested a local eight-literal array, direct access to the cached unary NOT operand, and their combination. Combined, the four Ticket checks went from 443.31M to 442.16M instructions (0.26%) and the ARM controls improved by about 0.09%. Separately, using signed child literals to register ordinary AND/OR watches saved 0.24% on Ticket and about 0.07% on ARM. All comparison runs matched reference transcripts. These small effects leave recursive child internalization as the higher priority. The prototypes remain in the [study archive](perf/ivy_apple/holdouts/nov27-ticket-lemma-installation.tar.xz).
+
+### Following nested negated ORs on automatic Ticket
+
+On revision `6e92fb93b`, three alternating pairs measured the four Ticket checks in their original histories. The outer 741 g3 and 739 native ORs had between two and five children. Timing each direct recursive call, variable setup, definition clause construction and watch registration gave the following disjoint intervals. The child interval excludes fetching the child AST. Variable setup includes the enode eligibility check. Clause construction includes collecting the signed literals.
+
+| Within the outer OR | g3 instructions | Z3 instructions | Excess |
+|---|---:|---:|---:|
+| Visit children | 12.45M | 3.92M | 8.53M |
+| Establish Boolean variable | 0.78M | 0.23M | 0.55M |
+| Construct definition clauses | 4.38M | 1.13M | 3.25M |
+| Register watches | 1.13M | 0.43M | 0.70M |
+
+A fresh negated OR was itself the most expensive child (7.70M versus 2.45M instructions across 202 versus 249 visits). Following just those edges reached eight levels. An independent build omitted the recursive edge from the parent's timing and measured each nested gate's own work. It saw 1,353 gates in g3 and 1,446 in Z3. Across those gates, clause construction accounted for **5.68M excess instructions**, the other child visits for **4.98M**, watch registration for 1.21M and variable setup for 0.94M. Those numbers include the outer ORs. The earlier outer child total includes the nested gates and cannot be added to them.
+
+Bracketing individual definition clauses accounted for 3.75M of the construction gap (5.64M versus 1.90M, over 4,493 versus 4,800 clauses). The largest group entered with two unassigned literals. This cost 2.70M instructions for 1,789 g3 clauses versus 0.88M for 1,924 native. A release trial sent distinct unassigned literal pairs directly through the existing sorted clause publication path. Four paired rounds saved 0.17% on the selected Ticket checks and 0.12% on the selected ARM checks.
+
+Coallocating small gates' child bindings with their AST handles saved one allocation and 24 bytes per two-input gate in the PGO scope benchmark. The candidate saved about 1,414 allocations (1.33%) and 29 KB on the four Ticket checks combined. The initial prototype was effectively flat on the full Ticket workload (+0.08% instructions). A production-form trial increased median complete Ticket instructions by 1.14% over five alternating pairs. Other workloads ranged from −1.28% to +0.34%. The two-input benchmark also changed from 1.69 to 1.80 µs in the final comparison. All 230 reference transcripts and exit statuses matched. Both storage variants and the direct-clause experiment remain benchmarks. [Reproduction drivers, trial patch, raw counters and complete runs](perf/ivy_apple/holdouts/nov27-ticket-nested-gate-costs.tar.xz)
