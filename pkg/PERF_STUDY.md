@@ -9944,3 +9944,37 @@ Three order-rotated pairs per workload used ordinary GC, optimized binaries and 
 Three fresh runs with the same frontend linked to Z3 gave a median of 121.18M solver-thread instructions on nested Ticket 16/1. Every one of the 24 g3 histories tested finished this check in fewer instructions. Across all measured stages the linked Z3 median was 1,049.46M, so g3's new 1,252.06M median still leaves a 19.3% aggregate gap. These comparisons measure retired instructions with GC disabled. [Control driver and raw measurements](perf/ivy_apple/holdouts/nov27-unary-demand-and-fresh-symbols.tar.xz)
 
 The release candidate also matched exit status, stdout and stderr on all 228 compatibility inputs, including the seven that invoke ABC. The ordinary smtcore and api suites, the focused model-checker regression in the checked/debug/trace build, and go vet on smtcore passed.
+
+## November 27 — Where nested Ticket still loses after stabilizing check 16/1
+
+At `14a4f46e1`, g3's concrete checks on ordinary nested Ticket used **118.69M fewer instructions** than linked Z3. Pushes consumed **184.61M more**, and the pre-push proof attempts consumed 131.57M. Z3 checks those conditions through its ordinary solver. Subtracting both engines' total measured stages leaves a **197.48M deficit**. A successful pre-push proof can postpone g3's first physical push to a different obligation, so push costs are compared by solver batch. Comparing individual push ordinals would overstate several gaps.
+
+| Input | g3 measured stages, M | Linked Z3, M | Push excess, M | Concrete check excess, M |
+| --- | ---: | ---: | ---: | ---: |
+| Nested Ticket | 1,247 | 1,049 | 185 | −119 |
+| Automatic Ticket | 1,782 | 759 | 163 | 749 |
+| POPL18 Ticket | 1,322 | 744 | 167 | 329 |
+| ARM | 1,859 | 1,023 | 166 | 561 |
+| Hybrid broadcast | 4,339 | 3,237 | 580 | 313 |
+| Ordinary Raft | 13,123 | 23,349 | 195 | −10,618 |
+
+Each cell uses three complete pinned runs per engine with the same frontend and GC disabled. The measured stages are the timed push, early-proof and check calls. Frontend work, construction, assertion and pop are outside these counters. Individual phase medians can differ slightly from the median of their sum.
+
+**How often is there another valid repeated binding?** A prototype retained the unbounded, proof-path and last-instance guards and tried the second model value in both positions on any eligible restricted binary result. It preserved the sort, inverse-representative and model-falsification checks. Three extra ground tuples were selected on Hybrid, one each at 24/33, 25/34 and 34/33. No extra tuple was selected on the other five inputs. Total measured Hybrid stages increased by 4.89M instructions. The check with the largest improvement among those three saved only 35K instructions. The broader scheduling rule stays out of production.
+
+**What runs inside push?** Three instruction-sampling runs each yielded 2,095 nested Ticket and 7,677 Hybrid samples whose stacks contained `internalizePushBase`. The general rewriter appeared on 63.4% and 66.7% of these stacks. On nested Ticket, value propagation accounted for 26.6% and macro finding for 23.6%. On Hybrid, macro finding accounted for 34.2%, including 26.8% inside macro expansion. These percentages are inclusive and overlap with rewriting. Sampling uses frame pointers, so these shares apply to recovered stacks. Hybrid batch 32 alone had a 39M push gap. It gives a stronger preprocessing target than widening the binary witness rule.
+
+The baseline-path observer evaluated the second-value alternative and restored the original binding and generation. Across the six default inputs, 21 auxiliary results already had the same value in both positions, nine had different sorts, four failed the body test and three passed it. All 28 outcomes outside Hybrid belonged to Raft or nested Ticket. A separate arm tried the first model value in both positions. It selected four tuples on Hybrid and reduced the complete measured stages there by 1.28M out of 4.34B (0.03%). Neither direction merits general adoption from this evidence. The downstream costs explain why: after Hybrid 34/33, repeating the second value added 5.31M instructions over the rest of the batch. The first-value policy saved 1.76M over that interval, including another substitution at 34/34. This last saving is attributable to the policy over the batch; the two interventions were not isolated.
+
+**Would caching macro substitutions recover the push gap?** A separate diagnostic measured the complete substitution path after a declaration lookup succeeded. A repeat required the same manager, application handle and defining quantifier within a single physical push. Counts and instructions are medians of three complete runs per input.
+
+| Input | First / repeat calls | First / repeat instructions, M |
+| --- | ---: | ---: |
+| Hybrid | 399 / 651 | 9.08 / 14.66 |
+| ARM | 64 / 317 | 3.02 / 19.15 |
+| Nested Ticket | 105 / 57 | 1.64 / 0.65 |
+| POPL18 Ticket | 72 / 16 | 1.34 / 0.28 |
+| Automatic Ticket | 63 / 35 | 1.00 / 0.41 |
+| Ordinary Raft | 111 / 138 | 2.94 / 1.64 |
+
+Even eliminating all measured repeat substitution work on Hybrid would cover only about 2.5% of its 580M push deficit. ARM has the best ceiling at 19.15M against a 166M push deficit. A real cache would still have to pin the replacement, propagate dependencies and retire entries. There is no production cache from this trial. The six-workload measurements, both witness alternatives, passive acceptance census, post-goal costs and push profiles are preserved together. [Benchmark drivers and raw measurements](perf/ivy_apple/holdouts/nov27-binary-witness-and-push-costs.tar.xz)
