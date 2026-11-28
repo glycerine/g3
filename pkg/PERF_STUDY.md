@@ -10408,3 +10408,52 @@ A fresh negated OR was itself the most expensive child (7.70M versus 2.45M instr
 Bracketing individual definition clauses accounted for 3.75M of the construction gap (5.64M versus 1.90M, over 4,493 versus 4,800 clauses). The largest group entered with two unassigned literals. This cost 2.70M instructions for 1,789 g3 clauses versus 0.88M for 1,924 native. A release trial sent distinct unassigned literal pairs directly through the existing sorted clause publication path. Four paired rounds saved 0.17% on the selected Ticket checks and 0.12% on the selected ARM checks.
 
 Coallocating small gates' child bindings with their AST handles saved one allocation and 24 bytes per two-input gate in the PGO scope benchmark. The candidate saved about 1,414 allocations (1.33%) and 29 KB on the four Ticket checks combined. The initial prototype was effectively flat on the full Ticket workload (+0.08% instructions). A production-form trial increased median complete Ticket instructions by 1.14% over five alternating pairs. Other workloads ranged from −1.28% to +0.34%. The two-input benchmark also changed from 1.69 to 1.80 µs in the final comparison. All 230 reference transcripts and exit statuses matched. Both storage variants and the direct-clause experiment remain benchmarks. [Reproduction drivers, trial patch, raw counters and complete runs](perf/ivy_apple/holdouts/nov27-ticket-nested-gate-costs.tar.xz)
+
+### Direct congruence-table removal during ARM equality maintenance
+
+On the three expensive ARM checks (6/4–6), an enode's recorded table slot located 88,495 short-arity parent representatives during equality merge and undo. The other 2,676 erases used the ordinary congruence lookup. Only 70,944 of the 88,495 direct hits were in the hash's home slot. Maintaining the hint cost 95,429 slot writes across those checks, including 4,986 entries moved during backward-shift deletion. Four entries were rehashed on growth. For the four Ticket checks, all 3,619 erases hit, and maintaining the hint took 9,334 writes. Two complete-history runs per case repeated every count.
+
+Commit `75f6f67e1` puts the hint in existing padding. The enode stayed at 208 bytes on amd64. The caller checks the owning declaration, representative pointer and both captured roots before deleting the slot. This preserves lookups when another table updates the hint or when the entry's captured roots have become stale. A regression exercises both conditions. The slot change adds no allocation to the existing merge-and-undo benchmark.
+
+Four rotated GC-off runs gave ARM savings of 2.06% for a home-slot probe, 2.24% for an ordinary key probe limited to the parent-removal callers, and 3.10% for the slot prototype. The validated release saved 2.49%, from 454.11M to 442.78M summed median instructions, and 0.14% on the four Ticket checks. Percentages are medians of paired changes. On complete verifiers with normal GC, five alternating pairs gave ARM −0.43%, TLB −0.35%, Raft −0.29%, POPL18 +0.24%, nested Ticket +0.73% and automatic Ticket +0.04%. All 230 reference transcripts and exit statuses matched.
+
+A separate three-pair comparison bracketed the equality operations in the validated slot release and linked Z3. Every call count matched per check.
+
+| Three ARM checks combined | Calls per engine | g3 instructions | Z3 instructions | Excess |
+|---|---:|---:|---:|---:|
+| Remove parents before changing roots | 15,717 | 11.70M | 6.36M | 5.33M |
+| Reinsert after changing roots | 15,717 | 19.43M | 7.01M | 12.42M |
+| Undo equality merge | 15,465 | 30.58M | 11.61M | 18.97M |
+
+During undo, **53,344 of 53,345 attempted parent restorations had no congruent entry**. One found the same representative. Of these parents, 50,424 were commutative, 1,551 were ordered short-arity parents and 1,370 were wider. The four Ticket checks had 2,679 misses and five self hits, with only 851 commutative parents. This explains why specializing just the ordered insertion loop did little for ARM. Recording detached parents on the merge trail saved 0.12% there. Recording and storing directly without confirming table absence saved 2.39%, but assumes more about the table and changes the trace visitation path. These are experimental controls.
+
+**Restoring an absent signature.** On split, the ordinary path searches both operand orders of a commutative parent, then probes again to insert. The restored-parent trial checks the reversed key when necessary and fills the empty slot found while probing the ordered key. A different candidate, a wide parent, and growth all use ordinary insertion. Duplicate or reversed representatives preserve the original pointer and commutation result. On ARM, probing both orders saved 1.64–1.69% against the initial slot release in four prototype rounds. A single symmetric hash cluster and specialized insert saved 2.33% on the selected checks, but just 0.06% on complete ARM and increased complete automatic Ticket instructions by 0.65%. The symmetric scheme stays in the archive.
+
+Six three-way rounds with the checked restore implementation measured 454.15M baseline, 442.75M with the slot hint, and 437.87M with both changes on ARM. The combined median paired reduction was **3.59%**. It was **0.14%** on the selected Ticket checks. The complete five-pair comparison against the slot release gave −0.93% on ARM, −1.06% on POPL18, −0.16% on automatic Ticket, −0.14% on Raft, +0.08% on TLB and +0.95% on nested Ticket. All 230 reference comparisons matched.
+
+Source-level timings after both changes still put forward parent reinsertion at 19.47M g3 versus 7.01M native instructions. Undoing the merged parent list, class roots and ring links together cost 9.79M versus 4.34M. Restoring the original parents cost 16.14M versus 7.09M, while restoring proof and theory state cost just 0.63M versus 0.37M. Each engine undid exactly 15,465 merges. Native updates ring links before erasing parents and Go after, so the ring and erase measurements are combined here.
+
+**Complete performance against the original baseline.** Commit `6fb221275` retains the checked restoration change. Nine direct pairs comparing both changes to `78f29d7f7` gave +0.09% ARM instructions, despite the two smaller five-pair studies individually favoring the changes. Twenty-five further pairs per input tested the combined release with and without GC. The table gives median paired changes, with each pair on the same pinned CPU.
+
+| Complete verifier | Instructions, normal GC | Elapsed, normal GC | Instructions, GC off |
+|---|---:|---:|---:|
+| ARM | −0.17% | −0.74% | −1.27% |
+| Nested Ticket | +0.10% | +0.05% | −0.08% |
+| Automatic Ticket | +0.13% | −0.05% | −0.07% |
+
+With normal GC, complete ARM was faster in 20 of 25 pairs. Its uninstrumented instruction count was lower in 14 of 25. With GC off, ARM used fewer instructions and less elapsed time in all 25 pairs. The selected-check savings survive the complete workload, but the gain in ordinary execution is substantially smaller. The Ticket timings with normal GC were effectively flat.
+
+Five alternating pairs compared the final g3 release with linked Z3 at normal GC. Complete ARM took 434 ms versus 338 ms (2.995B versus 2.194B process instructions). Automatic Ticket took 410 ms versus 303 ms (2.703B versus 1.974B). Both comparisons used the same frontend and CPU. These medians do not establish parity on either verifier.
+
+Twenty-five additional normal-GC pairs sampled runtime counters immediately after verification. Complete ARM used median 120.22 MB and 1.175M Go allocations in both builds. Both performed a median 23 collections, and the final release spent about 28 ms of CPU in GC. The number of collections differed between the two binaries in 13 individual pairs. The storage and table changes do not materially alter total allocation volume. GC alone cannot account for the roughly 96 ms elapsed gap against native.
+
+**Where the whole-run Go allocations occur.** One allocation census per complete workload and engine recorded every Go heap allocation with `memprofilerate=1`. The native build's profile covers its Go frontend and bridge. Its C++ allocations are outside this measurement. The g3 ARM profile recorded 1.145M objects versus 0.787M in the linked build. Automatic Ticket recorded 1.006M versus 0.568M. The biggest frontend site on ARM, `renameASTRec`, allocated exactly 188,264 objects directly in each build. Improving that shared site would speed up both.
+
+| g3 allocation site | ARM objects | Automatic Ticket objects |
+|---|---:|---:|
+| Enode record itself | 12,999 | 15,396 |
+| Separate enode argument slice | 9,926 | 13,999 |
+| Growth of source-parent lists inside construction | 6,583 | 4,044 |
+| Quantifier binding fingerprint | 21,204 | 36,960 |
+
+On automatic Ticket, all 36,960 fingerprint allocations occurred in the width 1–2 and 3–4 paths, which already allocate their binding storage with the record. A retained fingerprint may outlive its set. One larger opportunity is work avoided entirely: the Boolean ground projection's `problem` function accounts for 8.62 MB including callees on Ticket, of which 2.26 MB was allocated directly there. Price those attempts by outcome before optimizing the allocation mechanism. [Drivers, raw profiles, counters and reference comparisons](perf/ivy_apple/holdouts/nov27-arm-congruence-parent-slots.tar.xz)
