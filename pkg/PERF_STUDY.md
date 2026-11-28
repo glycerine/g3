@@ -9978,3 +9978,27 @@ The baseline-path observer evaluated the second-value alternative and restored t
 | Ordinary Raft | 111 / 138 | 2.94 / 1.64 |
 
 Even eliminating all measured repeat substitution work on Hybrid would cover only about 2.5% of its 580M push deficit. ARM has the best ceiling at 19.15M against a 166M push deficit. A real cache would still have to pin the replacement, propagate dependencies and retire entries. There is no production cache from this trial. The six-workload measurements, both witness alternatives, passive acceptance census, post-goal costs and push profiles are preserved together. [Benchmark drivers and raw measurements](perf/ivy_apple/holdouts/nov27-binary-witness-and-push-costs.tar.xz)
+
+## November 27 — Replaying live macro expansions with a proof-free application walker
+
+On Hybrid, 1,674 of 2,009 full macro-expansion steps in the measured pushes could use a bounded application walker. Of these, 888 changed the expression. The remaining 335 used the general rewriter. This population starts after the existing small-term identity probe. It includes each fixed-point iteration and excludes subsequent theory normalization.
+
+The first prototype walked the input recursively, looked up macro applications before visiting their arguments, and used the existing substitution routine at each matched declaration. It rebuilt changed applications and quantifier bodies. It kept separate visited-node tables under binders and left quantifier patterns alone. It declined ITEs, applications with more than 16 children and walks exceeding 512 visits. A second prototype compiled a whole traversal plan before performing substitutions. It also declined definitions carrying dependencies. A rejected plan could therefore fall back before changing the AST or charging substitution work.
+
+For each comparison, the prototype and the ordinary traversal processed the same incoming root in sequence. The observer checked the resulting AST handle and the resource count charged by the traversal, including substitutions. The ordinary traversal supplied the solver's output. Across 228 reference inputs the preflight plan completed 11,136 steps on 89 inputs, including 5,509 that changed the root. It declined 3,979 steps. Every accepted result and resource count agreed, and all verifier exit codes and transcripts matched. This corpus measures ordinary proof-free runs. It does not establish error recovery, bounded cancellation or proof-generation behavior.
+
+| Input | Accepted / declined per run | Changed among accepted | Push instructions saved by applying the plan, M |
+| --- | ---: | ---: | ---: |
+| Hybrid | 1,674 / 335 | 888 | 29.54 |
+| Hybrid batches 31–33 only | 322 / 109 | 184 | 5.66 |
+| Nested Ticket | 292 / 67 | 142 | 3.67 |
+| POPL18 Ticket | 102 / 142 | 61 | 0.96 |
+| Automatic Ticket | 202 / 42 | 92 | 3.41 |
+| ARM | 56 / 177 | 52 | 0.20 |
+| Ordinary Raft | 413 / 55 | 204 | 8.17 |
+
+Values are differences of three-run medians, summing physical push intervals on the solver thread with GC disabled. On Hybrid the ordinary traversal used 87.6M instructions for accepted steps. The recursive walker used 44.8M for this work. Building and executing the preflight plan took 55.7M, and compiling declined plans took another 1.36M. The walker timings end before temporary-reference release, so the full push comparison is the better estimate of the saving. Hybrid's 29.54M improvement covers about 5% of the previously measured 580M push gap.
+
+**Whole verifier under ordinary GC.** Three release variants used a dense plan, a dense plan with small local buffers, or a sparse plan containing only the ancestors of possible substitutions. Across 12 inputs and three rotations, Hybrid instruction changes were −0.72%, −0.91% and −0.45% respectively. All three gave mixed results across inputs. A fourth version reused plan storage within each solver's macro manager and constructed the general traversal only after a decline. A separate 228-input run applied that version and matched every native transcript and exit status.
+
+Seven alternating pairs in a single optimized executable isolated the scratch-reuse policy from code-layout differences. The median paired change on Hybrid was −1.17% (seven pairs improved), but on ARM it was +1.39% (six pairs regressed). An adaptive variant stopped trying after at least eight declines outnumbered acceptances in the current push. This put ARM at −0.45% and Hybrid at −0.85%. Its other median changes ranged from −0.87% on POPL18 to +0.18% on test_liveness2. Each adaptive workload had seven pairs. The larger phase-level saving shrinks to under 1% on the complete Hybrid verifier under that policy. Given the extra traversal implementation, workspace per macro manager and untested failure paths, the prototypes remain benchmarks. [Drivers, exact overlays, corpus checks and measurements](perf/ivy_apple/holdouts/nov27-macro-expansion-walkers.tar.xz)
