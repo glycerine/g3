@@ -83,7 +83,9 @@ func TestSMTCaseSplitSourceAdmissionAndCandidateAssertions(t *testing.T) {
 				astTestMust(t, s.Internalize(a, true))
 				av, _ := s.BoolVar(a)
 				s.boolVar.set(a, SMTNullBoolVar)
-				err = s.admitRelevanceCaseSplit(a)
+				header, err := m.NodeHeader(a)
+				astTestMust(t, err)
+				err = s.admitRelevanceCaseSplit(a, &header)
 				s.boolVar.set(a, av)
 				line = 343
 				if strategy == 4 {

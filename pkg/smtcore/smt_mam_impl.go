@@ -201,14 +201,6 @@ func (r *smtMAMImpl) relevant(n *SMTEnode) bool { return r.state.isRelevant(n.ow
 // ---- code_tree_map ----
 
 // codeTreeFor is code_tree_map::get_code_tree_for.
-func (r *smtMAMImpl) codeTreeFor(lbl ast.ASTHandle) *smtMAMCodeTree {
-	id := r.declID(lbl)
-	if int(id) < len(r.trees) {
-		return r.trees[id]
-	}
-	return nil
-}
-
 // treesAddPattern is code_tree_map::add_pattern.
 func (r *smtMAMImpl) treesAddPattern(qa, mp ast.ASTHandle, firstIdx uint32) {
 	p := r.arg(mp, firstIdx)
@@ -247,20 +239,6 @@ func (r *smtMAMImpl) addCandidateTo(t *smtMAMCodeTree, app *SMTEnode) {
 		}
 		t.addCandidate(app)
 	}
-}
-
-func (r *smtMAMImpl) addCandidate(app *SMTEnode) {
-	r.addCandidateTo(r.codeTreeFor(app.declaration), app)
-}
-
-func (r *smtMAMImpl) isPlblDecl(lbl ast.ASTHandle) bool {
-	id := r.declID(lbl)
-	return int(id) < len(r.isPlbl) && r.isPlbl[id]
-}
-
-func (r *smtMAMImpl) isClblDecl(lbl ast.ASTHandle) bool {
-	id := r.declID(lbl)
-	return int(id) < len(r.isClbl) && r.isClbl[id]
 }
 
 func (r *smtMAMImpl) updateLbls(n *SMTEnode, elem uint32) {
@@ -877,16 +855,16 @@ func (r *smtMAMImpl) RelevantEh(n *SMTEnode, lazy bool) {
 		r.updateLbls(n, uint32(n.labelHash))
 	}
 	if len(n.arguments) > 0 {
-		lbl := n.declaration
-		h := r.lblHash(lbl)
-		if r.isClblDecl(lbl) {
+		id := r.declID(n.declaration)
+		h := uint32(r.hasher.hash(id))
+		if int(id) < len(r.isClbl) && r.isClbl[id] {
 			r.updateLbls(n, h)
 		}
-		if r.isPlblDecl(lbl) {
+		if int(id) < len(r.isPlbl) && r.isPlbl[id] {
 			r.updateChildrenPlbls(n, h)
 		}
-		if !lazy {
-			r.addCandidate(n)
+		if !lazy && int(id) < len(r.trees) {
+			r.addCandidateTo(r.trees[id], n)
 		}
 	}
 }

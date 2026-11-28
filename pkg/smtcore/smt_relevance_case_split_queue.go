@@ -47,15 +47,8 @@ func (f *smtRelevanceFIFO) restore(scope smtRelevanceFIFOScope, assertHead bool)
 }
 
 // Called at the actual relevance event, before theory relevance callbacks.
-func (s *SMTInternalizerState) admitRelevanceCaseSplit(expression ast.ASTHandle) error {
-	boolean, err := s.isBoolean(expression)
-	if err != nil || !boolean {
-		return err
-	}
-	op, basic, err := s.basicOperation(expression)
-	if err != nil {
-		return err
-	}
+func (s *SMTInternalizerState) admitRelevanceCaseSplit(expression ast.ASTHandle, header *ast.ASTNodeHeader) error {
+	op, basic := s.smtHeaderBasicOperation(header)
 	isOr, isAnd := basic && op == ast.ASTOpOr, basic && op == ast.ASTOpAnd
 	variable, internalized := s.BoolVar(expression)
 	if !internalized {

@@ -277,14 +277,16 @@ func (s *SMTInternalizerState) notifyRelevant(expression ast.ASTHandle) error {
 		}
 	}
 	s.traceRelevantEh(expression)
-	if err := s.admitRelevanceCaseSplit(expression); err != nil {
-		return err
-	}
-	kind, err := s.manager.GetKind(expression)
+	header, boolean, err := s.manager.ExpressionHeader(expression)
 	if err != nil {
 		return err
 	}
-	if kind != ast.ASTApp {
+	if boolean {
+		if err := s.admitRelevanceCaseSplit(expression, &header); err != nil {
+			return err
+		}
+	}
+	if header.Kind != ast.ASTApp {
 		return nil
 	}
 	if s.quantifierManager != nil {
@@ -293,10 +295,7 @@ func (s *SMTInternalizerState) notifyRelevant(expression ast.ASTHandle) error {
 	// relevant_eh's propagated_th: a theory is told once. A theory already
 	// seen earlier in the variable list is skipped too.
 	propagated := SMTNullTheoryID
-	family, err := s.manager.GetFamilyID(expression)
-	if err != nil {
-		return err
-	}
+	family := header.Family
 	if family != s.manager.BasicFamilyID() {
 		if plugin := s.theories[family]; plugin != nil {
 			if err = plugin.Relevant(expression); err != nil {
