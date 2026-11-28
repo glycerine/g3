@@ -718,7 +718,7 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 			}
 		}
 	}
-	if err = s.internalizeFormulaCoreOp(expression, gateContext, header, true); err != nil {
+	if err = s.internalizeFormulaCoreOp(expression, gateContext, *header, true); err != nil {
 		return err
 	}
 	if basic && op == ast.ASTOpEq {
@@ -886,11 +886,13 @@ func (s *SMTInternalizerState) internalizeFormulaCore(expression ast.ASTHandle, 
 	if header.Kind != ast.ASTApp {
 		return ast.ErrASTDomain
 	}
-	return s.internalizeFormulaCoreOp(expression, gateContext, &header, false)
+	return s.internalizeFormulaCoreOp(expression, gateContext, header, false)
 }
 
-func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle, gateContext bool, header *ast.ASTNodeHeader, knownBoolean bool) error {
-	op, basic := s.smtHeaderBasicOperation(header)
+// Pass the header by value across this recursive call. With PGO, passing
+// its address here made the inlined child Internalize allocate a heap object.
+func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle, gateContext bool, header ast.ASTNodeHeader, knownBoolean bool) error {
+	op, basic := s.smtHeaderBasicOperation(&header)
 	count := header.NumArgs
 	var err error
 	isGate := basic && (smtInternalizerGateOperation(op) || op == ast.ASTOpNot)
@@ -906,7 +908,7 @@ func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle
 	variable, isNew := s.boolVar.lookup(expression)
 	if !isNew {
 		if knownBoolean {
-			variable, err = s.mkBoolVar(expression, header, false)
+			variable, err = s.mkBoolVar(expression, &header, false)
 		} else {
 			variable, err = s.MkBoolVar(expression)
 		}
