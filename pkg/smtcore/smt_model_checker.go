@@ -204,6 +204,12 @@ func (c *SMTModelChecker) addFiniteCounterexample(quantifier ast.ASTHandle, valu
 		if err != nil || !found {
 			return false, err
 		}
+		if i == 1 && len(bindings) == 2 {
+			term, err = c.namedSecondBinding(quantifier, bindings[0], term, value, generation)
+			if err != nil {
+				return false, err
+			}
+		}
 		bindings[i] = term
 		if generation > maxGeneration {
 			maxGeneration = generation

@@ -10089,3 +10089,50 @@ The auxiliary model checker needs the keys of an inverse map when it restricts a
 | 64 | 942.5 | 326.5 | 5,120 → 1,024 |
 
 Five alternating pairs per size used optimized benchmark binaries on one pinned core. Each lookup now allocates once. Three complete release pairs per input under ordinary GC matched all reference outputs on automatic Ticket, nested Ticket and TLB. The full verifier changes were under 0.4% on each input. The isolated 2.3–2.9× speedup applies to key enumeration. [Retained benchmark](smtcore/smt_model_instantiation_values_benchmark_test.go)
+
+## November 27 — Which model binding accounts for the TLB search difference?
+
+**Identify the terms before queue insertion.** The model-based instantiator chose eight tuples at the first differing round of TLB 60/1. Fingerprinting subsequently replaces arguments with their equality-class representatives. In the ordinary history the actual second binding of the binary tuple was a fresh processor constant, printed later as `tlb.sk0`. In the earlier unary-witness history it was the named processor `l2s_s_28`, printed later as a conditional. The model assigned the fresh and named constants the same value, `tlb.processor!val!0`, at generation zero in both inverse sets. The two unary tuples used those same alternatives. The fourth changed tuple used either a map application or a named map constant with the same model value.
+
+**Swap one binding at a time.** Each arm ran the complete verifier. The diagnostic found the counterpart term among live enodes, checked its sort and changed the selected tuple before the checker pinned it. The control paid for the same term lookup. The table gives three-rotation median check instructions in millions, and the number of nontrivial quantified lemmas sent to the internalizer. Forward starts with ordinary search. Reverse starts with the earlier unary-witness policy.
+
+| Binding changed | Forward, M instructions | Forward lemmas | Reverse, M instructions | Reverse lemmas |
+| --- | ---: | ---: | ---: | ---: |
+| None | 1,096.19 | 19,943 | 906.40 | 15,038 |
+| Second processor of the binary tuple | 902.14 | 14,437 | 931.40 | 15,192 |
+| Processor of the first unary tuple | 1,043.86 | 17,663 | 995.64 | 17,240 |
+| Processor of the second unary tuple | 1,045.34 | 17,422 | 970.03 | 16,192 |
+| Map term | 1,010.59 | 16,896 | 918.85 | 14,992 |
+| All four | 912.53 | 15,474 | 1,083.11 | 20,053 |
+
+The binary tuple alone recovered 194M instructions in the ordinary history. Reversing all four swaps recovered most of the slow search. Every arm still emitted 1,086 lemmas immediately after decision 595. The substitutions affected the subsequent search even when that first expansion had the same size.
+
+**A solver-local rule.** When a binary finite-model counterexample binds two distinct fresh uninterpreted constants of the same sort, g3 looks for a named constant for the second position. It searches the second binder's existing instantiation set in table order and requires the same generation and the same value in the completed model-evaluation cache. No new evaluation is needed. The candidate model still falsifies the quantified body on the same pair of values. The ordinary counterexample path retains and asserts the chosen ground instance.
+
+| First fresh counter in batch 60 | Ordinary, M instructions | Named second binding, M |
+| ---: | ---: | ---: |
+| 407 | 1,092.58 | 898.52 |
+| 408 | 796.88 | 796.76 |
+| 409 | 1,007.08 | 840.00 |
+| 410 | 796.88 | 796.83 |
+| 411 | 1,007.18 | 840.15 |
+| 412 | 796.80 | 796.83 |
+| 413 | 1,092.52 | 1,092.67 |
+| 414 | 796.85 | 796.79 |
+
+Each cell is a two-run median on the whole input with the intervention restricted to 60/1. The rule changed exactly one binding on each of three histories. Five histories retained the ordinary choice, including the expensive 413 control. Requiring a variable-equality disjunct or ranking named terms by enode parent count or class size gave no further saving on this panel.
+
+**How often does it apply?** Across all 228 complete release inputs, 45 reached the second-binder check, four searched a set and one changed a binding. That input was TLB. All 228 exit codes and both output streams matched the reference with the rule enabled. Same-binary, ordinary-GC comparisons also matched ordinary Raft and both Apple holdouts. The three-pair median within-pair change on complete TLB was −0.44% of instructions; seven further pairs gave −0.22%. ARM moved +1.45% in three pairs and +0.08% in seven further pairs. It entered the helper three times and never searched an instantiation set. Nested Ticket moved +0.74% and +0.80% respectively, searched twice and changed zero bindings. Its observed whole-process increase remains unexplained. Raft moved +0.50% then −0.38%. Apple rfn2 moved +0.22% and dramc_nb2 −0.15% over three pairs each. These measurements support a targeted search improvement on TLB.
+
+**Why linked Z3 is still faster on this check.** Two independent native profile runs each counted 12,605 nontrivial quantified lemmas inside 60/1. The C++ counter increments after the satisfaction check, substitution and rewrite-to-true test. Separate per-operation hardware meters in both engines confirmed the same number of internalizations. The table gives medians from three complete rotations. Each cell is the sum of calls bracketed within the selected solver-thread check, with user-mode instruction counting and GC disabled.
+
+| Quantifier operation | Previous g3, M instructions | Released g3, M | Linked Z3, M | Released g3 calls | Z3 calls |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Test whether the current assignment satisfies the instance | 85.42 | 68.98 | 39.97 | 21,113 | 18,255 |
+| Substitute the ground bindings | 121.25 | 117.15 | 43.96 | 14,437 | 12,605 |
+| Rewrite the substituted instance | 178.95 | 137.57 | 38.74 | 14,437 | 12,605 |
+| Internalize the quantified lemma | 277.94 | 214.29 | 49.93 | 14,437 | 12,605 |
+
+The released solver emits **14.5% more lemmas**, but each installation averages **14,843 instructions versus 3,961**. Matching the native average at g3's existing call count would recover **157.1M instructions** from installation alone. Rewrite averages 9,529 versus 3,073 instructions per call. Combined, the four measured phases explain about **365M** of the approximately **511M** remaining check gap. Substitution changed relatively little when search improved because nearly all the eliminated substitutions had already been cheap tuple-cache hits. The production run still needed 5,473 cache misses versus 5,077 in native. Different terms and clause widths can affect these averages.
+
+The archived drivers, binding-swap logs, corpus transcript checks, release comparisons and per-operation hardware counts reproduce these measurements. The separate three-engine elapsed-time trial and call-stack sampling trial produced no usable observations. The installation totals above identify the next operation to investigate. [Benchmark sources and raw results](perf/ivy_apple/holdouts/nov27-tlb-model-bindings.tar.xz)
