@@ -10296,3 +10296,49 @@ The isolated change recovered about 7,348 allocations across the ARM checks and 
 Separating the immediate callees of the conflict resolver puts 50.0M / 27.5M sampled ARM instructions in scope pop, and 39.5M / 11.0M on automatic Ticket. Scope pop accounts for most of the sampled resolver gap on each. On Ticket, 29 g3 samples (about 14.5M instructions) reached the relevance propagator directly from the inner pop routine. Congruence erase and insert together accounted for seven such samples. ARM showed the opposite weighting with 37 congruence erase/insert samples and 18 relevance pop samples. Sample counts are coarse, and compiler inlining affects frame boundaries. The earlier counts already matched the number of conflict resolutions on ARM 6/5 and 6/6. The next experiment should time the separate unmark, AST-reference release and watch-unlink phases on Ticket during backjump, alongside the corresponding native pop. [Earlier matched operations](#november-27--search-volume-and-cost-per-merge-in-live-arm)
 
 [Study drivers, compiler observations, raw profiles, complete timings and verifier comparisons](perf/ivy_apple/holdouts/nov27-arm-ticket-check-costs.tar.xz)
+
+## Automatic Ticket relevance restoration during backjump
+
+Four checks in their original incremental histories (12/8, 13/8, 14/8 and 16/1) ran with the production g3 PGO profile and linked Z3. Five alternating rounds measured solver-thread user instructions with GC disabled. Each timed block subtracted an adjacent empty counter read. All stdout, stderr and exit statuses matched the native reference. The counters include every relevance pop in the selected checks. A separate stack profile identifies the pops under conflict resolution.
+
+| Operation | g3 entries | Z3 entries | g3 instructions | Z3 instructions |
+| --- | ---: | ---: | ---: | ---: |
+| Unmark relevant expressions | 14,051 | 14,568 | 1.13M | 0.80M |
+| Release the marked-expression suffix | 14,051 | 14,568 | 2.31M | 1.33M |
+| Undo watch and handler registrations | 10,415 | 11,293 | 8.18M | 0.98M |
+
+g3 made 137 pops and Z3 made 200. The 7.20M excess in registration undo includes destroying ASTs. An independent observer identified **3,144 final releases of asserted parent expressions** from g3's watch trail, costing 6.00M instructions. All 10,415 watch-source decrements left the source alive. Z3 kept its parents in the marked-expression vector, and all 11,293 native watch-source decrements also left their source alive.
+
+Counting both owners, g3 made 4,692 final decrements (3,144 parents plus 1,548 marked expressions), versus 4,963 in native. These consumed 8.01M / 1.26M instructions, or about 1,707 / 255 per final decrement. This is an aggregate of different search histories and term shapes. The mark observer releases one element at a time in original order. Its per-element cost for surviving references includes the extra call and should not be summed with the independently timed bulk intervals.
+
+The combined excess in all three pop operations is 8.50M instructions. Earlier measurements of these same four checks put the whole-check excess near 246M and the excess in quantifier rewriting and installation near 123M. Even eliminating the entire pop difference would recover only about 3.5% of the check gap. The older matched-arity experiment found a sevenfold final-release cost on a different Ticket workload; its wide-operand shortcut regressed on complete proofs. Skipping declaration metadata lookups for other node kinds in the current worklist saved only 0.14M instructions on automatic Ticket and was flat on ARM. Keep that change as an experiment. [Earlier destruction experiments](#november-27--wide-ast-deletion-and-the-complete-verifier-release-decision)
+
+### Retiring watch links in trail order
+
+The three relevance tables each allocated a free list even though the shared trail always removes the newest registration in its table. A callback walking the list reads its next index and handler before invoking user code. The retained change uses a count of live links in the existing solver-local pages. Pop restores the previous head and decrements the count. Refused reference releases still retry separately after unlinking.
+
+| Layout | 128 surviving watches, pop only | Fresh table, 4,096 registrations and pops | Allocated bytes per fresh table at 4,096 |
+| --- | ---: | ---: | ---: |
+| Existing free list | 1,999 ns | 67.78 µs | 50,552 |
+| Reverse-order pages | 1,462 ns | 52.15 µs | 50,552 |
+| Growing slice | 1,395 ns | 60.15 µs | 162,936 |
+
+The watch-pop column uses the median of nine rotations, with registrations outside the timer. Fresh-table measurements use six rotations and include allocation. One registration took 1,168 bytes in the slice versus 4,232 in the paged table. At 4,096 registrations slice growth more than tripled the bytes allocated. All layouts produced the same registration order. [Fresh-table benchmark](smtcore/smt_relevancy_link_storage_benchmark_test.go)
+
+On automatic Ticket the paged change saved 0.42% of complete-verifier instructions in five pairs and 0.78% in a separate twelve-round, three-layout rotation. The latter recorded 1.12% higher median paired elapsed time. ARM and nested Ticket moved by less than 0.3% in instructions in both paged comparisons. The first panel recorded 0.74% more instructions on POPL18 Ticket. Keep the page-backed version for the measured reduction in watch work and predictable storage at higher widths. No overall elapsed speedup is established. Commit `ae1a382d8` passed the smtcore and api suites, checked/debug/trace scope and relevancy tests, vet, and all 230 native reference transcripts.
+
+### Which theory reductions account for automatic Ticket rewriting?
+
+Six gated stack profiles per goal and engine pointed to application traversal and theory reduction. A separate pair of instrumented verifiers timed the call to `reduce_app_core` and its Go equivalent only while the quantifier queue rewrote an instance. Three alternating rounds reproduced every reference outcome and every per-operator call count. The grouping includes batch, goal, declaration family, operator, arity and return status. Matching the smaller call count in each group and multiplying by the difference in per-call costs estimates the effect of cost per reduction. Nodes within a group can still have different operands.
+
+| Core reduction result | g3 calls | Z3 calls | g3 instructions | Z3 instructions |
+| --- | ---: | ---: | ---: | ---: |
+| Equality, no rule applied | 2,520 | 2,754 | 4.81M | 0.58M |
+| OR, no rule applied | 6,071 | 6,531 | 5.45M | 2.53M |
+| OR, produced a result | 882 | 885 | 3.61M | 0.95M |
+| NOT, no rule applied | 6,507 | 6,845 | 3.13M | 0.59M |
+| All operator/status groups | 23,800 | 36,414 | 18.96M | 4.86M |
+
+The differences in per-call cost explain 13.71M of the 14.10M excess inside core reduction under this grouping. Although failed equality is expensive (about 1,908 / 211 instructions per call), its entire excess is 4.23M. The independently measured excess for the whole queue rewrite on these inputs is 60.02M. Most of that difference falls outside core reduction. A single lookup for both declaration family and kind saved 1.41M on the four Ticket checks and 0.86M on the three ARM checks with GC off. Complete automatic Ticket changed by −0.05% and ARM by +0.65% in the five-pair panel. Keep this as a measured prototype.
+
+A larger next experiment is to match application frames by operator, arity and child-change status, counting frame entries, child visits and cache hits within each queued instance. Split time outside core reduction between visiting operands and finishing unchanged frames, including result references and cache insertion. Compare with native on the same groups. This tests whether g3 traverses more terms or spends more per visit before investing in another individual Boolean rule. [Experiment sources, calibrated counters, profiles and verifier controls](perf/ivy_apple/holdouts/nov27-backjump-relevance-and-reductions.tar.xz)
