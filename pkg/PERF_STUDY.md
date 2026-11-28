@@ -10002,3 +10002,41 @@ Values are differences of three-run medians, summing physical push intervals on 
 **Whole verifier under ordinary GC.** Three release variants used a dense plan, a dense plan with small local buffers, or a sparse plan containing only the ancestors of possible substitutions. Across 12 inputs and three rotations, Hybrid instruction changes were −0.72%, −0.91% and −0.45% respectively. All three gave mixed results across inputs. A fourth version reused plan storage within each solver's macro manager and constructed the general traversal only after a decline. A separate 228-input run applied that version and matched every native transcript and exit status.
 
 Seven alternating pairs in a single optimized executable isolated the scratch-reuse policy from code-layout differences. The median paired change on Hybrid was −1.17% (seven pairs improved), but on ARM it was +1.39% (six pairs regressed). An adaptive variant stopped trying after at least eight declines outnumbered acceptances in the current push. This put ARM at −0.45% and Hybrid at −0.85%. Its other median changes ranged from −0.87% on POPL18 to +0.18% on test_liveness2. Each adaptive workload had seven pairs. The larger phase-level saving shrinks to under 1% on the complete Hybrid verifier under that policy. Given the extra traversal implementation, workspace per macro manager and untested failure paths, the prototypes remain benchmarks. [Drivers, exact overlays, corpus checks and measurements](perf/ivy_apple/holdouts/nov27-macro-expansion-walkers.tar.xz)
+
+## November 27 — Which unary search wins survive the binary-witness fix?
+
+The narrow binary-witness change removed most of the nested Ticket penalty that previously ruled out early unary instantiation. Three rotations per combination changed only the binary witness implementation and the unary policy. Each run used the complete input and verified native output. The unit rule instantiates an existing universally quantified positive unary fact at existing constants of its sort. The active variant requires the universal to be true and relevant. The check pays for discovering and installing its own instances.
+
+| Input and policy | Earlier binary rule, M stage instructions | Shipped binary rule, M |
+| --- | ---: | ---: |
+| Nested Ticket, ordinary search | 1,247 | 1,247 |
+| Nested Ticket, active unary facts | 1,435 | 1,299 |
+| Nested Ticket, all unary facts | 1,597 | 1,380 |
+| Automatic Ticket, ordinary search | 1,782 | 1,782 |
+| Automatic Ticket, active unary facts | 1,675 | 1,675 |
+| Automatic Ticket, all unary facts | 1,617 | 1,617 |
+
+With the active rule, nested Ticket 16/1 itself now costs 78.57M instructions versus 215.50M on the earlier binary implementation. Other checks still add about 51M to the full stage sum. Unconditionally trying every unary fact also adds about 145M instructions on Hybrid. These effects are large relative to counter noise.
+
+**How much can better ground-term selection recover?** Requiring the constant to be outside the relevance set and to have at least two enode-class parents reduced automatic Ticket's stage cost by about 11.3%, with 326 attempts. Requiring the source predicate to appear as the antecedent of an active positive unary implication eliminated every attempt on nested Ticket. The cost of finding these candidates still added about 7M instructions there. The positive-tail rule made 2,460 attempts on TLB and added about 1.04B instructions.
+
+Limiting each source predicate to its two eligible constants with the fewest enode-class parents gave the best automatic Ticket result among the immediate policies. Measured stages fell from 1.782B to 1.539B and check 12/8 fell from 175M to 44M. On TLB the same policy made 820 attempts and increased the measured stage sum by about 2.7%. Choosing just the first eligible constant still added about 2.4% there. A per-source cap controls the number of instances but does not predict their downstream cost.
+
+**What if the solver waits for evidence of demand?** Selecting one low-parent-count witness after one conflict saved 2.9% of automatic Ticket stages but added 1.14% on TLB. Waiting for four conflicts saved 0.49% on TLB and cost 2.37% on automatic Ticket. Restricting instantiation to the birth of an actual unary Boolean variable also had mixed results. Watching the source predicate made just seven attempts across automatic Ticket, reducing its measured stages by 2.77%. On TLB it made 73 attempts and added 0.55%. Watching both source and positive implication-tail occurrences increased measured stages on both inputs.
+
+The birth trace explains the limit on reactive strategies. On automatic Ticket 12/8, neither the source predicate nor the implication tail on the useful thread had a Boolean variable before decision 356, conflict 14 and scope 49. Both appeared at that same point. The earlier birth on another thread occurred at decision 303. A callback on the useful predicate or its implication tail cannot select that ground witness at search entry.
+
+**How much of the TLB regression comes from lookup?** Three rotated runs separated ordinary search, discovering the same two prospective witnesses without installing them, and actually installing them. On TLB the median stage sums were 27.457B, 27.999B and 28.195B. Candidate discovery alone therefore cost 542M instructions. Of 13,358 concrete checks, 410 received candidates in the applied arm. Summing per-check medians, those 410 checks accounted for 519M of the discovery overhead. The largest individual end-to-end check penalties were 25.3M at 43/70 and 25.1M at 54/80. Only about 1.3M of each came from discovery. TLB 60/1 went the other way, saving 189M. Sibling search history matters on both sides.
+
+On automatic Ticket the corresponding stage sums were 1.782B, 1.791B and 1.539B. The added search rule helped well beyond what its 9.5M lookup cost can explain. Check 12/8 saved 131M, 13/8 saved 64M, 12/16 saved 31M and 16/1 saved 28M. These figures compare each complete policy with its own ordinary-search control. Crediting a single binding with the entire change would require a separate intervention.
+
+**How much can the solver save by indexing the same rule?** Registering unary facts and implications as quantifiers enter and leave the solver reduced TLB discovery overhead from 551M to 106M instructions in the same executable. Scanning the existing dense enode stack and breaking equal-parent-count ties by AST slot reduced discovery overhead to 18.6M in a separate executable. Both recompute assignment and relevance from live solver state. Each executable had its own baseline and three rotated runs per input.
+
+| Complete input | Ordinary stages, M instructions | Dense discovery alone, M | Dense discovery and instantiation, M | Applied change |
+| --- | ---: | ---: | ---: | ---: |
+| TLB | 27,459.63 | 27,478.18 | 27,677.52 | +0.79% |
+| Automatic Ticket | 1,781.85 | 1,782.89 | 1,530.75 | −14.09% |
+| Nested Ticket | 1,247.26 | 1,247.58 | 1,247.42 | +0.01% |
+| test_liveness2 | 919.89 | 920.25 | 923.34 | +0.38% |
+
+The dense version made 226 attempts on automatic Ticket and cut check 12/8 from 174.98M to 43.49M instructions. On TLB it made 820 attempts. About 199M of its 218M instruction penalty arose after enabling instantiation. Checks 43/70 and 54/80 each made two attempts and cost an extra 23.9M and 23.8M. Check 60/1 saved 189.9M with zero attempts in that check. An intervention restricted to the target check and a complementary one restricted to earlier checks would distinguish the local proof effect from inherited search history. These are solver-stage instruction measurements with GC disabled. The benchmarks preserve the indexed implementation for that experiment. [Drivers, overlays, transcripts comparison results and per-stage counts](perf/ivy_apple/holdouts/nov27-unary-witness-eligibility.tar.xz)
