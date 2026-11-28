@@ -11,7 +11,8 @@ const smtRelevancyPageSize = 256
 // relevancy propagator's obj_map handler/watch tables do. A registration
 // prepends one link (a cons cell of relevancy_ehs) holding a reference into
 // the propagator's handler pool (ehs); undoing it restores the previous
-// head. Links live in fixed pages and popped links are recycled, as the
+// head. The trail pops each table in reverse registration order. Links
+// live in fixed pages and a pop releases the last occupied cell, as the
 // region reuses its memory after a scope pop. Heads of one manager's
 // expressions are indexed by node slot (4 bytes per slot); every non-empty
 // list is referenced by the trail, so its expression (and slot generation)
@@ -22,8 +23,8 @@ type smtRelevancyTable struct {
 	heads []uint32
 	other map[ast.ASTHandle]uint32
 
-	pages       []*[smtRelevancyPageSize]smtRelevancyLink
-	count, free uint32
+	pages []*[smtRelevancyPageSize]smtRelevancyLink
+	count uint32
 }
 
 // smtRelevancyLink is one list cell: the handler reference (1 + its ehs
@@ -68,16 +69,11 @@ func (t *smtRelevancyTable) head(h ast.ASTHandle) uint32 {
 
 func (t *smtRelevancyTable) push(h ast.ASTHandle, handler uint32) {
 	previous := t.head(h)
-	index := t.free
-	if index == 0 {
-		if t.count%smtRelevancyPageSize == 0 {
-			t.pages = append(t.pages, new([smtRelevancyPageSize]smtRelevancyLink))
-		}
-		t.count++
-		index = t.count
-	} else {
-		t.free = t.link(index).previous
+	if int(t.count/smtRelevancyPageSize) == len(t.pages) {
+		t.pages = append(t.pages, new([smtRelevancyPageSize]smtRelevancyLink))
 	}
+	t.count++
+	index := t.count
 	*t.link(index) = smtRelevancyLink{handler: handler, previous: previous, generation: h.Generation()}
 	if !t.dense(h) {
 		if t.other == nil {
@@ -99,10 +95,11 @@ func (t *smtRelevancyTable) push(h ast.ASTHandle, handler uint32) {
 	t.heads[s] = index
 }
 
-// pop drops the newest handler of h's list and returns its pool index.
+// pop undoes the last registration in this table. Its trail entry holds h
+// alive until after the head has been restored.
 func (t *smtRelevancyTable) pop(h ast.ASTHandle) uint32 {
-	index := t.head(h)
-	cell := t.link(index) // an absent list panics (index 0)
+	cell := t.link(t.count)
+	t.count--
 	handler := cell.handler
 	if t.dense(h) {
 		t.heads[h.Slot()] = cell.previous
@@ -111,7 +108,5 @@ func (t *smtRelevancyTable) pop(h ast.ASTHandle) uint32 {
 	} else {
 		t.other[h] = cell.previous
 	}
-	*cell = smtRelevancyLink{previous: t.free}
-	t.free = index
 	return handler
 }
