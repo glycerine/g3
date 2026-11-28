@@ -10553,3 +10553,23 @@ Removing push/pop from singleton batches raised complete alternating-bit instruc
 **Witness selection changed which contradictions were visible.** Removing the outer universal rows left all six relaxations satisfiable. Instantiating them on all declared constants plus an independent fresh constant per sort still left all six satisfiable. Introducing two witnesses for positive guarded existential rows, then instantiating on just those witnesses, proved batches 8, 9, 11 and 13 with 51–52 instances apiece. Batches 10 and 12 needed additional terms in these experiments. Including declared constants and using the same term at every binder of a given sort within each instance proved all six with 291–359 instances. Both results survived removal of the two remaining quantified rows per batch. The checks ran on the full original premise sets, independently of the mined cores.
 
 In five fresh CLI process rotations per variant, g3 used 654.94M instructions summed over the six original checks. Supplying the fully ground witness-only inputs used 383.13M, with two satisfiable relaxations. Adding the named constants proved all six but cost 670.16M. The corresponding native totals were 360.62M, 237.46M and 388.78M. The numbers include CLI startup, input parsing and checking; the input generator ran outside those intervals. The broad grounding policy has no demonstrated overall gain. A narrower in-process witness attempt would need to cover its construction and the ordinary fallback on misses. Both the current frontend and solver retain the original scheduling. [Benchmark drivers, captures, reduced cores and raw results](perf/ivy_apple/holdouts/nov28-terminal-quantified-witnesses.tar.xz)
+
+## November 28 complete verifier frontier
+
+On solver revision `96b7139a1`, 560 paired runs covering 228 regular inputs and two Apple isolates matched the reference exit status, stdout and stderr for both engines. Two pairs screened every regular case. Fourteen selected for excess elapsed time or instructions received seven further pairs. Among the 228 regular inputs, 208 had lower median paired elapsed ratios in g3 and 214 had lower instruction ratios. Treat close two-pair results as screening data. Each engine used the same frontend and pinned core as its counterpart. Apple used the compatible frontend revision recorded in the handoff. Concurrent jobs used other cores; the later confirmation and Apple timing runs overlapped the full Go suite.
+
+| Complete verifier | g3 median | Linked Z3 median | Pairs |
+|---|---:|---:|---:|
+| Raft | 2.049 s | 3.228 s | 2 |
+| TLB | 6.039 s | 8.413 s | 2 |
+| Apple dramc_nb2 | 15.429 s | 18.960 s | 3 |
+| Apple rfn2 | 1.557 s | 10.580 s | 3 |
+| Hybrid | 932 ms | 832 ms | 9 |
+| ARM | 421 ms | 330 ms | 9 |
+| POPL18 Ticket | 329 ms | 234 ms | 9 |
+| Automatic Ticket | 404 ms | 296 ms | 9 |
+| POPL18 alternating-bit | 353 ms | 293 ms | 9 |
+
+By paired excess instructions the largest remaining gaps are Hybrid (812M), ARM (769M), POPL18 Ticket (767M) and automatic Ticket (725M). Separate GC-off measurements put total push work at 1,120M versus 545M on Hybrid, 279M versus 114M on ARM, 308M versus 144M on POPL18 Ticket, and 326M versus 164M on automatic Ticket. Automatic Ticket's concrete decide calls used 1,293M versus 594M. On POPL18 alternating-bit, pushes alone used 497M versus 237M.
+
+For first-push profiles compare physical batches, since successful private proofs move g3's first push to a later goal. Hybrid batch 32 first pushed at g3 goal 15 and Z3 goal 1. POPL18 Ticket batch 5 first pushed at goals 2 and 1. ARM batch 6 first pushed at goal 1 in both engines. Three solver-thread instruction profiles per engine and batch attribute about 105M versus 34M instructions on ARM to macro traversal. POPL18 Ticket's corresponding macro samples account for only about 2–3M per engine. Use the separate stage counters for absolute phase comparisons. The full Go suite passed across 114 package entries, including the cross-architecture FMA and repository package-comment tests. [Paired timings, reference-check drivers, first-push profiles and full test log](perf/ivy_apple/holdouts/nov28-complete-verifier-frontier.tar.xz)
