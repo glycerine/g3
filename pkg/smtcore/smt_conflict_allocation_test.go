@@ -197,13 +197,12 @@ func TestMinimizeLemmaApproxLevelSet(t *testing.T) {
 			astTestMust(t, s.AssignLiteral(d, NewSMTBooleanAxiom()))
 		}
 	}
-	levels := resolver.levels()
 	marks := resolver.resetMarks()
 	for _, l := range []SMTLiteral{a, x} {
 		marks[l.Var()] = true
 	}
 	lemma := []SMTLiteral{d.Negated(), x.Negated(), a.Negated()}
-	kept, err := resolver.minimizeLemma(lemma, marks, levels, 0)
+	kept, err := resolver.minimizeLemma(lemma, marks, 0)
 	astTestMust(t, err)
 	if len(kept) != 2 || kept[0] != d.Negated() || kept[1] != a.Negated() {
 		t.Fatal("x must be removed through the aliased level", kept)

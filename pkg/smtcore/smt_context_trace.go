@@ -427,13 +427,13 @@ func traceLBool(v lbool.LBool) string {
 }
 
 // traceClauseDetail is context::display_clause_detail.
-func (s *SMTInternalizerState) traceClauseDetail(c *SMTClause, levels []uint32) string {
+func (s *SMTInternalizerState) traceClauseDetail(c *SMTClause) string {
 	var b strings.Builder
 	b.WriteString("lemma: " + traceBool(c.IsLemma()) + "\n")
 	for _, l := range c.literals {
 		b.WriteString(s.traceLiteralCompact(l))
 		b.WriteString(", val: " + traceLBool(s.assignment[l.Index()]))
-		b.WriteString(", lvl: " + strconv.FormatUint(uint64(levels[l.Var()]), 10))
+		b.WriteString(", lvl: " + strconv.FormatUint(uint64(s.booleanData[l.Var()].ScopeLevel()), 10))
 		b.WriteString(", ilvl: " + strconv.FormatUint(uint64(s.booleanData[l.Var()].InternalLevel()), 10))
 		b.WriteString(", var: " + strconv.Itoa(int(l.Var())) + "\n")
 		b.WriteString(tracePP(s.manager, s.boolExpr[l.Var()]) + "\n\n")

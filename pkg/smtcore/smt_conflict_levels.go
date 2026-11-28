@@ -4,15 +4,31 @@ package smtcore
 
 import "github.com/glycerine/g3/pkg/ast"
 
-func smtLiteralAssignmentLevel(literal SMTLiteral, levels []uint32) (uint32, error) {
-	variable := literal.Var()
-	if variable < 0 || int(variable) >= len(levels) {
-		return 0, ast.ErrASTDomain
-	}
-	return levels[variable], nil
+// The public queries accept explicit levels. During search the assignment
+// level already resides in the solver's Boolean variable record.
+type smtAssignmentLevels struct {
+	explicit  []uint32
+	variables []SMTBoolVarData
 }
 
+func (s smtAssignmentLevels) level(literal SMTLiteral) (uint32, error) {
+	v := literal.Var()
+	if s.variables != nil {
+		if v < 0 || int(v) >= len(s.variables) {
+			return 0, ast.ErrASTDomain
+		}
+		return s.variables[v].ScopeLevel(), nil
+	}
+	if v < 0 || int(v) >= len(s.explicit) {
+		return 0, ast.ErrASTDomain
+	}
+	return s.explicit[v], nil
+}
 func SMTJustificationMaxLevel(expander *SMTAntecedentExpander, justification SMTJustification, levels []uint32) (uint32, error) {
+	return smtJustificationMaxLevel(expander, justification, smtAssignmentLevels{explicit: levels})
+}
+
+func smtJustificationMaxLevel(expander *SMTAntecedentExpander, justification SMTJustification, levels smtAssignmentLevels) (uint32, error) {
 	if expander == nil || justification == nil {
 		return 0, ast.ErrASTHandle
 	}
@@ -22,7 +38,7 @@ func SMTJustificationMaxLevel(expander *SMTAntecedentExpander, justification SMT
 	}
 	var maximum uint32
 	for _, literal := range antecedents {
-		level, err := smtLiteralAssignmentLevel(literal, levels)
+		level, err := levels.level(literal)
 		if err != nil {
 			return 0, err
 		}
@@ -34,16 +50,20 @@ func SMTJustificationMaxLevel(expander *SMTAntecedentExpander, justification SMT
 }
 
 func SMTBooleanJustificationMaxLevel(expander *SMTAntecedentExpander, consequent SMTLiteral, justification SMTBooleanJustification, levels []uint32) (uint32, error) {
+	return smtBooleanJustificationMaxLevel(expander, consequent, justification, smtAssignmentLevels{explicit: levels})
+}
+
+func smtBooleanJustificationMaxLevel(expander *SMTAntecedentExpander, consequent SMTLiteral, justification SMTBooleanJustification, levels smtAssignmentLevels) (uint32, error) {
 	var maximum uint32
 	if consequent != SMTFalseLiteral {
-		level, err := smtLiteralAssignmentLevel(consequent, levels)
+		level, err := levels.level(consequent)
 		if err != nil {
 			return 0, err
 		}
 		maximum = level
 	}
 	update := func(literal SMTLiteral) error {
-		level, err := smtLiteralAssignmentLevel(literal, levels)
+		level, err := levels.level(literal)
 		if err != nil {
 			return err
 		}
@@ -77,7 +97,7 @@ func SMTBooleanJustificationMaxLevel(expander *SMTAntecedentExpander, consequent
 			}
 		}
 		if j := clause.Justification(); j != nil {
-			level, err := SMTJustificationMaxLevel(expander, j, levels)
+			level, err := smtJustificationMaxLevel(expander, j, levels)
 			if err != nil {
 				return 0, err
 			}
@@ -99,7 +119,7 @@ func SMTBooleanJustificationMaxLevel(expander *SMTAntecedentExpander, consequent
 		if !ok || object == nil {
 			return 0, ast.ErrASTDomain
 		}
-		level, err := SMTJustificationMaxLevel(expander, object, levels)
+		level, err := smtJustificationMaxLevel(expander, object, levels)
 		if err != nil {
 			return 0, err
 		}

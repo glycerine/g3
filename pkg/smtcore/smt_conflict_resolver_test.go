@@ -256,7 +256,7 @@ func TestSMTConflictResolverMinimizesImpliedLemmaLiteral(t *testing.T) {
 	t.Cleanup(func() { astTestMust(t, resolver.Close()) })
 	marks := make([]bool, len(state.booleanData))
 	marks[av], marks[cv] = true, true
-	lemma, err := resolver.minimizeLemma([]SMTLiteral{lb.Negated(), la.Negated(), lc.Negated()}, marks, resolver.levels(), 0)
+	lemma, err := resolver.minimizeLemma([]SMTLiteral{lb.Negated(), la.Negated(), lc.Negated()}, marks, 0)
 	astTestMust(t, err)
 	if len(lemma) != 2 || lemma[0] != lb.Negated() || lemma[1] != la.Negated() || state.Statistics().NumMinimizedLits != 1 {
 		t.Fatal("minimized lemma", lemma, state.Statistics())

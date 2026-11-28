@@ -27,7 +27,6 @@ type SMTConflictResolver struct {
 	expander   *SMTAntecedentExpander
 	lemmaProof ast.ASTRef
 	marks      []bool // reused across conflicts, as the source's context-owned marks
-	levelsBuf  []uint32
 	temporary  []int32
 	stack      []int32
 	lemmaBuf   []SMTLiteral // m_lemma storage, reused across conflicts
@@ -60,14 +59,15 @@ func (r *SMTConflictResolver) resetMarks() []bool {
 	return r.marks
 }
 
-func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, levels []uint32, baseLevel uint32) ([]SMTLiteral, error) {
+func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, baseLevel uint32) ([]SMTLiteral, error) {
+	levels := r.state.booleanData
 	// get_lemma_approx_level_set: level_approx_set is approx_set_tpl<unsigned,
 	// u2u, unsigned>, a 32-bit mask indexed by level & 31, so a level aliases
 	// every level congruent to it modulo 32 (smt_conflict_resolution.h,
 	// util/approx_set.h).
 	var levelSet uint32
 	for _, literal := range lemma {
-		levelSet |= 1 << (levels[literal.Var()] & 31)
+		levelSet |= 1 << (levels[literal.Var()].ScopeLevel() & 31)
 	}
 	temporary := r.temporary[:0]
 	defer func() { r.temporary = temporary[:0] }()
@@ -78,7 +78,7 @@ func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, le
 		defer func() { r.stack = stack }()
 		processAntecedent := func(antecedent SMTLiteral) bool {
 			variable := antecedent.Var()
-			level := levels[variable]
+			level := levels[variable].ScopeLevel()
 			if marks[variable] || level <= baseLevel {
 				return true
 			}
@@ -144,7 +144,7 @@ func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, le
 					return fail()
 				}
 			case SMTBooleanJustificationAxiom:
-				if levels[variable] > baseLevel {
+				if levels[variable].ScopeLevel() > baseLevel {
 					return fail()
 				}
 			case SMTBooleanJustificationObject:
@@ -326,8 +326,8 @@ func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLit
 	if notLiteral != SMTNullLiteral {
 		consequent = notLiteral.Negated()
 	}
-	levels := r.levels()
-	conflictLevel, err := SMTBooleanJustificationMaxLevel(r.expander, consequent, conflict, levels)
+	levels := r.state.booleanData
+	conflictLevel, err := smtBooleanJustificationMaxLevel(r.expander, consequent, conflict, smtAssignmentLevels{variables: levels})
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLit
 		return nil, ast.ErrASTDomain
 	}
 	idx := len(r.state.assignedLiterals) - 1
-	for idx >= 0 && levels[r.state.assignedLiterals[idx].Var()] > conflictLevel {
+	for idx >= 0 && levels[r.state.assignedLiterals[idx].Var()].ScopeLevel() > conflictLevel {
 		idx--
 	}
 	if notLiteral != SMTNullLiteral {
@@ -360,7 +360,7 @@ func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLit
 		}
 		for idx >= 0 {
 			literal := r.state.assignedLiterals[idx]
-			if levels[literal.Var()] < searchLevel {
+			if levels[literal.Var()].ScopeLevel() < searchLevel {
 				return core, nil
 			}
 			if seen[literal.Var()] {
@@ -372,24 +372,12 @@ func (r *SMTConflictResolver) UnsatCore(conflict SMTBooleanJustification, notLit
 			return core, nil
 		}
 		consequent = r.state.assignedLiterals[idx]
-		if levels[consequent.Var()] != searchLevel {
+		if levels[consequent.Var()].ScopeLevel() != searchLevel {
 			return nil, ast.ErrASTDomain
 		}
 		reason = r.state.booleanData[consequent.Var()].Justification()
 		idx--
 	}
-}
-
-func (r *SMTConflictResolver) levels() []uint32 {
-	if cap(r.levelsBuf) < len(r.state.booleanData) {
-		r.levelsBuf = make([]uint32, len(r.state.booleanData), len(r.state.booleanData)*3/2)
-	}
-	levels := r.levelsBuf[:len(r.state.booleanData)]
-	r.levelsBuf = levels
-	for variable := int32(SMTFirstBoolVar); int(variable) < len(levels); variable++ {
-		levels[variable] = r.state.booleanData[variable].ScopeLevel()
-	}
-	return levels
 }
 
 func (r *SMTConflictResolver) Resolve(conflict SMTBooleanJustification, notLiteral SMTLiteral, baseLevel uint32) (SMTConflictResolution, error) {
@@ -412,8 +400,8 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	if notLiteral != SMTNullLiteral {
 		consequent = notLiteral.Negated()
 	}
-	levels := r.levels()
-	conflictLevel, err := SMTBooleanJustificationMaxLevel(r.expander, consequent, conflict, levels)
+	levels := r.state.booleanData
+	conflictLevel, err := smtBooleanJustificationMaxLevel(r.expander, consequent, conflict, smtAssignmentLevels{variables: levels})
 	if err != nil {
 		return SMTConflictResolution{}, fmt.Errorf("conflict maximum level (%s, literal %d): %w", conflict.Kind(), notLiteral, err)
 	}
@@ -462,7 +450,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		if variable < SMTFirstBoolVar || int(variable) >= len(marks) {
 			return ast.ErrASTDomain
 		}
-		level := levels[variable]
+		level := levels[variable].ScopeLevel()
 		st.traceConflict("process_antecedent", 314, func() string {
 			return fmt.Sprintf("processing antecedent (level %d):", level) + st.traceLiteralCompact(literal) + " " + st.traceLiteralVerbose(literal) + "\n"
 		})
@@ -490,7 +478,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			if !ok || clause == nil {
 				return ast.ErrASTDomain
 			}
-			st.traceConflict("resolve", 507, func() string { return st.traceClauseDetail(clause, levels) })
+			st.traceConflict("resolve", 507, func() string { return st.traceClauseDetail(clause) })
 			if clause.IsLemma() {
 				if err := clause.IncrementActivity(); err != nil {
 					return err
@@ -563,7 +551,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	}
 	// skip_literals_above_conflict_level
 	index := len(r.state.assignedLiterals) - 1
-	for index >= 0 && levels[r.state.assignedLiterals[index].Var()] > conflictLevel {
+	for index >= 0 && levels[r.state.assignedLiterals[index].Var()].ScopeLevel() > conflictLevel {
 		index--
 	}
 	for {
@@ -571,7 +559,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		st.traceConflict("resolve", 499, func() string {
 			return fmt.Sprintf("processing consequent id: %d lit: %s ", index, traceLiteral(consequent)) +
 				st.traceLiteralCompact(consequent) + st.traceLiteralVerbose(consequent) + "\n" +
-				fmt.Sprintf("num_marks: %d, js kind: %s level: %d\n", numMarks, traceBJustificationKind(conflict.Kind()), levels[consequent.Var()])
+				fmt.Sprintf("num_marks: %d, js kind: %s level: %d\n", numMarks, traceBJustificationKind(conflict.Kind()), levels[consequent.Var()].ScopeLevel())
 		})
 		if err = process(consequent, conflict); err != nil {
 			return SMTConflictResolution{}, fmt.Errorf("resolve consequent %d (%s): %w", consequent, conflict.Kind(), err)
@@ -600,7 +588,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		return SMTConflictResolution{}, err
 	}
 	st.traceConflict("finalize_resolve", 432, func() string { return "before minimization:\n" + st.traceLiteralsCompact(lemma) + "\n" })
-	lemma, err = r.minimizeLemma(lemma, marks, levels, userBaseLevel)
+	lemma, err = r.minimizeLemma(lemma, marks, userBaseLevel)
 	if err != nil {
 		return SMTConflictResolution{}, err
 	}
@@ -611,8 +599,8 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	for _, literal := range lemma[1:] {
 		variable := literal.Var()
 		marks[variable] = false
-		if levels[variable] > result.NewScopeLevel {
-			result.NewScopeLevel = levels[variable]
+		if levels[variable].ScopeLevel() > result.NewScopeLevel {
+			result.NewScopeLevel = levels[variable].ScopeLevel()
 		}
 		if level := r.state.booleanData[variable].InternalLevel(); level > result.InternalScopeLevel {
 			result.InternalScopeLevel = level

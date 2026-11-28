@@ -9808,3 +9808,30 @@ A fresh set of three complete, alternating g3/native runs per input used the sam
 | POPL18 Ticket | 310.96 / 144.40 | 929.08 / 599.77 | 329.31 |
 
 The largest measured group is ordinary checking on automatic Ticket. Its three largest paired check gaps are 88.27M at batch 12 goal 8, 64.27M at 14/8, and 53.87M at 16/1. Together these explain 27.5% of the net check gap. ARM 6/5 and 6/6 are a second concentrated target with 227.63M instructions between them. For the next experiment, measure the first solver decision or quantifier instantiation that contributes to the eventual conflict on these checks, and how much search each engine performs before that event. Earlier measurements already price the small finite proofs and show the cost of discovering them online. A cheaper way to reach an existing conflict through the ordinary search could benefit both workloads without paying for a second solver.
+
+## November 27 — Conflict-level reads and the cost of a Ticket decision across sibling checks
+
+The resolver copied the assignment level of **every live Boolean variable** before analyzing each conflict. Z3 reads the levels of the variables it encounters from their Boolean records. g3 now does the same during conflict resolution and unsat-core extraction. The public maximum-level queries still accept explicit level arrays. This removes a solver-local backing array and a full pass over unrelated variables. The benchmark resolves the same two-literal base conflict with increasing numbers of unrelated internalized variables.
+
+| Boolean variables | Before, median ns/op | Direct level reads, median ns/op |
+|---:|---:|---:|
+| 64 | 133.5 | 57.54 |
+| 1,024 | 1,456 | 56.84 |
+| 8,192 | 8,461 | 56.91 |
+
+Five samples per binary, 30,000 resolutions per sample, zero allocations per operation after rounding. [Retained benchmark](smtcore/smt_conflict_levels_benchmark_test.go)
+
+| Complete verification, ordinary check calls | Conflicts | Variable records previously scanned | Resolver instructions before / after |
+|---|---:|---:|---:|
+| ARM rules3 | 1,269 | 1,004,193 | 34.32M / 20.56M |
+| Automatic Ticket | 479 | 130,483 | 4.92M / 3.13M |
+| Hybrid | 860 | 185,352 | 6.28M / 3.70M |
+| POPL18 Ticket | 353 | 85,481 | 4.40M / 3.24M |
+
+These are median sums over three pinned complete runs per build with GC disabled. The matched conflict counts and live variable counts were identical. The windows cover the call to the resolver, excluding backtracking and installation of the learned clause. The twelve-case normal-GC whole-verifier screen of the initial implementation showed mixed effects (−1.75% to +1.62%). The case for the change is the measured removal of work as solver size grows. The final release matched all 228 reference transcripts plus ordinary Raft and both long Apple isolates. The smtcore and API tests, focused checked/debug/trace conflict tests and smtcore vet passed.
+
+**Search ordering.** On ARM 6/5 and 6/6, the complete streams matched by event kind, signed decision variable ID, emitted quantifier generation, and learned literal set with its levels. At 6/6, all 734 signed decision expressions, 646 normalized instance shapes and 147 learned clauses also matched. On 6/5, all 720 normalized instances matched, but some identically numbered decisions denoted different terms. Automatic Ticket diverged at decisions 10, 111 and 58 on 12/8, 14/8 and 16/1. These comparisons normalize fresh numeric suffixes by first appearance and canonicalize equality operand order. They locate divergence without establishing which lemmas are ancestors of the final contradiction.
+
+**Causal experiment.** Selecting the first differing native variable once on 12/8 reduced that check from 175.25M to 119.33M instructions. Its sibling 12/16 then cost 58.42M extra. The total across all ordinary checks fell only 4.24M. Selecting the native variable on 14/8 had little effect, while the substitution on 16/1 cost another 10.85M. All selected variables were eligible and received their normal solver phase. These diagnostic substitutions use goal ordinals and were excluded from production.
+
+A separate five-round replay on the direct-level build retained the 12/8 choice and restored only the solver's 32-bit random generator state at the start of 12/16. The latter check dropped from 139.04M to 110.04M; the unmodified search took 80.73M. Replacing the seed in the opposite direction increased 12/16 from 80.73M to 102.13M. Restoring the baseline seed for every subsequent check in the batch gave almost the same result as restoring it on 12/16 alone. This isolates one way a local search improvement shifts work into a sibling. About 29M of 12/16's penalty remained after restoring the seed. A useful next comparison is the set of persistent learned clauses, cached phases and variable activities at entry to 12/16. [Events, benchmark drivers and raw measurements](perf/ivy_apple/holdouts/nov27-conflict-levels-and-ticket-search.tar.xz)
