@@ -121,13 +121,44 @@ func (p *BVPolynomialConfiguration) end(i int) error {
 	}
 	return e
 }
-func (p *BVPolynomialConfiguration) boolean(local *uparams.ParamsRef, key string, def bool, dst *bool) error {
-	v, e := p.context.GetBoolFallbackName(local, &key, &p.snapshots[0], def)
+func (p *BVPolynomialConfiguration) boolean(local *uparams.ParamsRef, setting rewriterBoolSetting, dst *bool) error {
+	v, e := p.context.GetBoolFallbackName(local, &setting.name, &p.snapshots[0], setting.defaultValue)
 	if e == nil {
 		*dst = v
 	}
 	return e
 }
+func (p *BVPolynomialConfiguration) readPolynomialOptions(local *uparams.ParamsRef) error {
+	var options uparams.ScalarParams
+	if p.context.ReadScalarParams(&options, local, &p.snapshots[0]) {
+		p.state.Flat = settingFlat.read(&options)
+		p.state.SumOfMonomials = settingSumOfMonomials.read(&options)
+		p.state.HoistMultiplication = settingHoistMultiplication.read(&options)
+		p.state.HoistCoefficients = settingHoistCoefficients.read(&options)
+		p.state.MonomialLimit = settingSumOfMonomialsBlowup.read(&options)
+		return nil
+	}
+	if err := p.boolean(local, settingFlat, &p.state.Flat); err != nil {
+		return err
+	}
+	if err := p.boolean(local, settingSumOfMonomials, &p.state.SumOfMonomials); err != nil {
+		return err
+	}
+	if err := p.boolean(local, settingHoistMultiplication, &p.state.HoistMultiplication); err != nil {
+		return err
+	}
+	if err := p.boolean(local, settingHoistCoefficients, &p.state.HoistCoefficients); err != nil {
+		return err
+	}
+	limit := settingSumOfMonomialsBlowup
+	v, e := p.context.GetUIntFallbackName(local, &limit.name, &p.snapshots[0], limit.defaultValue)
+	if e != nil {
+		return e
+	}
+	p.state.MonomialLimit = v
+	return nil
+}
+
 func (p *BVPolynomialConfiguration) Update(local *uparams.ParamsRef) (err error) {
 	if e := p.open(); e != nil {
 		return e
@@ -145,24 +176,9 @@ func (p *BVPolynomialConfiguration) Update(local *uparams.ParamsRef) (err error)
 		return err
 	}
 	p.placed[0] = true
-	if err = p.boolean(local, "flat", true, &p.state.Flat); err != nil {
+	if err = p.readPolynomialOptions(local); err != nil {
 		return err
 	}
-	if err = p.boolean(local, "som", false, &p.state.SumOfMonomials); err != nil {
-		return err
-	}
-	if err = p.boolean(local, "hoist_mul", false, &p.state.HoistMultiplication); err != nil {
-		return err
-	}
-	if err = p.boolean(local, "hoist_cmul", false, &p.state.HoistCoefficients); err != nil {
-		return err
-	}
-	key := "som_blowup"
-	v, e := p.context.GetUIntFallbackName(local, &key, &p.snapshots[0], ^uint32(0))
-	if e != nil {
-		return e
-	}
-	p.state.MonomialLimit = v
 	if !p.state.Flat {
 		p.state.SumOfMonomials = false
 	}
@@ -174,7 +190,7 @@ func (p *BVPolynomialConfiguration) Update(local *uparams.ParamsRef) (err error)
 		return err
 	}
 	p.placed[1] = true
-	key = "arith_ineq_lhs"
+	key := "arith_ineq_lhs"
 	lhs, e := p.context.GetBoolFallbackName(local, &key, &p.snapshots[1], false)
 	if e != nil {
 		return e

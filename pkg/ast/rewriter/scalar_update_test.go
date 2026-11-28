@@ -35,19 +35,26 @@ func TestSmallAndLargeRewriterOptionListsAgree(t *testing.T) {
 			default:
 				paramsMust(t, c.SetBoolName(&local, &key, true))
 			}
-			read := func() (ArithRewriter, theoryRewriterConfiguration) {
+			read := func() (ArithRewriter, theoryRewriterConfiguration, BVPolynomialConfigurationState) {
 				var arithmetic ArithRewriter
 				paramsMust(t, arithmetic.updateParams(c, globals, &local))
 				theory := TheoryRewriter{context: c, globals: globals, local: &local}
 				paramsMust(t, theory.readLocalParams())
-				return arithmetic, theory.configuration
+				legacy, err := globals.Manager()
+				paramsMust(t, err)
+				poly, err := NewBVPolynomialConfiguration(c, legacy, &local)
+				paramsMust(t, err)
+				state, err := poly.State()
+				paramsMust(t, err)
+				paramsMust(t, poly.Close())
+				return arithmetic, theory.configuration, state
 			}
 			empty := c.EmptyValue()
 			var values uparams.ScalarParams
 			if !c.ReadScalarParams(&values, &local, &empty) {
 				t.Fatal("expected a small parameter list")
 			}
-			smallArith, smallTheory := read()
+			smallArith, smallTheory, smallPoly := read()
 			for i := 0; i < 13; i++ {
 				extra := fmt.Sprintf("unused_option_%d", i)
 				paramsMust(t, c.SetBoolName(&local, &extra, true))
@@ -55,8 +62,8 @@ func TestSmallAndLargeRewriterOptionListsAgree(t *testing.T) {
 			if c.ReadScalarParams(&values, &local, &empty) {
 				t.Fatal("expected the full parameter lookup")
 			}
-			largeArith, largeTheory := read()
-			if smallArith != largeArith || !reflect.DeepEqual(smallTheory, largeTheory) {
+			largeArith, largeTheory, largePoly := read()
+			if smallPoly != largePoly || smallArith != largeArith || !reflect.DeepEqual(smallTheory, largeTheory) {
 				t.Fatalf("option %q changed configuration across list sizes", key)
 			}
 		})

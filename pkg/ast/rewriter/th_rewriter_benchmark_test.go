@@ -85,3 +85,28 @@ func BenchmarkTheoryReduction(b *testing.B) {
 		}
 	}
 }
+
+// Changed formulas in macro expansion each construct and close a theory rewriter.
+func BenchmarkTheoryRewriterConstruction(b *testing.B) {
+	for _, name := range []string{"Defaults", "LocalAndGlobal"} {
+		b.Run(name, func(b *testing.B) {
+			m, context, globals, local := boolRewriterConfigFixture(b)
+			if name == "LocalAndGlobal" {
+				astTestMust(b, globals.SourceSetName("rewriter.som", "true"))
+				key := "som_blowup"
+				astTestMust(b, context.SetUIntName(local, &key, 17))
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				r, err := NewTheoryRewriter(m, context, globals, local)
+				if err != nil {
+					b.Fatal(err)
+				}
+				if err := r.Close(); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
