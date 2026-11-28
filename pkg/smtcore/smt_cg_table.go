@@ -238,10 +238,38 @@ func (t *SMTCongruenceTable) ContainsPointer(node *SMTEnode) (bool, error) {
 	return found == node, err
 }
 
+// Merge and undo usually remove the stored parent itself. Another table may
+// have updated its slot hint, or a merge may have changed its argument roots.
+func (t *SMTCongruenceTable) eraseParent(parent *SMTEnode) (bool, error) {
+	if err := t.validateNode(parent); err != nil {
+		return false, err
+	}
+	arity := len(parent.arguments)
+	if arity <= 2 && (!parent.commutative || arity == 2) && uint(parent.functionDeclID) < uint(len(t.buckets)) {
+		bucket := t.buckets[parent.functionDeclID]
+		slot := parent.congruenceSlot
+		if bucket.declaration == parent.declaration && uint(slot) < uint(len(bucket.small.entries)) {
+			entry := &bucket.small.entries[slot]
+			if entry.node == parent {
+				key := smtCongruenceSmallKey(parent)
+				if entry.k0 == key[0] && entry.k1 == key[1] {
+					bucket.small.deleteSlot(int(slot))
+					return true, nil
+				}
+			}
+		}
+	}
+	return t.eraseValidated(parent)
+}
+
 func (t *SMTCongruenceTable) Erase(node *SMTEnode) (bool, error) {
 	if err := t.validateNode(node); err != nil {
 		return false, err
 	}
+	return t.eraseValidated(node)
+}
+
+func (t *SMTCongruenceTable) eraseValidated(node *SMTEnode) (bool, error) {
 	bucket, err := t.ensureTable(node)
 	if err != nil {
 		return false, err

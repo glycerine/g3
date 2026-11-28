@@ -53,11 +53,13 @@ func (t *smtCgSmallTable) set(k0, k1, node *SMTEnode) {
 		e := &t.entries[i]
 		if e.node == nil {
 			*e = smtCgSmallEntry{k0, k1, node}
+			node.congruenceSlot = uint32(i)
 			t.count++
 			return
 		}
 		if e.k0 == k0 && e.k1 == k1 {
 			e.node = node
+			node.congruenceSlot = uint32(i)
 			return
 		}
 	}
@@ -126,6 +128,7 @@ func (t *smtCgSmallTable) deleteSlot(i int) {
 		// (i, j].
 		if (j-home)&mask >= (j-i)&mask {
 			t.entries[i] = *e
+			e.node.congruenceSlot = uint32(i)
 			i = j
 		}
 	}

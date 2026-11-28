@@ -40,6 +40,7 @@ type SMTEnode struct {
 	labels, propagatedLabels              approx.UintSet
 	classSize, generation, functionDeclID uint32
 	internalScopeLevel                    uint32
+	congruenceSlot                        uint32 // hint for merge/undo in the short-arity table
 	// The owner keeps its declaration alive for these cached properties.
 	family                                ast.FamilyID
 	declKind                              int32

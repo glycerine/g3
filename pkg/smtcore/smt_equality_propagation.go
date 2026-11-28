@@ -50,7 +50,7 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 			for _, parent := range r2.sourceParents[entry.r2NumSourceParents:] {
 				if parent.congruenceEnabled {
 					s.traceAddEqParents("undo_add_eq", 981, "removing: #", parent)
-					erased, err := s.congruence.Erase(parent)
+					erased, err := s.congruence.eraseParent(parent)
 					if err != nil {
 						return err
 					}
@@ -307,7 +307,7 @@ func (s *SMTInternalizerState) detachCongruenceParents(from *SMTEnode) error {
 			s.traceAddEqParents("remove_parents_from_cg_table", 650, "add_eq removing: #", parent)
 			parent.sourceParentMark = true
 			if parent.congruenceEnabled {
-				if _, err := s.congruence.Erase(parent); err != nil {
+				if _, err := s.congruence.eraseParent(parent); err != nil {
 					return err
 				}
 			}

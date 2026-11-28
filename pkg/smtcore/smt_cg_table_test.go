@@ -365,3 +365,42 @@ func TestSMTCongruenceTableBinaryOperationsDoNotAllocate(t *testing.T) {
 		t.Fatalf("%v allocations per erase/insert/find", allocs)
 	}
 }
+
+func TestSMTCongruenceParentEraseValidatesSlotAndCurrentRoots(t *testing.T) {
+	m := astTestManager(t)
+	sort, err := m.MkSort(symbol.Numerical(2900), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	a, an := smtEnodeConstant(t, m, 2901, sort, 0)
+	b, bn := smtEnodeConstant(t, m, 2902, sort, 0)
+	f := smtCGTestDeclaration(t, m, 2903, sort, ast.ASTFuncFlags{})
+	ab := smtCGTestApplication(t, m, f, []ast.ASTHandle{a, b}, []*SMTEnode{an, bn})
+	ba := smtCGTestApplication(t, m, f, []ast.ASTHandle{b, a}, []*SMTEnode{bn, an})
+	table, err := NewSMTCongruenceTable(m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, table.Close()) }()
+	for _, n := range []*SMTEnode{ab, ba} {
+		_, err = table.Insert(n)
+		astTestMust(t, err)
+	}
+
+	// The entry still points at ab, but its captured roots no longer match.
+	an.root = bn
+	erased, err := table.eraseParent(ab)
+	an.root = an
+	if err != nil || erased {
+		t.Fatalf("erased changed key: %v, %v", erased, err)
+	}
+
+	// A second table may have left a hint for an unrelated occupied slot.
+	ab.congruenceSlot = ba.congruenceSlot
+	if erased, err = table.eraseParent(ab); err != nil || !erased {
+		t.Fatalf("stale slot: %v, %v", erased, err)
+	}
+	if node, _, err := table.Find(ba); err != nil || node != ba {
+		t.Fatalf("lost other representative: %p, %v", node, err)
+	}
+	if erased, err = table.eraseParent(ab); err != nil || erased {
+		t.Fatalf("double erase: %v, %v", erased, err)
+	}
+	astTestMust(t, table.CheckInvariant())
+}
