@@ -10256,3 +10256,43 @@ Three alternating runs of five complete incremental verifiers measured the same 
 | Automatic Ticket | −477 | +200 | −104 | +915 | +848 |
 
 On Hybrid, charging just the first push to preprocessing overstates the net preparation deficit by about 649M. On nested Ticket, base assertion absorbs nearly the entire difference once early attempts are counted as well. Concrete checks are the larger opportunity on four of these workloads. For ARM, batch 6 checks 4, 5 and 6 together account for 349M excess instructions. Automatic Ticket's checks 12/8, 16/1, 14/8 and 13/8 account for another 349M together. Compare repeated work across those checks before spending more time on TLB gate construction. All 30 measured runs matched saved native outputs and status. [Stage boundaries, per-goal counters and aggregation](perf/ivy_apple/holdouts/nov27-matched-watch-installation.tar.xz)
+
+## ARM and automatic Ticket across seven expensive checks
+
+All seven checks ran after their real incremental history. Three rotations measured retired user instructions on the solver thread, with GC disabled for the phase comparison. One run measured the whole check and another enabled counters around candidate satisfaction, substitution, rewriting, and installation. Subtracting those four intervals leaves the “outside” estimate. The numbers below are millions of instructions, g3 / linked Z3. Candidate and installation counts are event counts. The previous ordinary-GC stage study and this GC-disabled experiment measure different costs.
+
+| Check | Whole | Outside the four operations | Candidates | Installations |
+| --- | ---: | ---: | ---: | ---: |
+| ARM 6/4 | 103.09 / 39.36 | 87.61 / 33.30 | 1,127 / 1,127 | 284 / 284 |
+| ARM 6/5 | 190.33 / 77.08 | 144.92 / 59.70 | 2,704 / 2,704 | 720 / 720 |
+| ARM 6/6 | 175.65 / 67.05 | 129.99 / 50.53 | 2,201 / 2,201 | 646 / 646 |
+| Ticket 12/8 | 176.92 / 93.08 | 76.59 / 43.34 | 7,821 / 8,454 | 1,983 / 2,490 |
+| Ticket 13/8 | 88.42 / 40.43 | 40.50 / 19.73 | 3,618 / 3,978 | 861 / 861 |
+| Ticket 14/8 | 101.25 / 38.67 | 42.25 / 17.89 | 3,619 / 3,127 | 1,087 / 908 |
+| Ticket 16/1 | 97.75 / 45.69 | 38.70 / 23.85 | 2,330 / 2,158 | 958 / 942 |
+
+Identical aggregate candidate and installation counts on ARM leave 219M of the 286M excess instructions outside the four measured operations. Three hardware sampling profiles per solver and check put ARM equality merging at roughly 58M / 20.5M, conflict resolution at 67M / 34.5M and relevance notification at 20M / 4.5M. Inclusive stack estimates overlap. On Ticket 12/8, g3 installed 507 fewer lemmas and still spent 34.35M / 14.48M rewriting and 34.49M / 12.84M installing. Faster routine work can help even where native executes more instances.
+
+Reusing a declaration ID during matcher notification and sharing the validated expression header between relevance consumers saved 6.9M instructions across the three ARM checks and 2.4M across the four Ticket checks. Five alternating pairs with ordinary GC gave median paired reductions of 1.21% on complete ARM and 0.59% on automatic Ticket. Neither Apple isolate moved by 0.1% in three paired runs. The release at `b79866e51` matched all 230 native transcripts and exit statuses.
+
+An exact-key home-slot shortcut for congruence erasure saved 6.3M instructions on the selected ARM checks. The miss microbenchmark took 9.9% more instructions and the commuted erasure took 2.8% more. A variant that waited for the normal probe to find the ordered slot saved less on ARM. Both remain experiments. A future fast path could be restricted to caller sites that already know the representative.
+
+The heap profiles identify different pressures on the two workloads. ARM allocated 646,848 bytes for 3,369 CHECK instructions alone. On Ticket the two largest solver allocation sites were enodes (1.40 MB) and fingerprints (1.22 MB). The allocation snapshots used `memprofilerate=1` and forced collections outside the target check. Separate runs used ordinary GC and `runtime.ReadMemStats` immediately outside the measured interval. Allocation profiles serve to identify sites, while the latter runs measure the change in total bytes.
+
+### Compact matcher instructions
+
+The C++ matcher uses opcode-specific instruction structs. The Go interpreter previously allocated a single 192-byte record even for CHECK, which needs a register and an enode. Splitting application and yield operands from the common record reduces CHECK and INIT to 80 allocated bytes each on amd64. The extended records own their operands in the same allocation. No shared mutable allocator or unsafe conversion is needed.
+
+Six rotating rounds with ordinary GC reduced total allocation across the three ARM checks from 6,792,400 to 5,990,424 bytes (11.8%). Automatic Ticket changed from 10,984,720 to 10,946,832 bytes (0.34%). With GC off, the ARM checks used 455.95M / 455.10M instructions before / after and Ticket used 445.28M / 445.59M. In five alternating pairs on six complete verifiers, the median paired instruction changes ranged from −0.29% to +0.16%. All 230 native references matched. Keep the split for its measured memory saving. Storing up to three binding indexes inline reduced allocation counts on ARM but allocated more bytes than the simpler split on both workloads.
+
+### A 48-byte allocation for each recursively internalized formula child
+
+The production PGO profile inlined `Internalize` into the formula child loop. Escape analysis reported that the validated AST header moved to the heap at that call site. A build without the profile missed the escape. Passing the header by value into `internalizeFormulaCoreOp` preserves the arena and the normal inlining decisions. The PGO benchmark rebuilds a scoped OR over already internalized children. At width 2 it went from 496 to 400 B/op and from 11 to 9 allocations. At width 32 it went from 5,512 to 3,976 B/op and from 102 to 70 allocations. The 32-child median fell from 13.84 to 12.53 µs over six alternating pairs.
+
+The isolated change recovered about 7,348 allocations across the ARM checks and 13,392 across the Ticket checks, saving 353 KB and 643 KB. Independently disabling inlining on the entire entry point recovered the same bytes. With GC disabled the value change saved 1.01M ARM and 1.48M Ticket instructions across the selected checks. Applied after the compact matcher, it reduced median paired instructions on all six complete verifiers by 0.11–0.39%. All 230 native references matched. Comparing both changes together with the notification release, dramc_nb2 instructions changed by +0.10% in three pairs. The first three rfn2 pairs showed +0.26% instructions and +8.8% elapsed, with substantial run-to-run timing variation. Nine further rfn2 pairs gave −0.10% instructions and +0.57% elapsed. These runs establish an allocation saving. They give no evidence of an Apple elapsed-time win.
+
+### Where the conflict-resolution samples went
+
+Separating the immediate callees of the conflict resolver puts 50.0M / 27.5M sampled ARM instructions in scope pop, and 39.5M / 11.0M on automatic Ticket. Scope pop accounts for most of the sampled resolver gap on each. On Ticket, 29 g3 samples (about 14.5M instructions) reached the relevance propagator directly from the inner pop routine. Congruence erase and insert together accounted for seven such samples. ARM showed the opposite weighting with 37 congruence erase/insert samples and 18 relevance pop samples. Sample counts are coarse, and compiler inlining affects frame boundaries. The earlier counts already matched the number of conflict resolutions on ARM 6/5 and 6/6. The next experiment should time the separate unmark, AST-reference release and watch-unlink phases on Ticket during backjump, alongside the corresponding native pop. [Earlier matched operations](#november-27--search-volume-and-cost-per-merge-in-live-arm)
+
+[Study drivers, compiler observations, raw profiles, complete timings and verifier comparisons](perf/ivy_apple/holdouts/nov27-arm-ticket-check-costs.tar.xz)
