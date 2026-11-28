@@ -10136,3 +10136,41 @@ Each cell is a two-run median on the whole input with the intervention restricte
 The released solver emits **14.5% more lemmas**, but each installation averages **14,843 instructions versus 3,961**. Matching the native average at g3's existing call count would recover **157.1M instructions** from installation alone. Rewrite averages 9,529 versus 3,073 instructions per call. Combined, the four measured phases explain about **365M** of the approximately **511M** remaining check gap. Substitution changed relatively little when search improved because nearly all the eliminated substitutions had already been cheap tuple-cache hits. The production run still needed 5,473 cache misses versus 5,077 in native. Different terms and clause widths can affect these averages.
 
 The archived drivers, binding-swap logs, corpus transcript checks, release comparisons and per-operation hardware counts reproduce these measurements. The separate three-engine elapsed-time trial and call-stack sampling trial produced no usable observations. The installation totals above identify the next operation to investigate. [Benchmark sources and raw results](perf/ivy_apple/holdouts/nov27-tlb-model-bindings.tar.xz)
+
+## November 27 — What does installing a quantified lemma cost on TLB 60/1?
+
+Every lemma reaching this path on the selected check is a disjunction. At the start of **12,197 of 14,437** installations in g3, every operand already had a Boolean binding. Linked Z3 had **10,668 of 12,605** such installations. This group cost 117.32M instructions in g3 and 27.78M in Z3. The remaining 2,240 and 1,937 installations cost 97.11M and 22.15M respectively. These are medians from two reverse-order pairs of complete verifier runs on the parent revision bf4a3f032. The signed-literal test strips one outer NOT. Scope, width and binding observations occur outside the measured operations.
+
+| Operation, millions of solver-thread instructions | All bound, g3 | All bound, Z3 | At least one missing, g3 | At least one missing, Z3 |
+| --- | ---: | ---: | ---: | ---: |
+| Internalize operands and collect their literals | 13.05 | 7.07 | 71.01 | 16.77 |
+| Simplify and insert the root clause | 27.45 | 8.37 | 5.15 | 1.46 |
+| Install OR relevance watches | 30.40 | 7.94 | 6.41 | 1.81 |
+| Mark the root and propagate relevance | 40.30 | 5.80 | 13.16 | 2.36 |
+
+Both engines usually simplify the all-bound disjunction to a binary clause. Of 12,197 such installations, g3 stored 11,780 ordinary auxiliary clauses of length two. Native stored 10,338 out of 10,668. Another 300 and 242 respectively added no ordinary auxiliary clause record. Watch-only and unit effects are outside that directory observation.
+
+Search order differs, so a second comparison matched cells by original disjunction width, number of missing bindings and exact solver scope level within the check. It then applied native's mean cost in each cell to the g3 call count in that cell. The shared cells cover 7,873 all-bound and 1,373 partly unbound g3 installations. On the all-bound subset, marking and propagating relevance accounts for 21.16M excess instructions, installing watches 13.73M, inserting the clause 11.70M and collecting literals 3.28M. On the partly unbound subset, operand processing alone accounts for 31.59M. Different terms and assignments can appear at the same solver scope level. Both engines matched the reference transcript and exit code in each run.
+
+**Reuse the existing OR watch on its first visit.** g3 already resolves each child's sign and expression-table slot while setting up the watch. It previously walked the parent AST again to recover those same operands as soon as the relevance queue reached the parent. The queue now passes the freshly built record to that particular visit. It still scans in source order, reads current assignments and invokes the same handlers. Two focused tests exercise an initial negative witness with an explicit operand assignment and a previously queued parent whose mark is cleared. The latter test exposed a difference between delivering a watch and draining the queue during prototyping.
+
+A separate prototype reused the child's signed literal just for registering the watch. In five normal-GC pairs it changed complete TLB instructions by +0.07% and nested Ticket by +0.70%, despite savings on four other inputs. That prototype remains in the benchmark archive.
+
+Commit `9c5709919` reduces total installation from **214.47M to 189.73M instructions (−11.54%)** across the same 14,437 lemmas in two reverse-order pairs. That leaves about 139.8M above native. The six complete inputs below each ran for five alternating normal-GC pairs. Whole-process changes are smaller. The complete corpus of 228 inputs and both Apple isolates matched their reference exit codes and both streams.
+
+| Complete input | Change in instructions vs parent | g3 elapsed, ms | Linked Z3 elapsed, ms |
+| --- | ---: | ---: | ---: |
+| TLB | −0.13% | 6,063 | 8,862 |
+| Raft without the additional assumption | −0.97% | 2,144 | 3,403 |
+| POPL18 Ticket | −0.76% | 342 | 242 |
+| ARM | +0.82% | 462 | 345 |
+| Nested Ticket | −0.14% | 351 | 331 |
+| Automatic Ticket | −0.24% | 430 | 312 |
+
+Instruction changes are medians of within-pair changes. Elapsed columns are per-engine medians from a separate five-round comparison on the same inputs and frontend. In the direct parent comparison, elapsed medians ranged from +0.12% on nested Ticket to +6.38% on Raft. These trials establish a reduction in work on the targeted path. They do not establish an end-to-end elapsed improvement over the parent.
+
+**Which fresh operands cost the most?** Timing each previously unbound operand from internalization through literal lookup identified three groups. Positive equalities cost about 33.7M instructions in g3 versus 8.38M in linked Z3 (1,260 versus 1,101 operands). Negated disjunctions cost 19.2M versus 3.99M (731 versus 518), and negated conditionals 10.1M versus 2.18M (258 versus 199). Together they account for about 48.4M excess instructions. The initial spelling of the operand matters here. A negated equality cost far less on average than a positive equality. These totals include recursive work on its children.
+
+**Time the whole target check.** Six further rotations enabled normal GC and removed all per-lemma measurement hooks. The meter bracketed only check 60/1 in the running verifier. Median instructions and elapsed were **969.86M / 137.95 ms** on the parent, **950.77M / 132.78 ms** after the change, and **387.68M / 58.24 ms** on linked Z3. The median within-rotation change from the parent was −2.22% of instructions and −3.03% elapsed. The complete TLB input favors g3, while this individual check still takes **2.28×** the native elapsed time.
+
+A second gate prototype resolved compound AND/OR literals from their existing child array during gate construction. In five complete pairs it changed instructions by +0.15% on TLB, +0.32% on POPL18 Ticket, +0.39% on automatic Ticket, −0.04% on nested Ticket, −0.52% on ARM and −0.51% on Raft. It remains an experiment. The archive includes both exploratory prototypes, the release benchmark, raw operation counts, matched-scope data, complete transcript checks and all six whole-check rotations. [Benchmark sources and measurements](perf/ivy_apple/holdouts/nov27-quantified-lemma-installation.tar.xz)
