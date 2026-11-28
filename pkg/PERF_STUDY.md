@@ -10225,3 +10225,34 @@ The first different queue candidate was number 3,164. Replaying four bindings fr
 Across starting counters 407–414, the rule changed three histories, saving about 97M instructions at 407 and 37M each at 409 and 411. It left the expensive 413 history alone. All 230 complete reference transcripts matched in the broader eligibility survey. Only TLB changed bindings. With the instantiation-set requirement and ordinary GC, five alternating pairs on complete TLB gave −0.09% median instructions and −0.41% median wall time. Across the other five complete inputs the instruction changes ranged from −0.09% to +0.61%. Keep the rule in the benchmark archive. The evidence for enabling it across solvers is weak.
 
 Holding the installation stream fixed exposes a larger implementation cost. In the first paired hardware-counter round g3 used 169.58M instructions internalizing 12,605 instances versus 55.92M in linked Z3. Rewriting those same instances used 121.95M versus 38.74M. Substitution cache misses numbered 5,077 in both and used 103.40M versus 41.79M. Profile internalization first using the matched stream, particularly the cost of already-bound literals and relevance work. The raw phase rows permit comparisons without attributing search differences to implementation. [Study drivers, raw measurements and replay](perf/ivy_apple/holdouts/nov27-quantified-gate-origins.tar.xz)
+
+### Signed watch registration on an identical quantifier stream
+
+Linked Z3 and g3 performed the same 12,605 TLB installations in the matched witness replay. Two reversed-order pairs gave these median solver-thread instruction counts in millions. The component counters exclude their own logging.
+
+| Installation operation | g3 before | g3 after | Z3 |
+| --- | ---: | ---: | ---: |
+| Internalize operands and collect literals | 68.44 | 68.53 | 23.83 |
+| Simplify and install the root clause | 25.28 | 25.35 | 9.84 |
+| Register relevance watches | 32.29 | 24.17 | 9.74 |
+| Mark the root and propagate relevance | 25.17 | 25.22 | 8.16 |
+
+Commit `e18533cab` uses the signed SAT literal to read the current assignment and register the watch. Nested NOT, reserved constants and already-relevant parents keep the ordinary watch lookup. When an immediate callback detaches the propagator, later watches must observe the new assignment source. Removing the already-relevant guard made the regression panic. The retained change uses the existing trail and handler pool. Seven alternating pairs on the ordinary TLB search measured **869.13M → 859.71M instructions** for check 60/1. The four-literal registration and scope-pop benchmark fell from 379.5 to 303.7 ns with all four children unassigned, and from 280.5 to 215.3 ns with mixed assignments. [Callback regression](smtcore/smt_relevancy_asserted_or_test.go) · [Benchmark](smtcore/smt_root_relevance_benchmark_test.go)
+
+Whole-process instruction changes were +0.01% on TLB, +0.17% on POPL18, +0.10% on ARM, +0.59% on nested Ticket, −1.71% on automatic Ticket and −0.27% on Raft no_assume. Three alternating pairs on complete Apple rfn2 and dramc_nb2 measured +0.61% and +0.13% respectively. These comparisons establish a local reduction in registration work. They do not establish a general end-to-end elapsed speedup. All 230 complete transcripts and exit codes matched native references.
+
+The largest per-installation cost is still collecting operands. Four rotating whole-check experiments on the parent measured 868.95M instructions for baseline, 865.48M when recursion skipped already-bound gate children, 868.35M for reading retained gate arguments, and 864.93M together. The combined saving of 0.46% does little to close the gap. Both prototypes stay in the archive. [Benchmark drivers, raw counters and verification results](perf/ivy_apple/holdouts/nov27-matched-watch-installation.tar.xz)
+
+### How much of the remaining verifier gap is really first push?
+
+Three alternating runs of five complete incremental verifiers measured the same frontend boundaries for both engines with ordinary GC. The combined preparation column includes asserting the base, initializing the verification batch, trying early proofs, and the first concrete push in each batch. It measures those operations together even when early proofs save a native check. Values are g3 minus linked Z3 in millions of solver-thread instructions. The total covers the instrumented stages and excludes the rest of the frontend.
+
+| Complete input | Base assertion | First push | Combined preparation | Concrete checks | All measured stages |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Hybrid | −899 | +715 | +66 | +819 | +988 |
+| POPL18 Ticket | −224 | +225 | +95 | +489 | +804 |
+| ARM | −196 | +196 | +142 | +768 | +929 |
+| Nested Ticket | −396 | +241 | +7 | +27 | +229 |
+| Automatic Ticket | −477 | +200 | −104 | +915 | +848 |
+
+On Hybrid, charging just the first push to preprocessing overstates the net preparation deficit by about 649M. On nested Ticket, base assertion absorbs nearly the entire difference once early attempts are counted as well. Concrete checks are the larger opportunity on four of these workloads. For ARM, batch 6 checks 4, 5 and 6 together account for 349M excess instructions. Automatic Ticket's checks 12/8, 16/1, 14/8 and 13/8 account for another 349M together. Compare repeated work across those checks before spending more time on TLB gate construction. All 30 measured runs matched saved native outputs and status. [Stage boundaries, per-goal counters and aggregation](perf/ivy_apple/holdouts/nov27-matched-watch-installation.tar.xz)
