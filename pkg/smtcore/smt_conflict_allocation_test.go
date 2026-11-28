@@ -197,7 +197,7 @@ func TestMinimizeLemmaApproxLevelSet(t *testing.T) {
 			astTestMust(t, s.AssignLiteral(d, NewSMTBooleanAxiom()))
 		}
 	}
-	marks := resolver.resetMarks()
+	marks := resolver.resizeMarks()
 	for _, l := range []SMTLiteral{a, x} {
 		marks[l.Var()] = true
 	}

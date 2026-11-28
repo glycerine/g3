@@ -48,13 +48,12 @@ func (r *SMTConflictResolver) enodeLiteral(node *SMTEnode) (SMTLiteral, bool) {
 	return literal, true
 }
 
-func (r *SMTConflictResolver) resetMarks() []bool {
+func (r *SMTConflictResolver) resizeMarks() []bool {
 	n := len(r.state.booleanData)
 	if cap(r.marks) < n {
 		r.marks = make([]bool, n, n+n/2)
 	} else {
 		r.marks = r.marks[:n]
-		clear(r.marks)
 	}
 	return r.marks
 }
@@ -421,7 +420,16 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 		return result, nil
 	}
 	st.traceConflict("initialize_resolve", 411, func() string { return fmt.Sprintf("conflict_lvl: %d\n", conflictLevel) })
-	marks := r.resetMarks()
+	marks := r.resizeMarks()
+	// Successful resolution unmarks current-level variables during the UIP
+	// walk and the remaining literals during minimization and finalization.
+	// An interrupted walk can leave marks set when the resolver is reused.
+	defer func() {
+		if resolveErr != nil {
+			clear(marks)
+		}
+	}()
+
 	if err = r.expander.beginSession(); err != nil {
 		return SMTConflictResolution{}, err
 	}

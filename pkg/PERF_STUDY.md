@@ -9835,3 +9835,36 @@ These are median sums over three pinned complete runs per build with GC disabled
 **Causal experiment.** Selecting the first differing native variable once on 12/8 reduced that check from 175.25M to 119.33M instructions. Its sibling 12/16 then cost 58.42M extra. The total across all ordinary checks fell only 4.24M. Selecting the native variable on 14/8 had little effect, while the substitution on 16/1 cost another 10.85M. All selected variables were eligible and received their normal solver phase. These diagnostic substitutions use goal ordinals and were excluded from production.
 
 A separate five-round replay on the direct-level build retained the 12/8 choice and restored only the solver's 32-bit random generator state at the start of 12/16. The latter check dropped from 139.04M to 110.04M; the unmodified search took 80.73M. Replacing the seed in the opposite direction increased 12/16 from 80.73M to 102.13M. Restoring the baseline seed for every subsequent check in the batch gave almost the same result as restoring it on 12/16 alone. This isolates one way a local search improvement shifts work into a sibling. About 29M of 12/16's penalty remained after restoring the seed. A useful next comparison is the set of persistent learned clauses, cached phases and variable activities at entry to 12/16. [Events, benchmark drivers and raw measurements](perf/ivy_apple/holdouts/nov27-conflict-levels-and-ticket-search.tar.xz)
+
+## November 27 — Activity carryover between Ticket checks and sparse conflict marks
+
+**Activity scores and the priority queue explain the remaining Ticket 12/16 penalty.** At entry to 12/16 the two runs had the same 176 Boolean expressions in the same slots and the same 90 variables in the decision heap. After intervening on decision ten at 12/8, 28 scores differed and 83 heap positions had changed. The activity increment was 8.84 versus 16.25 in the baseline. Neither run retained an explicit learned clause at this boundary. All 41 auxiliary clauses had the same literal sets, although 11 had different literal order. Binary watch lists were identical.
+
+Five rotations measured one state substitution at a time. Every row below the baseline made the same 12/8 decision change and restored the baseline random seed at entry to 12/16. All runs matched the reference exit status, stdout and stderr. The solver-thread counters exclude the diagnostic state inspection and substitution window.
+
+| State restored at 12/16 | Check 12/16, M instructions | All ordinary checks, M instructions |
+|---|---:|---:|
+| Baseline, original decision and search history | 80.76 | 1,343.59 |
+| Random seed only | 110.06 | 1,311.82 |
+| Also restore cached phases and the phase counter | 110.07 | 1,311.86 |
+| Also restore clause and watch order | 110.11 | 1,311.76 |
+| Also restore scores and their increment | 82.69 | 1,297.25 |
+| Reinsert the old heap order under the changed scores | 173.72 | 1,373.98 |
+| Restore both scores and heap order | 80.74 | 1,290.17 |
+
+We tested whether a general user-scope policy could turn the diagnostic result into an optimization. The prototype saved state when a scope opened and restored it when the scope closed. Across twelve complete verifications and three rotated pairs against the control, score-and-heap restoration ranged from −1.78% to +1.74% in median instructions. Adding random-state restoration improved POPL18 Ticket by 3.19%, but increased ARM by 27.75% and nested Ticket by 10.49%. All 144 transcripts matched. Keep the existing public-scope behavior. The diagnostic can restore a good counterfactual state for a particular sibling; ordinary push/pop has access only to the parent's actual state.
+
+**Which instances appear in conflict analysis?** A solver-local observer attributed explicit clause records to the quantifier instance installing them and recorded direct visits during first-UIP analysis, minimization and the terminal conflict lookup. On 12/8, 1,393 of 1,983 instances installed explicit records. The resolver directly visited records from 22 instances, including root clauses from 12. The corresponding counts on 14/8 were 794 of 1,087 and 16 contributors; on 16/1 they were 742 of 958 and 21 contributors. These are lower bounds. Propagation, compact binary reasons, units and dependencies carried through earlier learned clauses can all matter to the contradiction. Promoting every future instance of a quantifier as soon as one of its clauses was visited would have flagged 745 instances on 12/8 and covered nine of the 22 directly observed contributors. That signal alone offers little selectivity.
+
+**Result-capture ceiling.** Within the instrumented verifier stages, saving literal results cost 11.56M instructions on Hybrid, 5.84M on ARM, 3.90M on automatic Ticket and 5.60M on POPL18 Ticket. A cheaper assignment-first scan and a diagnostic build omitting unheld snapshots both had mixed whole-process results. Neither entered the release.
+
+**Retained solver change.** On a successful first-UIP resolution, g3 already unmarks each visited current-level variable, each temporary minimization mark and the remaining lemma variables. It now clears the entire scratch array only if resolution returns an error. The error-retry regression marks a variable before encountering an invalid antecedent and then reuses the resolver twice. Removing error cleanup caused the retry to report a missing marked assignment at level 2.
+
+| Variables for the same two-literal learned conflict | Before, median ns/op | After, median ns/op |
+|---|---:|---:|
+| 64 | 216.3 | 220.0 |
+| 1,024 | 216.8 | 214.1 |
+| 8,192 | 284.3 | 226.0 |
+| 65,536 | 776.0 | 347.8 |
+
+Five alternating pinned benchmark pairs used 40,000 resolutions per sample. The 2.23× result at 65,536 measures resolution of a sparse conflict. The final production build matched all 228 corpus transcripts and the Raft, rfn2 and dramc_nb2 holdouts. The SMT and API suites, focused checked/debug/trace tests and smtcore vet passed. [Retained benchmark](smtcore/smt_conflict_levels_benchmark_test.go) · [State snapshots, interventions, benchmark drivers and raw results](perf/ivy_apple/holdouts/nov27-sibling-activity-and-conflict-marks.tar.xz)

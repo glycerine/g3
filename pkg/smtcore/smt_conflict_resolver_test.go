@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -328,5 +329,32 @@ func TestSMTConflictResolverOwnsFirstUIPProof(t *testing.T) {
 	astTestMust(t, err)
 	if fact != want {
 		t.Fatal("lemma proof fact", fact, want)
+	}
+}
+
+func TestSMTConflictResolverRetriesAfterMarkingError(t *testing.T) {
+	m := astTestManager(t)
+	_, _, state := smtInternalizerFixture(t, m, nil)
+	_, lits := benchmarkSMTBooleansForTest(t, m, state, "retry-conflict", 2)
+	a, z := lits[0], lits[1]
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.AssignLiteral(a, NewSMTBooleanAxiom()))
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.AssignLiteral(z, NewSMTBooleanAxiom()))
+	resolver, err := NewSMTConflictResolver(state)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, resolver.Close()) })
+
+	// The resolver marks z before discovering the invalid false antecedent.
+	if _, err := resolver.Resolve(NewSMTBooleanBinaryClause(SMTFalseLiteral), z, 0); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatalf("invalid reason returned %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		result, err := resolver.Resolve(NewSMTBooleanBinaryClause(a), z, 0)
+		astTestMust(t, err)
+		if !result.Resolved || result.NewScopeLevel != 1 || len(result.Lemma) != 2 ||
+			result.Lemma[0] != z.Negated() || result.Lemma[1] != a.Negated() {
+			t.Fatalf("resolution %d after retry returned %+v", i, result)
+		}
 	}
 }
