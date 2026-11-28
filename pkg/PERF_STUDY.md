@@ -10077,3 +10077,15 @@ For eight adjacent starting counters, 407 through 414, ordinary 60/1 took **1,09
 | Prefer conditional unrestricted context representative, then lower slot | 1,093 | 797 | 1,007 | 797 |
 
 The inverse tie-break removed almost all sensitivity across these four counters and sacrificed about 120M instructions on the two faster histories. Changing the unrestricted context representative had negligible effect. The class-merge policies also slowed both faster histories. These trials remain in the benchmark. The direct follow-up is to replace individual bindings in the first differing model round, then observe the amplified burst and final proof. [Replay drivers, raw event streams, linked control and measurements](perf/ivy_apple/holdouts/nov27-tlb-witness-history.tar.xz)
+
+## November 27 — Enumerating model values for a restricted Skolem
+
+The auxiliary model checker needs the keys of an inverse map when it restricts a Skolem constant to values of the candidate model. It copied every complete hash-table entry into a slice, then copied each key into the result. Reading the keys directly in table order removes one allocation without changing the selected values or their order.
+
+| Distinct values | Earlier median ns/op | Direct median ns/op | Allocated bytes/op, earlier → direct |
+| ---: | ---: | ---: | ---: |
+| 1 | 56.28 | 24.49 | 80 → 16 |
+| 8 | 165.5 | 61.52 | 640 → 128 |
+| 64 | 942.5 | 326.5 | 5,120 → 1,024 |
+
+Five alternating pairs per size used optimized benchmark binaries on one pinned core. Each lookup now allocates once. Three complete release pairs per input under ordinary GC matched all reference outputs on automatic Ticket, nested Ticket and TLB. The full verifier changes were under 0.4% on each input. The isolated 2.3–2.9× speedup applies to key enumeration. [Retained benchmark](smtcore/smt_model_instantiation_values_benchmark_test.go)

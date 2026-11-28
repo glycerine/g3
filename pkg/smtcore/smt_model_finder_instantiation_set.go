@@ -235,11 +235,7 @@ func (s *smtModelFinderInstantiationSet) Values() ([]ast.ASTHandle, error) {
 	if err := s.open(); err != nil {
 		return nil, err
 	}
-	result := make([]ast.ASTHandle, 0, s.inverse.Len())
-	for _, entry := range s.inverse.Entries() {
-		result = append(result, entry.Key)
-	}
-	return result, nil
+	return s.inverse.FirstKeys(s.inverse.Len()), nil
 }
 
 // Close is ~instantiation_set: each element in m_elems order.
