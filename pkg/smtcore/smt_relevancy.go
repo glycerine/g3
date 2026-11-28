@@ -698,7 +698,13 @@ func (p *SMTRelevancyPropagator) propagateITE(expression ast.ASTHandle) error {
 	return p.MarkRelevant(branch)
 }
 
-func (p *SMTRelevancyPropagator) Propagate() (result error) {
+func (p *SMTRelevancyPropagator) Propagate() error {
+	return p.propagateWithOr(ast.ASTHandle{}, nil)
+}
+
+// The just-asserted OR already has a watch record with its signed child
+// bindings. Reuse it when the ordinary queue reaches that exact parent.
+func (p *SMTRelevancyPropagator) propagateWithOr(parent ast.ASTHandle, gate *smtAssertedOr) (result error) {
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
@@ -740,7 +746,11 @@ func (p *SMTRelevancyPropagator) Propagate() (result error) {
 				}
 				switch op {
 				case ast.ASTOpOr:
-					err = p.propagateOr(expression)
+					if gate != nil && expression == parent {
+						err = p.propagateOrWithBindings(parent, gate, p.context.exprs.read(parent))
+					} else {
+						err = p.propagateOr(expression)
+					}
 				case ast.ASTOpAnd:
 					err = p.propagateAnd(expression)
 				case ast.ASTOpIte:

@@ -19,13 +19,13 @@ type smtAssertedOrChild struct {
 	negated uint32 // immediate argument of a syntactic NOT, or zero
 }
 
-func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args []ast.ASTHandle, literals []SMTLiteral) error {
+func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args []ast.ASTHandle, literals []SMTLiteral) (*smtAssertedOr, error) {
 	if !p.enabled || len(args) == 0 {
-		return nil
+		return nil, nil
 	}
 	for _, literal := range literals {
 		if literal.Var() < SMTFirstBoolVar {
-			return p.addOrWatches(parent, smtRelevancyAssertedOr)
+			return nil, p.addOrWatches(parent, smtRelevancyAssertedOr)
 		}
 	}
 	var gate *smtAssertedOr
@@ -53,10 +53,10 @@ func (p *SMTRelevancyPropagator) addAssertedOrWatches(parent ast.ASTHandle, args
 	handler := smtRelevancyHandler{kind: smtRelevancyAssertedOr, target: parent, assertedOr: gate}
 	for _, child := range args {
 		if err := p.addLiteralWatch(child, true, &handler); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return gate, nil
 }
 
 // The asserted OR handler holds its parent through the trail. The parent
@@ -86,7 +86,13 @@ func (p *SMTRelevancyPropagator) propagateAssertedOr(parent ast.ASTHandle, gate 
 	if record == nil || record.flags&smtExprRelevant == 0 {
 		return nil
 	}
-	if gate == nil || p.internalizer == nil || record.flags&smtExprHasBoolVar != 0 {
+	return p.propagateOrWithBindings(parent, gate, record)
+}
+
+// A queued visit still runs if a prior callback cleared the parent's mark.
+// Only the assignment-watch entry point above requires a current mark.
+func (p *SMTRelevancyPropagator) propagateOrWithBindings(parent ast.ASTHandle, gate *smtAssertedOr, record *smtExprRecord) error {
+	if gate == nil || p.internalizer == nil || record == nil || record.flags&smtExprHasBoolVar != 0 {
 		// A later internalization can give the parent a gate and signed
 		// Boolean literals. Use that gate's assignment rules while bound.
 		return p.propagateOr(parent)

@@ -1456,9 +1456,14 @@ func (s *SMTInternalizerState) assertExpression(expression, proof ast.ASTHandle,
 				return err
 			}
 			if s.relevancy != nil {
-				if err = s.relevancy.addAssertedOrWatches(expression, arguments, literals); err != nil {
+				gate, err := s.relevancy.addAssertedOrWatches(expression, arguments, literals)
+				if err != nil {
 					return err
 				}
+				if err := s.relevancy.MarkRelevant(expression); err != nil {
+					return err
+				}
+				return s.relevancy.propagateWithOr(expression, gate)
 			}
 		case ast.ASTOpIff:
 			for _, argument := range arguments {

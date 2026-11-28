@@ -234,7 +234,8 @@ func TestSMTAssertedOrPopRetriesParentAndSourceRelease(t *testing.T) {
 	// both the parent and the source. The busy manager refuses the source
 	// decrement after that watch has been unlinked.
 	astTestMust(t, s.SetAssignment(literals[0].Var(), lbool.False))
-	astTestMust(t, p.addAssertedOrWatches(root, terms, literals))
+	_, err = p.addAssertedOrWatches(root, terms, literals)
+	astTestMust(t, err)
 	before, err := m.GetRefCount(terms[1])
 	astTestMust(t, err)
 	trigger()
@@ -247,5 +248,41 @@ func TestSMTAssertedOrPopRetriesParentAndSourceRelease(t *testing.T) {
 	// The source loses the watch's reference and the parent's child edge.
 	if m.IsLiveHandle(root) || after+2 != before || p.positiveWatch.head(terms[1]) != 0 {
 		t.Fatalf("retry did not retire both owners: source references %d → %d", before, after)
+	}
+}
+
+func TestSMTAssertedOrInitialSignedWitness(t *testing.T) {
+	m := astTestManager(t)
+	ctx, p, s := smtInternalizerFixture(t, m, nil)
+	terms, literals := benchmarkSMTBooleansForTest(t, m, s, "initial-or", 3)
+	negative, err := m.MkNot(terms[1])
+	astTestMust(t, err)
+	root, err := m.MkOrArray([]ast.ASTHandle{terms[0], negative, terms[2]})
+	astTestMust(t, err)
+	// An unbound OR reads the NOT operand's explicit context assignment.
+	// Both the negative child and the last child are true on the first visit.
+	astTestMust(t, s.SetAssignment(literals[1].Var(), lbool.True))
+	astTestMust(t, ctx.SetAssignment(terms[1], lbool.False))
+	astTestMust(t, s.SetAssignment(literals[2].Var(), lbool.True))
+	astTestMust(t, s.Assert(root, ast.ASTHandle{}, 0))
+	if got := p.RelevantExpressions(); !slices.Equal(got, []ast.ASTHandle{root, negative, terms[1]}) {
+		t.Fatalf("initial OR relevance order = %v", got)
+	}
+}
+
+func TestSMTAssertedOrQueuedBeforeMarkCleared(t *testing.T) {
+	m := astTestManager(t)
+	ctx, p, s := smtInternalizerFixture(t, m, nil)
+	terms, literals := benchmarkSMTBooleansForTest(t, m, s, "queued-or", 2)
+	root, err := m.MkOrArray(terms)
+	astTestMust(t, err)
+	astTestMust(t, s.SetAssignment(literals[0].Var(), lbool.True))
+	gate, err := p.addAssertedOrWatches(root, terms, literals)
+	astTestMust(t, err)
+	astTestMust(t, p.MarkRelevant(root))
+	astTestMust(t, ctx.SetRelevant(root, false))
+	astTestMust(t, p.propagateWithOr(root, gate))
+	if p.IsRelevant(root) || !p.IsRelevant(terms[0]) {
+		t.Fatal("clearing the parent mark must preserve the queued visit to its true child")
 	}
 }
