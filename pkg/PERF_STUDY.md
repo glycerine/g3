@@ -10528,3 +10528,18 @@ Commit `e3162a6ba` reads supported local and global scalar options in one snapsh
 Complete-verifier effects were small. The initial five-pair release comparison ranged from 1.10% fewer instructions on ARM to 1.15% more on automatic Ticket. In a separate 17-pair confirmation, median within-pair instruction changes with ordinary GC were +0.04% on Hybrid, −0.30% on nested Ticket and −0.19% on automatic Ticket. Paired elapsed changes were +0.76%, +2.88% and +2.40% respectively, with other studies using separate cores on the same machine. With GC off the paired instruction changes were −0.08%, −0.03% and −0.02%. The repeatable benefit is in construction. [Counter traces, complete runs and release verification](perf/ivy_apple/holdouts/nov28-rewriter-construction.tar.xz)
 
 A separate stable-order experiment kept the existing eager queue and changed only where it placed enabled guarded axioms within a pending batch. Moving short guarded axioms to the front saved 2.09% of automatic Ticket instructions but cost Raft 41.06%. Moving all enabled guards to the front or back cost Raft 8.14% and 52.39%. All policies matched the native references on eight inputs. The verifier retains insertion order.
+
+## Cleaning fallback expressions in complete verifier models
+
+Native Z3 keeps an argument buffer for the duration of one function fallback traversal. g3 allocated a slice on each visit and queried the application kind, declaration and arity more than once. Commit `96b7139a1` retains a traversal-local slice and reads those fields in one AST header. It keeps the child visitation order, auxiliary declaration discovery, theory reduction and owned result references. [Native cleanup](../src/smt/proto_model/proto_model.cpp) · [Go cleanup](smtcore/proto_model/cleanup.go)
+
+| Complete workload | Fallbacks cleaned | Instructions inside cleanup calls, before → after |
+|---|---:|---:|
+| Hybrid | 7,202 | 77.16M → 68.79M |
+| Raft | 8,493 | 111.25M → 99.11M |
+| Flash | 4,657 | 32.34M → 27.81M |
+| TLB | 1,369 | 12.80M → 11.72M |
+
+The counters cover cleaning each function's fallback, including replacing it and releasing its temporary results. Five paired process instruction slopes on an unchanged binary application with a shared unary child fell from **12,246 to 10,673 instructions**. Allocation dropped from 360 B and 11 allocations to 280 B and 7. The Boolean false fallback fell from 4,481 to 4,090 instructions at 152 B and 4 allocations. The complete release panel ranged from 0.74% fewer instructions on nested Ticket to 0.35% more on automatic Ticket. Ordinary SMT core and proto-model tests, the checked/debug/trace proto-model suite and proto-model vet passed. All 230 reference exits and transcripts matched. [Benchmark](smtcore/proto_model/cleanup_test.go) · [Panels and phase counters](perf/ivy_apple/holdouts/nov28-function-fallback-cleanup.tar.xz)
+
+Within a single model cleanup, Hybrid revisited 3,647 previously unchanged fallback roots, costing 10.30M instructions on the release path. Raft revisited 3,165 costing 8.87M. None of these repeat visits changed the root, but skipping them also omits reducer calls. A root memo trial saved 0.65% on complete Hybrid and cost Raft 0.41%. Reusing original applications after a failed reduction and shortcutting reserved Boolean constants together cut Hybrid fallback work to 64.47M from the original 77.16M, but increased ARM fallback work from 11.35M to 12.70M. The retained implementation performs ordinary reduction on every visited application. Automatic Ticket spent only 1.04M instructions in the original cleanup calls, so this phase offers little leverage on its remaining gap.
