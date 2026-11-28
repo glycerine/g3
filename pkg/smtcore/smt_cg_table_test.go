@@ -287,6 +287,12 @@ func TestSMTCongruenceTableEraseAndReinsert(t *testing.T) {
 	if inserted.Node != first {
 		t.Fatal("first insert")
 	}
+	// Restoring a parent can encounter an existing representative in the
+	// reversed order. Keep the representative and the commuted proof bit.
+	astTestMust(t, table.restoreParent(second))
+	if table.bucketFor(first).small.count != 1 {
+		t.Fatal("restoring the reversed pair created a second entry")
+	}
 	inserted, err = table.Insert(second)
 	astTestMust(t, err)
 	if inserted.Node != first || !inserted.Commuted {

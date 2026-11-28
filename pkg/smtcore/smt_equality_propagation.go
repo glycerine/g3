@@ -105,7 +105,7 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 				}
 			}
 			s.traceUndoAddEqTryReinsert()
-			if _, err := s.congruence.Insert(parent); err != nil {
+			if err := s.congruence.restoreParent(parent); err != nil {
 				return err
 			}
 			parent.congruence = parent

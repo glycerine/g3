@@ -217,6 +217,44 @@ func (t *SMTCongruenceTable) Insert(node *SMTEnode) (SMTCongruenceInsertResult, 
 	return SMTCongruenceInsertResult{Node: node}, nil
 }
 
+// After a class split, almost every restored parent has an absent signature.
+// Probe the reversed order first when needed, then publish a missing ordered
+// key at its empty slot. A different candidate still uses full Insert.
+func (t *SMTCongruenceTable) restoreParent(node *SMTEnode) error {
+	if err := t.validateNode(node); err != nil {
+		return err
+	}
+	if len(node.arguments) <= 2 && (!node.commutative || len(node.arguments) == 2) {
+		if b := t.bucketFor(node); b != nil && b.tryRestoreParent(node) {
+			return nil
+		}
+	}
+	_, err := t.Insert(node)
+	return err
+}
+
+func (b *smtCongruenceBucket) tryRestoreParent(node *SMTEnode) bool {
+	t := &b.small
+	if 2*(t.count+1) > len(t.entries) {
+		return false
+	}
+	key := smtCongruenceSmallKey(node)
+	if node.commutative && !b.flatAssociative && key[0] != key[1] && t.get(key[1], key[0]) != nil {
+		return false
+	}
+	mask := len(t.entries) - 1
+	for i := smtCgSmallSlot(key[0], key[1], t.shift); ; i = (i + 1) & mask {
+		e := &t.entries[i]
+		if e.node == nil {
+			t.fillEmpty(i, key[0], key[1], node)
+			return true
+		}
+		if e.k0 == key[0] && e.k1 == key[1] {
+			return e.node == node
+		}
+	}
+}
+
 func (t *SMTCongruenceTable) Find(node *SMTEnode) (*SMTEnode, bool, error) {
 	if err := t.validateNode(node); err != nil {
 		return nil, false, err

@@ -43,6 +43,12 @@ func (t *smtCgSmallTable) get(k0, k1 *SMTEnode) *SMTEnode {
 	}
 }
 
+func (t *smtCgSmallTable) fillEmpty(i int, k0, k1, node *SMTEnode) {
+	t.entries[i] = smtCgSmallEntry{k0, k1, node}
+	node.congruenceSlot = uint32(i)
+	t.count++
+}
+
 // set is m[key] = node.
 func (t *smtCgSmallTable) set(k0, k1, node *SMTEnode) {
 	if 2*(t.count+1) > len(t.entries) {
@@ -52,9 +58,7 @@ func (t *smtCgSmallTable) set(k0, k1, node *SMTEnode) {
 	for i := smtCgSmallSlot(k0, k1, t.shift); ; i = (i + 1) & mask {
 		e := &t.entries[i]
 		if e.node == nil {
-			*e = smtCgSmallEntry{k0, k1, node}
-			node.congruenceSlot = uint32(i)
-			t.count++
+			t.fillEmpty(i, k0, k1, node)
 			return
 		}
 		if e.k0 == k0 && e.k1 == k1 {
