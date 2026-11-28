@@ -201,27 +201,42 @@ type smtMAMJoint struct {
 	joint2 *smtMAMJoint2
 }
 
-// smtMAMInstr is the instruction union: m_opcode and m_next are shared, the
-// rest belongs to the opcode's struct.
+// smtMAMInstr holds the common interpreter operands. BIND, GET_CGR,
+// IS_CGR and CONTINUE coallocate application operands. YIELD coallocates
+// its quantifier, pattern and binding operands.
 type smtMAMInstr struct {
-	op   smtMAMOpcode
-	next *smtMAMInstr
+	next  *smtMAMInstr
+	alt   *smtMAMInstr
+	enode *SMTEnode
+	*smtMAMAppOperands
+	*smtMAMYieldOperands
+	lblSet     approx.UintSet
+	numArgs    uint32
+	reg1, reg2 uint32
+	reg        uint32
+	oreg, ireg uint32
+	op         smtMAMOpcode
+}
 
-	numArgs uint32 // initn, bind, get_cgr, is_cgr, cont
-	reg1    uint32 // compare
-	reg2    uint32
-	reg     uint32 // check, filter
-	enode   *SMTEnode
-	lblSet  approx.UintSet // filter, pcheck, cont, get_cgr
-	oreg    uint32         // get_enode, cont, bind, get_cgr
-	ireg    uint32         // bind, is_cgr
-	alt     *smtMAMInstr   // choose
-	label   ast.ASTHandle  // cont, bind, get_cgr, is_cgr (func_decl)
-	joints  []smtMAMJoint  // cont
-	iregs   []uint32       // get_cgr, is_cgr
-	qa      ast.ASTHandle  // yield
-	pat     ast.ASTHandle
-	binding []uint32 // yield
+type smtMAMAppOperands struct {
+	label  ast.ASTHandle
+	joints []smtMAMJoint
+	iregs  []uint32
+}
+
+type smtMAMYieldOperands struct {
+	qa, pat ast.ASTHandle
+	binding []uint32
+}
+
+func newSMTMAMAppInstr(label ast.ASTHandle) *smtMAMInstr {
+	block := new(struct {
+		instr    smtMAMInstr
+		operands smtMAMAppOperands
+	})
+	block.operands.label = label
+	block.instr.smtMAMAppOperands = &block.operands
+	return &block.instr
 }
 
 func (i *smtMAMInstr) isInit() bool { return i.op <= mamINITN }
@@ -293,25 +308,45 @@ func (c *smtMAMCodeTreeManager) mkChoose(alt *smtMAMInstr) *smtMAMInstr {
 func (c *smtMAMCodeTreeManager) mkNoop() *smtMAMInstr { return &smtMAMInstr{op: mamNOOP} }
 
 func (c *smtMAMCodeTreeManager) mkBind(lbl ast.ASTHandle, numArgs, ireg, oreg uint32) *smtMAMInstr {
-	return &smtMAMInstr{op: mamCountedOp(mamBIND1, mamBINDN, numArgs), label: lbl, numArgs: numArgs, ireg: ireg, oreg: oreg}
+	r := newSMTMAMAppInstr(lbl)
+	r.op, r.numArgs = mamCountedOp(mamBIND1, mamBINDN, numArgs), numArgs
+	r.ireg, r.oreg = ireg, oreg
+	return r
 }
 
 func (c *smtMAMCodeTreeManager) mkGetCgr(lbl ast.ASTHandle, declID uint32, oreg uint32, iregs []uint32) *smtMAMInstr {
-	r := &smtMAMInstr{op: mamCountedOp(mamGETCGR1, mamGETCGRN, uint32(len(iregs))), label: lbl, oreg: oreg, numArgs: uint32(len(iregs)), iregs: append([]uint32(nil), iregs...)}
+	r := newSMTMAMAppInstr(lbl)
+	r.numArgs, r.oreg = uint32(len(iregs)), oreg
+	r.op = mamCountedOp(mamGETCGR1, mamGETCGRN, r.numArgs)
+	r.iregs = append([]uint32(nil), iregs...)
 	r.lblSet.Insert(uint32(c.hasher.hash(declID)))
 	return r
 }
 
 func (c *smtMAMCodeTreeManager) mkIsCgr(lbl ast.ASTHandle, ireg uint32, iregs []uint32) *smtMAMInstr {
-	return &smtMAMInstr{op: mamISCGR, label: lbl, ireg: ireg, numArgs: uint32(len(iregs)), iregs: append([]uint32(nil), iregs...)}
+	r := newSMTMAMAppInstr(lbl)
+	r.op, r.numArgs, r.ireg = mamISCGR, uint32(len(iregs)), ireg
+	r.iregs = append([]uint32(nil), iregs...)
+	return r
 }
 
 func (c *smtMAMCodeTreeManager) mkYield(qa, pat ast.ASTHandle, bindings []uint32) *smtMAMInstr {
-	return &smtMAMInstr{op: mamCountedOp(mamYIELD1, mamYIELDN, uint32(len(bindings))), qa: qa, pat: pat, binding: append([]uint32(nil), bindings...)}
+	block := new(struct {
+		instr smtMAMInstr
+		yield smtMAMYieldOperands
+	})
+	block.instr.smtMAMYieldOperands = &block.yield
+	block.instr.op = mamCountedOp(mamYIELD1, mamYIELDN, uint32(len(bindings)))
+	block.yield.qa, block.yield.pat = qa, pat
+	block.yield.binding = append([]uint32(nil), bindings...)
+	return &block.instr
 }
 
 func (c *smtMAMCodeTreeManager) mkCont(lbl ast.ASTHandle, numArgs, oreg uint32, s approx.UintSet, joints []smtMAMJoint) *smtMAMInstr {
-	return &smtMAMInstr{op: mamCONTINUE, label: lbl, numArgs: numArgs, oreg: oreg, lblSet: s, joints: append([]smtMAMJoint(nil), joints...)}
+	r := newSMTMAMAppInstr(lbl)
+	r.op, r.numArgs, r.oreg, r.lblSet = mamCONTINUE, numArgs, oreg, s
+	r.joints = append([]smtMAMJoint(nil), joints...)
+	return r
 }
 
 // setNext is set_next: a value trail on instr->m_next.
