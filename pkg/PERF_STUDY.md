@@ -10174,3 +10174,19 @@ Instruction changes are medians of within-pair changes. Elapsed columns are per-
 **Time the whole target check.** Six further rotations enabled normal GC and removed all per-lemma measurement hooks. The meter bracketed only check 60/1 in the running verifier. Median instructions and elapsed were **969.86M / 137.95 ms** on the parent, **950.77M / 132.78 ms** after the change, and **387.68M / 58.24 ms** on linked Z3. The median within-rotation change from the parent was −2.22% of instructions and −3.03% elapsed. The complete TLB input favors g3, while this individual check still takes **2.28×** the native elapsed time.
 
 A second gate prototype resolved compound AND/OR literals from their existing child array during gate construction. In five complete pairs it changed instructions by +0.15% on TLB, +0.32% on POPL18 Ticket, +0.39% on automatic Ticket, −0.04% on nested Ticket, −0.52% on ARM and −0.51% on Raft. It remains an experiment. The archive includes both exploratory prototypes, the release benchmark, raw operation counts, matched-scope data, complete transcript checks and all six whole-check rotations. [Benchmark sources and measurements](perf/ivy_apple/holdouts/nov27-quantified-lemma-installation.tar.xz)
+
+### November 27 — Nested Boolean operands of fresh equalities on TLB 60/1
+
+Internalizing fresh conditional children of positive equalities consumed 25.16M instructions across 1,001 visits in g3 and 6.54M across 899 visits in Z3. All these fresh children were Boolean. The term-ITE internalizer had zero visits in this group. Equality-specific theory notification consumed only 0.57M and 0.12M instructions respectively. Within the Boolean gates, recursive child work used 14.78M versus 4.03M and gate clauses and watches used about 8.0M versus 1.99M. The nested else child alone accounted for 12.63M versus 3.28M. The last figures overlap the recursive totals.
+
+All 1,001 outer conditions in g3 already had a Boolean variable. Of those, 877 were true above the base level, 73 were false at a positive base level and 51 were unassigned. None had a permanent level-zero assignment. An encoding that omits a sibling branch based on the current value would need to restore its obligation on backtracking.
+
+| Policy tested on the whole check | Reference, M instructions | Variant, M instructions |
+|---|---:|---:|
+| Lift arbitrary term conditionals into branch equalities | 887.2 | 1,080.7 |
+| Normalize conditional Boolean equality to IFF | 887.3 | 1,067.8 |
+| Distribute IFF into conditional branches | 887.3 | 1,196.4 |
+| Split the conditional into two guarded clauses | 887.1 | 931.5 |
+| Split only when the outer guard has an assignment, retaining both branches | 887.1 | 911.8 |
+
+Each row uses the median of three rotating runs, with the ordinary policy in the same binary. All transcripts matched. None of these encodings earned a production change. The evidence favors examining what it costs to install the existing gate clauses and watches. The archive contains the overlay generators, counter data and whole-check trial results, including the exploratory one-branch controls. [Experiment archive](perf/ivy_apple/holdouts/nov27-fresh-equality-conditionals.tar.xz)
